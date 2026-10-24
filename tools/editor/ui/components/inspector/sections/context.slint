@@ -21,6 +21,10 @@ export global InspectorContext {
         return Api.selection.highlight-index >= 0 && InspectorContext.selection-rects.length > Api.selection.highlight-index;
     }
 
+    public pure function has-orientation-selection() -> bool {
+        return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider");
+    }
+
     public pure function is-rectangle-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }
@@ -53,8 +57,31 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "CheckBox";
     }
 
+    public pure function is-slider-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Slider";
+    }
+
     public pure function is-resizable-selection() -> bool {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
+    }
+
+    public pure function has-text-property-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "Text"
+                || InspectorContext.element-information.type-name == "StyledText"
+                || InspectorContext.element-information.type-name == "Button"
+                || InspectorContext.element-information.type-name == "CheckBox"
+                || InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "Switch"
+                || InspectorContext.element-information.type-name == "TextEdit"
+                || InspectorContext.element-information.type-name == "RadioButton"
+                || InspectorContext.element-information.type-name == "TextInput");
+    }
+
+    public pure function is-title-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "GroupBox"
+                || InspectorContext.element-information.type-name == "RadioGroup");
     }
 
     public pure function is-enable-selection() -> bool {
@@ -84,6 +111,7 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "TextEdit"
                 || InspectorContext.element-information.type-name == "TextInput"
                 || InspectorContext.element-information.type-name == "TouchArea"
+                || InspectorContext.element-information.type-name == "RadioButton"
                 || InspectorContext.element-information.type-name == "WindowMoveArea");
     }
 

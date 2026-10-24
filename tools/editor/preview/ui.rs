@@ -199,7 +199,7 @@ pub fn initialize_editor(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_new_component_data_for_kind(super::new_component_data_for_kind);
+    api.on_new_component_data(super::new_component_data);
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
@@ -2515,6 +2515,76 @@ mod tests {
     }
 
     #[test]
+    fn title_field_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("GroupBox", true),
+            ("RadioGroup", true),
+            ("RadioButton", false),
+            ("Button", false),
+            ("Text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                    .next()
+                    .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn title_field_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "GroupBox".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let field =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                .find(|element| {
+                    element.accessible_role()
+                        == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                })
+                .unwrap();
+        field.set_accessible_value("\"Settings\"");
+        assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+    }
+
+    #[test]
     fn read_only_switch_follows_selected_element_type() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -2642,6 +2712,61 @@ mod tests {
         switch.invoke_accessible_default_action();
         assert_eq!(*commits.borrow(), [("read-only".to_string(), "true".to_string())]);
         assert_eq!(switch.accessible_checked(), Some(false));
+    }
+
+    #[test]
+    fn inline_text_preserves_input_before_the_first_timer_tick() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 30.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let inline = editor.global::<super::InlineTextEdit>();
+        inline.on_begin(|| super::InlineTextEditStart {
+            success: true,
+            text: "Text".into(),
+            ..Default::default()
+        });
+        let committed = std::rc::Rc::new(std::cell::RefCell::new(SharedString::default()));
+        let result = committed.clone();
+        inline.on_commit(move |text| {
+            *result.borrow_mut() = text;
+            true
+        });
+        editor.show().unwrap();
+        slint::platform::update_timers_and_animations();
+        editor.invoke_focus_editor();
+        inline.set_active(true);
+        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        let input = find_element(&editor, "Inline text editor");
+        assert_eq!(input.accessible_value().unwrap(), "Text");
+        for character in "Undo me".chars() {
+            let text: SharedString = character.to_string().into();
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+            slint::platform::update_timers_and_animations();
+        }
+        editor
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Return.into() });
+        assert_eq!(*committed.borrow(), "Undo me");
     }
 
     #[test]

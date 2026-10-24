@@ -1,10 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Springboard, SpringboardState } from "@springboard";
+import { Springboard, SpringboardState, ConnectionState, PreviewEndpointKind } from "@springboard";
 
 export global Preview {
     in property <bool> can-run;
     out property <bool> is-running: Springboard.state != SpringboardState.Stopped;
+    out property <bool> connected: Springboard.state == SpringboardState.EndpointSelected
+        && (Springboard.selected-endpoint.kind == PreviewEndpointKind.Local
+            || Springboard.connection-state == ConnectionState.Connected);
+    out property <bool> local: Springboard.selected-endpoint-index >= 0
+        ? Springboard.selected-endpoint.kind == PreviewEndpointKind.Local
+        : Springboard.last-selected-endpoint-name == "";
+    out property <string> local-name: @tr("Slint Viewer (local)");
+    out property <string> endpoint-name: root.local ? root.local-name
+        : Springboard.selected-endpoint-index >= 0 ? Springboard.selected-endpoint.name
+        : Springboard.last-selected-endpoint-name;
+    out property <string> status: !root.is-running ? @tr("Off")
+        : root.connected ? @tr("Connected")
+        : Springboard.connection-state == ConnectionState.PairingRequired ? @tr("Pairing required")
+        : Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired ? @tr("Confirmation required")
+        : Springboard.error-message != "" ? @tr("Unavailable") : @tr("Connecting…");
     callback run();
 }

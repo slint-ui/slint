@@ -37,6 +37,8 @@ ELEMENT_ROWS = {
     "Rectangle": "inspect-rectangle",
     "Text": "inspect-text",
     "Image": "inspect-image",
+    "Button": "inspect-button",
+    "CheckBox": "inspect-checkbox",
 }
 
 
@@ -422,11 +424,13 @@ def test_literal_color_field_separates_rgb_and_opacity(
         rgb.invoke_accessible_default_action()
         rgb_focused = screenshot(window)
         assert rgb_focused.getpixel(left_edge) != rendered.getpixel(left_edge)
-        assert rgb_focused.getpixel(divider) != rendered.getpixel(divider)
+        assert rgb_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
+        assert rgb_focused.getpixel(divider) == rendered.getpixel(divider)
 
         opacity.invoke_accessible_default_action()
         opacity_focused = screenshot(window)
-        assert opacity_focused.getpixel(divider) != rendered.getpixel(divider)
+        assert opacity_focused.getpixel(left_edge) != rendered.getpixel(left_edge)
+        assert opacity_focused.getpixel(divider) == rendered.getpixel(divider)
         assert opacity_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
 
 
@@ -544,7 +548,7 @@ def test_color_field_opacity_writes_exact_source(
         )
         suffixes = (
             opacity_field.query_descendants()
-            .match_id("InspectorTextFieldBase::fixed-suffix")
+            .match_id("EditorInput::fixed-suffix")
             .find_all()
         )
         assert len(suffixes) == 1
@@ -1072,6 +1076,107 @@ def test_each_text_wrap_writes_exact_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
+ORIENTATION_ROWS = {"Slider": "inspect-slider", "RadioGroup": "inspect-radio-group"}
+ORIENTATION_DEFAULTS = {"Slider": "Horizontal", "RadioGroup": "Vertical"}
+
+
+def with_orientation_widgets(
+    baseline: bytes, kind: str, orientation: str | None = None
+) -> bytes:
+    bindings = {name: b"" for name in ORIENTATION_ROWS}
+    if orientation:
+        bindings[kind] = f"\n        orientation: {orientation};".encode()
+    source = replace_once(
+        baseline,
+        b"export component InspectorCases",
+        b'import { RadioGroup, Slider } from "std-widgets.slint";\n\n'
+        b"export component InspectorCases",
+    )
+    widgets = (
+        b"\n    inspect-slider := Slider {\n"
+        b"        x: 32px;\n        y: 336px;\n        width: 160px;\n        height: 32px;"
+        + bindings["Slider"]
+        + b"\n    }\n\n"
+        b"    inspect-radio-group := RadioGroup {\n"
+        b"        x: 224px;\n        y: 336px;"
+        + bindings["RadioGroup"]
+        + b'\n        RadioButton { text: "One"; }'
+        b'\n        RadioButton { text: "Two"; }'
+        b"\n    }\n"
+    )
+    assert source.endswith(b"\n}\n")
+    return source[:-2] + widgets + b"}\n"
+
+
+def select_orientation_widget(window: slint_testing.Window, kind: str) -> None:
+    select_outline_row(window, ORIENTATION_ROWS[kind])
+    element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
+
+
+@pytest.mark.parametrize("kind", tuple(ORIENTATION_ROWS))
+def test_orientation_shows_widget_default(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    source_file.write_bytes(with_orientation_widgets(source_file.read_bytes(), kind))
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_orientation_widget(window, kind)
+        wait_for_field(
+            window,
+            "Orientation",
+            ORIENTATION_DEFAULTS[kind],
+            slint_testing.AccessibleRole.Combobox,
+        )
+
+
+@pytest.mark.parametrize("orientation", ("horizontal", "vertical"))
+@pytest.mark.parametrize("kind", tuple(ORIENTATION_ROWS))
+def test_each_orientation_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+    orientation: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    initial = "vertical" if orientation == "horizontal" else "horizontal"
+    starting_source = with_orientation_widgets(source_file.read_bytes(), kind, initial)
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_orientation_widget(window, kind)
+        wait_for_field(
+            window,
+            "Orientation",
+            initial.capitalize(),
+            slint_testing.AccessibleRole.Combobox,
+        )
+        open_combo_and_accept(
+            window, "Orientation", ("Horizontal", "Vertical"), orientation
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                starting_source,
+                f"        orientation: {initial};".encode(),
+                f"        orientation: {orientation};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        wait_for_field(
+            window,
+            "Orientation",
+            orientation.capitalize(),
+            slint_testing.AccessibleRole.Combobox,
+        )
+
+
 @pytest.mark.parametrize(
     ("case", "value", "expected"),
     [
@@ -1150,6 +1255,63 @@ def test_text_content_writes_exact_source(
             relative_path=INSPECTOR_SOURCE,
         )
         element(window, rendered, role=slint_testing.AccessibleRole.Text)
+
+
+@pytest.mark.parametrize(
+    ("kind", "original", "rendered", "role"),
+    [
+        (
+            "Button",
+            "Inspector button",
+            "Button content",
+            slint_testing.AccessibleRole.Button,
+        ),
+        (
+            "CheckBox",
+            "Inspector checkbox",
+            "CheckBox content",
+            slint_testing.AccessibleRole.Checkbox,
+        ),
+    ],
+    ids=("button", "checkbox"),
+)
+def test_widget_text_content_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+    original: str,
+    rendered: str,
+    role: slint_testing.AccessibleRole,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, kind)
+        wait_for_field(
+            window,
+            "Text content",
+            f'"{original}"',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        edit_field(
+            window,
+            "Text content",
+            f'"{rendered}"',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                f'        text: "{original}";'.encode(),
+                f'        text: "{rendered}";'.encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        element(window, rendered, role=role)
 
 
 def test_invalid_text_content_does_not_change_source(

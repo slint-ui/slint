@@ -143,6 +143,9 @@ pub fn build_features() -> Vec<String> {
     if cfg!(feature = "mcp") {
         features.push("mcp".to_string());
     }
+    if cfg!(feature = "live-preview") {
+        features.push("live-preview".to_string());
+    }
     features
 }
 

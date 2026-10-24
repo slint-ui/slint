@@ -49,7 +49,10 @@ export component InspectorSlider inherits FocusScope {
     }
     function update() {
         let progress = ((touch.mouse-x - root.grab-offset - track.x) / max(1px, track.width)).clamp(0, 1);
-        root.drag-value = root.clamped(root.minimum + progress * (root.maximum - root.minimum));
+        root.drag-value = touch.mouse-x - root.grab-offset >= track.x + track.width - 1phx
+            && root.clamp-maximum ? root.maximum
+            : progress == 0 ? root.minimum
+            : root.clamped(root.minimum + progress * (root.maximum - root.minimum));
         if !root.preview(root.drag-value) { root.cancel(); }
     }
     key-pressed(event) => {

@@ -9,7 +9,8 @@ import { Project } from "project.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
-import { Springboard, SpringboardState, SpringboardView } from "@springboard";
+import { Springboard } from "@springboard";
+import { FloatingSurface } from "components/floating-surface.slint";
 import { StartupWizard } from "startup-wizard.slint";
 import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
 import { CanvasPanArea } from "components/canvas-pan-area.slint";
@@ -40,15 +41,11 @@ component NewFileErrorPopup inherits PopupWindow {
     height: root.style.height;
     close-policy: no-auto-close;
 
-    Rectangle {
+    FloatingSurface {
         border-width: Metrics.border-width;
         border-color: root.style.border;
         border-radius: Metrics.radius-large;
-        background: root.style.background;
-        clip: true;
-        drop-shadow-blur: root.style.shadow.blur;
-        drop-shadow-offset-y: root.style.shadow.offset-y;
-        drop-shadow-color: root.style.shadow.color;
+        background: Style.floating-surface.background;
 
         VerticalLayout {
             height: parent.height;
@@ -691,26 +688,13 @@ export component EditorUi inherits Window {
                     }
                 }
 
-                if Springboard.state != SpringboardState.Stopped: SpringboardView {
-                    x: parent.width - self.width - 12px;
-                    y: Style.shell.top-bar-height;
-                    width: 260px;
-                    height: 300px;
-                    background: Colors.background;
-                }
-
-                if root.sidebars-collapsed: Rectangle {
+                if root.sidebars-collapsed: FloatingSurface {
                     x: Metrics.space-large;
                     y: Style.shell.top-bar-height + Metrics.space-medium;
                     width: Style.collapsed-sidebar.width;
                     height: Style.collapsed-sidebar.height;
                     border-radius: Style.collapsed-sidebar.radius;
                     border-width: Metrics.border-width;
-                    border-color: Style.floating-panel.border;
-                    background: Style.floating-panel.background;
-                    drop-shadow-blur: Style.floating-panel.shadow.blur;
-                    drop-shadow-offset-y: Style.floating-panel.shadow.offset-y;
-                    drop-shadow-color: Style.floating-panel.shadow.color;
 
                     HorizontalLayout {
                         padding-left: Metrics.space-medium;

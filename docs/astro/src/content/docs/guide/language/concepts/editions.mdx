@@ -1,0 +1,48 @@
+---
+title: Editions
+description: Choose the Slint release whose language behavior your project uses, so that a newer Slint doesn't break it.
+---
+
+An edition is the Slint release whose language behavior your project uses, such as `1.19`.
+
+When a Slint release changes the behavior of the language,
+the change applies only if your edition is that release or newer.
+Newer versions of Slint keep compiling your project the way your edition's release did,
+until you raise the edition.
+You can use new features with any edition.
+
+## Choosing the Edition
+
+Set `slint-edition` in the [project file](../../../tooling/project-file/) to the major and minor version of the Slint release you write your project for.
+Write it as a string, such as `"1.19"`, not as the number `1.19`.
+Use the version of Slint you build with, or an older one.
+If the edition is newer than your version of Slint, Slint refuses to compile your project.
+
+```json
+{
+    "slint-edition": "1.19"
+}
+```
+
+When you compile or load `.slint` files, the edition comes from the project file.
+
+:::note
+Without a project file, Slint applies none of the behavior changes that depend on the edition.
+To opt in, add a project file that sets `slint-edition`.
+:::
+
+## Behavior Changes
+
+These releases changed the behavior:
+
+- 1.19: An element created with `if` or `for` counts toward the size of its non-layout parent,
+  as a static child does ([#407](https://github.com/slint-ui/slint/issues/407)).
+  A child that sizes itself from that parent then forms a binding loop, which the compiler reports as an error.
+  To fix it, size the child without reading the parent's size:
+  - Replace `width: parent.width` with `width: 100%`, and the same for `height`.
+    Don't do this for an element placed in a layout: there, a percentage is an exact demand on the layout.
+  - Remove a size computed from the parent's size minus some padding when a layout already applies that padding and spacing.
+  - Give the parent an explicit `width` or `height`.
+  - As a last resort, set `x` or `y` on the child, which keeps it out of its parent's size.
+    This pins its position: a `Text` that was centered in its parent moves to `0, 0`.
+    In a layout, where setting `x` is an error, wrap the child in a `Rectangle` and set `x` on that.

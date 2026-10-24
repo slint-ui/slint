@@ -3338,6 +3338,7 @@ dependencies = [
  "webbrowser",
  "windows",
  "winit",
+ "x11rb",
  "zbus",
 ]
 
@@ -3582,6 +3583,7 @@ dependencies = [
  "lyon_path",
  "pin-weak",
  "rgb",
+ "slint",
  "wasm-bindgen",
  "web-sys",
  "wgpu 30.0.1",
@@ -7440,7 +7442,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "spin_on",
- "tempfile",
 ]
 
 [[package]]
@@ -7454,6 +7455,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-live-preview",
  "itertools 0.15.0",
  "libloading 0.9.0",
  "napi",

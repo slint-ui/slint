@@ -200,21 +200,70 @@ async fn register_file_watcher(ctx: &Context) -> editor_preview::Result<()> {
                 ),
             }],
         };
-        let server_notifier = { ctx.server_notifier.clone() };
-        server_notifier
-            .send_request::<lsp_types::request::RegisterCapability>(
-                lsp_types::RegistrationParams {
-                    registrations: vec![lsp_types::Registration {
-                        id: "slint.file_watcher.registration".to_string(),
-                        method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
-                        register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
-                    }],
-                },
-            )?
-            .await?;
+        register_capability(
+            ctx,
+            "slint.file_watcher.registration",
+            lsp_types::notification::DidChangeWatchedFiles::METHOD,
+            fs_watcher,
+        )
+        .await?;
     }
 
     Ok(())
+}
+
+async fn register_capability(
+    ctx: &Context,
+    id: &str,
+    method: &str,
+    options: impl serde::Serialize,
+) -> editor_preview::Result<()> {
+    ctx.server_notifier
+        .send_request::<lsp_types::request::RegisterCapability>(lsp_types::RegistrationParams {
+            registrations: vec![lsp_types::Registration {
+                id: id.to_string(),
+                method: method.to_string(),
+                register_options: Some(serde_json::to_value(options).unwrap()),
+            }],
+        })?
+        .await?;
+    Ok(())
+}
+
+fn formatting_supports_dynamic_registration(client_cap: &ClientCapabilities) -> bool {
+    client_cap
+        .text_document
+        .as_ref()
+        .and_then(|td| td.formatting.as_ref())
+        .and_then(|f| f.dynamic_registration)
+        .unwrap_or(false)
+}
+
+/// Registers the formatter for `.slint` documents only.
+/// A static `document_formatting_provider` applies to every document the client
+/// sends us, including Rust files, where it competes with rust-analyzer.
+async fn register_formatting(ctx: &Context) -> editor_preview::Result<()> {
+    use lsp_types::request::Request;
+
+    if !formatting_supports_dynamic_registration(&ctx.init_param.capabilities) {
+        return Ok(());
+    }
+
+    let options = lsp_types::TextDocumentRegistrationOptions {
+        document_selector: Some(vec![
+            lsp_types::DocumentFilter {
+                language: Some("slint".into()),
+                scheme: None,
+                pattern: None,
+            },
+            lsp_types::DocumentFilter {
+                language: None,
+                scheme: None,
+                pattern: Some("**/*.slint".into()),
+            },
+        ]),
+    };
+    register_capability(ctx, "slint.formatting.registration", Formatting::METHOD, options).await
 }
 
 pub struct Context {
@@ -370,7 +419,9 @@ pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeRe
                     OneOf::Left(true)
                 },
             ),
-            document_formatting_provider: Some(OneOf::Left(true)),
+            document_formatting_provider: Some(OneOf::Left(
+                !formatting_supports_dynamic_registration(client_cap),
+            )),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -654,9 +705,46 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
+    let source = SourcePath::from_url(&url);
+    let root = match source.as_native_path() {
+        Some(path) => ctx
+            .session
+            .find_project_file_path_for(path)
+            .map_err(|error| LspError {
+                code: LspErrorCode::RequestFailed,
+                message: format!("Cannot find project file for {}: {error}", path.display()),
+            })?
+            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
+        None => None,
+    };
+    if *ctx.session.primary_preview().project_root.borrow() != root {
+        ctx.session.primary_preview_mut().to_show = None;
+        ctx.session.primary_preview().project_root.replace(root);
+        ctx.session.send_state_to_preview(0);
+    }
     let c = PreviewComponent { url, component };
     ctx.session.show_preview(0, c);
 
+    Ok(())
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-builtin", feature = "preview-external")
+))]
+pub fn sync_preview_project_root(session: &editor_preview::EditorSession) -> std::io::Result<()> {
+    let Some(component) = session.primary_preview().to_show.as_ref() else { return Ok(()) };
+    let source = SourcePath::from_url(&component.url);
+    let root = match source.as_native_path() {
+        Some(path) => session
+            .find_project_file_path_for(path)?
+            .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
+        None => None,
+    };
+    if *session.primary_preview().project_root.borrow() != root {
+        session.primary_preview().project_root.replace(root);
+        session.send_state_to_preview(0);
+    }
     Ok(())
 }
 
@@ -1355,6 +1443,7 @@ fn get_highlights_for_position(
 
 pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     register_file_watcher(ctx).await?;
+    register_formatting(ctx).await?;
     load_configuration(ctx).await
 }
 
@@ -2047,6 +2136,7 @@ enum {}
                         PathBuf::from("/libraries/widgets"),
                     )])),
                     enable_experimental_features: Some(true),
+                    slint_edition: Some(i_slint_compiler::project_file::SlintEdition::V1_19),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -2064,6 +2154,165 @@ enum {}
             LspToPreviewMessage::SetConfiguration { config } if config == &ctx.session.preview_config
         )));
         assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn preview_root_follows_discovery_and_replays_state_after_deletion() {
+        let directory = tempfile::tempdir().unwrap();
+        let outer_root = directory.path();
+        let nested_root = outer_root.join("ui");
+        std::fs::create_dir(&nested_root).unwrap();
+        let outer_manifest = outer_root.join("slint-project.json");
+        let nested_manifest = nested_root.join("slint-project.json");
+        std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&nested_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        let source_path = nested_root.join("main.slint");
+        let outer_source_path = outer_root.join("root.slint");
+        let source = "export component Main inherits Window {}";
+        std::fs::write(&source_path, source).unwrap();
+        std::fs::write(&outer_source_path, source).unwrap();
+        let source_url = Url::from_file_path(&source_path).unwrap();
+        let outer_source_url = Url::from_file_path(&outer_source_path).unwrap();
+        let outer_manifest_url = Url::from_file_path(&outer_manifest).unwrap();
+        let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        context.session.set_workspace_roots(vec![outer_root.to_path_buf()]);
+        spin_on::spin_on(context.session.load_document(source.into(), outer_source_url, None))
+            .unwrap();
+        spin_on::spin_on(context.session.load_document(source.into(), source_url.clone(), None))
+            .unwrap();
+        messages.borrow_mut().clear();
+
+        show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context).unwrap();
+        let nested_root_url = Url::from_directory_path(&nested_root).unwrap();
+        let replay = messages.borrow();
+        assert!(
+            matches!(replay.first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
+            if root == &nested_root_url)
+        );
+        let configuration_index = replay
+            .iter()
+            .position(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+            .unwrap();
+        for url in [&source_url, &outer_manifest_url, &nested_manifest_url] {
+            let contents_index = replay
+                .iter()
+                .position(|message| {
+                    matches!(message, LspToPreviewMessage::SetContents { url: sent, .. }
+                        if sent.url() == url)
+                })
+                .unwrap();
+            assert!(contents_index < configuration_index);
+        }
+        let component_index = replay
+            .iter()
+            .position(|message| {
+                matches!(message, LspToPreviewMessage::ShowPreview(component)
+                if component.url == source_url)
+            })
+            .unwrap();
+        assert!(configuration_index < component_index);
+        drop(replay);
+
+        std::fs::remove_file(&nested_manifest).unwrap();
+        spin_on::spin_on(context.session.trigger_file_watcher(
+            nested_manifest_url,
+            i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session).unwrap();
+        let outer_root_url = Url::from_directory_path(outer_root).unwrap();
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: Some(root) }) if root == &outer_root_url
+        ));
+        assert!(messages.borrow().iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(component)
+                if component.url == source_url)
+        }));
+
+        std::fs::remove_file(&outer_manifest).unwrap();
+        spin_on::spin_on(context.session.trigger_file_watcher(
+            outer_manifest_url,
+            i_slint_live_preview::file_watcher::FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session).unwrap();
+        assert!(matches!(
+            messages.borrow().first(),
+            Some(LspToPreviewMessage::OpenProject { root: None })
+        ));
+
+        std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
+        messages.borrow_mut().clear();
+        sync_preview_project_root(&context.session).unwrap();
+        assert!(
+            matches!(messages.borrow().first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
+            if root == &outer_root_url)
+        );
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn preview_root_does_not_reuse_an_active_project_above_its_boundary() {
+        let directory = tempfile::tempdir().unwrap();
+        let outer = directory.path().join("outer");
+        let inner = outer.join("inner");
+        let inner_source_directory = inner.join("ui");
+        std::fs::create_dir_all(&inner_source_directory).unwrap();
+        std::fs::write(outer.join("slint-project.json"), r#"{"slint-edition":"1.19"}"#).unwrap();
+        let outer_source = outer.join("a.slint");
+        let inner_source = inner_source_directory.join("b.slint");
+        let code = "export component Main inherits Window {}";
+        for source in [&outer_source, &inner_source] {
+            std::fs::write(source, code).unwrap();
+        }
+        let outer_url = Url::from_file_path(&outer_source).unwrap();
+        let inner_url = Url::from_file_path(&inner_source).unwrap();
+        for workspace_roots in [vec![outer.clone(), inner.clone()], Vec::new()] {
+            let (mut context, _) = mock_context_with_preview_capture();
+            context.session.set_workspace_roots(workspace_roots);
+            for url in [&outer_url, &inner_url] {
+                spin_on::spin_on(context.session.load_document(code.into(), url.clone(), None))
+                    .unwrap();
+            }
+            assert_eq!(
+                context.session.find_project_file_path_for(&outer_source).unwrap(),
+                Some(outer.join("slint-project.json"))
+            );
+            assert_eq!(context.session.find_project_file_path_for(&inner_source).unwrap(), None);
+        }
+    }
+
+    #[cfg(all(unix, any(feature = "preview-builtin", feature = "preview-external")))]
+    #[test]
+    fn preview_root_lookup_errors_keep_the_current_root() {
+        let directory = tempfile::tempdir().unwrap();
+        let manifest = directory.path().join("slint-project.json");
+        std::os::unix::fs::symlink(&manifest, &manifest).unwrap();
+        let source_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        let (mut context, messages) = mock_context_with_preview_capture();
+        let error =
+            show_preview_command(&[serde_json::to_value(&source_url).unwrap()], &mut context)
+                .unwrap_err();
+        assert!(matches!(error.code, LspErrorCode::RequestFailed));
+        assert!(error.message.contains(&source_url.to_file_path().unwrap().display().to_string()));
+        assert!(messages.borrow().is_empty());
+
+        let previous_root = Url::from_directory_path(directory.path()).unwrap();
+        context.session.primary_preview().project_root.replace(Some(previous_root.clone()));
+        context.session.primary_preview_mut().to_show =
+            Some(PreviewComponent { url: source_url, component: None });
+        assert!(sync_preview_project_root(&context.session).is_err());
+        assert_eq!(
+            context.session.primary_preview().project_root.borrow().as_ref(),
+            Some(&previous_root)
+        );
+        assert!(messages.borrow().is_empty());
     }
 
     #[test]

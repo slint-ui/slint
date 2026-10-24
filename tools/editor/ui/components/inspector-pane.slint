@@ -7,8 +7,9 @@ import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorContext, InspectorEffectsSection, InspectorEnabledSection,
-    InspectorGeometrySection, InspectorImageSection, InspectorLayoutSection, InspectorTextAlignmentSection,
-    InspectorTextContentSection, InspectorTextWrapSection, InspectorTypographySection,
+    InspectorGeometrySection, InspectorImageSection, InspectorLayoutSection, InspectorOrientationSection,
+    InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
+    InspectorTypographySection,
 } from "inspector/sections/index.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
@@ -21,7 +22,7 @@ export component InspectorPane inherits Rectangle {
     callback outline-pane-reset();
 
     width: Style.panes.inspector-width;
-    background: Colors.surface;
+    background: Style.panel-background;
     accessible-role: AccessibleRole.complementary;
     accessible-label: @tr("Inspector and outline");
     accessible-enabled: Diagnostics.preview-editable;
@@ -82,9 +83,15 @@ export component InspectorPane inherits Rectangle {
                     pane-width: root.width;
                 }
 
+                if InspectorContext.is-title-selection(): InspectorTitleSection { }
+
                 if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
 
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
+
+                if InspectorContext.has-orientation-selection(): InspectorOrientationSection {
+                    popup-bottom: root.popup-bottom;
+                }
 
                 if InspectorContext.is-rectangle-selection(): InspectorBorderSection {
                     pane-width: root.width;
@@ -99,7 +106,7 @@ export component InspectorPane inherits Rectangle {
                     popup-bottom: root.popup-bottom;
                 }
 
-                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() : InspectorTextContentSection { }
+                if InspectorContext.has-text-property-selection(): InspectorTextContentSection { }
 
                 if InspectorContext.is-text-selection(): InspectorTypographySection {
                     field-width: root.field-width;

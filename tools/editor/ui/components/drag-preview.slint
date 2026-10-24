@@ -58,9 +58,9 @@ export component OutlineDragRow inherits Rectangle {
     opacity: Style.drag-preview.ghost-opacity;
 
     Rectangle {
-        x: root.style.hit-size;
+        x: Style.sidebar-spacing.list-inset;
         width: parent.width - self.x;
-        height: Metrics.outline-row-height - 4px;
+        height: Metrics.outline-row-height;
         border-radius: root.style.radius;
         background: root.row-background;
     }
@@ -129,7 +129,7 @@ export component DragPreview inherits Rectangle {
         || (!root.row-preview && root.text-drag)
         ? transparent : root.style.shadow.color;
     accessible-role: AccessibleRole.region;
-    accessible-label: root.row-preview ? @tr("Outline drag preview") : @tr("{} drag preview", root.presentation.label);
+    accessible-label: root.row-preview ? @tr("Outline drag preview") : @tr("{} drag preview", AppState.palette-drag-label);
 
     if root.palette-outline-preview && !AppState.outline-drag-active: Rectangle {
         border-radius: root.style.row.radius;
@@ -153,7 +153,7 @@ export component DragPreview inherits Rectangle {
 
             Text {
                 horizontal-stretch: 1;
-                text: root.presentation.label;
+                text: AppState.palette-drag-label;
                 color: root.style.row.foreground;
                 font-size: Typography.body.size;
                 vertical-alignment: center;
@@ -172,7 +172,7 @@ export component DragPreview inherits Rectangle {
 
     if !root.row-preview && root.text-drag: PaletteTextDragPreview { }
 
-    if !root.row-preview && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area): PalettePlaceholderDragPreview {
+    if !root.row-preview && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area || AppState.palette-drag-kind == ElementKind.widget): PalettePlaceholderDragPreview {
             style: root.style;
         corner-radius: root.border-radius;
         show-thumbnail: root.presentation.show-thumbnail;

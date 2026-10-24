@@ -184,6 +184,9 @@ pub fn clean_path(path: &Path) -> PathBuf {
             component => result.push(component),
         }
     }
+    if result.as_os_str().is_empty() && !path.as_os_str().is_empty() {
+        result.push(".");
+    }
     result
 }
 
@@ -278,8 +281,15 @@ mod tests {
     #[test]
     fn clean_paths() {
         for (path, clean) in [
-            ("ab/.././cb/./././..", ""),
+            ("", ""),
+            (".", "."),
+            ("ui/..", "."),
+            ("ab/.././cb/./././..", "."),
             ("../../ab/../cd", "../../cd"),
+            ("a/b/../..", "."),
+            ("a/b/../../c", "c"),
+            ("/", "/"),
+            ("/a/..", "/"),
             ("/../ab/./cd//ef", "/ab/cd/ef"),
             ("a\\b", "a\\b"),
         ] {

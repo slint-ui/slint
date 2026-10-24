@@ -9,6 +9,7 @@ import { InspectorPickerPanel } from "picker-panel.slint";
 import { InspectorColorField } from "color-field.slint";
 import { Diagnostics } from "../../diagnostics.slint";
 import { InspectorEffectSlider } from "effect-slider.slint";
+import { InputSurface } from "../input-surface.slint";
 import { InspectorSwitch } from "switch.slint";
 
 export component InspectorShadowControl inherits Rectangle {
@@ -26,16 +27,17 @@ export component InspectorShadowControl inherits Rectangle {
             enabled: root.effect-enabled && Diagnostics.preview-editable;
             opacity: root.effect-enabled ? 1 : Metrics.disabled-opacity;
             horizontal-stretch: 1;
+            height: Style.inspector-field.height;
             key-pressed(event) => {
                 if event.text == Key.Return || event.text == Key.Space { root.activate(); return accept; }
                 return reject;
             }
-            Rectangle {
-                border-radius: Style.inspector-field.radius;
-                background: touch.has-hover || (ShadowSession.open && ShadowSession.inner == root.inner)
-                    ? Style.inspector-field.appearance.hover.background : Style.inspector-field.appearance.normal.background;
-                border-width: control.has-focus ? Metrics.focus-width : 0px;
-                border-color: Colors.focus;
+            InputSurface {
+                width: parent.width;
+                height: parent.height;
+                enabled: control.enabled;
+                focused: control.has-focus;
+                hovered: touch.has-hover || (ShadowSession.open && ShadowSession.inner == root.inner);
                 HorizontalLayout {
                     padding-left: Style.inspector-field.padding-inline;
                     padding-right: Style.inspector-field.padding-inline;
@@ -61,7 +63,7 @@ export component InspectorShadowControl inherits Rectangle {
                 }
                 touch := TouchArea {
                     enabled: control.enabled;
-                    mouse-cursor: pointer;
+                    mouse-cursor: default;
                     accessible-role: button;
                     accessible-label: root.title;
                     accessible-enabled: control.enabled;
@@ -145,7 +147,7 @@ export component InspectorShadowPicker inherits FocusScope {
             }
         }
         InspectorEffectSlider {
-            width: parent.width;
+            width: panel.width - 2 * Metrics.space-large;
             accessible-name: @tr("Shadow blur");
             label: @tr("Blur");
             value: ShadowSession.values.blur;

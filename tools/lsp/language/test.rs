@@ -194,6 +194,7 @@ fn preview_file_recompiled_when_dependency_changes() {
         to_preview: editor_preview::LspToPreviews::with_one(
             editor_preview::DummyLspToPreview::default(),
         ),
+        project_root: Default::default(),
         to_show: Some(i_slint_live_preview::protocol::PreviewComponent {
             url: secondary_url.clone(),
             component: None,

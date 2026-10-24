@@ -21,18 +21,16 @@ export component OutlinePane inherits Rectangle {
         && root.palette-pointer.y < root.absolute-position.y + root.height;
     callback drag-started();
 
-    // background: root.style.row.hover-background;
-
     VerticalLayout {
-        padding-right: Metrics.space-medium;
-        padding-top: Metrics.space-medium;
-        padding-bottom: Metrics.space-medium;
+        padding-right: Style.sidebar-spacing.list-inset;
+        padding-top: Style.sidebar-spacing.padding;
+        padding-bottom: Style.sidebar-spacing.padding;
         spacing: Metrics.space-small;
 
         HorizontalLayout {
             alignment: start;
             cross-axis-alignment: center;
-            padding-left: Metrics.space-large;
+            padding-left: Style.sidebar-spacing.padding;
 
             SectionTitle {
                 label: @tr("OUTLINE");

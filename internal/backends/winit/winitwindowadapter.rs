@@ -627,6 +627,28 @@ impl WinitWindowAdapter {
             }
         }
 
+        if let Some(window_item) = WindowInner::from_pub(self.window()).window_item()
+            && let Some(icon) = icon_to_winit(
+                window_item.as_pin_ref().icon(),
+                i_slint_core::lengths::LogicalSize::new(64., 64.)
+                    * ScaleFactor::new(self.window().scale_factor()),
+            )
+        {
+            window_attributes.window_icon = Some(icon);
+        }
+
+        #[cfg(all(target_os = "linux", any(feature = "wayland", feature = "x11")))]
+        {
+            use winit::platform::startup_notify::{
+                EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
+                reset_activation_token_env,
+            };
+            if let Some(token) = active_event_loop.read_token_from_env() {
+                window_attributes = window_attributes.with_activation_token(token);
+            }
+            reset_activation_token_env();
+        }
+
         // Never show the window right away, as we
         //  a) need to compute the correct size based on the scale factor before it's shown on the screen (handled by set_visible)
         //  b) need to create the accesskit adapter before it's shown on the screen, as required by accesskit.

@@ -6,13 +6,12 @@ use slint::{Model, ModelExt, ModelRc, SharedString};
 use crate::ui::{Api, ElementLibraryEntry, ElementLibraryGroup};
 
 fn catalog() -> ModelRc<ElementLibraryGroup> {
-    use super::element_catalog::{GROUPS, PRIMITIVES};
+    use super::element_catalog::{GROUPS, entries};
     ModelRc::new(slint::VecModel::from(
         GROUPS
             .iter()
             .map(|group| {
-                let mut entries: Vec<_> = PRIMITIVES
-                    .iter()
+                let mut entries: Vec<_> = entries()
                     .filter(|entry| entry.group == *group)
                     .map(|entry| ElementLibraryEntry {
                         label: entry.type_name.into(),
@@ -63,7 +62,7 @@ mod tests {
     #[test]
     fn library_is_alphabetical_and_search_preserves_order() {
         let groups = catalog();
-        assert_eq!(groups.row_count(), 2);
+        assert_eq!(groups.row_count(), 3);
         let group = groups.row_data(0).unwrap();
         assert_eq!(group.label, "Visual");
         for (query, expected) in [
@@ -100,6 +99,24 @@ mod tests {
                 expected
             );
         }
+        let widgets = groups.row_data(2).unwrap();
+        assert_eq!(widgets.label, "Widgets");
+        assert_eq!(widgets.entries.row_data(0).unwrap().kind, ElementKind::Widget);
+        assert_eq!(
+            filter(widgets.entries.clone(), normalize_query("box".into()))
+                .iter()
+                .map(|entry| entry.label.to_string())
+                .collect::<Vec<_>>(),
+            vec![
+                "CheckBox",
+                "ComboBox",
+                "GridBox",
+                "GroupBox",
+                "HorizontalBox",
+                "SpinBox",
+                "VerticalBox"
+            ]
+        );
     }
 
     #[test]

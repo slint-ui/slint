@@ -14,7 +14,9 @@
 #include "private/slint_data_transfer.h"
 
 #include <vector>
+#include <charconv>
 #include <chrono>
+#include <cstdio>
 #include <span>
 #include <concepts>
 #include <limits>
@@ -93,6 +95,50 @@ upgrade_item_weak(const cbindgen_private::ItemWeak &item_weak)
 inline void debug(const SharedString &str)
 {
     cbindgen_private::slint_debug(&str);
+}
+
+/// Value formatting for the testable-property debug channel
+/// (`ItemTreeVTable::element_testable_property_value`).
+/// Mirrors the Rust `i_slint_core::debug_info` encoding,
+/// so both code generators produce the same string for the same value.
+inline SharedString debug_info_format_bool(bool value)
+{
+    return SharedString(value ? "true" : "false");
+}
+
+/// See `debug_info_format_bool`.
+inline SharedString debug_info_format_integer(int64_t value)
+{
+    char buf[24];
+    auto r = std::to_chars(buf, buf + sizeof(buf), value);
+    return SharedString(std::string_view(buf, r.ptr - buf));
+}
+
+/// See `debug_info_format_bool`.
+/// Formatted by the Rust runtime, so the digits are exactly what `f32` `Display` produces there.
+inline SharedString debug_info_format_float(float value)
+{
+    SharedString result;
+    cbindgen_private::slint_debug_info_format_float(&result, value);
+    return result;
+}
+
+/// See `debug_info_format_bool`. `#rrggbbaa`.
+inline SharedString debug_info_format_color(const Color &color)
+{
+    char buf[10];
+    std::snprintf(buf, sizeof(buf), "#%02x%02x%02x%02x", color.red(), color.green(), color.blue(),
+                  color.alpha());
+    return SharedString(buf);
+}
+
+/// See `debug_info_format_bool`.
+/// A solid color formats as `#rrggbbaa`; gradients have no encoding.
+inline std::optional<SharedString> debug_info_format_brush(const Brush &brush)
+{
+    if (brush != Brush(brush.color()))
+        return std::nullopt;
+    return debug_info_format_color(brush.color());
 }
 
 } // namespace private_api
@@ -799,6 +845,113 @@ void blocking_invoke_from_event_loop(Functor f)
 }
 #    endif
 #endif
+
+/// Requirements for select_backend(). Unset members leave the choice to Slint.
+struct BackendRequirements
+{
+    /// A graphics API that the renderer must use.
+    enum class GraphicsAPI {
+        /// OpenGL
+        OpenGL,
+        /// OpenGL ES
+        OpenGLES,
+        /// Apple's Metal framework
+        Metal,
+        /// Vulkan
+        Vulkan,
+        /// Direct 3D
+        Direct3D,
+    };
+
+    /// A version of a graphics API.
+    struct GraphicsAPIVersion
+    {
+        /// The major version, such as 3 for OpenGL 3.2.
+        uint8_t major;
+        /// The minor version, such as 2 for OpenGL 3.2.
+        uint8_t minor;
+    };
+
+    /// The name of the backend, such as `winit`.
+    /// This is equivalent to setting the `SLINT_BACKEND` environment variable,
+    /// and requires that Slint was built with the corresponding backend feature.
+    std::string_view backend = {};
+    /// The name of the renderer, such as `skia`.
+    /// This requires that Slint was built with the corresponding renderer feature.
+    std::string_view renderer = {};
+    /// The graphics API that the renderer must use.
+    std::optional<GraphicsAPI> graphics_api = {};
+    /// The minimum version of the graphics API.
+    /// Only OpenGL and OpenGL ES support a version.
+    std::optional<GraphicsAPIVersion> min_version = {};
+};
+
+/// Selects one of Slint's built-in
+/// [backends with a renderer](slint:backends_and_renderers) that meets \a requirements,
+/// and makes it the active backend.
+/// This is a programmatic substitute for the `SLINT_BACKEND` environment variable.
+///
+/// Call this before creating any component or window.
+/// For example, to render with desktop OpenGL 3.2 or newer:
+///
+/// ```cpp
+/// using GraphicsAPI = slint::BackendRequirements::GraphicsAPI;
+/// if (auto error = slint::select_backend({ .graphics_api = GraphicsAPI::OpenGL,
+///                                          .min_version = { { 3, 2 } } })) {
+///     std::cerr << "Error selecting a backend with OpenGL support: " << *error << std::endl;
+///     return EXIT_FAILURE;
+/// }
+/// auto app = App::create();
+/// ```
+///
+/// Returns an error message if the requirements can't be met,
+/// or if a backend is already active.
+[[nodiscard]] inline std::optional<SharedString>
+select_backend(const BackendRequirements &requirements = {})
+{
+    private_api::assert_main_thread();
+    using GraphicsAPI = BackendRequirements::GraphicsAPI;
+    using cbindgen_private::RequiredGraphicsAPI;
+
+    auto graphics_api = RequiredGraphicsAPI::Any;
+    if (requirements.graphics_api) {
+        switch (*requirements.graphics_api) {
+        case GraphicsAPI::OpenGL:
+            graphics_api = RequiredGraphicsAPI::OpenGL;
+            break;
+        case GraphicsAPI::OpenGLES:
+            graphics_api = RequiredGraphicsAPI::OpenGLES;
+            break;
+        case GraphicsAPI::Metal:
+            graphics_api = RequiredGraphicsAPI::Metal;
+            break;
+        case GraphicsAPI::Vulkan:
+            graphics_api = RequiredGraphicsAPI::Vulkan;
+            break;
+        case GraphicsAPI::Direct3D:
+            graphics_api = RequiredGraphicsAPI::Direct3D;
+            break;
+        }
+    }
+    if (requirements.min_version && graphics_api != RequiredGraphicsAPI::OpenGL
+        && graphics_api != RequiredGraphicsAPI::OpenGLES) {
+        return SharedString("A minimum version is only supported with OpenGL and OpenGL ES");
+    }
+
+    // A default std::string_view has a null data pointer, which SharedString doesn't accept.
+    auto to_shared_string = [](std::string_view s) {
+        return s.empty() ? SharedString() : SharedString(s);
+    };
+    SharedString backend = to_shared_string(requirements.backend);
+    SharedString renderer = to_shared_string(requirements.renderer);
+    auto version = requirements.min_version.value_or(BackendRequirements::GraphicsAPIVersion {});
+    SharedString error;
+    if (cbindgen_private::slint_select_backend(&backend, &renderer, graphics_api, version.major,
+                                               version.minor, &error)) {
+        return {};
+    }
+    return error;
+}
 
 /// Sets the application id for use on Wayland or X11 with
 /// [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/) compliant window

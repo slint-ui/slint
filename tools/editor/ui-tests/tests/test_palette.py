@@ -237,7 +237,7 @@ def test_library_search_restores_independent_collapse_states(
         search = element(window, "Search elements")
         search.accessible_value = "  tOuCh  "
         expect_library(window, ["TouchArea"])
-        for label in ("Visual", "Input & interaction"):
+        for label in ("Visual", "Input & interaction", "Widgets"):
             for header in elements(
                 window, label, role=slint_testing.AccessibleRole.Button
             ):
@@ -245,20 +245,24 @@ def test_library_search_restores_independent_collapse_states(
         search.accessible_value = "missing"
         expect_library(window, [])
         element(window, "No Results")
-        for label in ("Visual", "Input & interaction"):
+        for label in ("Visual", "Input & interaction", "Widgets"):
             assert not elements(window, label, role=slint_testing.AccessibleRole.Button)
         search.accessible_value = ""
         expect_library(window, list(PALETTE_KINDS))
         for label, collapsed_labels in [
-            ("Visual", ["TouchArea"]),
-            ("Input & interaction", []),
+            ("Visual", ["TouchArea", "Button", "CheckBox"]),
+            ("Input & interaction", ["Button", "CheckBox"]),
+            ("Widgets", []),
         ]:
             element(
                 window, label, role=slint_testing.AccessibleRole.Button
             ).invoke_accessible_default_action()
             expect_library(window, collapsed_labels)
             search.accessible_value = "t"
-            expect_library(window, ["Rectangle", "StyledText", "Text", "TouchArea"])
+            expect_library(
+                window,
+                ["Rectangle", "StyledText", "Text", "TouchArea", "Button"],
+            )
             search.accessible_value = "missing"
             expect_library(window, [])
             search.accessible_value = ""
@@ -322,8 +326,9 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
         assert rows[3].absolute_position.y == rows[2].absolute_position.y
         assert rows[4].absolute_position.y > rows[3].absolute_position.y
         for label, remaining in [
-            ("Visual", ["TouchArea"]),
-            ("Input & interaction", []),
+            ("Visual", ["TouchArea", "Button", "CheckBox"]),
+            ("Input & interaction", ["Button", "CheckBox"]),
+            ("Widgets", []),
         ]:
             element(
                 window, label, role=slint_testing.AccessibleRole.Button
@@ -392,8 +397,19 @@ def test_toucharea_drag_preview(
 @pytest.mark.parametrize(
     ("group_label", "tab_count", "remaining"),
     [
-        ("Visual", 1, ["TouchArea"]),
-        ("Input & interaction", 2, ["Image", "Rectangle", "StyledText", "Text"]),
+        ("Visual", 1, ["TouchArea", "Button", "CheckBox"]),
+        (
+            "Input & interaction",
+            2,
+            [
+                "Image",
+                "Rectangle",
+                "StyledText",
+                "Text",
+                "Button",
+                "CheckBox",
+            ],
+        ),
     ],
 )
 def test_group_header_keyboard_activation(

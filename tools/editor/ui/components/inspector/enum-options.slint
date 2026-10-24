@@ -54,6 +54,10 @@ export global InspectorEnumOptions {
         { value: "word-wrap", label: @tr("Word wrap") },
         { value: "char-wrap", label: @tr("Character wrap") },
     ];
+    out property <[InspectorComboOption]> orientation-options: [
+        { value: "horizontal", label: @tr("Horizontal") },
+        { value: "vertical", label: @tr("Vertical") },
+    ];
 
     public pure function option-index(name: string, default: string, options: [InspectorComboOption]) -> int {
         return Api.combo-option-index(Api.source-property-value(name, default), options);
