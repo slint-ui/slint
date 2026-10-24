@@ -22,8 +22,8 @@ pub fn fill_from_expression(
         value.is_finite().then_some(value)
     };
     let (stops, angle, center, radius) = match expression {
-        Expression::LinearGradient { angle, stops } => (stops, Some(&**angle), None, None),
-        Expression::RadialGradient { stops, center, shape } => {
+        Expression::LinearGradient { angle, stops, .. } => (stops, Some(&**angle), None, None),
+        Expression::RadialGradient { stops, center, shape, .. } => {
             let radius = match shape {
                 RadialGradientShape::Circle(None) => None,
                 RadialGradientShape::Circle(Some(r)) => Some(number(r)?),
@@ -31,7 +31,7 @@ pub fn fill_from_expression(
             };
             (stops, None, center.as_ref(), radius)
         }
-        Expression::ConicGradient { from_angle, stops, center } => {
+        Expression::ConicGradient { from_angle, stops, center, .. } => {
             (stops, Some(&**from_angle), center.as_ref(), None)
         }
         _ => return Some(fill),

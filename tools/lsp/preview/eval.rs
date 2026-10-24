@@ -230,10 +230,10 @@ fn eval_expression(
                 i_slint_core::animations::EasingCurve::Spring(*a)
             }
         }),
-        Expression::LinearGradient { angle, stops } => {
+        Expression::LinearGradient { angle, color_space, stops } => {
             let angle = eval_expression(angle, local_context, None);
             Value::Brush(slint::Brush::LinearGradient(
-                i_slint_core::graphics::LinearGradientBrush::new(
+                (i_slint_core::graphics::LinearGradientBrush::new(
                     angle.try_into().unwrap_or_default(),
                     stops.iter().map(|(color, stop)| {
                         let color = eval_expression(color, local_context, None)
@@ -244,10 +244,11 @@ fn eval_expression(
                             .unwrap_or_default();
                         i_slint_core::graphics::GradientStop { color, position }
                     }),
-                ),
+                ))
+                .with_color_space(preview_color_space(*color_space)),
             ))
         }
-        Expression::RadialGradient { stops, center, shape } => {
+        Expression::RadialGradient { stops, center, shape, color_space } => {
             let stops = stops
                 .iter()
                 .map(|(color, stop)| {
@@ -262,12 +263,13 @@ fn eval_expression(
                 eval_expression(e, local_context, None).try_into().unwrap_or_default()
             };
             let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
-            Value::Brush(slint::Brush::RadialGradient(slint_interpreter::radial_gradient_brush(
-                shape, number, center, stops,
-            )))
+            Value::Brush(slint::Brush::RadialGradient(
+                slint_interpreter::radial_gradient_brush(shape, number, center, stops)
+                    .with_color_space(preview_color_space(*color_space)),
+            ))
         }
-        Expression::ConicGradient { from_angle, stops, center } => {
-            let mut gradient = i_slint_core::graphics::ConicGradientBrush::new(
+        Expression::ConicGradient { from_angle, stops, center, color_space } => {
+            let mut gradient = (i_slint_core::graphics::ConicGradientBrush::new(
                 eval_expression(from_angle, local_context, None).try_into().unwrap_or_default(),
                 stops.iter().map(|(color, stop)| {
                     let color =
@@ -276,7 +278,8 @@ fn eval_expression(
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
                 }),
-            );
+            ))
+            .with_color_space(preview_color_space(*color_space));
             if let Some((cx, cy)) = center {
                 let cx: f32 =
                     eval_expression(cx, local_context, None).try_into().unwrap_or_default();
@@ -491,6 +494,18 @@ fn handle_builtin_function(
             ))
         }
         _ => Value::Void,
+    }
+}
+
+fn preview_color_space(
+    color_space: expression_types::GradientColorSpace,
+) -> i_slint_core::graphics::GradientColorSpace {
+    use expression_types::GradientColorSpace;
+    match color_space {
+        GradientColorSpace::Srgb => i_slint_core::graphics::GradientColorSpace::Srgb,
+        GradientColorSpace::Oklch => i_slint_core::graphics::GradientColorSpace::Oklch,
+        GradientColorSpace::Oklab => i_slint_core::graphics::GradientColorSpace::Oklab,
+        GradientColorSpace::Hsl => i_slint_core::graphics::GradientColorSpace::Hsl,
     }
 }
 

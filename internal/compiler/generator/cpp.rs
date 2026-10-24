@@ -473,7 +473,7 @@ pub mod cpp_ast {
 
 use crate::CompilerConfiguration;
 use crate::builtin_functions::BuiltinFunction;
-use crate::expression_types::{EasingCurve, MinMaxOp, Orientation};
+use crate::expression_types::{EasingCurve, GradientColorSpace, MinMaxOp, Orientation};
 use crate::langtype::{BuiltinStruct, Enumeration, EnumerationValue, StructName, Type};
 use crate::llr::{
     self, CROSS_WIDTH_LOCAL, EvaluationContext as llr_EvaluationContext, EvaluationScope,
@@ -4421,6 +4421,17 @@ impl std::fmt::Display for crate::expression_types::ImageReference {
     }
 }
 
+/// Names the C++ `slint::cbindgen_private::types::GradientColorSpace` enumerator the
+/// `*GradientBrush` constructors expect for their `colorSpace` parameter.
+fn gradient_color_space_encoding(color_space: GradientColorSpace) -> &'static str {
+    match color_space {
+        GradientColorSpace::Srgb => "slint::private_api::GradientColorSpace::Srgb",
+        GradientColorSpace::Oklch => "slint::private_api::GradientColorSpace::Oklch",
+        GradientColorSpace::Oklab => "slint::private_api::GradientColorSpace::Oklab",
+        GradientColorSpace::Hsl => "slint::private_api::GradientColorSpace::Hsl",
+    }
+}
+
 #[allow(
     clippy::redundant_closure_call,
     reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
@@ -4854,21 +4865,23 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::EasingCurve(e) => {
             format!("slint::cbindgen_private::EasingCurve::Tag::{e:?}")
         }
-        Expression::LinearGradient { angle, stops } => (|| {
+        Expression::LinearGradient { angle, color_space, stops } => (|| {
             let angle = compile_expression(angle, ctx);
+            let color_space = gradient_color_space_encoding(*color_space);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
             });
             format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::LinearGradientBrush({}, stops, {})); }}()",
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::LinearGradientBrush({}, {color_space}, stops, {})); }}()",
                 stops_it.join(", "),
                 angle,
                 stops.len()
             )
         })(),
-        Expression::RadialGradient { center, shape, stops } => (|| {
+        Expression::RadialGradient { center, shape, color_space, stops } => (|| {
+            let color_space = gradient_color_space_encoding(*color_space);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
@@ -4903,13 +4916,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ),
             };
             format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {radii_setup} return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}, {cx}, {cy}, {radii})); }}()",
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {radii_setup} return slint::Brush(slint::private_api::RadialGradientBrush({color_space}, stops, {}, {cx}, {cy}, {radii})); }}()",
                 stops_it.join(", "),
                 stops.len(),
             )
         })(),
-        Expression::ConicGradient { from_angle, center, stops } => (|| {
+        Expression::ConicGradient { from_angle, center, color_space, stops } => (|| {
             let from_angle = compile_expression(from_angle, ctx);
+            let color_space = gradient_color_space_encoding(*color_space);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
@@ -4919,12 +4933,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 let cx = compile_expression(cx, ctx);
                 let cy = compile_expression(cy, ctx);
                 format!(
-                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {stops_count}, float({cx}), float({cy})));",
+                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), {color_space}, stops, {stops_count}, float({cx}), float({cy})));",
                     stops_count = stops.len()
                 )
             } else {
                 format!(
-                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {}));",
+                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), {color_space}, stops, {}));",
                     stops.len()
                 )
             };

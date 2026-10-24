@@ -62,4 +62,12 @@ export X := Rectangle {
 //                                                     > <error{Unknown unqualified identifier 'foo'}
     property<brush> g30: @radial-gradient(ellipse 10px blue, red, blue);
 //                                                     >  <error{Unknown unqualified identifier 'blue'. Did you mean 'Colors.blue'?}
+
+    property<brush> g31: @radial-gradient(in oklch circle, red, blue);
+    property<brush> g32: @radial-gradient(in hsl circle, red, blue);
+    property<brush> g33: @radial-gradient(in bogus circle, red, blue);
+//                                           >    <error{'bogus' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'}
+    property<brush> g34: @radial-gradient(in, circle, red, blue);
+//                                        ><error{Expected a color space after 'in'}
+    property<brush> g35: @radial-gradient(in oklab ellipse 100px 50px at 5px 5px, red, blue);
 }

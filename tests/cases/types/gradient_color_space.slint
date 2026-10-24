@@ -1,0 +1,43 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component TestCase inherits Rectangle {
+    // Accepted syntax forms: `in <space>` is juxtaposed with the rest of the header, no comma.
+    property <brush> linear-oklch: @linear-gradient(in oklch 90deg, red 0%, blue 100%);
+    property <brush> linear-oklab: @linear-gradient(in oklab 90deg, red 0%, blue 100%);
+    property <brush> linear-srgb: @linear-gradient(in srgb 90deg, red 0%, blue 100%);
+    property <brush> linear-hsl: @linear-gradient(in hsl 90deg, red 0%, blue 100%);
+    property <brush> linear-no-angle: @linear-gradient(in oklch, red 0%, blue 100%);
+    property <brush> radial-oklch: @radial-gradient(in oklch circle, red 0%, blue 100%);
+    property <brush> radial-hsl: @radial-gradient(in hsl circle, red 0%, blue 100%);
+    property <brush> conic-oklch: @conic-gradient(in oklch from 0deg, red 0deg, blue 360deg);
+    property <brush> conic-hsl: @conic-gradient(in hsl from 0deg, red 0deg, blue 360deg);
+
+    // The color space is part of brush identity: two gradients that only differ in color
+    // space must compare unequal, and the same color space must compare equal.
+    out property <bool> test:
+        linear-oklch != @linear-gradient(90deg, red 0%, blue 100%)
+        && linear-oklch == @linear-gradient(in oklch 90deg, red 0%, blue 100%)
+        && linear-oklch != linear-oklab
+        && linear-srgb == @linear-gradient(90deg, red 0%, blue 100%)
+        && radial-oklch != @radial-gradient(circle, red 0%, blue 100%)
+        && radial-oklch == @radial-gradient(in oklch circle, red 0%, blue 100%)
+        && radial-oklch != radial-hsl
+        && conic-oklch != @conic-gradient(from 0deg, red 0deg, blue 360deg)
+        && conic-oklch == @conic-gradient(in oklch from 0deg, red 0deg, blue 360deg)
+        && conic-oklch != conic-hsl
+        // `in <space>` alone (no angle) defaults to 180deg, same as an omitted header.
+        && linear-no-angle == @linear-gradient(in oklch 180deg, red 0%, blue 100%)
+        // The color space survives color transforms and animated-value conversions.
+        && linear-oklch.brighter(20%) != @linear-gradient(90deg, red 0%, blue 100%).brighter(20%)
+        && radial-oklch.with-alpha(0.5) != @radial-gradient(circle, red 0%, blue 100%).with-alpha(0.5);
+}
+
+export { TestCase }
+
+/*
+```rust
+let t = TestCase::new().unwrap();
+assert!(t.get_test(), "gradient color space equality assertions failed");
+```
+*/

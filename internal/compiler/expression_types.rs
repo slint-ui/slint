@@ -205,6 +205,47 @@ impl<E: Default> Default for MouseCursorInner<E> {
     }
 }
 
+/// The color space gradient stops are interpolated in
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GradientColorSpace {
+    /// Interpolate in sRGB, the default.
+    #[default]
+    Srgb,
+    /// Interpolate in the OKLCH color space.
+    Oklch,
+    /// Interpolate in the OKLab color space.
+    Oklab,
+    /// Interpolate in the HSL color space.
+    Hsl,
+}
+
+impl std::fmt::Display for GradientColorSpace {
+    /// The CSS-syntax name of the color space, as written in a gradient's `in <space>` clause.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            GradientColorSpace::Srgb => "srgb",
+            GradientColorSpace::Oklch => "oklch",
+            GradientColorSpace::Oklab => "oklab",
+            GradientColorSpace::Hsl => "hsl",
+        })
+    }
+}
+
+impl std::str::FromStr for GradientColorSpace {
+    type Err = ();
+
+    /// Parses the CSS-syntax name of a color space, as written in a gradient's `in <space>` clause.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "srgb" => Ok(GradientColorSpace::Srgb),
+            "oklch" => Ok(GradientColorSpace::Oklch),
+            "oklab" => Ok(GradientColorSpace::Oklab),
+            "hsl" => Ok(GradientColorSpace::Hsl),
+            _ => Err(()),
+        }
+    }
+}
+
 /// The ending shape of a `@radial-gradient`, with its explicit size in the element's local
 /// coordinate space. `None` means the shape's default size.
 #[derive(Clone, Debug)]

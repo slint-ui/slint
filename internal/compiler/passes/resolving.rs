@@ -14,7 +14,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
 use crate::expression_types::{
-    ImageReference, OperatorClass, RadialGradientShape, Unit, operator_class,
+    GradientColorSpace, ImageReference, OperatorClass, RadialGradientShape, Unit, operator_class,
 };
 use crate::langtype::{self, KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
@@ -30,6 +30,7 @@ use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -954,13 +955,49 @@ impl Expression {
             },
         }
 
-        let all_subs: Vec<_> = node
+        let mut all_subs: Vec<_> = node
             .children_with_tokens()
             .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression))
             .collect();
 
         let grad_token = node.child_token(SyntaxKind::Identifier).unwrap();
         let grad_text = grad_token.text();
+
+        // CSS's `in <color-space>` clause, if present, comes first, juxtaposed (no comma) with
+        // whatever header element follows (the angle, `circle`, or `from`).
+        let (color_space, had_color_space_clause) = if let Some(in_node) = all_subs
+            .first()
+            .filter(
+                |n| matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "in"),
+            )
+            .cloned()
+        {
+            let space_node = match all_subs.get(1) {
+                Some(n) if n.kind() == SyntaxKind::Expression => n.clone(),
+                _ => {
+                    ctx.diag.push_error("Expected a color space after 'in'".into(), &in_node);
+                    return Expression::Invalid;
+                }
+            };
+            let space_text = space_node.as_node().unwrap().text().to_string();
+            let space_text = space_text.trim();
+            let space = match GradientColorSpace::from_str(space_text) {
+                Ok(space) => space,
+                Err(()) => {
+                    ctx.diag.push_error(
+                        format!(
+                            "'{space_text}' is not a valid color space, expected 'srgb', 'oklch', 'oklab', or 'hsl'"
+                        ),
+                        &space_node,
+                    );
+                    return Expression::Invalid;
+                }
+            };
+            all_subs.drain(0..2);
+            (space, true)
+        } else {
+            (GradientColorSpace::Srgb, false)
+        };
 
         // Helper: parse two consecutive length expressions at positions idx and idx+1
         let parse_at_center = |idx: usize,
@@ -982,24 +1019,38 @@ impl Expression {
         };
 
         let (grad_kind, stops_start_idx) = if grad_text.starts_with("linear") {
-            let angle_expr = match all_subs.first() {
-                Some(e) if e.kind() == SyntaxKind::Expression => {
-                    syntax_nodes::Expression::from(e.as_node().unwrap().clone())
-                }
-                _ => {
-                    ctx.diag.push_error("Expected angle expression".into(), &node);
+            if had_color_space_clause
+                && all_subs.first().is_some_and(|s| s.kind() == SyntaxKind::Comma)
+            {
+                // CSS allows omitting the angle when `in <space>` is given; it then
+                // defaults to "to bottom" (180deg), same as when the whole header is omitted.
+                (
+                    GradKind::Linear {
+                        angle: Box::new(Expression::NumberLiteral(180., Unit::Deg)),
+                    },
+                    1,
+                )
+            } else {
+                let angle_expr = match all_subs.first() {
+                    Some(e) if e.kind() == SyntaxKind::Expression => {
+                        syntax_nodes::Expression::from(e.as_node().unwrap().clone())
+                    }
+                    _ => {
+                        ctx.diag.push_error("Expected angle expression".into(), &node);
+                        return Expression::Invalid;
+                    }
+                };
+                if all_subs.get(1).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
+                    ctx.diag.push_error(
+                        "Angle expression must be an angle followed by a comma".into(),
+                        &node,
+                    );
                     return Expression::Invalid;
                 }
-            };
-            if all_subs.get(1).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
-                ctx.diag.push_error(
-                    "Angle expression must be an angle followed by a comma".into(),
-                    &node,
-                );
-                return Expression::Invalid;
+                let angle =
+                    Box::new(Expression::from_expression_node_as(angle_expr, Type::Angle, ctx));
+                (GradKind::Linear { angle }, 2)
             }
-            let angle = Box::new(Expression::from_expression_node_as(angle_expr, Type::Angle, ctx));
-            (GradKind::Linear { angle }, 2)
         } else if grad_text.starts_with("radial") {
             let is_ellipse = match all_subs.first() {
                 Some(NodeOrToken::Node(node)) if node.text().to_string().trim() == "ellipse" => {
@@ -1182,12 +1233,13 @@ impl Expression {
                 None
             };
 
-            // Expect a comma after the header (if any header elements were present)
-            if (idx > 0) && all_subs.get(idx).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
+            // Expect a comma after the header (if any header elements, including `in <space>`, were present)
+            let header_present = had_color_space_clause || idx > 0;
+            if header_present && all_subs.get(idx).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
                 ctx.diag.push_error("gradient header must be followed by a comma".into(), &node);
                 return Expression::Invalid;
             }
-            let stops_start = if idx > 0 { idx + 1 } else { 0 };
+            let stops_start = if header_present { idx + 1 } else { 0 };
             (GradKind::Conic { from_angle, center }, stops_start)
         } else {
             // Parser should have ensured we have one of the linear, radial or conic gradient
@@ -1312,9 +1364,9 @@ impl Expression {
         }
 
         match grad_kind {
-            GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
+            GradKind::Linear { angle } => Expression::LinearGradient { angle, color_space, stops },
             GradKind::Radial { center, shape } => {
-                Expression::RadialGradient { center, shape, stops }
+                Expression::RadialGradient { center, shape, color_space, stops }
             }
             GradKind::Conic { from_angle, center } => {
                 let node = NodeOrToken::from(node);
@@ -1349,6 +1401,7 @@ impl Expression {
                 Expression::ConicGradient {
                     from_angle: Box::new(from_angle_degrees),
                     center,
+                    color_space,
                     stops: normalized_stops,
                 }
             }
