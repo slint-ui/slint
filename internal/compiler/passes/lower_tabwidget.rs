@@ -156,16 +156,30 @@ fn process_tabwidget(
                 false_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
                 source_location: None,
             },
-            Some(r) => match r.model.ty() {
-                Type::Int32 | Type::Float32 => r.model.clone(),
-                _ => Expression::FunctionCall {
-                    function: Callable::Builtin(
-                        crate::builtin_functions::BuiltinFunction::ArrayLength,
-                    ),
-                    arguments: vec![r.model.clone()],
+            Some(r) => {
+                let count_expr = match r.model.ty() {
+                    Type::Int32 | Type::Float32 => r.model.clone(),
+                    _ => Expression::FunctionCall {
+                        function: Callable::Builtin(
+                            crate::builtin_functions::BuiltinFunction::ArrayLength,
+                        ),
+                        arguments: vec![r.model.clone()],
+                        source_location: None,
+                    },
+                };
+                Expression::Condition {
+                    condition: Expression::BinaryExpression {
+                        lhs: count_expr.clone().into(),
+                        rhs: Expression::NumberLiteral(0.0, Unit::None).into(),
+                        op: '<',
+                        source_location: None,
+                    }
+                    .into(),
+                    true_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
+                    false_expr: count_expr.into(),
                     source_location: None,
-                },
-            },
+                }
+            }
         };
         let count_prop =
             crate::layout::create_new_prop(elem, format_smolstr!("tab-count-{i}"), Type::Int32);

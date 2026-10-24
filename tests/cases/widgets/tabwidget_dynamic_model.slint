@@ -39,12 +39,31 @@ let tab_bar = ElementQuery::from_root(&instance)
     .unwrap();
 assert_eq!(tab_bar.accessible_item_count(), Some(3));
 
+let panels: Vec<_> = ElementQuery::from_root(&instance)
+    .match_descendants()
+    .match_accessible_role(AccessibleRole::TabPanel)
+    .collect();
+assert_eq!(panels.len(), 3);
+assert!(panels[0].is_visible());
+assert!(!panels[1].is_visible());
+assert!(!panels[2].is_visible());
+
 // Adding an entry adds a tab at runtime.
 tabs.push("Delta".into());
 assert_eq!(tab_bar.accessible_item_count(), Some(4));
+let panels: Vec<_> = ElementQuery::from_root(&instance)
+    .match_descendants()
+    .match_accessible_role(AccessibleRole::TabPanel)
+    .collect();
+assert_eq!(panels.len(), 4);
 
 // Removing an entry removes the corresponding tab.
 tabs.remove(0);
 assert_eq!(tab_bar.accessible_item_count(), Some(3));
+let panels: Vec<_> = ElementQuery::from_root(&instance)
+    .match_descendants()
+    .match_accessible_role(AccessibleRole::TabPanel)
+    .collect();
+assert_eq!(panels.len(), 3);
 ```
 */

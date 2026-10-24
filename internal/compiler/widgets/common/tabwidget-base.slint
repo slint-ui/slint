@@ -13,6 +13,8 @@ export component TabBarBase inherits TouchArea {
     changed num-tabs => {
         if root.current >= root.num-tabs {
             root.current = root.num-tabs - 1;
+        } else if root.current < 0 && root.num-tabs > 0 {
+            root.current = 0;
         }
     }
 

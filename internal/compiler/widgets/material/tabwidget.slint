@@ -123,6 +123,8 @@ component MaterialTabBarBase inherits TabBarBase {
     changed num-tabs => {
         if focus-scope.focused-tab >= root.num-tabs {
             focus-scope.focused-tab = root.num-tabs - 1;
+        } else if focus-scope.focused-tab < 0 && root.num-tabs > 0 {
+            focus-scope.focused-tab = 0;
         }
     }
 
