@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Without a native macOS menu bar, items with the `quit` role stay in place,
+// and items with the `hide` role are hidden.
+
+export component TestCase inherits Window {
+    in-out property <string> result;
+
+    MenuBar {
+        Menu {
+            title: "File";
+            MenuItem {
+                title: "Quit";
+                role: quit;
+                shortcut: @keys(Control + Q);
+                activated => { result += self.title; }
+            }
+            MenuItem {
+                title: "Hide";
+                role: hide;
+                shortcut: @keys(Control + H);
+                activated => { result += self.title; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+let assert_shortcut = |keys: &[Key], expected: &str| {
+    slint_testing::send_key_combo(&instance, keys.iter().copied());
+    assert_eq!(instance.get_result(), expected);
+    instance.set_result("".into());
+};
+
+assert_shortcut(&[Key::Control, Key::Q], "Quit");
+assert_shortcut(&[Key::Control, Key::H], "");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::SharedString ctrl(slint::platform::key_codes::Control);
+auto assert_shortcut = [&](const char *key, const char *expected) {
+    slint_testing::send_key_combo(&instance, { ctrl, key });
+    assert_eq(instance.get_result(), expected);
+    instance.set_result("");
+};
+
+assert_shortcut("Q", "Quit");
+assert_shortcut("H", "");
+```
+
+```js
+var instance = new slint.TestCase();
+const assert_shortcut = (key, expected) => {
+    slintlib.private_api.send_key_combo(instance, ["\u0011", key]);
+    assert.equal(instance.result, expected);
+    instance.result = "";
+};
+
+assert_shortcut("Q", "Quit");
+assert_shortcut("H", "");
+```
+
+*/
