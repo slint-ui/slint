@@ -29,30 +29,101 @@ class RgbaColor:
     alpha: int
 
 class Color:
+    r"""
+    A Color object represents a color in the RGB color space with an alpha. Each color channel and the alpha are
+    represented as an 8-bit integer. The alpha channel is:
+
+    - `0`: fully transparent
+    - `255`: fully opaque
+
+    You can construct colors from a CSS color string, or from a dict with the red, green, blue, and optional alpha channels.
+    """
+
     red: int
+    r"""The red channel."""
     green: int
+    r"""The green channel."""
     blue: int
+    r"""The blue channel."""
     alpha: int
+    r"""The alpha channel."""
     def __new__(
         cls,
         maybe_value: str | RgbaColor | RgbColor | dict[str, int] | None = None,
     ) -> Self: ...
-    def brighter(self, factor: float) -> Color: ...
-    def darker(self, factor: float) -> Color: ...
-    def transparentize(self, factor: float) -> Color: ...
-    def mix(self, other: Color, factor: float) -> Color: ...
-    def with_alpha(self, alpha: float) -> Color: ...
+    def brighter(self, factor: float) -> Color:
+        r"""Returns a new color that is brighter than this color by the given factor."""
+
+    def darker(self, factor: float) -> Color:
+        r"""Returns a new color that is darker than this color by the given factor."""
+
+    def transparentize(self, factor: float) -> Color:
+        r"""
+        Returns a new version of this color with the opacity decreased by `factor`.
+
+        The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+        """
+
+    def mix(self, other: Color, factor: float) -> Color:
+        r"""
+        Returns a new color that is a mix of this color and `other`. The specified factor is
+        clamped to be between `0.0` and `1.0` and then applied to this color, while `1.0 - factor`
+        is applied to `other`.
+        """
+
+    def with_alpha(self, alpha: float) -> Color:
+        r"""Returns a new version of this color with the opacity set to `alpha`."""
+
     def __eq__(self, other: object) -> bool: ...
 
 class Brush:
+    r"""
+    A brush describes how a shape, such as a rectangle, path, or even text, is filled. You can also apply a brush
+    to the outline of a shape, which fills the outline itself.
+
+    You can only construct brushes from solid colors.
+
+    **Note:** In the future, we plan to lift this constraint and let you declare gradient brushes programmatically.
+    """
+
     color: Color
+    r"""The brush's color."""
     def __new__(cls, maybe_value: Color | None) -> Self: ...
-    def is_transparent(self) -> bool: ...
-    def is_opaque(self) -> bool: ...
-    def brighter(self, factor: float) -> Brush: ...
-    def darker(self, factor: float) -> Brush: ...
-    def transparentize(self, amount: float) -> Brush: ...
-    def with_alpha(self, alpha: float) -> Brush: ...
+    def is_transparent(self) -> bool:
+        r"""Returns `True` if this brush contains a fully transparent color (alpha value is `0`)."""
+
+    def is_opaque(self) -> bool:
+        r"""Returns `True` if this brush is fully opaque."""
+
+    def brighter(self, factor: float) -> Brush:
+        r"""
+        Returns a new version of this brush that has the brightness increased
+        by the specified factor. This is done by calling `Color.brighter` on
+        all the colors of this brush.
+        """
+
+    def darker(self, factor: float) -> Brush:
+        r"""
+        Returns a new version of this brush that has the brightness decreased
+        by the specified factor. This is done by calling `Color.darker` on
+        all the colors of this brush.
+        """
+
+    def transparentize(self, amount: float) -> Brush:
+        r"""
+        Returns a new version of this brush with the opacity decreased by `amount`.
+
+        The transparency is obtained by multiplying the alpha channel by `(1 - amount)`.
+
+        See also `Color.transparentize`.
+        """
+
+    def with_alpha(self, alpha: float) -> Brush:
+        r"""
+        Returns a new version of this brush with the related color's opacities
+        set to `alpha`.
+        """
+
     def __eq__(self, other: object) -> bool: ...
 
 class Keys:
@@ -60,11 +131,17 @@ class Keys:
     Represents a key binding created by the `@keys(...)` macro in Slint.
 
     This is an opaque type. Use `str()` to get a platform-native representation
-    of the key binding (e.g. "Ctrl+A" on Linux/Windows, "⌘A" on macOS).
+    of the key binding, such as `Ctrl+A` on Linux or Windows, and `⌘A` on macOS.
     """
 
     @staticmethod
-    def from_parts(parts: list[str]) -> Keys: ...
+    def from_parts(parts: list[str]) -> Keys:
+        r"""
+        Creates a `Keys` from a list of string parts, such as `["Control", "Shift?", "Z"]`.
+
+        Each element is either a modifier name or a key name. Raises `ValueError` if the parts can't be parsed.
+        """
+
     def __eq__(self, other: object) -> bool: ...
 
 class DataTransfer:
@@ -121,7 +198,9 @@ class StyledText:
     Python wrapper for Slint's `styled-text` type.
     """
 
-    def __new__(cls) -> Self: ...
+    def __new__(cls) -> Self:
+        r"""Creates empty styled text."""
+
     @staticmethod
     def from_plain_text(text: str) -> StyledText:
         r"""
@@ -131,10 +210,10 @@ class StyledText:
     @staticmethod
     def from_markdown(markdown: str) -> StyledText:
         r"""
-        Parses markdown and returns a StyledText object.
+        Parses Markdown and returns a StyledText object.
 
         Raises:
-            ValueError: If the markdown contains unsupported syntax.
+            ValueError: If the Markdown contains unsupported syntax.
         """
 
     def __eq__(self, other: object) -> bool: ...
@@ -168,22 +247,26 @@ class Image:
     """
 
     size: tuple[int, int]
+    r"""The size of the image as a tuple of `width` and `height`."""
     width: int
+    r"""The width of the image in pixels."""
     height: int
+    r"""The height of the image in pixels."""
     path: pathlib.Path | None
+    r"""The path of the image if it was loaded from disk, or `None`."""
     def __new__(
         cls,
     ) -> Self: ...
     @staticmethod
     def load_from_path(path: str | os.PathLike[Any] | pathlib.Path) -> Image:
         r"""
-        Loads the image from the specified path. Returns None if the image can't be loaded.
+        Loads the image from the specified path. Raises `RuntimeError` if the image can't be loaded.
         """
 
     @staticmethod
     def load_from_svg_data(data: typing.Sequence[int]) -> Image:
         r"""
-        Creates a new image from a string that describes the image in SVG format.
+        Creates a new image from bytes that describe the image in SVG format.
         """
 
     @staticmethod
@@ -197,9 +280,12 @@ class Image:
          - The buffer's format needs to be `B` (unsigned char)
          - The shape must be a tuple of (height, width, bytes-per-pixel)
          - If a stride is defined, the row stride must be equal to width * bytes-per-pixel, and the column stride must equal the bytes-per-pixel.
-         - A value of 3 for bytes-per-pixel is interpreted as RGB image, a value of 4 means RGBA.
+         - A value of 3 for bytes-per-pixel is interpreted as an RGB image, a value of 4 means RGBA.
 
-        Example of importing a matplot figure into an image:
+        The image is created by performing a deep copy of the array's data. Subsequent changes to the buffer aren't
+        reflected in a previously created Image.
+
+        Example of importing a Matplotlib figure into an image:
         ```python
         import slint
         import matplotlib
@@ -230,22 +316,96 @@ class Image:
         """
 
 class TimerMode(Enum):
+    r"""
+    The TimerMode specifies what happens after the timer fires.
+
+    Used by the `Timer.start()` function.
+    """
+
     SingleShot = auto()
+    r"""A SingleShot timer is fired only once."""
     Repeated = auto()
+    r"""A Repeated timer is fired repeatedly until it's stopped or dropped."""
 
 class Timer:
+    r"""
+    Timer is a handle to the timer system that triggers a callback after a specified
+    period of time.
+
+    Use `Timer.start()` to create a timer that repeatedly triggers a callback, or
+    `Timer.single_shot()` to trigger a callback only once.
+
+    The timer stops automatically when it's garbage collected. You must keep the Timer object
+    around for as long as you want the timer to keep firing.
+
+    ```python
+    class AppWindow(...):
+        def __init__(self):
+            super().__init__()
+            self.my_timer = None
+
+        @slint.callback
+        def button_clicked(self):
+            self.my_timer = slint.Timer()
+            self.my_timer.start(slint.TimerMode.Repeated, timedelta(seconds=1), self.do_something)
+
+        def do_something(self):
+            pass
+    ```
+
+    **Note:** Timers only work in the thread that runs the Slint event loop. They don't
+    fire if you use them in another thread.
+    """
+
     running: bool
+    r"""`True` if the timer is running; `False` otherwise."""
     interval: datetime.timedelta
+    r"""
+    The duration of the timer.
+
+    If you set this property while the timer is running (see `Timer.running`),
+    the time when the callback is next invoked is recalculated to be in the
+    specified duration relative to when you set the property.
+    """
     def __new__(
         cls,
     ) -> Self: ...
     def start(
         self, mode: TimerMode, interval: datetime.timedelta, callback: typing.Any
-    ) -> None: ...
+    ) -> None:
+        r"""
+        Starts the timer with the given mode and interval, to call the callback when the
+        timer fires. If the timer has been started previously and hasn't fired yet, it's restarted.
+
+        Arguments:
+        * `mode`: The timer mode to apply, that is, whether to fire the timer repeatedly or just once.
+        * `interval`: The duration from now until the timer fires the first time, and subsequently
+           for `TimerMode.Repeated` timers.
+        * `callback`: The function to call when the time has been reached or exceeded.
+        """
+
     @staticmethod
-    def single_shot(duration: datetime.timedelta, callback: typing.Any) -> None: ...
-    def stop(self) -> None: ...
-    def restart(self) -> None: ...
+    def single_shot(duration: datetime.timedelta, callback: typing.Any) -> None:
+        r"""
+        Starts a timer with the duration and the callback to call when the
+        timer fires. It fires only once and is then deleted.
+
+        Arguments:
+        * `duration`: The duration from now until the timer fires.
+        * `callback`: The function to call when the time has been reached or exceeded.
+        """
+
+    def stop(self) -> None:
+        r"""Stops the previously started timer. Does nothing if the timer has never been started."""
+
+    def restart(self) -> None:
+        r"""
+        Restarts the timer. If the timer was previously started by calling `Timer.start()`
+        with a duration and callback, then the time when the callback is next invoked
+        is recalculated to be in the specified duration relative to when you call this function.
+
+        Does nothing if the timer was never started.
+        """
 
 def set_xdg_app_id(app_id: str) -> None: ...
 def invoke_from_event_loop(callable: typing.Callable[[], None]) -> None: ...
@@ -260,6 +420,34 @@ class PyModelBase:
     def notify_row_changed(self, row: int) -> None: ...
     def notify_row_removed(self, row: int, count: int) -> None: ...
     def notify_row_added(self, row: int, count: int) -> None: ...
+
+class PyModelAdapter:
+    @staticmethod
+    def map(
+        source: typing.Any,
+        map_function: typing.Callable[[typing.Any], typing.Any],
+        target: PyModelBase,
+    ) -> PyModelAdapter: ...
+    @staticmethod
+    def reverse(source: typing.Any, target: PyModelBase) -> PyModelAdapter: ...
+    @staticmethod
+    def sort(
+        source: typing.Any,
+        key: typing.Callable[[typing.Any], typing.Any] | None,
+        reverse: bool,
+        target: PyModelBase,
+    ) -> PyModelAdapter: ...
+    @staticmethod
+    def filter(
+        source: typing.Any,
+        filter_function: typing.Callable[[typing.Any], bool],
+        target: PyModelBase,
+    ) -> PyModelAdapter: ...
+    def row_count(self) -> int: ...
+    def row_data(self, row: int) -> typing.Any: ...
+    def set_row_data(self, row: int, data: typing.Any) -> None: ...
+    def reset(self) -> None: ...
+    def source_row(self, row: int) -> int: ...
 
 class PyStruct(Any): ...
 
@@ -278,6 +466,7 @@ class ValueType(Enum):
 class DiagnosticLevel(Enum):
     Error = auto()
     Warning = auto()
+    Info = auto()
     Note = auto()
 
 class PyDiagnostic:

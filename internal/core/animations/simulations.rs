@@ -1,16 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This module contains various physics simulations which can be used as animation (internally only yet).
-//! Currently it is used in the flickable to animate the content position of the Flickable
+//! Physics simulations that animate a Flickable's content position.
 //!
-//! Currently it contains two simulations:
-//! - `ConstantDeceleration`
-//! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
+//! `accelerate` speeds up to a maximum speed and keeps it.
+//! `android` decelerates a fling that stops hard at its scroll limit.
+//! `bounce` decelerates a fling that may run past its scroll limit, and springs content past the limit back to it.
+//! `decelerate` slows down and stops after a distance.
+//! `ease_in_out_sine` moves the position by a fixed distance in a fixed duration.
+//! `rubber_band` maps between the drag distance past a limit and the displayed overscroll.
+//! `spring` holds the spring math `bounce` builds on.
+//! `spring_flick` moves the position by a fixed distance with a spring.
 
-pub mod constant_deceleration;
-pub mod constant_deceleration_spring_damper;
+pub mod accelerate;
+pub mod android;
+pub mod bounce;
+pub mod decelerate;
+pub mod ease_in_out_sine;
+pub mod rubber_band;
 pub mod spring;
+pub mod spring_flick;
 
 use crate::animations::Instant;
 
@@ -21,6 +30,13 @@ enum Direction {
     Increasing,
     /// The start value is larger than the limit value
     Decreasing,
+}
+
+pub trait PositionSimulation {
+    /// The signed distance the position still has to move at `now` until the simulation comes
+    /// to rest. Not the distance it already moved.
+    fn remaining_distance(&self, now: Instant) -> f32;
+    fn remaining_velocity(&self, now: Instant) -> f32;
 }
 
 /// Common simulation trait
@@ -42,9 +58,10 @@ pub trait Parameter {
 
 #[cfg(test)]
 macro_rules! assert_approx_eq {
-    ($a:expr, $b:expr) => {
-        assert!(($a - $b).abs() < 1e-4, "{} != {}", $a, $b);
-    };
+    ($a:expr, $b:expr) => {{
+        let (a, b): (f32, f32) = ($a, $b);
+        assert!((a - b).abs() < 1e-4 * a.abs().max(b.abs()).max(1.), "{a} != {b}");
+    }};
 }
 #[cfg(test)]
 pub(crate) use assert_approx_eq;

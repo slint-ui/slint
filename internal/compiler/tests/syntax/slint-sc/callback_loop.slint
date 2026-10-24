@@ -15,10 +15,10 @@ export component Test inherits Window {
         first => { inner.second(); }
 //      >error{The binding for the property 'first' is part of a binding loop (inner.first -> inner.second -> inner.first)}
         second => { inner.first(); }
-//      >error{The binding for the property 'second' is part of a binding loop (inner.first -> inner.second -> inner.first)}
-//     <^error{The binding for the property 'first' is part of a binding loop (inner.first -> inner.second -> inner.first)}
+//     <error{The binding for the property 'first' is part of a binding loop (inner.first -> inner.second -> inner.first)}
+//      >^note{'second' is part of the binding loop reported for 'first' at line 15}
     }
-// <error{The binding for the property 'second' is part of a binding loop (inner.first -> inner.second -> inner.first)}
+// <note{'second' is part of the binding loop reported for 'first' at line 15}
     TouchArea {
         clicked => { inner.first(); }
     }

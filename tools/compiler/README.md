@@ -27,16 +27,23 @@ From crates.io, which builds it from source and needs
 [Rust](https://www.rust-lang.org/learn/get-started):
 
 ```bash
-cargo install slint-compiler
+cargo install --locked slint-compiler
 ```
 
-Or from PyPI, which ships a pre-built binary and needs no Rust toolchain:
+Or as a pre-built binary that needs no Rust toolchain, from PyPI:
 
 ```bash
 pip install slint-compiler
 ```
 
-Both install the same `slint-compiler` program.
+Or from npm:
+
+```bash
+npm install --save-dev slint-compiler
+```
+
+All of them install the same `slint-compiler` program.
+Run it without installing through `uvx slint-compiler` or `npx slint-compiler`.
 
 ## Usage
 

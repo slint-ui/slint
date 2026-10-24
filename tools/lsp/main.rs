@@ -31,7 +31,7 @@ pub use server_notifier::{OutgoingRequestQueue, ServerNotifier, complete_request
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, FileChangeType, InitializeParams, Url,
+    DidOpenTextDocumentParams, FileChangeType, InitializeParams,
     notification::{
         DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
         DidOpenTextDocument, Notification,
@@ -40,9 +40,11 @@ use lsp_types::{
 use tokio::sync::mpsc;
 
 use clap::{Args, Parser, Subcommand};
+use i_slint_compiler::source_path::SourcePath;
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, Response};
 use std::io::Write as _;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
@@ -83,7 +85,7 @@ pub struct Cli {
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Vec<String>,
 
-    /// The style name for the preview. Defaults to 'fluent' if not specified
+    /// The style name for the preview.
     #[arg(long, name = "style name", default_value_t, action)]
     style: String,
 
@@ -372,7 +374,7 @@ impl LspFileWatcherImpl {
             .into_iter()
             .filter_map(|event| {
                 tracing::debug!("Watched file changed: {} (type: {:?})", event.uri, event.typ);
-                editor_preview::uri_to_file(&event.uri).and_then(|path| {
+                SourcePath::from_url(&event.uri).into_native_path().and_then(|path| {
                     let ty = match event.typ {
                         FileChangeType::DELETED => FileChangeKind::Deleted,
                         FileChangeType::CREATED => FileChangeKind::Created,
@@ -439,21 +441,38 @@ async fn run_main_loop(
     register_request_handlers(&mut rh);
 
     let to_preview_clone = to_preview.clone();
+    let startup_include_paths =
+        (!cli_args.include_paths.is_empty()).then(|| cli_args.include_paths.clone());
+    let library_paths: std::collections::HashMap<String, std::path::PathBuf> = cli_args
+        .library_paths
+        .iter()
+        .filter_map(|entry| {
+            entry.split('=').collect_tuple().map(|(key, value)| (key.into(), value.into()))
+        })
+        .collect();
+    let startup_library_paths = (!library_paths.is_empty()).then(|| library_paths.clone());
+    let startup_style = (!cli_args.style.is_empty()).then(|| cli_args.style.clone());
     let compiler_config = CompilerConfiguration {
-        style: Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style }),
-        include_paths: cli_args.include_paths,
-        library_paths: cli_args
-            .library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
+        compiler_config: {
+            let mut compiler_config =
+                editor_preview::document_cache::CompilerConfiguration::default().compiler_config;
+            compiler_config.include_paths = cli_args.include_paths;
+            compiler_config.library_paths = library_paths;
+            if let Some(style) = &startup_style {
+                compiler_config.style = Some(style.clone());
+            }
+            compiler_config.resource_url_mapper = None;
+            compiler_config
+        },
         open_import_callback: Some(Rc::new(move |path| {
             let to_preview = to_preview_clone.clone();
             // let server_notifier = server_notifier_.clone();
             Box::pin(async move {
-                tracing::trace!("Importing file: {}", path);
-                let contents = std::fs::read(&path);
-                if let Ok(url) = Url::from_file_path(&path) {
+                tracing::trace!("Importing file: {path}");
+                let contents = path.read().map(std::borrow::Cow::into_owned);
+                if let SourcePath::File(_) = &path
+                    && let Some(url) = path.to_url()
+                {
                     if let Ok(contents) = &contents {
                         to_preview.send(&LspToPreviewMessage::SetContents {
                             url: VersionedUrl::new(url, None),
@@ -479,24 +498,32 @@ async fn run_main_loop(
         } else {
             editor_preview::ByteFormat::Utf16
         },
-        resource_url_mapper: None,
-        // The i_slint_compiler::CompilerConfiguration::default() will read the environment variable
-        enable_experimental: false,
     };
+
+    let document_cache = crate::editor_preview::DocumentCache::new(compiler_config);
+    let mut session = crate::editor_preview::EditorSession::new(document_cache, to_preview);
+    session.set_workspace_roots(
+        host_language_search::resolve_workspace_folders(&init_param)
+            .into_iter()
+            .filter_map(|folder| SourcePath::from_url(&folder.uri).into_native_path())
+            .collect(),
+    );
+    session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
+        compiler: i_slint_compiler::project_file::Overrides {
+            project: i_slint_compiler::project_file::ProjectFileData {
+                include_paths: startup_include_paths,
+                library_paths: startup_library_paths,
+                ..Default::default()
+            },
+            style: startup_style,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let mut ctx = Context {
-        session: crate::editor_preview::EditorSession {
-            document_cache: crate::editor_preview::DocumentCache::new(compiler_config),
-            preview_config: Default::default(),
-            open_urls: Default::default(),
-            previews: vec![crate::editor_preview::PreviewConnection {
-                to_preview,
-                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-                to_show: Default::default(),
-            }],
-            pending_recompile: Default::default(),
-        },
+        session,
         server_notifier,
         init_param,
         host_language_rename_dont_ask_again: Default::default(),
@@ -579,7 +606,7 @@ async fn run_main_loop(
             }
             file_event = file_watcher_receiver.recv() => {
                 if let Some(file_event) = file_event
-                    && let Some(uri) = editor_preview::file_to_uri(&file_event.path)
+                    && let Ok(uri) = lsp_types::Url::from_file_path(&file_event.path)
                     && let Ok(diagnostics) =
                         ctx.session.trigger_file_watcher(uri, file_event.kind).await
                 {
@@ -601,6 +628,10 @@ async fn run_main_loop(
             }
         }
 
+        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+        if let Err(error) = language::sync_preview_project_root(&ctx.session) {
+            tracing::warn!("Failed to sync preview project root: {error}");
+        }
         sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
     }
 }
@@ -615,8 +646,14 @@ fn sync_file_watcher_if_needed(
         return Ok(());
     }
 
+    let watched_paths = ctx
+        .session
+        .document_cache
+        .all_paths_to_watch()
+        .into_iter()
+        .chain(ctx.session.active_project_file_paths().map(Path::to_path_buf));
     watcher
-        .update_watched_paths(ctx.session.document_cache.all_paths_to_watch())
+        .update_watched_paths(watched_paths)
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
@@ -751,7 +788,9 @@ async fn handle_notification(
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
-            ctx.session.close_document(params.text_document.uri).await
+            let diagnostics = ctx.session.close_document(params.text_document.uri).await?;
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
@@ -856,6 +895,9 @@ async fn handle_preview_to_lsp_message(
             crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, take_focus)
                 .await;
         }
+        M::ClearHighlight => {
+            tracing::debug!("Ignoring ClearHighlight from the preview");
+        }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
             ctx.session.primary_preview().to_preview.set_local_target(target)?;
@@ -942,4 +984,23 @@ async fn handle_preview_to_lsp_message(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    // wasm_main.rs is only compiled for wasm32, so check the rule documented on
+    // `SlintServer::ctx` as text (regression of #11258).
+    #[test]
+    fn no_exported_async_method_takes_mut_self() {
+        let offenders = include_str!("wasm_main.rs")
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.contains("async fn") && line.contains("&mut self"))
+            .collect::<Vec<_>>();
+        assert!(
+            offenders.is_empty(),
+            "exported async SlintServer methods must take `&self`, not `&mut self`:\n{}",
+            offenders.join("\n"),
+        );
+    }
 }

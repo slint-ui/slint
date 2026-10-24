@@ -29,6 +29,8 @@ default = ["skia", "software", "software-embed-assets"]
 # (parley) and runtime-decoded images. `configure_test_fonts()` makes that deterministic.
 software = ["slint/renderer-software", "dep:i-slint-compiler", "dep:i-slint-backend-testing"]
 skia = ["dep:i-slint-renderer-skia", "dep:slint-interpreter"]
+# Offscreen GPU tests for the shared FemtoVG rendering path.
+femtovg = ["dep:i-slint-renderer-femtovg", "dep:wgpu-30", "dep:slint-interpreter", "dep:i-slint-backend-testing"]
 # Snapshot-tests the command stream recorded by i-slint-renderer-anyrender
 # against JSON goldens in `references/anyrender/`; renders mismatches to PNG
 # via the wgpu-free anyrender_vello_cpu backend.
@@ -46,20 +48,33 @@ anyrender = [
 # Additionally render cases with everything pre-rendered at compile time: bitmap fonts and
 # pre-decoded textures (the MCU-style `EmbedTextures` path).
 software-embed-assets = ["software"]
+# Render the embed-assets cases through the interpreter too, with its compiler pre-rendering
+# images and fonts. Compares against the `software_embed_assets` references.
+interpreter-embed-assets = [
+  "software",
+  "dep:slint-interpreter",
+  "slint-interpreter/internal",
+  "slint-interpreter/internal-embed-textures",
+  "dep:spin_on",
+]
 
 [dependencies]
 slint = { workspace = true, features = ["std", "compat-1-2"], optional = true }
 i-slint-core = { workspace = true, features = ["unicode", "std"] }
 
 i-slint-renderer-skia = { workspace = true, optional = true }
+i-slint-renderer-femtovg = { workspace = true, optional = true, features = ["unstable-wgpu-30"] }
+wgpu-30 = { package = "wgpu", version = "30", optional = true }
 i-slint-renderer-anyrender = { workspace = true, optional = true }
-anyrender = { version = "0.13", optional = true }
-anyrender_serialize = { version = "0.7", optional = true }
-anyrender_vello_cpu = { version = "0.16", optional = true }
+anyrender = { version = "0.14", optional = true }
+anyrender_serialize = { version = "0.8", optional = true }
+anyrender_vello_cpu = { version = "0.18", optional = true, features = ["filters"] }
 kurbo = { version = "0.13", optional = true }
 peniko = { version = "0.6", optional = true }
 serde_json = { version = "1", optional = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2"], optional = true }
+spin_on = { workspace = true, optional = true }
+i-slint-compiler = { workspace = true, optional = true }
 # Provides `configure_test_fonts()` to register the bundled test fonts at runtime so the default
 # software driver resolves fonts deterministically without importing a .ttf.
 i-slint-backend-testing = { workspace = true, features = ["internal"], optional = true }
@@ -72,3 +87,6 @@ i-slint-compiler = { workspace = true, features = ["default", "rust", "display-d
 walkdir = "2.3"
 spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }
+
+[dev-dependencies]
+raw-window-handle = { version = "0.6" }

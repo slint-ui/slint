@@ -1,0 +1,28 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "roundoff",
+    "name": "roundoff",
+    "type": "INSTANCE",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "width": -1e-06,
+      "height": 28,
+      "rotation": 1e-06,
+      "opacity": 1,
+      "visible": true,
+      "fills": [],
+      "strokes": [],
+      "effects": [],
+      "layoutMode": "NONE",
+      "layoutPositioning": "ABSOLUTE"
+    },
+    "children": []
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

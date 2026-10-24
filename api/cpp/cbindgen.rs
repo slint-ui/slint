@@ -5,7 +5,7 @@ use anyhow::Context;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-// cSpell: ignore compat constexpr corelib deps sharedvector pathdata
+// cSpell: ignore compat constexpr corelib cstdint deps sharedvector pathdata
 
 fn enums(path: &Path) -> anyhow::Result<()> {
     let mut enums_priv = BufWriter::new(
@@ -145,11 +145,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                 writeln!(file, "struct {} {{", stringify!($Name))?;
                 $(
                     $(writeln!(file, "    ///{}", $field_doc)?;)*
-                    let field_type = match stringify!($field_type) {
-                        "i32" => "int32_t",
-                        "f32" | "Coord" => "float",
-                        other => other,
-                    };
+                    let field_type = rust_type_to_cpp(stringify!($field_type));
                     // The raw tokens of the default value stringify with spaces, such as
                     // `CapitalizationMode :: Sentences`; the header reads better without them.
                     let default_value: String = stringify!($($field_default)*)
@@ -318,6 +314,64 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Declares the C functions that `i_slint_core::builtin_functions` defines.
+fn builtin_functions(path: &Path) -> anyhow::Result<()> {
+    let mut out = BufWriter::new(
+        std::fs::File::create(path.join("slint_builtin_functions_internal.h"))
+            .context("Error creating slint_builtin_functions_internal.h file")?,
+    );
+    writeln!(out, "#pragma once")?;
+    writeln!(out, "// This file is auto-generated from {}", file!())?;
+    writeln!(out, "#include <cstdint>")?;
+    writeln!(out, "#include \"private/slint_enums_internal.h\"")?;
+    // The types of the functions, which `rust_type_to_cpp` doesn't change
+    writeln!(
+        out,
+        "namespace slint {{ class Brush; class Color; class Keys; struct HsvaColor; struct OklchColor; \
+         template<typename T> struct RgbaColor; struct SharedString; struct StyledText; \
+         struct LogicalPosition; }}"
+    )?;
+    writeln!(
+        out,
+        "namespace slint::cbindgen_private {{ struct FontMetrics; struct ItemRc; extern \"C\" {{"
+    )?;
+    macro_rules! print_builtin_functions {
+        ($(
+            $(#[$attr:meta])*
+            $Name:ident $(($Payload:ident))? : $(#[$runtime_attr:meta])*
+                $purity:ident fn $($name:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
+        )*) => {
+            $(print_builtin_functions!(@ $($name)? ($($params)*) -> $Ret $($body)?);)*
+        };
+        (@ ($($params:tt)*) -> $Ret:tt) => {};
+        // The C function gets the thread's context
+        (@ $name:ident ($(& context $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) -> $Ret:tt $body:block) => {
+            let params = vec![
+                format!("{} *", rust_type_to_cpp(stringify!($Ret))),
+                $(format!("const {} *", rust_type_to_cpp(stringify!($ty)))),*
+            ];
+            writeln!(out, "void slint_builtin_{}({});", stringify!($name), params.join(", "))?;
+        };
+    }
+    i_slint_common::for_each_builtin_function!(print_builtin_functions);
+    writeln!(out, "}} }}")?;
+    Ok(())
+}
+
+/// The C++ type of a Rust type in `for_each_builtin_structs!` or `for_each_builtin_function!`
+fn rust_type_to_cpp(rust_type: &str) -> &str {
+    match rust_type {
+        "i32" => "int32_t",
+        "f32" | "Coord" => "float",
+        "f64" => "double",
+        "RgbaColorU8" => "RgbaColor<uint8_t>",
+        // An `ItemArg<Item>` in Rust
+        "ItemArg" => "ItemRc",
+        "()" => "void",
+        other => other,
+    }
+}
+
 fn ensure_cargo_rerun_for_crate(
     crate_dir: &Path,
     dependencies: &mut Vec<PathBuf>,
@@ -372,19 +426,21 @@ fn default_config() -> cbindgen::Config {
         .collect(),
         ..Default::default()
     };
-    config.defines = [
+    #[rustfmt::skip]
+    let defines: Vec<(String, String)> = vec![
         ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
         ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
         // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
+        ("feature = image-pixel-format-rgb565".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into()),
+        ("feature = image-pixel-format-gray8".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8".into()),
+        ("feature = image-pixel-format-alpha-map".into(), "SLINT_DISABLED_CODE".into()),
         // Disable Rust WGPU specific API feature
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
-    ]
-    .iter()
-    .cloned()
-    .collect();
+    ];
+    config.defines = defines.into_iter().collect();
     config.structure.associated_constants_in_body = true;
     config.constant.allow_constexpr = true;
     config
@@ -446,6 +502,7 @@ fn gen_corelib(
         "TextInput",
         "Clip",
         "BoxShadow",
+        "BackdropBlur",
         "Transform",
         "Opacity",
         "Layer",
@@ -481,6 +538,7 @@ fn gen_corelib(
         "PointerScrollEvent",
         "Rect",
         "BitmapFont",
+        "StaticStorage",
         "DataTransferOpaque",
         // Return type of the ItemTree vtable's flexbox_layout_item_info* methods.
         // cbindgen can't see those (not extern "C"), and it is no longer reachable
@@ -569,7 +627,10 @@ fn gen_corelib(
         "LogicalRect",
         "LogicalPoint",
         "LogicalPosition",
+        "LogicalSize",
         "LogicalLength",
+        "MouseEvent",
+        "OnceBox",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -592,6 +653,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
+        .with_src(crate_dir.join("debug_info.rs"))
         .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
@@ -672,17 +734,14 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
             "slint_color_transparentize",
-            "slint_color_mix",
             "slint_color_with_alpha",
-            "slint_color_to_hsva",
             "slint_color_from_hsva",
-            "slint_color_from_oklch",
-            "slint_color_to_oklch",],
+            "slint_color_from_oklch",],
             "slint_color_internal.h",
             "",
         ),
@@ -694,7 +753,8 @@ fn gen_corelib(
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
                  "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
-                 "slint_brush_compare_equal"],
+                 "slint_brush_compare_equal", "RADIAL_GRADIENT_DEFAULT_RADIUS",
+                 "RADIAL_GRADIENT_SHAPE_CIRCLE", "RADIAL_GRADIENT_SHAPE_ELLIPSE"],
             "slint_brush_internal.h",
             "",
         ),
@@ -740,7 +800,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["MouseEvent", "BackendMouseEvent", "TouchPhase"],
+            vec!["BackendMouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
@@ -752,7 +812,7 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys", "slint_keys_from_parts", "slint_keys_to_parts"],
+            vec!["Keys", "KeysInner", "slint_keys", "slint_keys_from_parts", "slint_keys_to_parts"],
             "slint_keys_internal.h",
             "#include \"private/slint_builtin_structs.h\"\n\
             namespace slint::cbindgen_private::types {\n\
@@ -767,7 +827,6 @@ fn gen_corelib(
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
             "slint_keys_debug_string",
-            "slint_keys_to_string",
             "slint_keys",
             "slint_keys_from_parts",
             "slint_keys_to_parts",
@@ -818,9 +877,15 @@ fn gen_corelib(
             "slint_windowrc_nsview_appkit",
             "GradientStop",
             "ConicGradientBrush",
+            // Handwritten in private/slint_color.h
+            "Rgb565Pixel",
+            "Gray8Pixel",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
             "slint_brush_compare_equal",
+            "RADIAL_GRADIENT_DEFAULT_RADIUS",
+            "RADIAL_GRADIENT_SHAPE_CIRCLE",
+            "RADIAL_GRADIENT_SHAPE_ELLIPSE",
             "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()
@@ -952,29 +1017,6 @@ fn gen_corelib(
     ~WindowEvent() {}"
             .into(),
     );
-    config
-        .export
-        .body
-        .insert("FocusScope".to_owned(), "    inline FocusScope(); inline ~FocusScope();".into());
-    config
-        .export
-        .pre_body
-        .insert("MaybeKeyBindingList".to_owned(), "struct KeyBindingList;".into());
-    config
-        .export
-        .body
-        .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
-    config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
-    config.export.body.insert("Path".to_owned(), "    inline Path(); inline ~Path();".into());
-    config.export.pre_body.insert("FittedPathBox".to_owned(), "struct FittedPathInner;".into());
-    config.export.body.insert(
-        "SystemTrayIcon".to_owned(),
-        "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
-    );
-    config
-        .export
-        .pre_body
-        .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
     // cbindgen only derives the special member functions and equality for tagged enums in the
     // separate special-config pass, not for the types generated here, so they are provided by
     // hand. The `CustomMouseCursor` variant holds a non-trivial `Image`, so the active union
@@ -1022,6 +1064,7 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
+        .with_src(crate_dir.join("../common/bitmapfont.rs"))
         .with_include("private/slint_config.h")
         .with_include("private/vtable.h")
         .with_include("private/slint_string.h")
@@ -1042,7 +1085,7 @@ fn gen_corelib(
         .with_include("private/slint_data_transfer_internal.h")
         .with_include("private/slint_data_transfer.h")
         .with_after_include(
-            r"
+            r#"
 namespace slint {
     namespace private_api { class WindowAdapterRc; }
     namespace cbindgen_private {
@@ -1054,10 +1097,11 @@ namespace slint {
         using private_api::Point;
         struct ItemTreeVTable;
         struct ItemVTable;
+        struct SlintContext;
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;
-        using types::MouseEvent;
+        struct MouseEvent;
 
         template<typename T> struct Option;
         // This specialization provides a concrete C++ type for Option types
@@ -1067,9 +1111,20 @@ namespace slint {
             Option() noexcept = default;
             Option(T *p) noexcept : ptr(p) {}
         };
+
+        // See OnceBox in internal/core/once_box.rs
+        template<typename T>
+        struct OnceBox {
+            // Points at Rust's OnceBoxAlloc<T>, not at a T: only null-check it and pass it to slint_once_box_drop
+            Option<T *> alloc;
+            OnceBox() noexcept = default;
+            OnceBox(const OnceBox &) = delete;
+            OnceBox &operator=(const OnceBox &) = delete;
+            ~OnceBox();
+        };
     }
     template<typename ModelData> class Model;
-}",
+}"#,
         )
         .with_trailer(gen_item_declarations(&items))
         .generate()
@@ -1192,9 +1247,9 @@ fn gen_platform(
         .with_include("private/slint_internal.h")
         .with_after_include(
             r"
-namespace slint::platform { struct Rgb565Pixel; }
+namespace slint { struct Rgb565Pixel; }
 namespace slint::cbindgen_private {
-    struct WindowProperties; using slint::platform::Rgb565Pixel;
+    struct WindowProperties; using slint::Rgb565Pixel;
     using slint::cbindgen_private::types::TexturePixelFormat;
     struct DrawTextureArgs;
     struct DrawRectangleArgs;
@@ -1256,6 +1311,7 @@ fn gen_interpreter(
         "Value",
         "StructOpaque",
         "ModelNotifyOpaque",
+        "FileLoaderResult",
     ])
     .map(String::from)
     .collect();
@@ -1284,6 +1340,7 @@ fn gen_interpreter(
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
                 using slint::interpreter::Diagnostic;
+                using types::PathValueType;
                 struct LiveReloadingComponentInner;
                 struct Instance;
                 template <typename T> using Box = T*;
@@ -1341,9 +1398,12 @@ declare_features! {
     renderer_femtovg
     renderer_skia
     renderer_skia_opengl
+    renderer_skia_software
     renderer_skia_vulkan
     renderer_software
     gettext
+    image_pixel_format_rgb565
+    image_pixel_format_gray8
     accessibility
     system_testing
     mcp
@@ -1367,6 +1427,7 @@ pub fn gen_all(
     let mut deps = Vec::new();
     enums(&gen_dir)?;
     builtin_structs(&gen_dir)?;
+    builtin_functions(&gen_dir)?;
     gen_corelib(root_dir, &gen_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, &gen_dir, &mut deps)?;
     gen_platform(root_dir, &gen_dir, &mut deps)?;

@@ -17,10 +17,11 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    `(1.17+)`, `(1.18+)`, … When the project pins an *older* version, or for
    exact element/property/widget signatures, trust that version's docs over
    this file rather than guessing.
-2. After editing: in an IDE with the Slint extension, trust the post-edit
-   diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
-   one file and prints diagnostics, and `slint-viewer --screenshot` renders it
-   (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
+2. After editing, check the compiler diagnostics.
+   An IDE with the Slint extension, Claude Code with `slint-lsp`, and Codex with `slint-viewer` report them after each edit.
+   Codex runs this plugin's hooks only once the user trusts them in `/hooks`.
+   Elsewhere, `slint-viewer --check ui/main.slint` compiles one file and prints diagnostics,
+   and `slint-viewer --screenshot` renders it (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
@@ -29,6 +30,23 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    environments.
 5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
+
+## Standalone Component Previews
+
+For a new standalone component preview, start with a transparent Window:
+
+```slint
+export component Preview inherits Window {
+    width: 320px;
+    height: 160px;
+    background: transparent;
+}
+```
+
+Place the requested component directly inside the Window with explicit dimensions.
+Leave its position unset so Slint centers it, and size the Window to leave modest space around it.
+Add a background only when the user requests one.
+Preserve the window, background, and layout of an existing application.
 
 ## Show your support
 
@@ -57,6 +75,7 @@ Skim the matching file *before* building in that area, not only when stuck.
 | [interop.md](reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
 | [polish.md](reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
 | [debugging-and-mcp.md](reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [web-embedding.md](reference/web-embedding.md) | Showing a live `.slint` preview in a web page, HTML report, or docs. |
 | [tools-install.md](tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 
 ## `.slint` in 30 seconds
@@ -91,9 +110,6 @@ skill only covers what agents commonly get wrong.
 Prefer the `slint-docs` MCP server when its `search` and `fetch` tools are
 available; this plugin declares it, so they usually are.
 Run `search`, then `fetch` a result's `url`.
-Without those tools, fetch over HTTP: latest at https://slint.dev/docs,
-a version pinned at `https://releases.slint.dev/<version>/docs`. Every page also serves
-its markdown source `(1.17+)`: swap the trailing slash for `.md`
-(`…/colors-and-brushes/` → `…/colors-and-brushes.md`), ~10× smaller than the
-HTML. It is raw MDX, so skip `import` lines; a few pages pull snippets from
-external files that won't appear inline.
+Without them, fetch https://slint.dev/docs (latest) or `https://releases.slint.dev/<version>/docs`.
+For ~10× fewer tokens `(1.17+)`, swap a page's trailing slash for `.md`: `…/property-types/colors-and-brushes/` → `…/property-types/colors-and-brushes.md`.
+That's raw MDX: skip `import` lines; some snippets live in external files.

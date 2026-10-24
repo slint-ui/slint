@@ -1,53 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, TooltipStyle } from "../style.slint";
-import { FillSession } from "inspector/fill-session.slint";
-import { Api, Hover, PropertyValueKind, SelectionRectangle } from "../api.slint";
-import { EditorAngles, EditorCursors } from "common.slint";
+import { CanvasValueTooltip } from "canvas-value-tooltip.slint";
+import { CanvasView } from "canvas-view.slint";
+import { Style } from "../style.slint";
+import { FillSession, ShadowSession } from "inspector/index.slint";
+import { Api, Hover, InlineTextEdit, SelectionRectangle } from "../api.slint";
+import { EditorAngles, EditorCursors } from "index.slint";
 import { BorderRadiusFrame } from "border-radius-frame.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
-
-component CanvasValueTooltip inherits Rectangle {
-    in property <TooltipStyle> style: Style.tooltip;
-    in property <string> label;
-    in property <string> value;
-    in property <string> suffix;
-    in property <string> value-label;
-    in property <Point> pointer-position;
-
-    x: root.pointer-position.x - self.width - root.style.offset;
-    y: root.pointer-position.y - self.height - root.style.offset;
-    width: tip.width + 2 * root.style.padding-inline;
-    height: tip.height + 2 * root.style.padding-block;
-    border-radius: root.style.radius;
-    background: root.style.normal.background;
-    drop-shadow-blur: root.style.shadow.blur;
-    drop-shadow-offset-y: root.style.shadow.offset-y;
-    drop-shadow-color: root.style.shadow.color;
-    accessible-role: AccessibleRole.text;
-    accessible-label: root.value-label;
-    accessible-value: root.value;
-
-    tip := Text {
-        text: root.label + " " + root.value + root.suffix;
-        color: root.style.normal.foreground;
-        font-size: root.style.text.size;
-        font-weight: root.style.text.weight;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-        accessible-role: none;
-    }
-}
 
 component SelectedCanvasFrame inherits Rectangle {
     in property <SelectionRectangle> selection;
     in property <bool> primary;
     in property <bool> shift-pressed;
     in property <bool> interaction-disabled;
+    in property <bool> show-outline-while-moving;
     callback pointer-hovered(Point);
     callback hover-suppressed();
+    callback clicked(Point);
     callback double-clicked();
+    callback focus-requested();
 
     private property <bool> geometry-drag-active;
     private property <Point> geometry-drag-position;
@@ -55,19 +28,24 @@ component SelectedCanvasFrame inherits Rectangle {
     private property <bool> rotation-active;
     private property <angle> pending-rotation;
     private property <bool> radius-drag-active;
+    private property <bool> pointer-active: frame.pointer-active || frame.radius-tooltip-visible;
+    changed pointer-active => {
+        CanvasView.manipulating = root.pointer-active;
+        if root.pointer-active { root.focus-requested(); }
+    }
 
     function current-corner-radius(property-name: string) -> length {
-        let corner = Api.current-property-value-data(property-name);
+        let corner = Api.source-property-value-data(property-name, {});
         return corner.code != ""
             ? corner.value-float * 1px
-            : Api.current-property-value-data("border-radius").value-float * 1px;
+            : Api.source-property-value-data("border-radius", {}).value-float * 1px;
     }
 
     function has-independent-corner-radii() -> bool {
-        return Api.current-property-value-data("border-top-left-radius").code != ""
-            || Api.current-property-value-data("border-top-right-radius").code != ""
-            || Api.current-property-value-data("border-bottom-right-radius").code != ""
-            || Api.current-property-value-data("border-bottom-left-radius").code != "";
+        return Api.source-property-value-data("border-top-left-radius", {}).code != ""
+            || Api.source-property-value-data("border-top-right-radius", {}).code != ""
+            || Api.source-property-value-data("border-bottom-right-radius", {}).code != ""
+            || Api.source-property-value-data("border-bottom-left-radius", {}).code != "";
     }
 
     function preview-geometry(position: Point, size: Size) {
@@ -77,10 +55,10 @@ component SelectedCanvasFrame inherits Rectangle {
         // Push live geometry so the previewed element follows the drag through
         // debug-hook overrides without writing to disk.
         Api.override-selected-element-geometry(
-            position.x,
-            position.y,
-            size.width,
-            size.height,
+            position.x / CanvasView.zoom,
+            position.y / CanvasView.zoom,
+            size.width / CanvasView.zoom,
+            size.height / CanvasView.zoom,
         );
     }
 
@@ -100,16 +78,18 @@ component SelectedCanvasFrame inherits Rectangle {
     }
 
     frame := BorderRadiusFrame {
-        x: root.selection.x;
-        y: root.selection.y;
-        width: root.selection.width;
-        height: root.selection.height;
+        x: root.selection.x * CanvasView.zoom;
+        y: root.selection.y * CanvasView.zoom;
+        width: root.selection.width * CanvasView.zoom;
+        height: root.selection.height * CanvasView.zoom;
+        geometry-scale: CanvasView.zoom;
         rotation: root.selection.angle;
         accessible-prefix: Api.current-element.type-name;
         active: !root.interaction-disabled;
         shift-pressed: root.shift-pressed;
         show-resize-handles: root.primary;
-        show-rotation-handles: root.primary;
+        show-rotation-handles: root.primary && Api.current-element.id != "root";
+        show-outline-while-moving: root.show-outline-while-moving;
         enable-border-radius-edits: root.primary && Api.current-element.type-name == "Rectangle";
         independent-corner-radii: root.has-independent-corner-radii();
         top-left-radius: root.current-corner-radius("border-top-left-radius");
@@ -121,7 +101,7 @@ component SelectedCanvasFrame inherits Rectangle {
         resizable: root.primary && Api.selection.is-resizable && root.selection.describes-element;
         moveable: root.primary && Api.selection.is-moveable && root.selection.describes-element;
         accessible-role: AccessibleRole.region;
-        accessible-label: "Selected " + Api.current-element.type-name;
+        accessible-label: @tr("Selected {}", Api.current-element.type-name);
 
         double-clicked => {
             if root.primary {
@@ -136,6 +116,15 @@ component SelectedCanvasFrame inherits Rectangle {
         }
         control-hovered => { root.hover-suppressed(); }
         move-press-started(position) => { root.hover-suppressed(); }
+        move-released(position) => {
+            if !self.move-dragging && !root.interaction-disabled {
+                let preview = CanvasView.to-preview(position);
+                Api.select-at(preview.x, preview.y, false);
+                root.focus-requested();
+                root.pointer-hovered(position);
+                root.clicked(position);
+            }
+        }
         interaction-started => {
             root.rotation-active = false;
             root.radius-drag-active = false;
@@ -150,13 +139,16 @@ component SelectedCanvasFrame inherits Rectangle {
             root.radius-drag-active = true;
             Api.override-selected-element-border-radius(corner, radius, single-corner);
         }
-        resized-to(corner, position, size) => {
+        radius-reset(corner) => {
+            Api.reset-selected-element-border-radius(corner);
+        }
+        resized-to(position, size) => {
             root.preview-geometry(position, size);
         }
         moved-to(position) => {
             root.preview-geometry(position, {
-                width: root.selection.width,
-                height: root.selection.height,
+                width: root.selection.width * CanvasView.zoom,
+                height: root.selection.height * CanvasView.zoom,
             });
         }
         interaction-ended => {
@@ -171,66 +163,81 @@ component SelectedCanvasFrame inherits Rectangle {
             frame.width: root.geometry-drag-size.width;
             frame.height: root.geometry-drag-size.height;
         }
+        nudging when root.primary && CanvasView.nudging: {
+            frame.x: CanvasView.nudge-position.x * CanvasView.zoom;
+            frame.y: CanvasView.nudge-position.y * CanvasView.zoom;
+        }
         rotation-dragging when root.rotation-active: {
             frame.rotation: root.pending-rotation;
         }
     ]
 
     if frame.radius-tooltip-visible: CanvasValueTooltip {
-        label: "Radius";
+        private property <Point> corner-position: frame.local-point-to-parent({
+            x: frame.corner-on-left(frame.radius-edit-corner) ? 0px : frame.width,
+            y: frame.corner-on-top(frame.radius-edit-corner) ? 0px : frame.height,
+        });
+        private property <length> corner-clearance: frame.radius-tooltip-value * frame.geometry-scale;
+        label: @tr("Radius");
         value: (frame.radius-tooltip-value / 1px).to-fixed(0);
-        value-label: "Radius value";
-        pointer-position: {
-            x: frame.x + frame.radius-tooltip-position.x,
-            y: frame.y + frame.radius-tooltip-position.y,
-        };
+        value-label: @tr("Radius value");
+        pointer-position: frame.local-point-to-parent(frame.radius-tooltip-position);
+        x: self.corner-position.x <= frame.x + frame.width / 2
+            ? max(self.pointer-position.x, self.corner-position.x + self.corner-clearance) + self.style.offset
+            : min(self.pointer-position.x, self.corner-position.x - self.corner-clearance) - self.width - self.style.offset;
     }
 
     if frame.rotation-tooltip-visible: CanvasValueTooltip {
-        private property <angle> normalized-angle: EditorAngles.normalize((frame.rotation-tooltip-value / 1deg).round() * 1deg);
-        label: "Rotation";
-        value: "\{(self.normalized-angle / 1deg).round()}";
+        label: @tr("Rotation");
+        value: EditorAngles.rounded(frame.rotation-tooltip-value).to-fixed(0);
         suffix: "°";
-        value-label: "Rotation angle";
+        value-label: @tr("Rotation angle");
         pointer-position: frame.rotation-tooltip-position;
     }
 }
 
 component HoverCanvasFrame inherits MoveResizeFrame {
-    show-outline: false;
     in property <SelectionRectangle> geometry;
     in property <bool> gesture-active;
     callback gesture-started();
     callback gesture-ended();
     callback pointer-hovered(Point);
     callback real-element-selected();
+    callback text-clicked(string, int, Point);
 
     private property <Point> geometry-drag-position;
+    private property <bool> text-click-candidate;
+    private property <string> text-click-source-uri;
+    private property <int> text-click-offset: -1;
+    private property <Point> text-click-position;
 
     visible: Hover.element.valid;
     enabled: root.visible
         && !Hover.element.is-selected
         && !Hover.element.is-over-selected-element
         && (!root.gesture-active || root.move-pressed);
-    x: root.geometry.x;
-    y: root.geometry.y;
-    width: root.geometry.width;
-    height: root.geometry.height;
+    x: root.geometry.x * CanvasView.zoom;
+    y: root.geometry.y * CanvasView.zoom;
+    width: root.geometry.width * CanvasView.zoom;
+    height: root.geometry.height * CanvasView.zoom;
+    geometry-scale: CanvasView.zoom;
+    changed pointer-active => { CanvasView.manipulating = root.pointer-active; }
     rotation: root.geometry.angle;
     active: !root.gesture-active || root.move-pressed;
     moveable: root.geometry.describes-element;
     resizable: false;
     show-resize-handles: false;
     show-rotation-handles: false;
-    accessible-prefix: "Hovered " + Hover.element.type-name;
+    show-outline: root.show-outline-while-moving && root.move-dragging;
+    accessible-prefix: @tr("Hovered {}", Hover.element.type-name);
     accessible-role: AccessibleRole.region;
     accessible-label: root.accessible-prefix;
 
     function preview-geometry(position: Point) {
         root.geometry-drag-position = position;
         Api.override-selected-element-geometry(
-            position.x,
-            position.y,
+            position.x / CanvasView.zoom,
+            position.y / CanvasView.zoom,
             root.geometry.width,
             root.geometry.height,
         );
@@ -251,12 +258,16 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 
     move-press-started(position) => {
         if !root.gesture-active {
+            root.text-click-candidate = Hover.element.type-name == "Text";
+            root.text-click-source-uri = Hover.element.source-uri;
+            root.text-click-offset = Hover.element.element-offset;
+            root.text-click-position = position;
             root.gesture-started();
             Api.select-element(
                 Hover.element.element-path,
                 Hover.element.element-offset,
-                position.x,
-                position.y,
+                position.x / CanvasView.zoom,
+                position.y / CanvasView.zoom,
             );
             root.real-element-selected();
         }
@@ -266,8 +277,16 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     }
     move-released(position) => {
         if root.gesture-active {
+            let text-click-candidate = root.text-click-candidate && !root.move-dragging;
+            let text-click-source-uri = root.text-click-source-uri;
+            let text-click-offset = root.text-click-offset;
+            let text-click-position = root.text-click-position;
             root.finish-interaction(position);
+            if text-click-candidate {
+                root.text-clicked(text-click-source-uri, text-click-offset, text-click-position);
+            }
         }
+        root.text-click-candidate = false;
     }
     pointer-moved(position) => {
         if !root.gesture-active {
@@ -285,14 +304,16 @@ component HoverCanvasFrame inherits MoveResizeFrame {
 
 export component CanvasInteractionLayer inherits TouchArea {
     in property <bool> shift-pressed;
+    // The preview area, in the layer's coordinates.
+    // The layer itself covers the whole canvas, so elements placed outside the root stay reachable.
+    in property <Point> content-origin;
+    in property <Size> content-size;
     private property <bool> hover-enabled;
     private property <int> preview-generation: Hover.preview-generation;
     mouse-cursor: EditorCursors.canvas-default;
 
     changed preview-generation => {
-        if root.has-hover && root.hover-enabled {
-            root.update-hover({ x: root.mouse-x, y: root.mouse-y });
-        }
+        root.refresh-hover();
     }
     changed has-hover => {
         if !root.has-hover && !root.hover-selection-active {
@@ -301,33 +322,63 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
     // Coordinates the selected and hover frames while a hovered item owns the pointer gesture.
     private property <bool> hover-selection-active;
+    private property <bool> unselected-text-click-pending;
+    private property <string> unselected-text-source-uri;
+    private property <int> unselected-text-offset: -1;
+    private property <Point> unselected-text-click-position;
     private property <bool> text-editing;
+    private property <bool> text-edit-starting;
+    private property <bool> text-edit-had-focus;
     private property <string> text-edit-value;
-    private property <string> text-edit-original;
-    private property <string> text-edit-url;
-    private property <string> text-edit-override-id;
-    private property <int> text-edit-version;
-    private property <int> text-edit-offset;
-    private property <Point> text-edit-position;
-    private property <Size> text-edit-size;
-    private property <float> text-edit-scale-x: 1;
-    private property <float> text-edit-scale-y: 1;
+    private property <brush> text-edit-color;
+    private property <Point> text-edit-position: { x: root.primary-selection.x, y: root.primary-selection.y };
+    private property <Size> text-edit-size: { width: root.primary-selection.width, height: root.primary-selection.height };
+    private property <bool> text-edit-active: InlineTextEdit.active;
+    changed text-edit-active => {
+        if root.text-edit-active {
+            root.begin-text-edit();
+        } else {
+            root.text-editing = false;
+            root.text-edit-had-focus = false;
+        }
+    }
+    unselected-text-click-timeout := Timer {
+        interval: 500ms;
+        triggered => {
+            self.stop();
+            root.unselected-text-click-pending = false;
+        }
+    }
     private property <[SelectionRectangle]> selections:
         Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset);
 
-    private property <Point> canvas-origin: root.absolute-position;
-    private property <Size> canvas-size: { width: root.width, height: root.height };
+    private property <Point> hover-window-position;
+    private property <float> zoom: CanvasView.zoom;
+    changed zoom => { root.refresh-hover(); }
+    private property <Point> canvas-origin: content.absolute-position;
+    private property <Size> canvas-size: root.content-size;
     private property <SelectionRectangle> primary-selection: root.selections[Api.selection.highlight-index];
     init => {
         FillSession.canvas-origin = root.canvas-origin;
         FillSession.canvas-size = root.canvas-size;
         FillSession.selection = root.primary-selection;
+        CanvasView.selection = root.primary-selection;
     }
-    changed canvas-origin => { FillSession.canvas-origin = root.canvas-origin; }
+    changed canvas-origin => {
+        FillSession.canvas-origin = root.canvas-origin;
+        root.refresh-hover();
+    }
     changed canvas-size => { FillSession.canvas-size = root.canvas-size; }
-    changed primary-selection => { FillSession.selection = root.primary-selection; }
+    changed primary-selection => {
+        FillSession.selection = root.primary-selection;
+        CanvasView.selection = root.primary-selection;
+    }
 
     callback real-element-selected();
+
+    pure function keep-selection-outline-while-moving(type-name: string) -> bool {
+        return type-name == "TouchArea" || type-name == "Image";
+    }
 
     pure function horizontal-text-alignment(index: int) -> TextHorizontalAlignment {
         if index == 0 { return TextHorizontalAlignment.start; }
@@ -346,72 +397,49 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
 
     function begin-text-edit() {
-        let text = Api.current-property-value-data("text");
-        let width = Api.current-property-value-data("width").value-float;
-        let height = Api.current-property-value-data("height").value-float;
-        let scale-x = width > 0
-            ? root.primary-selection.width / 1px / width
-            : 1;
-        let scale-y = height > 0
-            ? root.primary-selection.height / 1px / height
-            : 1;
-        if root.text-editing
-            || Api.current-element.type-name != "Text"
-            || !root.primary-selection.describes-element
-            || root.primary-selection.angle != 0deg
-            || text.kind != PropertyValueKind.string
-            || text.is-translatable
-            || text.code == ""
-            || !Api.string-is-single-line(text.value-string)
-            || Api.current-property-value-data("wrap").value-int != 0
-            || (scale-x - scale-y).abs() > 0.001 {
-            return;
-        }
-        root.text-edit-override-id = Api.override-element-text("", "");
-        if root.text-edit-override-id == "" {
-            return;
-        }
-        root.text-edit-original = text.value-string;
-        root.text-edit-value = root.text-edit-original;
-        root.text-edit-url = Api.current-element.source-uri;
-        root.text-edit-version = Api.current-element.source-version;
-        root.text-edit-offset = Api.current-element.offset;
-        root.text-edit-position = { x: root.primary-selection.x, y: root.primary-selection.y };
-        root.text-edit-size = {
-            width: root.primary-selection.width,
-            height: root.primary-selection.height,
-        };
-        root.text-edit-scale-x = scale-x;
-        root.text-edit-scale-y = scale-y;
+        if root.text-editing || root.text-edit-starting { return; }
+        root.text-edit-starting = true;
+        let start = InlineTextEdit.begin();
+        root.text-edit-starting = false;
+        if !start.success { return; }
+        root.text-edit-value = start.text;
+        root.text-edit-color = start.color;
+        root.text-edit-had-focus = false;
         root.text-editing = true;
+        root.suppress-hover();
     }
 
     function commit-text-edit() -> bool {
-        if !root.text-editing {
-            return true;
+        if !root.text-editing { return true; }
+        return InlineTextEdit.commit(root.text-edit-value);
+    }
+
+    function select-at-position(position: Point) {
+        let preview = CanvasView.to-preview(position);
+        Api.select-at(preview.x, preview.y, false);
+        root.real-element-selected();
+    }
+
+    function refresh-hover() {
+        if root.has-hover && root.hover-enabled {
+            root.update-hover({
+                x: root.hover-window-position.x - canvas-origin.x,
+                y: root.hover-window-position.y - canvas-origin.y,
+            });
         }
-        let code = Api.string-to-code(root.text-edit-value, false, "", "", "");
-        if root.text-edit-value != root.text-edit-original
-            && !Api.set-code-binding(
-                root.text-edit-url,
-                root.text-edit-version,
-                root.text-edit-offset,
-                "text",
-                code,
-            ) {
-            return false;
-        }
-        Api.override-element-text(root.text-edit-override-id, root.text-edit-value);
-        root.text-editing = false;
-        return true;
     }
 
     function update-hover(position: Point) {
-        if root.text-editing || FillSession.canvas-active || root.hover-selection-active || root.pressed {
+        root.hover-window-position = {
+            x: canvas-origin.x + position.x,
+            y: canvas-origin.y + position.y,
+        };
+        if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-visible || root.hover-selection-active || root.pressed {
             return;
         }
         root.hover-enabled = true;
-        Hover.element = Hover.element-at(position.x, position.y, false);
+        let preview = CanvasView.to-preview(position);
+        Hover.element = Hover.element-at(preview.x, preview.y, false);
     }
 
     function suppress-hover() {
@@ -420,121 +448,188 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
 
     clicked => {
-        if root.text-editing && !root.commit-text-edit() {
-            return;
+        let position = {
+            x: self.pressed-x - root.content-origin.x,
+            y: self.pressed-y - root.content-origin.y,
+        };
+        if root.text-editing {
+            if !root.commit-text-edit() { return; }
+            if InlineTextEdit.active {
+                InlineTextEdit.defer-selection(CanvasView.to-preview(position));
+                return;
+            }
         }
-        Api.unselect();
-        Api.select-at(self.pressed-x, self.pressed-y, false);
-        root.real-element-selected();
+        root.select-at-position(position);
     }
     pointer-event(event) => {
         if event.kind == PointerEventKind.move {
-            root.update-hover({ x: self.mouse-x, y: self.mouse-y });
+            root.update-hover({
+                x: self.mouse-x - root.content-origin.x,
+                y: self.mouse-y - root.content-origin.y,
+            });
         }
     }
 
-    for geometry in Hover.geometry: Rectangle {
-        x: geometry.x;
-        y: geometry.y;
-        width: geometry.width;
-        height: geometry.height;
-        transform-origin: { x: self.width / 2, y: self.height / 2 };
-        transform-rotation: geometry.angle;
-        visible: !root.hover-selection-active;
-        accessible-role: AccessibleRole.region;
-        // HoverCanvasFrame labels canvas hover; tree hover uses only this passive outline.
-        accessible-label: Hover.tree-source-uri != "" ? "Hovered " + Hover.tree-type-name : "";
-        Rectangle {
-            x: -Style.selection-frame.hover-width;
-            y: -Style.selection-frame.hover-width;
-            width: parent.width + 2 * Style.selection-frame.hover-width;
-            height: parent.height + 2 * Style.selection-frame.hover-width;
-            border-width: Style.selection-frame.hover-width;
-            border-color: Style.selection-frame.accent;
-            border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius + self.border-width : 0px;
-            border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius + self.border-width : 0px;
-            border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius + self.border-width : 0px;
-            border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius + self.border-width : 0px;
-        }
-    }
+    content := Rectangle {
+        x: root.content-origin.x;
+        y: root.content-origin.y;
+        width: root.content-size.width;
+        height: root.content-size.height;
 
-    for selection[idx] in root.selections: SelectedCanvasFrame {
-        selection: selection;
-        primary: idx == Api.selection.highlight-index;
-        shift-pressed: root.shift-pressed;
-        interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active;
-        pointer-hovered(position) => {
-            root.update-hover(position);
-        }
-        hover-suppressed => { root.suppress-hover(); }
-        double-clicked => {
-            root.begin-text-edit();
-        }
-    }
-
-    for geometry in (FillSession.canvas-active ? [] : Hover.element.geometry): HoverCanvasFrame {
-        geometry: geometry;
-        gesture-active: root.hover-selection-active;
-        gesture-started => {
-            root.hover-enabled = false;
-            root.hover-selection-active = true;
-        }
-        gesture-ended => {
-            root.hover-selection-active = false;
-        }
-        pointer-hovered(position) => {
-            root.update-hover(position);
-        }
-        real-element-selected => {
-            root.real-element-selected();
-        }
-    }
-
-    if root.text-editing: FocusScope {
-        x: root.text-edit-position.x;
-        y: root.text-edit-position.y;
-        width: root.text-edit-size.width;
-        height: root.text-edit-size.height;
-        init => {
-            input.focus();
-            input.select-all();
-        }
-
-        capture-key-pressed(event) => {
-            if event.text == Key.Escape {
-                root.commit-text-edit();
-                return accept;
+        for geometry in (root.text-editing ? [] : Hover.geometry): Rectangle {
+            x: geometry.x * CanvasView.zoom;
+            y: geometry.y * CanvasView.zoom;
+            width: geometry.width * CanvasView.zoom;
+            height: geometry.height * CanvasView.zoom;
+            transform-origin: { x: self.width / 2, y: self.height / 2 };
+            transform-rotation: geometry.angle;
+            visible: !root.hover-selection-active;
+            accessible-role: AccessibleRole.region;
+            // HoverCanvasFrame labels canvas hover; tree hover uses only this passive outline.
+            accessible-label: Hover.tree-source-uri != "" ? "Hovered " + Hover.tree-type-name : "";
+            Rectangle {
+                x: -Style.selection-frame.hover-width;
+                y: -Style.selection-frame.hover-width;
+                width: parent.width + 2 * Style.selection-frame.hover-width;
+                height: parent.height + 2 * Style.selection-frame.hover-width;
+                border-width: Style.selection-frame.hover-width;
+                border-color: Style.selection-frame.accent;
+                border-top-left-radius: geometry.top-left-radius > 0px ? geometry.top-left-radius * CanvasView.zoom + self.border-width : 0px;
+                border-top-right-radius: geometry.top-right-radius > 0px ? geometry.top-right-radius * CanvasView.zoom + self.border-width : 0px;
+                border-bottom-left-radius: geometry.bottom-left-radius > 0px ? geometry.bottom-left-radius * CanvasView.zoom + self.border-width : 0px;
+                border-bottom-right-radius: geometry.bottom-right-radius > 0px ? geometry.bottom-right-radius * CanvasView.zoom + self.border-width : 0px;
             }
-            reject
         }
 
-        input := TextInput {
-            width: parent.width;
-            height: parent.height;
-            text <=> root.text-edit-value;
-            color: Api.current-property-value-data("color").value-brush;
-            font-family: Api.current-property-value-data("font-family").value-string;
-            font-size: Api.current-property-value-data("font-size").value-float
-                * root.text-edit-scale-y * 1px;
-            font-weight: Api.current-property-value-data("font-weight").value-int;
-            font-italic: Api.current-property-value-data("font-italic").value-bool;
-            horizontal-alignment: root.horizontal-text-alignment(
-                Api.current-property-value-data("horizontal-alignment").value-int,
+        for selection[idx] in root.selections: SelectedCanvasFrame {
+            visible: !root.text-editing;
+            selection: selection;
+            primary: idx == Api.selection.highlight-index;
+            shift-pressed: root.shift-pressed;
+            interaction-disabled: root.text-editing || root.hover-selection-active || FillSession.canvas-active || ShadowSession.canvas-visible;
+            show-outline-while-moving: root.keep-selection-outline-while-moving(
+                Api.current-element.type-name,
             );
-            vertical-alignment: root.vertical-text-alignment(
-                Api.current-property-value-data("vertical-alignment").value-int,
-            );
-            letter-spacing: Api.current-property-value-data("letter-spacing").value-float
-                * root.text-edit-scale-x * 1px;
-            line-height-factor: Api.current-property-value-data("line-height-factor").value-float;
-            single-line: true;
-            wrap: no-wrap;
-            accessible-label: "Inline text editor";
+            pointer-hovered(position) => {
+                root.update-hover(position);
+            }
+            hover-suppressed => { root.suppress-hover(); }
+            focus-requested => { root.real-element-selected(); }
+            clicked(position) => {
+                let delta-x = (position.x - root.unselected-text-click-position.x) / 1px;
+                let delta-y = (position.y - root.unselected-text-click-position.y) / 1px;
+                let target-matches = root.unselected-text-click-pending
+                    && Api.current-element.type-name == "Text"
+                    && Api.current-element.source-uri == root.unselected-text-source-uri
+                    && Api.current-element.offset == root.unselected-text-offset
+                    && delta-x * delta-x + delta-y * delta-y < 100;
+                root.unselected-text-click-pending = false;
+                unselected-text-click-timeout.stop();
+                if target-matches {
+                    root.begin-text-edit();
+                }
+            }
+            double-clicked => {
+                root.begin-text-edit();
+            }
+        }
 
-            accepted => { root.commit-text-edit(); }
-            changed has-focus => {
-                if !self.has-focus && !root.commit-text-edit() {
-                    self.focus();
+        for geometry in (FillSession.canvas-active || ShadowSession.canvas-visible ? [] : Hover.element.geometry): HoverCanvasFrame {
+            geometry: geometry;
+            gesture-active: root.hover-selection-active;
+            show-outline-while-moving: root.keep-selection-outline-while-moving(
+                Hover.element.type-name,
+            );
+            gesture-started => {
+                root.hover-enabled = false;
+                root.hover-selection-active = true;
+            }
+            gesture-ended => {
+                root.hover-selection-active = false;
+            }
+            pointer-hovered(position) => {
+                root.update-hover(position);
+            }
+            real-element-selected => {
+                root.real-element-selected();
+            }
+            text-clicked(source-uri, offset, position) => {
+                root.unselected-text-source-uri = source-uri;
+                root.unselected-text-offset = offset;
+                root.unselected-text-click-position = position;
+                root.unselected-text-click-pending = true;
+                unselected-text-click-timeout.start();
+            }
+        }
+
+        if root.text-editing: FocusScope {
+            x: root.text-edit-position.x * CanvasView.zoom;
+            y: root.text-edit-position.y * CanvasView.zoom;
+            width: InlineTextEdit.grow-width
+                ? max(root.text-edit-size.width * CanvasView.zoom, input.preferred-width + input.text-cursor-width)
+                : root.text-edit-size.width * CanvasView.zoom;
+            height: root.text-edit-size.height * CanvasView.zoom;
+            init => {
+                input.focus();
+                if input.has-focus {
+                    input.select-all();
+                    root.text-edit-had-focus = true;
+                } else {
+                    root.commit-text-edit();
+                }
+            }
+
+            capture-key-pressed(event) => {
+                if event.text == Key.Escape {
+                    root.commit-text-edit();
+                    return accept;
+                }
+                reject
+            }
+
+            input := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text <=> root.text-edit-value;
+                color: root.text-edit-color;
+                selection-background-color: Style.field.appearance.selection;
+                selection-foreground-color: Style.field.appearance.focus.foreground;
+                font-family: Api.runtime-property-value-data("font-family", {
+                    value-string: Api.preview-default-font-family,
+                }).value-string;
+                font-size: Api.runtime-property-value-data("font-size", {
+                    value-float: Api.preview-default-font-size,
+                }).value-float
+                    * InlineTextEdit.scale * CanvasView.zoom * 1px;
+                font-weight: Api.runtime-property-value-data("font-weight", {
+                    value-int: Api.preview-default-font-weight,
+                }).value-int;
+                font-italic: Api.runtime-property-value-data("font-italic", {}).value-bool;
+                horizontal-alignment: root.horizontal-text-alignment(
+                    Api.runtime-property-value-data("horizontal-alignment", {}).value-int,
+                );
+                vertical-alignment: root.vertical-text-alignment(
+                    Api.runtime-property-value-data("vertical-alignment", {}).value-int,
+                );
+                letter-spacing: Api.runtime-property-value-data("letter-spacing", {}).value-float
+                    * InlineTextEdit.scale * CanvasView.zoom * 1px;
+                line-height-factor: Api.runtime-property-value-data("line-height-factor", {
+                    value-float: 1,
+                }).value-float;
+                read-only: InlineTextEdit.commit-pending;
+                private property <bool> commit-pending: InlineTextEdit.commit-pending;
+                changed commit-pending => {
+                    if !self.commit-pending && InlineTextEdit.active { self.focus(); }
+                }
+                accessible-label: @tr("Inline text editor");
+
+                accepted => { root.commit-text-edit(); }
+                changed has-focus => {
+                    if self.has-focus {
+                        root.text-edit-had-focus = true;
+                    } else if root.text-edit-had-focus && !root.commit-text-edit() {
+                        self.focus();
+                    }
                 }
             }
         }

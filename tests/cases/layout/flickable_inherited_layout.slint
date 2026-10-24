@@ -1,0 +1,105 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13592
+
+component MyBox inherits VerticalLayout {
+    Rectangle {
+        min-width: 231px;
+        min-height: 40px;
+    }
+
+    Rectangle {
+        min-width: 100px;
+        min-height: 24px;
+    }
+}
+
+component MyDerivedBox inherits MyBox { }
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 50px;
+
+    out property <length> via-component: a.preferred-width;
+    out property <length> via-derived: d.preferred-width;
+    out property <length> via-inline: b.preferred-width;
+    out property <length> via-repeated: r.preferred-width;
+    out property <length> content-width: fa.content-width;
+    out property <length> content-height: fa.content-height;
+    out property <length> derived-content-height: fd.content-height;
+    out property <length> repeated-content-height: fr.content-height;
+
+    a := Rectangle {
+        fa := Flickable {
+            MyBox { }
+        }
+    }
+
+    d := Rectangle {
+        fd := Flickable {
+            MyDerivedBox { }
+        }
+    }
+
+    b := Rectangle {
+        Flickable {
+            VerticalLayout {
+                Rectangle {
+                    min-width: 231px;
+                    min-height: 64px;
+                }
+            }
+        }
+    }
+
+    r := Rectangle {
+        fr := Flickable {
+            for x in 1: MyBox { }
+        }
+    }
+
+    out property <bool> test: via-component == 231px && via-derived == 231px && via-inline == 231px && via-repeated == 231px && content-width == 231px && content-height == 64px && derived-content-height == 64px && repeated-content-height == 64px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_via_component(), 231.);
+assert_eq!(instance.get_via_derived(), 231.);
+assert_eq!(instance.get_via_inline(), 231.);
+assert_eq!(instance.get_via_repeated(), 231.);
+assert_eq!(instance.get_content_width(), 231.);
+assert_eq!(instance.get_content_height(), 64.);
+assert_eq!(instance.get_derived_content_height(), 64.);
+assert_eq!(instance.get_repeated_content_height(), 64.);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_via_component(), 231.);
+assert_eq(instance.get_via_derived(), 231.);
+assert_eq(instance.get_via_inline(), 231.);
+assert_eq(instance.get_via_repeated(), 231.);
+assert_eq(instance.get_content_width(), 231.);
+assert_eq(instance.get_content_height(), 64.);
+assert_eq(instance.get_derived_content_height(), 64.);
+assert_eq(instance.get_repeated_content_height(), 64.);
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.via_component, 231);
+assert.equal(instance.via_derived, 231);
+assert.equal(instance.via_inline, 231);
+assert.equal(instance.via_repeated, 231);
+assert.equal(instance.content_width, 231);
+assert.equal(instance.content_height, 64);
+assert.equal(instance.derived_content_height, 64);
+assert.equal(instance.repeated_content_height, 64);
+assert(instance.test);
+```
+*/

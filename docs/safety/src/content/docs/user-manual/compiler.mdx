@@ -1,0 +1,93 @@
+---
+title: Slint Compiler
+description: The command line of slint-compiler in Slint SC mode, its options, its output, and its exit status.
+---
+
+`slint-compiler` translates a `.slint` file into one Rust source file for the `slint-sc` runtime.
+To run it from a Cargo build script, see [Compiling .slint Files](/user-manual/get-started/compiling/).
+
+## Synopsis
+
+```sh
+slint-compiler --slint-sc [--coverage] [--depfile <dependency file>] [-o <output file>] <file>
+```
+
+Always pass `--slint-sc`.
+Without it, `slint-compiler` generates code for the full Slint runtime, which isn't part of Slint SC.
+
+## Options
+
+| Option | Effect |
+| --- | --- |
+| `<file>` | The `.slint` file to compile. Use `-` to read it from standard input. |
+| `--slint-sc` | Compile the Slint SC subset and generate code for the `slint-sc` crate. |
+| `-o <output file>` | Write the generated Rust code to this file. The default, `-`, writes it to standard output. |
+| `--coverage` | Write the coverage map next to the output file. Requires `-o`. |
+| `--depfile <dependency file>` | Write the files the output depends on, in the Make format. |
+| `-V`, `--version` | Print the version and exit. |
+| `-h`, `--help` | Print the options and exit. |
+
+### Input File
+
+Imports and `@image-url` paths resolve relative to the file that contains them.
+For a file read from standard input, they resolve relative to the current directory.
+There are no include or library paths.
+
+The compiler embeds every image the file uses into the generated code.
+The application needs no files at run time.
+
+### Output File
+
+The compiler rewrites the output file only when its content changes.
+An unchanged output keeps its modification time, so build systems don't rebuild what depends on it.
+
+The generated code only compiles with the `slint-sc` crate of the same release ([`sls.gen.version`](/reference/generated-code/#sls.gen.version)).
+`--version` prints the release of the compiler.
+
+### Coverage Map
+
+With `--coverage`, the compiler also writes the map of the coverage points of the `.slint` source.
+The map has the name of the output file, with the extension `.slintcov`: `-o indicator.rs` writes `indicator.slintcov`.
+
+The generated code is the same with and without `--coverage`.
+To turn the map into a coverage report, see [Coverage of Slint Code](/user-manual/slint-coverage/).
+
+### Dependency File
+
+With `--depfile`, the compiler writes one line in the format of `gcc -M`:
+
+```make
+indicator.rs: ui/indicator.slint /path/to/ui/lamp.slint /path/to/ui/lamp.png
+```
+
+The line lists the output file, then the input file as given on the command line.
+Then the line lists every imported `.slint` file and every embedded image, with absolute paths.
+
+## Rejected Options
+
+`slint-compiler` accepts more options than the ones above, for the full Slint runtime.
+With `--slint-sc`, `slint-compiler` rejects each of these options with an error:
+
+- `-f`, `--format`
+- `--style`
+- `-I`, `-L`
+- `--scale-factor`
+- `--embed-resources`
+- `--translation-domain`
+
+```text
+--slint-sc cannot be used together with -I
+```
+
+## Diagnostics and Exit Status
+
+The compiler prints errors and warnings to standard error, each with the file, line, and column it's about.
+An error names the construct at fault, for example a construct outside the Slint SC subset:
+
+```text
+error: The builtin element 'Text' is not supported in Slint SC
+```
+
+The exit status is zero when the compilation succeeds, warnings or not.
+The exit status is non-zero on any error, and the compiler then leaves the output file untouched.
+Check the exit status, rather than the presence of the output file, to tell whether the compilation succeeded.

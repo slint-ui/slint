@@ -10,8 +10,10 @@
 //! that themselves need to be inlined.
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Callable, Expression, NamedReference, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::element_type::ElementType;
+use crate::expression_tree::{Callable, Expression, NamedReference};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::collections::HashSet;
@@ -28,6 +30,7 @@ pub async fn lower_radiogroup(
     let mut seen = HashSet::new();
     let mut radio_groups = Vec::new();
     doc.visit_all_used_components(|component| {
+        error_on_slot_in_inner_builtin(component, &["RadioGroup"], diag);
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "RadioGroup")
                 && seen.insert(Rc::as_ptr(elem))
@@ -39,6 +42,23 @@ pub async fn lower_radiogroup(
     if radio_groups.is_empty() {
         return;
     }
+
+    // An instance of a subclass that declares its own RadioButtons (#14256):
+    // see the matching filter in `lower_tabwidget`.
+    radio_groups.retain(|elem| {
+        if !base_chain_declares_children(&elem.borrow().base_type, &seen) {
+            return true;
+        }
+        if !elem.borrow().children.is_empty() {
+            diag.push_error(
+                "Cannot add 'RadioButton' elements when instantiating a 'RadioGroup' subclass that already declares its own; declare them on the subclass instead".into(),
+                &*elem.borrow(),
+            );
+            // Left in place, they would also fail the inherited grid's row numbering.
+            elem.borrow_mut().children.clear();
+        }
+        false
+    });
 
     let mut ignore = BuildDiagnostics::default();
     let radio_group_impl = type_loader
@@ -121,7 +141,7 @@ fn process_radiogroup(
 
     let count_expr = match children.first().and_then(|c| c.borrow().repeated.clone()) {
         Some(rep) if children.len() == 1 => Expression::FunctionCall {
-            function: Callable::Builtin(crate::expression_tree::BuiltinFunction::ArrayLength),
+            function: Callable::Builtin(crate::builtin_functions::BuiltinFunction::ArrayLength),
             arguments: vec![rep.model],
             source_location: None,
         },
@@ -169,15 +189,21 @@ fn wire_radio_button(
     };
     let item_index_ref =
         || Expression::PropertyReference(NamedReference::new(child, "item-index".into()));
+    // Typed like `item-index`: with branches of different types, the LLR lowers the
+    // condition as a statement, which a non-constant `orientation` then exposes.
+    let zero = || Expression::Cast {
+        from: Expression::NumberLiteral(0.0, Unit::None).into(),
+        to: Type::Int32,
+    };
     let row_expr = Expression::Condition {
         condition: is_vertical.clone().into(),
         true_expr: item_index_ref().into(),
-        false_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
+        false_expr: zero().into(),
         source_location: None,
     };
     let col_expr = Expression::Condition {
         condition: is_vertical.into(),
-        true_expr: Expression::NumberLiteral(0.0, Unit::None).into(),
+        true_expr: zero().into(),
         false_expr: item_index_ref().into(),
         source_location: None,
     };

@@ -1,167 +1,53 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, PaintStyle, Metrics, Typography, Colors, DialogStyle } from "style.slint";
+import { Style, Metrics, Typography, Colors } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, Hover } from "api.slint";
-import { InspectorFillPicker } from "components/inspector/fill-picker.slint";
-import { FillSession } from "components/inspector/fill-session.slint";
-export { FillSessionRequest, FillSessionTarget } from "components/inspector/fill-session.slint";
+import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
+import { Diagnostics } from "diagnostics.slint";
+export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
+import { Springboard } from "@springboard";
+import { FloatingSurface } from "components/floating-surface.slint";
 import { StartupWizard } from "startup-wizard.slint";
-import { AppState, ElementKind, SidebarToggleButton } from "components/common.slint";
+import { AppState, EditorCursors, EditorWindow, SidebarToggleButton, VerticalResizeDivider } from "components/index.slint";
+import { CanvasPanArea } from "components/canvas-pan-area.slint";
+import { CanvasView, ZoomLevel } from "components/canvas-view.slint";
 import { DragPreview } from "components/drag-preview.slint";
-import { GradientOverlay } from "components/gradient-overlay.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
-import { EditorTopBar } from "components/top-bar.slint";
+import { ElementVisuals } from "components/element-presentation.slint";
+import { GradientOverlay } from "components/gradient-overlay.slint";
+import { ShadowOverlay } from "components/shadow-overlay.slint";
 import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
+import { FillSession, FillSessionRequest, FillSessionTarget, InspectorFillPicker, ShadowSession, ShadowGesture, ShadowValues, InspectorShadowPicker } from "components/inspector/index.slint";
 import { LeftPane } from "components/left-pane.slint";
-import { EditorWindow } from "components/common.slint";
+import { NewFileErrorPopup } from "components/new-file-error-popup.slint";
+import { EditorTopBar } from "components/top-bar.slint";
 import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/update-status.slint";
 
-export { Api, Hover, Preview, Project, FillSession }
-export { ElementVisuals } from "components/element-presentation.slint";
-export { EditorCursors, EditorWindow } from "components/common.slint";
-
-component NewFileErrorPopup inherits PopupWindow {
-    in property <DialogStyle> style: Style.dialog;
-    in property <string> error;
-    callback dismissed();
-
-    width: root.style.width;
-    height: root.style.height;
-    close-policy: no-auto-close;
-
-    Rectangle {
-        border-width: Metrics.border-width;
-        border-color: root.style.border;
-        border-radius: Metrics.radius-large;
-        background: root.style.background;
-        clip: true;
-        drop-shadow-blur: root.style.shadow.blur;
-        drop-shadow-offset-y: root.style.shadow.offset-y;
-        drop-shadow-color: root.style.shadow.color;
-
-        VerticalLayout {
-            height: parent.height;
-
-            Rectangle {
-                vertical-stretch: 1;
-
-                VerticalLayout {
-                    padding: root.style.padding;
-                    spacing: Metrics.space-medium;
-
-                    HorizontalLayout {
-                        spacing: Metrics.space-medium;
-                        cross-axis-alignment: start;
-
-                        Rectangle {
-                            width: root.style.error.icon-size;
-                            height: root.style.error.icon-size;
-                            border-radius: root.style.error.icon-size / 2;
-                            background: root.style.error.icon-background;
-
-                            Text {
-                                text: "×";
-                                color: root.style.error.icon-foreground;
-                                font-size: root.style.error.icon-text.size;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        VerticalLayout {
-                            spacing: Metrics.space-small;
-
-                            Text {
-                                text: @tr("Couldn’t create file");
-                                color: Colors.foreground;
-                                font-size: Typography.heading.size;
-                                font-weight: Typography.heading.weight;
-                            }
-
-                            Text {
-                                text: @tr("A new Slint file couldn’t be created in the project root.");
-                                color: Colors.muted;
-                                font-size: Typography.body.size;
-                                wrap: word-wrap;
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        height: root.style.error.height;
-                        border-width: Metrics.border-width;
-                        border-color: root.style.error.border;
-                        border-radius: root.style.error.radius;
-                        background: root.style.error.background;
-
-                        Text {
-                            x: root.style.error.inset;
-                            width: parent.width - 2 * root.style.error.inset;
-                            text: root.error;
-                            color: root.style.error.foreground;
-                            font-size: Typography.caption.size;
-                            wrap: word-wrap;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                height: root.style.footer-height;
-                vertical-stretch: 0;
-                background: root.style.footer-background;
-
-                Rectangle {
-                    height: Metrics.border-width;
-                    y: 0px;
-                    background: root.style.footer-border;
-                }
-
-                Rectangle {
-                    private property <PaintStyle> paint: close-touch.pressed ? root.style.close-button.appearance.pressed
-                        : close-touch.has-hover ? root.style.close-button.appearance.hover : root.style.close-button.appearance.normal;
-                    width: bt.width + 2 * root.style.close-button.padding-inline;
-                    height: root.style.close-button.height;
-                    x: parent.width - self.width - Metrics.space-large;
-                    y: (parent.height - self.height) / 2;
-                    border-width: Metrics.border-width;
-                    border-color: self.paint.border;
-                    border-radius: root.style.close-button.radius;
-                    background: self.paint.background;
-
-                    bt := Text {
-                        text: @tr("Close");
-                        color: parent.paint.foreground;
-                        font-size: root.style.close-button.text.size;
-                        font-weight: root.style.close-button.text.weight;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-
-                    close-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        accessible-role: AccessibleRole.button;
-                        accessible-label: @tr("Close");
-                        clicked => {
-                            root.close();
-                            root.dismissed();
-                        }
-                    }
-                }
-            }
-        }
-    }
+export {
+    Api, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Springboard,
 }
 
 export component EditorUi inherits Window {
+    private property <bool> preview-editable: Diagnostics.preview-editable;
+    changed preview-editable => {
+        if !root.preview-editable {
+            AppState.cancel-active-drags();
+            FillSession.close-picker(false, false);
+        }
+    }
+    private property <bool> editor-focus-requested;
+    public function focus-editor() { root.editor-focus-requested = true; }
     private property <bool> palette-drag-in-outline: false;
+    private property <Size> palette-text-drag-size: {
+        width: palette-text-metrics.width,
+        height: palette-text-metrics.height,
+    };
     preferred-width: Style.shell.width;
     preferred-height: Style.shell.height;
     min-width: Style.shell.min-width;
@@ -173,9 +59,13 @@ export component EditorUi inherits Window {
     init => {
         EditorWindow.width = root.width;
         EditorWindow.height = root.height;
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
     }
     changed width => { EditorWindow.width = root.width; }
     changed height => { EditorWindow.height = root.height; }
+    changed palette-text-drag-size => {
+        AppState.palette-text-drag-size = root.palette-text-drag-size;
+    }
 
     property <bool> sidebars-collapsed: false;
     property <length> inspector-scroll-y: 0px;
@@ -185,8 +75,44 @@ export component EditorUi inherits Window {
     callback outline-pane-resized(length);
     callback elements-pane-reset();
     callback outline-pane-reset();
+    in property <length> left-pane-width-preference: 0px;
+    in property <length> inspector-pane-width-preference: 0px;
+    callback left-pane-resized(length);
+    callback inspector-pane-resized(length);
+    callback left-pane-reset();
+    callback inspector-pane-reset();
+    private property <length> dragged-left-width;
+    private property <length> dragged-inspector-width;
+    private property <length> width-at-press;
+    private property <length> requested-left-width: (root.dragged-left-width > 0px ? root.dragged-left-width
+        : root.left-pane-width-preference > 0px ? root.left-pane-width-preference : Style.panes.left-width)
+        .clamp(Style.panes.left-width, Style.panes.maximum-width);
+    private property <length> requested-inspector-width: (root.dragged-inspector-width > 0px ? root.dragged-inspector-width
+        : root.inspector-pane-width-preference > 0px ? root.inspector-pane-width-preference : Style.panes.inspector-width)
+        .clamp(Style.panes.inspector-width, Style.panes.maximum-width);
+    private property <bool> inspector-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
+    private property <length> width-budget: EditorWindow.width - Style.panes.canvas-minimum-width;
+    private property <length> extra-left-width: root.requested-left-width - Style.panes.left-width;
+    private property <length> extra-inspector-width: root.inspector-visible
+        ? root.requested-inspector-width - Style.panes.inspector-width : 0px;
+    private property <float> width-scale: ((root.width-budget - Style.panes.left-width
+        - (root.inspector-visible ? Style.panes.inspector-width : 0px))
+        / max(1px, root.extra-left-width + root.extra-inspector-width)).clamp(0, 1);
+    private property <length> displayed-left-width: Style.panes.left-width + root.extra-left-width * root.width-scale;
+    private property <length> displayed-inspector-width: Style.panes.inspector-width + root.extra-inspector-width * root.width-scale;
+    private property <length> left-width-maximum: min(Style.panes.maximum-width, root.width-budget
+        - (root.inspector-visible ? root.displayed-inspector-width : 0px));
+    private property <length> inspector-width-maximum: min(Style.panes.maximum-width,
+        root.width-budget - root.displayed-left-width);
     callback perform-native-window-zoom() -> bool;
+    callback quit-requested();
     private property <string> new-file-error;
+    private property <bool> canvas-zoom-enabled: !Api.startup-wizard-visible
+        && Api.editor-surface-mode == EditorSurfaceMode.component
+        && CanvasView.navigation-enabled && !CanvasView.panning;
+    private property <string> canvas-document: Api.current-element.source-uri;
+    changed canvas-document => { CanvasView.manipulating = false; }
+
 
     function create-new-slint-file() {
         root.new-file-error = Project.create-new-slint-file();
@@ -195,19 +121,23 @@ export component EditorUi inherits Window {
         }
     }
 
-    function open-startup-wizard() {
-        Api.open-startup-wizard();
-    }
-
-    function close-startup-wizard() {
-        Api.close-startup-wizard();
-    }
-
-    function open-project() {
-        root.close-startup-wizard();
-    }
     function apply-history(redo: bool) {
+        if !Diagnostics.preview-editable { return; }
+        CanvasView.nudging = false;
+        ShadowSession.cancel();
         FillSession.apply-history(redo);
+    }
+
+    palette-text-metrics := Text {
+        x: -10000px;
+        opacity: 0;
+        accessible-role: none;
+        text: @tr("Text");
+        font-family: Api.preview-default-font-family;
+        font-size: Api.preview-default-font-size * 1px;
+        font-weight: Api.preview-default-font-weight;
+        width: self.preferred-width;
+        height: self.preferred-height;
     }
 
     function toggle-maximized() {
@@ -221,8 +151,41 @@ export component EditorUi inherits Window {
             title: @tr("File");
             MenuItem {
                 title: @tr("New Slint File");
+                shortcut: @keys(Control + "n");
                 enabled: Project.file-tree.length > 0;
                 activated => { root.create-new-slint-file(); }
+            }
+            MenuSeparator { }
+            MenuItem {
+                title: @tr("Open...");
+                shortcut: @keys(Control + "o");
+                activated => { Project.open-existing-project(); }
+            }
+            Menu {
+                title: @tr("Open Recent");
+                enabled: Project.recent.length > 0;
+
+                for project in Project.recent: MenuItem {
+                    title: project.name;
+                    activated => { Project.open-recent-project(project); }
+                }
+                MenuSeparator { }
+                MenuItem {
+                    title: @tr("Clear Recent Projects");
+                    activated => { Project.clear-recent-projects(); }
+                }
+            }
+            MenuItem {
+                title: @tr("Close Project");
+                enabled: !Api.startup-wizard-visible;
+                activated => { Project.close-project(); }
+            }
+            // The macOS application menu already provides Quit.
+            if Platform.os != OperatingSystemType.macos: MenuSeparator { }
+            if Platform.os != OperatingSystemType.macos: MenuItem {
+                title: @tr("Quit");
+                shortcut: @keys(Control + "q");
+                activated => { root.quit-requested(); }
             }
         }
         Menu {
@@ -236,6 +199,44 @@ export component EditorUi inherits Window {
                 title: @tr("Redo");
                 enabled: Api.redo-enabled;
                 activated => { root.apply-history(true); }
+            }
+        }
+        Menu {
+            title: @tr("View");
+            MenuItem {
+                title: @tr("Zoom In");
+                shortcut: @keys(Control + Plus);
+                enabled: root.canvas-zoom-enabled && CanvasView.zoom-level != ZoomLevel.percent-400;
+                activated => { CanvasView.set-zoom(CanvasView.next-zoom-level); }
+            }
+            MenuItem {
+                title: @tr("Zoom Out");
+                shortcut: @keys(Control + HyphenMinus);
+                enabled: root.canvas-zoom-enabled && CanvasView.zoom-level != ZoomLevel.percent-25;
+                activated => { CanvasView.set-zoom(CanvasView.previous-zoom-level); }
+            }
+            MenuItem {
+                title: @tr("Zoom to Selection");
+                shortcut: @keys(Shift + "2");
+                enabled: root.canvas-zoom-enabled;
+                activated => {
+                    CanvasView.zoom-to-selection(
+                        Api.current-element.source-uri != "" && Api.selection.highlight-index >= 0,
+                    );
+                }
+            }
+            MenuItem {
+                title: @tr("Actual Size");
+                shortcut: @keys(Control + Digit0);
+                enabled: root.canvas-zoom-enabled;
+                activated => { CanvasView.set-zoom(ZoomLevel.actual-size); }
+            }
+        }
+        Menu {
+            title: @tr("Help");
+            MenuItem {
+                title: @tr("Slint Documentation");
+                activated => { Platform.open-url("https://docs.slint.dev"); }
             }
         }
     }
@@ -252,13 +253,85 @@ export component EditorUi inherits Window {
 
     VerticalLayout {
         if !Api.startup-wizard-visible: editor := FocusScope {
+            private property <bool> shadow-open: ShadowSession.open;
+            changed shadow-open => { if !self.shadow-open { self.focus(); } }
+            private property <bool> editor-focus-requested: root.editor-focus-requested;
+            changed editor-focus-requested => {
+                if self.editor-focus-requested {
+                    root.editor-focus-requested = false;
+                    self.focus();
+                }
+            }
             property <bool> shift-pressed: false;
+            private property <bool> window-active: Api.window-active();
+            changed window-active => {
+                if !self.window-active { self.shift-pressed = false; }
+            }
+            private property <int> fill-focus-generation: FillSession.focus-generation;
+            changed fill-focus-generation => {
+                if FillSession.request.target.canvas { self.focus(); }
+            }
+            property <bool> nudge-key-held;
+            property <bool> nudge-write-pending;
+            property <Point> nudge-origin;
+            property <bool> nudge-caught-up: !self.nudge-key-held
+                && (CanvasView.selection.x - CanvasView.nudge-position.x).abs() < 0.01px
+                && (CanvasView.selection.y - CanvasView.nudge-position.y).abs() < 0.01px;
+            property <string> current-element: Api.current-element.source-uri + ":" + Api.current-element.offset;
+
+            changed nudge-caught-up => {
+                if self.nudge-caught-up {
+                    CanvasView.nudging = false;
+                }
+            }
+            changed current-element => {
+                self.nudge-write-pending = false;
+                CanvasView.nudging = false;
+            }
 
             init => {
                 self.focus();
             }
 
+            function is-arrow-key(text: string) -> bool {
+                text == Key.LeftArrow || text == Key.RightArrow || text == Key.UpArrow || text == Key.DownArrow
+            }
+
+            function write-nudge() {
+                if self.nudge-write-pending {
+                    self.nudge-write-pending = false;
+                    if !Api.persist-selected-element-geometry() {
+                        CanvasView.nudging = false;
+                    }
+                }
+            }
+
+            function cancel-nudge() {
+                self.nudge-write-pending = false;
+                CanvasView.nudging = false;
+                Api.override-selected-element-geometry(
+                    self.nudge-origin.x,
+                    self.nudge-origin.y,
+                    CanvasView.selection.width,
+                    CanvasView.selection.height);
+            }
+
+            // Several edits in flight at once get lost, so quick taps share one write.
+            nudge-timer := Timer {
+                interval: 300ms;
+                running: editor.nudge-write-pending && !editor.nudge-key-held;
+                triggered => { editor.write-nudge(); }
+            }
+
             capture-key-pressed(event) => {
+                if root.canvas-zoom-enabled && event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && event.text == "=" {
+                    CanvasView.set-zoom(CanvasView.next-zoom-level);
+                    return accept;
+                }
+                if event.text == Key.Escape && CanvasView.panning {
+                    canvas-pan.cancel();
+                    return accept;
+                }
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = true;
                     return reject;
@@ -267,16 +340,32 @@ export component EditorUi inherits Window {
             }
 
             capture-key-released(event) => {
+                if event.text == Key.Space {
+                    CanvasView.space-pressed = false;
+                }
                 if event.text == Key.Shift || event.text == Key.ShiftR {
                     self.shift-pressed = false;
                     return reject;
+                }
+                if self.is-arrow-key(event.text) && self.nudge-key-held {
+                    self.nudge-key-held = false;
                 }
                 reject
             }
 
             key-pressed(event) => {
+                if event.text == Key.Space && Api.editor-surface-mode == EditorSurfaceMode.component
+                    && CanvasView.navigation-enabled && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
+                    CanvasView.space-pressed = true;
+                    return accept;
+                }
                 let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
                 if (event.modifiers.control || event.modifiers.meta) && (event.text == "z" || event.text == "Z" || redo-y) {
+                    if self.nudge-write-pending || self.nudge-key-held {
+                        self.nudge-key-held = false;
+                        self.cancel-nudge();
+                        return accept;
+                    }
                     root.apply-history(event.modifiers.shift || redo-y);
                     return accept;
                 }
@@ -285,15 +374,45 @@ export component EditorUi inherits Window {
                     return accept;
                 }
                 if (event.text == Key.Delete || event.text == Key.Backspace)
-                    && Api.selection.highlight-index >= 0 {
+                    && Diagnostics.preview-editable && Api.selection.highlight-index >= 0 {
                     Api.selected-element-delete();
+                    return accept;
+                }
+                if self.is-arrow-key(event.text) && Diagnostics.preview-editable
+                    && Api.selection.highlight-index >= 0 && Api.selection.is-moveable
+                    && CanvasView.selection.describes-element
+                    && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt {
+                    Hover.element = {};
+                    if !CanvasView.nudging {
+                        CanvasView.nudging = true;
+                        CanvasView.nudge-position = { x: CanvasView.selection.x, y: CanvasView.selection.y };
+                    }
+                    if !self.nudge-write-pending {
+                        self.nudge-origin = CanvasView.nudge-position;
+                    }
+                    self.nudge-key-held = true;
+                    self.nudge-write-pending = true;
+                    let step = event.modifiers.shift ? 10px : 1px;
+                    CanvasView.nudge-position = {
+                        x: CanvasView.nudge-position.x + (event.text == Key.LeftArrow ? -step : event.text == Key.RightArrow ? step : 0px),
+                        y: CanvasView.nudge-position.y + (event.text == Key.UpArrow ? -step : event.text == Key.DownArrow ? step : 0px),
+                    };
+                    Api.override-selected-element-geometry(
+                        CanvasView.nudge-position.x,
+                        CanvasView.nudge-position.y,
+                        CanvasView.selection.width,
+                        CanvasView.selection.height);
                     return accept;
                 }
                 reject
             }
 
             focus-lost => {
+                self.nudge-key-held = false;
+                self.write-nudge();
                 self.shift-pressed = false;
+                CanvasView.space-pressed = false;
+                CanvasView.panning = false;
             }
 
             DropArea {
@@ -326,6 +445,7 @@ export component EditorUi inherits Window {
                         vertical-stretch: 1;
 
                         if !root.sidebars-collapsed: LeftPane {
+                            width: root.displayed-left-width;
                             can-collapse: true;
                             elements-pane-height: root.elements-pane-height;
                             drag-started => { editor.focus(); }
@@ -351,22 +471,24 @@ export component EditorUi inherits Window {
 
                             if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
                                 sidebars-collapsed: root.sidebars-collapsed;
+                                displayed-left-pane-width: root.displayed-left-width;
                             }
 
                             DragPreview {
                                 parent-origin: parent.absolute-position;
+                                palette-scale: CanvasView.zoom;
                                 show-outline: false;
                                 visible: AppState.palette-drag-kind != ElementKind.none
                                     && !(Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed && root.palette-drag-in-outline);
                             }
                         }
 
-                        if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
+                        if root.inspector-visible && !root.sidebars-collapsed: InspectorPane {
+                            width: root.displayed-inspector-width;
                             changed palette-drag-in-outline => {
                                 root.palette-drag-in-outline = self.palette-drag-in-outline;
                             }
                             outline-pane-height: root.outline-pane-height;
-                            element-information: Api.current-element;
                             inspector-scroll-y <=> root.inspector-scroll-y;
                             outline-drag-started => { editor.focus(); }
                             outline-pane-resized(height) => {
@@ -379,18 +501,71 @@ export component EditorUi inherits Window {
                     }
                 }
 
-                if root.sidebars-collapsed: Rectangle {
+                if !root.sidebars-collapsed: VerticalResizeDivider {
+                    resize-enabled: !CanvasView.space-pressed && !CanvasView.panning;
+                    width: max(Metrics.border-width, Style.scroll-indicator.inset);
+                    x: canvas-viewport.absolute-position.x - parent.absolute-position.x - self.width;
+                    y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
+                    height: canvas-viewport.height;
+                    z: 1;
+                    resize-label: @tr("Project pane resize");
+                    value: root.displayed-left-width;
+                    value-minimum: Style.panes.left-width;
+                    value-maximum: root.left-width-maximum;
+                    preferred-value: root.requested-left-width;
+                    preferred-maximum: Style.panes.maximum-width;
+                    drag-started => { root.width-at-press = root.requested-left-width; }
+                    dragged(delta) => {
+                        root.dragged-left-width = (root.width-at-press + delta)
+                            .clamp(Style.panes.left-width, Style.panes.maximum-width);
+                    }
+                    drag-finished(delta) => {
+                        if delta != 0px { root.left-pane-resized(root.requested-left-width); }
+                        root.dragged-left-width = 0px;
+                    }
+                    value-set(value) => { root.left-pane-resized(value); }
+                    reset-requested => {
+                        root.dragged-left-width = 0px;
+                        root.left-pane-reset();
+                    }
+                }
+
+                if root.inspector-visible && !root.sidebars-collapsed: VerticalResizeDivider {
+                    resize-enabled: !CanvasView.space-pressed && !CanvasView.panning;
+                    x: canvas-viewport.absolute-position.x + canvas-viewport.width - parent.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - parent.absolute-position.y;
+                    height: canvas-viewport.height;
+                    z: 1;
+                    resize-label: @tr("Inspector pane resize");
+                    reversed: true;
+                    value: root.displayed-inspector-width;
+                    value-minimum: Style.panes.inspector-width;
+                    value-maximum: root.inspector-width-maximum;
+                    preferred-value: root.requested-inspector-width;
+                    preferred-maximum: Style.panes.maximum-width;
+                    drag-started => { root.width-at-press = root.requested-inspector-width; }
+                    dragged(delta) => {
+                        root.dragged-inspector-width = (root.width-at-press - delta)
+                            .clamp(Style.panes.inspector-width, Style.panes.maximum-width);
+                    }
+                    drag-finished(delta) => {
+                        if delta != 0px { root.inspector-pane-resized(root.requested-inspector-width); }
+                        root.dragged-inspector-width = 0px;
+                    }
+                    value-set(value) => { root.inspector-pane-resized(value); }
+                    reset-requested => {
+                        root.dragged-inspector-width = 0px;
+                        root.inspector-pane-reset();
+                    }
+                }
+
+                if root.sidebars-collapsed: FloatingSurface {
                     x: Metrics.space-large;
                     y: Style.shell.top-bar-height + Metrics.space-medium;
                     width: Style.collapsed-sidebar.width;
                     height: Style.collapsed-sidebar.height;
                     border-radius: Style.collapsed-sidebar.radius;
                     border-width: Metrics.border-width;
-                    border-color: Style.floating-panel.border;
-                    background: Style.floating-panel.background;
-                    drop-shadow-blur: Style.floating-panel.shadow.blur;
-                    drop-shadow-offset-y: Style.floating-panel.shadow.offset-y;
-                    drop-shadow-color: Style.floating-panel.shadow.color;
 
                     HorizontalLayout {
                         padding-left: Metrics.space-medium;
@@ -411,7 +586,7 @@ export component EditorUi inherits Window {
                         SidebarToggleButton {
                             active: true;
                             accessible-role: AccessibleRole.button;
-                            accessible-label: "Expand sidebars";
+                            accessible-label: @tr("Expand sidebars");
                             clicked => {
                                 root.sidebars-collapsed = false;
                             }
@@ -422,6 +597,42 @@ export component EditorUi inherits Window {
 
             DragPreview { parent-origin: parent.absolute-position; show-palette: false; }
 
+            shadow-layer := TouchArea {
+                visible: ShadowSession.open;
+                enabled: ShadowSession.open;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down { ShadowSession.close(); }
+                }
+                scroll-event(event) => {
+                    let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
+                    let y = self.absolute-position.y + self.mouse-y - canvas-viewport.absolute-position.y;
+                    if x >= 0px && y >= 0px && x < canvas-viewport.width && y < canvas-viewport.height {
+                        return CanvasView.scroll(event, { x: x, y: y });
+                    }
+                    return reject;
+                }
+                Rectangle {
+                    visible: ShadowSession.canvas-visible;
+                    x: canvas-viewport.absolute-position.x - shadow-layer.absolute-position.x;
+                    y: canvas-viewport.absolute-position.y - shadow-layer.absolute-position.y;
+                    width: canvas-viewport.width;
+                    height: canvas-viewport.height;
+                    clip: true;
+                    ShadowOverlay {
+                        show-guides: editor.shift-pressed;
+                        viewport: { x: -self.x, y: -self.y, width: parent.width, height: parent.height };
+                        x: FillSession.canvas-origin.x - parent.absolute-position.x;
+                        y: FillSession.canvas-origin.y - parent.absolute-position.y;
+                        width: FillSession.canvas-size.width;
+                        height: FillSession.canvas-size.height;
+                    }
+                }
+                InspectorShadowPicker {
+                    parent-origin: shadow-layer.absolute-position;
+                    history-requested(redo) => { root.apply-history(redo); }
+                }
+            }
+
             fill-layer := TouchArea {
                 visible: FillSession.open;
                 enabled: FillSession.open;
@@ -429,6 +640,14 @@ export component EditorUi inherits Window {
                     if event.kind == PointerEventKind.down {
                         Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
                     }
+                }
+                scroll-event(event) => {
+                    let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
+                    let y = self.absolute-position.y + self.mouse-y - canvas-viewport.absolute-position.y;
+                    if x >= 0px && y >= 0px && x < canvas-viewport.width && y < canvas-viewport.height {
+                        return CanvasView.scroll(event, { x: x, y: y });
+                    }
+                    return reject;
                 }
                 if FillSession.canvas-active: Rectangle {
                     x: canvas-viewport.absolute-position.x - fill-layer.absolute-position.x;
@@ -447,12 +666,17 @@ export component EditorUi inherits Window {
                 }
                 InspectorFillPicker { }
             }
+            canvas-pan := CanvasPanArea {
+                x: canvas-viewport.absolute-position.x - editor.absolute-position.x;
+                y: canvas-viewport.absolute-position.y - editor.absolute-position.y;
+                width: canvas-viewport.width;
+                height: canvas-viewport.height;
+                component-visible: Api.editor-surface-mode == EditorSurfaceMode.component;
+                started => { editor.focus(); }
+            }
         }
 
         if Api.startup-wizard-visible: StartupWizard {
-            opened => {
-                root.open-project();
-            }
             create-new-project => {
                 Project.create-new-project();
             }

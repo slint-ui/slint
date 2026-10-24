@@ -11,6 +11,7 @@ mod remote;
 
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
+use i_slint_live_preview::live_component::poll_ready;
 use itertools::Itertools;
 use slint_interpreter::{
     CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
@@ -60,16 +61,30 @@ type Result<T> = std::result::Result<T, Error>;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Include path for other .slint files or images
-    #[arg(short = 'I', value_name = "include path", number_of_values = 1, action)]
-    include_paths: Vec<std::path::PathBuf>,
+    #[arg(
+        short = 'I',
+        value_name = "include path",
+        number_of_values = 1,
+        action,
+        value_parser = clap::value_parser!(std::ffi::OsString)
+    )]
+    include_paths: Option<Vec<std::ffi::OsString>>,
 
     /// Specify Library location of the '@library' in the form 'library=/path/to/library'
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
-    library_paths: Vec<String>,
+    library_paths: Option<Vec<String>>,
 
     /// The .slint file to load ('-' for stdin)
     #[arg(name = "path", action, required_unless_present = "remote")]
     path: Option<std::path::PathBuf>,
+
+    #[arg(
+        short = 'p',
+        long,
+        requires = "path",
+        help = "Load project settings from this directory"
+    )]
+    project_root: Option<std::path::PathBuf>,
 
     /// Start in remote viewer mode: listen for WebSocket connections from the LSP
     #[arg(long)]
@@ -79,9 +94,9 @@ struct Cli {
     #[arg(long, value_name = "address")]
     remote_address: Option<std::net::SocketAddr>,
 
-    /// Always require this pairing code, given as four digits, instead of showing a
+    /// Always require this pairing code, given as 4 to 12 digits, instead of showing a
     /// freshly generated one. For devices without a usable display, and for scripted
-    /// clients.
+    /// clients. Longer codes take longer to guess.
     #[arg(long, value_name = "code", requires = "remote", conflicts_with = "no_pairing")]
     pairing_code: Option<String>,
 
@@ -187,6 +202,11 @@ fn main() -> Result<()> {
     #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
 
+    if args.project_root.is_some() && args.path.as_ref().is_some_and(|path| path.is_dir()) {
+        eprintln!("A project directory cannot be combined with --project-root");
+        std::process::exit(2);
+    }
+
     if args.screenshot.is_some() {
         if args.auto_reload {
             eprintln!("Cannot pass both --auto-reload and --screenshot");
@@ -210,7 +230,11 @@ fn main() -> Result<()> {
             let pairing_policy = match (args.no_pairing, args.pairing_code) {
                 (true, _) => i_slint_live_preview::remote::PairingPolicy::Disabled,
                 (false, Some(code)) if !pairing::is_valid_code(&code) => {
-                    eprintln!("--pairing-code must be exactly {} digits", pairing::CODE_DIGITS);
+                    eprintln!(
+                        "--pairing-code must be {} to {} digits",
+                        pairing::CODE_DIGITS,
+                        pairing::MAX_CODE_DIGITS
+                    );
                     std::process::exit(2);
                 }
                 (false, Some(code)) => i_slint_live_preview::remote::PairingPolicy::Fixed(code),
@@ -248,10 +272,8 @@ fn main() -> Result<()> {
         return screenshot::take_screenshot(&args);
     }
 
-    let compiler = init_compiler(&args);
-
     if args.check {
-        let result = poll_ready(compiler.build_from_path(args.path()));
+        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         std::process::exit(if result.has_errors() { 1 } else { 0 });
     }
@@ -260,8 +282,12 @@ fn main() -> Result<()> {
         select_backend(args.backend.as_deref())?;
         install_log_message_handler()?;
 
+        let compiler_factory = {
+            let args = args.clone();
+            move || init_compiler(&args)
+        };
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
-            compiler,
+            compiler_factory,
             args.path().to_path_buf(),
             args.component.clone(),
         )?;
@@ -288,7 +314,7 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = poll_ready(compiler.build_from_path(args.path()));
+        let result = poll_ready(init_compiler(&args).build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);
@@ -334,6 +360,13 @@ fn install_log_message_handler() -> Result<()> {
 
 fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let mut compiler = slint_interpreter::Compiler::new();
+    if let Some(root) = &args.project_root {
+        let root = std::path::absolute(root).unwrap_or_else(|_| root.clone());
+        compiler.set_project_root(
+            Some(i_slint_compiler::source_path::SourcePath::new(root)),
+            i_slint_core::InternalToken,
+        );
+    }
     #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
         compiler.set_translation_domain(domain);
@@ -343,13 +376,21 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
         compiler
             .set_default_translation_context(slint_interpreter::DefaultTranslationContext::None);
     }
-    compiler.set_include_paths(args.include_paths.clone());
-    compiler.set_library_paths(
-        args.library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
-    );
+    if let Some(paths) = &args.include_paths {
+        compiler.set_include_paths(
+            paths.iter().filter(|path| !path.is_empty()).map(PathBuf::from).collect(),
+        );
+    }
+    if let Some(entries) = &args.library_paths {
+        compiler.set_library_paths(
+            entries
+                .iter()
+                .filter_map(|entry| {
+                    entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into()))
+                })
+                .collect(),
+        );
+    }
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
     }
@@ -357,6 +398,7 @@ fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let cc = compiler.compiler_configuration(i_slint_core::InternalToken);
     cc.components_to_generate = match &args.component {
         Some(component) => ComponentSelection::Named(component.clone()),
+        None if args.check => ComponentSelection::AllExported,
         None => ComponentSelection::LastExported,
     };
     cc.is_preview = true;
@@ -640,15 +682,4 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
     }
     command.spawn()?;
     Ok(())
-}
-
-/// Poll a future that is expected to resolve immediately (e.g. the interpreter's
-/// `build_from_path` when no async file loader is installed).
-fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
-    let mut future = core::pin::pin!(future);
-    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-    match std::future::Future::poll(future.as_mut(), &mut cx) {
-        std::task::Poll::Ready(result) => result,
-        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
-    }
 }

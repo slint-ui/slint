@@ -1,0 +1,195 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A state can change a property that a two-way binding initializes (#1950).
+// Each component below is a different place the value outside of the states comes from.
+
+// The alias is in a component of its own, so `remove_aliases` never sees the two ends
+// together: the value comes from the base.
+component Button {
+    in-out property <string> text <=> t.text;
+    t := Text { text: "base"; }
+}
+
+// Nothing binds the other end, so the value is the type default.
+component Empty {
+    in-out property <string> text <=> t.text;
+    t := Text { }
+}
+
+// The other end is itself a component, so what binds it is one level further down.
+component Inner {
+    in-out property <string> text: "inner";
+}
+component Nested {
+    in-out property <string> text <=> i.text;
+    i := Inner { }
+}
+
+// A chain: the value sits at its end.
+component Chained {
+    in-out property <int> a <=> b;
+    in-out property <int> b <=> c;
+    in-out property <int> c: 5;
+}
+
+// The base declares the alias, the component that inherits it changes the property.
+component Aliasing {
+    in-out property <string> text <=> t.text;
+    t := Text { text: "from-base"; }
+}
+component Inheriting inherits Aliasing {
+    in property <bool> open;
+    states [ o when open: { text: "open"; } ]
+    out property <string> res: root.text;
+}
+
+// Two native properties of one element, aliased to each other.
+component Native {
+    in property <bool> open;
+    t := Text { text: "x"; y <=> self.x; }
+    states [ o when open: { t.y: 100px; } ]
+    out property <length> res-x: t.x;
+    out property <length> res-y: t.y;
+}
+
+// Two states on one aliased property: the value outside of them is at the end of the chain.
+component TwoStates {
+    in property <int> step;
+    in-out property <length> a <=> r.width;
+    r := Rectangle { width: 7px; }
+    states [
+        one when step == 1: { a: 11px; }
+        two when step == 2: { a: 22px; }
+    ]
+    out property <length> res: r.width;
+}
+
+// An animation on the aliased property.
+component Animated {
+    in property <bool> open;
+    in-out property <length> a <=> r.width;
+    r := Rectangle { width: 7px; }
+    animate a { duration: 0ms; }
+    states [ o when open: { a: 30px; } ]
+    out property <length> res: r.width;
+}
+
+// A transition on the state that changes the aliased property.
+component Transitioned {
+    in property <bool> open;
+    in-out property <length> a <=> r.width;
+    r := Rectangle { width: 7px; }
+    states [ o when open: { a: 30px; in { animate a { duration: 0ms; } } } ]
+    out property <length> res: r.width;
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> open;
+
+    button := Button { }
+    empty := Empty { }
+    nested := Nested { }
+    chained := Chained { }
+    // The other end of the alias, within one component.
+    local-text := Text { }
+    in-out property <string> local <=> local-text.text;
+
+    inherited-off := Inheriting { open: false; }
+    inherited-on := Inheriting { open: true; }
+    native-off := Native { open: false; }
+    native-on := Native { open: true; }
+    two-states-0 := TwoStates { step: 0; }
+    two-states-1 := TwoStates { step: 1; }
+    two-states-2 := TwoStates { step: 2; }
+    animated-off := Animated { open: false; }
+    animated-on := Animated { open: true; }
+    transitioned-off := Transitioned { open: false; }
+    transitioned-on := Transitioned { open: true; }
+
+    // A repeated element gets its own copy of the alias and of the state.
+    for i in [0, 1]: Rectangle {
+        in-out property <string> a <=> row-text.text;
+        row-text := Text { text: "row"; }
+        states [ o when i == 1: { a: "hit"; } ]
+        init => { root.rows = root.rows + row-text.text + ";"; }
+    }
+    out property <string> rows;
+
+    states [
+        o when open: {
+            button.text: "open";
+            empty.text: "open";
+            nested.text: "open";
+            chained.a: 20;
+            local: "open";
+        }
+    ]
+
+    out property <string> local-echo: local-text.text;
+
+    // The instances that don't depend on `open` hold for every value of it.
+    out property <bool> always: inherited-off.res == "from-base" && inherited-on.res == "open"
+        && native-off.res-x == 0px && native-off.res-y == 0px
+        && native-on.res-x == 100px && native-on.res-y == 100px
+        && two-states-0.res == 7px && two-states-1.res == 11px && two-states-2.res == 22px
+        && animated-off.res == 7px && animated-on.res == 30px
+        && transitioned-off.res == 7px && transitioned-on.res == 30px
+        && rows == "row;hit;";
+
+    out property <bool> test: always && button.text == "base" && empty.text == ""
+        && nested.text == "inner"
+        && chained.a == 5 && chained.c == 5
+        && local == "" && local-text.text == "";
+    out property <bool> states-applied: always && button.text == "open" && empty.text == "open"
+        && nested.text == "open"
+        && chained.a == 20 && chained.c == 20
+        && local == "open" && local-text.text == "open";
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_open(true);
+assert(instance.get_states_applied());
+instance.set_open(false);
+assert(instance.get_test());
+
+// Writing through the alias still reaches the other end.
+instance.set_local("written");
+assert_eq(instance.get_local_echo(), slint::SharedString("written"));
+
+// Writing while the state applies replaces the binding, so the value stays after it ends.
+auto other = TestCase::create();
+other->set_open(true);
+assert_eq(other->get_local_echo(), slint::SharedString("open"));
+other->set_local("written");
+other->set_open(false);
+assert_eq(other->get_local(), slint::SharedString("written"));
+assert_eq(other->get_local_echo(), slint::SharedString("written"));
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_open(true);
+assert!(instance.get_states_applied());
+instance.set_open(false);
+assert!(instance.get_test());
+
+// Writing through the alias still reaches the other end.
+instance.set_local("written".into());
+assert_eq!(instance.get_local_echo(), "written");
+
+// Writing while the state applies replaces the binding, so the value stays after it ends.
+let other = TestCase::new().unwrap();
+other.set_open(true);
+assert_eq!(other.get_local_echo(), "open");
+other.set_local("written".into());
+other.set_open(false);
+assert_eq!(other.get_local(), "written");
+assert_eq!(other.get_local_echo(), "written");
+```
+*/

@@ -6,32 +6,47 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
 use crate::diagnostics::Spanned;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
-use crate::langtype::{PropertyLookupMode, Type};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
 use crate::object_tree::forward_inherited_expression::{
-    ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
+    ForwardedReferenceCache, InheritedExpression, follow_two_way_bindings,
+    forward_inherited_expression, rebase_expression_to_instance,
 };
 use crate::object_tree::*;
 use crate::symbol_counters::SymbolCounters;
+use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 pub fn lower_states(
     component: &Rc<Component>,
+    tr: &TypeRegister,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
-    let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
+    let state_info_type =
+        crate::typeregister::builtin_structs::get(&crate::langtype::BuiltinStruct::StateInfo)
+            .into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        lower_state_in_element(elem, &state_info_type, symbol_counters, forwarded_references, diag)
+        lower_state_in_element(
+            elem,
+            &state_info_type,
+            tr,
+            symbol_counters,
+            forwarded_references,
+            diag,
+        )
     });
 }
 
 fn lower_state_in_element(
     root_element: &ElementRc,
     state_info_type: &Type,
+    tr: &TypeRegister,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
@@ -57,6 +72,7 @@ fn lower_state_in_element(
     let mut affected_properties = HashSet::new();
     // Maps State name string -> integer id
     let mut states_id = HashMap::new();
+    let mut state_properties = HashMap::<i32, HashSet<NamedReference>>::new();
     let mut state_value = Expression::NumberLiteral(0., Unit::None);
     let states = std::mem::take(&mut root_element.borrow_mut().states);
     for (idx, state) in states.into_iter().enumerate().rev() {
@@ -69,7 +85,6 @@ fn lower_state_in_element(
             };
         }
         for (property_reference, expr, node) in state.property_changes {
-            affected_properties.insert(property_reference.clone());
             let element = property_reference.element();
             let property_expr = match expression_for_property(
                 &element,
@@ -86,6 +101,8 @@ fn lower_state_in_element(
                 }
                 ExpressionForProperty::Expression(e) => e,
             };
+            affected_properties.insert(property_reference.clone());
+            state_properties.entry(idx as i32 + 1).or_default().insert(property_reference.clone());
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
                     source_location: None,
@@ -104,10 +121,18 @@ fn lower_state_in_element(
             if let Some(cell) = element.borrow().binding_cell_including_synthetic(name) {
                 // A synthetic hook is upgraded in place; a real binding's hook survives inside
                 // `property_expr` (the false-branch of `new_expr`), so replacing it is correct.
-                cell.borrow_mut().set_value_expression(new_expr);
+                let mut cell = cell.borrow_mut();
+                if !cell.has_binding() {
+                    cell.from_state = true;
+                    cell.priority = 1;
+                    cell.from_source = true;
+                }
+                cell.set_value_expression(new_expr);
             } else {
                 let mut r = BindingExpression::from(new_expr);
                 r.priority = 1;
+                r.from_state = true;
+                r.from_source = true;
                 element.borrow_mut().set_binding(name.clone(), r);
             }
         }
@@ -121,6 +146,8 @@ fn lower_state_in_element(
         state_property,
         states_id,
         affected_properties,
+        state_properties,
+        tr,
         diag,
     );
 }
@@ -130,13 +157,16 @@ fn lower_transitions_in_element(
     state_property: Expression,
     states_id: HashMap<SmolStr, i32>,
     affected_properties: HashSet<NamedReference>,
+    state_properties: HashMap<i32, HashSet<NamedReference>>,
+    tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
     let transitions = std::mem::take(&mut elem.borrow_mut().transitions);
     let mut props =
         HashMap::<NamedReference, (SourceLocation, Vec<TransitionPropertyAnimation>)>::new();
+    let mut catch_alls = Vec::new();
     for transition in transitions {
-        let state = states_id.get(&transition.state_id).unwrap_or_else(|| {
+        let state = *states_id.get(&transition.state_id).unwrap_or_else(|| {
             diag.push_error(
                 format!("State '{}' does not exist", transition.state_id),
                 transition
@@ -159,11 +189,40 @@ fn lower_transitions_in_element(
             }
 
             let t = TransitionPropertyAnimation {
-                state_id: *state,
+                state_id: state,
                 direction: transition.direction,
                 animation,
             };
             props.entry(p).or_insert_with(|| (span.clone(), Vec::new())).1.push(t);
+        }
+
+        if let Some((span, animation)) = transition.catch_all_property_animation {
+            catch_alls.push((state, transition.direction, span, animation));
+        }
+    }
+
+    // Appended after all named animations, because the first matching animation wins
+    for (state, direction, span, animation) in catch_alls {
+        let Some(changed_properties) = state_properties.get(&state) else { continue };
+        for p in changed_properties {
+            if !matches!(tr.property_animation_type_for_property(p.ty()), ElementType::Builtin(..))
+                || p.element().borrow().binding(p.name()).is_some_and(|b| b.animation.is_some())
+            {
+                continue;
+            }
+            let (_, animations) =
+                props.entry(p.clone()).or_insert_with(|| (span.clone(), Vec::new()));
+            let covered = animations.iter().any(|a| {
+                a.state_id == state
+                    && (a.direction == direction || a.direction == TransitionDirection::InOut)
+            });
+            if !covered {
+                animations.push(TransitionPropertyAnimation {
+                    state_id: state,
+                    direction,
+                    animation: deep_clone_animation_element(&animation),
+                });
+            }
         }
     }
     for (ne, (span, animations)) in props {
@@ -201,11 +260,17 @@ fn expression_for_property(
         .binding(name)
         .map(|binding| (!binding.two_way_bindings.is_empty(), binding.expression.clone()));
     if let Some((is_two_way_binding, expression)) = local_binding {
-        if is_two_way_binding {
-            return ExpressionForProperty::TwoWayBinding;
-        }
         if !matches!(expression, Expression::Invalid) {
             return ExpressionForProperty::Expression(expression);
+        }
+        if is_two_way_binding {
+            return linked_expression(
+                element,
+                element,
+                name,
+                symbol_counters,
+                forwarded_references,
+            );
         }
     }
 
@@ -213,7 +278,15 @@ fn expression_for_property(
         InheritedExpression::Expression(expression) => {
             return ExpressionForProperty::Expression(expression);
         }
-        InheritedExpression::TwoWayBinding => return ExpressionForProperty::TwoWayBinding,
+        InheritedExpression::TwoWayBinding(base_root) => {
+            return linked_expression(
+                element,
+                &base_root,
+                name,
+                symbol_counters,
+                forwarded_references,
+            );
+        }
         InheritedExpression::Unbound => {}
     }
 
@@ -227,5 +300,40 @@ fn expression_for_property(
             )
         });
 
+    ExpressionForProperty::Expression(expression)
+}
+
+/// The value of a property that a two-way binding on `source` initializes.
+///
+/// The two ends of the binding become one property, so that value is what the other end is bound
+/// to (#1950). `source` is the element the binding is on: the element itself, or the root of a
+/// base component, whose expression is then rebased onto `element`.
+fn linked_expression(
+    element: &ElementRc,
+    source: &ElementRc,
+    name: &str,
+    symbol_counters: &SymbolCounters,
+    forwarded_references: &mut ForwardedReferenceCache,
+) -> ExpressionForProperty {
+    let Some(linked) = follow_two_way_bindings(source, name) else {
+        return ExpressionForProperty::TwoWayBinding;
+    };
+    let ExpressionForProperty::Expression(mut expression) = expression_for_property(
+        &linked.element(),
+        linked.name(),
+        symbol_counters,
+        forwarded_references,
+    ) else {
+        return ExpressionForProperty::TwoWayBinding;
+    };
+    if !Rc::ptr_eq(source, element) {
+        rebase_expression_to_instance(
+            &mut expression,
+            source,
+            element,
+            symbol_counters,
+            forwarded_references,
+        );
+    }
     ExpressionForProperty::Expression(expression)
 }

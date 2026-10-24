@@ -32,13 +32,13 @@ jobs:
             - uses: ./.github/actions/install-skia-dependencies
             - name: Setup headless display
               if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             - uses: actions/setup-node@v7
               with:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.10
+            - uses: pnpm/action-setup@v6.1.0
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
@@ -52,6 +52,18 @@ jobs:
               # binary and are covered by the registry e2e test (publish gate).
               run: pnpm build:testing
               working-directory: api/node
+            - name: Check that the binary doesn't link the LinuxKMS libraries
+              # The backend loads them at run-time, see internal/backends/linuxkms/dlopen.rs.
+              if: runner.os == 'Linux'
+              working-directory: api/node
+              run: |
+                  needed=$(readelf -d slint-ui.*.node | grep NEEDED)
+                  echo "$needed"
+                  if grep -E 'lib(input|udev|xkbcommon|gbm)\.so' <<<"$needed"; then
+                      nm -D --undefined-only slint-ui.*.node | grep -E ' (libinput|udev|xkb|gbm)_' || true
+                      echo "::error::Add the functions listed above to internal/backends/linuxkms/dlopen.rs"
+                      exit 1
+                  fi
             - name: Type-check tests and registry e2e fixtures
               # Type-checked here (not in the standalone typecheck job) because the
               # specs and fixtures resolve slint-ui's types, which depend on the
@@ -59,6 +71,9 @@ jobs:
               # api/node is filtered out of the root type-check:ci script.
               run: pnpm type-check
               working-directory: api/node
+            - name: Build slint-compiler
+              # The typescript_typegen tests invoke target/debug/slint-compiler.
+              run: cargo build -p slint-compiler
             - name: Run node tests
               working-directory: api/node
               run: pnpm test
@@ -69,6 +84,60 @@ jobs:
               # Release is only applied to the harness that drives the node.js invocations, but needed
               # to avoid crashing on Windows with what looks like an out of stack exception.
               run: cargo test --verbose --release --all-features --manifest-path tests/Cargo.toml -p test-driver-nodejs
+            - name: Run test-driver-typescript
+              run: cargo test --verbose --manifest-path tests/Cargo.toml -p test-driver-typescript
+            - name: Check todo-typescript example
+              working-directory: examples/todo/node-typescript
+              run: pnpm check
             - name: Check image-filter example
               working-directory: examples/imagefilter/node
               run: pnpm check
+            # Last, so that every step above runs on Node.js 24; `node --build-sea` needs 25.5.
+            - name: Setup Node.js 26 for single executable applications
+              uses: actions/setup-node@v7
+              with:
+                node-version: 26
+                package-manager-cache: false
+            - name: Test packaging as a single executable application
+              working-directory: api/node
+              run: pnpm exec vitest run __test__/sea.spec.mts
+            - name: Package the home-automation demo as a single executable
+              # Follows the NodeJS tab of docs/astro/src/content/docs/guide/platforms/desktop/packaging/general.mdx.
+              shell: bash
+              working-directory: demos/home-automation
+              run: |
+                  (cd node && node build.mjs $([ "$RUNNER_OS" = macOS ] && echo ../Resources))
+                  node --build-sea sea-config.json
+
+                  mkdir -p ../../dist
+                  case "$RUNNER_OS" in
+                  Windows)
+                      mv home-automation home-automation.exe
+                      npx --yes create-nodew-exe@2.1.1 home-automation.exe home-automation.exe
+                      mkdir ../../dist/home-automation
+                      cp -RL home-automation.exe slint-ui.*.node ui ../../dist/home-automation/
+                      echo "ARTIFACT=dist/home-automation" >> "$GITHUB_ENV"
+                      ;;
+                  macOS)
+                      app="Home Automation.app"
+                      mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+                      mv home-automation slint-ui.*.node "$app/Contents/MacOS/"
+                      cp -RL ui "$app/Contents/Resources/"
+                      cp ../../logo/slint-logo.icns "$app/Contents/Resources/"
+                      cp node/Info.plist "$app/Contents/"
+                      codesign --sign - --force "$app"
+                      # ditto keeps the executable permission and the signature.
+                      ditto -c -k --keepParent "$app" ../../dist/home-automation.zip
+                      echo "ARTIFACT=dist/home-automation.zip" >> "$GITHUB_ENV"
+                      ;;
+                  *)
+                      # A tarball, since upload-artifact drops the executable permission.
+                      tar czhf ../../dist/home-automation.tar.gz --transform 's,^,home-automation/,' home-automation slint-ui.*.node ui
+                      echo "ARTIFACT=dist/home-automation.tar.gz" >> "$GITHUB_ENV"
+                      ;;
+                  esac
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: home-automation-node-${{ runner.os }}-${{ runner.arch }}
+                  path: ${{ env.ARTIFACT }}
+                  retention-days: 7

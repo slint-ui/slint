@@ -52,6 +52,9 @@ export struct RemoteViewerInfo {
 export enum RemoteConnectionState {
     Disconnected,
     Connecting,
+    /// A session dropped and is being redialed. Connecting elsewhere
+    /// replaces the redial.
+    Reconnecting,
     /// The viewer is showing a pairing code and is waiting for it to be
     /// typed in here.
     PairingRequired,
@@ -73,6 +76,7 @@ export enum LayoutKind {
     Horizontal,
     Vertical,
     Grid,
+    Flexbox,
 }
 
 /// A rectangular region that is selected
@@ -269,6 +273,7 @@ export enum LogMessageLevel {
     Debug,
     Warning,
     Error,
+    Info,
     Note,
 }
 
@@ -645,8 +650,8 @@ export global Api {
     callback remote-cancel-pairing();
     /// Connect to the pairing-disabled viewer the warning is about.
     callback remote-accept-unpaired();
-    /// Digits in a pairing code, from `pairing::CODE_DIGITS`.
-    in-out property <int> remote-pairing-code-length;
+    /// Digits in the code the viewer is asking for.
+    in property <int> remote-pairing-code-length;
 
     // ## SlintPad related APIs
     in-out property <bool> runs-in-slintpad;

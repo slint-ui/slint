@@ -1,15 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{
-    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, PropertyLookupMode, Struct,
-    Type,
+use crate::element_type::{BuiltinElement, PropertyLookupMode};
+use crate::expression_types::{
+    EasingCurve, ImageReference, MinMaxOp, MouseCursorInner, OperatorClass, RadialGradientShape,
+    Unit, operator_class,
 };
-use crate::layout::Orientation;
-use crate::lookup::LookupCtx;
+use crate::langtype::{ConstantExpression, EnumerationValue, Keys, Struct, Type};
+use crate::lookup::{LookupCtx, TypeSpecificLookup};
+use crate::native_class::{BuiltinPropertyDefault, PropertyVisibility};
 use crate::object_tree::*;
-use crate::parser::{NodeOrToken, SyntaxNode};
+use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister;
 use core::cell::RefCell;
@@ -23,134 +26,132 @@ use std::sync::Arc;
 pub use crate::namedreference::NamedReference;
 pub use crate::passes::resolving;
 
-#[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
-/// A function built into the run-time.
-/// Member functions of builtin elements bind to a variant with `#[slint(builtin_function(..))]`.
-pub enum BuiltinFunction {
-    GetWindowScaleFactor,
-    GetWindowDefaultFontSize,
-    AnimationTick,
-    Debug,
-    Mod,
-    Round,
-    Ceil,
-    Floor,
-    Abs,
-    Sqrt,
-    Cos,
-    Sin,
-    Tan,
-    ACos,
-    ASin,
-    ATan,
-    ATan2,
-    Log,
-    Ln,
-    Pow,
-    Exp,
-    ToFixed,
-    ToPrecision,
-    ToStringUnlocalized,
-    SetFocusItem,
-    ClearFocusItem,
-    ShowPopupWindow,
-    ClosePopupWindow,
-    /// Show a context popup menu.
-    /// Arguments are `(parent, menu_tree, position)`
-    ///
-    /// The first argument (parent) is a reference to the `ContextMenu` native item
-    /// The second argument (menu_tree) is a ElementReference to the root of the tree,
-    /// and in the LLR, a NumberLiteral to an index in  [`crate::llr::SubComponent::menu_item_trees`]
-    ShowPopupMenu,
-    /// Show a context popup menu from a list of entries.
-    /// Arguments are `(parent, entries, position)`
-    /// The entries argument is an array of MenuEntry
-    ShowPopupMenuInternal,
-    SetSelectionOffsets,
-    ItemFontMetrics,
-    /// the "42".to_float()
-    StringToFloat,
-    /// the "42".is_float()
-    StringIsFloat,
-    /// the "42".is_empty
-    StringIsEmpty,
-    /// the "42".length
-    StringCharacterCount,
-    StringToLowercase,
-    StringToUppercase,
-    StringStartsWith,
-    StringEndsWith,
-    StringReplaceAll,
-    KeysToString,
-    ColorRgbaStruct,
-    ColorHsvaStruct,
-    ColorOklchStruct,
-    ColorBrighter,
-    ColorDarker,
-    ColorTransparentize,
-    ColorMix,
-    ColorWithAlpha,
-    ImageSize,
-    ArrayLength,
-    ArrayPush,
-    ArrayRemove,
-    ArrayInsert,
-    ArrayAny,
-    ArrayAll,
-    ArrayFindIndex,
-    Rgb,
-    Hsv,
-    Oklch,
-    ColorScheme,
-    AccentColor,
-    SupportsNativeMenuBar,
-    /// Setup the menu bar
-    ///
-    /// arguments are: `(ref entries, ref sub-menu, ref activated, item_tree_root, no_native_menu_bar, <condition>)`
-    /// `item_tree_root` is a reference to the MenuItem tree root (just like in the [`Self::ShowPopupMenu`] call).
-    /// `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
-    /// `condition` is an optional expression that is the expression to `if condition : MenuBar { ... }` for optional menu
-    SetupMenuBar,
-    /// Setup the menu of a `SystemTrayIcon`.
-    ///
-    /// Arguments are `(system_tray_ref, menu_tree_root)` where `menu_tree_root` is an ElementReference to the root of
-    /// the MenuItem tree, lowered to a NumberLiteral index into [`crate::llr::SubComponent::menu_item_trees`] in the LLR.
-    SetupSystemTrayIcon,
-    Use24HourFormat,
-    MonthDayCount,
-    MonthOffset,
-    FormatDate,
-    DateNow,
-    ValidDate,
-    ParseDate,
-    TextInputFocused,
-    SetTextInputFocused,
-    #[strum(disabled)]
-    ImplicitLayoutInfo(Orientation),
-    ItemAbsolutePosition,
-    RegisterCustomFontByPath,
-    RegisterCustomFontByMemory,
-    RegisterBitmapFont,
-    Translate,
-    UpdateTimers,
-    DetectOperatingSystem,
-    StartTimer,
-    StopTimer,
-    RestartTimer,
-    OpenUrl,
-    MacosBringAllWindowsToFront,
-    ParseMarkdown,
-    StringToStyledText,
-    /// Converts a color to a hex string wrapped in StyledText.
-    /// Used for `<font color='\{expr}'>` interpolation in `@markdown`,
-    /// because `parse_interpolated` takes `StyledText` arguments.
-    ColorToStyledText,
-    DecimalSeparator,
-    /// The window title when the application doesn't set one, see
-    /// `i_slint_core::window::default_window_title`
-    DefaultWindowTitle,
-    PathPointAt,
-    PathAngleAt,
+/// It is const if the return value only depends on its argument and has no side effect
+fn builtin_function_is_const(
+    function: &BuiltinFunction,
+    global_analysis: Option<&crate::passes::GlobalAnalysis>,
+) -> bool {
+    match function {
+        BuiltinFunction::GetWindowScaleFactor => {
+            global_analysis.is_some_and(|x| x.const_scale_factor.is_some())
+        }
+        BuiltinFunction::GetWindowDefaultFontSize => {
+            global_analysis.is_some_and(|x| x.default_font_size.is_const())
+        }
+        BuiltinFunction::AnimationTick => false,
+        BuiltinFunction::ColorScheme => false,
+        BuiltinFunction::AccentColor => false,
+        BuiltinFunction::SupportsNativeMenuBar => false,
+        BuiltinFunction::SetupMenuBar => false,
+        BuiltinFunction::SetupSystemTrayIcon => false,
+        BuiltinFunction::MonthDayCount => false,
+        BuiltinFunction::MonthOffset => false,
+        BuiltinFunction::FormatDate => false,
+        BuiltinFunction::DateNow => false,
+        BuiltinFunction::ValidDate => false,
+        BuiltinFunction::ParseDate => false,
+        BuiltinFunction::DecimalSeparator => false,
+        BuiltinFunction::DefaultWindowTitle => false,
+        // Even if it is not pure, we optimize it away anyway
+        BuiltinFunction::Debug => true,
+        BuiltinFunction::Mod
+        | BuiltinFunction::Round
+        | BuiltinFunction::Ceil
+        | BuiltinFunction::Floor
+        | BuiltinFunction::Abs
+        | BuiltinFunction::Sqrt
+        | BuiltinFunction::Cos
+        | BuiltinFunction::Sin
+        | BuiltinFunction::Tan
+        | BuiltinFunction::ACos
+        | BuiltinFunction::ASin
+        | BuiltinFunction::Log
+        | BuiltinFunction::Ln
+        | BuiltinFunction::Pow
+        | BuiltinFunction::Exp
+        | BuiltinFunction::ATan
+        | BuiltinFunction::ATan2
+        | BuiltinFunction::ToStringUnlocalized => true,
+        // The result depends on the locale's decimal separator, like DecimalSeparator.
+        // The constant propagation folds the locale-independent cases and promotes
+        // their binding back to constant.
+        BuiltinFunction::ToFixed
+        | BuiltinFunction::ToPrecision
+        | BuiltinFunction::StringToFloat
+        | BuiltinFunction::StringIsFloat => false,
+        BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
+        BuiltinFunction::ShowPopupWindow
+        | BuiltinFunction::ClosePopupWindow
+        | BuiltinFunction::ShowPopupMenu
+        | BuiltinFunction::ShowPopupMenuInternal => false,
+        BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::TextInputSelectAll
+        | BuiltinFunction::TextInputClearSelection
+        | BuiltinFunction::TextInputCut
+        | BuiltinFunction::TextInputCopy
+        | BuiltinFunction::TextInputPaste
+        | BuiltinFunction::TextInputUndo
+        | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ContextMenuClose
+        | BuiltinFunction::WindowClose
+        | BuiltinFunction::WindowHide => false,
+        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => false,
+        BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
+        BuiltinFunction::StringIsEmpty
+        | BuiltinFunction::StringCharacterCount
+        | BuiltinFunction::StringToLowercase
+        | BuiltinFunction::StringToUppercase
+        | BuiltinFunction::StringStartsWith
+        | BuiltinFunction::StringEndsWith
+        | BuiltinFunction::StringReplaceAll
+        | BuiltinFunction::KeysToString => true,
+        BuiltinFunction::ColorRgbaStruct
+        | BuiltinFunction::ColorHsvaStruct
+        | BuiltinFunction::ColorOklchStruct
+        | BuiltinFunction::ColorBrighter
+        | BuiltinFunction::ColorDarker
+        | BuiltinFunction::ColorTransparentize
+        | BuiltinFunction::ColorMix
+        | BuiltinFunction::ColorWithAlpha => true,
+        // On the web, the browser loads images asynchronously, so the size is initially 0/0
+        // and updates once the image is loaded. Calls to this function must stay within a
+        // binding so that the property notification kicks in when the code may run on the web.
+        BuiltinFunction::ImageSize => global_analysis.is_some_and(|x| x.const_image_sizes),
+        BuiltinFunction::ArrayLength => true,
+        BuiltinFunction::ArrayPush
+        | BuiltinFunction::ArrayRemove
+        | BuiltinFunction::ArrayInsert => false,
+        BuiltinFunction::Rgb => true,
+        BuiltinFunction::Hsv => true,
+        BuiltinFunction::Oklch => true,
+        BuiltinFunction::SetTextInputFocused => false,
+        BuiltinFunction::TextInputFocused => false,
+        BuiltinFunction::ImplicitLayoutInfo(_) => false,
+        BuiltinFunction::ItemAbsolutePosition => true,
+        BuiltinFunction::RegisterCustomFontByPath
+        | BuiltinFunction::RegisterCustomFontByMemory
+        | BuiltinFunction::RegisterBitmapFont => false,
+        BuiltinFunction::Translate => false,
+        BuiltinFunction::Use24HourFormat => false,
+        BuiltinFunction::UpdateTimers => false,
+        BuiltinFunction::DetectOperatingSystem => true,
+        BuiltinFunction::StartTimer => false,
+        BuiltinFunction::StopTimer => false,
+        BuiltinFunction::RestartTimer => false,
+        BuiltinFunction::ParseMarkdown => false,
+        BuiltinFunction::StringToStyledText => true,
+        BuiltinFunction::ColorToStyledText => true,
+        BuiltinFunction::OpenUrl => false,
+        BuiltinFunction::MacosBringAllWindowsToFront => false,
+        BuiltinFunction::PathPointAt => true,
+        BuiltinFunction::PathAngleAt => true,
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
+            true
+        }
+        BuiltinFunction::ScrollTo | BuiltinFunction::EnsureVisible => false,
+        BuiltinFunction::ListViewEnsureRowVisible => false,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -189,386 +190,6 @@ pub enum BuiltinMacroFunction {
     Spring,
 }
 
-macro_rules! declare_builtin_function_types {
-    ($( $Name:ident $(($Pattern:tt))? : ($( $Arg:expr ),*) -> $ReturnType:expr $(,)? )*) => {
-        #[allow(non_snake_case)]
-        pub struct BuiltinFunctionTypes {
-            $(pub $Name : Arc<Function>),*
-        }
-        impl BuiltinFunctionTypes {
-            pub fn new() -> Self {
-                Self {
-                    $($Name : Arc::new(Function{
-                        args: vec![$($Arg),*],
-                        return_type: $ReturnType,
-                        arg_names: Vec::new(),
-                    })),*
-                }
-            }
-
-            pub fn ty(&self, function: &BuiltinFunction) -> Arc<Function> {
-                match function {
-                    $(BuiltinFunction::$Name $(($Pattern))? => self.$Name.clone()),*
-                }
-            }
-        }
-    };
-}
-
-declare_builtin_function_types!(
-    GetWindowScaleFactor: () -> Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)]),
-    GetWindowDefaultFontSize: () -> Type::LogicalLength,
-    AnimationTick: () -> Type::Duration,
-    Debug: (Type::String) -> Type::Void,
-    Mod: (Type::Int32, Type::Int32) -> Type::Int32,
-    Round: (Type::Float32) -> Type::Int32,
-    Ceil: (Type::Float32) -> Type::Int32,
-    Floor: (Type::Float32) -> Type::Int32,
-    Sqrt: (Type::Float32) -> Type::Float32,
-    Abs: (Type::Float32) -> Type::Float32,
-    Cos: (Type::Angle) -> Type::Float32,
-    Sin: (Type::Angle) -> Type::Float32,
-    Tan: (Type::Angle) -> Type::Float32,
-    ACos: (Type::Float32) -> Type::Angle,
-    ASin: (Type::Float32) -> Type::Angle,
-    ATan: (Type::Float32) -> Type::Angle,
-    ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
-    DecimalSeparator: () -> Type::String,
-    DefaultWindowTitle: () -> Type::String,
-    Log: (Type::Float32, Type::Float32) -> Type::Float32,
-    Ln: (Type::Float32) -> Type::Float32,
-    Pow: (Type::Float32, Type::Float32) -> Type::Float32,
-    Exp: (Type::Float32) -> Type::Float32,
-    ToFixed: (Type::Float32, Type::Int32) -> Type::String,
-    ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
-    ToStringUnlocalized: (Type::Float32) -> Type::String,
-    SetFocusItem: (Type::ElementReference) -> Type::Void,
-    ClearFocusItem: (Type::ElementReference) -> Type::Void,
-    ShowPopupWindow: (Type::ElementReference) -> Type::Void,
-    ClosePopupWindow: (Type::ElementReference) -> Type::Void,
-    ShowPopupMenu: (Type::ElementReference, Type::ElementReference, typeregister::logical_point_type().into()) -> Type::Void,
-    ShowPopupMenuInternal: (Type::ElementReference, Type::Model, typeregister::logical_point_type().into()) -> Type::Void,
-    SetSelectionOffsets: (Type::ElementReference, Type::Int32, Type::Int32) -> Type::Void,
-    ItemFontMetrics: (Type::ElementReference) -> typeregister::font_metrics_type(),
-    StringToFloat: (Type::String) -> Type::Float32,
-    StringIsFloat: (Type::String) -> Type::Bool,
-    StringIsEmpty: (Type::String) -> Type::Bool,
-    StringCharacterCount: (Type::String) -> Type::Int32,
-    StringToLowercase: (Type::String) -> Type::String,
-    StringToUppercase: (Type::String) -> Type::String,
-    StringStartsWith: (Type::String, Type::String) -> Type::Bool,
-    StringEndsWith: (Type::String, Type::String) -> Type::Bool,
-    StringReplaceAll: (Type::String, Type::String, Type::String) -> Type::String,
-    KeysToString: (Type::Keys) -> Type::String,
-    ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
-    ColorRgbaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("red"), Type::Int32),
-            (SmolStr::new_static("green"), Type::Int32),
-            (SmolStr::new_static("blue"), Type::Int32),
-            (SmolStr::new_static("alpha"), Type::Int32),
-        ])
-        .collect(), BuiltinStruct::Color))),
-    ColorHsvaStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("hue"), Type::Float32),
-            (SmolStr::new_static("saturation"), Type::Float32),
-            (SmolStr::new_static("value"), Type::Float32),
-            (SmolStr::new_static("alpha"), Type::Float32),
-        ])
-        .collect(), BuiltinStruct::Color))),
-    ColorOklchStruct: (Type::Color) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("lightness"), Type::Float32),
-            (SmolStr::new_static("chroma"), Type::Float32),
-            (SmolStr::new_static("hue"), Type::Float32),
-            (SmolStr::new_static("alpha"), Type::Float32),
-        ])
-        .collect(), BuiltinStruct::Color))),
-    ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorTransparentize: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorWithAlpha: (Type::Brush, Type::Float32) -> Type::Brush,
-    ColorMix: (Type::Color, Type::Color, Type::Float32) -> Type::Color,
-    ImageSize: (Type::Image) -> Type::Struct(Arc::new(Struct::new(IntoIterator::into_iter([
-            (SmolStr::new_static("width"), Type::Int32),
-            (SmolStr::new_static("height"), Type::Int32),
-        ])
-        .collect(), crate::langtype::BuiltinStruct::Size))),
-    ArrayLength: (Type::Model) -> Type::Int32,
-    // Using Type::InferredProperty as there is currently no valid type for the data argument.
-    ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,
-    ArrayRemove: (Type::Model, Type::Int32) -> Type::Void,
-    ArrayInsert: (Type::Model, Type::Int32, Type::InferredProperty) -> Type::Void,
-    ArrayAny: (Type::Model, Type::Closure) -> Type::Bool,
-    ArrayAll: (Type::Model, Type::Closure) -> Type::Bool,
-    ArrayFindIndex: (Type::Model, Type::Closure) -> Type::Int32,
-    Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
-    Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
-    Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
-    ColorScheme: () -> Type::Enumeration(
-        typeregister::BUILTIN.enums.ColorScheme.clone(),
-    ),
-    AccentColor: () -> Type::Color,
-    SupportsNativeMenuBar: () -> Type::Bool,
-    // entries, sub-menu, activate. But the types here are not accurate.
-    SetupMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
-    // (system_tray_ref, menu_tree_ref) — types not accurate (menu_tree becomes an index in LLR)
-    SetupSystemTrayIcon: (Type::ElementReference, Type::ElementReference) -> Type::Void,
-    MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
-    MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
-    FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
-    TextInputFocused: () -> Type::Bool,
-    DateNow: () -> Type::Array(Arc::new(Type::Int32)),
-    ValidDate: (Type::String, Type::String) -> Type::Bool,
-    ParseDate: (Type::String, Type::String) -> Type::Array(Arc::new(Type::Int32)),
-    SetTextInputFocused: (Type::Bool) -> Type::Void,
-    ItemAbsolutePosition: (Type::ElementReference) -> typeregister::logical_point_type().into(),
-    RegisterCustomFontByPath: (Type::String) -> Type::Void,
-    RegisterCustomFontByMemory: (Type::Int32) -> Type::Void,
-    RegisterBitmapFont: (Type::Int32) -> Type::Void,
-    // original, context, domain, args
-    Translate: (Type::String, Type::String, Type::String, Type::Array(Type::String.into())) -> Type::String,
-    Use24HourFormat: () -> Type::Bool,
-    UpdateTimers: () -> Type::Void,
-    DetectOperatingSystem: () -> Type::Enumeration(
-        typeregister::BUILTIN.enums.OperatingSystemType.clone(),
-    ),
-    StartTimer: (Type::ElementReference) -> Type::Void,
-    StopTimer: (Type::ElementReference) -> Type::Void,
-    RestartTimer: (Type::ElementReference) -> Type::Void,
-    ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
-    StringToStyledText: (Type::String) -> Type::StyledText,
-    ColorToStyledText: (Type::Color) -> Type::StyledText
-    OpenUrl: (Type::String) -> Type::Bool,
-    MacosBringAllWindowsToFront: () -> Type::Void,
-    PathPointAt: (Type::ElementReference, Type::Float32) -> typeregister::logical_point_type().into(),
-    PathAngleAt: (Type::ElementReference, Type::Float32) -> Type::Angle,
-);
-
-impl Default for BuiltinFunctionTypes {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl BuiltinFunction {
-    pub fn ty(&self) -> Arc<Function> {
-        static TYPES: std::sync::LazyLock<BuiltinFunctionTypes> =
-            std::sync::LazyLock::new(BuiltinFunctionTypes::new);
-        TYPES.ty(self)
-    }
-
-    /// It is const if the return value only depends on its argument and has no side effect
-    fn is_const(&self, global_analysis: Option<&crate::passes::GlobalAnalysis>) -> bool {
-        match self {
-            BuiltinFunction::GetWindowScaleFactor => {
-                global_analysis.is_some_and(|x| x.const_scale_factor.is_some())
-            }
-            BuiltinFunction::GetWindowDefaultFontSize => {
-                global_analysis.is_some_and(|x| x.default_font_size.is_const())
-            }
-            BuiltinFunction::AnimationTick => false,
-            BuiltinFunction::ColorScheme => false,
-            BuiltinFunction::AccentColor => false,
-            BuiltinFunction::SupportsNativeMenuBar => false,
-            BuiltinFunction::SetupMenuBar => false,
-            BuiltinFunction::SetupSystemTrayIcon => false,
-            BuiltinFunction::MonthDayCount => false,
-            BuiltinFunction::MonthOffset => false,
-            BuiltinFunction::FormatDate => false,
-            BuiltinFunction::DateNow => false,
-            BuiltinFunction::ValidDate => false,
-            BuiltinFunction::ParseDate => false,
-            BuiltinFunction::DecimalSeparator => false,
-            BuiltinFunction::DefaultWindowTitle => false,
-            // Even if it is not pure, we optimize it away anyway
-            BuiltinFunction::Debug => true,
-            BuiltinFunction::Mod
-            | BuiltinFunction::Round
-            | BuiltinFunction::Ceil
-            | BuiltinFunction::Floor
-            | BuiltinFunction::Abs
-            | BuiltinFunction::Sqrt
-            | BuiltinFunction::Cos
-            | BuiltinFunction::Sin
-            | BuiltinFunction::Tan
-            | BuiltinFunction::ACos
-            | BuiltinFunction::ASin
-            | BuiltinFunction::Log
-            | BuiltinFunction::Ln
-            | BuiltinFunction::Pow
-            | BuiltinFunction::Exp
-            | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2
-            | BuiltinFunction::ToStringUnlocalized => true,
-            // The result depends on the locale's decimal separator, like DecimalSeparator.
-            // The constant propagation folds the locale-independent cases and promotes
-            // their binding back to constant.
-            BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision
-            | BuiltinFunction::StringToFloat
-            | BuiltinFunction::StringIsFloat => false,
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow
-            | BuiltinFunction::ClosePopupWindow
-            | BuiltinFunction::ShowPopupMenu
-            | BuiltinFunction::ShowPopupMenuInternal => false,
-            BuiltinFunction::SetSelectionOffsets => false,
-            BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
-            BuiltinFunction::StringIsEmpty
-            | BuiltinFunction::StringCharacterCount
-            | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase
-            | BuiltinFunction::StringStartsWith
-            | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringReplaceAll
-            | BuiltinFunction::KeysToString => true,
-            BuiltinFunction::ColorRgbaStruct
-            | BuiltinFunction::ColorHsvaStruct
-            | BuiltinFunction::ColorOklchStruct
-            | BuiltinFunction::ColorBrighter
-            | BuiltinFunction::ColorDarker
-            | BuiltinFunction::ColorTransparentize
-            | BuiltinFunction::ColorMix
-            | BuiltinFunction::ColorWithAlpha => true,
-            // On the web, the browser loads images asynchronously, so the size is initially 0/0
-            // and updates once the image is loaded. Calls to this function must stay within a
-            // binding so that the property notification kicks in when the code may run on the web.
-            BuiltinFunction::ImageSize => global_analysis.is_some_and(|x| x.const_image_sizes),
-            BuiltinFunction::ArrayLength => true,
-            BuiltinFunction::ArrayPush
-            | BuiltinFunction::ArrayRemove
-            | BuiltinFunction::ArrayInsert => false,
-            BuiltinFunction::Rgb => true,
-            BuiltinFunction::Hsv => true,
-            BuiltinFunction::Oklch => true,
-            BuiltinFunction::SetTextInputFocused => false,
-            BuiltinFunction::TextInputFocused => false,
-            BuiltinFunction::ImplicitLayoutInfo(_) => false,
-            BuiltinFunction::ItemAbsolutePosition => true,
-            BuiltinFunction::RegisterCustomFontByPath
-            | BuiltinFunction::RegisterCustomFontByMemory
-            | BuiltinFunction::RegisterBitmapFont => false,
-            BuiltinFunction::Translate => false,
-            BuiltinFunction::Use24HourFormat => false,
-            BuiltinFunction::UpdateTimers => false,
-            BuiltinFunction::DetectOperatingSystem => true,
-            BuiltinFunction::StartTimer => false,
-            BuiltinFunction::StopTimer => false,
-            BuiltinFunction::RestartTimer => false,
-            BuiltinFunction::ParseMarkdown => false,
-            BuiltinFunction::StringToStyledText => true,
-            BuiltinFunction::ColorToStyledText => true,
-            BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::MacosBringAllWindowsToFront => false,
-            BuiltinFunction::PathPointAt => true,
-            BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny
-            | BuiltinFunction::ArrayAll
-            | BuiltinFunction::ArrayFindIndex => true,
-        }
-    }
-
-    // It is pure if it has no side effect
-    pub fn is_pure(&self) -> bool {
-        match self {
-            BuiltinFunction::GetWindowScaleFactor => true,
-            BuiltinFunction::GetWindowDefaultFontSize => true,
-            BuiltinFunction::AnimationTick => true,
-            BuiltinFunction::ColorScheme => true,
-            BuiltinFunction::AccentColor => true,
-            BuiltinFunction::SupportsNativeMenuBar => true,
-            BuiltinFunction::SetupMenuBar => false,
-            BuiltinFunction::SetupSystemTrayIcon => false,
-            BuiltinFunction::MonthDayCount => true,
-            BuiltinFunction::MonthOffset => true,
-            BuiltinFunction::FormatDate => true,
-            BuiltinFunction::DateNow => true,
-            BuiltinFunction::ValidDate => true,
-            BuiltinFunction::ParseDate => true,
-            BuiltinFunction::DecimalSeparator => true,
-            BuiltinFunction::DefaultWindowTitle => true,
-            // Even if it has technically side effect, we still consider it as pure for our purpose
-            BuiltinFunction::Debug => true,
-            BuiltinFunction::Mod
-            | BuiltinFunction::Round
-            | BuiltinFunction::Ceil
-            | BuiltinFunction::Floor
-            | BuiltinFunction::Abs
-            | BuiltinFunction::Sqrt
-            | BuiltinFunction::Cos
-            | BuiltinFunction::Sin
-            | BuiltinFunction::Tan
-            | BuiltinFunction::ACos
-            | BuiltinFunction::ASin
-            | BuiltinFunction::Log
-            | BuiltinFunction::Ln
-            | BuiltinFunction::Pow
-            | BuiltinFunction::Exp
-            | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2
-            | BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision
-            | BuiltinFunction::ToStringUnlocalized => true,
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
-            BuiltinFunction::ShowPopupWindow
-            | BuiltinFunction::ClosePopupWindow
-            | BuiltinFunction::ShowPopupMenu
-            | BuiltinFunction::ShowPopupMenuInternal => false,
-            BuiltinFunction::SetSelectionOffsets => false,
-            BuiltinFunction::ItemFontMetrics => true,
-            BuiltinFunction::StringToFloat
-            | BuiltinFunction::StringIsFloat
-            | BuiltinFunction::StringIsEmpty
-            | BuiltinFunction::StringCharacterCount
-            | BuiltinFunction::StringToLowercase
-            | BuiltinFunction::StringToUppercase
-            | BuiltinFunction::StringStartsWith
-            | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringReplaceAll
-            | BuiltinFunction::KeysToString => true,
-            BuiltinFunction::ColorRgbaStruct
-            | BuiltinFunction::ColorHsvaStruct
-            | BuiltinFunction::ColorOklchStruct
-            | BuiltinFunction::ColorBrighter
-            | BuiltinFunction::ColorDarker
-            | BuiltinFunction::ColorTransparentize
-            | BuiltinFunction::ColorMix
-            | BuiltinFunction::ColorWithAlpha => true,
-            BuiltinFunction::ImageSize => true,
-            BuiltinFunction::ArrayLength => true,
-            BuiltinFunction::ArrayPush
-            | BuiltinFunction::ArrayRemove
-            | BuiltinFunction::ArrayInsert => false,
-            BuiltinFunction::Rgb => true,
-            BuiltinFunction::Hsv => true,
-            BuiltinFunction::Oklch => true,
-            BuiltinFunction::ImplicitLayoutInfo(_) => true,
-            BuiltinFunction::ItemAbsolutePosition => true,
-            BuiltinFunction::SetTextInputFocused => false,
-            BuiltinFunction::TextInputFocused => true,
-            BuiltinFunction::RegisterCustomFontByPath
-            | BuiltinFunction::RegisterCustomFontByMemory
-            | BuiltinFunction::RegisterBitmapFont => false,
-            BuiltinFunction::Translate => true,
-            BuiltinFunction::Use24HourFormat => true,
-            BuiltinFunction::UpdateTimers => false,
-            BuiltinFunction::DetectOperatingSystem => true,
-            BuiltinFunction::StartTimer => false,
-            BuiltinFunction::StopTimer => false,
-            BuiltinFunction::RestartTimer => false,
-            BuiltinFunction::ParseMarkdown => true,
-            BuiltinFunction::StringToStyledText => true,
-            BuiltinFunction::ColorToStyledText => true,
-            BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::MacosBringAllWindowsToFront => false,
-            BuiltinFunction::PathPointAt => true,
-            BuiltinFunction::PathAngleAt => true,
-            BuiltinFunction::ArrayAny
-            | BuiltinFunction::ArrayAll
-            | BuiltinFunction::ArrayFindIndex => true,
-        }
-    }
-}
-
 /// The base of a Expression::FunctionCall
 #[derive(Debug, Clone)]
 pub enum Callable {
@@ -589,172 +210,6 @@ impl From<BuiltinFunction> for Callable {
     fn from(function: BuiltinFunction) -> Self {
         Self::Builtin(function)
     }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum OperatorClass {
-    ComparisonOp,
-    LogicalOp,
-    ArithmeticOp,
-}
-
-/// the class of for this (binary) operation
-pub fn operator_class(op: char) -> OperatorClass {
-    match op {
-        '=' | '!' | '<' | '>' | '≤' | '≥' => OperatorClass::ComparisonOp,
-        '&' | '|' => OperatorClass::LogicalOp,
-        '+' | '-' | '/' | '*' => OperatorClass::ArithmeticOp,
-        _ => panic!("Invalid operator {op:?}"),
-    }
-}
-
-macro_rules! declare_units {
-    // A unit written without a conversion is already its type's canonical unit.
-    (@normalize $value:ident, $ident:ident) => { ($value, Unit::$ident) };
-    // Otherwise scale by the factor and switch to the named canonical unit.
-    (@normalize $value:ident, $ident:ident, $canon:ident, $factor:expr) => {
-        ($value * ($factor as f64), Unit::$canon)
-    };
-    ($( $(#[$m:meta])* $ident:ident = $string:literal $(-> $canon:ident * $factor:expr)? ,)*) => {
-        /// A unit as written after a number in the source (`px`, `cm`, `grad`, ...).
-        ///
-        /// These are all the units a user can type. A literal is normalized to the
-        /// canonical [`Unit`] of its type the moment it enters the expression tree, so
-        /// only the parser and tooling ever handle a `WrittenUnit`.
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::EnumIter)]
-        pub enum WrittenUnit {
-            $($(#[$m])* $ident,)*
-        }
-
-        impl std::fmt::Display for WrittenUnit {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                match self {
-                    $(Self::$ident => write!(f, $string), )*
-                }
-            }
-        }
-
-        impl std::str::FromStr for WrittenUnit {
-            type Err = ();
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s {
-                    $($string => Ok(Self::$ident), )*
-                    _ => Err(())
-                }
-            }
-        }
-
-        impl WrittenUnit {
-            /// Scale `value`, written in this surface unit, to the value and canonical
-            /// [`Unit`] a `NumberLiteral` stores. The scale and the unit come out
-            /// together so they can't drift apart.
-            pub fn normalize(self, value: f64) -> (f64, Unit) {
-                match self {
-                    $(Self::$ident => declare_units!(@normalize value, $ident $(, $canon, $factor)?), )*
-                }
-            }
-        }
-    };
-}
-
-declare_units! {
-    /// No unit was given
-    None = "",
-    /// Percent value
-    Percent = "%",
-
-    // Lengths or Coord
-
-    /// Physical pixels
-    Phx = "phx",
-    /// Logical pixels
-    Px = "px",
-    /// Centimeters
-    Cm = "cm" -> Px * 37.8,
-    /// Millimeters
-    Mm = "mm" -> Px * 3.78,
-    /// inches
-    In = "in" -> Px * 96,
-    /// Points
-    Pt = "pt" -> Px * 96./72.,
-    /// Logical pixels multiplied with the window's default-font-size
-    Rem = "rem",
-
-    // durations
-
-    /// Seconds
-    S = "s" -> Ms * 1000,
-    /// Milliseconds
-    Ms = "ms",
-
-    // angles
-
-    /// Degree
-    Deg = "deg",
-    /// Gradians
-    Grad = "grad" -> Deg * 360./180.,
-    /// Turns
-    Turn = "turn" -> Deg * 360.,
-    /// Radians
-    Rad = "rad" -> Deg * 360./std::f32::consts::TAU,
-}
-
-/// The unit a [`Expression::NumberLiteral`] carries: always the canonical unit of
-/// its type, so the stored value is already scaled and needs no further
-/// conversion. The units a user can type (`cm`, `pt`, `grad`, ...) are
-/// [`WrittenUnit`] and are normalized to one of these on the way in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub enum Unit {
-    /// Dimension-less (`float`, `int`)
-    #[default]
-    None,
-    /// Percent
-    Percent,
-    /// Physical pixels
-    Phx,
-    /// Logical pixels
-    Px,
-    /// Logical pixels multiplied with the window's default-font-size
-    Rem,
-    /// Milliseconds
-    Ms,
-    /// Degrees
-    Deg,
-}
-
-impl Unit {
-    pub fn ty(self) -> Type {
-        match self {
-            Unit::None => Type::Float32,
-            Unit::Percent => Type::Percent,
-            Unit::Px => Type::LogicalLength,
-            Unit::Phx => Type::PhysicalLength,
-            Unit::Rem => Type::Rem,
-            Unit::Ms => Type::Duration,
-            Unit::Deg => Type::Angle,
-        }
-    }
-}
-
-impl std::fmt::Display for Unit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Unit::None => "",
-            Unit::Percent => "%",
-            Unit::Px => "px",
-            Unit::Phx => "phx",
-            Unit::Rem => "rem",
-            Unit::Ms => "ms",
-            Unit::Deg => "deg",
-        };
-        write!(f, "{s}")
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum MinMaxOp {
-    Min,
-    Max,
 }
 
 /// The three places a `.slint` file writes a conditional.
@@ -909,7 +364,7 @@ pub enum Expression {
 
     EmptyDataTransfer,
 
-    MouseCursor(MouseCursorInner),
+    MouseCursor(MouseCursorInner<Expression>),
 
     LinearGradient {
         angle: Box<Expression>,
@@ -921,9 +376,8 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`circle <r>`).
-        /// `None` means use the element's bbox half-diagonal.
-        radius: Option<Box<Expression>>,
+        /// Ending shape (`circle` or `ellipse`) with its optional explicit radii.
+        shape: RadialGradientShape<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -987,30 +441,30 @@ pub enum Expression {
     /// The orientation is the orientation of the cache, not the orientation of the layout.
     ComputeBoxLayoutInfo {
         layout: crate::layout::BoxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     ComputeGridLayoutInfo {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// only set in `layoutinfo-v-with-constraint`
         cross_axis_size: Option<Box<Expression>>,
     },
     /// Determine the coordinates of the items in the given orientation.
-    SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
+    SolveBoxLayout(crate::layout::BoxLayout, crate::expression_types::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
     },
     /// Solve a FlexboxLayout - returns positions for all items (x, y, width, height per item)
     SolveFlexboxLayout(crate::layout::FlexboxLayout),
     /// Compute the LayoutInfo for the given FlexboxLayout.
     ComputeFlexboxLayoutInfo {
         layout: crate::layout::FlexboxLayout,
-        orientation: crate::layout::Orientation,
+        orientation: crate::expression_types::Orientation,
         /// The width parameter in `layoutinfo-v-with-constraint`, the flex's
         /// own height in `layoutinfo-h-at-own-height`
         cross_axis_size: Option<Box<Expression>>,
@@ -1037,6 +491,9 @@ pub enum Expression {
         arg_name: SmolStr,
         expression: Box<Expression>,
     },
+
+    /// A pre-parsed `Path.stroke-dash-array`, packed for `Type::ArrayOfCoord`.
+    DashArray(Vec<f32>),
 }
 
 impl Expression {
@@ -1157,14 +614,15 @@ impl Expression {
             Expression::OrganizeGridLayout(..) => Type::ArrayOfU16,
             Expression::ComputeBoxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
-            Expression::SolveBoxLayout(..) => Type::LayoutCache,
-            Expression::SolveGridLayout { .. } => Type::LayoutCache,
-            Expression::SolveFlexboxLayout(..) => Type::LayoutCache,
+            Expression::SolveBoxLayout(..) => Type::ArrayOfCoord,
+            Expression::SolveGridLayout { .. } => Type::ArrayOfCoord,
+            Expression::SolveFlexboxLayout(..) => Type::ArrayOfCoord,
             Expression::ComputeFlexboxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
             Expression::Closure { .. } => Type::Closure,
+            Expression::DashArray(_) => Type::ArrayOfCoord,
         }
     }
 
@@ -1252,12 +710,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -1312,6 +770,7 @@ impl Expression {
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
+            Expression::DashArray(_) => {}
         }
     }
 
@@ -1401,12 +860,12 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 if let Some((cx, cy)) = center {
                     visitor(cx);
                     visitor(cy);
                 }
-                if let Some(r) = radius {
+                for r in shape.iter_mut() {
                     visitor(r);
                 }
                 for (c, s) in stops {
@@ -1461,6 +920,7 @@ impl Expression {
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
             Expression::Closure { expression, .. } => visitor(expression),
+            Expression::DashArray(_) => {}
         }
     }
 
@@ -1512,7 +972,7 @@ impl Expression {
             Expression::CodeBlock(sub) => sub.iter().all(|s| s.is_constant(ga)),
             Expression::FunctionCall { function, arguments, .. } => {
                 let is_const = match function {
-                    Callable::Builtin(b) => b.is_const(ga),
+                    Callable::Builtin(b) => builtin_function_is_const(b, ga),
                     Callable::Function(nr) => nr.is_constant(),
                     Callable::Callback(..) => false,
                 };
@@ -1554,9 +1014,9 @@ impl Expression {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { center, radius, stops } => {
+            Expression::RadialGradient { center, shape, stops } => {
                 center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
-                    && radius.as_ref().is_none_or(|r| r.is_constant(ga))
+                    && shape.iter().all(|r| r.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::ConicGradient { from_angle, center, stops } => {
@@ -1585,6 +1045,7 @@ impl Expression {
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
             Expression::Closure { expression, .. } => expression.is_constant(ga),
+            Expression::DashArray(_) => true,
         }
     }
 
@@ -1593,7 +1054,7 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
-        node: &dyn Spanned,
+        node: Option<&NodeOrToken>,
         diag: &mut BuildDiagnostics,
         symbol_counters: &SymbolCounters,
     ) -> Expression {
@@ -1622,7 +1083,7 @@ impl Expression {
                             Type::Brush,
                             Type::Color
                         );
-                        diag.push_warning(message, node);
+                        diag.push_warning(message, &node);
                         self
                     }
                     _ => self,
@@ -1645,7 +1106,7 @@ impl Expression {
                             if !right.fields.contains_key(f) {
                                 diag.slint_sc_error(
                                     &format!("Providing the extra struct member '{f}' is"),
-                                    node,
+                                    &node,
                                 );
                             }
                         }
@@ -1653,7 +1114,7 @@ impl Expression {
                             if !left.fields.contains_key(f) {
                                 diag.slint_sc_error(
                                     &format!("Omitting the struct field '{f}' is"),
-                                    node,
+                                    &node,
                                 );
                             }
                         }
@@ -1674,7 +1135,7 @@ impl Expression {
                                 format!(
                                     "Conversion to {target_type} ignores the extra {noun} {list}"
                                 ),
-                                node,
+                                &node,
                             );
                         }
                     }
@@ -1682,7 +1143,7 @@ impl Expression {
                         let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
-                                || (key.clone(), right.default_value_for_field(key)),
+                                || (key.clone(), Expression::default_value_for_field(right, key)),
                                 |(k, e)| {
                                     (k, e.maybe_convert_to(ty.clone(), node, diag, symbol_counters))
                                 },
@@ -1709,7 +1170,7 @@ impl Expression {
                                 symbol_counters,
                             )
                         } else {
-                            right.default_value_for_field(key)
+                            Expression::default_value_for_field(right, key)
                         };
                         new_values.insert(key.clone(), expression);
                     }
@@ -1812,13 +1273,13 @@ impl Expression {
                     };
                     diag.push_error(
                         format!("Cannot convert {ty} to {target_type}: Field '{f}' not found{available_fields_message}"),
-                        node,
+                        &node,
                     );
                     return self;
                 }
             }
             for f in target_fields.into_keys() {
-                let default_value = target_struct_type.default_value_for_field(&f);
+                let default_value = Expression::default_value_for_field(target_struct_type, &f);
                 new_values.insert(f, default_value);
             }
             Expression::Struct { ty: target_struct_type.clone(), values: new_values }
@@ -1876,7 +1337,10 @@ impl Expression {
                     "{message}. Use an unit, or multiply by 1{to_unit} to convert explicitly"
                 );
             }
-            diag.push_error(message, node);
+            if let Some(qualified) = shadowed_value(&target_type, node, diag) {
+                message = format!("{message}. Did you mean '{qualified}'?");
+            }
+            diag.push_error(message, &node);
             self
         }
     }
@@ -1890,7 +1354,7 @@ impl Expression {
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
-            | Type::LayoutCache
+            | Type::ArrayOfCoord
             | Type::ArrayOfU16 => Expression::Invalid,
             Type::Void => Expression::CodeBlock(Vec::new()),
             Type::DataTransfer => Expression::EmptyDataTransfer,
@@ -1922,7 +1386,7 @@ impl Expression {
                 values: s
                     .fields
                     .keys()
-                    .map(|k| (k.clone(), s.default_value_for_field(k)))
+                    .map(|k| (k.clone(), Expression::default_value_for_field(s, k)))
                     .collect(),
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),
@@ -1947,6 +1411,58 @@ impl Expression {
                 source_location: None,
             },
             Type::Closure => Expression::Invalid,
+        }
+    }
+
+    pub fn default_value_for_field(ty: &Struct, name: &SmolStr) -> Expression {
+        ty.field_defaults.get(name).map(Expression::from_constant).unwrap_or_else(|| {
+            Expression::default_value_for_type(
+                ty.fields.get(name).expect("default value requested for unknown struct field"),
+            )
+        })
+    }
+
+    pub fn from_constant(constant: &ConstantExpression) -> Expression {
+        match constant {
+            ConstantExpression::StringLiteral(s) => Expression::StringLiteral(s.clone()),
+            ConstantExpression::NumberLiteral(n, unit) => Expression::NumberLiteral(*n, *unit),
+            ConstantExpression::BoolLiteral(b) => Expression::BoolLiteral(*b),
+            ConstantExpression::EnumerationValue(e) => Expression::EnumerationValue(e.clone()),
+            ConstantExpression::Cast { from, to } => {
+                Expression::Cast { from: Box::new(Self::from_constant(from)), to: to.clone() }
+            }
+            ConstantExpression::UnaryOp { sub, op } => {
+                Expression::UnaryOp { sub: Box::new(Self::from_constant(sub)), op: *op }
+            }
+            ConstantExpression::Struct { ty, values } => Expression::Struct {
+                ty: ty.clone(),
+                values: values.iter().map(|(k, v)| (k.clone(), Self::from_constant(v))).collect(),
+            },
+            ConstantExpression::Array { element_ty, values } => Expression::Array {
+                element_ty: element_ty.clone(),
+                values: values.iter().map(Self::from_constant).collect(),
+            },
+        }
+    }
+
+    pub fn from_builtin_default(
+        default: &BuiltinPropertyDefault,
+        elem: Option<&ElementRc>,
+    ) -> Option<Expression> {
+        match default {
+            BuiltinPropertyDefault::None | BuiltinPropertyDefault::Computed => None,
+            BuiltinPropertyDefault::Expr(constant) => Some(Self::from_constant(constant)),
+            BuiltinPropertyDefault::RuntimeValue(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: Vec::new(),
+                source_location: None,
+            }),
+            BuiltinPropertyDefault::ElementFunction(function) => Some(Expression::FunctionCall {
+                function: function.clone().into(),
+                arguments: vec![Expression::ElementReference(Rc::downgrade(elem?))],
+                source_location: None,
+            }),
+            BuiltinPropertyDefault::BuiltinFunction(..) => None,
         }
     }
 
@@ -2021,6 +1537,28 @@ impl Expression {
                 ctx.diag.push_error(format!("{what} needs to be done on a property"), node);
                 false
             }
+        }
+    }
+
+    /// Anything that isn't a literal compares as different
+    pub(crate) fn same_literal(&self, other: &Expression) -> bool {
+        match (self, other) {
+            (Expression::NumberLiteral(a, a_unit), Expression::NumberLiteral(b, b_unit)) => {
+                a == b && a_unit == b_unit
+            }
+            (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
+            (Expression::StringLiteral(a), Expression::StringLiteral(b)) => a == b,
+            (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
+            // Colors and other converted literals arrive wrapped in a cast.
+            (
+                Expression::Cast { from: a, to: a_type },
+                Expression::Cast { from: b, to: b_type },
+            ) => a_type == b_type && a.same_literal(b),
+            (
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(a)),
+                Expression::MouseCursor(MouseCursorInner::BuiltIn(b)),
+            ) => a.same_literal(b),
+            _ => false,
         }
     }
 
@@ -2137,6 +1675,15 @@ pub struct BindingExpression {
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
 
+    /// Whether a state is what created this binding. The value it takes while no state
+    /// applies is then the property's type default.
+    pub from_state: bool,
+
+    /// Whether the source wrote this binding, as opposed to a compiler pass making it up.
+    /// [`Self::priority`] doesn't tell the two apart, because inlining raises a pass's
+    /// binding to 1 as well.
+    pub from_source: bool,
+
     pub animation: Option<PropertyAnimation>,
 
     /// The analysis information. None before it is computed
@@ -2152,6 +1699,8 @@ impl std::convert::From<Expression> for BindingExpression {
             expression,
             span: None,
             priority: 0,
+            from_state: false,
+            from_source: false,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: Default::default(),
@@ -2165,6 +1714,8 @@ impl BindingExpression {
             expression: Expression::Uncompiled(node.clone()),
             span: Some(node.to_source_location()),
             priority: 1,
+            from_state: false,
+            from_source: true,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: Default::default(),
@@ -2175,9 +1726,45 @@ impl BindingExpression {
             expression,
             span: Some(span),
             priority: 0,
+            from_state: false,
+            from_source: false,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: Default::default(),
+        }
+    }
+
+    /// The value this binding takes while none of the states apply, if a state created it.
+    pub fn state_fallback_mut(&mut self) -> Option<&mut Expression> {
+        if !self.from_state {
+            return None;
+        }
+        let mut current = self.expression.ignore_debug_hooks_mut();
+        let mut in_state_chain = false;
+        while let Expression::Condition {
+            false_expr,
+            source_location: Some(ConditionLocation::StateChange(_)),
+            ..
+        } = current
+        {
+            current = false_expr.ignore_debug_hooks_mut();
+            in_state_chain = true;
+        }
+        in_state_chain.then_some(current)
+    }
+
+    /// Where a state changes the property, if a state's change is what this binding is.
+    ///
+    /// Such a binding also carries the value the property has while no state applies, at the end
+    /// of its chain of conditions. Unlike [`Self::state_fallback_mut`], this doesn't say that
+    /// value is still a placeholder: something else may bind the property too.
+    pub fn state_change(&self) -> Option<&SourceLocation> {
+        match self.value_expression() {
+            Expression::Condition {
+                source_location: Some(ConditionLocation::StateChange(location)),
+                ..
+            } => Some(location),
+            _ => None,
         }
     }
 
@@ -2187,6 +1774,8 @@ impl BindingExpression {
             expression: Expression::Invalid,
             span: None,
             priority: 0,
+            from_state: false,
+            from_source: false,
             animation: Default::default(),
             analysis: Default::default(),
             two_way_bindings: vec![other],
@@ -2221,6 +1810,8 @@ impl BindingExpression {
                 **expression = other.expression.clone();
                 *synthetic = false;
                 self.priority = other.priority;
+                self.from_state = other.from_state;
+                self.from_source = other.from_source;
                 return true;
             }
             if self.two_way_bindings.is_empty() {
@@ -2232,9 +1823,12 @@ impl BindingExpression {
             // then edited through the two-way target instead).
             self.expression = Expression::Invalid;
             self.priority = other.priority;
+            self.from_source = other.from_source;
             return true;
         }
         self.priority = other.priority;
+        self.from_state = other.from_state;
+        self.from_source = other.from_source;
         self.expression = other.expression.clone();
         true
     }
@@ -2302,93 +1896,8 @@ pub enum Path {
 
 #[derive(Debug, Clone)]
 pub struct PathElement {
-    pub element_type: Rc<BuiltinElement>,
+    pub element_type: Arc<BuiltinElement>,
     pub bindings: BindingsMap,
-}
-
-#[derive(Clone, Debug, Default)]
-pub enum EasingCurve {
-    #[default]
-    Linear,
-    CubicBezier(f32, f32, f32, f32),
-    EaseInElastic,
-    EaseOutElastic,
-    EaseInOutElastic,
-    EaseInBounce,
-    EaseOutBounce,
-    EaseInOutBounce,
-    Spring(f32),
-    // CubicBezierNonConst([Box<Expression>; 4]),
-    // Custom(Box<dyn Fn(f32)->f32>),
-}
-
-/// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
-/// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
-#[derive(Clone, Debug)]
-pub enum MouseCursorInner<E = Expression> {
-    BuiltIn(Box<E>),
-    CustomMouseCursor { image: Box<E>, hotspot_x: Box<E>, hotspot_y: Box<E> },
-}
-
-impl<E: Default> Default for MouseCursorInner<E> {
-    fn default() -> Self {
-        Self::BuiltIn(Box::default())
-    }
-}
-
-// The compiler resolves every `@image-url("foo.png")` into a `Path`, `Url`, or
-// `DataUri` reference; the resource lowering pass may then replace it with
-// `EmbeddedData`/`EmbeddedTexture` if configured.
-#[derive(Clone, Debug)]
-pub enum ImageReference {
-    None,
-    /// An absolute path to a local image file on disk.
-    Path(SmolStr),
-    /// A non-`data:` URL, e.g. `builtin:/`, `http(s):`, or `user://`.
-    Url(url::Url),
-    /// An inline `data:` URI carrying the image content.
-    DataUri(SmolStr),
-    EmbeddedData {
-        resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
-        extension: String,
-    },
-    EmbeddedTexture {
-        resource_id: crate::embedded_resources::EmbeddedResourcesIdx,
-    },
-}
-
-impl ImageReference {
-    /// Classify a resolved `@image-url` string (an absolute path, a URL, or a
-    /// `data:` URI) into the matching reference kind.
-    pub fn from_resolved(reference: SmolStr) -> Self {
-        if reference.starts_with("data:") {
-            return Self::DataUri(reference);
-        }
-        // A single-character scheme is a Windows drive letter (`c:\...`), i.e. a
-        // path rather than a URL.
-        match url::Url::parse(&reference) {
-            Ok(url) if url.scheme().len() > 1 => Self::Url(url),
-            _ => Self::Path(reference),
-        }
-    }
-
-    /// Classify a URL returned by the resource mapper. It is already a URL, so
-    /// the only distinction is a `data:` URI (kept as a string, see
-    /// [`Self::DataUri`]) from any other URL.
-    pub fn from_mapped_url(url: url::Url) -> Self {
-        if url.scheme() == "data" { Self::DataUri(url.as_str().into()) } else { Self::Url(url) }
-    }
-
-    /// The image source loaded at run-time for a non-embedded reference: the
-    /// path, the URL, or the `data:` URI, as the string handed to
-    /// `Image::load_from_path`. `None` for embedded references.
-    pub fn source(&self) -> Option<&str> {
-        match self {
-            Self::Path(source) | Self::DataUri(source) => Some(source),
-            Self::Url(url) => Some(url.as_str()),
-            Self::None | Self::EmbeddedData { .. } | Self::EmbeddedTexture { .. } => None,
-        }
-    }
 }
 
 /// Print the expression as a .slint code (not necessarily valid .slint)
@@ -2510,11 +2019,24 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { center, radius, stops } => {
-            write!(f, "@radial-gradient(circle")?;
-            if let Some(r) = radius {
-                write!(f, " ")?;
-                pretty_print(f, r)?;
+        Expression::RadialGradient { center, shape, stops } => {
+            match shape {
+                RadialGradientShape::Circle(r) => {
+                    write!(f, "@radial-gradient(circle")?;
+                    if let Some(r) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, r)?;
+                    }
+                }
+                RadialGradientShape::Ellipse(r) => {
+                    write!(f, "@radial-gradient(ellipse")?;
+                    if let Some((rx, ry)) = r {
+                        write!(f, " ")?;
+                        pretty_print(f, rx)?;
+                        write!(f, " ")?;
+                        pretty_print(f, ry)?;
+                    }
+                }
             }
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;
@@ -2628,5 +2150,37 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "({display_name}) => ")?;
             pretty_print(f, expression)
         }
+        Expression::DashArray(v) => write!(f, "dash-array({v:?})"),
     }
+}
+
+/// The qualified value of `target_type` that `node` names when it's just an identifier,
+/// such as `MouseCursor.text` for `text;` or `{ text }`.
+fn shadowed_value(
+    target_type: &Type,
+    node: Option<&NodeOrToken>,
+    diag: &mut BuildDiagnostics,
+) -> Option<SmolStr> {
+    let mut tokens =
+        node?.as_node()?.descendants_with_tokens().filter_map(|n| n.into_token()).filter(|t| {
+            !matches!(
+                t.kind(),
+                SyntaxKind::Whitespace
+                    | SyntaxKind::Comment
+                    | SyntaxKind::Semicolon
+                    | SyntaxKind::LBrace
+                    | SyntaxKind::RBrace
+            )
+        });
+    let (Some(identifier), None) = (tokens.next(), tokens.next()) else { return None };
+    if identifier.kind() != SyntaxKind::Identifier {
+        return None;
+    }
+    let register = typeregister::TypeRegister::default();
+    let mut ctx = LookupCtx::empty_context(&register, diag, Default::default());
+    ctx.expected_type = target_type.clone();
+    TypeSpecificLookup::qualified_name(
+        &ctx,
+        &crate::parser::normalize_identifier(identifier.text()),
+    )
 }

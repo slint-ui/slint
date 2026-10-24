@@ -3,6 +3,7 @@ ABGR
 accentify
 accum
 actionchip
+addrs
 adipiscing
 Adressliste
 aiohttp
@@ -17,10 +18,12 @@ Amoled
 analogclock
 androideabi
 anyrender
+apng
 Appbar
 appicon
 appiconset
 appkit
+APPL
 appmain
 appsink
 appview
@@ -29,6 +32,7 @@ armeabi
 armhf
 arrayvec
 artboard
+ashpd
 assetcatalog
 astrolib
 astrowind
@@ -51,6 +55,7 @@ BGRA
 BGRX
 bindgen
 bindtextdomain
+bitmapfont
 blit
 blogic
 blogica
@@ -66,6 +71,7 @@ brushval
 bugtracker
 buildcode
 builtinfunctions
+bunfig
 bytemuck
 calloop
 caplog
@@ -102,6 +108,7 @@ coldict
 colorspace
 colour
 colprop
+copysign
 commodo
 compdef
 compilerlib
@@ -133,8 +140,10 @@ dashmap
 Datakonsult
 Datas
 datatypes
+datepickerpopup
 Datelike
 DBUILD
+dbus
 DCACHE
 DCMAKE
 DDEFAULT
@@ -185,6 +194,7 @@ ELCDIF
 elems
 elevatedbutton
 elit
+emcmake
 emscripten
 endforeach
 endfunction
@@ -217,6 +227,7 @@ fdroiddata
 FEFF
 FELGO
 fetchpriority
+fexceptions
 figsize
 fileaccess
 filledbutton
@@ -250,10 +261,10 @@ Fsvg
 fullsize
 Fullwidth
 fvar
+fwasm
 Fwww
 genhtml
 getattr
-getifs
 getpid
 getrandom
 globalfun
@@ -308,6 +319,8 @@ inputchip
 intprop
 intval
 iocp
+iphoneos
+iphonesimulator
 IRAM
 Irqs
 isinstance
@@ -346,6 +359,7 @@ libavformat
 libavutil
 LIBC
 LIBCLANG
+libdlmclient
 libdrm
 libegl
 libfile
@@ -384,6 +398,7 @@ linuxkms
 lipo
 Literata
 Llff
+llms
 Lmaterial
 LOADADDR
 LOWORD
@@ -442,6 +457,7 @@ nexp
 nixos
 nixpkgs
 nmagic
+nocapture
 nodelay
 noexcept
 noglib
@@ -472,7 +488,9 @@ optipng
 ospi
 othercomp
 ovmf
+pagefind
 PAKE
+pannable
 Pantone
 partytown
 PATCHLEVEL
@@ -532,9 +550,11 @@ radiobuttontile
 Raleway
 Randriana
 rasterizer
+rasterizers
 rasterizes
 rasterizing
 RBUTTONUP
+readback
 recompiles
 rects
 redoable
@@ -567,6 +587,7 @@ rustup
 Rustybuzz
 safeui
 Schukat
+scanout
 sclk
 scopeguard
 sdkconfig
@@ -574,6 +595,7 @@ sdkmanager
 seatd
 segmentedbutton
 segmenteditem
+semihosting
 Segoe
 serde
 setattr
@@ -588,6 +610,7 @@ shikijs
 Shmelt
 signalsafe
 SIGUSR
+simctl
 singlefile
 singleshot
 skrifa
@@ -609,6 +632,8 @@ srcroot
 SRCS
 SRGBA
 standardbutton
+standardlistview
+standardtableview
 startswith
 staticlib
 staticmethod
@@ -653,6 +678,7 @@ targetstruct
 Tdefmt
 tempor
 termcolor
+testdata
 texels
 texteditor
 textinput
@@ -663,6 +689,7 @@ thirdparty
 thumbsup
 thumbv
 tikv
+timepickerpopup
 Tisch
 titlebar
 Tlink
@@ -716,6 +743,7 @@ verticalbox
 verticallayout
 VGWGPU
 viewports
+virt
 vlayout
 vref
 vscodeversion
@@ -747,6 +775,7 @@ wordlike
 WQXGA
 writeback
 WRONLY
+Wtautological
 xbuild
 xcarchive
 xcassets

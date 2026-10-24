@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api } from "../../api.slint";
+import { InspectorComboOption } from "control-data.slint";
+
+export global InspectorEnumOptions {
+    out property <[InspectorComboOption]> image-fit-options: [
+        { value: "fill", label: "fill" },
+        { value: "preserve", label: "preserve" },
+        { value: "contain", label: "contain" },
+        { value: "cover", label: "cover" },
+    ];
+    out property <[InspectorComboOption]> image-tiling-options: [
+        { value: "none", label: "none" },
+        { value: "repeat", label: "repeat" },
+        { value: "round", label: "round" },
+    ];
+    out property <[InspectorComboOption]> text-font-weight-options: [
+        { value: "100", label: @tr("Thin") },
+        { value: "200", label: @tr("Extra Light") },
+        { value: "300", label: @tr("Light") },
+        { value: "400", label: @tr("Normal") },
+        { value: "500", label: @tr("Medium") },
+        { value: "600", label: @tr("Semi Bold") },
+        { value: "700", label: @tr("Bold") },
+        { value: "800", label: @tr("Extra Bold") },
+        { value: "900", label: @tr("Black") },
+    ];
+    out property <[InspectorComboOption]> text-horizontal-alignment-options: [
+        { value: "start", label: @tr("Start") },
+        { value: "end", label: @tr("End") },
+        { value: "left", label: @tr("Left") },
+        { value: "center", label: @tr("Center") },
+        { value: "right", label: @tr("Right") },
+    ];
+    out property <[InspectorComboOption]> text-vertical-alignment-options: [
+        { value: "top", label: @tr("Top") },
+        { value: "center", label: @tr("Center") },
+        { value: "bottom", label: @tr("Bottom") },
+    ];
+    out property <[InspectorComboOption]> image-horizontal-alignment-options: [
+        { value: "left", label: @tr("Left") },
+        { value: "center", label: @tr("Center") },
+        { value: "right", label: @tr("Right") },
+    ];
+    out property <[InspectorComboOption]> image-vertical-alignment-options: [
+        { value: "top", label: @tr("Top") },
+        { value: "center", label: @tr("Center") },
+        { value: "bottom", label: @tr("Bottom") },
+    ];
+    out property <[InspectorComboOption]> text-word-wrap-options: [
+        { value: "no-wrap", label: @tr("No wrap") },
+        { value: "word-wrap", label: @tr("Word wrap") },
+        { value: "char-wrap", label: @tr("Character wrap") },
+    ];
+    out property <[InspectorComboOption]> orientation-options: [
+        { value: "horizontal", label: @tr("Horizontal") },
+        { value: "vertical", label: @tr("Vertical") },
+    ];
+
+    public pure function option-index(name: string, default: string, options: [InspectorComboOption]) -> int {
+        return Api.combo-option-index(Api.source-property-value(name, default), options);
+    }
+
+    public pure function option-label(name: string, default: string, options: [InspectorComboOption]) -> string {
+        let index = InspectorEnumOptions.option-index(name, default, options);
+        return options[index >= 0 ? index : Api.combo-option-index(default, options)].label;
+    }
+
+    public pure function option-value(name: string, default: string, options: [InspectorComboOption]) -> string {
+        let index = InspectorEnumOptions.option-index(name, default, options);
+        return index >= 0 ? options[index].value : default;
+    }
+
+    public pure function text-font-weight-index() -> int {
+        let value = Api.source-property-value("font-weight", "400");
+        if value == "100" || value == "FontWeight.thin" || value == "thin" {
+            return 0;
+        }
+        if value == "200" || value == "FontWeight.extra-light" || value == "extra-light" {
+            return 1;
+        }
+        if value == "300" || value == "FontWeight.light" || value == "light" {
+            return 2;
+        }
+        if value == "400" || value == "FontWeight.normal" || value == "normal" {
+            return 3;
+        }
+        if value == "500" || value == "FontWeight.medium" || value == "medium" {
+            return 4;
+        }
+        if value == "600" || value == "FontWeight.semi-bold" || value == "semi-bold" {
+            return 5;
+        }
+        if value == "700" || value == "FontWeight.bold" || value == "bold" {
+            return 6;
+        }
+        if value == "800" || value == "FontWeight.extra-bold" || value == "extra-bold" {
+            return 7;
+        }
+        if value == "900" || value == "FontWeight.black" || value == "black" {
+            return 8;
+        }
+        return -1;
+    }
+
+    public pure function text-font-weight-label() -> string {
+        let index = InspectorEnumOptions.text-font-weight-index();
+        return index >= 0 ? InspectorEnumOptions.text-font-weight-options[index].label : @tr("Normal");
+    }
+}

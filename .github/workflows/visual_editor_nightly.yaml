@@ -134,7 +134,7 @@ jobs:
       - name: Install tooling
         run: dnf -y install flatpak ostree awscli2 gnupg2 git tar jq
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Mark the checkout safe for git
         run: git config --global --add safe.directory '*'

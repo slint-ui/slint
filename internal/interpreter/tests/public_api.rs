@@ -326,3 +326,47 @@ fn find_widget_after_conditional_sibling() {
         .collect();
     assert_eq!(labels, vec!["Extra".to_string(), "Always".to_string()]);
 }
+
+/// The interpreter always compiles with debug info, so every item must report
+/// its element infos, including the items the compiler synthesizes, such as the
+/// wrapper for a `visible` binding. The code generators do the same. Otherwise
+/// queries warn about missing debug info while walking the tree.
+#[test]
+fn every_item_has_element_infos() {
+    use i_slint_core::items::ItemRc;
+
+    let instance = compile(
+        r#"
+            import { CheckBox, LineEdit } from "std-widgets.slint";
+            export component TestCase inherits Window {
+                in property <bool> show-icon: true;
+                VerticalLayout {
+                    LineEdit {}
+                    CheckBox { text: "Check"; }
+                    icon := Rectangle { visible: root.show-icon; }
+                }
+            }
+        "#,
+        "TestCase",
+    );
+
+    fn visit(item: ItemRc, missing: &mut Vec<u32>) {
+        if item.element_count().is_none() {
+            missing.push(item.index());
+        }
+        let mut child = item.first_child();
+        while let Some(c) = child {
+            child = c.next_sibling();
+            visit(c, missing);
+        }
+    }
+
+    let item_tree = i_slint_core::window::WindowInner::from_pub(instance.window()).component();
+    let mut missing = Vec::new();
+    visit(ItemRc::new_root(item_tree), &mut missing);
+    assert_eq!(missing, Vec::<u32>::new(), "items without element infos");
+
+    let icons =
+        i_slint_backend_testing::ElementHandle::find_by_element_id(&instance, "TestCase::icon");
+    assert_eq!(icons.count(), 1);
+}

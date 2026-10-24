@@ -1,0 +1,92 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #13118
+export component TestCaseRepeated inherits Window {
+    width: 100px;
+    height: 300px;
+
+    TouchArea {
+        clicked => { root.counter += 1; }
+
+        VerticalLayout {
+            for i in root.rows: Flickable {
+                height: 100px;
+                content-width: self.width;
+                content-height: 150px;
+
+                Rectangle {
+                    background: gray;
+                }
+            }
+        }
+    }
+
+    in property <[int]> rows: [0, 1, 2];
+    out property <int> counter: 0;
+}
+
+export component TestCasePopup inherits Window {
+    width: 300px;
+    height: 300px;
+
+    popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 10px;
+        y: 10px;
+        width: 100px;
+        height: 100px;
+
+        TouchArea {
+            clicked => { root.counter += 1; }
+
+            Flickable {
+                width: 100px;
+                height: 100px;
+                content-width: 100px;
+                content-height: 200px;
+
+                Rectangle {
+                    width: 100px;
+                    height: 200px;
+                    background: gray;
+                }
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => { popup.show(); }
+    }
+
+    out property <int> counter: 0;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCaseRepeated::new().unwrap();
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+
+// The Flickable that delayed the press is gone by the release: the click still reaches the parent.
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+instance.set_rows(slint::ModelRc::new(slint::VecModel::from(vec![0, 1, 2])));
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 150.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 2);
+```
+
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+let instance = TestCasePopup::new().unwrap();
+
+slint_testing::send_mouse_click(&instance, 250., 250.);
+assert_eq!(instance.get_counter(), 0);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(50.0, 50.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_counter(), 1);
+```
+*/

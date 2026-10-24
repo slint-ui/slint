@@ -1,12 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dalvik jboolean jfloat jint
+// cSpell: ignore dalvik jboolean jfloat jint jlong
+#![allow(
+    deprecated,
+    reason = "jni's bind_java_type! calls AtomicBool::fetch_update: https://github.com/jni-rs/jni-rs/issues/846"
+)]
+
 use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
 use i_slint_core::SharedString;
+use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
@@ -29,7 +35,7 @@ pub(crate) fn font_scale_to_logical_length(font_scale: f32) -> Option<LogicalLen
 const DEX_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
 
 bind_java_type! {
-    SlintAndroidJavaHelper => ".SlintAndroidJavaHelper",
+    SlintAndroidJavaHelper => "dev.slint.android.SlintAndroidJavaHelper",
     type_map = {
         AndroidActivity => "android.app.Activity",
         AndroidRect => "android.graphics.Rect",
@@ -95,9 +101,21 @@ bind_java_type! {
                 show_cursor_handles: jboolean
             ),
         },
+        fn set_light_system_bars {
+            name = "set_light_system_bars",
+            sig = (light: jboolean),
+        },
         fn show_action_menu {
             name = "show_action_menu",
             sig = (),
+        },
+        fn hide_action_menu {
+            name = "hide_action_menu",
+            sig = (),
+        },
+        fn defer_action_menu {
+            name = "defer_action_menu",
+            sig = (deferred: jboolean),
         },
         fn show_keyboard {
             name = "show_keyboard",
@@ -149,9 +167,13 @@ bind_java_type! {
                     cursor_position: jint,
                     anchor_position: jint,
                     preedit_start: jint,
-                    preedit_offset: jint
+                    preedit_end: jint
             ) -> (),
             fn = callback_update_text,
+        },
+        pub static fn update_selection {
+            sig = (cursor_position: jint, anchor_position: jint) -> (),
+            fn = callback_update_selection,
         },
     },
 }
@@ -293,7 +315,11 @@ pub fn print_jni_error(_app: &AndroidApp, e: jni::errors::Error) -> ! {
 }
 
 #[allow(dead_code)]
-pub struct JavaHelper(jni::refs::Global<SlintAndroidJavaHelper<'static>>, AndroidApp);
+pub struct JavaHelper(
+    jni::refs::Global<SlintAndroidJavaHelper<'static>>,
+    AndroidApp,
+    std::cell::OnceCell<i64>,
+);
 
 fn get_helper_class_loader(
     env: &mut Env,
@@ -371,9 +397,26 @@ fn load_java_helper(
     })
 }
 
+bind_java_type! {
+    JavaSystem => "java.lang.System",
+    methods {
+        static fn nano_time { name = "nanoTime", sig = () -> jlong, },
+    }
+}
+
 impl JavaHelper {
+    pub fn input_timestamp(&self, event_nanos: i64, window: &i_slint_core::api::Window) -> Instant {
+        let offset = self.2.get_or_init(|| {
+            let now_nanos = self
+                .with_jni_env(|env, _| JavaSystem::nano_time(env))
+                .unwrap_or_else(|e| print_jni_error(&self.1, e));
+            let ctx = i_slint_core::window::WindowInner::from_pub(window).context();
+            i_slint_core::animations::Instant::now(ctx).as_nanos() as i64 - now_nanos
+        });
+        Duration::from_nanos(event_nanos.saturating_add(*offset).max(0) as u64).into()
+    }
     pub fn new(app: &AndroidApp) -> Result<Self, jni::errors::Error> {
-        Ok(Self(load_java_helper(app)?, app.clone()))
+        Ok(Self(load_java_helper(app)?, app.clone(), Default::default()))
     }
 
     fn with_jni_env<R>(
@@ -521,10 +564,24 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
-    pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
+    /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.
+    fn accent_color(&self) -> Result<Option<Color>, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
-            Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32))
+            let argb = helper.accent_color(env)? as u32;
+            Ok((argb != 0).then(|| Color::from_argb_encoded(argb)))
         })
+    }
+
+    /// `night_mode` is a `Configuration.UI_MODE_NIGHT_*` value.
+    pub fn set_system_colors(&self, ctx: &i_slint_core::SlintContext, night_mode: i32) {
+        ctx.set_color_scheme(match night_mode {
+            0x10 => ColorScheme::Light, // UI_MODE_NIGHT_NO
+            0x20 => ColorScheme::Dark,  // UI_MODE_NIGHT_YES
+            _ => ColorScheme::Unknown,
+        });
+        if let Ok(Some(accent)) = self.accent_color() {
+            ctx.set_accent_color(accent);
+        }
     }
 
     pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
@@ -544,6 +601,10 @@ impl JavaHelper {
         })
     }
 
+    pub fn set_light_system_bars(&self, light: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.set_light_system_bars(env, light))
+    }
+
     pub fn long_press_timeout(&self) -> Result<Duration, jni::errors::Error> {
         self.with_jni_env(|env, _helper| {
             let long_press_timeout = AndroidViewConfiguration::get_long_press_timeout(env)?;
@@ -555,6 +616,15 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.show_action_menu(env))
     }
 
+    pub fn hide_action_menu(&self) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.hide_action_menu(env))
+    }
+
+    /// Keeps the text selection menu from showing for a new selection while `deferred` is set.
+    pub fn defer_action_menu(&self, deferred: bool) -> Result<(), jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.defer_action_menu(env, deferred))
+    }
+
     pub fn set_clipboard(&self, text: &str) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let text = JString::new(env, text)?;
@@ -562,8 +632,11 @@ impl JavaHelper {
         })
     }
 
-    pub fn get_clipboard(&self) -> Result<String, jni::errors::Error> {
-        self.with_jni_env(|env, helper| Ok(helper.get_clipboard(env)?.to_string()))
+    pub fn get_clipboard(&self) -> Result<Option<String>, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let text = helper.get_clipboard(env)?;
+            Ok((!text.is_null()).then(|| text.to_string()))
+        })
     }
 
     /// Ask the Activity to finish. Used from `callback_on_back_invoked` when
@@ -640,6 +713,38 @@ fn callback_update_text<'local>(
     Ok(())
 }
 
+fn callback_update_selection<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    cursor_position: jint,
+    anchor_position: jint,
+) -> Result<(), jni::errors::Error> {
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(adaptor) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            adaptor.show_cursor_handles.set(false);
+            if let Some(focus_item) = i_slint_core::window::WindowInner::from_pub(&adaptor.window)
+                .focus_item
+                .borrow()
+                .upgrade()
+                && let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>()
+            {
+                let text_input = text_input.as_pin_ref();
+                let text = text_input.text();
+                let to_byte_offset =
+                    |pos: jint| utf16_offset_to_byte_offset_clamped(&text, pos as usize) as i32;
+                text_input.set_selection_offsets(
+                    &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                    &focus_item,
+                    to_byte_offset(anchor_position),
+                    to_byte_offset(cursor_position),
+                );
+            }
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
 fn callback_set_night_mode<'local>(
     _env: &mut Env<'local>,
     _class: JClass<'local>,
@@ -647,17 +752,8 @@ fn callback_set_night_mode<'local>(
 ) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            let scheme = match night_mode {
-                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
-                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
-                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
-                _ => ColorScheme::Unknown,
-            };
             let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
-            ctx.set_color_scheme(scheme);
-            if let Ok(accent) = w.java_helper.accent_color() {
-                ctx.set_accent_color(accent);
-            }
+            w.java_helper.set_system_colors(ctx, night_mode);
         }
     })
     .unwrap();
@@ -698,6 +794,7 @@ fn callback_move_cursor_handle<'local>(
                 .upgrade()
             {
                 if let Some(text_input) = focus_item.downcast::<i_slint_core::items::TextInput>() {
+                    adaptor.show_cursor_handles.set(true);
                     let scale_factor = adaptor.window.scale_factor();
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     let size = text_input
@@ -772,7 +869,7 @@ fn callback_popup_menu_action<'local>(
                     let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
                     match id {
                         0 => text_input.cut(&adaptor, &focus_item),
-                        1 => text_input.copy(&adaptor, &focus_item),
+                        1 => text_input.copy(&adaptor),
                         2 => text_input.paste(&adaptor, &focus_item),
                         3 => text_input.select_all(&adaptor, &focus_item),
                         _ => (),

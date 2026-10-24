@@ -592,14 +592,15 @@ pub fn generate(
         struct_or_enum.generate_aliases(&mut file);
     }
 
-    let main_file = std::path::absolute(
-        doc.node
-            .as_ref()
-            .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?
-            .source_file
-            .path(),
-    )
-    .unwrap();
+    let input_path = match &compiler_config.input_project_directory {
+        Some(project_directory) => std::fs::canonicalize(project_directory)?,
+        None => std::path::absolute(
+            doc.node
+                .as_ref()
+                .and_then(|node| node.source_file.path().as_native_path())
+                .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?,
+        )?,
+    };
 
     let destination_path = destination_path.and_then(|maybe_relative_destination_path| {
         std::fs::canonicalize(maybe_relative_destination_path)
@@ -607,14 +608,10 @@ pub fn generate(
             .and_then(|p| p.parent().map(std::path::PathBuf::from))
     });
 
-    let relative_path_from_destination_to_main_file =
-        destination_path.and_then(|destination_path| {
-            pathdiff::diff_paths(main_file.parent().unwrap(), destination_path)
-        });
+    let relative_input_path = destination_path
+        .and_then(|destination_path| pathdiff::diff_paths(&input_path, destination_path));
 
-    if let Some(relative_path_from_destination_to_main_file) =
-        relative_path_from_destination_to_main_file
-    {
+    if let Some(relative_input_path) = relative_input_path {
         use base64::engine::Engine;
         use std::io::Write;
 
@@ -627,7 +624,7 @@ pub fn generate(
         file.imports.push(SmolStr::new_static("os"));
         file.trailing_code.push(format_smolstr!(
             "globals().update(vars(slint._load_file_checked(path=os.path.join(os.path.dirname(__file__), r'{}'), expected_api_base64_compressed=r'{}', generated_file=__file__)))",
-            relative_path_from_destination_to_main_file.join(main_file.file_name().unwrap()).to_string_lossy(),
+            relative_input_path.to_string_lossy(),
             base64_api_str
         ));
     }
@@ -636,6 +633,7 @@ pub fn generate(
 }
 
 fn python_type_name(ty: &Type) -> SmolStr {
+    use crate::langtype::BuiltinStruct as BS;
     match ty {
         Type::Invalid => panic!("Invalid type encountered in llr output"),
         Type::Void => SmolStr::new_static("None"),
@@ -657,13 +655,12 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Array(elem_type) => format_smolstr!("slint.Model[{}]", python_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
-            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalPosition) => {
+            StructName::Builtin(BS::LogicalPosition) => {
                 SmolStr::new_static("slint.LogicalPosition")
             }
-            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalSize) => {
-                SmolStr::new_static("slint.LogicalSize")
-            }
-            StructName::Builtin(crate::langtype::BuiltinStruct::Color) | StructName::None => {
+            StructName::Builtin(BS::LogicalSize) => SmolStr::new_static("slint.LogicalSize"),
+            StructName::Builtin(BS::ColorRgba | BS::ColorHsva | BS::ColorOklch)
+            | StructName::None => {
                 let tuple_types = s.fields.values().map(python_type_name).collect::<Vec<_>>();
                 format_smolstr!("typing.Tuple[{}]", tuple_types.join(", "))
             }

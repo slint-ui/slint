@@ -9,9 +9,9 @@
 
 use crate::erased::ErasedItemRc;
 use crate::item_holder::make_item;
+use crate::prelude::*;
 use i_slint_core::items::*;
 use i_slint_core::rtti::BuiltinItem;
-use std::collections::HashMap;
 use std::sync::OnceLock;
 
 pub type ItemFactory = fn() -> ErasedItemRc;
@@ -64,6 +64,7 @@ impl ItemRegistry {
             TextInput,
             Clip,
             BoxShadow,
+            BackdropBlur,
             Transform,
             Opacity,
             Layer,

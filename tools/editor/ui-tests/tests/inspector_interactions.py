@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import slint_testing
-from ui_driver import elements_with_label, wait_until, window_element_with_label
+from ui_assertions import expect
+from ui_driver import element, elements
 
 FIELDS = {
     "x": "Position X",
@@ -13,28 +14,87 @@ FIELDS = {
     "radius": "Corner radius",
 }
 
+FLOATING_FIELDS = {
+    "Shadow color",
+    "Shadow color opacity",
+    "Shadow blur",
+    "Shadow blur value",
+}
+
+
+def slider_position(
+    window: slint_testing.Window, label: str, progress: float
+) -> slint_testing.LogicalPosition:
+    slider = inspector_field(window, label, slint_testing.AccessibleRole.Slider)
+    return slider_track_position(slider, progress)
+
+
+def slider_track_position(
+    slider: slint_testing.Element, progress: float
+) -> slint_testing.LogicalPosition:
+    track = element(slider, id="InspectorSlider::track")
+    rect = track.absolute_rect
+    return slint_testing.LogicalPosition(
+        x=rect.x + rect.width * progress, y=rect.y + rect.height / 2
+    )
+
 
 def inspector_field(
     window: slint_testing.Window,
     label: str,
     role: slint_testing.AccessibleRole | None = None,
+    *,
+    shadow: str | None = None,
 ) -> slint_testing.Element:
-    pane = window_element_with_label(
-        window, "Inspector and outline", slint_testing.AccessibleRole.Complementary
+    pane = element(
+        window, "Inspector and outline", role=slint_testing.AccessibleRole.Complementary
     )
+    floating = label in FLOATING_FIELDS
+    if floating:
+        fields = elements(window, label, role=role)
+        if len(fields) == 1 and (shadow is None or elements(window, f"Close {shadow}")):
+            return element(window, label, role=role)
+    pane_rect = pane.absolute_rect
     position = slint_testing.LogicalPosition(
-        x=pane.absolute_position.x + pane.size.width / 2,
-        y=pane.absolute_position.y + pane.size.height / 4,
+        x=pane_rect.x + pane_rect.width / 2,
+        y=pane_rect.y + pane_rect.height / 4,
+    )
+    divider = element(
+        window, "Outline pane resize", role=slint_testing.AccessibleRole.Slider
     )
     for delta in [0, 10000, -180, -180, -180, -180, -180, -180]:
         if delta:
             window.dispatch_event(
                 slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
             )
-        fields = elements_with_label(pane, label, role)
-        if len(fields) == 1:
-            return fields[0]
-    return window_element_with_label(window, label, role)
+        fields = elements(pane, label, role=role)
+        if len(fields) == 1 and (
+            pane.absolute_position.y <= fields[0].absolute_position.y
+            and fields[0].absolute_position.y + fields[0].size.height
+            <= divider.absolute_position.y
+        ):
+            return element(pane, label, role=role)
+        if floating:
+            controls = [
+                control
+                for name in ((shadow,) if shadow else ("Drop shadow", "Inner shadow"))
+                for control in elements(
+                    pane, name, role=slint_testing.AccessibleRole.Button
+                )
+                if control.accessible_enabled
+            ]
+            if len(controls) > 1:
+                raise ValueError("Choose a shadow when both shadow effects are enabled")
+            if len(controls) == 1 and (
+                pane.absolute_position.y <= controls[0].absolute_position.y
+                and controls[0].absolute_position.y + controls[0].size.height
+                <= divider.absolute_position.y
+            ):
+                controls[0].invoke_accessible_default_action()
+                return element(
+                    element(window, id="InspectorShadowPicker::panel"), label, role=role
+                )
+    return element(window, label, role=role)
 
 
 def edit_field(
@@ -53,11 +113,4 @@ def wait_for_field(
     role: slint_testing.AccessibleRole | None = None,
     timeout: float = 5,
 ) -> None:
-    wait_until(
-        lambda: (
-            field
-            if (field := inspector_field(window, label, role)).accessible_value == value
-            else None
-        ),
-        timeout=timeout,
-    )
+    expect(inspector_field(window, label, role)).to_have_value(value, timeout=timeout)

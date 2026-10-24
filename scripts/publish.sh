@@ -7,14 +7,33 @@
 # Extra arguments (e.g. --dry-run, --no-verify) are forwarded to cargo publish.
 #
 # The helper crates (vtable, const-field-offset) have their own version
-# numbers and are published manually when needed.
+# numbers: they are only published when their version isn't on crates.io yet.
 #
 # The release CI authenticates via crates.io trusted publishing, which only
 # works for existing crates. To add a crate to this list, publish a dummy
 # 0.0.0 version manually, then configure trusted publishing in the crate's
 # settings on crates.io (repository slint-ui/slint, workflow nightly_snapshot.yaml).
 
+# cspell:ignore pkgid
+helper_crates=()
+for crate in const-field-offset-macro const-field-offset vtable-macro vtable; do
+    version=$(cargo pkgid -p "$crate" | sed 's/.*[#@]//')
+    # The path of a crate in the crates.io sparse index, for names of 4 characters or more.
+    index_path="${crate:0:2}/${crate:2:2}/$crate"
+    index=$(curl -sS -w '\n%{http_code}' "https://index.crates.io/$index_path")
+    status=${index##*$'\n'}
+    case $status in
+    200) grep -q "\"vers\":\"$version\"" <<<"$index" || helper_crates+=(-p "$crate") ;;
+    404) helper_crates+=(-p "$crate") ;;
+    *)
+        echo "Error: looking up $crate on crates.io failed with HTTP status $status" >&2
+        exit 1
+        ;;
+    esac
+done
+
 exec cargo publish "$@" \
+    "${helper_crates[@]}" \
     -p i-slint-common \
     -p i-slint-core-macros \
     -p i-slint-compiler \

@@ -4,6 +4,8 @@
 import { Style, PaintStyle, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
 import { Project } from "project.slint";
 
+import { FloatingSurface } from "components/floating-surface.slint";
+
 component BrandMark inherits Rectangle {
     in property <WelcomeBrandStyle> style: Style.welcome-brand;
     in-out property <length> mark-size: 90px;
@@ -44,7 +46,6 @@ component ActionIcon inherits Rectangle {
 
     width: Metrics.icon-large;
     height: Metrics.icon-large;
-    background: transparent;
 
     Image {
         width: Metrics.icon-large;
@@ -175,9 +176,6 @@ component RecentProjectRow inherits Rectangle {
         clicked => {
             root.opened();
         }
-        double-clicked => {
-            root.opened();
-        }
 
         Tooltip {
             text: @markdown("\{root.path}");
@@ -187,7 +185,6 @@ component RecentProjectRow inherits Rectangle {
 
 export component StartupWizard inherits Rectangle {
     in property <WelcomeShellStyle> style: Style.welcome-shell;
-    callback opened;
     callback create-new-project;
     callback open-existing-project;
 
@@ -199,11 +196,11 @@ export component StartupWizard inherits Rectangle {
     property <length> main-width: shell-width - side-width;
 
     accessible-role: AccessibleRole.region;
-    accessible-label: "Startup wizard";
+    accessible-label: @tr("Startup wizard");
 
     background: root.style.stage;
 
-    Rectangle {
+    FloatingSurface {
         x: root.shell-left;
         y: root.shell-top;
         width: root.shell-width;
@@ -212,10 +209,6 @@ export component StartupWizard inherits Rectangle {
         border-width: Metrics.border-width;
         border-color: root.style.border;
         background: root.style.background;
-        clip: true;
-        drop-shadow-blur: root.style.shadow.blur;
-        drop-shadow-offset-y: root.style.shadow.offset-y;
-        drop-shadow-color: root.style.shadow.color;
         animate width, height, x, y { duration: Motion.layout; easing: ease-out-quad; }
 
         Rectangle {
@@ -253,7 +246,7 @@ export component StartupWizard inherits Rectangle {
             y: hero-title.y + hero-title.height - Metrics.space-tight;
             width: root.main-width;
             height: Style.welcome-hero.subtitle-height;
-            text: "Version 1.0";
+            text: @tr("Version {}", "1.0");
             color: root.style.muted;
             font-size: Typography.action.size;
             horizontal-alignment: center;
@@ -266,14 +259,14 @@ export component StartupWizard inherits Rectangle {
             height: Style.welcome-actions.height;
             spacing: Style.welcome-actions.gap;
             WelcomeAction {
-                label: "Create New Project...";
+                label: @tr("Create New Project...");
                 clicked => {
                     root.create-new-project();
                 }
             }
 
             WelcomeAction {
-                label: "Open Existing Project...";
+                label: @tr("Open Existing Project...");
                 folder: true;
                 clicked => {
                     root.open-existing-project();

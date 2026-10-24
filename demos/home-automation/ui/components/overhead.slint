@@ -8,7 +8,6 @@ import { AppState } from "../appState.slint";
 
 export component Overhead inherits Control {
     show-label: false;
-    full-screen: false;
     tile-shadow-blur: 0px;
     control-background: @image-url("../images/overhead-frame.png", nine-slice(50));
 
@@ -38,7 +37,6 @@ export component Overhead inherits Control {
             }
 
             slider := FancySlider {
-                minValue: 0;
                 maxValue: 24;
                 value: 22;
                 width: (root.height < Measurements.medium-height-tile) ? root.width - 0 - 18px : root.width * 0.8;

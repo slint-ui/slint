@@ -29,9 +29,13 @@ backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
-backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
-backend-linuxkms-libseat = ["slint-interpreter/backend-linuxkms-libseat"]
-backend-linuxkms-libinput = ["slint-interpreter/backend-linuxkms-libinput"]
+backend-linuxkms = [
+  "slint-interpreter/backend-linuxkms",
+  "dep:i-slint-backend-linuxkms",
+  "i-slint-backend-linuxkms/dlopen",
+]
+backend-linuxkms-libseat = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libseat"]
+backend-linuxkms-libinput = ["backend-linuxkms", "slint-interpreter/backend-linuxkms-libinput"]
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
@@ -45,33 +49,39 @@ accessibility = ["slint-interpreter/accessibility"]
 # depend on the unpublished i-slint-backend-testing crate.
 #
 # `system-testing` and `mcp` (the auto-started system-testing/MCP servers via the
-# backend selector) are what the shipped "dev" binary enables (slint-ui-dev, see
-# binaries-dev.json); `build:debug` builds that same binary locally. `testing`
+# backend selector) and `live-preview` are what the shipped "dev" binary enables
+# (slint-ui-dev, see binaries-dev.json); `build:debug` builds that same binary locally. `testing`
 # (mocked time and synthetic input) is independent: it is enabled by
 # `build:testing` for this crate's own unit tests and is not part of the dev
 # binary.
 testing = ["dep:i-slint-backend-testing"]
 system-testing = ["dep:i-slint-backend-testing", "i-slint-backend-selector/system-testing"]
 mcp = ["dep:i-slint-backend-testing", "i-slint-backend-selector/mcp"]
+# Lets `loadFile()` reload its components when `SLINT_LIVE_PREVIEW` is set.
+live-preview = ["dep:i-slint-live-preview"]
 
 [dependencies]
 napi = { version = "3", default-features = false, features = ["napi8"] }
 napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
-i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
+i-slint-core = { workspace = true, features = ["default", "gettext-rs", "image-decoders", "svg"] }
 i-slint-backend-selector = { workspace = true }
 slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-18", "system-tray"] }
 spin_on = { workspace = true }
-css-color-parser2 = { workspace = true }
+i-slint-common = { workspace = true, features = ["color-parsing"] }
 itertools = { workspace = true }
 send_wrapper = { workspace = true }
 # Removed by node_package xtask
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
+i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
 smol_str = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libloading = "0.9"
 async-io = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+i-slint-backend-linuxkms = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
 libloading = "0.9"

@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use smol_str::SmolStr;
 
-use i_slint_compiler::{expression_tree, langtype};
+use i_slint_compiler::{builtin_functions, expression_tree, expression_types, langtype};
 use slint::Model;
 use slint_interpreter::{Value, ValueType};
 
@@ -18,6 +18,18 @@ struct EvalLocalContext {
     return_value: Option<Value>,
     recursion_count: usize,
     window_adapter: Option<Rc<dyn slint::platform::WindowAdapter>>,
+}
+
+impl EvalLocalContext {
+    /// The context of the preview window, or the thread's if there is no window.
+    fn context(&self) -> Option<i_slint_core::SlintContext> {
+        self.window_adapter
+            .as_ref()
+            .and_then(|adapter| {
+                i_slint_core::window::WindowInner::from_pub(adapter.window()).try_context().cloned()
+            })
+            .or_else(i_slint_core::SlintContext::current)
+    }
 }
 
 /// If we only care about a specified field
@@ -74,7 +86,10 @@ fn eval_expression(
             match (v, to) {
                 (Value::Number(n), langtype::Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), langtype::Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+                    Value::String(match local_context.context() {
+                        Some(context) => context.format_number(n),
+                        None => i_slint_core::string::shared_string_from_number_unlocalized(n),
+                    })
                 }
                 (Value::Number(n), langtype::Type::Color) => {
                     slint::Color::from_argb_encoded(n as u32).into()
@@ -189,29 +204,29 @@ fn eval_expression(
             local_context.local_variables.get(name).cloned().unwrap_or_default()
         }
         Expression::EasingCurve(curve) => Value::EasingCurve(match curve {
-            expression_tree::EasingCurve::Linear => i_slint_core::animations::EasingCurve::Linear,
-            expression_tree::EasingCurve::EaseInElastic => {
+            expression_types::EasingCurve::Linear => i_slint_core::animations::EasingCurve::Linear,
+            expression_types::EasingCurve::EaseInElastic => {
                 i_slint_core::animations::EasingCurve::EaseInElastic
             }
-            expression_tree::EasingCurve::EaseOutElastic => {
+            expression_types::EasingCurve::EaseOutElastic => {
                 i_slint_core::animations::EasingCurve::EaseOutElastic
             }
-            expression_tree::EasingCurve::EaseInOutElastic => {
+            expression_types::EasingCurve::EaseInOutElastic => {
                 i_slint_core::animations::EasingCurve::EaseInOutElastic
             }
-            expression_tree::EasingCurve::EaseInBounce => {
+            expression_types::EasingCurve::EaseInBounce => {
                 i_slint_core::animations::EasingCurve::EaseInBounce
             }
-            expression_tree::EasingCurve::EaseOutBounce => {
+            expression_types::EasingCurve::EaseOutBounce => {
                 i_slint_core::animations::EasingCurve::EaseOutBounce
             }
-            expression_tree::EasingCurve::EaseInOutBounce => {
+            expression_types::EasingCurve::EaseInOutBounce => {
                 i_slint_core::animations::EasingCurve::EaseInOutBounce
             }
-            expression_tree::EasingCurve::CubicBezier(a, b, c, d) => {
+            expression_types::EasingCurve::CubicBezier(a, b, c, d) => {
                 i_slint_core::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
-            expression_tree::EasingCurve::Spring(a) => {
+            expression_types::EasingCurve::Spring(a) => {
                 i_slint_core::animations::EasingCurve::Spring(*a)
             }
         }),
@@ -232,29 +247,24 @@ fn eval_expression(
                 ),
             ))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut gradient = i_slint_core::graphics::RadialGradientBrush::new_circle(
-                stops.iter().map(|(color, stop)| {
+        Expression::RadialGradient { stops, center, shape } => {
+            let stops = stops
+                .iter()
+                .map(|(color, stop)| {
                     let color =
                         eval_expression(color, local_context, None).try_into().unwrap_or_default();
                     let position =
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
-                }),
-            );
-            if let Some((cx, cy)) = center {
-                let cx: f32 =
-                    eval_expression(cx, local_context, None).try_into().unwrap_or_default();
-                let cy: f32 =
-                    eval_expression(cy, local_context, None).try_into().unwrap_or_default();
-                gradient = gradient.with_center(cx, cy);
-            }
-            if let Some(radius) = radius {
-                let r: f32 =
-                    eval_expression(radius, local_context, None).try_into().unwrap_or_default();
-                gradient = gradient.with_radius(r);
-            }
-            Value::Brush(slint::Brush::RadialGradient(gradient))
+                })
+                .collect::<Vec<_>>();
+            let mut number = |e: &Expression| -> f32 {
+                eval_expression(e, local_context, None).try_into().unwrap_or_default()
+            };
+            let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
+            Value::Brush(slint::Brush::RadialGradient(slint_interpreter::radial_gradient_brush(
+                shape, number, center, stops,
+            )))
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             let mut gradient = i_slint_core::graphics::ConicGradientBrush::new(
@@ -295,8 +305,8 @@ fn eval_expression(
                 return local_context.return_value.clone().unwrap_or_default();
             };
             match op {
-                expression_tree::MinMaxOp::Min => Value::Number(lhs.min(rhs)),
-                expression_tree::MinMaxOp::Max => Value::Number(lhs.max(rhs)),
+                expression_types::MinMaxOp::Min => Value::Number(lhs.min(rhs)),
+                expression_types::MinMaxOp::Max => Value::Number(lhs.max(rhs)),
             }
         }
         _ => Value::Void,
@@ -324,324 +334,22 @@ pub fn fully_eval_expression_tree_expression(
 }
 
 fn handle_builtin_function(
-    f: &expression_tree::BuiltinFunction,
+    f: &builtin_functions::BuiltinFunction,
     arguments: &[expression_tree::Expression],
     local_context: &mut EvalLocalContext,
 ) -> slint_interpreter::Value {
-    use i_slint_compiler::expression_tree::BuiltinFunction;
+    use i_slint_compiler::builtin_functions::BuiltinFunction;
 
+    if f.is_pure() && f.runtime_function().is_some() {
+        let context = f.runtime_function_takes_context().then(|| local_context.context()).flatten();
+        let args = arguments.iter().map(|a| eval_expression(a, local_context, None)).collect();
+        if let Some(value) =
+            slint_interpreter::call_runtime_builtin_function(f, context.as_ref(), None, args)
+        {
+            return value;
+        }
+    }
     match f {
-        BuiltinFunction::Mod => {
-            let mut to_num = |e| -> f64 {
-                eval_expression(e, local_context, None).try_into().unwrap_or_default()
-            };
-            Value::Number(to_num(&arguments[0]).rem_euclid(to_num(&arguments[1])))
-        }
-        BuiltinFunction::Round => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.round())
-        }
-        BuiltinFunction::Ceil => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.ceil())
-        }
-        BuiltinFunction::Floor => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.floor())
-        }
-        BuiltinFunction::Sqrt => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.sqrt())
-        }
-        BuiltinFunction::Abs => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.abs())
-        }
-        BuiltinFunction::Sin => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.to_radians().sin())
-        }
-        BuiltinFunction::Cos => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.to_radians().cos())
-        }
-        BuiltinFunction::Tan => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.to_radians().tan())
-        }
-        BuiltinFunction::ASin => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.asin().to_degrees())
-        }
-        BuiltinFunction::ACos => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.acos().to_degrees())
-        }
-        BuiltinFunction::ATan => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.atan().to_degrees())
-        }
-        BuiltinFunction::ATan2 => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let y: f64 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.atan2(y).to_degrees())
-        }
-        BuiltinFunction::Log => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let y: f64 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.log(y))
-        }
-        BuiltinFunction::Ln => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.ln())
-        }
-        BuiltinFunction::Pow => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let y: f64 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.powf(y))
-        }
-        BuiltinFunction::Exp => {
-            let x: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::Number(x.exp())
-        }
-        BuiltinFunction::ToFixed => {
-            let n: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let digits: i32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            let digits: usize = digits.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(n, digits))
-        }
-        BuiltinFunction::ToPrecision => {
-            let n: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let precision: i32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            let precision: usize = precision.max(0) as usize;
-            Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
-        }
-        BuiltinFunction::ToStringUnlocalized => {
-            let n: f64 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
-        }
-        BuiltinFunction::StringIsFloat => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context, None) {
-                Value::Bool(<f64 as core::str::FromStr>::from_str(s.as_str()).is_ok())
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::StringToFloat => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context, None) {
-                Value::Number(core::str::FromStr::from_str(s.as_str()).unwrap_or(0.))
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::StringIsEmpty => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context, None) {
-                Value::Bool(s.is_empty())
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::StringToLowercase => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context, None) {
-                Value::String(s.to_lowercase().into())
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::StringToUppercase => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::String(s) = eval_expression(&arguments[0], local_context, None) {
-                Value::String(s.to_uppercase().into())
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::StringReplaceAll => {
-            if arguments.len() != 3 {
-                return Value::Void;
-            }
-            if let (Value::String(s), Value::String(from), Value::String(to)) = (
-                eval_expression(&arguments[0], local_context, None),
-                eval_expression(&arguments[1], local_context, None),
-                eval_expression(&arguments[2], local_context, None),
-            ) {
-                Value::String(i_slint_core::string::shared_string_replace_all(
-                    &s,
-                    from.as_str(),
-                    to.as_str(),
-                ))
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorRgbaStruct => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context, None) {
-                let color = brush.color();
-                let values = IntoIterator::into_iter([
-                    ("red".to_string(), Value::Number(color.red().into())),
-                    ("green".to_string(), Value::Number(color.green().into())),
-                    ("blue".to_string(), Value::Number(color.blue().into())),
-                    ("alpha".to_string(), Value::Number(color.alpha().into())),
-                ])
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorHsvaStruct => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context, None) {
-                let color = brush.color().to_hsva();
-                let values = IntoIterator::into_iter([
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("saturation".to_string(), Value::Number(color.saturation.into())),
-                    ("value".to_string(), Value::Number(color.value.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ])
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorOklchStruct => {
-            if arguments.len() != 1 {
-                return Value::Void;
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context, None) {
-                let color = brush.color().to_oklch();
-                let values = IntoIterator::into_iter([
-                    ("lightness".to_string(), Value::Number(color.lightness.into())),
-                    ("chroma".to_string(), Value::Number(color.chroma.into())),
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ])
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorBrighter => {
-            if arguments.len() != 2 {
-                return Value::Void;
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context, None) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context, None) {
-                    brush.brighter(factor as _).into()
-                } else {
-                    Value::Void
-                }
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorDarker => {
-            if arguments.len() != 2 {
-                return Value::Void;
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context, None) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context, None) {
-                    brush.darker(factor as _).into()
-                } else {
-                    Value::Void
-                }
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorTransparentize => {
-            if arguments.len() != 2 {
-                return Value::Void;
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context, None) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context, None) {
-                    brush.transparentize(factor as _).into()
-                } else {
-                    Value::Void
-                }
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorMix => {
-            if arguments.len() != 3 {
-                return Value::Void;
-            }
-
-            let arg0 = eval_expression(&arguments[0], local_context, None);
-            let arg1 = eval_expression(&arguments[1], local_context, None);
-            let arg2 = eval_expression(&arguments[2], local_context, None);
-
-            let (
-                Value::Brush(slint::Brush::SolidColor(color_a)),
-                Value::Brush(slint::Brush::SolidColor(color_b)),
-                Value::Number(factor),
-            ) = (arg0, arg1, arg2)
-            else {
-                return Value::Void;
-            };
-
-            color_a.mix(&color_b, factor as _).into()
-        }
-        BuiltinFunction::ColorWithAlpha => {
-            if arguments.len() != 2 {
-                return Value::Void;
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context, None) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context, None) {
-                    brush.with_alpha(factor as _).into()
-                } else {
-                    Value::Void
-                }
-            } else {
-                Value::Void
-            }
-        }
         BuiltinFunction::ImageSize => {
             if arguments.len() != 1 {
                 return Value::Void;
@@ -724,47 +432,6 @@ fn handle_builtin_function(
 
             Value::Void
         }
-        BuiltinFunction::Rgb => {
-            let r: i32 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let g: i32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            let b: i32 =
-                eval_expression(&arguments[2], local_context, None).try_into().unwrap_or_default();
-            let a: f32 =
-                eval_expression(&arguments[3], local_context, None).try_into().unwrap_or_default();
-            let r: u8 = r.clamp(0, 255) as u8;
-            let g: u8 = g.clamp(0, 255) as u8;
-            let b: u8 = b.clamp(0, 255) as u8;
-            let a: u8 = (255. * a).clamp(0., 255.) as u8;
-            Value::Brush(slint::Brush::SolidColor(slint::Color::from_argb_u8(a, r, g, b)))
-        }
-        BuiltinFunction::Hsv => {
-            let h: f32 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let s: f32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            let v: f32 =
-                eval_expression(&arguments[2], local_context, None).try_into().unwrap_or_default();
-            let a: f32 =
-                eval_expression(&arguments[3], local_context, None).try_into().unwrap_or_default();
-            let a = (1. * a).clamp(0., 1.);
-            Value::Brush(slint::Brush::SolidColor(slint::Color::from_hsva(h, s, v, a)))
-        }
-        BuiltinFunction::Oklch => {
-            let l: f32 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let c: f32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            let h: f32 =
-                eval_expression(&arguments[2], local_context, None).try_into().unwrap_or_default();
-            let a: f32 =
-                eval_expression(&arguments[3], local_context, None).try_into().unwrap_or_default();
-            let l = l.clamp(0., 1.);
-            let c = c.max(0.);
-            let a = a.clamp(0., 1.);
-            Value::Brush(slint::Brush::SolidColor(slint::Color::from_oklch(l, c, h, a)))
-        }
         BuiltinFunction::ColorScheme => {
             local_context.window_adapter.as_ref().map_or(Value::Void, |win| {
                 let inner = i_slint_core::window::WindowInner::from_pub(win.window());
@@ -772,46 +439,12 @@ fn handle_builtin_function(
                 inner.context().color_scheme(Some(&root)).into()
             })
         }
-        BuiltinFunction::MonthDayCount => {
-            let m: u32 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let y: i32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            Value::Number(i_slint_core::date_time::month_day_count(m, y).unwrap_or(0) as f64)
-        }
-        BuiltinFunction::MonthOffset => {
-            let m: u32 =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let y: i32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-
-            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
-        }
-        BuiltinFunction::FormatDate => {
-            let f: slint::SharedString =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let d: u32 =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            let m: u32 =
-                eval_expression(&arguments[2], local_context, None).try_into().unwrap_or_default();
-            let y: i32 =
-                eval_expression(&arguments[3], local_context, None).try_into().unwrap_or_default();
-
-            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
-        }
         BuiltinFunction::DateNow => Value::Model(slint::ModelRc::new(slint::VecModel::from(
             i_slint_core::date_time::date_now()
                 .into_iter()
                 .map(|x| Value::Number(x as f64))
                 .collect::<Vec<_>>(),
         ))),
-        BuiltinFunction::ValidDate => {
-            let d: slint::SharedString =
-                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
-            let f: slint::SharedString =
-                eval_expression(&arguments[1], local_context, None).try_into().unwrap_or_default();
-            Value::Bool(i_slint_core::date_time::parse_date(d.as_str(), f.as_str()).is_some())
-        }
         BuiltinFunction::ParseDate => {
             let d: slint::SharedString =
                 eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
@@ -856,10 +489,6 @@ fn handle_builtin_function(
                     .unwrap_or_default(),
             ))
         }
-        BuiltinFunction::Use24HourFormat => {
-            Value::Bool(i_slint_core::date_time::use_24_hour_format())
-        }
-        BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
         _ => Value::Void,
     }
 }

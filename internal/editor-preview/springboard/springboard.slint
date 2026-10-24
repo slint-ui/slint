@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum PreviewEndpointKind {
+    Local,
+    Remote,
+}
+
+export struct PreviewEndpoint {
+    id: string,
+    name: string,
+    kind: PreviewEndpointKind,
+    unavailable-reason: string,
+    version-mismatch: string,
+    saved: bool,
+    nearby: bool,
+    address: string,
+}
+
+export enum SpringboardState {
+    Stopped,
+    Idle,
+    EndpointSelected,
+}
+
+export enum ConnectionState {
+    None,
+    Connecting,
+    PairingRequired,
+    UnpairedConfirmationRequired,
+    Connected,
+    Failed,
+}
+
+export enum ViewerSearchState {
+    Idle,
+    Searching,
+    Found,
+    Failed,
+    Incompatible,
+}
+
+export global Springboard {
+    in property <[PreviewEndpoint]> endpoints;
+    in property <int> saved-count: 1;
+    in property <int> selected-endpoint-index: -1;
+    out property <PreviewEndpoint> selected-endpoint: endpoints[selected-endpoint-index];
+    in property <string> last-selected-endpoint-name;
+    in property <SpringboardState> state;
+    in property <ConnectionState> connection-state;
+    in property <int> pairing-code-digits;
+    in property <string> error-message;
+    in property <ViewerSearchState> search-state;
+    in property <string> search-viewer-version;
+    in property <string> editor-version;
+
+    public pure function version-description(version: string) -> string {
+        return @tr("Slint {} · Editor {}", version == "" || version == "unknown" ? @tr("Unknown") : version, root.editor-version);
+    }
+
+    callback close();
+    callback select-endpoint(endpoint-index: int);
+    callback pair-endpoint(endpoint-index: int);
+    callback search-address(address: string);
+    callback connect-found-device();
+    callback forget-device(id: string);
+    callback discover-devices();
+    callback cancel-pairing();
+    callback submit-pairing-code(code: string);
+    callback accept-unpaired-connection();
+}
+
+// Library generation requires a component to export the shared global and its types.
+export component SpringboardContext inherits Rectangle {}

@@ -22,7 +22,8 @@ Slint has a rich type system that includes primitive types, unit types for dimen
 | `internal/compiler/langtype.rs` | Core `Type` enum and type definitions |
 | `internal/compiler/lookup.rs` | Name resolution and expression lookup |
 | `internal/compiler/typeregister.rs` | Type registry, built-in types, reserved properties |
-| `internal/compiler/expression_tree.rs` | Unit definitions and expressions |
+| `internal/compiler/expression_tree.rs` | Expressions |
+| `internal/compiler/expression_types.rs` | Unit definitions and other types shared with the LLR |
 | `internal/compiler/typeloader.rs` | Import resolution and document loading |
 
 ## Core Type Enum
@@ -115,10 +116,11 @@ property<Large> p: { x: 5 };  // OK: y gets default value
 ## Element Types
 
 Elements (components/items) have their own type hierarchy.
-`ElementType` (`internal/compiler/langtype.rs`) is one of: `Component` for a user-defined
-component, `Builtin` for a built-in item such as `Rectangle` or `Text`, `Native` once the
-`resolve_native_classes` pass has run, `Error` when the base type couldn't be looked up, and
+`ElementType` (`internal/compiler/element_type.rs`) is one of: `Component` for a user-defined
+component, `Builtin` for a built-in item such as `Rectangle` or `Text`,
+`Error` when the base type couldn't be looked up, and
 `Global` / `Interface` for the root element of a global or an interface.
+`Interface` carries the interface it inherits, if any.
 
 ### Property Lookup on Elements
 
@@ -208,7 +210,7 @@ visibility is not uniform: most are `Input`, but the last group covers `Output` 
 
 Properties have visibility levels that control access:
 
-`PropertyVisibility` (`internal/compiler/object_tree.rs`) is `Private`, `Input`, `Output` or
+`PropertyVisibility` (`internal/compiler/native_class.rs`) is `Private`, `Input`, `Output` or
 `InOut` for ordinary properties, `Public` or `Protected` for functions, `Constexpr` for built-in
 properties that must be known at compile time, and `Fake` for built-in properties that only ever
 take a binding and can neither be read nor written (such as `Path`'s `commands`).

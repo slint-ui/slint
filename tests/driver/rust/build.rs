@@ -45,7 +45,10 @@ fn make_generator_files() -> std::io::Result<HashMap<OsString, BufWriter<File>>>
     for file in std::fs::read_dir(tests_folder)? {
         let file = file?.path();
         let base = file.file_stem().expect("Missing file name!");
-        validate_test_file(base, &file)?;
+        // widgets-qt.rs carries its own main, see the file.
+        if base != "widgets-qt" {
+            validate_test_file(base, &file)?;
+        }
 
         let generated_path =
             PathBuf::from(&std::env::var_os("OUT_DIR").unwrap()).join(file.file_name().unwrap());
@@ -98,10 +101,11 @@ fn main() -> std::io::Result<()> {
     let testcases = test_driver_lib::collect_test_cases("cases")?;
 
     // Generate the per-case modules on all cores: with the build-time feature,
-    // each case runs the Slint compiler (twice with deterministic-output),
+    // each case runs the Slint compiler (twice with SLINT_TEST_DETERMINISTIC_OUTPUT),
     // which dominates the build script's runtime.
     let module_lines = rayon::ThreadPoolBuilder::new()
-        .stack_size(512 * 1024)
+        // Kept low (< 1MB default stack on Windows) so that tests catch stack overflow earlier
+        .stack_size(750 * 1024)
         .build()
         .expect("failed to create thread pool")
         .install(|| {
@@ -133,6 +137,11 @@ fn main() -> std::io::Result<()> {
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!(
+        "cargo:rustc-env=SLINT_EDITION={}.{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR")
+    );
     println!("cargo:rustc-env=SLINT_EMIT_DEBUG_INFO=1");
     Ok(())
 }
@@ -152,9 +161,7 @@ fn process_case(
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let ignored = if testcase.is_ignored("rust") {
         "#[ignore = \"testcase ignored for rust\"]"
-    } else if (cfg!(not(feature = "build-time")) || live_preview)
-        && source.contains("//bundle-translations")
-    {
+    } else if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
         "#[ignore = \"translation bundle not working with the macro\"]"
     } else if live_preview && testcase.is_ignored("js") {
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
@@ -168,6 +175,11 @@ fn process_case(
         ""
     };
 
+    // The widgets-qt target runs its tests through test_driver_lib::fork_harness,
+    // which collects them with satchel instead of libtest.
+    let test_attribute =
+        if testcase.requested_style == Some("qt") { "#[satchel::test]" } else { "#[test]" };
+
     let mut output = BufWriter::new(File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{module_name}.rs")),
     )?);
@@ -175,7 +187,7 @@ fn process_case(
     output.write_all(b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n")?;
 
     #[cfg(not(feature = "build-time"))]
-    if !generate_macro(&source, &mut output, testcase)? {
+    if !generate_macro(&source, &mut output, testcase, test_attribute)? {
         output.flush()?;
         return Ok(module_line);
     }
@@ -186,20 +198,26 @@ fn process_case(
         .filter(|x| x.language_id == "rust")
         .enumerate()
     {
+        // satchel only collects `fn()` tests, hence the closure. Its `Ok(())` keeps the
+        // snippet's last line a statement: a trailing `if let` would otherwise trip the
+        // edition 2024 tail-expression drop-order lint.
         write!(
             output,
             r"
 #[rust_analyzer::skip]
-#[test] {} fn t_{}() -> ::std::result::Result<(), ::std::boxed::Box<dyn ::std::error::Error>> {{
-    use i_slint_backend_testing as slint_testing;
-    slint_testing::init_no_event_loop();
-    slint_testing::configure_test_fonts();
-    {}
-    Ok(())
+{test_attribute} {} fn t_{}() {{
+    (|| -> ::std::result::Result<(), ::std::boxed::Box<dyn ::std::error::Error>> {{
+        use i_slint_backend_testing as slint_testing;
+        slint_testing::init_no_event_loop();
+        slint_testing::configure_test_fonts();
+        {}
+        Ok(())
+    }})()
+    .unwrap()
 }}",
             ignored,
             i,
-            x.source.replace('\n', "\n    ")
+            x.source.replace('\n', "\n        ")
         )?;
     }
 
@@ -212,14 +230,21 @@ fn generate_macro(
     source: &str,
     output: &mut dyn Write,
     testcase: &test_driver_lib::TestCase,
+    test_attribute: &str,
 ) -> Result<bool, std::io::Error> {
     if source.contains("\\{") {
         // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
-        output.write_all(b"#[test] #[ignore = \"string template don't work in macros\"] fn ignored_because_string_template() {{}}")?;
+        writeln!(
+            output,
+            "{test_attribute} #[ignore = \"string template don't work in macros\"] fn ignored_because_string_template() {{}}"
+        )?;
         return Ok(false);
     }
     if testcase.is_ignored("rust-macro") {
-        output.write_all(b"#[test] #[ignore = \"testcase ignored for the slint! macro\"] fn ignored_for_macro() {}")?;
+        writeln!(
+            output,
+            "{test_attribute} #[ignore = \"testcase ignored for the slint! macro\"] fn ignored_for_macro() {{}}"
+        )?;
         return Ok(false);
     }
     // to silence all the warnings in .slint files that would be turned into errors
@@ -278,8 +303,8 @@ fn generate_source(
 
     let generated = compile_and_generate(source, testcase)?;
 
-    #[cfg(feature = "deterministic-output")]
-    {
+    println!("cargo::rerun-if-env-changed=SLINT_TEST_DETERMINISTIC_OUTPUT");
+    if std::env::var_os("SLINT_TEST_DETERMINISTIC_OUTPUT").is_some_and(|value| !value.is_empty()) {
         let second = compile_and_generate(source, testcase)?;
         let expect_utf8 =
             |bytes| std::str::from_utf8(bytes).expect("generated Rust is valid UTF-8");
@@ -310,18 +335,26 @@ fn compile_and_generate(
         .collect::<std::collections::HashMap<_, _>>();
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
+    let syntax_node = parser::parse(
+        source.to_owned(),
+        Some(source_path::SourcePath::new(&testcase.absolute_path)),
+        &mut diag,
+    );
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.enable_experimental = true;
+    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());
     compiler_config.debug_info = true;
     if source.contains("//bundle-translations") {
-        compiler_config.translation_path_bundle =
+        compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
         compiler_config.translation_domain =
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
+    }
+    if source.contains("//embed-textures") {
+        compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
     }
     if source.contains("//no-default-translation-context") {
         compiler_config.default_translation_context =

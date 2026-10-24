@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, InspectorStyle } from "../../../style.slint";
+import { InspectorPropertyRow, InspectorSection, InspectorValueField } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorLayoutSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+
+    title: @tr("Layout");
+
+    InspectorPropertyRow {
+        label: @tr("Padding");
+        InspectorValueField {
+            accessible-name: @tr("Layout padding");
+            value: InspectorContext.property-length-label("padding", "0");
+            suffix: "px";
+            suffix-width: Metrics.icon-small;
+            commit-key: InspectorContext.field-key("padding");
+            accepted(text) => { return InspectorContext.commit-px-code("padding", text); }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Spacing");
+        InspectorValueField {
+            accessible-name: @tr("Layout spacing");
+            value: InspectorContext.property-length-label("spacing", "0");
+            suffix: "px";
+            suffix-width: Metrics.icon-small;
+            commit-key: InspectorContext.field-key("spacing");
+            accepted(text) => { return InspectorContext.commit-px-code("spacing", text); }
+        }
+    }
+}

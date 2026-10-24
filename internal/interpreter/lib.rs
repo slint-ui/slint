@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![no_std]
 
 /*!
 # Slint interpreter library
@@ -78,6 +79,30 @@ compile_error!(
     forward compatibility with future version of this crate"
 );
 
+extern crate alloc;
+#[macro_use]
+extern crate std;
+
+mod prelude {
+    pub use alloc::borrow::ToOwned;
+    pub use alloc::boxed::Box;
+    pub use alloc::format;
+    pub use alloc::rc::Rc;
+    pub use alloc::string::{String, ToString};
+    pub use alloc::vec;
+    pub use alloc::vec::Vec;
+    pub use core::cell::{Cell, OnceCell, RefCell};
+    pub use core::pin::Pin;
+
+    pub use crate::api::Value;
+    pub use crate::instance::Instance;
+    pub use i_slint_core::item_tree::ItemTreeVTable;
+    pub use i_slint_core::{Callback, Property, SlintContext};
+    pub use smol_str::SmolStr;
+    pub use std::collections::HashMap;
+    pub use vtable::VRc;
+}
+
 mod api;
 mod bindings;
 mod component;
@@ -99,6 +124,8 @@ mod item_tree_vtable;
 pub mod json;
 mod popup;
 mod public_api;
+#[cfg(feature = "internal-embed-textures")]
+mod static_resources;
 mod value_model;
 
 #[doc(inline)]
@@ -106,7 +133,10 @@ pub use api::*;
 
 #[cfg(feature = "internal")]
 #[doc(hidden)]
-pub use eval::{default_value_for_struct_field, default_value_for_type};
+pub use eval::{
+    call_runtime_builtin_function, default_value_for_struct_field, default_value_for_type,
+    radial_gradient_brush, radial_gradient_shape_to_string,
+};
 
 #[cfg(test)]
 mod tests;

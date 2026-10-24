@@ -929,6 +929,7 @@ public:
 
     void set_row_data(size_t i, const ModelData &value) override
     {
+        inner->ensure_sorted();
         inner->source_model->set_row_data(inner->sorted_rows[i], value);
     }
 
@@ -1051,6 +1052,24 @@ class Repeater
         private_api::Property<bool> is_dirty { true };
         std::shared_ptr<Model<ModelData>> model;
         cbindgen_private::RepeaterLayoutState layout_state {};
+        cbindgen_private::ScrollToRowRequestOpaque scroll_to_row;
+        const private_api::Property<bool> *instance_generation;
+
+        explicit RepeaterInner(const private_api::Property<bool> *instance_generation)
+            : instance_generation(instance_generation)
+        {
+            cbindgen_private::slint_repeater_scroll_to_row_construct(&scroll_to_row);
+        }
+        ~RepeaterInner() { cbindgen_private::slint_repeater_scroll_to_row_drop(&scroll_to_row); }
+        RepeaterInner(const RepeaterInner &) = delete;
+        RepeaterInner &operator=(const RepeaterInner &) = delete;
+
+        /// Call whenever `data` changes outside of `ensure_updated`.
+        void instances_changed()
+        {
+            is_dirty.set(true);
+            instance_generation->mark_dirty();
+        }
 
         void row_added(size_t index, size_t count) override
         {
@@ -1058,7 +1077,7 @@ class Repeater
                 if (index + count <= layout_state.offset) {
                     // Entirely before the visible range: shift the offset.
                     layout_state.offset += count;
-                    is_dirty.set(true);
+                    instances_changed();
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
@@ -1072,7 +1091,7 @@ class Repeater
             if (count == 0 || index > data.size()) {
                 return;
             }
-            is_dirty.set(true);
+            instances_changed();
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
             for (std::size_t i = index; i < data.size(); ++i) {
@@ -1101,7 +1120,7 @@ class Repeater
                 if (index + count <= layout_state.offset) {
                     // Entirely before the visible range: shift the offset.
                     layout_state.offset -= count;
-                    is_dirty.set(true);
+                    instances_changed();
                     for (auto &c : data) {
                         c.state = State::Dirty;
                     }
@@ -1119,7 +1138,7 @@ class Repeater
             if (index + count > data.size()) {
                 count = data.size() - index;
             }
-            is_dirty.set(true);
+            instances_changed();
             data.erase(data.begin() + index, data.begin() + index + count);
             for (std::size_t i = index; i < data.size(); ++i) {
                 data[i].state = State::Dirty;
@@ -1127,7 +1146,7 @@ class Repeater
         }
         void reset() override
         {
-            is_dirty.set(true);
+            instances_changed();
             data.clear();
         }
     };
@@ -1186,7 +1205,10 @@ class Repeater
                     }(),
             .init =
                     [](void *ud, uintptr_t instance_idx) {
-                        auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
+                        auto *ctx = static_cast<Ctx *>(ud);
+                        // #13723
+                        ctx->inner->instance_generation->mark_dirty();
+                        auto &c = ctx->inner->data[instance_idx];
                         (*c.ptr)->init();
                         (*c.ptr)->ensure_instantiated();
                     },
@@ -1195,9 +1217,8 @@ class Repeater
 
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
     mutable std::shared_ptr<RepeaterInner> inner;
-    /// Toggled by ensure_updated when instances are added or removed.
-    /// Layout code tracks this instead of is_dirty so it re-evaluates
-    /// only after the update pass materializes the change.
+    /// Marked dirty whenever the instance slots change, including when ensure_updated creates one.
+    /// A row's data change alone doesn't mark it.
     mutable private_api::Property<bool> instance_generation { false };
 
     vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
@@ -1219,7 +1240,8 @@ public:
             auto old_model = model.get_internal();
             auto m = model.get();
             if (!inner || old_model != m) {
-                inner = std::make_shared<RepeaterInner>();
+                inner = std::make_shared<RepeaterInner>(&instance_generation);
+                instance_generation.mark_dirty();
                 if (m) {
                     inner->model = m;
                     m->attach_peer(inner);
@@ -1274,11 +1296,35 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, m->row_count(), content_width, content_height,
-                content_y, listview_width, listview_height);
+                &ops, &inner->layout_state, &inner->scroll_to_row, m->row_count(), content_width,
+                content_height, content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;
+    }
+
+    /// Scrolls the ListView that the Flickable `flickable_rc` belongs to, so that `row` is fully
+    /// visible, see `Repeater::listview_ensure_row_visible` in Rust.
+    void listview_ensure_row_visible(int row, cbindgen_private::ScrollBehavior behavior,
+                                     const cbindgen_private::ItemRc &flickable_rc) const
+    {
+        refresh_model();
+        const auto m = model.get();
+        if (!inner || !m)
+            return;
+
+        std::vector<float> heights;
+        heights.reserve(inner->data.size());
+        for (const auto &c : inner->data) {
+            heights.push_back(c.ptr ? (*c.ptr)->item_geometry(0).height
+                                    : std::numeric_limits<float>::quiet_NaN());
+        }
+        if (cbindgen_private::slint_repeater_listview_ensure_row_visible(
+                    &inner->layout_state, &inner->scroll_to_row,
+                    private_api::make_slice(heights.data(), heights.size()), m->row_count(), row,
+                    behavior, &flickable_rc)) {
+            inner->is_dirty.set(true);
+        }
     }
 
     /// Returns true if the repeater's model or data has changed since the
@@ -1296,8 +1342,8 @@ public:
     }
 
     /// Register the instance generation as a dependency of the current
-    /// tracking scope. Layout code uses this to re-evaluate only after
-    /// ensure_updated materializes instance changes.
+    /// tracking scope. Layout code uses this to re-evaluate when rows are
+    /// inserted or removed, and again when ensure_updated creates their instances.
     void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
     /// Register the ListView content properties as dependencies so that
@@ -1466,6 +1512,8 @@ public:
             instance = std::nullopt;
         } else if (!instance) {
             instance = C::create(parent);
+            // #13723
+            instance_generation.mark_dirty();
             (*instance)->init();
             changed = true;
         } else {
@@ -1481,8 +1529,8 @@ public:
     void track_model_changes() const { model.register_as_dependency(); }
 
     /// Register the instance generation as a dependency of the current
-    /// tracking scope. Layout code uses this to re-evaluate only after
-    /// ensure_updated materializes instance changes.
+    /// tracking scope. Layout code uses this to re-evaluate when
+    /// ensure_updated creates or removes the instance.
     void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
     /// Call the visitor for the root of each instance.

@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A VerticalLayout sized from its own preferred size, holding a conditional
+// element whose height doesn't depend on its width (a Text that doesn't wrap,
+// a Path) and a cell whose preferred width depends on its height.
+// This used to panic with "Recursion detected" at runtime.
+
+component Field inherits Rectangle {
+    preferred-width: max(l.preferred-width, 100phx);
+    preferred-height: 25phx;
+    l := HorizontalLayout {
+        padding-left: 5phx + root.border-radius / 2;
+        Rectangle { }
+    }
+}
+
+component Panel inherits Rectangle {
+    out property <length> field-height: field.height;
+    width: self.preferred-width;
+    height: self.preferred-height;
+    VerticalLayout {
+        @children
+        field := Field {
+            border-radius: self.height / 2;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    in-out property <bool> show;
+
+    text-panel := Panel {
+        x: 0;
+        y: 0;
+        if show: Text { text: "Label"; }
+    }
+    path-panel := Panel {
+        x: 0;
+        y: 100phx;
+        if show: Path { commands: "M 0 0 L 10 10"; stroke: red; stroke-width: 1phx; }
+    }
+
+    out property <bool> test: text-panel.field-height == 25phx && text-panel.width == 100phx
+        && path-panel.field-height == 25phx && path-panel.width == 100phx;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_show(true);
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_show(true);
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+instance.show = true;
+assert(instance.test);
+```
+*/

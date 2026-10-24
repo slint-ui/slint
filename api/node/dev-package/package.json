@@ -1,6 +1,6 @@
 {
   "name": "slint-ui-dev",
-  "version": "1.18.1",
+  "version": "1.19.0",
   "main": "index.cjs",
   "exports": {
     ".": "./index.cjs",
@@ -23,8 +23,9 @@
     "Slint",
     "development",
     "testing",
-    "mcp"
+    "mcp",
+    "live-preview"
   ],
-  "description": "Development binaries for slint-ui, enabling system-testing and MCP support. Install alongside slint-ui in development environments.",
+  "description": "Development binaries for slint-ui, enabling system-testing, MCP, and live preview support. Install alongside slint-ui in development environments.",
   "optionalDependencies": {}
 }

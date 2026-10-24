@@ -40,7 +40,11 @@ fn process_slint_code(
     path: Option<&std::path::Path>,
 ) -> Result<bool, std::io::Error> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), path, &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(
+        code.to_owned(),
+        path.map(i_slint_compiler::source_path::SourcePath::new),
+        &mut diag,
+    );
     let len = syntax_node.text_range().end().into();
     if let Some(doc) = syntax_nodes::Document::new(syntax_node) {
         let mut writer = writer::FileWriter { file };

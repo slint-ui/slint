@@ -2,7 +2,7 @@
 title: LinuxKMS Backend
 description: LinuxKMS Backend
 ---
-{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm */}
+{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm DMABUF logind CRTC */}
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
@@ -11,7 +11,7 @@ Instead it uses the following libraries and interface to render directly to the 
 and keyboard input.
 
  - OpenGL via KMS/DRI.
- - Vulkan via wgpu and the Vulkan KHR Display Extension.
+ - Vulkan via wgpu and the Vulkan KHR Display Extension, or GBM buffers where the driver lacks it.
  - DRM dumb buffers for software rendering, as well as legacy LinuxFB rendering.
  - libinput/libudev for input event handling from mice, touch screens, or keyboards. (optional)
  - libseat for GPU and input device access without requiring root access. (optional)
@@ -23,11 +23,12 @@ features you select. None of them are needed by every configuration:
 
 | pkg-config package name | Package name on Debian based distros | Needed for                          |
 |-------------------------|--------------------------------------|-------------------------------------|
-| `gbm`                   | `libgbm-dev`                         | the FemtoVG and Skia OpenGL renderers |
+| `gbm`                   | `libgbm-dev`                         | the FemtoVG and Skia renderers on OpenGL and Vulkan |
 | `libseat`               | `libseat-dev`                        | libseat support                     |
 | `libinput`              | `libinput-dev`                       | libinput support                    |
 | `libudev`               | `libudev-dev`                        | libinput support                    |
 | `xkbcommon`             | `libxkbcommon-dev`                   | libinput support                    |
+| `libdlmclient`          | part of [drm-lease-manager](https://github.com/AGLExport/drm-lease-manager) | drm-lease-manager support |
 
 The software renderer needs none of these: it renders through DRM dumb buffers, which Slint drives
 directly without a C library. Font handling is separate from this table and needs fontconfig
@@ -96,16 +97,35 @@ The configure output reports which of the two libraries the build ends up with.
 </TabItem>
 </Tabs>
 
-:::note[Note]
-Without libseat, the application must run as a user privileged to access the input and DRM/KMS device
-files; typically that's the root user.
-:::
+### Device Access With libseat
 
-:::note[Note]
-Without libinput the application renders but receives no input events, and the
-<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Backspace</kbd> shortcut that otherwise quits the application is
-not available. Quit the event loop from a timer or another thread instead.
-:::
+libseat manages access to the GPU and input devices through a seat manager such as logind or seatd.
+It also manages the virtual console's keyboard mode.
+
+Without libseat, run the application as a user with access to the input and DRM/KMS device files, typically root.
+When libinput is enabled, Slint disables the active virtual console's keyboard while the event loop runs.
+This prevents keystrokes, including passwords, from also reaching the shell on that console.
+Slint flushes queued console input and restores the previous keyboard mode when the event loop exits, including during panic unwinding.
+Caught panics and panics in other threads don't restore the keyboard while the event loop is still running.
+If disabling the keyboard fails, Slint warns and continues; keystrokes may still reach the console.
+
+Slint also restores the keyboard before terminating on `SIGINT`, `SIGTERM`, or `SIGHUP`.
+The process still terminates by the original signal.
+Signals already handled or ignored by the application keep their existing behavior.
+Install application handlers before starting the event loop.
+Set `SLINT_KMS_NO_SIGNAL_HANDLER=1` before launching the application to disable Slint's signal handlers.
+The application then owns restoration on signals; normal event-loop cleanup still restores the keyboard.
+
+`SIGKILL` and aborting panics can't restore the keyboard through this cleanup.
+If the keyboard stays disabled, run `sudo kbd_mode -f -u -C /dev/tty1` from SSH or another console.
+Replace `/dev/tty1` with the affected console; `-u` selects Unicode mode.
+
+### Input Events With libinput
+
+libinput reads mouse, touch, and keyboard events from input devices.
+Without libinput, the application renders but receives no input events.
+The <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Backspace</kbd> shortcut for quitting the application is then unavailable.
+Quit the event loop from a timer or another thread instead.
 
 ## Renderers
 
@@ -116,23 +136,29 @@ The LinuxKMS backend supports different renderers. They can be explicitly select
 |----------------|------------------------|-----------------------------------------------------------------------------|
 | FemtoVG        | OpenGL ES 2.0          | `linuxkms-femtovg`                                                          |
 | FemtoVG (wgpu) | Vulkan                 | `linuxkms-femtovg-wgpu`                                                     |
-| Skia           | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl`, `linuxkms-skia-vulkan`, or `linuxkms-skia-software` |
+| Skia           | OpenGL ES 2.0, Vulkan  | `linuxkms-skia-opengl` or `linuxkms-skia-vulkan` |
+| Skia software  | None                   | `linuxkms-skia-software` |
 | Software       | None                   | `linuxkms-software`                                                         |
+
+The Skia Vulkan and FemtoVG wgpu renderers show their frames through the Vulkan KHR Display Extension where the driver offers `VK_EXT_acquire_drm_display`.
+Elsewhere they render into GBM buffers and show them with a DRM page flip.
+Set the `SLINT_KMS_WGPU_DMABUF` environment variable, to any value, to use GBM buffers even where the extension is available.
 
 :::note[Note]
 This backend is still experimental. The backend has not undergone a great variety of testing on different devices
 and there are [known issues](https://github.com/slint-ui/slint/labels/a%3Abackend-linuxkms).
 :::
 
-:::note[Note]
-A mouse is supported as input device, but rendering of the mouse cursor only works with the Skia and FemtoVG renderers,
-not with the Slint software renderer.
-:::
+Enable the Rust `renderer-skia-software` feature together with a Linux KMS backend feature
+to compile Skia's CPU rendering path without a GPU renderer.
 
 ## Display Selection
 
 All renderers use Linux's direct rendering manager (DRM) subsystem to configure display outputs. Slint defaults to selecting the first connected
-display and configures it at either its preferred resolution (if available) or its highest. Set the `SLINT_DRM_OUTPUT`
+display and configures it at its preferred mode.
+Without a preferred mode, Slint keeps the mode the display already shows, for example from the console or a boot splash.
+Otherwise it picks the highest resolution at its highest refresh rate.
+Set the `SLINT_DRM_OUTPUT`
 environment variable to select a specific display. To get a list of available outputs, set `SLINT_DRM_OUTPUT`
 to `list`, run your program, and observe the output.
 
@@ -165,6 +191,43 @@ Index: 5 Width: 1680 Height: 1050 Refresh Rate: 59
 ```
 
 Set `SLINT_DRM_MODE` to `4` to select 1920x1080@60.
+
+To select a resolution without depending on its index, set `SLINT_DRM_MODE` to
+`WIDTHxHEIGHT`, for example `1920x1080`.
+The resolution must match a mode advertised by the selected output; this doesn't create a custom mode.
+When several modes match, preferred modes take precedence, then the highest refresh rate wins.
+To select a specific refresh rate, append it in whole hertz as `list` shows it, for example `1920x1080@50`.
+An unavailable resolution or invalid value fails DRM initialization.
+Software renderers may then fall back to the legacy Linux framebuffer, where this setting has no effect.
+
+## DRM Leasing
+
+Instead of opening a card from `/dev/dri` itself, the backend can render on a pre-leased DRM device:
+a [DRM *lease*](https://www.kernel.org/doc/html/latest/gpu/drm-uapi.html#drm-leases) that exposes
+only a specific connector, CRTC and planes. This lets Slint drive one output while another DRM
+master (for example a Wayland compositor, or another application) owns the rest of the same GPU, and
+is how Slint runs as a native application under the
+[AGL drm-lease-manager](https://github.com/AGLExport/drm-lease-manager).
+
+Set the `SLINT_DRM_LEASE_FD` environment variable to the number of an already-open, inherited DRM
+lease file descriptor. When set, the backend uses that descriptor directly and skips the `/dev/dri`
+scan as well as `SLINT_DRM_OUTPUT`-based selection (a lease only contains its own connector). The
+backend takes ownership of the descriptor.
+
+This is typically used together with a launcher that creates the lease and passes the descriptor to
+the Slint process. For example, a launcher that obtained lease descriptor `7` would run the
+application with `SLINT_DRM_LEASE_FD=7`.
+
+### drm-lease-manager
+
+Alternatively, the backend can obtain the lease directly from the
+[AGL drm-lease-manager](https://github.com/AGLExport/drm-lease-manager) instead of receiving a file
+descriptor. This needs the manager's client library, `libdlmclient`: enable the
+`backend-linuxkms-libdlmclient` Cargo feature (`SLINT_FEATURE_BACKEND_LINUXKMS_LIBDLMCLIENT` in
+CMake), which links it via pkg-config. If pkg-config can't find the library, the build prints a
+warning and the feature does nothing. Set the `SLINT_DRM_LEASE_NAME` environment variable to the
+lease name managed by the daemon (for example `card0-HDMI-A-1`); the backend then requests that
+lease and renders on it. `SLINT_DRM_LEASE_FD` takes precedence if both are set.
 
 ## Configuring the Keyboard
 

@@ -1,0 +1,125 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "layout:nested-container",
+    "name": "nested-container",
+    "type": "FUTURE_CONTAINER",
+    "errors": [],
+    "properties": {
+      "x": 12,
+      "y": 24,
+      "width": 100,
+      "height": 60,
+      "rotation": 0,
+      "opacity": 1,
+      "visible": true,
+      "fills": [
+        {
+          "type": "SOLID",
+          "color": {
+            "r": 1,
+            "g": 0,
+            "b": 0
+          },
+          "opacity": 1
+        }
+      ],
+      "strokes": [],
+      "effects": [],
+      "layoutMode": "VERTICAL",
+      "layoutSizingHorizontal": "HUG",
+      "layoutSizingVertical": "HUG",
+      "primaryAxisAlignItems": "MIN",
+      "counterAxisAlignItems": "MIN",
+      "layoutWrap": "NO_WRAP",
+      "counterAxisSpacing": 0,
+      "paddingLeft": 0,
+      "paddingRight": 0,
+      "paddingTop": 0,
+      "paddingBottom": 0,
+      "itemSpacing": -2,
+      "cornerRadius": 4,
+      "layoutPositioning": "AUTO"
+    },
+    "children": [
+      {
+        "id": "native-child",
+        "name": "screen_title",
+        "type": "FRAME",
+        "errors": [],
+        "properties": {
+          "x": 12,
+          "y": 24,
+          "width": 100,
+          "height": 60,
+          "rotation": 0,
+          "opacity": 1,
+          "visible": true,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 4,
+          "fills": [
+            {
+              "type": "SOLID",
+              "color": {
+                "r": 1,
+                "g": 0,
+                "b": 0
+              },
+              "opacity": 1
+            }
+          ],
+          "strokes": [],
+          "effects": [],
+          "layoutMode": "VERTICAL",
+          "layoutSizingHorizontal": "HUG",
+          "layoutSizingVertical": "HUG",
+          "itemSpacing": 4,
+          "layoutWrap": "NO_WRAP",
+          "counterAxisSpacing": 0,
+          "primaryAxisAlignItems": "MIN",
+          "counterAxisAlignItems": "MIN",
+          "paddingLeft": 0,
+          "paddingRight": 0,
+          "paddingTop": 0,
+          "paddingBottom": 0
+        },
+        "children": [
+          {
+            "id": "leaf",
+            "name": "Captured rectangle",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 12,
+              "y": 24,
+              "width": 100,
+              "height": 60,
+              "rotation": 0,
+              "opacity": 1,
+              "visible": true,
+              "layoutPositioning": "AUTO",
+              "cornerRadius": 4,
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "opacity": 1
+                }
+              ],
+              "strokes": [],
+              "effects": []
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

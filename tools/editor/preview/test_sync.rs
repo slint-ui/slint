@@ -68,7 +68,7 @@ mod tests {
         use i_slint_editor_preview::test::{
             compile_test_with_sources, main_test_file_name, recompile_test_with_sources,
         };
-        let url = lsp_types::Url::from_file_path(main_test_file_name()).unwrap();
+        let url = main_test_file_name().to_url().unwrap();
         let old = "export component Test inherits Window { width: 100px; }";
         let new = "export component Test inherits Window { width: 200px; }";
         let old_cache =

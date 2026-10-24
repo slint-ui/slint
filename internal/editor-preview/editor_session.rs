@@ -5,30 +5,171 @@
 //! language server and the visual editor.
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::project_file::{Overrides, ProjectFile, ProjectFileData};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
     protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion, VersionedUrl},
 };
-use itertools::Itertools;
 use lsp_types::Url;
 
+use i_slint_compiler::source_path::SourcePath;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 
 /// Diagnostics paired with the document version for which they were computed.
 pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
 
 pub struct PreviewConnection {
     pub to_preview: Rc<crate::LspToPreviews>,
+    pub project_root: std::cell::RefCell<Option<Url>>,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub to_show: Option<PreviewComponent>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct SessionConfigOverrides {
+    pub hide_ui: Option<bool>,
+    pub compiler: Overrides,
+}
+
+impl SessionConfigOverrides {
+    fn merge(&mut self, other: Self) {
+        if other.hide_ui.is_some() {
+            self.hide_ui = other.hide_ui;
+        }
+        self.compiler.merge(other.compiler);
+    }
+}
+
+/// Inserts `project` so that the shallowest project file comes first.
+/// It likely covers the most open documents, so it wins a conflict.
+fn insert_broadest_first(projects: &mut Vec<PathBuf>, project: PathBuf) {
+    let depth = |path: &std::path::Path| path.components().count();
+    let position = projects
+        .iter()
+        .position(|existing| depth(existing) > depth(&project))
+        .unwrap_or(projects.len());
+    projects.insert(position, project);
+}
+
+fn keep_first<T: Clone + PartialEq + std::fmt::Display>(
+    kept: &mut Option<(T, String)>,
+    value: Option<T>,
+    source: &str,
+    setting: &str,
+    warn: &mut impl FnMut(String, String, &str),
+) {
+    let Some(value) = value else { return };
+    let (kept_value, kept_source) = kept.get_or_insert_with(|| (value.clone(), source.into()));
+    if kept_value != &value {
+        warn(format!("{setting} '{value}'"), format!("{setting} '{kept_value}'"), kept_source);
+    }
+}
+
+fn merge_project_include_paths(
+    include_paths: &mut Option<Vec<PathBuf>>,
+    project_include_paths: Option<Vec<PathBuf>>,
+    override_source: Option<&str>,
+    warn: &mut impl FnMut(String, String, &str),
+) {
+    let Some(paths) = project_include_paths else { return };
+    let include_paths = include_paths.get_or_insert_default();
+    for path in paths {
+        if !include_paths.contains(&path) {
+            if let Some(source) = override_source {
+                warn(
+                    format!("include path '{}'", path.display()),
+                    format!("include paths {include_paths:?}"),
+                    source,
+                );
+            } else {
+                include_paths.push(path);
+            }
+        }
+    }
+}
+
+fn merge_project_library_paths(
+    library_paths: &mut Option<HashMap<String, (PathBuf, String)>>,
+    project_library_paths: Option<HashMap<String, PathBuf>>,
+    override_source: Option<&str>,
+    project_source: &str,
+    warn: &mut impl FnMut(String, String, &str),
+) {
+    let Some(paths) = project_library_paths else { return };
+    let library_paths = library_paths.get_or_insert_default();
+    let mut paths = paths.into_iter().collect::<Vec<_>>();
+    paths.sort_by(|(left, _), (right, _)| left.cmp(right));
+    for (name, path) in paths {
+        if let Some(source) = override_source
+            && !library_paths.contains_key(&name)
+        {
+            warn(
+                format!("library '{name}' at '{}'", path.display()),
+                format!("no library '{name}'"),
+                source,
+            );
+            continue;
+        }
+        let (kept_path, kept_source) = library_paths
+            .entry(name.clone())
+            .or_insert_with(|| (path.clone(), project_source.to_string()));
+        if kept_path != &path {
+            warn(
+                format!("library '{name}' at '{}'", path.display()),
+                format!("library '{name}' at '{}'", kept_path.display()),
+                kept_source,
+            );
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ProjectFileState {
+    contents: Vec<u8>,
+    version: SourceFileVersion,
+    parsed: Option<ProjectFile>,
+}
+
+impl ProjectFileState {
+    async fn from_contents(
+        path: &std::path::Path,
+        contents: Vec<u8>,
+        version: SourceFileVersion,
+    ) -> (Self, Option<Box<dyn std::error::Error>>) {
+        let supplied = contents.clone();
+        let loader: i_slint_compiler::OpenImportCallback = Rc::new(move |_| {
+            let source = String::from_utf8(supplied.clone())
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error));
+            Box::pin(async move { Some(source) })
+        });
+        let (parsed, error) = match ProjectFile::load_with_file_loader(
+            SourcePath::File(i_slint_compiler::source_path::clean_path(path)),
+            Some(&loader),
+        )
+        .await
+        {
+            Ok(project) => (Some(project), None),
+            Err(error) => (None, Some(error)),
+        };
+        (Self { contents, version, parsed }, error)
+    }
+
+    async fn load(
+        path: &std::path::Path,
+    ) -> std::io::Result<(Self, Option<Box<dyn std::error::Error>>)> {
+        Ok(Self::from_contents(path, std::fs::read(path)?, None).await)
+    }
+}
+
+enum DiscoveredProjectFile {
+    None,
+    File { path: PathBuf, state: ProjectFileState },
+    Invalid { path: PathBuf, state: Option<ProjectFileState>, error: Box<dyn std::error::Error> },
 }
 
 /// The documents currently being edited, together with the state the preview
@@ -42,6 +183,14 @@ pub struct EditorSession {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
+    compiler_config_defaults: crate::document_cache::CompilerConfiguration,
+    startup_config_overrides: SessionConfigOverrides,
+    workspace_config_overrides: SessionConfigOverrides,
+    workspace_roots: Vec<PathBuf>,
+    active_projects: HashMap<PathBuf, ProjectFileState>,
+    /// The project files of the open documents, broadest first.
+    /// A shared document cache has one configuration, so their settings are merged.
+    project_file_paths: Vec<PathBuf>,
 }
 
 impl EditorSession {
@@ -77,6 +226,9 @@ impl EditorSession {
 
     pub fn send_to_preview(&self, preview_index: usize, message: &LspToPreviewMessage) {
         let Some(preview) = self.preview(preview_index) else { return };
+        if let LspToPreviewMessage::OpenProject { root } = message {
+            preview.project_root.replace(root.clone());
+        }
         preview.to_preview.send(message);
     }
 
@@ -86,12 +238,464 @@ impl EditorSession {
         }
     }
 
+    pub fn new(document_cache: crate::DocumentCache, to_preview: Rc<crate::LspToPreviews>) -> Self {
+        Self::with_previews(
+            document_cache,
+            vec![PreviewConnection {
+                to_preview,
+                project_root: Default::default(),
+                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+                to_show: None,
+            }],
+        )
+    }
+
+    pub fn with_previews(
+        document_cache: crate::DocumentCache,
+        previews: Vec<PreviewConnection>,
+    ) -> Self {
+        let compiler_config_defaults = document_cache.configuration_with_import_callback();
+        let preview_config = PreviewConfig {
+            format_utf8: compiler_config_defaults.format == crate::ByteFormat::Utf8,
+            ..Default::default()
+        };
+        Self {
+            document_cache,
+            preview_config,
+            open_urls: Default::default(),
+            previews,
+            pending_recompile: Default::default(),
+            compiler_config_defaults,
+            startup_config_overrides: Default::default(),
+            workspace_config_overrides: Default::default(),
+            workspace_roots: Default::default(),
+            active_projects: Default::default(),
+            project_file_paths: Default::default(),
+        }
+    }
+
+    pub fn set_startup_config_overrides(&mut self, overrides: SessionConfigOverrides) {
+        self.startup_config_overrides = overrides;
+    }
+
+    pub fn set_workspace_roots(&mut self, roots: Vec<PathBuf>) {
+        self.workspace_roots = roots;
+    }
+
+    fn discovery_boundary<'a>(&'a self, directory: &'a std::path::Path) -> &'a std::path::Path {
+        self.workspace_roots
+            .iter()
+            .filter(|root| directory.starts_with(root))
+            .max_by_key(|root| root.components().count())
+            .map(PathBuf::as_path)
+            .unwrap_or(directory)
+    }
+
+    pub fn find_project_file_path_for(
+        &self,
+        path: &std::path::Path,
+    ) -> std::io::Result<Option<PathBuf>> {
+        if cfg!(target_arch = "wasm32") {
+            return Ok(None);
+        }
+        let Some(directory) = path.parent() else { return Ok(None) };
+        let boundary = self.discovery_boundary(directory);
+        for directory in directory.ancestors() {
+            let candidate = directory.join(i_slint_compiler::project_file::FILE_NAME);
+            if self.open_project_file_state(&candidate).is_some() || candidate.try_exists()? {
+                return Ok(Some(candidate));
+            }
+            if directory == boundary {
+                break;
+            }
+        }
+        Ok(None)
+    }
+
+    pub async fn set_workspace_config_overrides(
+        &mut self,
+        overrides: SessionConfigOverrides,
+    ) -> crate::Result<VersionedDiagnostics> {
+        self.workspace_config_overrides = overrides;
+        self.reapply_effective_configuration().await
+    }
+
+    pub fn active_project_file_paths(&self) -> impl Iterator<Item = &std::path::Path> {
+        self.project_file_paths.iter().map(PathBuf::as_path)
+    }
+
+    fn effective_config_overrides(&self) -> SessionConfigOverrides {
+        let mut overrides = self.startup_config_overrides.clone();
+        overrides.merge(self.workspace_config_overrides.clone());
+        overrides
+    }
+
+    fn merged_project_data(
+        &self,
+        overrides: ProjectFileData,
+    ) -> (ProjectFileData, VersionedDiagnostics) {
+        let ProjectFileData {
+            mut include_paths,
+            library_paths,
+            enable_experimental_features,
+            slint_edition,
+            schema: _,
+            main: _,
+        } = overrides;
+        let override_source = |workspace_supplied| {
+            if workspace_supplied {
+                "workspace configuration override"
+            } else {
+                "startup configuration override"
+            }
+        };
+        let workspace = &self.workspace_config_overrides.compiler.project;
+        let include_source =
+            include_paths.as_ref().map(|_| override_source(workspace.include_paths.is_some()));
+        let library_source =
+            library_paths.as_ref().map(|_| override_source(workspace.library_paths.is_some()));
+        let mut library_paths = library_paths.map(|paths| {
+            paths
+                .into_iter()
+                .map(|(name, path)| (name, (path, library_source.unwrap().to_string())))
+                .collect::<HashMap<_, _>>()
+        });
+        let mut enable_experimental = enable_experimental_features.map(|value| {
+            (value, override_source(workspace.enable_experimental_features.is_some()).to_string())
+        });
+        let mut edition = slint_edition
+            .map(|value| (value, override_source(workspace.slint_edition.is_some()).to_string()));
+        let mut project_diagnostics = Vec::new();
+
+        for path in &self.project_file_paths {
+            let Some(url) = SourcePath::new(path).to_url() else { continue };
+            let mut diagnostics = Vec::new();
+            if let Some(project) =
+                self.active_projects.get(path).and_then(|state| state.parsed.as_ref())
+            {
+                let ProjectFileData {
+                    include_paths: project_include_paths,
+                    library_paths: project_library_paths,
+                    enable_experimental_features: project_enable_experimental,
+                    slint_edition: project_edition,
+                    schema: _,
+                    main: _,
+                } = project.resolved_data();
+                let source = format!("project file {}", project.source_path());
+                let mut warn = |setting: String, selected: String, source: &str| {
+                    diagnostics.push(lsp_types::Diagnostic {
+                        range: lsp_types::Range::default(),
+                        severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+                        source: Some("slint".into()),
+                        message: format!(
+                            "slint-lsp is ignoring {setting}.\nUsing {selected} from {source}\nThis is a restriction in slint-lsp - compilation will work normally."
+                        ),
+                        ..Default::default()
+                    });
+                };
+                merge_project_include_paths(
+                    &mut include_paths,
+                    project_include_paths,
+                    include_source,
+                    &mut warn,
+                );
+                merge_project_library_paths(
+                    &mut library_paths,
+                    project_library_paths,
+                    library_source,
+                    &source,
+                    &mut warn,
+                );
+                keep_first(
+                    &mut enable_experimental,
+                    project_enable_experimental,
+                    &source,
+                    "experimental features",
+                    &mut warn,
+                );
+                keep_first(&mut edition, project_edition, &source, "slint-edition", &mut warn);
+            }
+            project_diagnostics.push((
+                url.clone(),
+                self.active_projects.get(path).and_then(|state| state.version),
+                diagnostics,
+            ));
+        }
+
+        (
+            ProjectFileData {
+                include_paths,
+                library_paths: library_paths
+                    .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
+                enable_experimental_features: enable_experimental.map(|(enabled, _)| enabled),
+                slint_edition: edition.map(|(version, _)| version),
+                schema: None,
+                main: None,
+            },
+            project_diagnostics,
+        )
+    }
+
+    fn effective_compiler_configuration(
+        &self,
+    ) -> (crate::document_cache::CompilerConfiguration, VersionedDiagnostics) {
+        let mut config = self.compiler_config_defaults.clone();
+        let mut overrides = self.effective_config_overrides().compiler;
+        let (project_data, diagnostics) =
+            self.merged_project_data(std::mem::take(&mut overrides.project));
+        project_data.apply_to(&mut config.compiler_config);
+        overrides.apply(None, &mut config.compiler_config);
+        (config, diagnostics)
+    }
+
+    async fn reapply_effective_configuration(&mut self) -> crate::Result<VersionedDiagnostics> {
+        let overrides = self.effective_config_overrides();
+        let (compiler_config, project_diagnostics) = self.effective_compiler_configuration();
+        let mut diagnostics = BuildDiagnostics::default();
+        let roots = self.document_roots();
+        let (compiler_config, reloaded_files) =
+            self.document_cache.reconfigure(compiler_config, &roots, &mut diagnostics).await;
+        let mut extra_files =
+            reloaded_files.iter().map(SourcePath::from_url).collect::<HashSet<_>>();
+        for url in roots.difference(&reloaded_files) {
+            if !self.document_is_open(url) {
+                extra_files.extend(
+                    self.reload_document_without_project_discovery(url.clone(), &mut diagnostics)
+                        .await,
+                );
+            }
+        }
+        let removed = self.document_cache.retain_documents(&roots)?;
+        self.pending_recompile.retain(|url| roots.contains(url));
+        extra_files.extend(roots.iter().chain(&removed).map(SourcePath::from_url));
+        let mut diagnostics = collect_diagnostics(&self.document_cache, &extra_files, diagnostics);
+        diagnostics.extend(removed.into_iter().map(|url| (url, None, Vec::new())));
+        diagnostics.extend(project_diagnostics);
+
+        self.preview_config = PreviewConfig {
+            hide_ui: overrides.hide_ui,
+            overrides: overrides.compiler,
+            format_utf8: compiler_config.format == crate::ByteFormat::Utf8,
+        };
+        self.send_to_previews(&LspToPreviewMessage::SetConfiguration {
+            config: self.preview_config.clone(),
+        });
+
+        Ok(diagnostics)
+    }
+
+    async fn discover_project_file_for_document_url(
+        &self,
+        url: &Url,
+    ) -> crate::Result<DiscoveredProjectFile> {
+        let Some(document_path) = SourcePath::from_url(url).into_native_path() else {
+            return Ok(DiscoveredProjectFile::None);
+        };
+        if cfg!(target_arch = "wasm32") {
+            return Ok(DiscoveredProjectFile::None);
+        }
+        let path = if Self::project_file_source(url).is_some() {
+            Some(document_path)
+        } else {
+            self.find_project_file_path_for(&document_path)?
+        };
+        let Some(path) = path else {
+            return Ok(DiscoveredProjectFile::None);
+        };
+        if let Some(state) = self.open_project_file_state(&path) {
+            return Ok(DiscoveredProjectFile::File { path, state: state.clone() });
+        }
+        Ok(match ProjectFileState::load(&path).await {
+            Ok((state, None)) => DiscoveredProjectFile::File { path, state },
+            Ok((state, Some(error))) => {
+                DiscoveredProjectFile::Invalid { path, state: Some(state), error }
+            }
+            Err(error) => DiscoveredProjectFile::Invalid { path, state: None, error: error.into() },
+        })
+    }
+
+    fn open_project_file_state(&self, path: &std::path::Path) -> Option<&ProjectFileState> {
+        let url = SourcePath::File(path.to_path_buf()).to_url()?;
+        if self.document_is_open(&url) { self.active_projects.get(path) } else { None }
+    }
+
+    fn store_project_file(&mut self, path: PathBuf, state: Option<ProjectFileState>) -> bool {
+        let settings_changed =
+            self.active_projects.get(&path).and_then(|state| state.parsed.as_ref())
+                != state.as_ref().and_then(|state| state.parsed.as_ref());
+        if !self.project_file_paths.contains(&path) {
+            insert_broadest_first(&mut self.project_file_paths, path.clone());
+        }
+        if let Some(state) = state {
+            self.active_projects.insert(path, state);
+        } else {
+            self.active_projects.remove(&path);
+        }
+        settings_changed
+    }
+
+    async fn maybe_update_active_project(
+        &mut self,
+        url: &Url,
+    ) -> crate::Result<VersionedDiagnostics> {
+        let mut initial_error = None;
+        let (path, state) = match self.discover_project_file_for_document_url(url).await? {
+            DiscoveredProjectFile::None => return Ok(Default::default()),
+            DiscoveredProjectFile::File { path, state } => (path, Some(state)),
+            DiscoveredProjectFile::Invalid { path, state, error } => {
+                if !self.active_project_file_paths().any(|known| known == path) {
+                    initial_error = Some(error);
+                } else {
+                    tracing::warn!(
+                        "Failed to reload project file {} for {url}: {error}",
+                        path.display()
+                    );
+                }
+                (path, state)
+            }
+        };
+        let contents_changed = self.active_projects.get(&path) != state.as_ref();
+        let project_url = SourcePath::new(&path).to_url();
+        let settings_changed = self.store_project_file(path, state);
+        if (contents_changed || initial_error.is_some())
+            && let Some(url) = project_url
+        {
+            self.send_to_previews(&self.project_file_contents_message(url));
+        }
+        if let Some(error) = initial_error {
+            return Err(error);
+        }
+        if settings_changed {
+            self.reapply_effective_configuration().await
+        } else {
+            Ok(Default::default())
+        }
+    }
+
+    pub fn project_main_urls(&self) -> impl Iterator<Item = Url> + '_ {
+        self.active_projects.values().filter_map(|state| state.parsed.as_ref()?.main()?.to_url())
+    }
+
+    fn document_roots(&self) -> HashSet<Url> {
+        let mut roots = self
+            .open_urls
+            .iter()
+            .filter(|url| {
+                SourcePath::from_url(url).file_name()
+                    != Some(i_slint_compiler::project_file::FILE_NAME)
+            })
+            .cloned()
+            .collect::<HashSet<_>>();
+        roots.extend(self.project_main_urls());
+        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+        roots.extend(
+            self.previews.iter().filter_map(|preview| {
+                preview.to_show.as_ref().map(|component| component.url.clone())
+            }),
+        );
+        roots.into_iter().filter_map(|url| SourcePath::from_url(&url).to_url()).collect()
+    }
+
+    fn project_file_source(url: &Url) -> Option<SourcePath> {
+        let path = SourcePath::from_url(url);
+        (path.file_name() == Some(i_slint_compiler::project_file::FILE_NAME)).then_some(path)
+    }
+
+    fn document_is_open(&self, url: &Url) -> bool {
+        let path = SourcePath::from_url(url);
+        self.open_urls.iter().any(|open_url| SourcePath::from_url(open_url) == path)
+    }
+
+    fn enqueue_configuration_recompile(&mut self) {
+        self.pending_recompile.extend(self.document_roots());
+    }
+
+    fn project_file_contents_message(&self, url: Url) -> LspToPreviewMessage {
+        if let Some(state) = SourcePath::from_url(&url)
+            .into_native_path()
+            .as_ref()
+            .and_then(|path| self.active_projects.get(path))
+        {
+            LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(url, state.version),
+                contents: state.contents.clone(),
+            }
+        } else {
+            LspToPreviewMessage::ForgetFile { url }
+        }
+    }
+
+    async fn update_project_file_contents(
+        &mut self,
+        path: PathBuf,
+        contents: Vec<u8>,
+        version: SourceFileVersion,
+    ) -> crate::Result<VersionedDiagnostics> {
+        let (state, error) = ProjectFileState::from_contents(&path, contents, version).await;
+        if let Some(error) = error {
+            tracing::warn!("Failed to parse project file {}: {error}", path.display());
+        }
+        let url = SourcePath::new(&path).to_url();
+        let settings_changed = self.store_project_file(path, Some(state));
+        if let Some(url) = url {
+            self.send_to_previews(&self.project_file_contents_message(url));
+        }
+        if !settings_changed {
+            return Ok(Default::default());
+        }
+        let diagnostics = self.reapply_effective_configuration().await?;
+        self.enqueue_configuration_recompile();
+        Ok(diagnostics)
+    }
+
+    async fn reload_active_project_file(
+        &mut self,
+        path: &std::path::Path,
+        change: FileChangeKind,
+    ) -> crate::Result<VersionedDiagnostics> {
+        if !self.active_project_file_paths().any(|known| known == path) {
+            return Ok(Default::default());
+        }
+        if !matches!(change, FileChangeKind::Deleted) {
+            match std::fs::read(path) {
+                Ok(contents) => {
+                    return self
+                        .update_project_file_contents(path.to_path_buf(), contents, None)
+                        .await;
+                }
+                Err(error) => {
+                    tracing::warn!("Failed to read project file {}: {error}", path.display())
+                }
+            }
+        }
+        let settings_changed = self.store_project_file(path.to_path_buf(), None);
+        if matches!(change, FileChangeKind::Deleted) {
+            self.project_file_paths.retain(|known| known != path);
+        }
+        let url = SourcePath::new(path).to_url();
+        if let Some(url) = &url {
+            self.send_to_previews(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+        }
+        let mut diagnostics = if settings_changed {
+            self.reapply_effective_configuration().await?
+        } else {
+            Default::default()
+        };
+        if let Some(url) = url {
+            diagnostics.push((url, None, Vec::new()));
+        }
+        self.enqueue_configuration_recompile();
+        Ok(diagnostics)
+    }
+
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub fn send_state_to_preview(&self, preview_index: usize) {
         let Some(preview) = self.preview(preview_index) else { return };
+        let root = preview.project_root.borrow().clone();
+        preview.to_preview.send(&LspToPreviewMessage::OpenProject { root });
         let mut doc_count = 0;
         #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-        let mut fonts_sent = HashSet::<PathBuf>::new();
+        let mut fonts_sent = HashSet::<SourcePath>::new();
         for (url, node) in self.document_cache.all_url_documents() {
             if url.scheme() == "builtin" {
                 continue;
@@ -105,6 +709,12 @@ impl EditorSession {
             #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
             self.send_referenced_fonts(preview, &url, &mut fonts_sent);
             doc_count += 1;
+        }
+
+        for path in self.active_project_file_paths() {
+            if let Some(url) = SourcePath::new(path).to_url() {
+                preview.to_preview.send(&self.project_file_contents_message(url));
+            }
         }
 
         preview
@@ -126,6 +736,9 @@ impl EditorSession {
         }
     }
 
+    /// Send `files` to the preview at `preview_index`.
+    /// Files that aren't loaded are read from disk only if they belong to the project,
+    /// where `workspace_folders` are the directories the user opened.
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
@@ -134,12 +747,19 @@ impl EditorSession {
         &self,
         preview_index: usize,
         files: &[lsp_types::Url],
-        allows_file: impl Fn(&std::path::Path) -> bool,
+        workspace_folders: &[PathBuf],
     ) {
         let Some(preview) = self.preview(preview_index) else { return };
+        let file_access = std::cell::OnceCell::new();
         #[cfg(feature = "preview-remote")]
-        let mut fonts_sent = HashSet::<PathBuf>::new();
+        let mut fonts_sent = HashSet::<SourcePath>::new();
         for url in files {
+            if SourcePath::from_url(url).file_name()
+                == Some(i_slint_compiler::project_file::FILE_NAME)
+            {
+                preview.to_preview.send(&self.project_file_contents_message(url.clone()));
+                continue;
+            }
             if let Some(node) =
                 self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
             {
@@ -158,7 +778,13 @@ impl EditorSession {
                 tracing::warn!("Cannot convert URL to file path: {url}");
                 continue;
             };
-            if !allows_file(&path) {
+            let file_access = file_access.get_or_init(|| {
+                crate::preview_files::PreviewFileAccess::new(
+                    workspace_folders,
+                    &self.document_cache,
+                )
+            });
+            if !file_access.allows(&path) {
                 tracing::warn!(
                     "Refusing to send {} to the preview: not a file of the project being previewed",
                     path.display()
@@ -193,25 +819,21 @@ impl EditorSession {
         &self,
         preview: &PreviewConnection,
         doc_url: &Url,
-        sent: &mut HashSet<PathBuf>,
+        sent: &mut HashSet<SourcePath>,
     ) {
         let Some(remote) = preview.to_preview.remote() else { return };
         let Some(doc) = self.document_cache.get_document(doc_url) else { return };
         // `custom_fonts` holds the resolved path of every font import that
         // passed the compiler's existence check, plus remote URLs.
         for (font_path, _) in &doc.custom_fonts {
-            let font_path = PathBuf::from(font_path.as_str());
-            if i_slint_compiler::pathutils::is_url(&font_path) {
+            if font_path.as_native_path().is_none() || !sent.insert(font_path.clone()) {
                 continue;
             }
-            if !sent.insert(font_path.clone()) {
-                continue;
-            }
-            let Ok(font_url) = Url::from_file_path(&font_path) else {
-                tracing::warn!("Cannot convert font path to URL: {}", font_path.display());
+            let Some(font_url) = font_path.to_url() else {
+                tracing::warn!("Cannot convert font path to URL: {font_path}");
                 continue;
             };
-            match std::fs::read(&font_path) {
+            match font_path.read() {
                 Ok(contents) => {
                     tracing::debug!(
                         "Sending font {} ({} bytes) to remote viewer",
@@ -220,11 +842,11 @@ impl EditorSession {
                     );
                     remote.send(&LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(font_url, None),
-                        contents,
+                        contents: contents.into_owned(),
                     });
                 }
                 Err(err) => {
-                    tracing::warn!("Failed to read font {}: {err}", font_path.display());
+                    tracing::warn!("Failed to read font {font_path}: {err}");
                 }
             }
         }
@@ -232,7 +854,8 @@ impl EditorSession {
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
     pub fn show_preview(&mut self, preview_index: usize, component: PreviewComponent) {
-        let component_url = component.url.clone();
+        let component_url =
+            SourcePath::from_url(&component.url).to_url().unwrap_or_else(|| component.url.clone());
         let Some(preview) = self.preview_mut(preview_index) else { return };
         preview.to_show = Some(component.clone());
         preview.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
@@ -244,7 +867,7 @@ impl EditorSession {
         content: String,
         url: lsp_types::Url,
         version: Option<i32>,
-    ) -> (HashSet<PathBuf>, BuildDiagnostics) {
+    ) -> (HashSet<SourcePath>, BuildDiagnostics) {
         enum FileAction {
             ProcessContent(String),
             IgnoreFile,
@@ -253,11 +876,11 @@ impl EditorSession {
 
         tracing::trace!("Loading document: {url} (version: {version:?})");
 
-        let Some(path) = crate::uri_to_file(&url) else { return Default::default() };
+        let path = SourcePath::from_url(&url);
         // Normalize the URL
-        let Ok(url) = Url::from_file_path(path.clone()) else { return Default::default() };
+        let Some(url) = path.to_url() else { return Default::default() };
 
-        let action = if path.extension().is_some_and(|e| e == "rs") {
+        let action = if path.extension() == Some("rs") {
             match i_slint_compiler::lexer::extract_rust_macro(content) {
                 Some(content) => FileAction::ProcessContent(content),
                 // A rust file without a rust macro, just ignore it
@@ -286,12 +909,10 @@ impl EditorSession {
                 // already; seed the sent set with them so only fonts added by this
                 // edit are transferred.
                 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
-                let fonts_sent: HashSet<PathBuf> = self
+                let fonts_sent: HashSet<SourcePath> = self
                     .document_cache
                     .get_document(&url)
-                    .map(|doc| {
-                        doc.custom_fonts.iter().map(|(p, _)| PathBuf::from(p.as_str())).collect()
-                    })
+                    .map(|doc| doc.custom_fonts.iter().map(|(p, _)| p.clone()).collect())
                     .unwrap_or_default();
                 let dependencies: HashSet<Url> = self.document_cache.invalidate_url(&url);
                 let _ = self.document_cache.load_url(&url, version, content, &mut diag).await;
@@ -309,19 +930,22 @@ impl EditorSession {
             }
         };
 
-        for dep in &dependencies {
-            if self.open_urls.contains(dep) {
-                self.document_cache.reload_cached_file(dep, &mut diag).await;
-            }
-        }
+        self.reload_dependent_roots(&dependencies, &mut diag).await;
 
-        let extra_files = dependencies
-            .iter()
-            .filter_map(crate::uri_to_file)
-            .chain(core::iter::once(path))
-            .collect();
+        let extra_files =
+            dependencies.iter().map(SourcePath::from_url).chain(core::iter::once(path)).collect();
 
         (extra_files, diag)
+    }
+
+    async fn reload_dependent_roots(
+        &mut self,
+        dependencies: &HashSet<Url>,
+        diagnostics: &mut BuildDiagnostics,
+    ) {
+        for url in self.document_roots().intersection(dependencies) {
+            self.document_cache.reload_cached_file(url, diagnostics).await;
+        }
     }
 
     pub async fn open_document(
@@ -331,15 +955,40 @@ impl EditorSession {
         version: Option<i32>,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Opening document: {url}");
+        if Self::project_file_source(&url).is_some_and(|path| path.as_native_path().is_none()) {
+            return Ok(Default::default());
+        }
         self.open_urls.insert(url.clone());
 
         self.load_document(content, url, version).await
     }
 
-    pub async fn close_document(&mut self, url: lsp_types::Url) -> crate::Result<()> {
+    pub async fn close_document(
+        &mut self,
+        url: lsp_types::Url,
+    ) -> crate::Result<VersionedDiagnostics> {
         tracing::debug!("Closing document: {url}");
         self.open_urls.remove(&url);
-        self.drop_document(url).await
+        if let Some(source) = Self::project_file_source(&url) {
+            if let Some(path) = source.into_native_path() {
+                let change = match path.try_exists() {
+                    Ok(false) => FileChangeKind::Deleted,
+                    _ => FileChangeKind::Changed,
+                };
+                return self.reload_active_project_file(&path, change).await;
+            }
+            return Ok(Default::default());
+        }
+        self.drop_document(url.clone()).await?;
+        if self
+            .document_roots()
+            .iter()
+            .any(|root| SourcePath::from_url(root) == SourcePath::from_url(&url))
+        {
+            self.reload_document_without_project_discovery(url, &mut BuildDiagnostics::default())
+                .await;
+        }
+        Ok(Default::default())
     }
 
     pub async fn load_document(
@@ -348,11 +997,25 @@ impl EditorSession {
         url: lsp_types::Url,
         version: Option<i32>,
     ) -> crate::Result<crate::VersionedDiagnostics> {
+        if let Some(source) = Self::project_file_source(&url) {
+            return match source.into_native_path() {
+                Some(path) => {
+                    self.update_project_file_contents(path, content.into_bytes(), version).await
+                }
+                None => Ok(Default::default()),
+            };
+        }
+        let mut configuration_diagnostics = self.maybe_update_active_project(&url).await?;
         let (extra_files, diag) = self.load_document_impl(content, url.clone(), version).await;
 
         tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
 
-        Ok(collect_diagnostics(&self.document_cache, &extra_files, diag))
+        configuration_diagnostics.extend(collect_diagnostics(
+            &self.document_cache,
+            &extra_files,
+            diag,
+        ));
+        Ok(configuration_diagnostics)
     }
 
     #[cfg_attr(target_arch = "wasm32", allow(unused))]
@@ -361,57 +1024,91 @@ impl EditorSession {
         url: lsp_types::Url,
     ) -> crate::Result<crate::VersionedDiagnostics> {
         tracing::debug!("Reloading document: {url}");
-
-        // Check if document is in cache (can use reload_cached_file)
-        let in_cache = self.document_cache.all_urls().contains(&url);
-
-        if in_cache {
-            tracing::trace!("Document is in cache, reloading: {url}");
-
-            let mut diagnostics = BuildDiagnostics::default();
-
-            self.document_cache.reload_cached_file(&url, &mut diagnostics).await;
-            let mut extra_files = HashSet::new();
-            extra_files.extend(crate::uri_to_file(&url));
-
-            Ok(collect_diagnostics(&self.document_cache, &extra_files, diagnostics))
+        if Self::project_file_source(&url).is_some_and(|path| path.as_native_path().is_none()) {
+            return Ok(Default::default());
+        }
+        let url = SourcePath::from_url(&url).to_url().unwrap_or(url);
+        let mut configuration_diagnostics = if self.project_main_urls().any(|entry| entry == url) {
+            Vec::new()
         } else {
-            tracing::trace!("Document not in cache, loading from disk: {url}");
+            self.maybe_update_active_project(&url).await?
+        };
 
-            let Some(path) = crate::uri_to_file(&url) else {
-                // The file was likely deleted, log and move on
-                tracing::debug!("Failed to locate file: {url}");
-                return Ok(Default::default());
+        let url = if SourcePath::from_url(&url).file_name()
+            == Some(i_slint_compiler::project_file::FILE_NAME)
+        {
+            let Some(entry) = SourcePath::from_url(&url)
+                .into_native_path()
+                .and_then(|path| self.active_projects.get(&path))
+                .and_then(|state| state.parsed.as_ref()?.main()?.to_url())
+            else {
+                return Ok(configuration_diagnostics);
             };
-            match std::fs::read_to_string(&path) {
-                Ok(content) => self.load_document(content, url, None).await,
-                // The file was likely deleted, log and move on
-                Err(err) => {
-                    tracing::debug!("Failed to read {} from disk: {err}", path.display());
-                    Ok(Default::default())
+            entry
+        } else {
+            url
+        };
+
+        let mut diagnostics = BuildDiagnostics::default();
+        let extra_files =
+            self.reload_document_without_project_discovery(url, &mut diagnostics).await;
+        configuration_diagnostics.extend(collect_diagnostics(
+            &self.document_cache,
+            &extra_files,
+            diagnostics,
+        ));
+        Ok(configuration_diagnostics)
+    }
+
+    async fn reload_document_without_project_discovery(
+        &mut self,
+        url: Url,
+        diagnostics: &mut BuildDiagnostics,
+    ) -> HashSet<SourcePath> {
+        let path = SourcePath::from_url(&url);
+        let Some(url) = path.to_url() else { return HashSet::new() };
+        let mut extra_files = HashSet::from([path.clone()]);
+        // Check if document is in cache (can use reload_cached_file)
+        let in_cache = self.document_cache.all_urls().any(|cached| cached == url);
+        if in_cache {
+            let dependencies = if self.document_cache.get_document(&url).is_some() {
+                self.document_cache.invalidate_url(&url)
+            } else {
+                HashSet::new()
+            };
+            self.document_cache.reload_cached_file(&url, diagnostics).await;
+            self.reload_dependent_roots(&dependencies, diagnostics).await;
+            extra_files.extend(dependencies.iter().map(SourcePath::from_url));
+        } else {
+            match path.read_to_string() {
+                Ok(content) => {
+                    let (dependent_files, loaded_diagnostics) =
+                        self.load_document_impl(content, url, None).await;
+                    extra_files.extend(dependent_files);
+                    diagnostics
+                        .all_loaded_files
+                        .extend(loaded_diagnostics.all_loaded_files.clone());
+                    for diagnostic in loaded_diagnostics {
+                        diagnostics.push_compiler_error(diagnostic);
+                    }
+                }
+                Err(error) => {
+                    tracing::debug!("Failed to read {path} from disk: {error}")
                 }
             }
         }
+        extra_files
     }
 
     fn drop_document_impl(&mut self, url: lsp_types::Url) -> crate::Result<()> {
+        let url = SourcePath::from_url(&url).to_url().unwrap_or(url);
         let dependencies = self.document_cache.drop_document(&url)?;
 
-        let open_dependencies = self.open_urls.intersection(&dependencies).cloned();
-        self.pending_recompile.extend(open_dependencies);
-
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        // The external preview only has access to the files the LSP recompiled, so we need to
-        // ensure the preview file is recompiled if anything it depends on changes, even if it's
-        // not in the open_urls.
-        for preview_url in self
-            .previews
-            .iter()
-            .filter_map(|preview| preview.to_show.as_ref().map(|component| component.url.clone()))
-            .filter(|preview_url| preview_url == &url || dependencies.contains(preview_url))
-        {
-            self.pending_recompile.insert(preview_url);
-        }
+        self.pending_recompile.extend(
+            self.document_roots()
+                .into_iter()
+                .filter(|root| root == &url || dependencies.contains(root)),
+        );
 
         Ok(())
     }
@@ -448,44 +1145,47 @@ impl EditorSession {
         url: lsp_types::Url,
         typ: FileChangeKind,
     ) -> crate::Result<crate::VersionedDiagnostics> {
-        if !self.open_urls.contains(&url) {
-            tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
-            match typ {
-                FileChangeKind::Deleted => return self.delete_document(url).await,
-                // If the file was newly created, we still need to drop it as another file may
-                // already depend on it by trying to import it before it exists.
-                // This is especially common on file renames.
-                // See also #11304
-                FileChangeKind::Changed | FileChangeKind::Created => {
-                    self.drop_document(url).await?
-                }
-            }
-        } else {
+        if self.document_is_open(&url) {
             tracing::trace!("Ignoring file watcher event for open document: {url}");
+            return Ok(Default::default());
+        }
+        if let Some(path) = SourcePath::from_url(&url).into_native_path()
+            && self.active_project_file_paths().any(|active_path| active_path == path)
+        {
+            tracing::debug!("Active project file changed: {url} (type: {typ:?})");
+            return self.reload_active_project_file(&path, typ).await;
+        }
+
+        tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
+        match typ {
+            FileChangeKind::Deleted => return self.delete_document(url).await,
+            // If the file was newly created, we still need to drop it as another file may
+            // already depend on it by trying to import it before it exists.
+            // This is especially common on file renames.
+            // See also #11304
+            FileChangeKind::Changed | FileChangeKind::Created => self.drop_document(url).await?,
         }
         Ok(Default::default())
     }
 }
 
 pub fn convert_diagnostics(
-    extra_files: &HashSet<PathBuf>,
+    extra_files: &HashSet<SourcePath>,
     diag: BuildDiagnostics,
     format: crate::ByteFormat,
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = extra_files
         .iter()
-        .chain(diag.all_loaded_files.iter())
-        .filter_map(|p| Url::from_file_path(p).ok())
+        .filter_map(SourcePath::to_url)
+        .chain(diag.all_loaded_files.iter().filter_map(SourcePath::to_url))
         .map(|uri| (uri, Default::default()))
         .collect();
 
     for d in diag.into_iter() {
-        #[cfg(not(target_arch = "wasm32"))]
-        if d.source_file().unwrap().is_relative() {
+        let Some(uri) = i_slint_live_preview::protocol::diagnostic_url(&d) else {
             continue;
-        }
-        let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
+        };
         lsp_diags
             .entry(uri)
             .or_default()
@@ -497,7 +1197,7 @@ pub fn convert_diagnostics(
 
 pub fn collect_diagnostics(
     document_cache: &crate::DocumentCache,
-    extra_files: &HashSet<PathBuf>,
+    extra_files: &HashSet<SourcePath>,
     diag: BuildDiagnostics,
 ) -> crate::VersionedDiagnostics {
     let lsp_diags = convert_diagnostics(extra_files, diag, document_cache.format);
@@ -513,8 +1213,42 @@ pub fn collect_diagnostics(
 }
 
 #[cfg(all(test, any(feature = "preview-external", feature = "preview-engine")))]
-mod tests {
+mod preview_tests {
     use super::*;
+
+    #[test]
+    fn initial_preview_configuration_sends_no_implicit_overrides() {
+        for enable_experimental in [true, false] {
+            let mut compiler_config = crate::document_cache::CompilerConfiguration::default();
+            compiler_config.compiler_config.style = Some("fluent".into());
+            compiler_config.compiler_config.include_paths = vec![PathBuf::from("/include")];
+            compiler_config.compiler_config.library_paths =
+                HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]);
+            compiler_config.compiler_config.enable_experimental = enable_experimental;
+            compiler_config.compiler_config.edition =
+                Some(i_slint_compiler::project_file::SlintEdition::V1_19);
+            compiler_config.format = crate::ByteFormat::Utf16;
+            let (to_preview, messages) = crate::test::preview_capture();
+            let session =
+                EditorSession::new(crate::DocumentCache::new(compiler_config), to_preview);
+
+            session.send_state_to_preview(0);
+
+            let messages = messages.borrow();
+            let configuration = messages.iter().find_map(|message| match message {
+                LspToPreviewMessage::SetConfiguration { config } => Some(config),
+                _ => None,
+            });
+            assert_eq!(
+                configuration,
+                Some(&PreviewConfig {
+                    hide_ui: None,
+                    overrides: Overrides::default(),
+                    format_utf8: false,
+                })
+            );
+        }
+    }
 
     fn session_with_recording_previews()
     -> (EditorSession, [crate::test::CapturedPreviewMessages; 2]) {
@@ -523,25 +1257,510 @@ mod tests {
             .iter()
             .map(|(to_preview, _)| PreviewConnection {
                 to_preview: to_preview.clone(),
+                project_root: Default::default(),
                 to_show: None,
             })
             .collect();
         let messages = captures.map(|(_, messages)| messages);
-        let session = EditorSession {
-            document_cache: crate::test::empty_document_cache(),
-            preview_config: Default::default(),
-            open_urls: Default::default(),
-            previews,
-            pending_recompile: Default::default(),
-        };
+        let session = EditorSession::with_previews(crate::test::empty_document_cache(), previews);
         (session, messages)
+    }
+
+    #[test]
+    fn known_project_files_are_sent_as_raw_contents_and_forgotten_on_deletion() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let url = Url::from_file_path(&path).unwrap();
+        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        spin_on::spin_on(session.maybe_update_active_project(&document_url)).unwrap();
+        for messages in &messages {
+            assert!(messages.borrow().iter().any(|message| matches!(message,
+                LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == br#"{"slint-edition":"1.19"}"#
+            )));
+            messages.borrow_mut().clear();
+        }
+        session.send_state_to_preview(0);
+        assert!(messages[0].borrow().iter().any(|message| matches!(message,
+            LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == br#"{"slint-edition":"1.19"}"#
+        )));
+        assert!(messages[1].borrow().is_empty());
+        for source in ["// changed comment\n{\"slint-edition\":\"1.19\"}", "not valid JSON"] {
+            for messages in &messages {
+                messages.borrow_mut().clear();
+            }
+            std::fs::write(&path, source).unwrap();
+            spin_on::spin_on(session.reload_active_project_file(&path, FileChangeKind::Changed))
+                .unwrap();
+            for messages in &messages {
+                assert!(messages.borrow().iter().any(|message| matches!(message,
+                    LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == source.as_bytes()
+                )));
+            }
+        }
+        for messages in &messages {
+            messages.borrow_mut().clear();
+        }
+        std::fs::remove_file(&path).unwrap();
+        session.send_state_to_preview(0);
+        assert!(messages[0].borrow().iter().any(|message| matches!(message,
+            LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == b"not valid JSON"
+        )));
+        for messages in &messages {
+            messages.borrow_mut().clear();
+        }
+        spin_on::spin_on(session.reload_active_project_file(&path, FileChangeKind::Deleted))
+            .unwrap();
+        for messages in &messages {
+            assert!(messages.borrow().iter().any(|message| matches!(message,
+                LspToPreviewMessage::ForgetFile { url: sent } if sent == &url
+            )));
+        }
+    }
+
+    #[test]
+    fn ordinary_document_updates_send_project_files_only_when_they_change() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let manifest_path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let manifest_url = Url::from_file_path(&manifest_path).unwrap();
+        let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        for (version, manifest, expected) in [
+            (1, r#"{"slint-edition":"1.19"}"#, true),
+            (2, r#"{"slint-edition":"1.19"}"#, false),
+            (3, r#"{"slint-edition":"1.19","enable-experimental-features":false}"#, true),
+        ] {
+            std::fs::write(&manifest_path, manifest).unwrap();
+            for messages in &messages {
+                messages.borrow_mut().clear();
+            }
+            spin_on::spin_on(session.load_document(
+                "export component Main {}".into(),
+                document_url.clone(),
+                Some(version),
+            ))
+            .unwrap();
+            for messages in &messages {
+                let sent = messages.borrow().iter().any(|message| matches!(message,
+                    LspToPreviewMessage::SetContents { url, contents } if url.url() == &manifest_url && contents == manifest.as_bytes()
+                ));
+                assert_eq!(sent, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn preview_configuration_sends_explicit_overrides_without_manifest_settings() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(
+            directory.path().join(i_slint_compiler::project_file::FILE_NAME),
+            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#,
+        )
+        .unwrap();
+        session.set_startup_config_overrides(SessionConfigOverrides {
+            compiler: Overrides { debug_info: Some(false), ..Default::default() },
+            hide_ui: Some(true),
+        });
+        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                const_scale_factor: Some(2.),
+                project: ProjectFileData { include_paths: Some(Vec::new()), ..Default::default() },
+                ..Default::default()
+            },
+            ..Default::default()
+        }))
+        .unwrap();
+        let url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        spin_on::spin_on(session.load_document(
+            "export component Main inherits Window {}".into(),
+            url,
+            None,
+        ))
+        .unwrap();
+        let expected = session.effective_config_overrides();
+        assert_eq!(session.preview_config.overrides, expected.compiler);
+        assert_eq!(session.preview_config.hide_ui, Some(true));
+        assert_eq!(session.preview_config.overrides.style, None);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            true
+        );
+        for messages in messages {
+            assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::SetConfiguration { config } if config.overrides == expected.compiler)));
+        }
+    }
+
+    fn assert_project_contents(
+        messages: &crate::test::CapturedPreviewMessages,
+        url: &Url,
+        source: &str,
+        version: SourceFileVersion,
+    ) {
+        let recorded = messages.borrow();
+        let updates = recorded.iter().filter(|message| matches!(message, LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == url && sent.version() == &version && contents == source.as_bytes())).count();
+        assert_eq!(updates, 1, "{recorded:?}");
+    }
+
+    #[test]
+    fn project_file_buffers_are_transferred_without_entering_the_document_cache() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let url = Url::from_file_path(&path).unwrap();
+        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        for (index, source) in [
+            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#,
+            "{invalid",
+            "// buffer comment\n{\"slint-edition\":\"1.19\"}",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            for messages in &messages {
+                messages.borrow_mut().clear();
+            }
+            let version = Some(index as i32 + 7);
+            let diagnostics = if index == 0 {
+                spin_on::spin_on(session.open_document(source.into(), url.clone(), version))
+                    .unwrap()
+            } else {
+                spin_on::spin_on(session.load_document(source.into(), url.clone(), version))
+                    .unwrap()
+            };
+            assert!(
+                diagnostics
+                    .iter()
+                    .filter(|(diagnostic_url, _, _)| diagnostic_url == &url)
+                    .all(|(_, actual, _)| actual == &version)
+            );
+            assert!(session.document_cache.get_document(&url).is_none());
+            assert_eq!(session.active_projects[&path].parsed.is_none(), index == 1);
+            for messages in &messages {
+                assert_project_contents(messages, &url, source, version);
+            }
+            std::fs::write(
+                &path,
+                r#"{"slint-edition":"1.19","enable-experimental-features":false}"#,
+            )
+            .unwrap();
+            for (preview_index, messages) in messages.iter().enumerate() {
+                messages.borrow_mut().clear();
+                session.send_state_to_preview(preview_index);
+                assert_project_contents(messages, &url, source, version);
+                messages.borrow_mut().clear();
+                session.send_files_to_preview(preview_index, std::slice::from_ref(&url), &[]);
+                assert_project_contents(messages, &url, source, version);
+            }
+        }
+    }
+
+    #[test]
+    fn unsaved_native_project_buffer_is_discovered_without_a_disk_file() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let url = Url::from_file_path(&path).unwrap();
+        assert!(!path.exists());
+        assert!(SourcePath::from_url(&url).as_native_path().is_some());
+        let contents = r#"{"slint-edition":"1.19","enable-experimental-features":true}"#;
+        spin_on::spin_on(session.open_document(contents.into(), url.clone(), Some(9))).unwrap();
+        let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        spin_on::spin_on(session.load_document("export component Main {}".into(), source, Some(1)))
+            .unwrap();
+        assert!(!path.exists());
+        assert_eq!(session.active_projects[&path].version, Some(9));
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            true
+        );
+        assert!(session.document_cache.get_document(&url).is_none());
+        for (preview_index, messages) in messages.iter().enumerate() {
+            messages.borrow_mut().clear();
+            session.send_state_to_preview(preview_index);
+            assert_project_contents(messages, &url, contents, Some(9));
+        }
+    }
+
+    #[test]
+    fn unsupported_project_file_urls_never_enter_the_slint_document_cache() {
+        let (mut session, messages) = session_with_recording_previews();
+        for target in
+            ["https://example.com/ui/slint-project.json", "vscode-vfs://host/ui/slint-project.json"]
+        {
+            let url = Url::parse(target).unwrap();
+            assert!(
+                spin_on::spin_on(session.open_document(
+                    r#"{"slint-edition":"1.19"}"#.into(),
+                    url.clone(),
+                    Some(1)
+                ))
+                .unwrap()
+                .is_empty()
+            );
+            assert!(session.open_urls.is_empty());
+            assert!(
+                spin_on::spin_on(session.load_document("{invalid".into(), url.clone(), Some(2)))
+                    .unwrap()
+                    .is_empty()
+            );
+            assert!(spin_on::spin_on(session.reload_document(url.clone())).unwrap().is_empty());
+            spin_on::spin_on(session.close_document(url.clone())).unwrap();
+            assert!(session.document_roots().is_empty());
+            assert!(session.document_cache.get_document(&url).is_none());
+            assert!(session.active_projects.is_empty());
+            assert!(session.active_project_file_paths().next().is_none());
+            assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+        }
+    }
+
+    #[test]
+    fn source_discovery_transfers_known_invalid_project_contents_and_clears_settings() {
+        let (mut session, messages) = session_with_recording_previews();
+        let default_experimental =
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let url = Url::from_file_path(&path).unwrap();
+        let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        std::fs::write(&path, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#)
+            .unwrap();
+        spin_on::spin_on(session.load_document(
+            "export component Main {}".into(),
+            document_url.clone(),
+            Some(1),
+        ))
+        .unwrap();
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            true
+        );
+        let invalid = "// changed on disk\n{invalid";
+        std::fs::write(&path, invalid).unwrap();
+        for messages in &messages {
+            messages.borrow_mut().clear();
+        }
+        spin_on::spin_on(session.load_document(
+            "export component Main {}".into(),
+            document_url,
+            Some(2),
+        ))
+        .unwrap();
+        assert!(session.active_projects[&path].parsed.is_none());
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            default_experimental
+        );
+        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+        for messages in &messages {
+            assert_project_contents(messages, &url, invalid, None);
+        }
+    }
+
+    #[test]
+    fn watchers_and_source_discovery_preserve_open_project_buffers_until_close() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let url = Url::from_file_path(&path).unwrap();
+        let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        let buffer = r#"{"slint-edition":"1.19","enable-experimental-features":true}"#;
+        spin_on::spin_on(session.open_document(buffer.into(), url.clone(), Some(4))).unwrap();
+        for change in [FileChangeKind::Changed, FileChangeKind::Deleted] {
+            if matches!(change, FileChangeKind::Changed) {
+                std::fs::write(
+                    &path,
+                    r#"{"slint-edition":"1.19","enable-experimental-features":false}"#,
+                )
+                .unwrap();
+            } else {
+                std::fs::remove_file(&path).unwrap();
+            }
+            for messages in &messages {
+                messages.borrow_mut().clear();
+            }
+            spin_on::spin_on(session.trigger_file_watcher(url.clone(), change)).unwrap();
+            assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+            spin_on::spin_on(session.load_document(
+                "export component Main {}".into(),
+                document_url.clone(),
+                Some(1),
+            ))
+            .unwrap();
+            assert_eq!(session.active_projects[&path].contents, buffer.as_bytes());
+            assert_eq!(session.active_projects[&path].version, Some(4));
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+                true
+            );
+        }
+        let disk = r#"{"slint-edition":"1.19","enable-experimental-features":false}"#;
+        std::fs::write(&path, disk).unwrap();
+        for messages in &messages {
+            messages.borrow_mut().clear();
+        }
+        spin_on::spin_on(session.close_document(url.clone())).unwrap();
+        assert!(!session.document_is_open(&url));
+        assert_eq!(session.active_projects[&path].version, None);
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            false
+        );
+        for messages in &messages {
+            assert_project_contents(messages, &url, disk, None);
+        }
+    }
+
+    #[test]
+    fn closing_project_buffer_removes_a_deletion_ignored_while_open() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let url = Url::from_file_path(&path).unwrap();
+        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        spin_on::spin_on(session.open_document(
+            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into(),
+            url.clone(),
+            Some(3),
+        ))
+        .unwrap();
+        for messages in &messages {
+            messages.borrow_mut().clear();
+        }
+        std::fs::remove_file(&path).unwrap();
+        assert!(
+            spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Deleted))
+                .unwrap()
+                .is_empty()
+        );
+        assert!(session.active_projects.contains_key(&path));
+        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+        assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
+        let diagnostics = spin_on::spin_on(session.close_document(url.clone())).unwrap();
+        assert!(!session.document_is_open(&url));
+        assert!(!session.active_projects.contains_key(&path));
+        assert!(session.active_project_file_paths().next().is_none());
+        assert!(
+            diagnostics.iter().any(|(diagnostic_url, version, diagnostics)| diagnostic_url == &url
+                && version.is_none()
+                && diagnostics.is_empty())
+        );
+        for messages in &messages {
+            assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::ForgetFile { url: sent } if sent == &url)));
+        }
+        std::fs::write(&path, "{invalid").unwrap();
+        let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
+        assert!(
+            spin_on::spin_on(session.load_document(
+                "export component Main {}".into(),
+                source,
+                Some(1)
+            ))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn closing_project_buffer_returns_cleared_conflict_diagnostics() {
+        let (mut session, _) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let mut manifests = Vec::new();
+        for name in ["first", "second"] {
+            let project = directory.path().join(name);
+            std::fs::create_dir(&project).unwrap();
+            let path = project.join(i_slint_compiler::project_file::FILE_NAME);
+            std::fs::write(
+                &path,
+                r#"{"slint-edition":"1.19","enable-experimental-features":false}"#,
+            )
+            .unwrap();
+            let document_url = Url::from_file_path(project.join("main.slint")).unwrap();
+            spin_on::spin_on(session.load_document(
+                "export component Main {}".into(),
+                document_url,
+                Some(1),
+            ))
+            .unwrap();
+            manifests.push(Url::from_file_path(path).unwrap());
+        }
+        let changed = spin_on::spin_on(session.open_document(
+            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into(),
+            manifests[0].clone(),
+            Some(7),
+        ))
+        .unwrap();
+        assert!(changed.iter().any(|(url, _, diagnostics)| {
+            url == &manifests[1]
+                && diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.message.contains("experimental features"))
+        }));
+        let closed = spin_on::spin_on(session.close_document(manifests[0].clone())).unwrap();
+        for manifest in &manifests {
+            assert!(closed.iter().any(|(url, version, diagnostics)| url == manifest
+                && version.is_none()
+                && diagnostics.is_empty()));
+        }
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            false
+        );
+    }
+
+    #[test]
+    fn unavailable_and_unknown_project_files_never_fall_back_to_disk_when_sent() {
+        let (mut session, messages) = session_with_recording_previews();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let url = Url::from_file_path(&path).unwrap();
+        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        for (preview_index, messages) in messages.iter().enumerate() {
+            session.send_files_to_preview(
+                preview_index,
+                std::slice::from_ref(&url),
+                &[directory.path().to_path_buf()],
+            );
+            assert!(
+                matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
+            );
+        }
+        spin_on::spin_on(session.maybe_update_active_project(&url)).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed))
+            .unwrap();
+        assert!(!session.active_projects.contains_key(&path));
+        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+        std::fs::write(&path, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#)
+            .unwrap();
+        for (preview_index, messages) in messages.iter().enumerate() {
+            messages.borrow_mut().clear();
+            session.send_state_to_preview(preview_index);
+            assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::ForgetFile { url: sent } if sent == &url)));
+            messages.borrow_mut().clear();
+            session.send_files_to_preview(
+                preview_index,
+                std::slice::from_ref(&url),
+                &[directory.path().to_path_buf()],
+            );
+            assert!(
+                matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
+            );
+        }
+        spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Created))
+            .unwrap();
+        assert!(session.active_projects.contains_key(&path));
+        spin_on::spin_on(session.trigger_file_watcher(url, FileChangeKind::Deleted)).unwrap();
+        assert!(!session.active_projects.contains_key(&path));
+        assert!(session.active_project_file_paths().next().is_none());
     }
 
     #[test]
     fn primary_preview_accessors_return_the_first_connection() {
         let (mut session, _) = session_with_recording_previews();
         let component = PreviewComponent {
-            url: Url::from_file_path(crate::test::test_file_name("primary.slint")).unwrap(),
+            url: crate::test::test_file_name("primary.slint").to_url().unwrap(),
             component: Some("Primary".into()),
         };
 
@@ -555,7 +1774,7 @@ mod tests {
     fn invalid_preview_indexes_are_ignored() {
         let (mut session, messages) = session_with_recording_previews();
         let component = PreviewComponent {
-            url: Url::from_file_path(crate::test::test_file_name("missing.slint")).unwrap(),
+            url: crate::test::test_file_name("missing.slint").to_url().unwrap(),
             component: None,
         };
 
@@ -563,7 +1782,7 @@ mod tests {
         assert!(session.preview_mut(2).is_none());
         session.send_to_preview(2, &LspToPreviewMessage::Quit);
         session.send_state_to_preview(2);
-        session.send_files_to_preview(2, &[], |_| true);
+        session.send_files_to_preview(2, &[], &[]);
         session.show_preview(2, component);
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
@@ -573,10 +1792,8 @@ mod tests {
     #[test]
     fn shared_messages_are_broadcast_to_every_preview() {
         let (mut session, messages) = session_with_recording_previews();
-        let invalidated_url =
-            Url::from_file_path(crate::test::test_file_name("invalidated.slint")).unwrap();
-        let deleted_url =
-            Url::from_file_path(crate::test::test_file_name("deleted.slint")).unwrap();
+        let invalidated_url = crate::test::test_file_name("invalidated.slint").to_url().unwrap();
+        let deleted_url = crate::test::test_file_name("deleted.slint").to_url().unwrap();
 
         spin_on::spin_on(session.load_document_impl(
             "export component Shared {}".into(),
@@ -624,7 +1841,9 @@ mod tests {
         let path = temp_directory.path().join("requested.slint");
         std::fs::write(&path, "export component Requested {}").unwrap();
         let url = Url::from_file_path(path).unwrap();
-        let component = PreviewComponent { url: url.clone(), component: Some("Requested".into()) };
+        let component = PreviewComponent { url, component: Some("Requested".into()) };
+        let asset = temp_directory.path().join("requested.png");
+        std::fs::write(&asset, []).unwrap();
 
         session.show_preview(1, component.clone());
         for recorded_messages in &messages {
@@ -632,7 +1851,11 @@ mod tests {
         }
 
         session.send_state_to_preview(1);
-        session.send_files_to_preview(1, &[url], |_| true);
+        session.send_files_to_preview(
+            1,
+            &[Url::from_file_path(asset).unwrap()],
+            &[temp_directory.path().to_path_buf()],
+        );
 
         assert!(messages[0].borrow().is_empty());
         let secondary_messages = messages[1].borrow();
@@ -651,5 +1874,1256 @@ mod tests {
         );
         assert!(session.primary_preview().to_show.is_none());
         assert_eq!(session.preview(1).unwrap().to_show, Some(component));
+    }
+
+    #[test]
+    fn preview_replay_sends_selected_root_before_contents_configuration_and_component() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Url::from_directory_path(directory.path()).unwrap();
+        let root_manifest = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
+        let root_manifest_url = Url::from_file_path(&root_manifest).unwrap();
+        let nested_directory = directory.path().join("ui");
+        std::fs::create_dir(&nested_directory).unwrap();
+        let nested_manifest = nested_directory.join(i_slint_compiler::project_file::FILE_NAME);
+        let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
+        std::fs::write(&root_manifest, r#"{"slint-edition":"1.19","include-paths":["outer"]}"#)
+            .unwrap();
+        std::fs::write(&nested_manifest, r#"{"slint-edition":"1.19","include-paths":["inner"]}"#)
+            .unwrap();
+        let source = nested_directory.join("main.slint");
+        let component = PreviewComponent {
+            url: Url::from_file_path(&source).unwrap(),
+            component: Some("Main".into()),
+        };
+        let (mut session, messages) = session_with_recording_previews();
+        spin_on::spin_on(session.load_document(
+            "export component Root inherits Window {}".into(),
+            Url::from_file_path(directory.path().join("root.slint")).unwrap(),
+            None,
+        ))
+        .unwrap();
+        spin_on::spin_on(session.load_document(
+            "export component Main inherits Window {}".into(),
+            component.url.clone(),
+            None,
+        ))
+        .unwrap();
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [root_manifest.as_path(), nested_manifest.as_path()]
+        );
+        session.primary_preview_mut().to_show = Some(component.clone());
+        session.send_to_preview(0, &LspToPreviewMessage::OpenProject { root: Some(root.clone()) });
+        messages[0].borrow_mut().clear();
+
+        session.send_state_to_preview(0);
+        let replay = messages[0].borrow();
+        assert!(
+            matches!(replay.first(), Some(LspToPreviewMessage::OpenProject { root: Some(sent) }) if sent == &root)
+        );
+        let manifest_index = replay.iter().position(|message| {
+            matches!(message, LspToPreviewMessage::SetContents { url, contents }
+                if url.url() == &root_manifest_url && contents.as_slice() == br#"{"slint-edition":"1.19","include-paths":["outer"]}"#)
+        }).unwrap();
+        let nested_manifest_index = replay.iter().position(|message| {
+            matches!(message, LspToPreviewMessage::SetContents { url, contents }
+                if url.url() == &nested_manifest_url && contents.as_slice() == br#"{"slint-edition":"1.19","include-paths":["inner"]}"#)
+        }).unwrap();
+        let configuration_index = replay
+            .iter()
+            .position(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+            .unwrap();
+        let component_index = replay.iter().position(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(sent) if sent == &component)
+        }).unwrap();
+        assert!(manifest_index < configuration_index);
+        assert!(nested_manifest_index < configuration_index);
+        assert!(configuration_index < component_index);
+        drop(replay);
+
+        session.send_to_preview(0, &LspToPreviewMessage::OpenProject { root: None });
+        messages[0].borrow_mut().clear();
+        session.send_state_to_preview(0);
+        let replay = messages[0].borrow();
+        assert!(matches!(replay.first(), Some(LspToPreviewMessage::OpenProject { root: None })));
+        assert!(replay.iter().any(|message| {
+            matches!(message, LspToPreviewMessage::SetContents { url, .. }
+                if url.url() == &root_manifest_url)
+        }));
+        assert!(replay.iter().any(|message| {
+            matches!(message, LspToPreviewMessage::ShowPreview(sent) if sent == &component)
+        }));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use i_slint_compiler::project_file::FILE_NAME;
+    use tempfile::TempDir;
+
+    #[test]
+    fn project_file_lookup_uses_nearest_workspace_boundary() {
+        let directory = TempDir::new().unwrap();
+        let workspace = directory.path().join("workspace");
+        let nested = workspace.join("ui");
+        let source = nested.join("deep/main.slint");
+        std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+        let outside_manifest = directory.path().join(FILE_NAME);
+        let workspace_manifest = workspace.join(FILE_NAME);
+        let nested_manifest = nested.join(FILE_NAME);
+        for manifest in [&outside_manifest, &workspace_manifest, &nested_manifest] {
+            std::fs::write(manifest, "{}").unwrap();
+        }
+        let mut editor_session = session();
+        editor_session.set_workspace_roots(vec![workspace]);
+        for (removed, expected) in [
+            (None, Some(nested_manifest.as_path())),
+            (Some(nested_manifest.as_path()), Some(workspace_manifest.as_path())),
+            (Some(workspace_manifest.as_path()), None),
+        ] {
+            if let Some(removed) = removed {
+                std::fs::remove_file(removed).unwrap();
+            }
+            assert_eq!(
+                editor_session.find_project_file_path_for(&source).unwrap().as_deref(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn project_file_lookup_finds_an_open_buffer_without_a_disk_file() {
+        let directory = TempDir::new().unwrap();
+        let manifest = directory.path().join(FILE_NAME);
+        let source = directory.path().join("main.slint");
+        let url = Url::from_file_path(&manifest).unwrap();
+        let mut editor_session = session();
+        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), None);
+        spin_on::spin_on(editor_session.open_document("{}".into(), url.clone(), Some(1))).unwrap();
+        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), Some(manifest));
+        spin_on::spin_on(editor_session.close_document(url)).unwrap();
+        assert_eq!(editor_session.find_project_file_path_for(&source).unwrap(), None);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn project_file_lookup_reports_filesystem_errors() {
+        let directory = TempDir::new().unwrap();
+        let manifest = directory.path().join(FILE_NAME);
+        std::os::unix::fs::symlink(&manifest, &manifest).unwrap();
+        let source = directory.path().join("main.slint");
+        assert!(session().find_project_file_path_for(&source).is_err());
+    }
+
+    fn session() -> EditorSession {
+        let config = crate::document_cache::CompilerConfiguration {
+            compiler_config: {
+                let mut compiler_config =
+                    crate::document_cache::CompilerConfiguration::default().compiler_config;
+                compiler_config.style = Some("fluent".into());
+                compiler_config
+            },
+            ..Default::default()
+        };
+        EditorSession::new(
+            crate::DocumentCache::new(config),
+            crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
+        )
+    }
+
+    fn write_document(path: &std::path::Path) {
+        std::fs::write(path, r#"export component Main inherits Window { }"#).unwrap();
+    }
+
+    fn load_document(session: &mut EditorSession, path: &std::path::Path) -> crate::Result<()> {
+        let url = Url::from_file_path(path).unwrap();
+        let content = std::fs::read_to_string(path).unwrap();
+        spin_on::spin_on(session.load_document(content, url, None)).map(|_| ())
+    }
+
+    fn open_document(session: &mut EditorSession, path: &std::path::Path) -> crate::Result<()> {
+        let url = Url::from_file_path(path).unwrap();
+        let content = std::fs::read_to_string(path).unwrap();
+        spin_on::spin_on(session.open_document(content, url, None)).map(|_| ())
+    }
+
+    fn cached_text(session: &EditorSession, path: &std::path::Path) -> Option<String> {
+        session
+            .document_cache
+            .get_document(&Url::from_file_path(path).unwrap())
+            .and_then(|document| document.node.as_ref())
+            .map(|node| node.text().to_string())
+    }
+
+    #[test]
+    fn configuration_changes_preserve_open_documents_with_encoded_urls() {
+        let temp = TempDir::new().unwrap();
+        let document = temp.path().join("editing.slint");
+        write_document(&document);
+        let normalized_url = Url::from_file_path(&document).unwrap();
+        let encoded_url =
+            Url::parse(&normalized_url.as_str().replace("editing.slint", "editing.%73lint"))
+                .unwrap();
+        assert_ne!(encoded_url, normalized_url);
+        let mut session = session();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            encoded_url.clone(),
+            Some(7),
+        ))
+        .unwrap();
+        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        assert!(cached_text(&session, &document).unwrap().contains("Unsaved"));
+        assert_eq!(session.document_cache.document_version(&encoded_url), Some(7));
+        assert_eq!(session.document_roots(), HashSet::from([normalized_url]));
+        spin_on::spin_on(session.trigger_file_watcher(
+            Url::from_file_path(&document).unwrap(),
+            FileChangeKind::Changed,
+        ))
+        .unwrap();
+        assert!(cached_text(&session, &document).unwrap().contains("Unsaved"));
+    }
+
+    #[test]
+    fn discovering_a_project_uses_editor_contents_before_disk_contents() {
+        let temp = TempDir::new().unwrap();
+        let document = temp.path().join("editing.slint");
+        let disk_dependency = temp.path().join("disk-only.slint");
+        std::fs::write(temp.path().join(FILE_NAME), r#"{ "slint-edition": "1.19" }"#).unwrap();
+        std::fs::write(&document, r#"import { DiskOnly } from "disk-only.slint"; export component Main inherits DiskOnly {}"#).unwrap();
+        std::fs::write(&disk_dependency, "export component DiskOnly inherits DoesNotExist {}")
+            .unwrap();
+        let mut session = session();
+        let diagnostics = spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            Url::from_file_path(&document).unwrap(),
+            Some(7),
+        ))
+        .unwrap();
+        assert!(cached_text(&session, &document).unwrap().contains("Unsaved"));
+        assert!(cached_text(&session, &disk_dependency).is_none());
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|(url, _, _)| url == &Url::from_file_path(&disk_dependency).unwrap())
+        );
+    }
+
+    #[test]
+    fn loading_a_new_disk_file_clears_invalidated_dependent_diagnostics() {
+        let temp = TempDir::new().unwrap();
+        let dependency = temp.path().join("new.slint");
+        let dependent = temp.path().join("dependent.slint");
+        let dependent_url = Url::from_file_path(&dependent).unwrap();
+        let mut session = session();
+        spin_on::spin_on(session.load_document_impl(
+            r#"import { New } from "new.slint"; export component Main inherits New {}"#.into(),
+            dependent_url.clone(),
+            None,
+        ));
+        write_document(&dependency);
+        let diagnostics =
+            spin_on::spin_on(session.reload_document(Url::from_file_path(&dependency).unwrap()))
+                .unwrap();
+        assert!(
+            diagnostics
+                .iter()
+                .any(|(url, _, diagnostics)| url == &dependent_url && diagnostics.is_empty())
+        );
+    }
+
+    #[test]
+    fn project_main_files_load_imports_without_discovering_other_projects() {
+        let temp = TempDir::new().unwrap();
+        let entry_directory = temp.path().join("main");
+        std::fs::create_dir(&entry_directory).unwrap();
+        let project = temp.path().join(FILE_NAME);
+        let document = temp.path().join("editing.slint");
+        let entry = entry_directory.join("main.slint");
+        let dependency = entry_directory.join("dependency.slint");
+        std::fs::write(&project, r#"{ "slint-edition": "1.19", "main": "main/main.slint" }"#)
+            .unwrap();
+        std::fs::write(entry_directory.join(FILE_NAME), r#"{ "slint-edition": "1.19" }"#).unwrap();
+        std::fs::write(&entry, r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#).unwrap();
+        std::fs::write(&dependency, "export component Dependency {}").unwrap();
+        write_document(&document);
+        let mut session = session();
+        open_document(&mut session, &document).unwrap();
+        for path in [&entry, &dependency] {
+            assert!(cached_text(&session, path).is_some());
+            assert!(!session.open_urls.contains(&Url::from_file_path(path).unwrap()));
+        }
+        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [project.as_path()]);
+
+        std::fs::write(&dependency, "export component Changed {}").unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(
+            Url::from_file_path(&dependency).unwrap(),
+            FileChangeKind::Changed,
+        ))
+        .unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        assert!(session.pending_recompile.contains(&entry_url));
+        let encoded_url =
+            Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
+        let diagnostics = spin_on::spin_on(session.reload_document(encoded_url)).unwrap();
+        assert!(diagnostics.iter().any(|(_, _, diagnostics)| {
+            diagnostics.iter().any(|diagnostic| diagnostic.message.contains("Dependency"))
+        }));
+        assert!(cached_text(&session, &dependency).unwrap().contains("Changed"));
+        assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [project.as_path()]);
+    }
+
+    #[test]
+    fn closing_a_main_file_restores_disk_contents_and_version() {
+        let temp = TempDir::new().unwrap();
+        let entry = temp.path().join("main.slint");
+        let document = temp.path().join("editing.slint");
+        std::fs::write(
+            temp.path().join(FILE_NAME),
+            r#"{ "slint-edition": "1.19", "main": "main.slint" }"#,
+        )
+        .unwrap();
+        write_document(&entry);
+        write_document(&document);
+        let mut session = session();
+        open_document(&mut session, &document).unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            entry_url.clone(),
+            Some(42),
+        ))
+        .unwrap();
+        spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        assert!(cached_text(&session, &entry).unwrap().contains("Unsaved"));
+        spin_on::spin_on(session.close_document(entry_url.clone())).unwrap();
+        assert!(cached_text(&session, &entry).unwrap().contains("Main"));
+        assert_eq!(session.document_cache.document_version(&entry_url), None);
+        assert!(!session.open_urls.contains(&entry_url));
+    }
+
+    #[test]
+    fn closing_a_main_file_reports_errors_from_disk_on_queued_reload() {
+        let temp = TempDir::new().unwrap();
+        let entry = temp.path().join("main.slint");
+        std::fs::write(
+            temp.path().join(FILE_NAME),
+            r#"{ "slint-edition": "1.19", "main": "main.slint" }"#,
+        )
+        .unwrap();
+        std::fs::write(&entry, "export component Main inherits DoesNotExist {}").unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        let mut session = session();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            entry_url.clone(),
+            Some(3),
+        ))
+        .unwrap();
+        spin_on::spin_on(session.close_document(entry_url.clone())).unwrap();
+        assert!(session.pending_recompile.contains(&entry_url));
+        for _ in 0..2 {
+            let diagnostics = spin_on::spin_on(session.reload_document(entry_url.clone())).unwrap();
+            assert!(diagnostics.iter().any(|(url, _, diagnostics)| {
+                url == &entry_url
+                    && diagnostics
+                        .iter()
+                        .any(|diagnostic| diagnostic.message.contains("DoesNotExist"))
+            }));
+        }
+        std::fs::write(
+            temp.path().join(FILE_NAME),
+            r#"{ "slint-edition": "1.19", "main": "main.slint" }"#,
+        )
+        .unwrap();
+        spin_on::spin_on(
+            session
+                .reload_active_project_file(&temp.path().join(FILE_NAME), FileChangeKind::Changed),
+        )
+        .unwrap();
+        let diagnostics = spin_on::spin_on(session.reload_document(entry_url.clone())).unwrap();
+        assert!(diagnostics.iter().any(|(url, _, diagnostics)| url == &entry_url
+            && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("DoesNotExist"))));
+    }
+
+    #[test]
+    fn changed_and_removed_main_files_retain_shared_and_open_documents() {
+        let temp = TempDir::new().unwrap();
+        let project_directories = [temp.path().join("first"), temp.path().join("second")];
+        let entries = [temp.path().join("shared.slint"), temp.path().join("replacement.slint")];
+        let dependency = temp.path().join("dependency.slint");
+        std::fs::write(&dependency, "export component Dependency {}").unwrap();
+        for entry in &entries {
+            std::fs::write(entry, r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#).unwrap();
+        }
+        let mut session = session();
+        for directory in &project_directories {
+            std::fs::create_dir(directory).unwrap();
+            std::fs::write(
+                directory.join(FILE_NAME),
+                r#"{ "slint-edition": "1.19", "main": "../shared.slint" }"#,
+            )
+            .unwrap();
+            let document = directory.join("editing.slint");
+            write_document(&document);
+            open_document(&mut session, &document).unwrap();
+        }
+        let first_project = project_directories[0].join(FILE_NAME);
+        std::fs::write(
+            &first_project,
+            r#"{ "slint-edition": "1.19", "main": "../replacement.slint" }"#,
+        )
+        .unwrap();
+        spin_on::spin_on(
+            session.reload_active_project_file(&first_project, FileChangeKind::Changed),
+        )
+        .unwrap();
+        for path in entries.iter().chain(core::iter::once(&dependency)) {
+            assert!(cached_text(&session, path).is_some());
+        }
+        spin_on::spin_on(session.reload_active_project_file(
+            &project_directories[1].join(FILE_NAME),
+            FileChangeKind::Deleted,
+        ))
+        .unwrap();
+        assert!(cached_text(&session, &entries[0]).is_none());
+        assert!(cached_text(&session, &dependency).is_some());
+        let replacement_url = Url::from_file_path(&entries[1]).unwrap();
+        spin_on::spin_on(session.open_document(
+            "export component Unsaved {}".into(),
+            replacement_url,
+            Some(3),
+        ))
+        .unwrap();
+        let diagnostics = spin_on::spin_on(
+            session.reload_active_project_file(&first_project, FileChangeKind::Deleted),
+        )
+        .unwrap();
+        assert!(cached_text(&session, &entries[1]).unwrap().contains("Unsaved"));
+        assert!(cached_text(&session, &dependency).is_none());
+        assert!(
+            diagnostics
+                .iter()
+                .any(|(url, _, diagnostics)| url == &Url::from_file_path(&dependency).unwrap()
+                    && diagnostics.is_empty())
+        );
+        for directory in &project_directories {
+            assert!(cached_text(&session, &directory.join("editing.slint")).is_some());
+        }
+    }
+
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    #[test]
+    fn removed_main_file_is_retained_by_preview() {
+        let temp = TempDir::new().unwrap();
+        let project = temp.path().join(FILE_NAME);
+        let entry = temp.path().join("main.slint");
+        let document = temp.path().join("editing.slint");
+        std::fs::write(&project, r#"{ "slint-edition": "1.19", "main": "main.slint" }"#).unwrap();
+        write_document(&entry);
+        write_document(&document);
+        let mut session = session();
+        open_document(&mut session, &document).unwrap();
+        let entry_url = Url::from_file_path(&entry).unwrap();
+        let encoded_url =
+            Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
+        session.show_preview(0, PreviewComponent { url: encoded_url, component: None });
+        assert!(session.pending_recompile.contains(&entry_url));
+        spin_on::spin_on(session.reload_active_project_file(&project, FileChangeKind::Deleted))
+            .unwrap();
+        assert!(cached_text(&session, &entry).is_some());
+        assert!(session.pending_recompile.contains(&entry_url));
+        spin_on::spin_on(session.drop_document(entry_url.clone())).unwrap();
+        assert!(session.pending_recompile.contains(&entry_url));
+    }
+
+    #[test]
+    fn discovers_nearest_project_file() {
+        let temp = TempDir::new().unwrap();
+        let top_project_path = temp.path().join(FILE_NAME);
+        let nested_directory = temp.path().join("a/b");
+        std::fs::create_dir_all(&nested_directory).unwrap();
+        let nested_project_path = nested_directory.join(FILE_NAME);
+        let document_path = nested_directory.join("main.slint");
+        std::fs::write(
+            &top_project_path,
+            r#"{ "slint-edition": "1.19", "include-paths": ["top"] }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &nested_project_path,
+            r#"{ "slint-edition": "1.19", "include-paths": ["nested"] }"#,
+        )
+        .unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        session.set_workspace_roots(vec![temp.path().to_path_buf()]);
+        load_document(&mut session, &document_path).unwrap();
+
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [nested_project_path.as_path()]
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![nested_directory.join("nested")]
+        );
+    }
+
+    #[test]
+    fn discovery_checks_the_workspace_root_and_stops_there() {
+        let directory = TempDir::new().unwrap();
+        let workspace = directory.path().join("workspace");
+        let source_directory = workspace.join("ui");
+        std::fs::create_dir_all(&source_directory).unwrap();
+        let outside_project = directory.path().join(FILE_NAME);
+        let workspace_project = workspace.join(FILE_NAME);
+        let source = source_directory.join("main.slint");
+        std::fs::write(&outside_project, "{").unwrap();
+        std::fs::write(
+            &workspace_project,
+            r#"{"slint-edition":"1.19","include-paths":["include"]}"#,
+        )
+        .unwrap();
+        write_document(&source);
+
+        let mut bounded = session();
+        bounded.set_workspace_roots(vec![workspace.clone()]);
+        load_document(&mut bounded, &source).unwrap();
+        assert_eq!(
+            bounded.active_project_file_paths().collect::<Vec<_>>(),
+            [workspace_project.as_path()]
+        );
+
+        std::fs::remove_file(&workspace_project).unwrap();
+        let mut without_project = session();
+        without_project.set_workspace_roots(vec![workspace]);
+        load_document(&mut without_project, &source).unwrap();
+        assert!(without_project.active_project_file_paths().next().is_none());
+    }
+
+    #[test]
+    fn files_without_a_containing_workspace_check_only_siblings() {
+        let directory = TempDir::new().unwrap();
+        let source_directory = directory.path().join("ui");
+        std::fs::create_dir(&source_directory).unwrap();
+        std::fs::write(directory.path().join(FILE_NAME), "{").unwrap();
+        let source = source_directory.join("main.slint");
+        write_document(&source);
+
+        for roots in [Vec::new(), vec![directory.path().join("other")]] {
+            let mut editor_session = session();
+            editor_session.set_workspace_roots(roots);
+            load_document(&mut editor_session, &source).unwrap();
+            assert!(editor_session.active_project_file_paths().next().is_none());
+        }
+
+        let sibling_project = source_directory.join(FILE_NAME);
+        std::fs::write(&sibling_project, r#"{"slint-edition":"1.19"}"#).unwrap();
+        let mut editor_session = session();
+        load_document(&mut editor_session, &source).unwrap();
+        assert_eq!(
+            editor_session.active_project_file_paths().collect::<Vec<_>>(),
+            [sibling_project.as_path()]
+        );
+    }
+
+    #[test]
+    fn overlapping_and_multiple_workspace_roots_remain_independent() {
+        let directory = TempDir::new().unwrap();
+        let outer = directory.path().join("outer");
+        let inner = outer.join("inner");
+        let inner_source_directory = inner.join("ui");
+        let other = directory.path().join("other");
+        std::fs::create_dir_all(&inner_source_directory).unwrap();
+        std::fs::create_dir(&other).unwrap();
+        std::fs::write(outer.join(FILE_NAME), "{").unwrap();
+        let inner_source = inner_source_directory.join("main.slint");
+        let other_source = other.join("main.slint");
+        write_document(&inner_source);
+        write_document(&other_source);
+        let roots = vec![outer, inner.clone(), other.clone()];
+
+        let mut editor_session = session();
+        editor_session.set_workspace_roots(roots.clone());
+        load_document(&mut editor_session, &inner_source).unwrap();
+        assert!(editor_session.active_project_file_paths().next().is_none());
+
+        let inner_project = inner.join(FILE_NAME);
+        let other_project = other.join(FILE_NAME);
+        std::fs::write(
+            &inner_project,
+            r#"{"slint-edition":"1.19","include-paths":["inner-include"]}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            &other_project,
+            r#"{"slint-edition":"1.19","include-paths":["other-include"]}"#,
+        )
+        .unwrap();
+        let mut editor_session = session();
+        editor_session.set_workspace_roots(roots);
+        load_document(&mut editor_session, &inner_source).unwrap();
+        load_document(&mut editor_session, &other_source).unwrap();
+        assert_eq!(
+            editor_session.active_project_file_paths().collect::<HashSet<_>>(),
+            HashSet::from([inner_project.as_path(), other_project.as_path()])
+        );
+        assert_eq!(
+            editor_session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .include_paths
+                .iter()
+                .cloned()
+                .collect::<HashSet<_>>(),
+            HashSet::from([inner.join("inner-include"), other.join("other-include")])
+        );
+    }
+
+    #[test]
+    fn omitted_project_settings_keep_session_defaults() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-edition": "1.19", "include-paths": ["include"] }"#,
+        )
+        .unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        load_document(&mut session, &document_path).unwrap();
+
+        assert_eq!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .style
+                .as_deref()
+                .unwrap_or_default(),
+            "fluent"
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("include")]
+        );
+    }
+
+    #[test]
+    fn equal_project_settings_and_additive_paths_have_no_diagnostics() {
+        let temp = TempDir::new().unwrap();
+        let mut session = session();
+        for name in ["first", "second"] {
+            let directory = temp.path().join(name);
+            std::fs::create_dir_all(&directory).unwrap();
+            let path = directory.join(FILE_NAME);
+            std::fs::write(&path, r#"{"slint-edition":"1.19","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
+            session.project_file_paths.push(path.clone());
+            session
+                .active_projects
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(&path)).unwrap().0);
+        }
+        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        assert_eq!(diagnostics.len(), 2);
+        assert!(diagnostics.iter().all(|(_, _, warnings)| warnings.is_empty()));
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths.len(),
+            2
+        );
+    }
+
+    #[test]
+    fn library_conflict_diagnostics_name_the_project_supplying_the_library() {
+        let temp = TempDir::new().unwrap();
+        let mut session = session();
+        let mut project_paths = Vec::new();
+        for (name, libraries) in [
+            ("first", serde_json::json!({"unrelated": "first-lib"})),
+            ("second", serde_json::json!({"shared": "second-lib"})),
+            ("third", serde_json::json!({"shared": "third-lib"})),
+        ] {
+            let directory = temp.path().join(name);
+            std::fs::create_dir_all(&directory).unwrap();
+            let path = directory.join(FILE_NAME);
+            std::fs::write(
+                &path,
+                serde_json::json!({"slint-edition": "1.19", "library-paths": libraries})
+                    .to_string(),
+            )
+            .unwrap();
+            session.project_file_paths.push(path.clone());
+            session
+                .active_projects
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(&path)).unwrap().0);
+            project_paths.push(path);
+        }
+        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+        let warnings = &diagnostics
+            .iter()
+            .find(|(url, _, _)| url == &Url::from_file_path(&project_paths[2]).unwrap())
+            .unwrap()
+            .2;
+        assert_eq!(warnings.len(), 1);
+        assert!(
+            warnings[0].message.contains(&format!("project file {}", project_paths[1].display()))
+        );
+        let diagnostics =
+            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+                compiler: Overrides {
+                    project: ProjectFileData {
+                        library_paths: Some(HashMap::from([(
+                            "shared".into(),
+                            temp.path().join("third/third-lib"),
+                        )])),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            }))
+            .unwrap();
+        for (project_path, expected_warnings) in project_paths.iter().zip([1, 1, 0]) {
+            let warnings = &diagnostics
+                .iter()
+                .find(|(url, _, _)| url == &Url::from_file_path(project_path).unwrap())
+                .unwrap()
+                .2;
+            assert_eq!(warnings.len(), expected_warnings);
+            assert!(
+                warnings
+                    .iter()
+                    .all(|warning| warning.message.contains("workspace configuration override"))
+            );
+        }
+    }
+
+    #[test]
+    fn the_edition_reaches_the_preview_and_a_conflict_is_reported() {
+        let temp = TempDir::new().unwrap();
+        let outer = temp.path().join(FILE_NAME);
+        let inner_directory = temp.path().join("nested");
+        std::fs::create_dir_all(&inner_directory).unwrap();
+        let inner = inner_directory.join(FILE_NAME);
+        std::fs::write(&outer, r#"{ "slint-edition": "1.19" }"#).unwrap();
+        std::fs::write(&inner, r#"{ "slint-edition": "1.18" }"#).unwrap();
+        let mut session = session();
+        for path in [&outer, &inner] {
+            session.project_file_paths.push(path.clone());
+            session
+                .active_projects
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(path)).unwrap().0);
+        }
+
+        let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
+
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.edition,
+            Some(i_slint_compiler::project_file::SlintEdition::V1_19)
+        );
+        let inner_url = Url::from_file_path(&inner).unwrap();
+        let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &inner_url).unwrap();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].message.contains("slint-edition '1.18'"), "{warnings:?}");
+    }
+
+    #[test]
+    fn project_diagnostics_follow_final_configuration_and_clear() {
+        let temp = TempDir::new().unwrap();
+        let outer = temp.path().join(FILE_NAME);
+        let inner_directory = temp.path().join("nested");
+        std::fs::create_dir_all(&inner_directory).unwrap();
+        let inner = inner_directory.join(FILE_NAME);
+        let document = inner_directory.join("main.slint");
+        write_document(&document);
+        std::fs::write(
+            &outer,
+            r#"{"slint-edition":"1.19","enable-experimental-features":true,"library-paths":{"widgets":"outer"}}"#,
+        )
+        .unwrap();
+        std::fs::write(&inner, r#"{"slint-edition":"1.19","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
+        let mut session = session();
+        for path in [&outer, &inner] {
+            session.project_file_paths.push(path.clone());
+            session
+                .active_projects
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(path)).unwrap().0);
+        }
+        let recompute = |session: &mut EditorSession| {
+            spin_on::spin_on(session.reapply_effective_configuration()).unwrap()
+        };
+        let warnings_for = |diagnostics: &VersionedDiagnostics, path: &std::path::Path| {
+            diagnostics
+                .iter()
+                .find(|(url, _, _)| url == &Url::from_file_path(path).unwrap())
+                .unwrap()
+                .2
+                .clone()
+        };
+        let diagnostics = recompute(&mut session);
+        assert!(warnings_for(&diagnostics, &outer).is_empty());
+        let warnings = warnings_for(&diagnostics, &inner);
+        assert_eq!(warnings.len(), 2);
+        assert!(warnings.iter().all(|warning| warning.message.contains("project file")));
+        session.set_startup_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                project: ProjectFileData {
+                    enable_experimental_features: Some(false),
+                    include_paths: Some(Vec::new()),
+                    library_paths: Some(HashMap::new()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        let diagnostics = recompute(&mut session);
+        for path in [&outer, &inner] {
+            let warnings = warnings_for(&diagnostics, path);
+            assert!(!warnings.is_empty());
+            assert!(
+                warnings
+                    .iter()
+                    .all(|warning| warning.message.contains("startup configuration override"))
+            );
+        }
+        let diagnostics =
+            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+                compiler: Overrides { project: ProjectFileData::default(), ..Default::default() },
+                ..Default::default()
+            }))
+            .unwrap();
+        assert!(!warnings_for(&diagnostics, &outer).is_empty());
+        session.workspace_config_overrides.compiler.project.include_paths =
+            Some(vec![temp.path().join("workspace")]);
+        session.workspace_config_overrides.compiler.project.library_paths =
+            Some(HashMap::from([("other".into(), temp.path().join("workspace-lib"))]));
+        let diagnostics = recompute(&mut session);
+        let warnings = warnings_for(&diagnostics, &inner);
+        assert_eq!(warnings.len(), 3);
+        assert!(
+            warnings
+                .iter()
+                .all(|warning| { warning.message.contains("workspace configuration override") })
+        );
+        assert!(warnings.iter().any(|warning| warning.message.contains("no library 'widgets'")));
+        session.workspace_config_overrides.compiler.project.include_paths = Some(Vec::new());
+        session.workspace_config_overrides.compiler.project.library_paths = Some(HashMap::new());
+        let diagnostics = recompute(&mut session);
+        assert!(
+            warnings_for(&diagnostics, &inner)
+                .iter()
+                .all(|warning| { warning.message.contains("workspace configuration override") })
+        );
+        let diagnostics = spin_on::spin_on(session.load_document(
+            std::fs::read_to_string(&document).unwrap(),
+            Url::from_file_path(&document).unwrap(),
+            Some(1),
+        ))
+        .unwrap();
+        assert!(!diagnostics.iter().any(|(url, _, _)| {
+            [&outer, &inner].iter().any(|path| url == &Url::from_file_path(path).unwrap())
+        }));
+        std::fs::write(&inner, "invalid").unwrap();
+        let diagnostics =
+            spin_on::spin_on(session.reload_active_project_file(&inner, FileChangeKind::Changed))
+                .unwrap();
+        assert!(warnings_for(&diagnostics, &inner).is_empty());
+        let diagnostics =
+            spin_on::spin_on(session.trigger_file_watcher(
+                Url::from_file_path(&inner).unwrap(),
+                FileChangeKind::Deleted,
+            ))
+            .unwrap();
+        assert!(warnings_for(&diagnostics, &inner).is_empty());
+        session.set_startup_config_overrides(Default::default());
+        let diagnostics =
+            spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        assert!(warnings_for(&diagnostics, &outer).is_empty());
+    }
+
+    #[test]
+    fn config_overrides_replace_collections_and_fall_back_when_removed() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-edition": "1.19", "include-paths": ["project"], "library-paths": {"project": "project-lib"} }"#,
+        )
+        .unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        let startup_paths = vec![temp.path().join("startup")];
+        let startup_libraries =
+            HashMap::from([("startup".into(), temp.path().join("startup-lib"))]);
+        session.set_startup_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                project: ProjectFileData {
+                    include_paths: Some(startup_paths.clone()),
+                    library_paths: Some(startup_libraries.clone()),
+                    enable_experimental_features: Some(true),
+                    ..Default::default()
+                },
+                style: Some("cosmic".into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        load_document(&mut session, &document_path).unwrap();
+
+        for (paths, libraries) in [
+            (
+                vec![temp.path().join("workspace")],
+                HashMap::from([("workspace".into(), temp.path().join("workspace-lib"))]),
+            ),
+            (Vec::new(), HashMap::new()),
+        ] {
+            spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+                compiler: Overrides {
+                    project: ProjectFileData {
+                        include_paths: Some(paths.clone()),
+                        library_paths: Some(libraries.clone()),
+                        enable_experimental_features: Some(false),
+                        ..Default::default()
+                    },
+                    style: Some("cupertino".into()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }))
+            .unwrap();
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.include_paths,
+                paths
+            );
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.library_paths,
+                libraries
+            );
+            assert_eq!(
+                session
+                    .document_cache
+                    .compiler_configuration()
+                    .compiler_config
+                    .style
+                    .as_deref()
+                    .unwrap_or_default(),
+                "cupertino"
+            );
+            assert!(
+                !session
+                    .document_cache
+                    .compiler_configuration()
+                    .compiler_config
+                    .enable_experimental
+            );
+        }
+        spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            startup_paths
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
+            startup_libraries
+        );
+        assert_eq!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .style
+                .as_deref()
+                .unwrap_or_default(),
+            "cosmic"
+        );
+        assert!(
+            session.document_cache.compiler_configuration().compiler_config.enable_experimental
+        );
+        session.set_startup_config_overrides(Default::default());
+        spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("project")]
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
+            HashMap::from([("project".into(), temp.path().join("project-lib"))])
+        );
+        assert_eq!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .style
+                .clone()
+                .unwrap_or_default(),
+            "fluent"
+        );
+    }
+
+    #[test]
+    fn workspace_hide_ui_wins_when_supplied() {
+        for (startup, workspace, expected) in [
+            (Some(true), Some(false), Some(false)),
+            (Some(false), Some(true), Some(true)),
+            (Some(true), None, Some(true)),
+            (None, Some(false), Some(false)),
+            (Some(true), Some(true), Some(true)),
+        ] {
+            let mut overrides = SessionConfigOverrides { hide_ui: startup, ..Default::default() };
+            overrides.merge(SessionConfigOverrides { hide_ui: workspace, ..Default::default() });
+            assert_eq!(overrides.hide_ui, expected);
+        }
+    }
+
+    #[test]
+    fn settings_of_several_project_files_are_merged() {
+        let temp = TempDir::new().unwrap();
+        let project_a = temp.path().join("project-a");
+        let project_b = temp.path().join("project-b");
+        std::fs::create_dir_all(&project_a).unwrap();
+        std::fs::create_dir_all(&project_b).unwrap();
+        let document_a = project_a.join("main.slint");
+        let document_b = project_b.join("main.slint");
+        std::fs::write(
+            project_a.join(FILE_NAME),
+            r#"{ "slint-edition": "1.19", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"] }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            project_b.join(FILE_NAME),
+            r#"{ "slint-edition": "1.19", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
+        )
+        .unwrap();
+        write_document(&document_a);
+        write_document(&document_b);
+
+        let mut session = session();
+        session.set_workspace_roots(vec![project_a.clone(), project_b.clone()]);
+        load_document(&mut session, &document_a).unwrap();
+        load_document(&mut session, &document_b).unwrap();
+
+        // Both are equally deep, so the include paths keep the order they were discovered in.
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![project_a.join("include-a"), project_b.join("include-b")]
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
+            HashMap::from([("widgets".to_string(), project_b.join("lib.slint"))])
+        );
+        let (merged, _) = session.merged_project_data(Default::default());
+        assert_eq!(merged.schema, None);
+        assert_eq!(merged.main, None);
+        assert_eq!(merged.enable_experimental_features, None);
+        assert_eq!(
+            session.active_projects[&project_a.join(FILE_NAME)].parsed.as_ref().unwrap().main(),
+            Some(SourcePath::new(document_a))
+        );
+    }
+
+    #[test]
+    fn invalid_project_recovery_preserves_equal_depth_precedence() {
+        let temp = TempDir::new().unwrap();
+        let mut session = session();
+        session.set_workspace_roots(vec![temp.path().to_path_buf()]);
+        let mut project_paths = Vec::new();
+        for (directory, include_path) in [("first", "first-include"), ("second", "second-include")]
+        {
+            let directory = temp.path().join(directory);
+            std::fs::create_dir_all(&directory).unwrap();
+            let project_path = directory.join(FILE_NAME);
+            std::fs::write(
+                &project_path,
+                format!(r#"{{ "slint-edition": "1.19", "include-paths": ["{include_path}"] }}"#),
+            )
+            .unwrap();
+            let document_path = directory.join("main.slint");
+            write_document(&document_path);
+            load_document(&mut session, &document_path).unwrap();
+            project_paths.push(project_path);
+        }
+
+        for path in &project_paths {
+            std::fs::write(path, "{").unwrap();
+            spin_on::spin_on(session.reload_active_project_file(path, FileChangeKind::Changed))
+                .unwrap();
+        }
+        assert!(session.active_projects.values().all(|state| state.parsed.is_none()));
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            project_paths.iter().map(PathBuf::as_path).collect::<Vec<_>>()
+        );
+
+        for path in project_paths.iter().rev() {
+            let include_path =
+                if path == &project_paths[0] { "first-include" } else { "second-include" };
+            std::fs::write(
+                path,
+                format!(r#"{{ "slint-edition": "1.19", "include-paths": ["{include_path}"] }}"#),
+            )
+            .unwrap();
+            spin_on::spin_on(session.reload_active_project_file(path, FileChangeKind::Changed))
+                .unwrap();
+        }
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![
+                project_paths[0].parent().unwrap().join("first-include"),
+                project_paths[1].parent().unwrap().join("second-include")
+            ]
+        );
+    }
+
+    #[test]
+    fn a_conflicting_library_path_stays_with_the_broadest_project_file() {
+        let temp = TempDir::new().unwrap();
+        let outer = temp.path().to_path_buf();
+        let inner = outer.join("nested");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::write(
+            outer.join(FILE_NAME),
+            r#"{ "slint-edition": "1.19", "library-paths": {"widgets": "outer.slint"} }"#,
+        )
+        .unwrap();
+        std::fs::write(
+            inner.join(FILE_NAME),
+            r#"{ "slint-edition": "1.19", "library-paths": {"widgets": "inner.slint"} }"#,
+        )
+        .unwrap();
+        write_document(&outer.join("main.slint"));
+        write_document(&inner.join("main.slint"));
+
+        let mut session = session();
+        session.set_workspace_roots(vec![outer.clone()]);
+        load_document(&mut session, &inner.join("main.slint")).unwrap();
+        load_document(&mut session, &outer.join("main.slint")).unwrap();
+
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.library_paths,
+            HashMap::from([("widgets".to_string(), outer.join("outer.slint"))])
+        );
+    }
+
+    #[test]
+    fn invalid_initial_project_file_prevents_document_load() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, "{").unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        assert!(load_document(&mut session, &document_path).is_err());
+        assert_eq!(session.active_project_file_paths().next(), Some(project_path.as_path()));
+    }
+
+    #[test]
+    fn active_project_file_recovers_after_invalid_change() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, r#"{ "slint-edition": "1.19", "include-paths": ["first"] }"#)
+            .unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        open_document(&mut session, &document_path).unwrap();
+        let document_url = Url::from_file_path(&document_path).unwrap();
+        let project_url = Url::from_file_path(&project_path).unwrap();
+
+        std::fs::write(&project_path, "{").unwrap();
+        spin_on::spin_on(
+            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Changed),
+        )
+        .unwrap();
+
+        assert!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .include_paths
+                .is_empty()
+        );
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [project_path.as_path()]
+        );
+        assert!(session.pending_recompile.contains(&document_url));
+
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-edition": "1.19", "include-paths": ["second"] }"#,
+        )
+        .unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Changed))
+            .unwrap();
+
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("second")]
+        );
+        assert!(session.pending_recompile.contains(&document_url));
+    }
+
+    #[test]
+    fn a_deleted_project_file_is_dropped() {
+        let temp = TempDir::new().unwrap();
+        let project_path = temp.path().join(FILE_NAME);
+        let document_path = temp.path().join("main.slint");
+        std::fs::write(&project_path, r#"{ "slint-edition": "1.19", "include-paths": ["first"] }"#)
+            .unwrap();
+        write_document(&document_path);
+
+        let mut session = session();
+        open_document(&mut session, &document_path).unwrap();
+        let document_url = Url::from_file_path(&document_path).unwrap();
+        let project_url = Url::from_file_path(&project_path).unwrap();
+
+        std::fs::remove_file(&project_path).unwrap();
+        let diagnostics = spin_on::spin_on(
+            session.trigger_file_watcher(project_url.clone(), FileChangeKind::Deleted),
+        )
+        .unwrap();
+        assert!(
+            diagnostics.iter().any(|(url, _, warnings)| url == &project_url && warnings.is_empty())
+        );
+
+        assert_eq!(session.active_project_file_paths().next(), None);
+        assert!(
+            session
+                .document_cache
+                .compiler_configuration()
+                .compiler_config
+                .include_paths
+                .is_empty()
+        );
+        assert!(session.pending_recompile.contains(&document_url));
+
+        // A project file created again is found the next time the document loads.
+        std::fs::write(
+            &project_path,
+            r#"{ "slint-edition": "1.19", "include-paths": ["second"] }"#,
+        )
+        .unwrap();
+        spin_on::spin_on(session.reload_document(document_url)).unwrap();
+
+        assert_eq!(
+            session.active_project_file_paths().collect::<Vec<_>>(),
+            [project_path.as_path()]
+        );
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.include_paths,
+            vec![temp.path().join("second")]
+        );
     }
 }

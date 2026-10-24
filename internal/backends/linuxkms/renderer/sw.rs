@@ -181,7 +181,6 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        _draw_mouse_cursor_callback: &dyn Fn(&mut dyn i_slint_core::item_rendering::ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
         self.display.map_back_buffer(&mut |pixels, age, format| {
             self.renderer.set_repaint_buffer_type(match age {
@@ -205,20 +204,13 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                 }
             });
 
-            match format {
+            let render = match format {
                 drm::buffer::DrmFourcc::Xrgb8888 | drm::buffer::DrmFourcc::Argb8888 => {
-                    let buffer: &mut [DumbBufferPixelXrgb888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, self.size.width as usize);
+                    render_to_pixels::<DumbBufferPixelXrgb888>
                 }
-
-                drm::buffer::DrmFourcc::Bgra8888 => {
-                    let buffer: &mut [DumbBufferPixelBgra8888] = bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, self.size.width as usize);
-                }
+                drm::buffer::DrmFourcc::Bgra8888 => render_to_pixels::<DumbBufferPixelBgra8888>,
                 drm::buffer::DrmFourcc::Rgb565 => {
-                    let buffer: &mut [i_slint_renderer_software::Rgb565Pixel] =
-                        bytemuck::cast_slice_mut(pixels);
-                    self.renderer.render(buffer, self.size.width as usize);
+                    render_to_pixels::<i_slint_renderer_software::Rgb565Pixel>
                 }
                 _ => {
                     return Err(format!(
@@ -226,7 +218,8 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
                     )
                     .into());
                 }
-            }
+            };
+            render(&self.renderer, pixels, self.size);
 
             Ok(())
         })?;
@@ -238,3 +231,20 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for SoftwareRendererAdap
         self.size
     }
 }
+
+/// Renders into the mapped frame buffer, reinterpreted as pixels of type `P`.
+fn render_to_pixels<P: TargetPixel + bytemuck::Pod>(
+    renderer: &SoftwareRenderer,
+    pixels: &mut [u8],
+    size: PhysicalWindowSize,
+) {
+    // The buffer's rows may be padded to the driver's pitch; the
+    // stride in pixels comes from the mapping, not from the width.
+    let height = (size.height as usize).max(1);
+    let stride = (pixels.len() / height / std::mem::size_of::<P>()).max(size.width as usize);
+    let buffer: &mut [P] = bytemuck::cast_slice_mut(pixels);
+    renderer.render(buffer, stride);
+}
+
+#[cfg(test)]
+mod tests;

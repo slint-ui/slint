@@ -6,10 +6,15 @@
 use std::collections::HashMap;
 
 use super::GlobalAnalysis;
+use crate::builtin_functions::BuiltinFunction;
+use crate::element_type::ElementType;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinStruct, ElementType, StructName, Type};
+use crate::expression_types::{MinMaxOp, Unit};
+use crate::langtype::{BuiltinStruct, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
+#[cfg(test)]
+use crate::source_path::SourcePath;
 use smol_str::format_smolstr;
 
 type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
@@ -459,10 +464,11 @@ fn extract_constant_property_reference_impl(
             continue;
         }
 
-        // There is no binding for this property, return the default value
+        // There is no binding for this property, return the default value.
+        // A function without a binding, such as one of a native item, has no body to inline.
         let ty = nr.ty();
         debug_assert!(!matches!(ty, Type::Invalid));
-        return Some(Expression::default_value_for_type(&ty));
+        return (!matches!(ty, Type::Function(_))).then(|| Expression::default_value_for_type(&ty));
     };
     if !(simplify_expression(&mut expression, ga, cache)) {
         return None;
@@ -576,7 +582,7 @@ export component Foo {
 }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -630,7 +636,7 @@ export component Foo {
 }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =
@@ -762,11 +768,8 @@ export component Foo inherits Window {{
 
         let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
 
-        let doc_node = crate::parser::parse(
-            source.clone(),
-            Some(std::path::Path::new("HELLO")),
-            &mut test_diags,
-        );
+        let doc_node =
+            crate::parser::parse(source.clone(), Some(SourcePath::new("HELLO")), &mut test_diags);
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         compiler_config.style = Some("fluent".into());
@@ -788,11 +791,8 @@ export component Foo inherits Window {
 }"#;
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node = crate::parser::parse(
-        source.to_string(),
-        Some(std::path::Path::new("HELLO")),
-        &mut test_diags,
-    );
+    let doc_node =
+        crate::parser::parse(source.to_string(), Some(SourcePath::new("HELLO")), &mut test_diags);
     let mut compiler_config =
         crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
@@ -822,7 +822,7 @@ fn test_unit_normalization() {
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             format!("export component Foo {{ out property <{ty}> a: {expr}; }}").into(),
-            Some(std::path::Path::new("HELLO")),
+            Some(SourcePath::new("HELLO")),
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));

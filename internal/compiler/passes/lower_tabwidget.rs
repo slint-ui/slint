@@ -9,8 +9,10 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
-use crate::langtype::{ElementType, Type};
+use crate::element_type::ElementType;
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_types::{MinMaxOp, Unit};
+use crate::langtype::Type;
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::HashSet;
@@ -28,6 +30,7 @@ pub async fn lower_tabwidget(
     let mut seen = HashSet::new();
     let mut tab_widgets = Vec::new();
     doc.visit_all_used_components(|component| {
+        error_on_slot_in_inner_builtin(component, &["TabWidget"], diag);
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget")
                 && seen.insert(Rc::as_ptr(elem))
@@ -53,7 +56,7 @@ pub async fn lower_tabwidget(
     let tab_widgets: Vec<_> = tab_widgets
         .into_iter()
         .filter(|elem| {
-            if !base_chain_declares_tabs(&elem.borrow().base_type, &seen) {
+            if !base_chain_declares_children(&elem.borrow().base_type, &seen) {
                 return true;
             }
             if !elem.borrow().children.is_empty() {
@@ -113,29 +116,6 @@ pub async fn lower_tabwidget(
     }
 }
 
-/// Walks a chain of `component Sub inherits Base { ... }` steps (as `base_type`s of
-/// components collected as TabWidgets), skipping empty pass-through subclasses, to check
-/// whether some component along the way already declares its own Tab children. Stops (and
-/// returns `false`) as soon as the chain leaves the collected TabWidgets, e.g. at the
-/// style-selected builtin TabWidget itself.
-fn base_chain_declares_tabs(
-    base_type: &ElementType,
-    tab_widget_roots: &HashSet<*const std::cell::RefCell<Element>>,
-) -> bool {
-    let mut base_type = base_type.clone();
-    loop {
-        let ElementType::Component(c) = &base_type else { return false };
-        if !tab_widget_roots.contains(&Rc::as_ptr(&c.root_element)) {
-            return false;
-        }
-        if !c.root_element.borrow().children.is_empty() {
-            return true;
-        }
-        let next = c.root_element.borrow().base_type.clone();
-        base_type = next;
-    }
-}
-
 fn process_tabwidget(
     elem: &ElementRc,
     tabwidget_impl: ElementType,
@@ -146,10 +126,15 @@ fn process_tabwidget(
     diag: &mut BuildDiagnostics,
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
-    let mut children = std::mem::take(&mut elem.borrow_mut().children);
+    let (timers, mut children): (Vec<_>, Vec<_>) = std::mem::take(&mut elem.borrow_mut().children)
+        .into_iter()
+        .partition(|child| {
+            matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
+        });
     let num_tabs = children.len();
     let mut tabs = Vec::new();
     for child in &mut children {
+        error_on_slot_default(child, "TabWidget", diag);
         if child.borrow().repeated.is_some() {
             diag.push_error(
                 "dynamic tabs ('if' or 'for') are currently not supported".into(),
@@ -324,7 +309,7 @@ fn process_tabwidget(
         elem.borrow_mut().set_binding("content-min-height".into(), expr.into());
     };
 
-    elem.borrow_mut().children = std::iter::once(tabbar).chain(children).collect();
+    elem.borrow_mut().children = std::iter::once(tabbar).chain(children).chain(timers).collect();
 }
 
 fn set_geometry_prop(

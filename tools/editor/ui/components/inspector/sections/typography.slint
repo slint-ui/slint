@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, InspectorStyle } from "../../../style.slint";
+import { InspectorComboBox, InspectorEditableField, InspectorEnumOptions, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorTypographySection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> field-width;
+    in property <length> popup-bottom;
+
+    title: @tr("Typography");
+
+    VerticalLayout {
+        padding-left: root.style.padding;
+        spacing: Metrics.space-compact;
+
+        InspectorEditableField {
+            accessible-name: @tr("Font family");
+            value: InspectorContext.text-font-family-value();
+            commit-key: InspectorContext.field-key("font-family");
+            wide: true;
+            width: root.field-width;
+            accepted(text) => {
+                return text != "" && InspectorContext.commit-code("font-family", InspectorContext.quote(text));
+            }
+        }
+
+        HorizontalLayout {
+            spacing: root.style.column-gap;
+
+            InspectorComboBox {
+                accessible-name: @tr("Font weight");
+                fit-options: true;
+                value: InspectorEnumOptions.text-font-weight-label();
+                selected-index: InspectorEnumOptions.text-font-weight-index();
+                options: InspectorEnumOptions.text-font-weight-options;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("font-weight", text);
+                }
+            }
+
+            InspectorEditableField {
+                accessible-name: @tr("Font size");
+                value: InspectorContext.text-font-size-value();
+                commit-key: InspectorContext.field-key("font-size");
+                accepted(text) => {
+                    return text.is-float()
+                        ? InspectorContext.commit-px-code("font-size", text)
+                        : InspectorContext.commit-code("font-size", text);
+                }
+            }
+        }
+    }
+}

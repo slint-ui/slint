@@ -27,7 +27,6 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::string::string_to_float;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -308,12 +307,7 @@ impl Item for StyledTextItem {
         };
         match event {
             #[cfg(feature = "shared-parley")]
-            MouseEvent::Released {
-                position,
-                button: PointerEventButton::Left,
-                click_count: _,
-                touch_finger_id: _,
-            } => {
+            MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursorInner::BuiltIn(super::BuiltInMouseCursor::Pointer);
                     Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
@@ -662,9 +656,11 @@ fn text_layout_info(
     width: Pin<&Property<LogicalLength>>,
     cross_axis_constraint: Coord,
 ) -> LayoutInfo {
-    let implicit_size = |max_width, text_wrap| {
-        window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
-    };
+    // The text layout cache holds one wrap mode per item, and an unconstrained measurement
+    // doesn't need `NoWrap`: with no width to break at, the mode can't change the width.
+    let wrap = text.wrap();
+    let implicit_size =
+        |max_width| window_adapter.renderer().text_size(text, self_rc, max_width, wrap);
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
     // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
@@ -675,18 +671,18 @@ fn text_layout_info(
             // content-widths measurement gives both that minimum and the single-line
             // preferred width, so this replaces the plain measurement below.
             let word_wrap_widths =
-                matches!((text.overflow(), text.wrap()), (TextOverflow::Clip, TextWrap::WordWrap))
+                matches!((text.overflow(), wrap), (TextOverflow::Clip, TextWrap::WordWrap))
                     .then(|| window_adapter.renderer().text_content_widths(text, self_rc))
                     .flatten();
 
             let (min, preferred) = match word_wrap_widths {
                 Some(widths) => (widths.min.get(), widths.max.get()),
                 None => {
-                    let unwrapped_width = implicit_size(None, TextWrap::NoWrap).width;
+                    let unwrapped_width = implicit_size(None).width;
                     let min = match text.overflow() {
                         TextOverflow::Elide => unwrapped_width
                             .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
-                        TextOverflow::Clip => match text.wrap() {
+                        TextOverflow::Clip => match wrap {
                             TextWrap::NoWrap => unwrapped_width,
                             // char-wrap can break anywhere, so it keeps no lower bound.
                             TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
@@ -698,16 +694,16 @@ fn text_layout_info(
             LayoutInfo { min: min.ceil(), preferred: preferred.ceil(), ..LayoutInfo::default() }
         }
         Orientation::Vertical => {
-            let h = match text.wrap() {
+            let h = match wrap {
                 TextWrap::NoWrap => single_line_height(window_adapter, text, self_rc)
-                    .unwrap_or_else(|| implicit_size(None, TextWrap::NoWrap).height),
-                wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                    .unwrap_or_else(|| implicit_size(None).height),
+                TextWrap::WordWrap | TextWrap::CharWrap => {
                     let w = if cross_axis_constraint >= 0 as Coord {
                         LogicalLength::new(cross_axis_constraint)
                     } else {
                         width.get()
                     };
-                    implicit_size(Some(w), wrap).height
+                    implicit_size(Some(w)).height
                 }
             }
             .ceil();
@@ -847,17 +843,18 @@ impl Item for TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
-        let implicit_size = |max_width, text_wrap| {
-            window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap)
-        };
+        // See `text_layout_info` for why the wrap mode is the item's own.
+        let wrap = self.wrap();
+        let implicit_size =
+            |max_width| window_adapter.renderer().text_size(self, self_rc, max_width, wrap);
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
         // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
-                let implicit_size = implicit_size(None, TextWrap::NoWrap);
-                let min = match self.wrap() {
+                let implicit_size = implicit_size(None);
+                let min = match wrap {
                     TextWrap::NoWrap => implicit_size.width,
                     TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
                 };
@@ -868,16 +865,16 @@ impl Item for TextInput {
                 }
             }
             Orientation::Vertical => {
-                let h = match self.wrap() {
+                let h = match wrap {
                     TextWrap::NoWrap => single_line_height(window_adapter, self, self_rc)
-                        .unwrap_or_else(|| implicit_size(None, TextWrap::NoWrap).height),
-                    wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                        .unwrap_or_else(|| implicit_size(None).height),
+                    TextWrap::WordWrap | TextWrap::CharWrap => {
                         let w = if cross_axis_constraint >= 0 as Coord {
                             LogicalLength::new(cross_axis_constraint)
                         } else {
                             self.width()
                         };
-                        implicit_size(Some(w), wrap).height
+                        implicit_size(Some(w)).height
                     }
                 }
                 .ceil();
@@ -918,7 +915,7 @@ impl Item for TextInput {
                 let clicked_offset = clicked_offset as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
-                if !window_adapter.window().0.context().0.modifiers.get().shift() {
+                if !window_adapter.window().0.context().modifiers().get().shift() {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
@@ -952,6 +949,9 @@ impl Item for TextInput {
                 self.ensure_focus_and_ime(window_adapter, self_rc);
             }
             MouseEvent::Released { position, button: PointerEventButton::Middle, .. } => {
+                if self.read_only() {
+                    return InputEventResult::EventAccepted;
+                }
                 let (clicked_offset, clicked_affinity) =
                     self.byte_offset_for_position(*position, window_adapter, self_rc);
                 let clicked_offset = clicked_offset as i32;
@@ -973,6 +973,12 @@ impl Item for TextInput {
                 if pressed > 0 {
                     let (clicked_offset, clicked_affinity) =
                         self.byte_offset_for_position(*position, window_adapter, self_rc);
+                    // Like Android's native text fields, dragging a finger after a single tap moves
+                    // the cursor instead of selecting.
+                    #[cfg(target_os = "android")]
+                    if pressed == 1 && event.is_from_touch() {
+                        self.as_ref().anchor_position_byte_offset.set(clicked_offset as i32);
+                    }
                     self.set_cursor_position_with_affinity(
                         clicked_offset as i32,
                         clicked_affinity,
@@ -1090,19 +1096,21 @@ impl Item for TextInput {
                             self.select_all(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Copy => {
-                            self.copy(window_adapter, self_rc);
+                        StandardShortcut::Copy if !self.is_password() => {
+                            self.copy(window_adapter);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste if !self.read_only() => {
                             self.paste(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Cut if !self.read_only() => {
+                        StandardShortcut::Cut if !self.read_only() && !self.is_password() => {
                             self.cut(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Paste | StandardShortcut::Cut => {
+                        StandardShortcut::Copy
+                        | StandardShortcut::Paste
+                        | StandardShortcut::Cut => {
                             return KeyEventResult::EventIgnored;
                         }
                         StandardShortcut::Undo if !self.read_only() => {
@@ -1127,7 +1135,7 @@ impl Item for TextInput {
                     (self.cursor_position(&text), self.anchor_position(&text))
                 };
 
-                if !self.accept_text_input(event.key_event.text.as_str()) {
+                if !self.accept_text_input(event.key_event.text.as_str(), window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1177,7 +1185,7 @@ impl Item for TextInput {
                 }
             }
             KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
-                if !self.accept_text_input(&event.key_event.text) {
+                if !self.accept_text_input(&event.key_event.text, window_adapter) {
                     return KeyEventResult::EventIgnored;
                 }
 
@@ -1988,7 +1996,10 @@ impl TextInput {
     }
 
     pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        self.copy(window_adapter, self_rc);
+        if self.is_password() {
+            return;
+        }
+        self.copy(window_adapter);
         self.delete_selection(window_adapter, self_rc, TextChangeNotify::TriggerCallbacks);
     }
 
@@ -2011,6 +2022,8 @@ impl TextInput {
             window_adapter,
             self_rc,
         );
+        // Keep the cursor visible while it moves, as for the arrow keys.
+        self.show_cursor(window_adapter);
     }
 
     pub fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -2030,7 +2043,7 @@ impl TextInput {
         );
     }
 
-    pub fn clear_selection(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
+    pub fn clear_selection(self: Pin<&Self>) {
         self.as_ref().anchor_position_byte_offset.set(self.as_ref().cursor_position_byte_offset());
     }
 
@@ -2051,6 +2064,30 @@ impl TextInput {
             window_adapter,
             self_rc,
         );
+    }
+
+    /// Selects the word where a long press started; while the press is held, dragging then
+    /// extends the selection by words. A held double or triple press keeps its selection, and
+    /// nothing is selected at a line break or at the end of the text.
+    pub fn select_word_on_long_press(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        let pressed = self.pressed.get();
+        if pressed > 1 {
+            return;
+        }
+        // The anchor is where the press started; moves may have shifted the cursor.
+        let text = self.text();
+        if matches!(text.as_bytes().get(self.anchor_position(&text)), None | Some(b'\n')) {
+            return;
+        }
+        if pressed == 1 {
+            // Drag by words, as after a double click.
+            self.pressed.set(2);
+        }
+        self.select_word(window_adapter, self_rc);
     }
 
     fn select_paragraph(
@@ -2076,8 +2113,8 @@ impl TextInput {
         );
     }
 
-    pub fn copy(self: Pin<&Self>, w: &Rc<dyn WindowAdapter>, _: &ItemRc) {
-        self.copy_clipboard(w, Clipboard::DefaultClipboard);
+    pub fn copy(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        self.copy_clipboard(window_adapter, Clipboard::DefaultClipboard);
     }
 
     fn copy_clipboard(
@@ -2085,6 +2122,9 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         clipboard: Clipboard,
     ) {
+        if self.is_password() {
+            return;
+        }
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         if anchor == cursor {
             return;
@@ -2295,6 +2335,8 @@ impl TextInput {
     }
 
     pub fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        // The change tracker runs delayed, so `text` may have been assigned since (#13814).
+        self.align_to_text(&self.text(), self_rc);
         let mut items = self.undo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2340,6 +2382,8 @@ impl TextInput {
     }
 
     pub fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        // See `undo`.
+        self.align_to_text(&self.text(), self_rc);
         let mut items = self.redo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2394,7 +2438,11 @@ impl TextInput {
         window_adapter.renderer().font_metrics(font_request)
     }
 
-    fn accept_text_input(self: Pin<&Self>, text_to_insert: &str) -> bool {
+    fn accept_text_input(
+        self: Pin<&Self>,
+        text_to_insert: &str,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> bool {
         let input_type = self.input_type();
 
         match input_type {
@@ -2404,23 +2452,19 @@ impl TextInput {
                 let current = self.text();
                 let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
 
+                let ctx = window_adapter.window().0.context();
+
                 // Allow localized ".", "-", "-." because otherwise the cannot start entering
-                if candidate.len() <= 2
-                    && crate::context::GLOBAL_CONTEXT.with(|ctx| {
-                        let sep =
-                            ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
-                        let mut it = candidate.chars();
-                        match (it.next(), it.next()) {
-                            (Some('-'), None) => true,
-                            (Some('-'), Some(c2)) => c2 == sep,
-                            (Some(c1), None) => c1 == sep,
-                            _ => false,
-                        }
-                    })
-                {
-                    return true;
+                if candidate.len() <= 2 {
+                    let sep = ctx.locale_decimal_separator();
+                    let mut it = candidate.chars();
+                    match (it.next(), it.next()) {
+                        (Some('-'), None) => return true,
+                        (Some('-'), Some(c)) | (Some(c), None) if c == sep => return true,
+                        _ => {}
+                    }
                 }
-                return string_to_float(&candidate).is_some();
+                return ctx.parse_number(&candidate).is_some();
             }
             InputType::Password | InputType::Text | InputType::Search => (),
         }
@@ -2470,133 +2514,11 @@ fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
         .map_or(text.len(), |(offset, slice)| offset + slice.len())
 }
 
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_set_selection_offsets(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-    anchor: i32,
-    focus: i32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.set_selection_offsets(window_adapter, &self_rc, anchor, focus);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_select_all(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.select_all(window_adapter, &self_rc);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_clear_selection(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.clear_selection(window_adapter, &self_rc);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_cut(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.cut(window_adapter, &self_rc);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_copy(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.copy(window_adapter, &self_rc);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_paste(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.paste(window_adapter, &self_rc);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_undo(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.undo(window_adapter, &self_rc);
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_redo(
-    text_input: Pin<&TextInput>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        text_input.redo(window_adapter, &self_rc);
-    }
-}
-
-pub fn slint_text_item_fontmetrics(
+pub fn text_item_font_metrics(
     window_adapter: &Rc<dyn WindowAdapter>,
-    item_ref: Pin<ItemRef<'_>>,
     self_rc: &ItemRc,
 ) -> FontMetrics {
+    let item_ref = self_rc.borrow();
     if let Some(simple_text) = ItemRef::downcast_pin::<SimpleText>(item_ref) {
         simple_text.font_metrics(window_adapter, self_rc)
     } else if let Some(complex_text) = ItemRef::downcast_pin::<ComplexText>(item_ref) {
@@ -2605,21 +2527,5 @@ pub fn slint_text_item_fontmetrics(
         text_input.font_metrics(window_adapter, self_rc)
     } else {
         Default::default()
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    self_index: u32,
-    out: *mut FontMetrics,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        let self_rc = ItemRc::new(self_component.clone(), self_index);
-        let self_ref = self_rc.borrow();
-        core::ptr::write(out, slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc));
     }
 }

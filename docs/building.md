@@ -1,4 +1,4 @@
-<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint winget -->
+<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint winget libsqlite -->
 # Slint Build Guide
 
 This page explains how to build and test Slint.
@@ -8,7 +8,7 @@ This page explains how to build and test Slint.
 ### Installing Rust
 
 Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-have Rust installed, make sure that it's at least version 1.92 or newer. You can check which version you have installed
+have Rust installed, make sure that it's at least version 1.95 or newer. You can check which version you have installed
 by running `rustc --version`.
 
 Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
@@ -153,11 +153,10 @@ cargo build --manifest-path examples/Cargo.toml --workspace --release \
 ### C++ Tests
 
 The C++ tests are contained in the `test-driver-cpp` crate of the `tests/`
-workspace. It requires the Slint C++ library to be built, which isn't done by
-default. Build it explicitly before running the tests:
+workspace.
+The driver builds the Slint C++ library itself, with the features of the driver:
 
 ```sh
-cargo build --lib -p slint-cpp
 cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp
 ```
 
@@ -196,8 +195,8 @@ You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to cho
 
 ### Node.js API Build
 
-The Slint Node.js API is implemented as a pnpm build. Building it needs Node.js 22.13 or newer,
-the minimum required by the pnpm version this repository pins. You can build it locally using the
+The Slint Node.js API is implemented as a pnpm build. Building it needs Node.js 22.18 or newer,
+the minimum the `slint-ui` package declares. You can build it locally using the
 following command line:
 
 ```sh
@@ -234,6 +233,26 @@ Finally on a shell on the Pi:
 ```sh
 DISPLAY=:0 ./printerdemo
 ```
+
+### Using the Slint Cross Images in Your Own Project
+
+The containers are published as `ghcr.io/slint-ui/slint/<target>`, for example
+`ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf`, and you can use them in the `Cross.toml` of your own
+project. The `latest` tag is rebuilt regularly from Slint's `master` branch, so we recommend pinning the
+image by its digest:
+
+```toml
+[target.armv7-unknown-linux-gnueabihf]
+image = "ghcr.io/slint-ui/slint/armv7-unknown-linux-gnueabihf@sha256:<digest>"
+pre-build = ["sysroot-apt-install libsqlite3-dev"]
+```
+
+The images for the `*-linux-gnu*` targets compile against an Ubuntu 22.04 sysroot in `/sysroot`, so the
+binaries require glibc 2.35 or newer on the target device. Add the libraries your project needs to that
+sysroot with `sysroot-apt-install` in a `pre-build` step, as shown above: it installs the Ubuntu 22.04
+packages for the target architecture. The common `pre-build` recipe of `dpkg --add-architecture` and
+`apt-get install <package>:<arch>` doesn't work with these images. Tools that run on the build host,
+such as `protobuf-compiler`, are installed with a plain `apt-get install`.
 
 ## Examples
 

@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, InspectorStyle } from "../../../style.slint";
+import { Api } from "../../../api.slint";
+import { InspectorCodeField, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorTextContentSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+
+    title: @tr("Content");
+
+    HorizontalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+
+        InspectorCodeField {
+            accessible-name: @tr("Text content");
+            prefix: @tr("Text");
+            value: Api.source-property-value("text", InspectorContext.is-styled-text-selection() ? "@markdown(\"\")" : "\"\"");
+            commit-key: InspectorContext.field-key("text");
+            accepted(text) => {
+                return InspectorContext.commit-code("text", text);
+            }
+        }
+    }
+}

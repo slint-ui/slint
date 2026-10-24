@@ -26,10 +26,12 @@ use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2::{ClassType as _, MainThreadMarker, MainThreadOnly, Message as _, define_class};
-use objc2_foundation::{NSNotification, NSNotificationCenter, NSObject, NSObjectProtocol};
+use objc2_foundation::{
+    NSNotification, NSNotificationCenter, NSObject, NSObjectProtocol, NSString,
+};
 use objc2_ui_kit::{
     UIApplication, UISceneDelegate, UISceneWillConnectNotification, UIView, UIWindow,
-    UIWindowScene, UIWindowSceneDelegate,
+    UIWindowScene, UIWindowSceneDelegate, UIWindowSceneSessionRoleApplication,
 };
 use winit::window::WindowId;
 
@@ -109,6 +111,9 @@ pub(crate) fn install_scene_lifecycle(
         else {
             return;
         };
+        if !is_app_scene(&window_scene) {
+            return;
+        }
         let active_windows = active_windows.borrow();
         for adapter in active_windows.values().filter_map(Weak::upgrade) {
             let Some(window) = adapter
@@ -138,12 +143,22 @@ pub(crate) fn install_scene_lifecycle(
 }
 
 /// The scene that Slint's windows live on. A Slint app declares a single scene
-/// configuration, so the one connected window scene is it.
+/// configuration, so the one connected application scene is it.
 fn window_scene(mtm: MainThreadMarker) -> Option<Retained<UIWindowScene>> {
     UIApplication::sharedApplication(mtm)
         .connectedScenes()
         .iter()
-        .find_map(|scene| scene.downcast_ref::<UIWindowScene>().map(UIWindowScene::retain))
+        .filter_map(|scene| scene.downcast_ref::<UIWindowScene>().map(UIWindowScene::retain))
+        .find(|scene| is_app_scene(scene))
+}
+
+/// The system connects window scenes of its own next to the app's.
+/// An iOS app running on macOS gets one with the role
+/// `FUWindowSceneSessionRoleSystemUI`, after the app's scene.
+/// A window attached to it never reaches the screen.
+fn is_app_scene(scene: &UIWindowScene) -> bool {
+    let application_role: &NSString = unsafe { UIWindowSceneSessionRoleApplication };
+    *scene.session().role() == *application_role
 }
 
 fn attach(window: &UIWindow, window_scene: &UIWindowScene) {

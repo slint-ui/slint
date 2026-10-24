@@ -54,6 +54,20 @@ image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
 svg = ["dep:resvg", "i-slint-common/svg-text"]
 
+# Store an image's pixels in the RGB565 format.
+# Disabled by default so that applications that don't need it don't pay
+# for the extra rendering code.
+image-pixel-format-rgb565 = []
+
+# Store an image's pixels as a single 8 bit grayscale channel.
+# Disabled by default so that applications that don't
+# need it don't pay for the extra conversion code.
+image-pixel-format-gray8 = []
+
+# (internal) Store an image's pixels as an alpha map: a single 8 bit alpha channel for one color.
+# The interpreter uses it for the alpha maps that the compiler pre-renders.
+image-pixel-format-alpha-map = []
+
 box-shadow-cache = []
 
 testing = []
@@ -89,7 +103,7 @@ system-tray = ["dep:ksni", "dep:async-channel", "ksni/async-io", "ksni/blocking"
 
 shared-parley = ["shared-fontique", "dep:parley", "dep:skrifa", "dep:icu_normalizer"]
 
-accessibility-text = ["std", "shared-parley", "dep:accesskit", "parley?/accesskit"]
+accessibility-text = ["std", "shared-parley", "dep:accesskit"]
 
 shared-swash = ["dep:swash"]
 
@@ -103,7 +117,7 @@ const-field-offset = { version = "0.2.1", path = "../../helper_crates/const-fiel
 vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
-cfg-if = "1"
+bytemuck = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true, features = ["error", "deref", "deref_mut"] }
 euclid = { workspace = true }
 lyon_algorithms = { version = "1.0", optional = true, default-features = false }
@@ -131,7 +145,7 @@ unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 icu_normalizer = { workspace = true, optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
-accesskit = { version = "0.24", optional = true }
+accesskit = { version = "0.25", optional = true }
 
 image = { workspace = true, optional = true, default-features = false }
 clru = { workspace = true, optional = true }
@@ -166,17 +180,19 @@ image = { workspace = true, default-features = false, features = ["png"] }
 windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))'.dependencies]
-ksni = { version = "0.3.3", optional = true, default-features = false }
+ksni = { version = "0.3.4", optional = true, default-features = false }
 async-channel = { version = "2", optional = true }
 
 # The complex-scripts line-breaking dictionaries cost several MB, so leave them out of
 # wasm binaries.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-parley = { version = "0.11.1", optional = true, features = ["complex-scripts"] }
+parley = { version = "0.12.0", optional = true, features = ["bytemuck", "complex-scripts"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-parley = { version = "0.11.1", optional = true }
+parley = { version = "0.12.0", optional = true, features = ["bytemuck"] }
 web-time = { version = "1.0", optional = true }
+
+[target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies]
 wasm-bindgen = { version = "0.2" }
 js-sys = { version = "0.3", default-features = false, features = ["std"] }
 clru = { workspace = true }
@@ -184,7 +200,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob
 
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "image-pixel-format-rgb565", "image-pixel-format-gray8"] }
 i-slint-backend-testing = { path = "../backends/testing", features = ["internal"] }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }
@@ -194,7 +210,6 @@ tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time", "ne
 async-compat = { version = "0.2.4" }
 tempfile = { version = "3.12.0" }
 fontique = { workspace = true }
-criterion = "0.8"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)", "cfg(slint_nightly_test)"] }
@@ -206,7 +221,3 @@ unnecessary_cast = { level = "allow" }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
-
-[[bench]]
-name = "string"
-harness = false

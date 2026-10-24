@@ -81,7 +81,12 @@ fn setup(
 
     // Build the DocumentCache.
     let config = editor_preview::document_cache::CompilerConfiguration {
-        style: Some("fluent".into()),
+        compiler_config: {
+            let mut compiler_config =
+                editor_preview::document_cache::CompilerConfiguration::default().compiler_config;
+            compiler_config.style = Some("fluent".into());
+            compiler_config
+        },
         ..Default::default()
     };
     let mut cache = editor_preview::DocumentCache::new(config);

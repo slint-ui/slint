@@ -11,12 +11,12 @@ pub use adapters::{FilterModel, MapModel, ReverseModel, SortModel};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
+use core::cell::OnceCell;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::{Ceil, Floor};
 pub use model_peer::*;
-use once_cell::unsync::OnceCell;
 use pin_project::pin_project;
 
 mod adapters;
@@ -390,12 +390,13 @@ impl<T: Model> ModelExt for T {}
 /// and the interpreter, which otherwise ignore the error.
 #[doc(hidden)]
 pub fn report_model_error(
+    context: &crate::SlintContext,
     function: &str,
     location: Option<crate::debug_log::LogMessageLocation<'_>>,
     result: Result<(), ModelError>,
 ) {
     if let Err(err) = result {
-        crate::debug_log::log_message(crate::debug_log::LogMessage::new(
+        context.dispatch_log_message(crate::debug_log::LogMessage::new(
             crate::debug_log::LogMessageSource::SlintCode,
             location,
             format_args!("array.{function}(): {err}"),

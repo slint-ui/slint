@@ -7,6 +7,7 @@ mod border_radius;
 mod check_drag_area;
 mod check_expressions;
 mod check_public_api;
+mod check_slot_defaults;
 mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
@@ -30,6 +31,7 @@ mod inject_debug_hooks;
 pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
+mod listview;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_component_container;
@@ -46,19 +48,23 @@ mod lower_tabwidget;
 mod lower_text_input_interface;
 mod lower_timers;
 mod lower_tooltips;
+mod lower_typed_slots;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
+#[cfg(test)]
+pub(crate) use optimize_useless_rectangles::optimize_useless_rectangles;
 mod purity_check;
+mod redundant_property_bindings;
 mod remove_aliases;
 mod remove_constant_conditions;
 mod remove_return;
 mod remove_unused_properties;
 mod repeater_component;
-pub mod resolve_native_classes;
 pub mod resolving;
 mod unique_declared_type_names;
 mod unique_id;
+mod validate_interfaces;
 mod visible;
 mod windows;
 mod z_order;
@@ -122,6 +128,9 @@ pub async fn run_passes(
 
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
+    doc.visit_all_used_components(|component| {
+        lower_typed_slots::prepare(component, &doc.local_registry);
+    });
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
@@ -136,17 +145,57 @@ pub async fn run_passes(
             &palette,
             diag,
         );
-        lower_states::lower_states(component, &symbol_counters, &mut forwarded_references, diag);
+        lower_states::lower_states(
+            component,
+            &doc.local_registry,
+            &symbol_counters,
+            &mut forwarded_references,
+            diag,
+        );
         lower_text_input_interface::lower_text_input_interface(component);
         compile_paths::check_derived_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);
+        lower_menus::remove_root_menus(component);
+    });
+
+    let has_new_errors = |diag: &crate::diagnostics::BuildDiagnostics, before: usize| {
+        diag.iter()
+            .skip(before)
+            .any(|diagnostic| diagnostic.level() == crate::diagnostics::DiagnosticLevel::Error)
+    };
+    let diagnostics_before_typed_slots = diag.iter().count();
+    doc.visit_all_used_components(|component| {
+        let is_exported_root =
+            doc.exported_roots().any(|root| std::rc::Rc::ptr_eq(&root, component));
+        lower_typed_slots::check_content(component, is_exported_root, diag);
+    });
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
+        return raw_type_loader;
+    }
+
+    let mut checked_components = std::collections::HashSet::new();
+    doc.visit_all_used_components(|component| {
+        if checked_components.insert(std::rc::Rc::as_ptr(component)) {
+            listview::check_children_in_flickable(component, diag);
+        }
     });
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
+    doc.visit_all_used_components(|component| {
+        listview::lower_ensure_row_visible(component, diag);
+    });
+
     collect_subcomponents::collect_subcomponents(doc);
+    let diagnostics_before_typed_slots = diag.iter().count();
+    doc.visit_all_used_components(|component| {
+        lower_typed_slots::lower(component, diag);
+    });
+    if has_new_errors(diag, diagnostics_before_typed_slots) {
+        return raw_type_loader;
+    }
 
     for root_component in doc.exported_roots() {
         focus_handling::call_focus_on_init(&root_component);
@@ -172,7 +221,13 @@ pub async fn run_passes(
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
-        default_geometry::default_geometry(component, diag, &symbol_counters);
+        default_geometry::default_geometry(
+            component,
+            diag,
+            &symbol_counters,
+            type_loader.compiler_config.repeated_children_constrain_parent(),
+        );
+        crate::layout::mark_repeated_cells_child_of_layout(component);
         lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
@@ -221,6 +276,7 @@ pub async fn run_passes(
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
         doc.used_types.borrow_mut().sub_components.clear();
     }
+    default_geometry::adjust_image_clip_rects(doc);
 
     let global_analysis =
         binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
@@ -254,12 +310,9 @@ pub async fn run_passes(
             remove_constant_conditions::remove_constant_conditions(component);
         }
         deduplicate_property_read::deduplicate_property_read(component);
-        if !component.is_global() && !component.is_interface() {
-            resolve_native_classes::resolve_native_classes(component);
-        }
     });
 
-    remove_unused_properties::remove_unused_properties(doc);
+    remove_unused_properties::remove_unused_properties(doc, type_loader.compiler_config.debug_info);
 
     // With debug hooks enabled, every synthetic hook must by now either have been upgraded
     // (by a pass computing the property's value or by inlining merging the definition's
@@ -309,7 +362,7 @@ pub async fn run_passes(
     .await;
 
     #[cfg(feature = "bundle-translations")]
-    if let Some(path) = &type_loader.compiler_config.translation_path_bundle {
+    if let Some(path) = &type_loader.compiler_config.bundled_translations_path {
         match crate::translations::TranslationsBuilder::load_translations(
             path,
             type_loader.compiler_config.translation_domain.as_deref().unwrap_or(""),
@@ -330,7 +383,7 @@ pub async fn run_passes(
     match type_loader.compiler_config.embed_resources {
         #[cfg(feature = "renderer-software")]
         crate::EmbedResourcesKind::EmbedTextures => {
-            let mut characters_seen = std::collections::HashSet::new();
+            let mut characters_seen = std::collections::BTreeSet::new();
 
             let sf = type_loader.compiler_config.const_scale_factor.unwrap_or(1.) as f64;
 
@@ -381,10 +434,13 @@ pub fn run_import_passes(
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
     infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
+    validate_interfaces::validate_interfaces(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
+    check_slot_defaults::check_slot_defaults(doc, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
     windows::warn_about_child_windows(doc, diag);
     unique_id::check_unique_id(doc, diag);
+    redundant_property_bindings::check_redundant_property_bindings(doc, diag);
 }

@@ -38,6 +38,7 @@ impl CompilationResult {
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type ImportCallbackFunction = (url: string) => Promise<string>;
+type ResourceLoaderFunction = (url: string) => Promise<Uint8Array>;
 type CurrentElementInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
 
@@ -45,6 +46,9 @@ type CurrentElementInformationCallbackFunction = (url: string, start_line: numbe
 extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
+
+    #[wasm_bindgen(typescript_type = "ResourceLoaderFunction")]
+    pub type ResourceLoaderFunction;
 
     #[wasm_bindgen(typescript_type = "CurrentElementInformationCallbackFunction")]
     pub type CurrentElementInformationCallbackFunction;
@@ -55,13 +59,25 @@ extern "C" {
 /// Compile the content of a string.
 ///
 /// Returns a promise to a compiled component which can be run with ".run()"
+///
+/// `optional_import_callback` returns the source of an imported `.slint` file.
+/// `optional_resource_loader` returns the bytes of an imported font file.
+/// Without it, the interpreter fetches the font from its URL.
 #[wasm_bindgen]
 pub async fn compile_from_string(
     source: String,
     base_url: String,
     optional_import_callback: Option<ImportCallbackFunction>,
+    optional_resource_loader: Option<ResourceLoaderFunction>,
 ) -> Result<CompilationResult, JsValue> {
-    compile_from_string_with_style(source, base_url, String::new(), optional_import_callback).await
+    compile_from_string_with_style(
+        source,
+        base_url,
+        String::new(),
+        optional_import_callback,
+        optional_resource_loader,
+    )
+    .await
 }
 
 /// Same as [`compile_from_string`], but also takes a style parameter
@@ -71,10 +87,12 @@ pub async fn compile_from_string_with_style(
     base_url: String,
     style: String,
     optional_import_callback: Option<ImportCallbackFunction>,
+    optional_resource_loader: Option<ResourceLoaderFunction>,
 ) -> Result<CompilationResult, JsValue> {
-    #[allow(deprecated)]
-    let mut compiler = slint_interpreter::ComponentCompiler::default();
-    compiler.compiler_configuration(i_slint_core::InternalToken).is_preview = true;
+    let mut compiler = slint_interpreter::Compiler::default();
+    let config = compiler.compiler_configuration(i_slint_core::InternalToken);
+    config.is_preview = true;
+    config.components_to_generate = i_slint_compiler::ComponentSelection::LastExported;
     if !style.is_empty() {
         compiler.set_style(style)
     }
@@ -103,7 +121,30 @@ pub async fn compile_from_string_with_style(
         compiler.set_file_loader(open_import_callback);
     }
 
-    let c = compiler.build_from_source(source, base_url.into()).await;
+    if let Some(load_resource) = optional_resource_loader {
+        let load_resource = js_sys::Function::from(JsValue::from(load_resource));
+        compiler.set_resource_loader(
+            move |path| {
+                // Called right away, so that the page's loads overlap.
+                let result = load_resource.call1(&JsValue::UNDEFINED, &path.to_string().into());
+                Box::pin(async move {
+                    let error = |e: JsValue| {
+                        std::io::Error::other(
+                            e.dyn_ref::<js_sys::Error>()
+                                .map_or_else(|| format!("{e:?}"), |e| e.message().into()),
+                        )
+                    };
+                    let promise: js_sys::Promise = result.map_err(error)?.into();
+                    let data =
+                        wasm_bindgen_futures::JsFuture::from(promise).await.map_err(error)?;
+                    Ok(js_sys::Uint8Array::new(&data).to_vec())
+                })
+            },
+            i_slint_core::InternalToken,
+        );
+    }
+
+    let result = compiler.build_from_source(source, base_url.into()).await;
 
     let line_key = JsValue::from_str("lineNumber");
     let column_key = JsValue::from_str("columnNumber");
@@ -112,9 +153,12 @@ pub async fn compile_from_string_with_style(
     let level_key = JsValue::from_str("level");
     let mut error_as_string = String::new();
     let array = js_sys::Array::new();
-    for d in compiler.diagnostics().into_iter() {
-        let filename =
-            d.source_file().as_ref().map_or(String::new(), |sf| sf.to_string_lossy().into());
+    for d in result.diagnostics() {
+        let filename = d
+            .source_file()
+            .map(|path| path.to_string_lossy().into_owned())
+            .or_else(|| d.source_url())
+            .unwrap_or_default();
 
         let filename_js = JsValue::from_str(&filename);
         let (line, column) = d.line_column();
@@ -138,7 +182,7 @@ pub async fn compile_from_string_with_style(
     }
 
     Ok(CompilationResult {
-        component: c.map(|c| WrappedCompiledComp(c)),
+        component: result.components().next().map(WrappedCompiledComp),
         diagnostics: array,
         error_string: error_as_string,
     })
@@ -343,10 +387,9 @@ pub fn register_font_from_memory(data: Vec<u8>) -> Result<(), JsValue> {
     // Taking the `Vec` by value hands over the copy wasm-bindgen already made.
     let blob = fontique::Blob::new(std::sync::Arc::new(data));
 
-    let registered = i_slint_core::with_global_context(
-        || Err(i_slint_core::platform::PlatformError::NoPlatform),
-        |ctx| ctx.font_context().borrow_mut().collection.register_fonts(blob, None),
-    )?;
+    let registered = i_slint_core::with_existing_context(|ctx| {
+        ctx.font_context().borrow_mut().register_fonts(blob)
+    })?;
 
     if registered.is_empty() {
         return Err("the data declares no font family, \

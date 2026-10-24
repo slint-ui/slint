@@ -20,10 +20,17 @@ impl WinitSkiaRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
-        Ok(Box::new(Self {
-            renderer: SkiaRenderer::default(&shared_backend_data.skia_context),
-            requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
-        }))
+        core::cfg_select! {
+            skia_software_only => {
+                Self::new_software_suspended(shared_backend_data)
+            }
+            _ => {
+                Ok(Box::new(Self {
+                    renderer: SkiaRenderer::default(&shared_backend_data.skia_context),
+                    requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+                }))
+            }
+        }
     }
 
     #[cfg(not(target_os = "android"))]
@@ -46,7 +53,7 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    #[cfg(target_vendor = "apple")]
+    #[cfg(supports_metal)]
     pub fn new_metal_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
@@ -66,7 +73,7 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    #[cfg(target_family = "windows")]
+    #[cfg(supports_direct3d)]
     pub fn new_direct3d_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
@@ -86,7 +93,7 @@ impl WinitSkiaRenderer {
         }))
     }
 
-    // skia depends on default features which includes wgpu_30, so this is always available
+    #[cfg(skia_wgpu_30)]
     pub fn new_wgpu_30_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn super::WinitCompatibleRenderer>, PlatformError> {
@@ -117,10 +124,14 @@ impl WinitSkiaRenderer {
                         .into());
                     }
                     RequestedGraphicsAPI::Metal => {
-                        #[cfg(target_vendor = "apple")]
+                        #[cfg(supports_metal)]
                         return Ok(Self::new_metal_suspended);
                         #[cfg(not(target_vendor = "apple"))]
                         return Err("Metal rendering requested but this is only supported on Apple platforms".to_string().into());
+                        #[cfg(all(target_vendor = "apple", not(supports_metal)))]
+                        return Err("Metal rendering requested but renderer-skia is not enabled"
+                            .to_string()
+                            .into());
                     }
                     RequestedGraphicsAPI::Vulkan => {
                         #[cfg(supports_vulkan)]
@@ -133,11 +144,17 @@ impl WinitSkiaRenderer {
                         );
                     }
                     RequestedGraphicsAPI::Direct3D => {
-                        #[cfg(target_family = "windows")]
+                        #[cfg(supports_direct3d)]
                         return Ok(Self::new_direct3d_suspended);
                         #[cfg(not(target_family = "windows"))]
                         return Err(
                             "Direct3D rendering requested but this is only supported on Windows"
+                                .to_string()
+                                .into(),
+                        );
+                        #[cfg(all(target_family = "windows", not(supports_direct3d)))]
+                        return Err(
+                            "Direct3D rendering requested but renderer-skia is not enabled"
                                 .to_string()
                                 .into(),
                         );
@@ -146,6 +163,12 @@ impl WinitSkiaRenderer {
                     RequestedGraphicsAPI::WGPU29(..) => Ok(Self::new_wgpu_29_suspended),
                     #[cfg(feature = "unstable-wgpu-30")]
                     RequestedGraphicsAPI::WGPU30(..) => Ok(Self::new_wgpu_30_suspended),
+                    // The enum's variants follow i-slint-core's `unstable-wgpu-*` features, which
+                    // another crate can enable without this one's.
+                    #[allow(unreachable_patterns)]
+                    _ => Err("The requested WGPU version is not enabled in the winit backend"
+                        .to_string()
+                        .into()),
                 }
             }
             None => Ok(Self::new_suspended),
@@ -165,6 +188,14 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
     fn suspend(&self) -> Result<(), PlatformError> {
         self.renderer.set_pre_present_callback(None);
         self.renderer.suspend()
+    }
+
+    // GPU work that iOS rejected while the app was in the background leaves stale atlas entries.
+    #[cfg(target_os = "ios")]
+    fn occluded(&self, occluded: bool) {
+        if !occluded {
+            self.renderer.free_gpu_resources();
+        }
     }
 
     #[cfg(target_os = "macos")]

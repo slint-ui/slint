@@ -1,13 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore defsym nographic
+
 //! Custom test driver for the Slint SC (safety-critical) subset.
 //!
 //! For each test case, a `.slint` file in a group directory of `tests/cases/`,
 //! this driver:
 //! 1. Runs `slint-compiler --slint-sc` to generate Rust code
 //! 2. Extracts test code from `` ```rust `` blocks in comments
-//! 3. Calls `rustc` directly to compile the generated + test code
+//! 3. Calls `rustc` directly to compile the generated + test code, and
+//!    `clippy-driver` to lint the generated code
 //! 4. Runs the resulting binary; `` ```rust compile_fail `` blocks are
 //!    compiled separately and must fail with every `//~ ERROR` substring in
 //!    the rustc output
@@ -23,6 +26,11 @@
 //!    With `SLINT_SC_COVERAGE_DIR` set, keeps each case's coverage there
 //!
 //! Tests run in parallel via rayon.
+//!
+//! With `SLINT_SC_TARGET` set to one of [`TARGETS`], the test programs build
+//! for that target and run in QEMU.
+//! The lints, the `compile_fail` blocks, and the coverage are then left out,
+//! since they don't depend on the target.
 
 #[path = "driver/coverage.rs"]
 mod coverage;
@@ -45,17 +53,26 @@ fn main() {
 
     let target_dir = find_target_dir();
     let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".into());
+    let clippy_driver = std::env::var("CLIPPY_DRIVER").unwrap_or_else(|_| "clippy-driver".into());
     // Where each case's coverage (see the `coverage` module) is kept.
     let coverage_dir = std::env::var_os("SLINT_SC_COVERAGE_DIR").map(PathBuf::from);
     let update_coverage = std::env::var(expectations::UPDATE_VAR).is_ok_and(|var| var == "1");
+    let target = std::env::var("SLINT_SC_TARGET").ok().map(|triple| {
+        TARGETS.iter().find(|target| target.triple == triple).unwrap_or_else(|| {
+            let known: Vec<_> = TARGETS.iter().map(|target| target.triple).collect();
+            panic!("SLINT_SC_TARGET={triple} isn't one of {}", known.join(", "))
+        })
+    });
     let compiler = build_compiler(&target_dir);
-    let slint_sc_rlib = find_slint_sc_rlib(&target_dir);
+    let slint_sc_rlib = build_slint_sc_rlib(&target_dir, target);
     let rx = Regex::new(r"(?sU)\r?\n```rust( compile_fail)?\r?\n(.+)\r?\n```\r?\n").unwrap();
 
     let config = TestConfig {
         compiler: &compiler,
         slint_sc_rlib: &slint_sc_rlib,
         rustc: &rustc,
+        clippy_driver: &clippy_driver,
+        target,
         coverage_dir: coverage_dir.as_deref(),
         update_coverage,
         create_screenshots: std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1"),
@@ -73,7 +90,9 @@ fn main() {
         })
         .collect();
 
-    results.push(("version-check".into(), run_version_check(&config)));
+    if target.is_none() {
+        results.push(("version-check".into(), run_version_check(&config)));
+    }
 
     // Print results
     eprintln!();
@@ -148,6 +167,8 @@ struct TestConfig<'a> {
     compiler: &'a Path,
     slint_sc_rlib: &'a Path,
     rustc: &'a str,
+    clippy_driver: &'a str,
+    target: Option<&'a Target>,
     /// Where each case's coverage is kept, when it is.
     coverage_dir: Option<&'a Path>,
     /// Rewrite what a case states about its coverage from the measurement.
@@ -165,16 +186,22 @@ fn find_target_dir() -> PathBuf {
         .to_path_buf()
 }
 
-fn build_compiler(target_dir: &Path) -> PathBuf {
+/// A `cargo build` into the same target directory as the test binary itself,
+/// so the artifacts end up next to us (important for cargo-llvm-cov which
+/// uses a separate target dir).
+fn cargo_build(target_dir: &Path) -> Command {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let mut cmd = Command::new(&cargo);
-    cmd.args(["build", "-p", "slint-compiler", "--no-default-features", "--features", "slint-sc"]);
-    // Use the same target directory as the test binary itself, so the
-    // compiler ends up next to us (important for cargo-llvm-cov which
-    // uses a separate target dir).
+    cmd.arg("build");
     if let Some(parent) = target_dir.parent() {
         cmd.arg("--target-dir").arg(parent);
     }
+    cmd
+}
+
+fn build_compiler(target_dir: &Path) -> PathBuf {
+    let mut cmd = cargo_build(target_dir);
+    cmd.args(["-p", "slint-compiler", "--no-default-features", "--features", "slint-sc"]);
     // Coverage measures the slint-sc runtime alone, so the compiler builds
     // uninstrumented: clear the rustc wrapper cargo-llvm-cov injects the
     // instrumentation with, and the flag variables older versions used.
@@ -183,25 +210,33 @@ fn build_compiler(target_dir: &Path) -> PathBuf {
     cmd.env_remove("CARGO_ENCODED_RUSTFLAGS");
     let status = cmd.status().expect("Failed to run cargo build for slint-compiler");
     assert!(status.success(), "Failed to build slint-compiler");
-    let compiler = target_dir.join("slint-compiler");
+    let compiler = target_dir.join(format!("slint-compiler{}", std::env::consts::EXE_SUFFIX));
     assert!(compiler.exists(), "slint-compiler not found at {}", compiler.display());
     compiler
 }
 
-/// Find the slint-sc rlib in the deps directory for --extern: the newest,
-/// as builds with other features leave theirs behind.
-fn find_slint_sc_rlib(target_dir: &Path) -> PathBuf {
-    let deps_dir = target_dir.join("deps");
-    let rlibs = std::fs::read_dir(&deps_dir).into_iter().flatten().flatten().filter(|entry| {
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        name.starts_with("libslint_sc-") && name.ends_with(".rlib")
-    });
-    let newest = rlibs.max_by_key(|entry| entry.metadata().and_then(|m| m.modified()).ok());
-    match newest {
-        Some(entry) => entry.path(),
-        None => panic!("Could not find slint-sc rlib in {}", deps_dir.display()),
+/// Cargo places the library of the package it builds in the target directory.
+/// The environment is kept, so under cargo-llvm-cov this is the instrumented
+/// build that the test binary links.
+fn build_slint_sc_rlib(target_dir: &Path, target: Option<&Target>) -> PathBuf {
+    let mut cmd = cargo_build(target_dir);
+    cmd.args(["-p", "slint-sc", "--lib"]);
+    if let Some(target) = target {
+        cmd.args(["--target", target.triple]);
+        if let Platform::BareMetal { .. } = target.platform {
+            cmd.args(["-p", "slint-sc-test-sys"]);
+        }
     }
+    let rlib_dir = match target {
+        // Cargo builds for a `--target` in a directory of its own
+        Some(target) => target_dir.parent().unwrap().join(target.triple).join("debug"),
+        None => target_dir.to_path_buf(),
+    };
+    let status = cmd.status().expect("Failed to run cargo build for slint-sc");
+    assert!(status.success(), "Failed to build slint-sc");
+    let rlib = rlib_dir.join("libslint_sc.rlib");
+    assert!(rlib.exists(), "slint-sc rlib not found at {}", rlib.display());
+    rlib
 }
 
 fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), String> {
@@ -210,7 +245,10 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
 
     // Step 1: Run slint-compiler
     let mut compiler = Command::new(config.compiler);
-    compiler.arg("--slint-sc").arg(slint_path).arg("-o").arg(&generated_rs).arg("--coverage");
+    compiler.arg("--slint-sc").arg(slint_path).arg("-o").arg(&generated_rs);
+    if config.target.is_none() {
+        compiler.arg("--coverage");
+    }
     let output = compiler.output().map_err(|e| format!("slint-compiler spawn: {e}"))?;
 
     if !output.status.success() {
@@ -229,28 +267,53 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
 
     // Step 3: Create test .rs file
     let test_rs = tmp.path().join("test.rs");
-    std::fs::write(&test_rs, assemble_program(&gen_path, &test_code))
+    let name = rel.file_stem().unwrap_or_default().to_string_lossy();
+    std::fs::write(&test_rs, assemble_program(&gen_path, &test_code, &name))
         .map_err(|e| format!("write test.rs: {e}"))?;
 
     // Step 4: Compile with rustc
-    let test_bin = tmp.path().join("test_bin");
+    let test_bin = tmp.path().join(format!("test_bin{}", std::env::consts::EXE_SUFFIX));
     let rustc_output = compile(config, &test_rs, &test_bin)?;
     if !rustc_output.status.success() {
         let stderr = String::from_utf8_lossy(&rustc_output.stderr);
         return Err(format!("rustc failed:\n{stderr}"));
     }
 
+    let on_host = config.target.is_none();
+    if on_host {
+        lint(config, &test_rs, tmp.path())?;
+        check_compile_fail(config, &compile_fail_blocks, &gen_path, &name, tmp.path())?;
+    }
+
+    // Step 5: Run the test binary
+    run(config, &test_bin, tmp.path())?;
+
+    if on_host {
+        check_coverage(config, slint_path, rel, &source, &generated_rs, &test_bin, tmp.path())?;
+    }
+
+    // Step 7: Compare the screenshots against the references
+    compare_screenshots(tmp.path(), rel, config.create_screenshots)
+}
+
+fn check_compile_fail(
+    config: &TestConfig,
+    blocks: &[String],
+    gen_path: &str,
+    name: &str,
+    tmp: &Path,
+) -> Result<(), String> {
     // The compile_fail blocks must fail to compile with the expected errors
-    for (i, block) in compile_fail_blocks.iter().enumerate() {
+    for (i, block) in blocks.iter().enumerate() {
         let expected: Vec<&str> =
             block.lines().filter_map(|l| l.trim().strip_prefix("//~ ERROR ")).collect();
         if expected.is_empty() {
             return Err(format!("compile_fail block {i} has no //~ ERROR line"));
         }
-        let fail_rs = tmp.path().join(format!("compile_fail_{i}.rs"));
-        std::fs::write(&fail_rs, assemble_program(&gen_path, block))
+        let fail_rs = tmp.join(format!("compile_fail_{i}.rs"));
+        std::fs::write(&fail_rs, assemble_program(gen_path, block, name))
             .map_err(|e| format!("write compile_fail_{i}.rs: {e}"))?;
-        let output = compile(config, &fail_rs, &tmp.path().join(format!("compile_fail_{i}")))?;
+        let output = compile(config, &fail_rs, &tmp.join(format!("compile_fail_{i}")))?;
         if output.status.success() {
             return Err(format!("compile_fail block {i} compiled successfully:\n{block}"));
         }
@@ -263,34 +326,33 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
             }
         }
     }
+    Ok(())
+}
 
-    // Step 5: Run the test binary
-    let mut run = Command::new(&test_bin);
-    run.current_dir(tmp.path()).env("SLINT_TEST_NAME", rel.file_stem().unwrap_or_default());
-    run.env("LLVM_PROFILE_FILE", coverage::profile(tmp.path()));
-    let run_output = run.output().map_err(|e| format!("test binary spawn: {e}"))?;
-
-    if !run_output.status.success() {
-        let stderr = String::from_utf8_lossy(&run_output.stderr);
-        let stdout = String::from_utf8_lossy(&run_output.stdout);
-        return Err(format!("test binary failed:\nstdout: {stdout}\nstderr: {stderr}"));
-    }
-
+fn check_coverage(
+    config: &TestConfig,
+    slint_path: &Path,
+    rel: &Path,
+    source: &str,
+    generated_rs: &Path,
+    test_bin: &Path,
+    tmp: &Path,
+) -> Result<(), String> {
     // Step 6: The coverage of the case must be what the case states, if it
     // does: every point, reached or not.
-    let report = coverage::measure(tmp.path(), &generated_rs, &test_bin)?;
-    // The cases of the `coverage` group test the reporting: one that lost its
+    let report = coverage::measure(tmp, generated_rs, test_bin)?;
+    // The cases of the `coverage` group test only the reporting: one that lost its
     // caret lines would pass for stating nothing.
-    if rel.starts_with("coverage") && !expectations::is_stated(&source) {
+    if rel.starts_with("coverage") && !expectations::is_stated(source) {
         return Err("a coverage case states its coverage in `//#c` caret lines".into());
     }
     // The case is rewritten when asked to, and the difference is still a
     // failure, so that an update never passes unseen.
-    if let Err(difference) = expectations::check(&source, slint_path, &report) {
+    if let Err(difference) = expectations::check(source, slint_path, &report) {
         if !config.update_coverage {
             return Err(difference);
         }
-        let updated = expectations::update(&source, slint_path, &report)?;
+        let updated = expectations::update(source, slint_path, &report)?;
         std::fs::write(slint_path, updated).map_err(|e| format!("rewrite the case: {e}"))?;
         return Err(format!("{difference}\nthe case was rewritten"));
     }
@@ -299,9 +361,7 @@ fn run_test(slint_path: &Path, rel: &Path, config: &TestConfig) -> Result<(), St
         std::fs::create_dir_all(kept.parent().unwrap()).map_err(|e| format!("mkdir: {e}"))?;
         coverage::keep(&report, &kept)?;
     }
-
-    // Step 7: Compare the screenshots against the references
-    compare_screenshots(tmp.path(), rel, config.create_screenshots)
+    Ok(())
 }
 
 /// Check that the generated code compiles only against the slint-sc runtime of
@@ -483,30 +543,80 @@ fn extract_rust_test_code(source: &str, rx: &Regex) -> (String, Vec<String>) {
     (code, compile_fail)
 }
 
+/// The lints denied for the generated code only. The harness and the test
+/// bodies don't ship, and report a failure by panicking, so the program
+/// allows them there.
+const GENERATED_CODE_LINTS: &[&str] = &[
+    //#sls.gen.no-shadow
+    "clippy::shadow_same",
+    "clippy::shadow_reuse",
+    "clippy::shadow_unrelated",
+    //#sls.gen.no-panic
+    "clippy::unwrap_used",
+    "clippy::expect_used",
+    "clippy::panic",
+    "clippy::unreachable",
+    "clippy::todo",
+    "clippy::unimplemented",
+    //#sls.gen.no-indexing
+    "clippy::indexing_slicing",
+    //#sls.gen.no-question-mark
+    "clippy::question_mark_used",
+    //#sls.gen.no-overflow
+    "clippy::arithmetic_side_effects",
+    //#sls.gen.no-as
+    "clippy::as_conversions",
+];
+
 /// A test program: the generated code, the harness, and `body` as the main
 /// function.
-fn assemble_program(gen_path: &str, body: &str) -> String {
+fn assemble_program(gen_path: &str, body: &str, name: &str) -> String {
     let harness_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/driver/harness.rs")
         .to_string_lossy()
         .replace('\\', "/");
     let mut content = String::new();
-    // no_std so that accidental use of std in the generated code doesn't compile
+    // Only the harness declares `extern crate std`, so the generated code at
+    // the crate root can name neither `std` nor `alloc`
+    //#sls.gen.no-std
     writeln!(content, "#![no_std]").unwrap();
-    writeln!(content, "extern crate std;").unwrap();
+    // On a bare-metal target, the harness defines the entry point
+    writeln!(content, "#![cfg_attr(target_os = \"none\", no_main)]").unwrap();
+    //#sls.gen.no-unsafe
+    writeln!(content, "#![forbid(unsafe_code)]").unwrap();
+    let generated_code_lints = GENERATED_CODE_LINTS.join(", ");
+    writeln!(content, "#![deny({generated_code_lints})]").unwrap();
     writeln!(content).unwrap();
+    // The name of the screenshots, see `screenshot!`
+    writeln!(content, "macro_rules! test_name {{ () => {{ {name:?} }} }}").unwrap();
+    writeln!(content, "#[allow({generated_code_lints})]").unwrap();
     writeln!(content, "#[macro_use]").unwrap();
     writeln!(content, r#"#[path = "{harness_path}"]"#).unwrap();
     writeln!(content, "mod harness;").unwrap();
     writeln!(content).unwrap();
     writeln!(content, r#"include!("{gen_path}");"#).unwrap();
     writeln!(content).unwrap();
-    writeln!(content, "fn main() -> Result<(), std::boxed::Box<dyn std::error::Error>> {{")
-        .unwrap();
+    writeln!(content, "#[allow({generated_code_lints})]").unwrap();
+    writeln!(content, "fn main() -> Result<(), harness::Error> {{").unwrap();
     writeln!(content, "    {}", body.replace('\n', "\n    ")).unwrap();
     writeln!(content, "    Ok(())").unwrap();
     writeln!(content, "}}").unwrap();
     content
+}
+
+/// Run clippy on the test program at `rs_path`, which denies the lints of
+/// [`assemble_program`].
+fn lint(config: &TestConfig, rs_path: &Path, tmp_dir: &Path) -> Result<(), String> {
+    let output = rust_command(config.clippy_driver, config, rs_path)
+        .args(["--emit=metadata", "--out-dir"])
+        .arg(tmp_dir)
+        .output()
+        .map_err(|e| format!("{} spawn: {e}", config.clippy_driver))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("clippy failed:\n{stderr}"));
+    }
+    Ok(())
 }
 
 /// Invoke rustc on `rs_path`, linking against the slint-sc rlib.
@@ -515,28 +625,224 @@ fn compile(
     rs_path: &Path,
     out_path: &Path,
 ) -> Result<std::process::Output, String> {
-    let deps_dir = config.slint_sc_rlib.parent().unwrap_or_else(|| Path::new("."));
-    let mut rustc_cmd = Command::new(config.rustc);
-    rustc_cmd
-        .arg(rs_path)
+    let mut rustc_cmd = rust_command(config.rustc, config, rs_path);
+    match config.target.map(|target| &target.platform) {
+        None => {
+            // Instrumented for the coverage of the case's .slint code (see the
+            // `coverage` module); under cargo-llvm-cov, the runtime code the case
+            // exercises is in the runtime's coverage too.
+            rustc_cmd.arg("-Cinstrument-coverage");
+        }
+        Some(Platform::Linux { linker, .. }) => {
+            rustc_cmd.arg(format!("-Clinker={linker}"));
+        }
+        Some(Platform::BareMetal { code, ram, .. }) => {
+            // The host build checks that the generated code uses no crate but
+            // slint-sc, see `rust_command`.
+            let rlib_dir = config.slint_sc_rlib.parent().unwrap();
+            let mut dependencies = std::ffi::OsString::from("dependency=");
+            dependencies.push(rlib_dir.join("deps"));
+            rustc_cmd.args(["--extern", "slint_sc_test_sys", "-L"]).arg(rlib_dir);
+            rustc_cmd.arg("-L").arg(&dependencies);
+            let link_x =
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/driver/bare_metal/link.x");
+            rustc_cmd.arg(format!("-Clink-arg=-T{}", link_x.display()));
+            rustc_cmd.arg(format!("-Clink-arg=--defsym=CODE={code}"));
+            rustc_cmd.arg(format!("-Clink-arg=--defsym=RAM={ram}"));
+        }
+    }
+    rustc_cmd.arg("-o").arg(out_path);
+    rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))
+}
+
+/// A `program` command, rustc or clippy-driver, for the test program at `rs_path`.
+fn rust_command(program: &str, config: &TestConfig, rs_path: &Path) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.arg(rs_path)
         .arg("--edition=2024")
-        .arg("-o")
-        .arg(out_path)
-        .arg("-L")
-        .arg(deps_dir)
         // slint-sc is the only `--extern`, so the generated code fails to build
         // if it references any other crate.
         //#sls.gen.output
         .arg("--extern")
         .arg(format!("slint_sc={}", config.slint_sc_rlib.display()));
-
-    // Instrumented for the coverage of the case's .slint code (see the
-    // `coverage` module); under cargo-llvm-cov, the runtime code the case
-    // exercises is in the runtime's coverage too.
-    rustc_cmd.arg("-Cinstrument-coverage");
-
-    rustc_cmd.output().map_err(|e| format!("rustc spawn: {e}"))
+    if let Some(target) = config.target {
+        cmd.arg(format!("--target={}", target.triple));
+    }
+    // The generated code must build on stable, even when the suite enables
+    // unstable options for the runtime's branch coverage.
+    cmd.env_remove("RUSTC_BOOTSTRAP");
+    cmd
 }
+
+/// How long a test program may run. A bare-metal program that faults loops
+/// forever.
+const RUN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Run the test program `test_bin` in `tmp_dir`, where it writes its
+/// screenshots and, on the host, its coverage profile.
+fn run(config: &TestConfig, test_bin: &Path, tmp_dir: &Path) -> Result<(), String> {
+    let mut run = match config.target.map(|target| &target.platform) {
+        None => {
+            let mut run = Command::new(test_bin);
+            run.env("LLVM_PROFILE_FILE", coverage::profile(tmp_dir));
+            run
+        }
+        Some(Platform::Linux { runner, .. }) => match runner.split_first() {
+            Some((program, args)) => {
+                let mut run = Command::new(program);
+                run.args(args).arg(test_bin);
+                run
+            }
+            None => Command::new(test_bin),
+        },
+        Some(Platform::BareMetal { qemu, machine, .. }) => {
+            let mut run = Command::new(qemu);
+            run.args(*machine).args(QEMU_SEMIHOSTING).arg(test_bin);
+            run
+        }
+    };
+    // The output goes to files: a pipe could fill up while waiting
+    let stdout_path = tmp_dir.join("stdout.txt");
+    let stderr_path = tmp_dir.join("stderr.txt");
+    let file = |path: &Path| std::fs::File::create(path).map_err(|e| format!("create output: {e}"));
+    run.current_dir(tmp_dir).stdout(file(&stdout_path)?).stderr(file(&stderr_path)?);
+    let mut child = run.spawn().map_err(|e| format!("test binary spawn: {e}"))?;
+    let start = std::time::Instant::now();
+    let outcome = loop {
+        if let Some(status) = child.try_wait().map_err(|e| format!("test binary wait: {e}"))? {
+            if status.success() {
+                return Ok(());
+            }
+            break format!("failed ({status})");
+        }
+        if start.elapsed() > RUN_TIMEOUT {
+            let _ = child.kill();
+            let _ = child.wait();
+            break format!("timed out after {RUN_TIMEOUT:?}");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    let stdout = std::fs::read_to_string(&stdout_path).unwrap_or_default();
+    let stderr = std::fs::read_to_string(&stderr_path).unwrap_or_default();
+    Err(format!("test binary {outcome}:\nstdout: {stdout}\nstderr: {stderr}"))
+}
+
+/// A target the test programs build for and run on in place of the host.
+struct Target {
+    triple: &'static str,
+    platform: Platform,
+}
+
+enum Platform {
+    /// A Linux target, with the standard library
+    Linux {
+        linker: &'static str,
+        /// The command that runs the test program, the program appended;
+        /// none for a target the host runs
+        runner: &'static [&'static str],
+    },
+    /// A target without operating system, with the platform of
+    /// `bare_metal/lib.rs`
+    BareMetal {
+        /// The QEMU program, and the options of a machine of the target
+        qemu: &'static str,
+        machine: &'static [&'static str],
+        /// The addresses of the program's code and data, in the machine's
+        /// memory; see `bare_metal/link.x`
+        code: &'static str,
+        ram: &'static str,
+    },
+}
+
+/// The options of QEMU for a bare-metal test program, the program appended.
+const QEMU_SEMIHOSTING: &[&str] = &[
+    "-nographic",
+    "-monitor",
+    "none",
+    "-serial",
+    "none",
+    "-semihosting-config",
+    "enable=on,target=native",
+    "-kernel",
+];
+
+/// The targets of Ferrocene the test programs build for and run on, other
+/// than the hosts. The Linux targets with glibc use the cross compilers and
+/// libraries of Debian and Ubuntu.
+const TARGETS: &[Target] = &[
+    Target {
+        triple: "x86_64-unknown-linux-musl",
+        platform: Platform::Linux { linker: "rust-lld", runner: &[] },
+    },
+    Target {
+        triple: "aarch64-unknown-linux-musl",
+        platform: Platform::Linux { linker: "rust-lld", runner: &["qemu-aarch64"] },
+    },
+    Target {
+        triple: "riscv64gc-unknown-linux-gnu",
+        platform: Platform::Linux {
+            linker: "riscv64-linux-gnu-gcc",
+            runner: &["qemu-riscv64", "-L", "/usr/riscv64-linux-gnu"],
+        },
+    },
+    Target {
+        triple: "powerpc64le-unknown-linux-gnu",
+        platform: Platform::Linux {
+            linker: "powerpc64le-linux-gnu-gcc",
+            runner: &["qemu-ppc64le", "-L", "/usr/powerpc64le-linux-gnu"],
+        },
+    },
+    Target {
+        triple: "s390x-unknown-linux-gnu",
+        platform: Platform::Linux {
+            linker: "s390x-linux-gnu-gcc",
+            runner: &["qemu-s390x", "-L", "/usr/s390x-linux-gnu"],
+        },
+    },
+    Target {
+        triple: "aarch64-unknown-none",
+        platform: Platform::BareMetal {
+            qemu: "qemu-system-aarch64",
+            // No network card, which would need a ROM
+            machine: &["-machine", "virt", "-cpu", "cortex-a53", "-nic", "none"],
+            code: "0x40000000",
+            ram: "0x40800000",
+        },
+    },
+    // QEMU has no Armv7-R machine that runs a program without firmware; the
+    // Armv8-R Cortex-R52 runs Armv7-R code
+    Target { triple: "armv7r-none-eabihf", platform: MPS3_AN536 },
+    Target { triple: "armv8r-none-eabihf", platform: MPS3_AN536 },
+    // The Armv7E-M Cortex-M4 runs Armv6-M code
+    Target { triple: "thumbv6m-none-eabi", platform: MPS2_AN386 },
+    Target { triple: "thumbv7em-none-eabi", platform: MPS2_AN386 },
+    Target { triple: "thumbv7em-none-eabihf", platform: MPS2_AN386 },
+    // The Armv8-M Mainline Cortex-M33 runs Armv8-M Baseline code
+    Target { triple: "thumbv8m.base-none-eabi", platform: MPS2_AN505 },
+    Target { triple: "thumbv8m.main-none-eabi", platform: MPS2_AN505 },
+    Target { triple: "thumbv8m.main-none-eabihf", platform: MPS2_AN505 },
+];
+
+const MPS2_AN386: Platform = Platform::BareMetal {
+    qemu: "qemu-system-arm",
+    machine: &["-machine", "mps2-an386"],
+    code: "0x0",
+    ram: "0x20000000",
+};
+/// The Cortex-M33 starts in the secure state, so the program is at the
+/// secure aliases of the memory
+const MPS2_AN505: Platform = Platform::BareMetal {
+    qemu: "qemu-system-arm",
+    machine: &["-machine", "mps2-an505"],
+    code: "0x10000000",
+    ram: "0x38000000",
+};
+const MPS3_AN536: Platform = Platform::BareMetal {
+    qemu: "qemu-system-arm",
+    machine: &["-machine", "mps3-an536"],
+    code: "0x20000000",
+    ram: "0x20800000",
+};
 
 /// The cases are the `.slint` files one level below `dir`, in a group
 /// directory. The walk stops there, like the compiler's syntax test driver, so

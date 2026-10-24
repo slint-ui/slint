@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A property read twice after the second operand of a `&&` chain used to be
+// read before the chain, so the binding depended on it while `enabled` was false.
+
+export component TestCase inherits Window {
+    in property <bool> enabled;
+    in property <int> watched;
+    pure callback counted() -> bool;
+    pure callback counted-in-condition() -> bool;
+    out property <bool> guarded: root.counted() && root.enabled && root.watched > 1 && root.watched < 100;
+    out property <int> chosen: root.counted-in-condition() && root.enabled && root.watched > 1 && root.watched < 100 ? 1 : 0;
+    out property <bool> test: !root.guarded && root.chosen == 0;
+}
+
+/*
+```rust
+use std::{cell::Cell, rc::Rc};
+let instance = TestCase::new().unwrap();
+let guarded = Rc::new(Cell::new(0));
+let chosen = Rc::new(Cell::new(0));
+instance.on_counted({
+    let guarded = guarded.clone();
+    move || {
+        guarded.set(guarded.get() + 1);
+        true
+    }
+});
+instance.on_counted_in_condition({
+    let chosen = chosen.clone();
+    move || {
+        chosen.set(chosen.get() + 1);
+        true
+    }
+});
+assert!(!instance.get_guarded());
+assert_eq!(instance.get_chosen(), 0);
+assert_eq!((guarded.get(), chosen.get()), (1, 1));
+instance.set_watched(10);
+assert!(!instance.get_guarded());
+assert_eq!(instance.get_chosen(), 0);
+assert_eq!((guarded.get(), chosen.get()), (1, 1));
+instance.set_enabled(true);
+assert!(instance.get_guarded());
+assert_eq!(instance.get_chosen(), 1);
+assert_eq!((guarded.get(), chosen.get()), (2, 2));
+instance.set_watched(200);
+assert!(!instance.get_guarded());
+assert_eq!(instance.get_chosen(), 0);
+assert_eq!((guarded.get(), chosen.get()), (3, 3));
+```
+*/

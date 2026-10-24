@@ -15,8 +15,8 @@ use crate::editor_preview::{
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
-use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
@@ -31,12 +31,8 @@ use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance}
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
-
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
 
 mod debug;
 mod drop_location;
@@ -130,7 +126,19 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
             let _ = slint::quit_event_loop();
         }
         Message::Ping => {}
-        Message::OpenProject { .. } => {}
+        Message::OpenProject { root } => {
+            let current = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+                let root = root.as_ref().map(SourcePath::from_url);
+                if preview_state.project_root == root {
+                    return None;
+                }
+                preview_state.project_root = root;
+                preview_state.current_component()
+            });
+            if let Some(current) = current {
+                load_preview(current, LoadBehavior::Reload);
+            }
+        }
         // Part of the remote pairing handshake, which the LSP's WebSocket
         // connector completes before a session exists. A local preview is
         // never on the receiving end of one.
@@ -210,6 +218,7 @@ pub struct PreviewState {
     resources: HashSet<Url>,
     dependencies: HashSet<Url>,
     pub config: PreviewConfig,
+    project_root: Option<SourcePath>,
     /// The most recent user settings synced with the LSP, used to suppress
     /// redundant updates when the UI re-reports settings we just applied.
     last_user_settings: PreviewUserSettings,
@@ -403,20 +412,6 @@ fn set_contents(url: &VersionedUrl, content: String) {
     }
 }
 
-/// Try to find the parent of element `child` below `root`.
-fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<ElementRc> {
-    for c in &root.borrow().children {
-        if std::rc::Rc::ptr_eq(c, child) {
-            return Some(root.clone());
-        }
-
-        if let Some(parent) = search_for_parent_element(c, child) {
-            return Some(parent);
-        }
-    }
-    None
-}
-
 fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclaration {
     let name = name.to_string();
     PREVIEW_STATE
@@ -483,7 +478,10 @@ fn add_new_component() {
 
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
             preview_state.set_current_component(PreviewComponent {
-                url: preview_component.url.clone(),
+                url: preview_state
+                    .current_component()
+                    .map(|target| target.url)
+                    .unwrap_or_else(|| preview_component.url.clone()),
                 component: Some(component_name.clone()),
             })
         });
@@ -781,10 +779,6 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         return;
     };
 
-    let Ok(file) = url.to_file_path() else {
-        return;
-    };
-
     let Some(document_cache) = document_cache() else {
         return;
     };
@@ -805,12 +799,7 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         document_cache.format,
     );
     let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-    lsp.ask_editor_to_show_document(
-        &file.to_string_lossy(),
-        lsp_types::Range::new(start, start),
-        false,
-    )
-    .ok();
+    lsp.ask_editor_to_show_document(url, lsp_types::Range::new(start, start), false).ok();
 }
 
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
@@ -818,9 +807,8 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
         url: slint::SharedString,
         start: i32,
         end: i32,
-    ) -> Option<(PathBuf, lsp_types::Position, lsp_types::Position)> {
+    ) -> Option<(Url, lsp_types::Position, lsp_types::Position)> {
         let url = Url::parse(url.as_ref()).ok()?;
-        let file = url.to_file_path().ok()?;
 
         let start = u32::try_from(start).ok()?;
         let end = u32::try_from(end).ok()?;
@@ -840,17 +828,12 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
             document_cache.format,
         );
 
-        Some((file, start, end))
+        Some((url, start, end))
     }
 
     if let Some((f, s, e)) = internal(url, start, end) {
         let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-        lsp.ask_editor_to_show_document(
-            &f.to_string_lossy(),
-            lsp_types::Range::new(s, e),
-            take_focus,
-        )
-        .ok();
+        lsp.ask_editor_to_show_document(f, lsp_types::Range::new(s, e), take_focus).ok();
     }
 }
 
@@ -979,7 +962,7 @@ fn delete_selected_element() {
         return;
     };
 
-    let Ok(url) = Url::from_file_path(&selected.path) else {
+    let Some(url) = selected.path.to_url() else {
         return;
     };
 
@@ -1038,15 +1021,15 @@ fn resize_selected_element_impl(
     let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?.rect;
 
     let position = rect.origin;
-    let root_element = element_selection::root_element(&component_instance);
-
-    let parent = search_for_parent_element(&root_element, &element_node.element)
+    let parent = element_node
+        .parent()
         .and_then(|parent_element| {
+            let (parent_path, parent_offset) = parent_element.path_and_offset();
             component_instance
-                .element_positions(&parent_element)
+                .component_positions(&parent_path, parent_offset.into())
                 .iter()
-                .find(|g| g.contains(position))
-                .map(|g| g.rect.origin)
+                .find(|geometry| geometry.contains(position))
+                .map(|geometry| geometry.rect.origin)
         })
         .unwrap_or_default();
 
@@ -1088,7 +1071,7 @@ fn resize_selected_element_impl(
         return None;
     }
 
-    let url = Url::from_file_path(&path).ok()?;
+    let url = path.to_url()?;
     let document_cache = document_cache()?;
 
     let version = document_cache.document_version(&url);
@@ -1205,7 +1188,7 @@ fn change_style() {
     // style so the next build uses it.
     let style = get_current_style();
     let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        preview_state.config.style = style;
+        preview_state.config.overrides.style = Some(style);
         preview_state.current_component()
     }) else {
         return;
@@ -1232,18 +1215,13 @@ fn extract_resources(
     let mut result: HashSet<Url> = Default::default();
 
     for dependency in dependencies {
-        let Ok(path) = dependency.to_file_path() else {
-            continue;
-        };
+        let path = SourcePath::from_url(dependency);
         let Some(doc) = type_loader.get_document(&path) else {
             continue;
         };
 
         result.extend(
-            doc.embedded_file_resources
-                .borrow()
-                .iter()
-                .filter_map(|er| Url::from_file_path(er.path.as_deref()?).ok()),
+            doc.embedded_file_resources.borrow().iter().filter_map(|er| er.path.as_ref()?.to_url()),
         );
     }
 
@@ -1258,6 +1236,10 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
         return;
     }
 
+    update_previewed_component(preview_url, previewed_component);
+}
+
+fn update_previewed_component(preview_url: &Url, previewed_component: Option<String>) {
     let (previewed_url, component, source_code) = PREVIEW_STATE.with_borrow(|preview_state| {
         let pc = preview_state.current_component();
         (
@@ -1267,10 +1249,16 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
         )
     });
 
+    let source_url = previewed_url.as_ref().unwrap_or(preview_url);
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
 
         for (url, cache_entry) in &source_code {
+            if SourcePath::from_url(url).file_name()
+                == Some(i_slint_compiler::project_file::FILE_NAME)
+            {
+                continue;
+            }
             let mut diag = diagnostics::BuildDiagnostics::default();
             if document_cache.get_document(url).is_none() {
                 editor_preview::util::poll_once(document_cache.load_url(
@@ -1282,13 +1270,13 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
             }
         }
 
-        let uses_widgets = document_cache.uses_widgets(preview_url);
+        let uses_widgets = document_cache.uses_widgets(source_url);
 
         let mut components = Vec::new();
         component_catalog::builtin_components(&document_cache, &mut components);
         component_catalog::all_exported_components(
             &document_cache,
-            &mut |ci| !ci.is_global,
+            &mut |ci| !ci.is_global && !ci.is_interface,
             &mut components,
         );
 
@@ -1327,17 +1315,25 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 if let Some(app_window) = &preview_state.app_window {
                     let win = i_slint_core::window::WindowInner::from_pub(app_window.window())
                         .window_adapter();
-                    let palettes = ui::palette::collect_palette(&document_cache, preview_url, &win);
+                    let palettes = ui::palette::collect_palette(&document_cache, source_url, &win);
                     ui::palette::set_palette(&api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
                 ui::ui_set_known_components(&api, &preview_state.known_components, index);
-                let component = document_cache.get_document(preview_url).and_then(|doc| {
-                    match previewed_component.as_ref() {
-                        Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
-                        None => doc.last_exported_component(),
-                    }
-                });
+                let component =
+                    document_cache.get_document(source_url).and_then(
+                        |doc| match previewed_component.as_ref() {
+                            Some(c_id) => doc
+                                .inner_components
+                                .iter()
+                                .find(|c| {
+                                    c.id == c_id
+                                        || doc.export_names(c).first().is_some_and(|n| n == c_id)
+                                })
+                                .cloned(),
+                            None => doc.last_exported_component(),
+                        },
+                    );
                 outline::reset_outline(&api, component);
                 ui::ui_set_preview_data(&api, preview_data, previewed_component);
             }
@@ -1385,17 +1381,16 @@ fn get_url_from_cache(url: &Url) -> std::io::Result<(SourceFileVersion, String)>
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.dependencies.insert(url.to_owned());
 
-        preview_state.source_code.get(url).map(|r| (r.version, r.code.clone())).ok_or(
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "File not registered in Live-Preview!",
-            ),
-        )
+        preview_state
+            .source_code
+            .get(url)
+            .map(|r| (r.version, r.code.clone()))
+            .ok_or(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"))
     })
 }
 
-fn get_path_from_cache(path: &Path) -> std::io::Result<(SourceFileVersion, String)> {
-    let url = Url::from_file_path(path).map_err(|()| {
+fn get_path_from_cache(path: &SourcePath) -> std::io::Result<(SourceFileVersion, String)> {
+    let url = path.to_url().ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::NotFound, "Failed to convert path to URL")
     })?;
     get_url_from_cache(&url)
@@ -1449,7 +1444,7 @@ async fn reload_timer_function() {
         };
         // An empty style lets the compiler apply its own default (and SLINT_STYLE);
         // the ComboBox is updated to the resolved style once the build finishes.
-        let style = config.style.clone();
+        let style = config.overrides.style.clone().unwrap_or_default();
 
         match reload_preview_impl(preview_component, behavior, style, config).await {
             Ok(()) => {}
@@ -1500,15 +1495,12 @@ async fn reload_timer_function() {
             let format = PREVIEW_STATE.with_borrow(|ps| ps.format());
             let (path, pos) = element_node.with_element_node(|node| {
                 let sf = &node.source_file;
-                (sf.path().to_owned(), util::text_size_to_lsp_position(sf, se.offset, format))
+                (sf.path().to_url(), util::text_size_to_lsp_position(sf, se.offset, format))
             });
             let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-            lsp.ask_editor_to_show_document(
-                &path.to_string_lossy(),
-                lsp_types::Range::new(pos, pos),
-                false,
-            )
-            .ok();
+            if let Some(url) = path {
+                lsp.ask_editor_to_show_document(url, lsp_types::Range::new(pos, pos), false).ok();
+            }
         }
     }
 }
@@ -1563,13 +1555,13 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 
 async fn parse_source(
     config: PreviewConfig,
-    path: PathBuf,
+    path: SourcePath,
     version: SourceFileVersion,
-    source_code: String,
+    source_code: Option<String>,
     style: String,
     component: Option<String>,
     file_loader_fallback: impl Fn(
-        String,
+        SourcePath,
     ) -> core::pin::Pin<
         Box<
             dyn core::future::Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>,
@@ -1596,13 +1588,6 @@ async fn parse_source(
     cc.error_on_binding_loop_with_window_layout = true;
     cc.is_preview = true;
 
-    if !style.is_empty() {
-        cc.style = Some(style);
-    }
-    cc.include_paths = config.include_paths;
-    cc.library_paths = config.library_paths;
-    cc.enable_experimental |= config.enable_experimental;
-
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(
             cc,
@@ -1610,7 +1595,38 @@ async fn parse_source(
             editor_preview::document_cache::SourceFileVersionMap::from([(path.clone(), version)]),
         );
 
-    let result = builder.build_from_source(source_code, path).await;
+    let mut overrides = config.overrides;
+    if !style.is_empty() {
+        overrides.style = Some(style);
+    }
+    builder.set_overrides(overrides, i_slint_core::InternalToken);
+    builder.set_project_root(
+        PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
+        i_slint_core::InternalToken,
+    );
+    let project_loader = open_file_fallback.clone();
+    let project_versions = source_file_versions.clone();
+    builder.set_project_file_loader(
+        Rc::new(move |path| {
+            let project_loader = project_loader.clone();
+            let project_versions = project_versions.clone();
+            Box::pin(async move {
+                match project_loader {
+                    Some(loader) => Some(match loader(path.clone()).await {
+                        Some(result) => result.map(|(version, contents)| {
+                            project_versions.as_ref().borrow_mut().insert(path, version);
+                            contents
+                        }),
+                        None => Err(std::io::ErrorKind::NotFound.into()),
+                    }),
+                    None => Some(Err(std::io::ErrorKind::NotFound.into())),
+                }
+            })
+        }),
+        i_slint_core::InternalToken,
+    );
+    let result =
+        builder.build_from_source_path(source_code, path, i_slint_core::InternalToken).await;
 
     let compiled = result.components().next();
     (result.diagnostics().collect(), compiled, open_file_fallback, source_file_versions)
@@ -1634,11 +1650,18 @@ async fn reload_preview_impl(
         set_current_live_data(live_preview_data);
     }
 
-    let path = component.url.to_file_path().unwrap_or(PathBuf::from(&component.url.to_string()));
-    let (version, source) = get_url_from_cache(&component.url).unwrap_or_else(|err| {
-        tracing::debug!("Preview: Failed to load source for url={}, error={}", component.url, err);
-        Default::default()
-    });
+    let path = SourcePath::from_url(&component.url);
+    let (version, source) = match get_url_from_cache(&component.url) {
+        Ok((version, source)) => (version, Some(source)),
+        Err(err) => {
+            tracing::debug!(
+                "Preview: Failed to load source for url={}, error={}",
+                component.url,
+                err
+            );
+            (None, None)
+        }
+    };
 
     let format = if config.format_utf8 {
         editor_preview::ByteFormat::Utf8
@@ -1654,9 +1677,7 @@ async fn reload_preview_impl(
         style,
         component.component.clone(),
         move |path| {
-            let path = path.to_owned();
             Box::pin(async move {
-                let path = PathBuf::from(&path);
                 // Always return Some to stop the compiler from trying to load itself...
                 // All loading is done by the LSP for us!
                 Some(get_path_from_cache(&path))
@@ -1665,6 +1686,11 @@ async fn reload_preview_impl(
     )
     .await;
 
+    if !PREVIEW_STATE
+        .with_borrow(|state| state.current_previewed_component.as_ref() == Some(&component))
+    {
+        return Ok(());
+    }
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
 
@@ -1776,7 +1802,14 @@ pub fn set_remote_connection_state(
             let ui_state = match state {
                 R::Disconnected => ui::RemoteConnectionState::Disconnected,
                 R::Connecting => ui::RemoteConnectionState::Connecting,
-                R::PairingRequired => ui::RemoteConnectionState::PairingRequired,
+                R::Reconnecting => ui::RemoteConnectionState::Reconnecting,
+                R::PairingRequired { code_digits } => {
+                    api.set_remote_pairing_code_length(u32::from(code_digits).clamp(
+                        i_slint_live_preview::protocol::pairing::CODE_DIGITS,
+                        i_slint_live_preview::protocol::pairing::MAX_CODE_DIGITS,
+                    ) as i32);
+                    ui::RemoteConnectionState::PairingRequired
+                }
                 R::UnpairedWarning => ui::RemoteConnectionState::UnpairedWarning,
                 R::Connected => ui::RemoteConnectionState::Connected,
                 R::Failed => ui::RemoteConnectionState::Failed,
@@ -1789,7 +1822,7 @@ pub fn set_remote_connection_state(
 }
 
 pub fn highlight(url: Option<Url>, offset: TextSize) {
-    let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
+    let Some(path) = url.as_ref().map(SourcePath::from_url) else {
         element_selection::unselect_element();
         return;
     };
@@ -1838,21 +1871,16 @@ fn convert_diagnostics(
     let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
         Default::default();
 
-    fn path_to_url(path: &Path) -> Url {
-        Url::from_file_path(path).ok().unwrap_or_else(|| Url::parse("file:/unknown").unwrap())
-    }
-
     // Pre-fill version info and an empty diagnostics to reset the state for the url
     for (path, version) in file_versions.iter() {
-        result.insert(path_to_url(path), (*version, Vec::new()));
+        result.extend(path.to_url().map(|url| (url, (*version, Vec::new()))));
     }
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         for d in diagnostics {
-            if d.source_file().is_none_or(|f| !i_slint_compiler::pathutils::is_absolute(f)) {
+            let Some(uri) = i_slint_live_preview::protocol::diagnostic_url(d) else {
                 continue;
-            }
-            let uri = path_to_url(d.source_file().unwrap());
+            };
             let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
             if let Some(data) = result.get_mut(&uri) {
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
@@ -1962,14 +1990,14 @@ fn set_selected_element(
                             find_last_component_identifier(document)
                         }?;
 
-                        let path = identifier.source_file.path().to_path_buf();
+                        let path = identifier.source_file.path().clone();
                         let offset = identifier.text_range().start();
 
                         Some(ElementSelection { path, offset, instance_index: 0 })
                     })
                     .as_ref()
                     .and_then(|selection| {
-                        let url = Url::from_file_path(&selection.path).ok()?;
+                        let url = selection.path.to_url()?;
                         let version = document_cache.document_version(&url);
                         Some((
                             url.clone(),
@@ -1990,6 +2018,7 @@ fn set_selected_element(
                     ui::LayoutKind::Horizontal => properties::LayoutKind::HorizontalBox,
                     ui::LayoutKind::Vertical => properties::LayoutKind::VerticalBox,
                     ui::LayoutKind::Grid => properties::LayoutKind::GridLayout,
+                    ui::LayoutKind::Flexbox => properties::LayoutKind::FlexboxLayout,
                 };
                 if let Some(app_window) = &preview_state.app_window {
                     preview_state.property_range_declarations = Some(ui::ui_set_properties(
@@ -2015,16 +2044,13 @@ fn set_selected_element(
         let (path, pos) = element_node.with_element_node(|node| {
             let sf = &node.source_file;
             (
-                sf.path().to_owned(),
+                sf.path().to_url(),
                 util::text_size_to_lsp_position(sf, node.text_range().start(), format),
             )
         });
-        lsp.ask_editor_to_show_document(
-            &path.to_string_lossy(),
-            lsp_types::Range::new(pos, pos),
-            false,
-        )
-        .ok();
+        if let Some(url) = path {
+            lsp.ask_editor_to_show_document(url, lsp_types::Range::new(pos, pos), false).ok();
+        }
     }
 }
 
@@ -2161,7 +2187,8 @@ fn update_preview_area(
 
 #[cfg(test)]
 pub mod test {
-    use std::{collections::HashMap, path::PathBuf, rc::Rc};
+    use i_slint_compiler::source_path::SourcePath;
+    use std::{collections::HashMap, rc::Rc};
 
     use slint_interpreter::ComponentInstance;
 
@@ -2170,7 +2197,7 @@ pub mod test {
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
-        code: HashMap<PathBuf, String>,
+        code: HashMap<SourcePath, String>,
     ) -> ComponentInstance {
         i_slint_backend_testing::init_no_event_loop();
         reinterpret_test_with_sources(style, code)
@@ -2179,7 +2206,7 @@ pub mod test {
     #[track_caller]
     pub fn reinterpret_test_with_sources(
         style: &str,
-        code: HashMap<PathBuf, String>,
+        code: HashMap<SourcePath, String>,
     ) -> ComponentInstance {
         let code = Rc::new(code);
 
@@ -2189,12 +2216,11 @@ pub mod test {
             Default::default(),
             path,
             Some(24),
-            source_code.to_string(),
+            Some(source_code.to_string()),
             style.to_string(),
             None,
             move |path| {
                 let code = code.clone();
-                let path = PathBuf::from(&path);
 
                 Box::pin(async move {
                     let Some(source) = code.get(&path) else {
@@ -2244,6 +2270,200 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    #[test]
+    fn a_source_with_widgets_updates_the_live_preview_ui() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let target = PreviewComponent {
+            url: Url::parse("file:///project/main.slint").unwrap(),
+            component: None,
+        };
+        let source = r#"import { Button } from "std-widgets.slint";
+            export component Main inherits Window { Button {} }"#;
+        let (diagnostics, compiled, imports, versions) = spin_on::spin_on(parse_source(
+            Default::default(),
+            SourcePath::from_url(&target.url),
+            None,
+            Some(source.into()),
+            "fluent".into(),
+            None,
+            |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
+        ));
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let compiled = compiled.unwrap();
+        let document_cache = editor_preview::DocumentCache::new_from_raw_parts(
+            compiled.raw_type_loader().unwrap(),
+            imports,
+            versions,
+            editor_preview::ByteFormat::Utf8,
+        );
+        let window = ui::AppWindow::Preview(ui::PreviewUi::new().unwrap());
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(target.clone());
+            state.document_cache.replace(Some(Rc::new(document_cache)));
+            state.api = window.api_weak();
+            state.app_window = Some(window.clone_strong());
+        });
+        update_previewed_component(&target.url, Some("Main".into()));
+        assert!(window.api().get_uses_widgets());
+        assert_eq!(PREVIEW_STATE.with_borrow(|state| state.current_component()), Some(target));
+    }
+
+    #[test]
+    fn a_target_changed_during_compilation_rejects_the_old_result() {
+        i_slint_backend_testing::init_no_event_loop();
+        let original =
+            PreviewComponent { url: Url::parse("file:///old.slint").unwrap(), component: None };
+        for replacement in [
+            PreviewComponent { url: Url::parse("file:///new.slint").unwrap(), component: None },
+            PreviewComponent { url: original.url.clone(), component: Some("Different".into()) },
+        ] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                *state = Default::default();
+                state.set_current_component(original.clone());
+            });
+            let switched_target = replacement.clone();
+            let (diagnostics, _, _, _) = spin_on::spin_on(parse_source(
+                Default::default(), SourcePath::from_url(&original.url), None,
+                Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
+                String::new(), None,
+                move |path| {
+                    let replacement = switched_target.clone();
+                    Box::pin(async move {
+                        PREVIEW_STATE.with_borrow_mut(|state| state.set_current_component(replacement));
+                        Some(if path.file_name() == Some("dependency.slint") { Ok((None, "export component Dependency inherits Window {}".into())) } else { Err(std::io::ErrorKind::NotFound.into()) })
+                    })
+                },
+            ));
+            assert!(diagnostics.is_empty(), "{diagnostics:?}");
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                assert_ne!(state.current_component(), Some(original.clone()));
+                assert_eq!(state.current_component(), Some(replacement.clone()));
+            });
+        }
+    }
+
+    #[test]
+    fn explicit_root_uses_cached_project_file_without_main() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let directory = tempfile::tempdir().unwrap();
+        let root = Url::from_directory_path(directory.path()).unwrap();
+        let manifest_path = directory.path().join("slint-project.json");
+        std::fs::write(
+            &manifest_path,
+            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#,
+        )
+        .unwrap();
+        let manifest = Url::from_file_path(&manifest_path).unwrap();
+        let source = SourcePath::new(directory.path().join("main.slint"));
+        let code = "export component Main inherits Window { ComponentContainer {} }";
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.project_root = Some(SourcePath::from_url(&root));
+        });
+        for (contents, has_errors) in [
+            (None, true),
+            (
+                Some(
+                    r#"{"slint-edition":"1.19","main":"other.slint","enable-experimental-features":true}"#,
+                ),
+                false,
+            ),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
+        ] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                if let Some(contents) = contents {
+                    state.source_code.insert(
+                        manifest.clone(),
+                        SourceCodeCacheEntry { version: Some(1), code: contents.into() },
+                    );
+                } else {
+                    state.source_code.remove(&manifest);
+                }
+            });
+            let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
+                Default::default(),
+                source.clone(),
+                Some(2),
+                Some(code.into()),
+                String::new(),
+                None,
+                |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
+            ));
+            assert_eq!(!diagnostics.is_empty(), has_errors, "{diagnostics:?}");
+            assert_eq!(compiled.is_some(), !has_errors);
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn an_uncached_file_reports_the_missing_file() {
+        i_slint_backend_testing::init_no_event_loop();
+        reset_preview_state(Default::default());
+        let directory = tempfile::tempdir().unwrap();
+        for file_name in ["main.slint", "main.rs"] {
+            let path = SourcePath::new(directory.path().join(file_name));
+            let (diagnostics, compiled, _, versions) = spin_on::spin_on(parse_source(
+                Default::default(),
+                path.clone(),
+                None,
+                None,
+                String::new(),
+                None,
+                |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
+            ));
+            assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+            assert!(diagnostics[0].message().contains("File not found"), "{diagnostics:?}");
+            assert!(compiled.is_none());
+            let url = path.to_url().unwrap();
+            let converted = convert_diagnostics(&diagnostics, &versions.borrow());
+            let lsp_diagnostics = &converted[&url].1;
+            assert_eq!(lsp_diagnostics.len(), 1, "{converted:?}");
+            assert_eq!(lsp_diagnostics[0].range, lsp_types::Range::default());
+        }
+    }
+
+    #[test]
+    fn manifest_cache_changes_preserve_dependency_reload_behavior() {
+        reset_preview_state(Default::default());
+        let root = tempfile::tempdir().unwrap();
+        let manifest_path = root.path().join(i_slint_compiler::project_file::FILE_NAME);
+        std::fs::write(&manifest_path, r#"{"style":"disk"}"#).unwrap();
+        let manifest = Url::from_file_path(&manifest_path).unwrap();
+        let component = PreviewComponent {
+            url: Url::from_file_path(root.path().join("main.slint")).unwrap(),
+            component: None,
+        };
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(component);
+            state.loading_state = PreviewFutureState::Loading;
+        });
+        assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
+        for (contents, reload) in [
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"slint-edition":"1.19"}"#), false),
+            (Some("{broken"), true),
+            (None, true),
+            (None, true),
+        ] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.loading_state = PreviewFutureState::Loading;
+                state.current_load_behavior = None;
+            });
+            if let Some(contents) = contents {
+                set_contents(&VersionedUrl::new(manifest.clone(), None), contents.into());
+            } else {
+                delete_document(&manifest);
+            }
+            PREVIEW_STATE.with_borrow(|state| {
+                assert_eq!(state.loading_state == PreviewFutureState::NeedsReload, reload);
+                assert_eq!(state.current_load_behavior.is_some(), reload);
+                assert!(state.dependencies.contains(&manifest));
+            });
+        }
+        reset_preview_state(Default::default());
     }
 
     #[test]

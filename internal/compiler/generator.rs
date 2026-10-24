@@ -10,12 +10,11 @@ There is one sub module for every language
 // cSpell: ignore deque subcomponent
 
 use smol_str::SmolStr;
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{BuiltinStruct, ElementType, StructName};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
@@ -28,12 +27,17 @@ pub mod cpp_live_preview;
 #[cfg(feature = "rust")]
 pub mod rust;
 #[cfg(feature = "rust")]
+pub mod rust_code_formatter;
+#[cfg(feature = "rust")]
 pub mod rust_live_preview;
 #[cfg(feature = "slint-sc")]
 pub mod slint_sc;
 
 #[cfg(feature = "python")]
 pub mod python;
+
+#[cfg(feature = "typescript")]
+pub mod typescript;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OutputFormat {
@@ -49,6 +53,8 @@ pub enum OutputFormat {
     Llr,
     #[cfg(feature = "python")]
     Python,
+    #[cfg(feature = "typescript")]
+    TypeScript,
 }
 
 impl OutputFormat {
@@ -62,6 +68,8 @@ impl OutputFormat {
             Some("rs") => Some(Self::Rust),
             #[cfg(feature = "python")]
             Some("py") => Some(Self::Python),
+            #[cfg(feature = "typescript")]
+            Some("ts") => Some(Self::TypeScript),
             _ => None,
         }
     }
@@ -80,6 +88,8 @@ impl std::str::FromStr for OutputFormat {
             "llr" => Ok(Self::Llr),
             #[cfg(feature = "python")]
             "python" => Ok(Self::Python),
+            #[cfg(feature = "typescript")]
+            "typescript" => Ok(Self::TypeScript),
             _ => Err(format!("Unknown output format {s}")),
         }
     }
@@ -104,7 +114,7 @@ pub fn generate(
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
             let output = rust::generate(doc, compiler_config)?;
-            write!(destination, "{output}")?;
+            rust_code_formatter::write_formatted(&output, destination)?;
         }
         #[cfg(feature = "slint-sc")]
         OutputFormat::SlintSc => {
@@ -129,6 +139,11 @@ pub fn generate(
         #[cfg(feature = "python")]
         OutputFormat::Python => {
             let output = python::generate(doc, compiler_config, destination_path)?;
+            write!(destination, "{output}")?;
+        }
+        #[cfg(feature = "typescript")]
+        OutputFormat::TypeScript => {
+            let output = typescript::generate(doc, compiler_config)?;
             write!(destination, "{output}")?;
         }
     }
@@ -430,100 +445,7 @@ pub fn handle_property_bindings_init(
     });
 }
 
-/// Call the given function for each constant property in the Component so one can set
-/// `set_constant` on it.
-pub fn for_each_const_properties(
-    component: &Rc<Component>,
-    mut f: impl FnMut(&ElementRc, &SmolStr),
-) {
-    crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
-        if elem.borrow().repeated.is_some() {
-            return;
-        }
-        let mut e = elem.clone();
-        let mut all_prop = BTreeSet::new();
-        loop {
-            all_prop.extend(
-                e.borrow()
-                    .property_declarations
-                    .iter()
-                    .filter(|(_, x)| {
-                        x.property_type.is_property_type() &&
-                            !matches!( &x.property_type, crate::langtype::Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo)))
-                    })
-                    .map(|(k, _)| k.clone()),
-            );
-            match &e.clone().borrow().base_type {
-                ElementType::Component(c) => {
-                    e = c.root_element.clone();
-                }
-                ElementType::Native(n) => {
-                    let mut n = n;
-                    loop {
-                        all_prop.extend(
-                            n.properties
-                                .iter()
-                                .filter(|(k, x)| {
-                                    x.ty.is_property_type()
-                                        && (n.class_name != "Flickable"
-                                            || !k.starts_with("content-"))
-                                        && k.as_str() != "commands"
-                                })
-                                .map(|(k, _)| k.clone()),
-                        );
-                        match n.parent.as_ref() {
-                            Some(p) => n = p,
-                            None => break,
-                        }
-                    }
-                    break;
-                }
-                ElementType::Builtin(_) => {
-                    unreachable!("builtin element should have been resolved")
-                }
-                ElementType::Global | ElementType::Interface | ElementType::Error => break,
-            }
-        }
-        for c in all_prop {
-            if NamedReference::new(elem, c.clone()).is_constant() {
-                f(elem, &c);
-            }
-        }
-    });
-}
-
-/// Convert a ascii kebab string to pascal case
-pub fn to_pascal_case(str: &str) -> String {
-    let mut result = Vec::with_capacity(str.len());
-    let mut next_upper = true;
-    for x in str.as_bytes() {
-        if *x == b'-' {
-            next_upper = true;
-        } else if next_upper {
-            result.push(x.to_ascii_uppercase());
-            next_upper = false;
-        } else {
-            result.push(*x);
-        }
-    }
-    String::from_utf8(result).unwrap()
-}
-
-/// Convert a ascii pascal case string to kebab case
-pub fn to_kebab_case(str: &str) -> String {
-    let mut result = Vec::with_capacity(str.len());
-    for x in str.as_bytes() {
-        if x.is_ascii_uppercase() {
-            if !result.is_empty() {
-                result.push(b'-');
-            }
-            result.push(x.to_ascii_lowercase());
-        } else {
-            result.push(*x);
-        }
-    }
-    String::from_utf8(result).unwrap()
-}
+pub use crate::names::{to_kebab_case, to_pascal_case};
 
 /// The number of arguments taken by the accessibility action of the given name, where the name
 /// is the `AccessibilityAction` variant in pascal case (such as `SetSelectionOffsets`).

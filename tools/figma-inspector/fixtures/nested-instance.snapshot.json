@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "12:1",
+    "nodeName": "Outer Instance"
+  },
+  "root": {
+    "kind": "instance",
+    "id": "12:1",
+    "name": "Outer Instance",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": "fixed",
+    "layoutSizingVertical": "fixed",
+    "fills": [
+      {
+        "kind": "solid",
+        "color": {
+          "r": 0.12,
+          "g": 0.32,
+          "b": 0.84,
+          "a": 1
+        },
+        "opacity": 1
+      }
+    ],
+    "strokes": [],
+    "autoLayout": {
+      "direction": "horizontal",
+      "paddingLeft": 16,
+      "paddingRight": 16,
+      "paddingTop": 12,
+      "paddingBottom": 12,
+      "itemSpacing": 8,
+      "primaryAlignment": "center",
+      "counterAlignment": "center",
+      "wrap": false,
+      "counterAxisSpacing": 8,
+      "counterAxisAlignContent": "start"
+    },
+    "children": [
+      {
+        "kind": "instance",
+        "id": "12:2",
+        "name": "Nested Instance",
+        "x": 0,
+        "y": 0,
+        "width": 144,
+        "height": 48,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": "fixed",
+        "layoutSizingVertical": "fixed",
+        "fills": [],
+        "strokes": [],
+        "autoLayout": {
+          "direction": "vertical",
+          "paddingLeft": 8,
+          "paddingRight": 8,
+          "paddingTop": 8,
+          "paddingBottom": 8,
+          "itemSpacing": 4,
+          "primaryAlignment": "center",
+          "counterAlignment": "center",
+          "wrap": false,
+          "counterAxisSpacing": 4,
+          "counterAxisAlignContent": "start"
+        },
+        "children": [
+          {
+            "kind": "text",
+            "id": "12:3",
+            "name": "Nested Label",
+            "x": 0,
+            "y": 0,
+            "width": 128,
+            "height": 24,
+            "opacity": 1,
+            "visible": true,
+            "rotation": 0,
+            "layoutSizingHorizontal": "fill",
+            "layoutSizingVertical": "fixed",
+            "characters": "Nested override",
+            "fills": [
+              {
+                "kind": "solid",
+                "color": {
+                  "r": 1,
+                  "g": 1,
+                  "b": 1,
+                  "a": 1
+                },
+                "opacity": 1
+              }
+            ],
+            "fontFamily": "Inter",
+            "fontStyle": "Regular",
+            "fontSize": 14,
+            "fontWeight": 500,
+            "textAutoResize": "width-and-height",
+            "horizontalAlign": "CENTER",
+            "verticalAlign": "CENTER",
+            "layoutPositioning": "auto",
+            "italic": false,
+            "letterSpacing": 0,
+            "lineHeightFactor": null,
+            "wrap": false,
+            "overflow": "clip",
+            "maxLines": null,
+            "runs": []
+          }
+        ],
+        "layoutPositioning": "auto",
+        "cornerRadii": [
+          8,
+          8,
+          8,
+          8
+        ],
+        "clipsContent": false,
+        "containerKind": "native",
+        "layoutFallback": "freeform",
+        "shadows": []
+      }
+    ],
+    "layoutPositioning": "auto",
+    "cornerRadii": [
+      12,
+      12,
+      12,
+      12
+    ],
+    "clipsContent": false,
+    "containerKind": "native",
+    "layoutFallback": "freeform",
+    "shadows": []
+  }
+}

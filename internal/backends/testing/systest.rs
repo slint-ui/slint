@@ -32,22 +32,19 @@ impl TestingClient {
     fn start_if_needed(self: &Rc<Self>) {
         let this = self.clone();
         self.message_loop_future.get_or_init(|| {
-            i_slint_core::with_global_context(
-                || panic!("uninitialized platform"),
-                |context| {
-                    let this = this.clone();
-                    context
-                        .spawn_local(async move {
-                            message_loop(&this.server_addr, |request| {
-                                let this = this.clone();
-                                Box::pin(async move { this.handle_request(request).await })
-                            })
-                            .await;
+            i_slint_core::with_existing_context(|context| {
+                let this = this.clone();
+                context
+                    .spawn_local(async move {
+                        message_loop(&this.server_addr, |request| {
+                            let this = this.clone();
+                            Box::pin(async move { this.handle_request(request).await })
                         })
-                        .unwrap()
-                },
-            )
-            .unwrap()
+                        .await;
+                    })
+                    .unwrap()
+            })
+            .expect("uninitialized platform")
         });
     }
 

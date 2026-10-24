@@ -55,13 +55,13 @@ pub mod wgpu_30_surface;
 mod wgpu_renderer;
 #[cfg(feature = "wgpu-29")]
 pub use wgpu_renderer::SkiaWGPU29Renderer;
-#[cfg(feature = "wgpu-30")]
-pub use wgpu_renderer::SkiaWGPU30Renderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 #[allow(deprecated)]
 pub use wgpu_renderer::SkiaWGPURenderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub use wgpu_renderer::SkiaWGPURendererGeneric;
+#[cfg(feature = "wgpu-30")]
+pub use wgpu_renderer::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
@@ -168,8 +168,8 @@ fn default_wgpu_surface_factory(
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "wgpu-30")] {
+    core::cfg_select! {
+        feature = "wgpu-30" => {
             surface_factory::<wgpu_30_surface::WGPUSurface>(
                 context,
                 window_handle,
@@ -177,7 +177,8 @@ fn default_wgpu_surface_factory(
                 size,
                 requested_graphics_api,
             )
-        } else {
+        }
+        _ => {
             surface_factory::<wgpu_29_surface::WGPUSurface>(
                 context,
                 window_handle,
@@ -542,17 +543,26 @@ impl SkiaRenderer {
         renderer
     }
 
-    /// Reset the surface to a new surface. (destroy the previously set surface if any)
-    pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
+    /// Releases every cache that holds a GPU-backed resource.
+    fn clear_graphics_caches(&self) {
         self.image_cache.clear_all();
+        self.layer_cache.clear_all();
         self.path_cache.clear_all();
         self.box_shadow_cache.clear();
         self.text_layout_cache.clear_all();
+    }
+
+    /// Reset the surface to a new surface. (destroy the previously set surface if any)
+    pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
+        self.clear_graphics_caches();
         self.rendering_first_time.set(true);
         *self.surface.borrow_mut() = Some(surface);
     }
 
+    /// Releases the graphics caches and destroys the surface.
     fn clear_surface(&self) {
+        self.clear_graphics_caches();
+
         let Some(surface) = self.surface.borrow_mut().take() else {
             return;
         };
@@ -577,10 +587,6 @@ impl SkiaRenderer {
     /// rendering surface. Call [`Self::set_window_handle()`] to re-associate the renderer with a new
     /// window surface for subsequent rendering.
     pub fn suspend(&self) -> Result<(), PlatformError> {
-        self.image_cache.clear_all();
-        self.path_cache.clear_all();
-        self.box_shadow_cache.clear();
-        self.text_layout_cache.clear_all();
         // Destroy the old surface before allocating the new one, to work around
         // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
         // trying to create a second synchronization object and that's not allowed.
@@ -620,11 +626,18 @@ impl SkiaRenderer {
         }
     }
 
+    /// Drops the GPU resources Skia caches, so that the next frame uploads glyphs and images again.
+    pub fn free_gpu_resources(&self) {
+        if let Some(surface) = self.surface.borrow().as_ref() {
+            surface.free_gpu_resources();
+        }
+    }
+
     /// Render the scene in the previously associated window.
     pub fn render(&self) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
         let size = window_adapter.window().size();
-        self.internal_render_with_post_callback(0., (0., 0.), size, None)
+        self.internal_render_transformed(0., (0., 0.), size)
     }
 
     fn invoke_rendering_notifier_setup(
@@ -648,12 +661,11 @@ impl SkiaRenderer {
         Ok(())
     }
 
-    fn internal_render_with_post_callback(
+    fn internal_render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let surface = self.surface.borrow();
         let Some(surface) = surface.as_ref() else { return Ok(DrawOutcome::Success) };
@@ -674,7 +686,6 @@ impl SkiaRenderer {
                     back_buffer_age,
                     Some(surface.as_ref()),
                     window,
-                    post_render_cb,
                 )
             },
             &self.pre_present_callback,
@@ -690,7 +701,6 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Option<DirtyRegion> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
@@ -705,7 +715,6 @@ impl SkiaRenderer {
                     back_buffer_age,
                     surface,
                     window,
-                    post_render_cb,
                     components,
                     post_render,
                 )
@@ -729,7 +738,6 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
         components: &[(ItemTreeWeak, LogicalPoint)],
         post_render: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Option<DirtyRegion> {
@@ -828,9 +836,14 @@ impl SkiaRenderer {
             if let Some(window_item_rc) = window_inner.window_item_rc() {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
-                if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
+                let background = window_item.as_pin_ref().background();
+                if let Brush::SolidColor(clear_color) = background {
                     skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
                 } else {
+                    // The gradient blends over what the target holds, which may be undefined.
+                    if !background.is_opaque() {
+                        skia_canvas.clear(skia_safe::Color::TRANSPARENT);
+                    }
                     // Draws the window background as gradient
                     item_renderer.draw_rectangle(
                         window_item.as_pin_ref(),
@@ -889,10 +902,6 @@ impl SkiaRenderer {
                     partial_rendering_state.force_screen_refresh();
                 }
             }
-
-            if let Some(cb) = post_render_cb.as_ref() {
-                cb(item_renderer)
-            }
         }
 
         if let Some(ctx) = gr_context.as_mut() {
@@ -947,6 +956,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.image_cache.component_destroyed(component);
+        self.layer_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
         self.text_layout_cache.component_destroyed(component);
 
@@ -959,10 +969,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
-        self.image_cache.clear_all();
-        self.path_cache.clear_all();
-        self.box_shadow_cache.clear();
-        self.text_layout_cache.clear_all();
+        self.clear_graphics_caches();
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.clear_cache();
@@ -1011,7 +1018,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         )
         .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
 
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window, None);
+        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window);
 
         Ok(target_buffer)
     }
@@ -1110,31 +1117,27 @@ pub trait Surface {
     fn set_transparent(&self, _: bool) -> Result<(), PlatformError> {
         Ok(())
     }
+
+    /// Drops the GPU resources Skia caches, such as glyph atlases and uploaded images.
+    fn free_gpu_resources(&self) {}
 }
 
 pub trait SkiaRendererExt {
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
 }
 
 impl SkiaRendererExt for SkiaRenderer {
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(
-            rotation_angle_degrees,
-            translation,
-            surface_size,
-            post_render_cb,
-        )
+        self.internal_render_transformed(rotation_angle_degrees, translation, surface_size)
     }
 }

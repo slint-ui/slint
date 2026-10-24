@@ -342,8 +342,9 @@ fn extract_compiler_config(
 fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
     diag.all_loaded_files
         .iter()
+        .filter_map(|path| path.as_native_path())
         .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
-        .cloned()
+        .map(std::path::Path::to_path_buf)
         .collect()
 }
 
@@ -412,6 +413,15 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
 
+    let source_file = diagnostics::SourceFileInner::from_path_only(
+        i_slint_compiler::source_path::SourcePath::new(source_path.clone()),
+    );
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
+    if diag.has_errors() {
+        return diag.report_macro_diagnostic(&tokens);
+    }
+
     // Consult the output cache before doing any (expensive) compilation. The key
     // is computed from the macro body plus everything else that influences the
     // generated output; a hit just re-parses the cached output string. Only
@@ -425,16 +435,10 @@ pub fn slint(stream: TokenStream) -> TokenStream {
         return stream;
     }
 
-    let source_file = diagnostics::SourceFileInner::from_path_only(source_path);
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
-    if diag.has_errors() {
-        return diag.report_macro_diagnostic(&tokens);
-    }
-
     //println!("{syntax_node:#?}");
-    let (root_component, diag, loader) =
+    let (root_component, mut diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+    diag.remove_infos();
     //println!("{tree:#?}");
     if diag.has_errors() {
         return diag.report_macro_diagnostic(&tokens);

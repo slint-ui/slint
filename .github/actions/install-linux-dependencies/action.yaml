@@ -11,6 +11,10 @@ inputs:
         description: "Extra packages to install"
         required: false
         default: ""
+    add-architecture:
+        description: "Foreign architecture to install packages for, such as i386"
+        required: false
+        default: ""
     force-gcc-10:
         description: 'Force GCC version 10 (default: "no")'
         required: false
@@ -19,21 +23,88 @@ inputs:
 runs:
     using: composite
     steps:
+        - name: Configure network retries
+          shell: bash
+          run: bash "$GITHUB_ACTION_PATH/../network-retries.sh"
+        # The Azure Ubuntu mirror is sometimes so slow that a download of a few
+        # dozen MB exceeds the apt timeout, so keep the downloaded packages in the
+        # GitHub cache. Pass all of a job's packages to this action, as packages
+        # installed by later steps aren't saved.
+        - name: Configure apt download cache
+          id: apt-cache
+          if: runner.os == 'Linux'
+          shell: bash
+          env:
+              EXTRA_PACKAGES: ${{ inputs.extra-packages }}
+              ADD_ARCHITECTURE: ${{ inputs.add-architecture }}
+          run: |
+              dir="$RUNNER_TEMP/apt-archives"
+              mkdir -p "$dir/partial"
+              # The _apt user can't reach the runner's home directory.
+              printf 'Dir::Cache::Archives "%s";\nAPT::Sandbox::User "root";\n' "$dir" \
+                  | sudo tee /etc/apt/apt.conf.d/81-ci-archive-cache > /dev/null
+              packages=$(printf '%s %s' "$ADD_ARCHITECTURE" "$EXTRA_PACKAGES" | sha1sum | cut -c1-8)
+              # Not keyed on the workflow, so that pull requests (autofix.ci) restore
+              # what the scheduled runs of the CI workflow saved on master.
+              prefix="apt-${{ github.job }}-$ImageOS-${{ runner.arch }}-$packages-"
+              echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+        - name: Restore apt downloads
+          id: apt-restore
+          if: runner.os == 'Linux'
+          uses: actions/cache/restore@v6
+          with:
+              path: |
+                  ${{ runner.temp }}/apt-archives/*.deb
+                  ${{ runner.temp }}/apt-archives/partial/*.deb
+              key: ${{ steps.apt-cache.outputs.prefix }}
+              restore-keys: ${{ steps.apt-cache.outputs.prefix }}
         - name: Install Linux dependencies
           if: runner.os == 'Linux'
           shell: bash
+          env:
+              ADD_ARCHITECTURE: ${{ inputs.add-architecture }}
           run: |
-              # Bound apt so a stuck dpkg lock or mirror stall fails in minutes instead of hanging the job.
-              sudo timeout 600 apt-get update
+              if [ -n "$ADD_ARCHITECTURE" ]; then
+                  sudo dpkg --add-architecture "$ADD_ARCHITECTURE"
+              fi
+              bash "$GITHUB_ACTION_PATH/../apt-get-retry.sh" update
+              # Drop the cached packages that newer versions replaced.
+              sudo apt-get autoclean
               # libwayland-dev is for the crates that link libwayland at build
               # time instead of dlopen'ing it the way our winit backend does.
               # rfd, which slint-lsp uses for its file dialogs, is one: it pins
               # wayland-backend's "client_system". The bevy examples need it too.
-              sudo timeout 600 apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libgbm-dev libfontconfig-dev libseat-dev libsystemd-dev libwayland-dev ${{ inputs.extra-packages }}
+              bash "$GITHUB_ACTION_PATH/../apt-get-retry.sh" install -y --no-install-recommends libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libgbm-dev libfontconfig-dev libseat-dev libsystemd-dev libwayland-dev ${{ inputs.extra-packages }}
         - name: Install C++ compiler
           if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
           shell: bash
           run: |
-              sudo timeout 600 apt-get install -y gcc-10 g++-10
+              bash "$GITHUB_ACTION_PATH/../apt-get-retry.sh" install -y --no-install-recommends gcc-10 g++-10
               echo "CC=gcc-10" >> $GITHUB_ENV
               echo "CXX=g++-10" >> $GITHUB_ENV
+        # Also save after a failed download, so that the next run resumes from it.
+        # Otherwise only master saves: other branches restore its cache.
+        - name: Compute apt cache key
+          id: apt-save
+          if: always() && runner.os == 'Linux' && steps.apt-cache.outputs.prefix != ''
+          shell: bash
+          env:
+              PREFIX: ${{ steps.apt-cache.outputs.prefix }}
+              MATCHED_KEY: ${{ steps.apt-restore.outputs.cache-matched-key }}
+          run: |
+              # apt makes a resumed partial download readable by root only.
+              sudo chmod -R a+rX "$RUNNER_TEMP/apt-archives"
+              # Includes the partly downloaded packages, which apt resumes.
+              debs=$(find "$RUNNER_TEMP/apt-archives" -maxdepth 2 -name '*.deb' -printf '%P %s\n' | sort)
+              key="$PREFIX$(printf '%s' "$debs" | sha1sum | cut -c1-8)"
+              if [ -n "$debs" ] && [ "$key" != "$MATCHED_KEY" ]; then
+                  echo "key=$key" >> "$GITHUB_OUTPUT"
+              fi
+        - name: Save apt downloads
+          if: always() && steps.apt-save.outputs.key != '' && (failure() || github.ref == 'refs/heads/master')
+          uses: actions/cache/save@v6
+          with:
+              path: |
+                  ${{ runner.temp }}/apt-archives/*.deb
+                  ${{ runner.temp }}/apt-archives/partial/*.deb
+              key: ${{ steps.apt-save.outputs.key }}

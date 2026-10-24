@@ -8,7 +8,7 @@ use lsp_types::Url;
 use smol_str::SmolStr;
 
 use i_slint_compiler::{
-    expression_tree, langtype, literals, object_tree,
+    expression_types, langtype, literals, object_tree,
     parser::{SyntaxKind, TextRange, syntax_nodes},
 };
 
@@ -81,18 +81,18 @@ fn map_property_to_ui(
 
         fn extract_value_with_unit(
             expression: &syntax_nodes::Expression,
-            units: &[expression_tree::WrittenUnit],
+            units: &[expression_types::WrittenUnit],
             value: &mut ui::PropertyValue,
         ) {
             fn extract_value_with_unit_impl(
                 expression: &syntax_nodes::Expression,
-                units: &[i_slint_compiler::expression_tree::WrittenUnit],
+                units: &[i_slint_compiler::expression_types::WrittenUnit],
             ) -> Option<(ui::PropertyValueKind, f32, i32, String)> {
                 let (value, unit) = convert_number_literal(expression)?;
 
                 let index = units.iter().position(|u| u == &unit).or_else(|| {
                     (units.is_empty()
-                        && unit == i_slint_compiler::expression_tree::WrittenUnit::None)
+                        && unit == i_slint_compiler::expression_types::WrittenUnit::None)
                         .then_some(0_usize)
                 })?;
 
@@ -154,7 +154,7 @@ fn map_property_to_ui(
         }
 
         if value.value_kind == ui::PropertyValueKind::Float {
-            use expression_tree::WrittenUnit;
+            use expression_types::WrittenUnit;
             use langtype::Type;
 
             match &property_info.ty {
@@ -343,7 +343,7 @@ fn map_property_declaration(
 
     Some(ui::PropertyDeclaration {
         defined_at,
-        source_path: da.path.to_string_lossy().to_string().into(),
+        source_path: da.path.to_string().into(),
         source_version,
         range: ui::to_ui_range(pos)?,
     })
@@ -364,7 +364,7 @@ fn map_property_definition(
 
 fn convert_number_literal(
     node: &syntax_nodes::Expression,
-) -> Option<(f64, i_slint_compiler::expression_tree::WrittenUnit)> {
+) -> Option<(f64, i_slint_compiler::expression_types::WrittenUnit)> {
     if let Some(unary) = &node.UnaryOpExpression() {
         let factor = match unary.first_token().unwrap().text() {
             "-" => -1.0,
@@ -1051,6 +1051,17 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+
+        for gradient in ["ellipse", "ellipse 80px 40px", "circle 30px", "circle at 10px 20px"] {
+            let result = property_conversion_test(
+                &format!(
+                    "export component Test {{ in property <brush> test1: @radial-gradient({gradient}, #f00 0%, #00f 100%); }}"
+                ),
+                1,
+            );
+            assert_eq!(result.kind, ui::PropertyValueKind::Code, "{gradient}");
+            assert_eq!(result.display_string, "Radial Gradient", "{gradient}");
+        }
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,

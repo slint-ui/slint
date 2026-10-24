@@ -15,12 +15,13 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::{ItemTreeVTable, MouseCursorInner};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
+use crate::once_box::OnceBox;
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property};
-use alloc::{boxed::Box, rc::Rc, vec::Vec};
+use alloc::{rc::Rc, vec::Vec};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -85,7 +86,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Cancel,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: 0,
                 },));
             }
@@ -112,7 +113,7 @@ impl Item for TouchArea {
         event: &MouseEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
-        _: &mut MouseCursorInner,
+        cursor: &mut MouseCursorInner,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(false);
@@ -131,11 +132,16 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Down,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: *touch_finger_id,
                 },));
 
-                InputEventResult::GrabMouse
+                if self.enabled() {
+                    InputEventResult::GrabMouse
+                } else {
+                    self.input_event_filter_before_children(event, window_adapter, self_rc, cursor);
+                    InputEventResult::EventIgnored
+                }
             }
             MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.pressed().apply_pin(self).set(false);
@@ -143,7 +149,7 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
-                        modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                        modifiers: window_adapter.window().0.context().modifiers().get().into(),
                         touch_finger_id: 0,
                     },));
                 }
@@ -151,7 +157,7 @@ impl Item for TouchArea {
                 InputEventResult::EventAccepted
             }
 
-            MouseEvent::Released { button, position, click_count, touch_finger_id } => {
+            MouseEvent::Released { button, position, click_count, touch_finger_id, .. } => {
                 let geometry = self_rc.geometry();
                 if *button == PointerEventButton::Left
                     && LogicalRect::new(LogicalPoint::default(), geometry.size).contains(*position)
@@ -170,7 +176,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: *button,
                     kind: PointerEventKind::Up,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: *touch_finger_id,
                 },));
 
@@ -180,7 +186,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event().apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::Other,
                     kind: PointerEventKind::Move,
-                    modifiers: window_adapter.window().0.context().0.modifiers.get().into(),
+                    modifiers: window_adapter.window().0.context().modifiers().get().into(),
                     touch_finger_id: *touch_finger_id,
                 },));
                 if self.grabbed.get() {
@@ -191,7 +197,7 @@ impl Item for TouchArea {
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let modifiers = window_adapter.window().0.context().0.modifiers.get().into();
+                let modifiers = window_adapter.window().0.context().modifiers().get().into();
                 let r = Self::FIELD_OFFSETS.scroll_event().apply_pin(self).call(&(
                     PointerScrollEvent { delta_x: *delta_x, delta_y: *delta_y, modifiers },
                 ));
@@ -511,40 +517,6 @@ impl Item for KeyBinding {
     }
 }
 
-/// An optimized ShortcutList that is only initialized when it is
-/// first accessed.
-#[repr(C)]
-#[derive(Default)] // results in a null pointer, which we will initialize on first access
-pub struct MaybeKeyBindingList(Cell<*const KeyBindingList>);
-
-impl MaybeKeyBindingList {
-    fn ensure_init(&self) {
-        // This would be a race condition in Multi-threaded code, but
-        // this type isn't Sync, so this function cannot race with another thread.
-        if self.0.get().is_null() {
-            self.0.set(Box::leak(Box::default()));
-        }
-    }
-}
-
-impl Drop for MaybeKeyBindingList {
-    fn drop(&mut self) {
-        let ptr = self.0.replace(core::ptr::null());
-        if !ptr.is_null() {
-            // SAFETY: Must be a pointer returned by `Box::leak`, which is guaranteed by `ensure_init`.
-            drop(unsafe { Box::from_raw(ptr as *mut KeyBindingList) });
-        }
-    }
-}
-
-impl MaybeKeyBindingList {
-    fn deref_pin(self: Pin<&Self>) -> Pin<&KeyBindingList> {
-        self.ensure_init();
-        // SAFETY: Must be non-null and properly aligned, which is guaranteed by `ensure_init`.
-        unsafe { Pin::new_unchecked(&*self.get_ref().0.get()) }
-    }
-}
-
 #[derive(Default)]
 #[pin_project::pin_project]
 pub struct KeyBindingList {
@@ -569,7 +541,7 @@ pub struct FocusScope {
     pub focus_changed_event: Callback<FocusReasonArg>,
     pub focus_gained: Callback<FocusReasonArg>,
     pub focus_lost: Callback<FocusReasonArg>,
-    pub key_bindings: MaybeKeyBindingList,
+    pub key_bindings: OnceBox<KeyBindingList>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -580,8 +552,7 @@ impl FocusScope {
         self_rc: &ItemRc,
         mut fun: impl FnMut(&VRcMapped<ItemTreeVTable, KeyBinding>) -> Option<R>,
     ) -> Option<R> {
-        let list = Self::FIELD_OFFSETS.key_bindings().apply_pin(self);
-        let list = list.deref_pin();
+        let list = self.key_bindings.get_or_init_pin(Default::default);
 
         list.project_ref().property_tracker.evaluate_if_dirty(|| {
             let mut found = list.found.borrow_mut();
@@ -774,11 +745,8 @@ impl Item for FocusScope {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> FocusEventResult {
-        if !self.enabled() {
-            return FocusEventResult::FocusIgnored;
-        }
-
         match event {
+            FocusEvent::FocusIn(_) if !self.enabled() => return FocusEventResult::FocusIgnored,
             FocusEvent::FocusIn(reason) => {
                 match reason {
                     FocusReason::TabNavigation if !self.focus_on_tab_navigation() => {
@@ -883,7 +851,7 @@ impl Item for SwipeGestureHandler {
     ) -> InputEventFilterResult {
         if !self.enabled() {
             if self.pressed.get() {
-                self.cancel_impl();
+                self.cancel();
             }
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -900,7 +868,7 @@ impl Item for SwipeGestureHandler {
                 )
             }
             MouseEvent::Exit => {
-                self.cancel_impl();
+                self.cancel();
                 InputEventFilterResult::ForwardAndIgnore
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
@@ -946,7 +914,7 @@ impl Item for SwipeGestureHandler {
         match event {
             MouseEvent::Pressed { .. } => InputEventResult::GrabMouse,
             MouseEvent::Exit => {
-                self.cancel_impl();
+                self.cancel();
                 InputEventResult::EventIgnored
             }
             MouseEvent::Released { position, .. } => {
@@ -1041,11 +1009,7 @@ impl ItemConsts for SwipeGestureHandler {
 }
 
 impl SwipeGestureHandler {
-    pub fn cancel(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
-        self.cancel_impl();
-    }
-
-    fn cancel_impl(self: Pin<&Self>) {
+    pub fn cancel(self: Pin<&Self>) {
         if !self.pressed.replace(false) {
             debug_assert!(!self.swiping());
             return;
@@ -1065,42 +1029,6 @@ impl SwipeGestureHandler {
             || (self.handle_swipe_up() && dy < -threshold && dy < -dx.abs() / 2 as Coord)
             || (self.handle_swipe_left() && dx < -threshold && dx < -dy.abs() / 2 as Coord)
             || (self.handle_swipe_right() && dx > threshold && dx > dy.abs() / 2 as Coord)
-    }
-}
-
-#[cfg(feature = "ffi")]
-mod ffi {
-    use super::*;
-
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_swipegesturehandler_cancel(
-        s: Pin<&SwipeGestureHandler>,
-        window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-        self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-        self_index: u32,
-    ) {
-        unsafe {
-            let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-            let self_rc = ItemRc::new(self_component.clone(), self_index);
-            s.cancel(window_adapter, &self_rc);
-        }
-    }
-
-    /// # Safety
-    /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-    /// hold a MaybeKeybindingList
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_maybe_key_binding_list_init(list: *mut MaybeKeyBindingList) {
-        unsafe {
-            core::ptr::write(list, MaybeKeyBindingList::default());
-        }
-    }
-
-    /// # Safety
-    /// This must be called using a non-null pointer pointing to an initialized MaybeKeybindingList
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_maybe_key_binding_list_free(list: *mut MaybeKeyBindingList) {
-        unsafe { core::ptr::drop_in_place(list) };
     }
 }
 

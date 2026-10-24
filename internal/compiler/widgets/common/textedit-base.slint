@@ -3,7 +3,11 @@
 
 import { ScrollView } from "std-widgets-impl.slint";
 
+import { TextEditInterface } from "std-widget-interfaces.slint";
+
 export component TextEditBase inherits Rectangle {
+    implement TextEditInterface <=> self;
+
     in property <length> scroll-view-padding;
 
     in property <TextWrap> wrap <=> text-input.wrap;
@@ -15,6 +19,7 @@ export component TextEditBase inherits Rectangle {
     in property <bool> font-italic <=> text-input.font-italic;
     in property <bool> enabled <=> text-input.enabled;
     out property <bool> has-focus: text-input.has-focus;
+    @shadowable out property <bool> has-selection: text-input.has-selection;
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
     in-out property <string> text <=> text-input.text;
@@ -59,13 +64,38 @@ export component TextEditBase inherits Rectangle {
         text-input.paste();
     }
 
+    @shadowable public function undo() {
+        text-input.undo();
+    }
+
+    @shadowable public function redo() {
+        text-input.redo();
+    }
+
     forward-focus: text-input;
 
     ContextMenuArea {
         enabled: root.enabled;
         Menu {
             if !root.read-only: MenuItem {
+                title: @tr("Undo");
+                activated => {
+                    text-input.undo();
+                }
+            }
+
+            if !root.read-only: MenuItem {
+                title: @tr("Redo");
+                activated => {
+                    text-input.redo();
+                }
+            }
+
+            if !root.read-only: MenuSeparator { }
+
+            if !root.read-only: MenuItem {
                 title: @tr("Cut");
+                enabled: text-input.has-selection;
                 activated => {
                     text-input.cut();
                 }
@@ -73,7 +103,7 @@ export component TextEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Copy");
-                enabled: !root.text.is-empty;
+                enabled: text-input.has-selection;
                 activated => {
                     text-input.copy();
                 }
@@ -104,7 +134,6 @@ export component TextEditBase inherits Rectangle {
             content-height: max(self.visible-height, text-input.preferred-height);
 
             text-input := TextInput {
-                enabled: true;
                 single-line: false;
                 wrap: word-wrap;
                 selection-background-color: root.selection-background-color;
@@ -131,7 +160,6 @@ export component TextEditBase inherits Rectangle {
                     } else if (cpos.x + root.content-x > parent.visible-width) {
                         root.content-x = min(0px, max(parent.visible-width - self.width, parent.visible-width - cpos.x));
                     }
-
                     if (cpos.y + root.content-y < 0px) {
                         root.content-y = min(
                             0px,
@@ -156,7 +184,6 @@ export component TextEditBase inherits Rectangle {
         x: scroll-view.x;
         y: scroll-view.y;
         width: scroll-view.width;
-        vertical-alignment: top;
         text: (root.text == "" && text-input.preedit-text == "") ? root.placeholder-text : "";
         font-size: text-input.font-size;
         font-italic: text-input.font-italic;
@@ -166,6 +193,7 @@ export component TextEditBase inherits Rectangle {
         overflow: elide;
         // `accessible-placeholder-text` is set on TextEdit already
         accessible-role: none;
+        horizontal-alignment: root.horizontal-alignment;
     }
 
     @children

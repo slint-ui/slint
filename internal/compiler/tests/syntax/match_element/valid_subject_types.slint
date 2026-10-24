@@ -1,0 +1,222 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Every type and expression a match element accepts as its subject.
+
+enum Fruit {
+    apple,
+    pear,
+}
+
+struct Basket {
+    count: int,
+    fruit: Fruit,
+}
+
+export global Settings {
+    in-out property <int> volume: 3;
+    public pure function doubled() -> int {
+        return 2 * volume;
+    }
+}
+
+export component ValueTypes {
+    in property <bool> flag: true;
+    in property <int> count: 1;
+    in property <float> ratio: 1;
+    in property <string> label: "a";
+    in property <color> tint: #123;
+    in property <brush> fill: #123;
+    in property <duration> delay: 1s;
+    in property <length> spacing: 10px;
+    in property <physical-length> border: 10phx;
+    in property <angle> rotation: 90deg;
+    in property <percent> progress: 50%;
+    in property <relative-font-size> font-scale: 1rem;
+    in property <Fruit> fruit: apple;
+    in property <TextHorizontalAlignment> alignment: left;
+
+    match flag {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    match !flag {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    match count {
+        -1: Rectangle { }
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match ratio {
+        1: Rectangle { }
+        1.5: Rectangle { }
+        -0.5: Rectangle { }
+        *: Rectangle { }
+    }
+    match label {
+        "a": Rectangle { }
+        *: Rectangle { }
+    }
+    match tint {
+        #123: Rectangle { }
+        Colors.red: Rectangle { }
+        blue: Rectangle { }
+        *: Rectangle { }
+    }
+    match fill {
+        #123: Rectangle { }
+        Colors.red: Rectangle { }
+        blue: Rectangle { }
+        *: Rectangle { }
+    }
+    match delay {
+        1s: Rectangle { }
+        500ms: Rectangle { }
+        *: Rectangle { }
+    }
+    match spacing {
+        10px: Rectangle { }
+        *: Rectangle { }
+    }
+    match border {
+        10phx: Rectangle { }
+        *: Rectangle { }
+    }
+    match rotation {
+        90deg: Rectangle { }
+        1turn: Rectangle { }
+        *: Rectangle { }
+    }
+    match progress {
+        50%: Rectangle { }
+        *: Rectangle { }
+    }
+    match font-scale {
+        1rem: Rectangle { }
+        *: Rectangle { }
+    }
+    match fruit {
+        apple: Rectangle { }
+        Fruit.pear: Rectangle { }
+    }
+    match alignment {
+        left: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component SubjectExpressions {
+    in property <int> given: 1;
+    out property <int> computed: given * 2;
+    in-out property <int> shared-value: 1;
+    in-out property <int> aliased <=> shared-value;
+    property <int> internal: 3;
+    property <Basket> basket: { count: 1, fruit: Fruit.pear };
+    property <[int]> counts: [1, 2];
+    pure function next(value: int) -> int {
+        return value + 1;
+    }
+
+    rect := Rectangle { }
+
+    match given {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match computed {
+        2: Rectangle { }
+        *: Rectangle { }
+    }
+    match aliased {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match internal {
+        3: Rectangle { }
+        *: Rectangle { }
+    }
+    match self.given {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match root.given {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match rect.width {
+        10px: Rectangle { }
+        *: Rectangle { }
+    }
+    match basket.count {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match basket.fruit {
+        apple: Rectangle { }
+        *: Rectangle { }
+    }
+    match counts[0] {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match given + 1 {
+        2: Rectangle { }
+        *: Rectangle { }
+    }
+    match (given > 2 ? 1 : 2) {
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match next(1) {
+        2: Rectangle { }
+        *: Rectangle { }
+    }
+    match Settings.volume {
+        3: Rectangle { }
+        *: Rectangle { }
+    }
+    match Settings.doubled() {
+        6: Rectangle { }
+        *: Rectangle { }
+    }
+    match true {
+//        >   <warning{Match subject is a literal, so the same case always applies}
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    match 1 {
+//        ><warning{Match subject is a literal, so the same case always applies}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match (1) {
+//        >  <warning{Match subject is a literal, so the same case always applies}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match @tr("hello") {
+        "hello": Rectangle { }
+        *: Rectangle { }
+    }
+    match (@tr("hello")) {
+        "hello": Rectangle { }
+        *: Rectangle { }
+    }
+    match (rect.width / 1px) {
+        10: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component ParentSubject {
+    in property <Fruit> fruit: apple;
+
+    Rectangle {
+        match parent.fruit {
+            apple: Rectangle { }
+            *: Rectangle { }
+        }
+    }
+}

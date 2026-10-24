@@ -41,7 +41,7 @@ pub mod opengl;
 #[cfg(feature = "wgpu-30")]
 pub mod wgpu;
 #[cfg(feature = "wgpu-30")]
-pub use wgpu::FemtoVGWGPURenderer;
+pub use wgpu::{FemtoVGWGPURenderer, FemtoVGWGPURendererExt};
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_output(&self) -> impl Into<R::RenderOutput>;
@@ -155,21 +155,19 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
 
     /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(
-            0.,
-            (0., 0.),
-            self.window_adapter()?.window().size(),
-            None,
-        )
-        .map(|_| ())
+        self.internal_render_transformed(0., (0., 0.), self.window_adapter()?.window().size())
+            .map(|_| ())
     }
 
-    fn internal_render_with_post_callback(
+    fn can_draw(&self, window_size: i_slint_core::api::PhysicalSize) -> bool {
+        window_size.width > 0 && window_size.height > 0 && self.canvas.borrow().is_some()
+    }
+
+    fn internal_render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let surface = match self.graphics_backend.begin_surface_rendering()? {
             BeginRendering::Acquired(s) => s,
@@ -193,15 +191,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         let window = window_adapter.window();
         let window_size = window.size();
 
-        let Some((width, height)): Option<(NonZeroU32, NonZeroU32)> =
-            window_size.width.try_into().ok().zip(window_size.height.try_into().ok())
-        else {
-            // Nothing to render
-            return Ok(DrawOutcome::Success);
-        };
-
-        if self.canvas.borrow().is_none() {
-            // Nothing to render
+        if !self.can_draw(window_size) {
             return Ok(DrawOutcome::Success);
         }
 
@@ -224,14 +214,23 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     femtovg_canvas.set_size(surface_size.width, surface_size.height, scale);
                     select_render_target(&mut femtovg_canvas, render_target);
 
-                    // Clear with window background if it is a solid color otherwise it will drawn as gradient
-                    if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
+                    // A gradient that isn't opaque blends over what the target holds, which may
+                    // be undefined.
+                    let clear_color =
+                        if let Some(Brush::SolidColor(clear_color)) = &window_background_brush {
+                            Some(self::itemrenderer::to_femtovg_color(clear_color))
+                        } else if window_background_brush.as_ref().is_some_and(|b| !b.is_opaque()) {
+                            Some(femtovg::Color::rgba(0, 0, 0, 0))
+                        } else {
+                            None
+                        };
+                    if let Some(clear_color) = clear_color {
                         femtovg_canvas.clear_rect(
                             0,
                             0,
                             surface_size.width,
                             surface_size.height,
-                            self::itemrenderer::to_femtovg_color(&clear_color),
+                            clear_color,
                         );
                     }
                 }
@@ -252,7 +251,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     let commands = femtovg_canvas.flush_to_output(surface.render_output());
                     self.graphics_backend.submit_commands(commands);
 
-                    femtovg_canvas.set_size(width.get(), height.get(), scale);
+                    femtovg_canvas.set_size(window_size.width, window_size.height, scale);
                     select_render_target(&mut femtovg_canvas, render_target);
                     drop(femtovg_canvas);
 
@@ -273,8 +272,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     &self.box_shadow_cache,
                     &self.text_layout_cache,
                     window,
-                    width.get(),
-                    height.get(),
+                    window_size.width,
+                    window_size.height,
                     render_target,
                 );
 
@@ -308,10 +307,6 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 }
 
                 post_render(&mut item_renderer);
-
-                if let Some(cb) = post_render_cb.as_ref() {
-                    cb(&mut item_renderer)
-                }
 
                 if let Some(collector) = &self.rendering_metrics_collector.borrow().as_ref() {
                     let metrics = item_renderer.metrics();
@@ -451,12 +446,11 @@ impl<B: GraphicsBackend> Drop for FemtoVGRenderer<B> {
 pub trait FemtoVGRendererExt {
     fn new_suspended() -> Self;
     fn clear_graphics_context(&self) -> Result<(), i_slint_core::platform::PlatformError>;
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
 }
 
@@ -467,8 +461,10 @@ pub trait FemtoVGRendererExt {
 pub trait FemtoVGOpenGLRendererExt {
     fn set_opengl_context(
         &self,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl opengl::OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl opengl::OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
 }
 
@@ -527,19 +523,13 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
         Ok(())
     }
 
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(
-            rotation_angle_degrees,
-            translation,
-            surface_size,
-            post_render_cb,
-        )
+        self.internal_render_transformed(rotation_angle_degrees, translation, surface_size)
     }
 }
 
@@ -547,14 +537,16 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
 impl FemtoVGOpenGLRendererExt for FemtoVGRenderer<opengl::OpenGLBackend> {
     fn set_opengl_context(
         &self,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl opengl::OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl opengl::OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.graphics_backend.set_opengl_context(
             self,
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             opengl_context,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas,
         )
     }

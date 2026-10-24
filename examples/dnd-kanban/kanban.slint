@@ -170,6 +170,7 @@ export component MainWindow inherits Window {
     preferred-width: 760px;
     preferred-height: 480px;
     background: Theme.window-bg;
+    icon: @image-url("../../logo/slint-logo-small-light.png");
 
     in-out property <[TaskData]> todo;
     in-out property <[TaskData]> doing;
@@ -191,7 +192,6 @@ export component MainWindow inherits Window {
 
             KanbanColumn {
                 title: "Todo";
-                column-id: 0;
                 tasks: root.todo;
                 accent: Theme.dark ? #e3b341 : #d29922;
             }

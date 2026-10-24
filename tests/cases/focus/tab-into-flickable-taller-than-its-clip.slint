@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tab reaches an item inside a Flickable that is taller than the clip around it.
+// The item is within the Flickable's rectangle but past the edge of that clip, so scrolling can bring it into view.
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    out property <int> focused-index: -1;
+
+    Rectangle {
+        height: 100px;
+        clip: true;
+
+        Flickable {
+            y: 0px;
+            height: 300px;
+            content-height: 1000px;
+
+            // At 0, 60 and 120: all within the Flickable's 300px, the last one past the clip's 100px.
+            for index in 3: FocusScope {
+                y: index * 60px;
+                height: 50px;
+                focus-gained(_) => {
+                    root.focused-index = index;
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_focused_index(), -1);
+
+for i in 0..=2 {
+    slint_testing::send_keyboard_string_sequence(&instance, "\t");
+    assert_eq!(instance.get_focused_index(), i, "tab to item {i}");
+}
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused_index(), 0, "tab wraps to item 0");
+```
+*/

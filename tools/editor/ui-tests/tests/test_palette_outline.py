@@ -12,14 +12,16 @@ from source_snapshot import SourceSnapshot
 from test_outline import drop_position, outline_row, outline_rows
 from test_palette import begin_palette_drag, canvas_drop_position, release_palette_drag
 from test_undo_redo import shortcut
+from ui_assertions import expect
 from ui_driver import (
     PALETTE_KINDS,
-    elements_with_label,
+    WIDGET_KINDS,
+    element,
+    elements,
     first_window,
     launch_editor,
     press_key,
     wait_until,
-    window_element_with_label,
 )
 
 ELEMENTS = {
@@ -34,11 +36,10 @@ ELEMENTS = {
 """,
     "Text": """Text {
     text: "Text";
-    width: 220px;
-    height: 40px;
-    color: #1f2328;
-    font-size: 24px;
-    vertical-alignment: center;
+}
+""",
+    "StyledText": """StyledText {
+    text: @markdown("Text");
 }
 """,
     "Image": """Image {
@@ -53,18 +54,40 @@ ELEMENTS = {
     height: 96px;
 }
 """,
+    **{
+        widget: f"""{widget} {{
+    text: "{widget}";
+}}
+"""
+        for widget in WIDGET_KINDS
+    },
 }
 
 
-@pytest.mark.parametrize("kind", PALETTE_KINDS)
+def with_widget_import(source: str, kind: str) -> str:
+    if kind not in WIDGET_KINDS:
+        return source
+    header_end = source.index("export component")
+    return (
+        source[:header_end]
+        + f'import {{ {kind} }} from "std-widgets.slint";\n'
+        + source[header_end:]
+    )
+
+
 @pytest.mark.parametrize(
-    "target,location",
+    "kind,target,location",
     [
-        ("container", "onto"),
-        ("sibling-a", "before"),
-        ("sibling-a", "after"),
-        ("<component-root>", "onto"),
-        ("<outline-root>", "onto"),
+        (kind, target, location)
+        for kind in PALETTE_KINDS
+        for target, location in (
+            ("container", "onto"),
+            ("sibling-a", "before"),
+            ("sibling-a", "after"),
+            ("<component-root>", "onto"),
+            ("<outline-root>", "onto"),
+        )
+        if kind == "Rectangle" or target == "container"
     ],
 )
 def test_palette_outline_insertion(
@@ -91,6 +114,7 @@ def test_palette_outline_insertion(
     else:
         expected = baseline[:-2] + indent(ELEMENTS[kind], "    ") + "}\n"
         level = "Hierarchy level 2"
+    expected = with_widget_import(expected, kind)
 
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
@@ -99,11 +123,13 @@ def test_palette_outline_insertion(
             outline_row(window, target).invoke_accessible_expand_action()
         position = drop_position(window, target, location)
         begin_palette_drag(window, kind, position)
-        window_element_with_label(window, "Outline drag preview")
-        assert not elements_with_label(window.root_element, f"{kind} drag preview")
+        element(window, "Outline drag preview")
+        assert not elements(window, f"{kind} drag preview")
         snapshot.assert_unchanged_now()
         release_palette_drag(window, position)
         snapshot.wait_for_applied(expected.encode(), source.name)
+        if kind == "Text":
+            assert not elements(window.root_element, "Inline text editor")
         inserted = wait_until(
             lambda: next(
                 (
@@ -115,7 +141,10 @@ def test_palette_outline_insertion(
             )
         )
         assert inserted.accessible_description == level
-        wait_until(lambda: True if inserted.accessible_item_selected else None)
+        expect.poll(
+            lambda: inserted.accessible_item_selected,
+            message=f"inserted {kind} outline row is selected",
+        ).to_equal(True)
         shortcut(window, redo=False)
         snapshot.wait_for_applied(baseline.encode(), source.name)
         shortcut(window, redo=True)
@@ -137,18 +166,18 @@ def test_palette_preview_switches_between_canvas_and_outline_and_cancels(
         canvas = canvas_drop_position(window)
         outline = drop_position(window, "container", "onto")
         begin_palette_drag(window, kind, canvas)
-        window_element_with_label(window, f"{kind} drag preview")
+        element(window, f"{kind} drag preview")
         window.dispatch_event(slint_testing.PointerMoveEvent(outline))
-        ghost = window_element_with_label(window, "Outline drag preview")
-        assert not elements_with_label(window.root_element, f"{kind} drag preview")
-        assert ghost.size.height == 32
+        ghost = element(window, "Outline drag preview")
+        assert not elements(window, f"{kind} drag preview")
+        assert ghost.size.height == 26
         window.dispatch_event(slint_testing.PointerMoveEvent(canvas))
-        window_element_with_label(window, f"{kind} drag preview")
-        assert not elements_with_label(window.root_element, "Outline drag preview")
+        element(window, f"{kind} drag preview")
+        assert not elements(window, "Outline drag preview")
         window.dispatch_event(slint_testing.PointerMoveEvent(outline))
         press_key(window, keys.Escape)
         release_palette_drag(window, outline)
-        assert not elements_with_label(window.root_element, "Outline drag preview")
+        assert not elements(window, "Outline drag preview")
         snapshot.assert_unchanged()
 
 
@@ -171,9 +200,12 @@ def test_palette_outline_layout_controls_geometry(
     )
     if kind == "TouchArea":
         element = "TouchArea { }\n"
-    expected = baseline.replace(
-        "    }\n\n    HorizontalLayout",
-        indent(element, "        ") + "    }\n\n    HorizontalLayout",
+    expected = with_widget_import(
+        baseline.replace(
+            "    }\n\n    HorizontalLayout",
+            indent(element, "        ") + "    }\n\n    HorizontalLayout",
+        ),
+        kind,
     )
     snapshot = SourceSnapshot.capture(fixture_project)
     with launch_editor(editor_binary, editor_environment, source) as editor:

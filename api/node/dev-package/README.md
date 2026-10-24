@@ -3,11 +3,12 @@
 Development binaries for [`slint-ui`](https://www.npmjs.com/package/slint-ui).
 
 Install this package as a dev dependency, alongside and at the same version as
-`slint-ui`, to enable the additional `system-testing` and MCP capabilities.
+`slint-ui`, to enable the additional `system-testing`, MCP, and live preview capabilities.
 There is nothing to import from this package: `slint-ui` picks the development
 binary up automatically, but only when those capabilities are actually requested
-via the `SLINT_MCP_PORT` (MCP server) or `SLINT_TEST_SERVER` (system testing)
-environment variables. A plain run keeps the lean release binary. The variable
+via the `SLINT_MCP_PORT` (MCP server), `SLINT_TEST_SERVER` (system testing), or
+`SLINT_LIVE_PREVIEW` (live preview) environment variables.
+A plain run keeps the lean release binary. The variable
 must be set before `slint-ui` is first imported.
 
 ```sh

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CRTC crtcs htotal vrefresh vtotal
+// cSpell: ignore CRTC crtcs htotal modeset NONBLOCK vrefresh vtotal
 use std::cell::{Cell, RefCell};
 use std::os::fd::{AsFd, BorrowedFd, OwnedFd};
 use std::rc::Rc;
@@ -23,6 +23,19 @@ impl AsFd for SharedFd {
 
 impl DrmDevice for SharedFd {}
 
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+pub struct OwnedFramebufferHandle {
+    pub handle: drm::control::framebuffer::Handle,
+    pub device: SharedFd,
+}
+
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+impl Drop for OwnedFramebufferHandle {
+    fn drop(&mut self) {
+        self.device.destroy_framebuffer(self.handle).ok();
+    }
+}
+
 impl drm::control::Device for SharedFd {}
 
 #[derive(Default)]
@@ -31,7 +44,9 @@ enum PageFlipState {
     NoFrameBufferPosted,
     InitialBufferPosted,
     WaitingForPageFlip {
-        _buffer_to_keep_alive_until_flip: Box<dyn Buffer>,
+        /// `None` when the caller owns the buffers for the lifetime of the
+        /// output, as [`DrmOutput::present_framebuffer`]'s callers do.
+        _buffer_to_keep_alive_until_flip: Option<Box<dyn Buffer>>,
     },
     ReadyForNextBuffer,
 }
@@ -43,10 +58,45 @@ pub struct DrmOutput {
     crtc: drm::control::crtc::Handle,
     last_buffer: Cell<Option<Box<dyn Buffer>>>,
     page_flip_state: Rc<RefCell<PageFlipState>>,
+    /// See [`Self::present_framebuffer_after`].
+    #[cfg(skia_wgpu_30)]
+    fenced_flips: Cell<FencedFlips>,
+}
+
+#[cfg(skia_wgpu_30)]
+#[derive(Clone, Copy, Default)]
+enum FencedFlips {
+    /// Not looked up yet.
+    #[default]
+    Unknown,
+    /// The display can't wait for a sync file,
+    /// or failed to [`FENCED_FLIP_ATTEMPTS`] times in a row.
+    Unsupported,
+    Supported {
+        flip: FencedFlip,
+        failures_in_a_row: u8,
+    },
+}
+
+#[cfg(skia_wgpu_30)]
+const FENCED_FLIP_ATTEMPTS: u8 = 3;
+
+/// The primary plane's properties an atomic commit sets to flip once a sync file signaled.
+#[cfg(skia_wgpu_30)]
+#[derive(Clone, Copy)]
+struct FencedFlip {
+    plane: drm::control::plane::Handle,
+    framebuffer: drm::control::property::Handle,
+    in_fence: drm::control::property::Handle,
 }
 
 impl DrmOutput {
     pub fn new(device_opener: &DeviceOpener) -> Result<Self, PlatformError> {
+        // A lease only holds its own connector, so skip the /dev/dri scan and SLINT_DRM_OUTPUT.
+        if let Some(lease_fd) = device_opener.lease_fd() {
+            return Self::new_from_drm_device(SharedFd(lease_fd), false);
+        }
+
         let mut last_err = None;
         if let Ok(drm_devices) = std::fs::read_dir("/dev/dri/") {
             for device in drm_devices {
@@ -65,13 +115,20 @@ impl DrmOutput {
         device_opener: &DeviceOpener,
         device: &std::path::Path,
     ) -> Result<Self, PlatformError> {
-        let drm_device = SharedFd(device_opener(device)?);
+        Self::new_from_drm_device(SharedFd(device_opener.open(device)?), true)
+    }
 
+    fn new_from_drm_device(
+        drm_device: SharedFd,
+        honor_output_env: bool,
+    ) -> Result<Self, PlatformError> {
         let resources = drm_device
             .resource_handles()
             .map_err(|e| format!("Error reading DRM resource handles: {e}"))?;
 
-        let connector = if let Ok(requested_connector_name) = std::env::var("SLINT_DRM_OUTPUT") {
+        let requested_connector_name =
+            honor_output_env.then(|| std::env::var("SLINT_DRM_OUTPUT").ok()).flatten();
+        let connector = if let Some(requested_connector_name) = requested_connector_name {
             let mut connectors = resources.connectors().iter().filter_map(|handle| {
                 let connector = drm_device.get_connector(*handle, false).ok()?;
                 let name =
@@ -118,30 +175,24 @@ impl DrmOutput {
                 .ok_or_else(|| "No connected display connector found".to_string())?
         };
 
+        let encoder = connector
+            .current_encoder()
+            .filter(|current| connector.encoders().contains(current))
+            .and_then(|current| drm_device.get_encoder(current).ok());
+
+        let current_crtc = match encoder {
+            Some(encoder) => Some(encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?),
+            None => None,
+        };
+        let current_mode = current_crtc.and_then(|crtc| drm_device.get_crtc(crtc).ok()?.mode());
+
         let mode = std::env::var("SLINT_DRM_MODE").map_or_else(
             |_| {
-                connector
-                    .modes()
-                    .iter()
-                    .max_by(|current_mode, next_mode| {
-                        let current = (
-                            current_mode
-                                .mode_type()
-                                .contains(drm::control::ModeTypeFlags::PREFERRED),
-                            current_mode.size().0 as u32 * current_mode.size().1 as u32,
-                        );
-                        let next = (
-                            next_mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
-                            next_mode.size().0 as u32 * next_mode.size().1 as u32,
-                        );
-
-                        current.cmp(&next)
-                    })
-                    .cloned()
+                select_default_mode(connector.modes(), current_mode)
                     .ok_or_else(|| "No preferred or non-zero size display mode found".to_string())
             },
             |mode_str| {
-                let mut modes_and_index = connector.modes().iter().cloned().enumerate();
+                let modes_and_index = connector.modes().iter().cloned().enumerate();
 
                 if mode_str.to_lowercase() == "list" {
                     let mode_names: Vec<String> = modes_and_index
@@ -158,26 +209,12 @@ impl DrmOutput {
                     eprintln!("DRM Mode List Requested:\n{}\nPlease select a mode with the SLINT_DRM_MODE environment variable and re-run the program.", mode_names.join("\n"));
                     std::process::exit(1);
                 }
-                let mode_index: usize =
-                    mode_str.parse().map_err(|_| {
-                        format!(
-                            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index or 'list' to list the available modes"
-                        )
-                    })?;
-                modes_and_index.nth(mode_index).map_or_else(
-                    || Err(format!("Mode index is out of bounds: {mode_index}")),
-                    |(_, mode)| Ok(mode),
-                )
+                select_requested_mode(connector.modes(), &mode_str)
             },
         )?;
 
-        let encoder = connector
-            .current_encoder()
-            .filter(|current| connector.encoders().contains(current))
-            .and_then(|current| drm_device.get_encoder(current).ok());
-
-        let crtc = if let Some(encoder) = encoder {
-            encoder.crtc().ok_or_else(|| "no crtc for encoder".to_string())?
+        let crtc = if let Some(crtc) = current_crtc {
+            crtc
         } else {
             // No crtc found for current encoder? Pick the first possible crtc
             // as described in https://manpages.debian.org/testing/libdrm-dev/drm-kms.7.en.html#CRTC/Encoder_Selection
@@ -205,21 +242,156 @@ impl DrmOutput {
             crtc,
             last_buffer: Cell::default(),
             page_flip_state: Default::default(),
+            #[cfg(skia_wgpu_30)]
+            fenced_flips: Default::default(),
         })
     }
 
+    /// Posts `framebuffer_handle` and keeps `front_buffer` alive until the flip completes.
+    /// Use this when the buffer is allocated per frame;
+    /// see [`Self::present_framebuffer`] when the caller owns a persistent buffer ring.
     pub fn present(
         &self,
         front_buffer: impl Buffer + 'static,
         framebuffer_handle: drm::control::framebuffer::Handle,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        if let Some(last_buffer) = self.last_buffer.replace(Some(Box::new(front_buffer))) {
+        // The buffer this one replaces is the one still on screen until the flip
+        // completes, so that is the one to keep alive.
+        let last_buffer = self.last_buffer.replace(Some(Box::new(front_buffer)));
+        self.post(framebuffer_handle, last_buffer)
+    }
+
+    /// Posts `framebuffer_handle` without taking ownership of its buffer.
+    /// The caller must keep the buffer alive at least until the flip completes.
+    #[cfg(gbm_dmabuf)]
+    pub fn present_framebuffer(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.post(framebuffer_handle, None)
+    }
+
+    /// Posts `framebuffer_handle` once `sync_file` signaled, without waiting for it:
+    /// the display waits instead.
+    /// Waits for the last flip to land first.
+    /// Returns `false` where it can't, without posting.
+    /// The caller then waits for the GPU and calls [`Self::present_framebuffer`].
+    ///
+    /// The caller must keep the buffer alive at least until the flip completes.
+    #[cfg(skia_wgpu_30)]
+    pub fn present_framebuffer_after(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+        sync_file: &OwnedFd,
+    ) -> bool {
+        use std::os::fd::AsRawFd;
+        if matches!(*self.page_flip_state.borrow(), PageFlipState::NoFrameBufferPosted) {
+            return false;
+        }
+        let FencedFlips::Supported { flip, failures_in_a_row } = self.fenced_flips() else {
+            return false;
+        };
+        self.wait_for_page_flip();
+        let mut request = drm::control::atomic::AtomicModeReq::new();
+        request.add_property(
+            flip.plane,
+            flip.framebuffer,
+            drm::control::property::Value::Framebuffer(Some(framebuffer_handle)),
+        );
+        // The kernel takes its own reference to the fence.
+        request.add_property(
+            flip.plane,
+            flip.in_fence,
+            drm::control::property::Value::SignedRange(sync_file.as_raw_fd().into()),
+        );
+        if let Err(e) = self.drm_device.atomic_commit(
+            drm::control::AtomicCommitFlags::NONBLOCK
+                | drm::control::AtomicCommitFlags::PAGE_FLIP_EVENT,
+            request,
+        ) {
+            let failures_in_a_row = failures_in_a_row + 1;
+            if failures_in_a_row < FENCED_FLIP_ATTEMPTS {
+                self.fenced_flips.set(FencedFlips::Supported { flip, failures_in_a_row });
+            } else {
+                eprintln!(
+                    "Error presenting frames with an in-fence, so the CPU waits for the GPU: {e}"
+                );
+                self.fenced_flips.set(FencedFlips::Unsupported);
+                let _ = self.drm_device.set_client_capability(drm::ClientCapability::Atomic, false);
+            }
+            return false;
+        }
+        self.fenced_flips.set(FencedFlips::Supported { flip, failures_in_a_row: 0 });
+        *self.page_flip_state.borrow_mut() =
+            PageFlipState::WaitingForPageFlip { _buffer_to_keep_alive_until_flip: None };
+        true
+    }
+
+    #[cfg(skia_wgpu_30)]
+    pub fn takes_sync_files(&self) -> bool {
+        // The first frame sets the mode, see `post`.
+        !matches!(*self.page_flip_state.borrow(), PageFlipState::NoFrameBufferPosted)
+            && matches!(self.fenced_flips(), FencedFlips::Supported { .. })
+    }
+
+    #[cfg(skia_wgpu_30)]
+    fn fenced_flips(&self) -> FencedFlips {
+        if let FencedFlips::Unknown = self.fenced_flips.get() {
+            self.fenced_flips.set(match self.find_fenced_flip() {
+                Some(flip) => FencedFlips::Supported { flip, failures_in_a_row: 0 },
+                None => FencedFlips::Unsupported,
+            });
+        }
+        self.fenced_flips.get()
+    }
+
+    /// The primary plane of the CRTC and its properties for a fenced flip,
+    /// where the driver takes atomic commits.
+    #[cfg(skia_wgpu_30)]
+    fn find_fenced_flip(&self) -> Option<FencedFlip> {
+        let planes = self
+            .drm_device
+            .set_client_capability(drm::ClientCapability::Atomic, true)
+            .and_then(|()| self.drm_device.plane_handles())
+            .unwrap_or_default();
+        let flip = planes.into_iter().find_map(|plane| {
+            if self.drm_device.get_plane(plane).ok()?.crtc() != Some(self.crtc) {
+                return None;
+            }
+            let values = self.drm_device.get_properties(plane).ok()?;
+            let properties = values.as_hashmap(&self.drm_device).ok()?;
+            let type_handle = properties.get("type")?.handle();
+            let primary = values.iter().any(|(handle, value)| {
+                *handle == type_handle && *value == drm::control::PlaneType::Primary as u32 as u64
+            });
+            primary.then_some(FencedFlip {
+                plane,
+                framebuffer: properties.get("FB_ID")?.handle(),
+                in_fence: properties.get("IN_FENCE_FD")?.handle(),
+            })
+        });
+        if flip.is_none() {
+            let _ = self.drm_device.set_client_capability(drm::ClientCapability::Atomic, false);
+            eprintln!(
+                "The display takes no atomic commit with an in-fence, so the CPU waits for the GPU"
+            );
+        }
+        flip
+    }
+
+    fn post(
+        &self,
+        framebuffer_handle: drm::control::framebuffer::Handle,
+        buffer_to_keep_alive: Option<Box<dyn Buffer>>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if !matches!(*self.page_flip_state.borrow(), PageFlipState::NoFrameBufferPosted) {
             self.drm_device
                 .page_flip(self.crtc, framebuffer_handle, drm::control::PageFlipFlags::EVENT, None)
                 .map_err(|e| format!("Error presenting framebuffer on screen: {e}"))?;
 
-            *self.page_flip_state.borrow_mut() =
-                PageFlipState::WaitingForPageFlip { _buffer_to_keep_alive_until_flip: last_buffer };
+            *self.page_flip_state.borrow_mut() = PageFlipState::WaitingForPageFlip {
+                _buffer_to_keep_alive_until_flip: buffer_to_keep_alive,
+            };
         } else {
             self.drm_device
                 .set_crtc(
@@ -294,30 +466,27 @@ impl DrmOutput {
         }
     }
 
+    #[cfg(feature = "gbm")]
+    pub fn create_gbm_device(&self) -> Result<gbm::Device<SharedFd>, PlatformError> {
+        #[cfg(all(feature = "dlopen", not(test)))]
+        crate::dlopen::gbm::load()?;
+
+        gbm::Device::new(self.drm_device.clone())
+            .map_err(|e| format!("Error creating gbm device: {e}").into())
+    }
+
     pub fn size(&self) -> (u32, u32) {
         let (width, height) = self.mode.size();
         (width as u32, height as u32)
     }
 
-    /// Returns the refresh rate in millihertz, computed from the mode's pixel clock
-    /// and timing parameters. This matches the precision used by Vulkan's
-    /// VkDisplayModeParametersKHR::refreshRate.
+    /// Returns the refresh rate in millihertz, see [`refresh_rate_millihertz`].
     #[cfg(wgpu_surface)]
     pub fn refresh_rate_millihertz(&self) -> u32 {
-        let clock = self.mode.clock() as u64; // in kHz
-        let (_, _, htotal) = self.mode.hsync();
-        let (_, _, vtotal) = self.mode.vsync();
-        let htotal = htotal as u64;
-        let vtotal = vtotal as u64;
-        if htotal == 0 || vtotal == 0 {
-            // Fallback to rounded vrefresh * 1000
-            return self.mode.vrefresh() * 1000;
-        }
-        // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
-        ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
+        refresh_rate_millihertz(&self.mode)
     }
 
-    #[cfg(wgpu_29_surface_target)]
+    #[cfg(skia_wgpu_29)]
     /// Creates a wgpu-29 DRM surface target from this output.
     pub fn wgpu_29_surface_target(
         &self,
@@ -341,7 +510,7 @@ impl DrmOutput {
         Ok((target, i_slint_core::api::PhysicalSize::new(width, height)))
     }
 
-    #[cfg(any(feature = "unstable-wgpu-30", feature = "renderer-femtovg-wgpu"))]
+    #[cfg(wgpu_30_surface_target)]
     /// Creates a wgpu-30 DRM surface target from this output.
     pub fn wgpu_30_surface_target(
         &self,
@@ -394,3 +563,100 @@ impl DrmOutput {
         Err(PlatformError::Other("Could not find plane matching crtc".into()))
     }
 }
+
+/// Returns `mode`'s refresh rate in millihertz, computed from its pixel clock
+/// and timing parameters. This matches the precision used by Vulkan's
+/// VkDisplayModeParametersKHR::refreshRate.
+fn refresh_rate_millihertz(mode: &drm::control::Mode) -> u32 {
+    let clock = mode.clock() as u64; // in kHz
+    let (_, _, htotal) = mode.hsync();
+    let (_, _, vtotal) = mode.vsync();
+    let htotal = htotal as u64;
+    let vtotal = vtotal as u64;
+    if htotal == 0 || vtotal == 0 {
+        // Fallback to rounded vrefresh * 1000
+        return mode.vrefresh() * 1000;
+    }
+    // clock is in kHz, so clock * 1_000_000 gives us millihertz * htotal * vtotal
+    ((clock * 1_000_000 + (htotal * vtotal) / 2) / (htotal * vtotal)) as u32
+}
+
+/// Weston chooses in the same order.
+fn select_default_mode(
+    modes: &[drm::control::Mode],
+    current_mode: Option<drm::control::Mode>,
+) -> Option<drm::control::Mode> {
+    let largest_and_fastest = |mode: &&drm::control::Mode| {
+        (mode.size().0 as u32 * mode.size().1 as u32, refresh_rate_millihertz(mode))
+    };
+    modes
+        .iter()
+        .filter(|mode| mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED))
+        .max_by_key(largest_and_fastest)
+        .or(current_mode.as_ref())
+        // Displays often list their native size several times, down to the
+        // 24 Hz of film, and don't always mark one of them as preferred.
+        .or_else(|| modes.iter().max_by_key(largest_and_fastest))
+        .copied()
+}
+
+fn select_requested_mode(
+    modes: &[drm::control::Mode],
+    mode_str: &str,
+) -> Result<drm::control::Mode, String> {
+    if let Ok(mode_index) = mode_str.parse::<usize>() {
+        return modes
+            .get(mode_index)
+            .copied()
+            .map_or_else(|| Err(format!("Mode index is out of bounds: {mode_index}")), Ok);
+    }
+
+    let (size, refresh_rate) = match mode_str.split_once('@') {
+        Some((size, refresh_rate)) => (
+            size,
+            Some(refresh_rate.parse::<u32>().map_err(|_| {
+                format!("Invalid refresh rate in SLINT_DRM_MODE value '{mode_str}'")
+            })?),
+        ),
+        None => (mode_str, None),
+    };
+    let (width, height) = size.split_once('x').ok_or_else(|| {
+        format!(
+            "Invalid SLINT_DRM_MODE value '{mode_str}': expected a mode index, WIDTHxHEIGHT, WIDTHxHEIGHT@HZ, or 'list'"
+        )
+    })?;
+    let requested_size = (
+        width
+            .parse::<u16>()
+            .map_err(|_| format!("Invalid width in SLINT_DRM_MODE value '{mode_str}'"))?,
+        height
+            .parse::<u16>()
+            .map_err(|_| format!("Invalid height in SLINT_DRM_MODE value '{mode_str}'"))?,
+    );
+
+    modes
+        .iter()
+        .filter(|mode| {
+            mode.size() == requested_size
+                && refresh_rate.is_none_or(|refresh_rate| mode.vrefresh() == refresh_rate)
+        })
+        .max_by_key(|mode| {
+            (
+                mode.mode_type().contains(drm::control::ModeTypeFlags::PREFERRED),
+                refresh_rate_millihertz(mode),
+            )
+        })
+        .cloned()
+        .ok_or_else(|| {
+            let (width, height) = requested_size;
+            match refresh_rate {
+                Some(refresh_rate) => {
+                    format!("Requested DRM mode {width}x{height}@{refresh_rate} is not available")
+                }
+                None => format!("Requested DRM mode {width}x{height} is not available"),
+            }
+        })
+}
+
+#[cfg(test)]
+mod mode_tests;

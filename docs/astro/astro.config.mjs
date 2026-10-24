@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 // @ts-check
-import { defineConfig } from "astro/config";
+import { defineSlintDocsConfig } from "@slint/common-files/src/utils/astro-config";
 import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
 import starlightSidebarTopics from "starlight-sidebar-topics";
@@ -33,7 +33,7 @@ const sidebarHref = (/** @type {string} */ url) =>
     url.startsWith(BASE_PATH) ? url.slice(BASE_PATH.length) : url;
 
 // https://astro.build/config
-export default defineConfig({
+export default defineSlintDocsConfig({
     site: `${BASE_URL}${BASE_PATH}`,
     base: BASE_PATH,
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
@@ -51,7 +51,10 @@ export default defineConfig({
         "/reference/global-structs-enums/": `${BASE_PATH}reference/property-types/builtin-structs/`,
         "/guide/platforms/desktop/": `${BASE_PATH}guide/platforms/desktop/general/`,
         "/guide/platforms/other/": `${BASE_PATH}guide/platforms/desktop/general/`,
-        "/guide/platforms/packaging/windows-packaging/": `${BASE_PATH}guide/platforms/desktop/windows/packaging/`,
+        "/guide/platforms/packaging/windows-packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/windows/`,
+        "/guide/platforms/desktop/windows/packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/windows/`,
+        "/guide/platforms/desktop/macos/packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/macos/`,
+        "/guide/platforms/desktop/linux/packaging/": `${BASE_PATH}guide/platforms/desktop/packaging/linux/`,
         "/guide/platforms/desktop/linux/": `${BASE_PATH}guide/platforms/desktop/linux/general/`,
     },
     markdown: {
@@ -84,6 +87,9 @@ export default defineConfig({
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/HeaderSlintDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent:
+                    "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 starlightSidebarTopics([
@@ -114,6 +120,7 @@ export default defineConfig({
                                         ],
                                     },
                                     "guide/tooling/live-preview",
+                                    "guide/tooling/project-file",
                                     "guide/tooling/slint-viewer",
                                     "guide/tooling/figma-inspector",
                                     "guide/tooling/ai-coding-assistants",
@@ -137,6 +144,10 @@ export default defineConfig({
                                             {
                                                 label: "Reactivity vs React.js",
                                                 slug: "guide/language/concepts/reactivity-vs-react",
+                                            },
+                                            {
+                                                label: "Editions",
+                                                slug: "guide/language/concepts/editions",
                                             },
                                         ],
                                     },
@@ -219,38 +230,24 @@ export default defineConfig({
                                         label: "Desktop",
                                         collapsed: true,
                                         items: [
-                                            "guide/platforms/desktop/general",
                                             {
-                                                label: "Windows",
-                                                collapsed: true,
-                                                items: [
-                                                    {
-                                                        label: "Overview",
-                                                        slug: "guide/platforms/desktop/windows/general",
-                                                    },
-                                                    "guide/platforms/desktop/windows/packaging",
-                                                ],
+                                                label: "Overview",
+                                                slug: "guide/platforms/desktop/general",
                                             },
+                                            "guide/platforms/desktop/windows/general",
+                                            "guide/platforms/desktop/macos/general",
+                                            "guide/platforms/desktop/linux/general",
                                             {
-                                                label: "macOS",
+                                                label: "Packaging",
                                                 collapsed: true,
                                                 items: [
                                                     {
                                                         label: "Overview",
-                                                        slug: "guide/platforms/desktop/macos/general",
+                                                        slug: "guide/platforms/desktop/packaging/general",
                                                     },
-                                                    "guide/platforms/desktop/macos/packaging",
-                                                ],
-                                            },
-                                            {
-                                                label: "Linux",
-                                                collapsed: true,
-                                                items: [
-                                                    {
-                                                        label: "Overview",
-                                                        slug: "guide/platforms/desktop/linux/general",
-                                                    },
-                                                    "guide/platforms/desktop/linux/packaging",
+                                                    "guide/platforms/desktop/packaging/windows",
+                                                    "guide/platforms/desktop/packaging/macos",
+                                                    "guide/platforms/desktop/packaging/linux",
                                                 ],
                                             },
                                         ],
@@ -316,12 +313,12 @@ export default defineConfig({
                                                   slug: "guide/experimental/named-slots",
                                               },
                                               {
-                                                  label: "Deprecated Properties",
-                                                  slug: "guide/experimental/deprecated",
-                                              },
-                                              {
                                                   label: "Shadowable Members",
                                                   slug: "guide/experimental/shadowable",
+                                              },
+                                              {
+                                                  label: "Testable Properties",
+                                                  slug: "guide/experimental/testable",
                                               },
                                               {
                                                   label: "Custom Mouse Cursor",
@@ -409,6 +406,10 @@ export default defineConfig({
                                     {
                                         label: "Callbacks",
                                         slug: "reference/language/callbacks",
+                                    },
+                                    {
+                                        label: "Deprecation",
+                                        slug: "reference/language/deprecation",
                                     },
                                     {
                                         label: "Evaluation and Purity",

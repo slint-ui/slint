@@ -124,13 +124,11 @@ fn pairing_code_and_no_pairing_conflict() {
 #[cfg(feature = "remote")]
 #[test]
 fn malformed_pairing_codes_are_rejected() {
-    // A pinned code has to have the same shape as a generated one, so the
-    // editor can keep a fixed-length numeric field.
-    for bad in ["", "123", "12345", "12a4", "abcd"] {
+    for bad in ["", "123", "1234567890123", "12a4", "abcd"] {
         let (code, _stdout, stderr) = run(&["--remote", "--pairing-code", bad]);
         assert_eq!(code, 2, "{bad:?} should have been rejected");
         assert!(
-            stderr.contains("--pairing-code must be exactly 4 digits"),
+            stderr.contains("--pairing-code must be 4 to 12 digits"),
             "for {bad:?} stderr was:\n{stderr}"
         );
     }
@@ -255,6 +253,32 @@ fn check_syntax_error_exits_one() {
 }
 
 #[test]
+fn check_library_file_without_component_exits_zero() {
+    let f = write_slint("export global Colors { out property <color> accent: blue; }\n");
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_reports_errors_in_every_exported_component() {
+    let f = write_slint(
+        "export component First { width: self.height; height: self.width; }\n\
+         export component Last { }\n",
+    );
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("binding loop"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_missing_named_component_exits_one() {
+    let f = write_slint("export global Colors { out property <color> accent: blue; }\n");
+    let (code, _stdout, stderr) =
+        run(&["--check", "--component", "Missing", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+}
+
+#[test]
 fn check_conflicts_with_auto_reload() {
     let f = write_slint("export component Ok { }\n");
     let (code, _stdout, stderr) = run(&["--check", "--auto-reload", f.path().to_str().unwrap()]);
@@ -276,6 +300,139 @@ fn check_conflicts_with_screenshot() {
     assert!(stderr.contains("--check") && stderr.contains("--screenshot"), "stderr was:\n{stderr}");
 }
 
+// --- Project file -------------------------------------------------------
+
+fn project_with_shared_component(project_file: &str) -> tempfile::TempDir {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir(tmp.path().join("shared")).unwrap();
+    std::fs::write(
+        tmp.path().join("shared/shared.slint"),
+        "export component Shared inherits Rectangle {}\n",
+    )
+    .unwrap();
+    std::fs::write(tmp.path().join("slint-project.json"), project_file).unwrap();
+    tmp
+}
+
+#[test]
+fn project_file_include_paths_are_used() {
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
+    );
+    let main = project.path().join("main.slint");
+    std::fs::write(
+        &main,
+        "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
+    )
+    .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn project_file_library_paths_are_used() {
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
+    );
+    let main = project.path().join("main.slint");
+    std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
+        .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn an_empty_include_path_wins_over_the_project_file() {
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
+    );
+    let main = project.path().join("main.slint");
+    std::fs::write(
+        &main,
+        "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
+    )
+    .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", "-I", "", project.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn an_empty_library_path_wins_over_the_project_file() {
+    let project = project_with_shared_component(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
+    );
+    let main = project.path().join("main.slint");
+    std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
+        .unwrap();
+    let (code, _stdout, stderr) = run(&["--check", "-L", "", project.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("Cannot find requested import"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn file_with_project_root_keeps_the_selected_file() {
+    for project_file in [
+        None,
+        Some(r#"{"slint-edition":"1.19"}"#),
+        Some(r#"{"slint-edition":"1.19","main":"other.slint"}"#),
+    ] {
+        let project = tempfile::tempdir().unwrap();
+        let main = project.path().join("main.slint");
+        std::fs::write(&main, "export component Main inherits Window {}").unwrap();
+        std::fs::write(project.path().join("other.slint"), "invalid Slint").unwrap();
+        if let Some(project_file) = project_file {
+            std::fs::write(project.path().join("slint-project.json"), project_file).unwrap();
+        }
+        let (code, _stdout, stderr) = run(&[
+            "--check",
+            "--project-root",
+            project.path().to_str().unwrap(),
+            main.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+    }
+}
+
+#[test]
+fn file_with_project_root_uses_only_the_direct_project_file() {
+    let container = tempfile::tempdir().unwrap();
+    let root = container.path().join("project");
+    let source_directory = root.join("ui");
+    std::fs::create_dir_all(&source_directory).unwrap();
+    std::fs::create_dir(root.join("include")).unwrap();
+    std::fs::write(container.path().join("slint-project.json"), "{").unwrap();
+    std::fs::write(source_directory.join("slint-project.json"), "{").unwrap();
+    std::fs::write(
+        root.join("slint-project.json"),
+        r#"{"slint-edition":"1.19","include-paths":["include"]}"#,
+    )
+    .unwrap();
+    std::fs::write(root.join("include/shared.slint"), "export component Shared {}").unwrap();
+    let main = source_directory.join("main.slint");
+    std::fs::write(
+        &main,
+        r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#,
+    )
+    .unwrap();
+    let (code, _stdout, stderr) =
+        run(&["--check", "-p", root.to_str().unwrap(), main.to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn directory_input_and_project_root_conflict() {
+    let project = tempfile::tempdir().unwrap();
+    let (code, _stdout, stderr) = run(&[
+        "--check",
+        "--project-root",
+        project.path().to_str().unwrap(),
+        project.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("cannot be combined"), "stderr was:\n{stderr}");
+}
+
 // --- Screenshot rendering ----------------------------------------------
 
 // Cases known to produce the same RGB output as their reference under both
@@ -285,17 +442,9 @@ fn check_conflicts_with_screenshot() {
 // then verify that the viewer's `--screenshot` output matches both.
 const SCREENSHOT_CASES: &[&str] = &["rgb", "linear-gradients", "radial-gradients"];
 
-#[cfg(any(
-    feature = "renderer-skia",
-    feature = "renderer-skia-opengl",
-    feature = "renderer-skia-vulkan"
-))]
+#[cfg(enable_skia)]
 const REFERENCE_RENDERER: &str = "skia";
-#[cfg(not(any(
-    feature = "renderer-skia",
-    feature = "renderer-skia-opengl",
-    feature = "renderer-skia-vulkan"
-)))]
+#[cfg(not(enable_skia))]
 const REFERENCE_RENDERER: &str = "software";
 
 #[test]

@@ -32,7 +32,7 @@ export Xxx := Rectangle {
     property<int> t5: x_y;
 //                    > <error{Unknown unqualified identifier 'x_y'}
     property<int> t6: obj.a-bc;
-//                        >  <error{Cannot access the field 'a-bc'}
+//                        >  <error{Cannot access the field 'a-bc'. Did you mean 'a-b'?}
     property<int> t7: obj.xx.obj-4;
 //                           >   <error{Cannot access the field 'obj-4'}
 

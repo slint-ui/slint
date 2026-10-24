@@ -6,12 +6,13 @@
 //! This module contains the ItemTree and code that helps navigating it
 
 use crate::SharedString;
+use crate::SlintContext;
 use crate::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
-use crate::items::{AccessibleRole, ItemRef, ItemVTable};
+use crate::items::{AccessibleRole, ItemRef, ItemVTable, ScrollBehavior};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect};
+use crate::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
 use crate::slice::Slice;
 use crate::window::WindowAdapterRc;
 use alloc::vec::Vec;
@@ -145,12 +146,40 @@ pub struct ItemTreeVTable {
         result: &mut SharedString,
     ) -> bool,
 
+    /// Writes the names and types of the given item's testable properties into `result`,
+    /// one `name:type` pair per line.
+    /// Returns false when the item tree carries no testable-property debug info
+    /// (built without `SLINT_EMIT_DEBUG_INFO`).
+    /// An empty `result` with a true return means the item declares no `@testable` property.
+    pub element_testable_properties: extern "C" fn(
+        ::core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        result: &mut SharedString,
+    ) -> bool,
+
+    /// Writes the current value of the given item's testable property `property_name`
+    /// (UTF-8 encoded) into `result`, in the encoding of [`crate::debug_info`].
+    /// Returns false when the property does not exist,
+    /// its value has no debug encoding,
+    /// or the item tree carries no testable-property debug info.
+    pub element_testable_property_value: extern "C" fn(
+        ::core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        property_name: Slice<u8>,
+        result: &mut SharedString,
+    ) -> bool,
+
     /// Returns a Window, creating a fresh one if `do_create` is true.
     pub window_adapter: extern "C" fn(
         ::core::pin::Pin<VRef<ItemTreeVTable>>,
         do_create: bool,
         result: &mut Option<WindowAdapterRc>,
     ),
+
+    /// Returns the context the item tree was created with, or leaves `result` empty when it
+    /// doesn't know it.
+    pub slint_context:
+        extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, result: &mut Option<SlintContext>),
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe extern "C" fn(VRefMut<ItemTreeVTable>) -> vtable::Layout,
@@ -318,6 +347,18 @@ impl core::fmt::Debug for ItemRc {
     }
 }
 
+/// Returns true if a `clip` rectangle leaves some of `geometry` visible.
+/// An empty clip hides everything, and a rectangle that only touches its edge counts as visible.
+fn clip_overlaps(clip: LogicalRect, geometry: LogicalRect) -> bool {
+    let clip = clip.to_box2d();
+    let geometry = geometry.to_box2d();
+    !clip.is_empty()
+        && clip.max.x >= geometry.min.x
+        && clip.max.y >= geometry.min.y
+        && clip.min.x <= geometry.max.x
+        && clip.min.y <= geometry.max.y
+}
+
 impl ItemRc {
     /// Create an ItemRc from a ItemTree and an index
     pub fn new(item_tree: vtable::VRc<ItemTreeVTable>, index: u32) -> Self {
@@ -369,6 +410,18 @@ impl ItemRc {
         }))
     }
 
+    /// Identifies compiler-added wrappers that take over a source element's geometry.
+    /// Skip these wrappers when recovering the source element's parent coordinate system.
+    /// Ordinary clips sit inside their source rectangle and don't take over its geometry.
+    pub fn is_geometry_wrapper(&self) -> bool {
+        let item = self.borrow();
+        ItemRef::downcast_pin::<crate::items::Transform>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Opacity>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Layer>(item).is_some()
+            || ItemRef::downcast_pin::<crate::items::Clip>(item)
+                .is_some_and(|clip| clip.is_visibility_clip())
+    }
+
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { item_tree: VRc::downgrade(&self.item_tree), index: self.index }
     }
@@ -409,13 +462,7 @@ impl ItemRc {
     /// false for `Clip` elements with the `clip` property evaluating to true.
     pub fn is_visible(&self) -> bool {
         let (clip, geometry) = self.absolute_clip_rect_and_geometry();
-        let clip = clip.to_box2d();
-        let geometry = geometry.to_box2d();
-        !clip.is_empty()
-            && clip.max.x >= geometry.min.x
-            && clip.max.y >= geometry.min.y
-            && clip.min.x <= geometry.max.x
-            && clip.min.y <= geometry.max.y
+        clip_overlaps(clip, geometry)
     }
 
     pub(crate) fn visibility_clips(&self) -> Vec<VWeakMapped<ItemTreeVTable, crate::items::Clip>> {
@@ -438,23 +485,37 @@ impl ItemRc {
             return true;
         }
 
-        // The item is not visible. Walk toward the root and find the first
-        // clipping ancestor that actually hides the item: if it is a
-        // Flickable, scrolling can bring the item back into view.
-        let geometry = self.absolute_clip_rect_and_geometry().1.to_box2d();
+        // Walk toward the root to the clipping ancestor that hides the item, and ask whether
+        // it's a Flickable, which scrolling can undo. An ancestor hides the item with its own
+        // rectangle, or with that rectangle intersected with the clips above it. The first
+        // reading is needed for a LineEdit: once the Flickable scrolled it away, its own clip
+        // intersected with the Flickable's is empty, and the walk would stop there. The
+        // second is needed for a Flickable taller than a clip around it. Every ancestor that
+        // hides the item by its own rectangle also hides it by the intersection, so the
+        // intersection only has to be asked until it first hides the item.
+        let geometry = self.absolute_clip_rect_and_geometry().1;
+        let mut hidden_by_intersection = false;
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
         while let Some(ancestor) = parent {
             if ancestor.borrow().as_ref().clips_children() {
                 let (clip, ancestor_geo) = ancestor.absolute_clip_rect_and_geometry();
-                let clip = ancestor_geo.intersection(&clip).unwrap_or_default().to_box2d();
-                let item_in_clip = !clip.is_empty()
-                    && clip.max.x >= geometry.min.x
-                    && clip.max.y >= geometry.min.y
-                    && clip.min.x <= geometry.max.x
-                    && clip.min.y <= geometry.max.y;
-                if !item_in_clip {
-                    return ancestor.downcast::<crate::items::Flickable>().is_some()
-                        && ancestor.is_visible_or_clipped_by_flickable();
+                let hidden_by_own_rect = !clip_overlaps(ancestor_geo, geometry);
+                if hidden_by_own_rect
+                    || (!hidden_by_intersection
+                        && !clip_overlaps(
+                            ancestor_geo.intersection(&clip).unwrap_or_default(),
+                            geometry,
+                        ))
+                {
+                    if ancestor.downcast::<crate::items::Flickable>().is_some()
+                        && ancestor.is_visible_or_clipped_by_flickable()
+                    {
+                        return true;
+                    }
+                    if hidden_by_own_rect {
+                        return false;
+                    }
+                    hidden_by_intersection = true;
                 }
             }
             parent = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
@@ -600,6 +661,43 @@ impl ItemRc {
         })
     }
 
+    /// The `@testable` properties declared on this item's element and its base components,
+    /// as `(name, type)` pairs.
+    /// `None` when the item tree carries no testable-property debug info.
+    pub fn element_testable_properties(&self) -> Option<Vec<(SharedString, SharedString)>> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedString::new();
+        comp_ref_pin.as_ref().element_testable_properties(self.index, &mut result).then(|| {
+            result
+                .as_str()
+                .lines()
+                .filter(|line| !line.is_empty())
+                .map(|line| {
+                    let (name, ty) = line.split_once(':').unwrap_or((line, ""));
+                    (name.into(), ty.into())
+                })
+                .collect()
+        })
+    }
+
+    /// The current value of the testable property `name` on this item's element,
+    /// in the string encoding of [`crate::debug_info`].
+    /// `None` when the property does not exist,
+    /// its value has no debug encoding,
+    /// or the item tree carries no testable-property debug info.
+    pub fn element_testable_property_value(&self, name: &str) -> Option<SharedString> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedString::new();
+        comp_ref_pin
+            .as_ref()
+            .element_testable_property_value(
+                self.index,
+                Slice::from_slice(name.as_bytes()),
+                &mut result,
+            )
+            .then_some(result)
+    }
+
     pub fn element_layout_kind(&self, element_index: usize) -> Option<SharedString> {
         self.raw_element_infos().and_then(|infos| {
             let first_debug_entry =
@@ -692,6 +790,7 @@ impl ItemRc {
     /// Returns an absolute position of `p` in the `ancestor`'s coordinate system
     /// (does not add this item's x and y)
     /// Don't rely on any specific behavior if `self` isn't a descendant of `ancestor`.
+    #[cfg(test)]
     fn map_to_ancestor(&self, p: LogicalPoint, ancestor: &Self) -> LogicalPoint {
         self.map_to_item_tree_impl(p, |parent| parent == ancestor)
     }
@@ -975,6 +1074,11 @@ impl ItemRc {
         result
     }
 
+    /// The context of the item tree this item belongs to (see [`crate::window::context_for_root`]).
+    pub fn slint_context(&self) -> crate::SlintContext {
+        crate::window::context_for_root(&self.item_tree)
+    }
+
     /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
     /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
     fn visit_descendants_impl<R>(
@@ -1056,36 +1160,28 @@ impl ItemRc {
             .and_then(|child_transform| child_transform.inverse())
     }
 
-    pub(crate) fn try_scroll_into_visible(&self) {
-        let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
-        while let Some(item_rc) = parent.as_ref() {
-            let item_ref = item_rc.borrow();
-            if let Some(flickable) = vtable::VRef::downcast_pin::<crate::items::Flickable>(item_ref)
+    /// Scrolls every `Flickable` ancestor up to the nearest popup by the smallest amount that brings `self` into view.
+    /// Does nothing if no such ancestor is a `Flickable`.
+    pub fn try_scroll_into_visible(&self, scroll_behavior: ScrollBehavior) {
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
+        let geo = self.geometry();
+        let mut points = [geo.min(), geo.max()];
+        let mut current = self.clone();
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            if let Some(flickable) =
+                vtable::VRef::downcast_pin::<crate::items::Flickable>(parent.borrow())
             {
-                let geo = self.geometry();
-
-                flickable.reveal_points(
-                    item_rc,
-                    &[
-                        self.map_to_ancestor(
-                            LogicalPoint::new(
-                                geo.origin.x - flickable.content_x().0,
-                                geo.origin.y - flickable.content_y().0,
-                            ),
-                            item_rc,
-                        ),
-                        self.map_to_ancestor(
-                            LogicalPoint::new(
-                                geo.max_x() - flickable.content_x().0,
-                                geo.max_y() - flickable.content_y().0,
-                            ),
-                            item_rc,
-                        ),
-                    ],
-                );
+                let offset =
+                    LogicalVector::from_lengths(flickable.content_x(), flickable.content_y());
+                let content_points = points.map(|p| p - offset);
+                let target = flickable.reveal_points(&parent, &content_points, scroll_behavior);
+                points = content_points.map(|p| p + target);
             }
-
-            parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
+            let step = parent.step_transform(supports_transformations);
+            points = points.map(|p| step.transform_point(p.cast()).cast());
+            current = parent;
         }
     }
 }
@@ -1699,7 +1795,7 @@ mod tests {
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
     use euclid::Point2D;
-    use std::{rc::Rc, vec};
+    use std::{boxed::Box, rc::Rc, vec};
 
     const GEOMETRY_POSITION_X: f32 = 6.;
     const GEOMETRY_POSITION_Y: f32 = 27.;
@@ -1863,6 +1959,19 @@ mod tests {
             false
         }
 
+        fn element_testable_properties(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
+            false
+        }
+
+        fn element_testable_property_value(
+            self: Pin<&Self>,
+            _: u32,
+            _: Slice<u8>,
+            _: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
         fn window_adapter(
             self: Pin<&Self>,
             _do_create: bool,
@@ -1870,6 +1979,8 @@ mod tests {
         ) {
             *result = self.window_adapter.upgrade()
         }
+
+        fn slint_context(self: Pin<&Self>, _result: &mut Option<SlintContext>) {}
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
             LogicalRect::new(
@@ -2832,6 +2943,23 @@ mod tests {
             false
         }
 
+        fn element_testable_properties(
+            self: Pin<&Self>,
+            _index: u32,
+            _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
+        fn element_testable_property_value(
+            self: Pin<&Self>,
+            _index: u32,
+            _property_name: Slice<u8>,
+            _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
         fn ensure_instantiated(self: Pin<&Self>) -> bool {
             false
         }
@@ -2843,6 +2971,8 @@ mod tests {
         ) {
             *result = self.window_adapter.upgrade()
         }
+
+        fn slint_context(self: Pin<&Self>, _result: &mut Option<SlintContext>) {}
 
         fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect {
             self.geometries[index as usize]
@@ -3079,6 +3209,73 @@ mod tests {
     }
 
     #[test]
+    fn test_window_overlay_renders_above_child_popups_without_joining_popup_stack() {
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+        let (window_adapter, component) = create_one_node_component(Some(window_item));
+        window_adapter
+            .window
+            .0
+            .set_context(crate::SlintContext::new(Box::new(crate::testing::NoWindowPlatform)));
+        window_adapter.window.0.set_component(&component);
+
+        let popup = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.show_popup(
+            &popup,
+            alloc::boxed::Box::new(|| LogicalPosition::new(10., 20.)),
+            crate::items::PopupClosePolicy::NoAutoClose,
+            &ItemRc::new_root(component.clone()),
+            crate::window::WindowKind::Popup,
+            alloc::boxed::Box::new(|_| {}),
+        );
+
+        let overlay = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.add_overlay(&overlay).unwrap();
+        let unrelated_overlay = create_subsubtree_items(None).1;
+        assert!(window_adapter.window.0.add_overlay(&unrelated_overlay).is_err());
+
+        let resized = LogicalSize::new(75., 65.);
+        window_adapter.window.0.set_window_item_geometry(resized);
+        let overlay_window = ItemRc::new_root(overlay.clone()).downcast::<WindowItem>().unwrap();
+        assert_eq!(overlay_window.as_pin_ref().width().0, resized.width);
+        assert_eq!(overlay_window.as_pin_ref().height().0, resized.height);
+
+        assert_eq!(window_adapter.window.0.active_popups().len(), 1);
+        let rendered_components = || {
+            window_adapter
+                .window
+                .0
+                .draw_contents(|components, _| {
+                    components
+                        .iter()
+                        .map(|(component, _)| component.upgrade().unwrap())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap()
+        };
+        for (actual, expected) in rendered_components().iter().zip([&component, &popup, &overlay]) {
+            assert!(VRc::ptr_eq(actual, expected));
+        }
+
+        window_adapter.window.0.close_top_popup();
+        assert!(window_adapter.window.0.active_popups().is_empty());
+        let components_without_popup = rendered_components();
+        assert_eq!(components_without_popup.len(), 2);
+        assert!(VRc::ptr_eq(&components_without_popup[1], &overlay));
+
+        window_adapter.window.0.clear_overlays();
+        assert_eq!(rendered_components().len(), 1);
+
+        window_adapter.window.0.add_overlay(&overlay).unwrap();
+        let replacement = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.set_component(&replacement);
+        let components_after_replacement = rendered_components();
+        assert_eq!(components_after_replacement.len(), 1);
+        assert!(VRc::ptr_eq(&components_after_replacement[0], &replacement));
+    }
+
+    #[test]
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
         let (window_adapter, item_tree) = create_subsubtree_items(None);
@@ -3291,7 +3488,6 @@ mod tests {
             &self,
             _window_adapter: &std::rc::Rc<dyn crate::window::WindowAdapter>,
         ) {
-            unimplemented!("Not required in this test");
         }
 
         fn slint_context(&self) -> Option<crate::SlintContext> {

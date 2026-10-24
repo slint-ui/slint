@@ -7,19 +7,23 @@ use lsp_types::Url;
 
 use i_slint_live_preview::file_watcher::FileChangeKind;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::editor_preview;
 use crate::editor_preview::LspToPreviews;
 
 // Fixtures for the shared document model live with it.
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub use i_slint_editor_preview::test::preview_capture;
 pub use i_slint_editor_preview::test::{
     complex_document_cache, empty_document_cache, empty_document_cache_with_experimental, load,
     loaded_document_cache, loaded_document_cache_with_experimental,
-    loaded_document_cache_with_file_name, preview_capture,
+    loaded_document_cache_with_file_name,
 };
 
 use super::Context;
+
+pub const CURSOR_EMOJI: char = '🔺';
 
 pub fn mock_context() -> Context {
     mock_context_with_document_cache(empty_document_cache())
@@ -27,17 +31,10 @@ pub fn mock_context() -> Context {
 
 pub fn mock_context_with_document_cache(document_cache: editor_preview::DocumentCache) -> Context {
     crate::language::Context {
-        session: editor_preview::EditorSession {
+        session: editor_preview::EditorSession::new(
             document_cache,
-            preview_config: Default::default(),
-            open_urls: HashSet::new(),
-            previews: vec![editor_preview::PreviewConnection {
-                to_preview: LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
-                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-                to_show: None,
-            }],
-            pending_recompile: Default::default(),
-        },
+            LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+        ),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),
@@ -197,6 +194,7 @@ fn preview_file_recompiled_when_dependency_changes() {
         to_preview: editor_preview::LspToPreviews::with_one(
             editor_preview::DummyLspToPreview::default(),
         ),
+        project_root: Default::default(),
         to_show: Some(i_slint_live_preview::protocol::PreviewComponent {
             url: secondary_url.clone(),
             component: None,
@@ -241,6 +239,36 @@ fn request_state_re_sends_only_targeted_files_when_present() {
         messages[0],
         i_slint_live_preview::protocol::LspToPreviewMessage::SetContents { .. }
     ));
+}
+
+#[test]
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+fn request_state_serves_assets_of_the_workspace_folders() {
+    let (capture, messages) = preview_capture();
+    let mut ctx = mock_context();
+    ctx.session.primary_preview_mut().to_preview = capture;
+    let workspace = tempfile::tempdir().unwrap();
+    let logo = workspace.path().join("logo.png");
+    std::fs::write(&logo, []).unwrap();
+    ctx.init_param.workspace_folders = Some(vec![lsp_types::WorkspaceFolder {
+        uri: Url::from_file_path(workspace.path()).unwrap(),
+        name: "workspace".into(),
+    }]);
+
+    crate::language::send_requested_state_to_preview(
+        &ctx,
+        &[Url::from_file_path(&logo).unwrap()],
+        &[],
+    );
+
+    let messages = messages.borrow();
+    assert!(
+        matches!(
+            messages.as_slice(),
+            [i_slint_live_preview::protocol::LspToPreviewMessage::SetContents { .. }]
+        ),
+        "{messages:?}"
+    );
 }
 
 /// Test for issue #11304
@@ -303,12 +331,17 @@ mod missing_imports {
 
     #[test]
     fn watch_set_tracks_missing_imports() {
-        let (ctx, dir, main_url) = load_document_with_missing_import();
+        let (ctx, dir, _) = load_document_with_missing_import();
 
-        let dep_url = Url::from_file_path(dir.join("dep.slint")).unwrap();
-        let watch_urls = ctx.session.document_cache.all_urls_to_watch();
+        let watch_paths = ctx.session.document_cache.all_paths_to_watch();
 
-        assert!(watch_urls.contains(&main_url), "main.slint should stay in the watch set");
-        assert!(watch_urls.contains(&dep_url), "missing imports should stay in the watch set");
+        assert!(
+            watch_paths.contains(&dir.join("main.slint")),
+            "main.slint should stay in the watch set"
+        );
+        assert!(
+            watch_paths.contains(&dir.join("dep.slint")),
+            "missing imports should stay in the watch set"
+        );
     }
 }

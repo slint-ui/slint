@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::Type;
+use crate::native_class::NativeClass;
 use derive_more::{From, Into};
 use smol_str::SmolStr;
 use std::cell::{Cell, RefCell};
@@ -20,11 +21,13 @@ pub struct CallbackIdx(usize);
 pub struct SubComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GlobalIdx(usize);
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+pub struct PublicComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemInstanceIdx(usize);
-#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RepeatedElementIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TimerIdx(usize);
@@ -145,7 +148,7 @@ pub struct BindingExpression {
     pub use_count: Cell<usize>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GlobalComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
@@ -168,7 +171,7 @@ pub struct GlobalComponent {
     /// True if this component is imported from an external library
     pub from_library: bool,
     /// Analysis for each properties
-    pub prop_analysis: TiVec<PropertyIdx, crate::object_tree::PropertyAnalysis>,
+    pub prop_analysis: TiVec<PropertyIdx, crate::property_analysis::PropertyAnalysis>,
 }
 
 impl GlobalComponent {
@@ -193,14 +196,14 @@ pub enum LocalMemberIndex {
     /// Only valid as the argument of a `RestartTimer` builtin function call.
     #[from]
     Timer(TimerIdx),
+    #[from]
+    Repeater(RepeatedElementIdx),
     Native {
         item_index: ItemInstanceIdx,
         prop_name: SmolStr,
-        /// Disambiguates rtti property bindings from rtti callback
-        /// handlers (and from member-function calls handled by
-        /// `Expression::ItemMemberFunctionCall`). Lowering resolves
-        /// this from the element's declared property type; the code
-        /// generators and the interpreter dispatch on it rather than
+        /// Disambiguates rtti property bindings from rtti callback handlers.
+        /// Lowering resolves this from the element's declared property type;
+        /// the code generators and the interpreter dispatch on it rather than
         /// probing the rtti tables by name.
         kind: NativeMemberKind,
     },
@@ -214,10 +217,6 @@ pub enum NativeMemberKind {
     /// A `Callback` on the native item (`TouchArea.clicked`,
     /// `Window.close-requested`).
     Callback,
-    /// A function exposed through the native item's property table
-    /// with a `Type::Function` declaration (`TextInput.select-all`).
-    /// Only reached via `Expression::ItemMemberFunctionCall`.
-    Function,
 }
 impl LocalMemberIndex {
     pub fn property(&self) -> Option<PropertyIdx> {
@@ -347,7 +346,7 @@ impl TwoWayBinding {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Property {
     pub name: SmolStr,
     pub ty: Type,
@@ -356,7 +355,17 @@ pub struct Property {
     pub use_count: Cell<usize>,
 }
 
-#[derive(Debug, Default)]
+/// One entry of [`SubComponent::testable_properties`]:
+/// a property declared on an element, under its source name,
+/// with the reference to read its value in the sub-component's scope.
+#[derive(Debug, Clone)]
+pub struct TestableProperty {
+    pub name: SmolStr,
+    pub ty: Type,
+    pub prop: MemberReference,
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct Callback {
     pub name: SmolStr,
     pub ret_ty: Type,
@@ -375,7 +384,7 @@ pub struct Callback {
     pub needs_tracker: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub name: SmolStr,
     pub ret_ty: Type,
@@ -408,7 +417,7 @@ pub struct ListViewInfo {
     pub prop_height: MemberReference,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RepeatedElement {
     pub model: MutExpression,
     /// Within the sub_tree's root component. None for `if`
@@ -429,7 +438,7 @@ pub struct RepeatedElement {
     pub container_item_index: Option<ItemInstanceIdx>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentContainerElement {
     /// The index of the `ComponentContainer` in the enclosing components `item_tree` array
     pub component_container_item_tree_index: u32,
@@ -439,6 +448,7 @@ pub struct ComponentContainerElement {
     pub component_placeholder_item_tree_index: u32,
 }
 
+#[derive(Clone)]
 pub struct Item {
     pub ty: Arc<NativeClass>,
     pub name: SmolStr,
@@ -456,7 +466,7 @@ impl std::fmt::Debug for Item {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TreeNode {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     /// Either an index in the items, or the local dynamic index for repeater or component container
@@ -526,7 +536,7 @@ impl TreeNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubComponent {
     pub name: SmolStr,
     pub properties: TiVec<PropertyIdx, Property>,
@@ -570,13 +580,14 @@ pub struct SubComponent {
     /// (cross-axis) orientation only, so the main-axis cache stays independent
     /// of it. The cross-axis layout-info pass shares that accessor and so also
     /// evaluates it, unlike static cells (`box_layout_info_ortho` ignores it).
-    pub cross_axis_self_alignment_for_repeated: Option<(crate::layout::Orientation, MutExpression)>,
+    pub cross_axis_self_alignment_for_repeated:
+        Option<(crate::expression_types::Orientation, MutExpression)>,
     /// The root's `layout-order` for a repeated element in a box layout,
     /// returned by the generated `layout_item_info` for the given (main-axis)
     /// orientation only, so the cross-axis cache stays independent of it. The
     /// main-axis layout-info pass shares that accessor and so also evaluates
     /// it, unlike static cells (`box_layout_info` ignores the field).
-    pub layout_order_for_repeated: Option<(crate::layout::Orientation, MutExpression)>,
+    pub layout_order_for_repeated: Option<(crate::expression_types::Orientation, MutExpression)>,
     /// Vertical `LayoutInfo` for a repeated element, computed with a width
     /// constraint (its preferred width) so a height-for-width instance in a
     /// column FlexboxLayout doesn't read `self.width` and recurse through the
@@ -615,6 +626,14 @@ pub struct SubComponent {
     /// Maps item index to a list of encoded element infos of the element  (type name, qualified ids).
     pub element_infos: BTreeMap<u32, String>,
 
+    /// Maps item index to the `@testable` properties declared on the element and its base
+    /// components, for debug-info introspection.
+    /// [`count_property_use`](super::optim_passes::count_property_use) reads every entry,
+    /// so a listed property and its binding survive even when nothing else reads them.
+    /// Populated only when `CompilerConfiguration::debug_info` is set;
+    /// see `ItemTreeVTable::element_testable_property_value`.
+    pub testable_properties: BTreeMap<u32, Vec<TestableProperty>>,
+
     pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
 
     /// Populated when `CompilerConfiguration::debug_info` is set.
@@ -622,14 +641,14 @@ pub struct SubComponent {
     pub debug_info: Option<super::debug_info::SubComponentDebugInfo>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PopupWindow {
     pub item_tree: ItemTree,
     pub position: MutExpression,
     pub is_tooltip: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PopupMenu {
     pub item_tree: ItemTree,
     pub sub_menu: MemberReference,
@@ -638,7 +657,7 @@ pub struct PopupMenu {
     pub entries: MemberReference,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Timer {
     pub interval: MutExpression,
     pub running: MutExpression,
@@ -649,7 +668,7 @@ pub struct Timer {
 pub struct PropAnalysis {
     /// Index in SubComponent::property_init for this property
     pub property_init: Option<usize>,
-    pub analysis: crate::object_tree::PropertyAnalysis,
+    pub analysis: crate::property_analysis::PropertyAnalysis,
 }
 
 impl SubComponent {
@@ -672,7 +691,7 @@ impl SubComponent {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SubComponentInstance {
     pub ty: SubComponentIdx,
     pub name: SmolStr,
@@ -681,7 +700,7 @@ pub struct SubComponentInstance {
     pub repeater_offset: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ItemTree {
     pub root: SubComponentIdx,
     pub tree: TreeNode,
@@ -696,7 +715,7 @@ pub enum TopLevelComponentType {
     SystemTrayIcon,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
@@ -707,7 +726,7 @@ pub struct PublicComponent {
 
 /// One name the generated module exposes for a declared type (or a component alias):
 /// its own name, a renamed export, or a name kept only for backward compatibility.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeExport {
     /// The name users write.
     pub exported_name: SmolStr,
@@ -746,9 +765,9 @@ impl TypeExport {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompilationUnit {
-    pub public_components: Vec<PublicComponent>,
+    pub public_components: TiVec<PublicComponentIdx, PublicComponent>,
     /// Storage for all sub-components
     pub sub_components: TiVec<SubComponentIdx, SubComponent>,
     /// The sub-components that are not item-tree root
@@ -981,12 +1000,12 @@ pub struct PublicProperty {
     pub display_name: SmolStr,
     pub ty: Type,
     pub prop: MemberReference,
-    pub visibility: crate::object_tree::PropertyVisibility,
+    pub visibility: crate::native_class::PropertyVisibility,
 }
 
 impl PublicProperty {
     pub fn read_only(&self) -> bool {
-        self.visibility == crate::object_tree::PropertyVisibility::Output
+        self.visibility == crate::native_class::PropertyVisibility::Output
     }
 }
 /// Public properties of a component or global, keyed by the normalized

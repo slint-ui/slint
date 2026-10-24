@@ -11,9 +11,12 @@
 
 use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
+use crate::api::LogicalPosition;
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
+use crate::items::{Flickable, ItemRc, ScrollBehavior};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
+use crate::model::repeater::scroll::accelerate_jump_decelerate::AccelerateJumpDecelerate;
 use crate::{Coord, Property};
 use alloc::vec::Vec;
 use core::cell::RefCell;
@@ -22,7 +25,21 @@ use core::pin::Pin;
 use euclid::num::Floor;
 use pin_project::pin_project;
 
-type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
+mod scroll;
+
+type ItemTreeRc<C = vtable::Dyn> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
+
+/// `instance` as a `C`.
+/// The instances of a `Repeater<C>` or a `Conditional<C>` are stored type-erased,
+/// so that the code handling them isn't compiled again for each `C`.
+fn as_typed<C: RepeatedItemTree>(instance: &ItemTreeRc) -> Pin<&C> {
+    vtable::VRef::downcast_pin(vtable::VRc::borrow_pin(instance)).unwrap()
+}
+
+/// `instance` as an `ItemTreeRc<C>`, see [`as_typed`].
+fn downcast<C: RepeatedItemTree>(instance: &ItemTreeRc) -> ItemTreeRc<C> {
+    vtable::VRc::downcast(instance).unwrap()
+}
 
 /// ItemTree that can be instantiated by a repeater.
 pub trait RepeatedItemTree:
@@ -120,16 +137,12 @@ enum RepeatedInstanceState {
     /// The model data is stale and needs to be refreshed
     Dirty,
 }
-struct RepeaterInner<C: RepeatedItemTree> {
-    instances: Vec<(RepeatedInstanceState, Option<ItemTreeRc<C>>)>,
+#[derive(Default)]
+struct RepeaterInner {
+    instances: Vec<(RepeatedInstanceState, Option<ItemTreeRc>)>,
     /// ListView-specific layout state (offset, cached heights, scroll position).
     layout_state: RepeaterLayoutState,
-}
-
-impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
-    fn default() -> Self {
-        RepeaterInner { instances: Default::default(), layout_state: Default::default() }
-    }
+    scroll_to_row: Option<scroll::ScrollToRowRequest>,
 }
 
 /// Persistent layout state for a ListView repeater.
@@ -265,9 +278,14 @@ impl ListViewProperties for TypedListViewProps<'_> {
 /// This is the core virtualization algorithm: it estimates which model rows
 /// are visible, instantiates/updates those, lays them out, and cleans up
 /// off-screen instances. Returns whether any instance was created.
+///
+/// With an ongoing scroll request, a layout pass also:
+/// - plans the smooth scroll, including whether to jump and where the jump lands,
+/// - advances the request to its next phase.
 fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
+    scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
     row_count: usize,
     props: &dyn ListViewProperties,
     listview_width: LogicalLength,
@@ -278,17 +296,38 @@ fn update_visible_instances(
     let listview_height = listview_height.get();
 
     if row_count == 0 {
+        *scroll_to_row = None;
         ops.splice(0, ops.len(), 0);
         props.content_height_set(zero);
         props.content_y_set(zero);
         props.content_width_set(listview_width);
         return false;
     }
+    // A height of zero or less, like before the window has a size, leaves no viewport to fill.
+    // Unlike with an empty model, the content geometry stays, so that the scroll position does too.
+    if listview_height <= 0 as Coord {
+        ops.splice(0, ops.len(), 0);
+        return false;
+    }
+    if scroll_to_row
+        .as_ref()
+        .is_some_and(|request| request.row >= row_count || request.is_stopped())
+    {
+        *scroll_to_row = None;
+    }
 
     let mut content_y_value = props.content_y_get().get();
     if !props.content_y_has_binding() {
         content_y_value = content_y_value.min(0 as Coord);
     }
+
+    let scroll::SmoothScrollLayout { jump, extra_above, layout_end } = scroll::smooth_scroll_layout(
+        scroll_to_row.as_ref(),
+        state,
+        ops,
+        content_y_value,
+        listview_height,
+    );
 
     let mut changed = false;
 
@@ -324,8 +363,53 @@ fn update_visible_instances(
     let first_item_y = state.anchor_y;
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
-    let (mut new_offset, mut new_offset_y) = if first_item_y
-        > -content_y_value + one_and_a_half_screen
+    // The row to seek to, its edge, and its distance beyond that edge of the viewport.
+    let seek = scroll_to_row.as_ref().and_then(|request| match (&request.animation, jump) {
+        (scroll::ScrollAnimation::Instant(alignment), _) => {
+            Some((request.row, *alignment, 0 as Coord))
+        }
+        (_, Some((alignment, beyond_edge))) => Some((request.row, alignment, beyond_edge)),
+        _ => None,
+    });
+    let (mut new_offset, mut new_offset_y) = if let Some((row, alignment, beyond_edge)) = seek {
+        // Check if the row is around the already existing instances
+        let (first, end) = (state.offset, state.offset + ops.len());
+        let added = if (first..end).contains(&row) {
+            // The row exists in the instantiated instances
+            0..0
+        } else if row >= end && row - end < ops.len() {
+            // The row is within the next ops.len() (about one page) instances
+            // so we just append
+            ops.splice(ops.len(), 0, row + 1 - end);
+            end - first..ops.len()
+        } else if row < first && first - row <= ops.len() {
+            // The row is within the previous ops.len() (about one page) instances
+            ops.splice(0, 0, first - row);
+            state.offset = row;
+            0..first - row
+        } else {
+            // Random seek, so we clear all instances and create new ones
+            ops.splice(0, ops.len(), 1);
+            state.offset = row;
+            0..1
+        };
+        // The loop measures the rows between the old instances and `row` without creating them.
+        for i in added {
+            changed |= ops.ensure_updated(i, state.offset + i);
+        }
+        let instance = row - state.offset;
+        changed |= ops.ensure_updated(instance, row);
+        let row_height = ops.height(instance).unwrap_or(element_height);
+        let row_top = match alignment {
+            scroll::RowAlignment::Top => -beyond_edge,
+            scroll::RowAlignment::Bottom => {
+                // If the row is taller than listview_height, then we ignore the
+                // alignment and align to top
+                (listview_height - row_height).max(0. as Coord) + beyond_edge
+            }
+        };
+        (row, row_top)
+    } else if first_item_y > -content_y_value + one_and_a_half_screen
         || (props.computes_content_height() && last_item_bottom + element_height < -content_y_value)
     {
         // Jumping more than 1.5 screens: random seek.
@@ -351,16 +435,19 @@ fn update_visible_instances(
         (state.offset, first_item_y + content_y_value)
     };
 
+    let target_row = scroll_to_row.as_ref().map(|request| request.row);
+    let mut target_span: Option<(Coord, Coord)>;
     let mut loop_count = 0;
     loop {
+        target_span = None;
         // Fill gap before new_offset using already-instantiated items.
-        while new_offset > state.offset && new_offset_y > 0 as Coord {
+        while new_offset > state.offset && new_offset_y > -extra_above {
             new_offset -= 1;
             new_offset_y -= ops.height(new_offset - state.offset).unwrap_or(0 as Coord);
         }
         // If there is still a gap, create new instances before the current ones.
         let mut prepend_count = 0;
-        while new_offset > 0 && new_offset_y > 0 as Coord {
+        while new_offset > 0 && new_offset_y > -extra_above {
             new_offset -= 1;
             ops.splice(0, 0, 1);
             changed |= ops.ensure_updated(0, new_offset);
@@ -369,6 +456,9 @@ fn update_visible_instances(
         }
         if prepend_count > 0 {
             state.offset = new_offset;
+        }
+        if seek.is_some() && new_offset == 0 {
+            new_offset_y = new_offset_y.min(0 as Coord);
         }
         debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
 
@@ -381,20 +471,39 @@ fn update_visible_instances(
                 break;
             }
             changed |= ops.ensure_updated(i, idx);
+            let top = y;
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
+            if target_row == Some(idx) {
+                target_span = Some((top, y));
+            }
             idx += 1;
-            if y >= listview_height {
+            if y >= layout_end {
                 break;
             }
         }
 
         // Create more items until there is no more room.
-        while y < listview_height && idx < row_count {
+        while y < layout_end && idx < row_count {
             let i = ops.len();
             ops.splice(i, 0, 1);
             changed |= ops.ensure_updated(i, idx);
+            let top = y;
             content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
+            if target_row == Some(idx) {
+                target_span = Some((top, y));
+            }
             idx += 1;
+        }
+
+        if seek.is_some()
+            && y < listview_height
+            && (new_offset > 0 || new_offset_y < 0 as Coord)
+            && loop_count < 3
+        {
+            // A seek that leaves room below the last row moves all rows down to close the gap.
+            new_offset_y += listview_height - y;
+            loop_count += 1;
+            continue;
         }
 
         if y < listview_height && content_y_value < 0 as Coord && loop_count < 3 {
@@ -439,20 +548,74 @@ fn update_visible_instances(
         }
         state.previous_content_y = new_content_y;
 
+        if let Some(request) = scroll_to_row.take() {
+            let (top, height) =
+                target_span.map(|(top, bottom)| (top, bottom - top)).unwrap_or_else(|| {
+                    let heights =
+                        (0..ops.len()).map(|i| ops.height(i).unwrap_or(state.cached_item_height));
+                    let (top, height) = scroll::row_geometry(state, heights, request.row);
+                    (top + new_content_y, height)
+                });
+            *scroll_to_row = scroll::advance_scroll_to_row(
+                request,
+                top,
+                height,
+                listview_height,
+                jump.is_some(),
+            );
+        }
+
         break;
     }
 
     changed
 }
 
-/// Adapter implementing [`RepeaterInstanceOps`] for the native Rust repeater.
-struct RustRepeaterOps<'a, C: RepeatedItemTree> {
-    inner: &'a RefCell<RepeaterInner<C>>,
+/// The operations of [`RustRepeaterOps`] that depend on the type of the instances.
+trait TypedInstanceOps {
+    fn create(&self) -> ItemTreeRc;
+    fn update(&self, instance: &ItemTreeRc, row: usize);
+    fn init(&self, instance: &ItemTreeRc);
+    fn listview_layout(&self, instance: &ItemTreeRc, offset_y: &mut LogicalLength)
+    -> LogicalLength;
+}
+
+struct RepeaterTypedOps<'a, C: RepeatedItemTree> {
     init: &'a dyn Fn() -> ItemTreeRc<C>,
     model: &'a ModelRc<C::Data>,
 }
 
-impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
+impl<C: RepeatedItemTree> TypedInstanceOps for RepeaterTypedOps<'_, C> {
+    fn create(&self) -> ItemTreeRc {
+        vtable::VRc::into_dyn((self.init)())
+    }
+    fn update(&self, instance: &ItemTreeRc, row: usize) {
+        as_typed::<C>(instance).update(row, self.model.row_data(row).unwrap_or_default());
+    }
+    fn init(&self, instance: &ItemTreeRc) {
+        as_typed::<C>(instance).init();
+    }
+    fn listview_layout(
+        &self,
+        instance: &ItemTreeRc,
+        offset_y: &mut LogicalLength,
+    ) -> LogicalLength {
+        as_typed::<C>(instance).listview_layout(offset_y)
+    }
+}
+
+fn instance_height(instance: &ItemTreeRc) -> Coord {
+    vtable::VRc::borrow_pin(instance).as_ref().item_geometry(0).height_length().get()
+}
+
+/// Adapter implementing [`RepeaterInstanceOps`] for the native Rust repeater.
+struct RustRepeaterOps<'a> {
+    inner: &'a RefCell<RepeaterInner>,
+    typed: &'a dyn TypedInstanceOps,
+    instance_generation: Pin<&'a Property<()>>,
+}
+
+impl RepeaterInstanceOps for RustRepeaterOps<'_> {
     fn len(&self) -> usize {
         self.inner.borrow().instances.len()
     }
@@ -472,38 +635,97 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
                 return false;
             }
             let created = c.1.is_none();
-            if created {
-                c.1 = Some((self.init)());
-            }
-            c.1.as_ref().unwrap().update(row, self.model.row_data(row).unwrap_or_default());
+            let instance = c.1.get_or_insert_with(|| self.typed.create());
+            self.typed.update(instance, row);
             c.0 = RepeatedInstanceState::Clean;
-            (created, c.1.as_ref().unwrap().clone())
+            (created, instance.clone())
         };
         if created {
-            crate::properties::evaluate_no_tracking(|| instance.init());
+            // #13723
+            self.instance_generation.mark_dirty();
+            crate::properties::evaluate_no_tracking(|| self.typed.init(&instance));
         }
-        crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(instance));
+        crate::item_tree::ensure_item_tree_instantiated(&instance);
         created
     }
 
     fn height(&self, instance_idx: usize) -> Option<Coord> {
-        self.inner.borrow().instances[instance_idx]
-            .1
-            .as_ref()
-            .map(|x| x.as_pin_ref().item_geometry(0).height_length().get())
+        self.inner.borrow().instances[instance_idx].1.as_ref().map(instance_height)
     }
 
     fn listview_layout(&self, instance_idx: usize, y: &mut Coord) -> Coord {
         let inner = self.inner.borrow();
         let mut y_len = LogicalLength::new(*y);
-        let w = inner.instances[instance_idx]
-            .1
-            .as_ref()
-            .unwrap()
-            .as_pin_ref()
-            .listview_layout(&mut y_len);
+        let w = self
+            .typed
+            .listview_layout(inner.instances[instance_idx].1.as_ref().unwrap(), &mut y_len);
         *y = y_len.get();
         w.get()
+    }
+}
+
+impl RepeaterInner {
+    /// Implements [`ModelChangeListener::row_added`].
+    /// Returns whether the instances changed.
+    fn row_added(&mut self, mut index: usize, mut count: usize) -> bool {
+        if index < self.layout_state.offset {
+            if index + count <= self.layout_state.offset {
+                // Entirely before the visible range: shift the offset.
+                self.layout_state.offset += count;
+                for c in self.instances.iter_mut() {
+                    c.0 = RepeatedInstanceState::Dirty;
+                }
+                return true;
+            }
+            count -= self.layout_state.offset - index;
+            index = 0;
+        } else {
+            index -= self.layout_state.offset;
+        }
+        if count == 0 || index > self.instances.len() {
+            return false;
+        }
+        self.instances.splice(
+            index..index,
+            core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count),
+        );
+        for c in self.instances[index + count..].iter_mut() {
+            // Because all the indexes are dirty
+            c.0 = RepeatedInstanceState::Dirty;
+        }
+        true
+    }
+
+    /// Implements [`ModelChangeListener::row_removed`].
+    /// Returns whether the instances changed.
+    fn row_removed(&mut self, mut index: usize, mut count: usize) -> bool {
+        if index < self.layout_state.offset {
+            if index + count <= self.layout_state.offset {
+                // Entirely before the visible range: shift the offset.
+                self.layout_state.offset -= count;
+                for c in self.instances.iter_mut() {
+                    c.0 = RepeatedInstanceState::Dirty;
+                }
+                return true;
+            }
+            count -= self.layout_state.offset - index;
+            self.layout_state.offset = index;
+            index = 0;
+        } else {
+            index -= self.layout_state.offset;
+        }
+        if count == 0 || index >= self.instances.len() {
+            return false;
+        }
+        if (index + count) > self.instances.len() {
+            count = self.instances.len() - index;
+        }
+        self.instances.drain(index..(index + count));
+        for c in self.instances[index..].iter_mut() {
+            // Because all the indexes are dirty
+            c.0 = RepeatedInstanceState::Dirty;
+        }
+        true
     }
 }
 
@@ -511,21 +733,27 @@ impl<C: RepeatedItemTree> RepeaterInstanceOps for RustRepeaterOps<'_, C> {
 /// It helps instantiating the ItemTree `T`
 #[pin_project]
 pub struct RepeaterTracker<T: RepeatedItemTree> {
-    inner: RefCell<RepeaterInner<T>>,
+    inner: RefCell<RepeaterInner>,
     #[pin]
     model: Property<ModelRc<T::Data>>,
     #[pin]
     /// Set to true when the model becomes dirty.
     is_dirty: Property<bool>,
     #[pin]
-    /// Marked dirty by `ensure_updated` when instances are added or
-    /// removed.  Layout and visit code register this as a dependency so
-    /// they re-evaluate only after the update pass materializes the
-    /// change, not when the model first becomes dirty.
+    /// Marked dirty whenever `instances` changes, including when `ensure_updated` creates one.
+    /// A row's data change alone doesn't mark it.
     instance_generation: Property<()>,
     /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
     #[pin]
     listview_geometry_tracker: crate::properties::PropertyTracker,
+}
+
+impl<T: RepeatedItemTree> RepeaterTracker<T> {
+    /// Call whenever `instances` changes outside of `ensure_updated`.
+    fn instances_changed(self: Pin<&Self>) {
+        self.is_dirty.set(true);
+        self.project_ref().instance_generation.mark_dirty();
+    }
 }
 
 impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
@@ -537,7 +765,7 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
                     let model = self.project_ref().model.get_untracked();
-                    comp.update(row, model.row_data(row).unwrap_or_default());
+                    as_typed::<T>(comp).update(row, model.row_data(row).unwrap_or_default());
                     c.0 = RepeatedInstanceState::Clean;
                 }
             } else {
@@ -546,71 +774,20 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
         }
     }
     /// Notify the peers that rows were added
-    fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
-        let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
-                // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset += count;
-                self.is_dirty.set(true);
-                for c in inner.instances.iter_mut() {
-                    c.0 = RepeatedInstanceState::Dirty;
-                }
-                return;
-            }
-            count -= inner.layout_state.offset - index;
-            index = 0;
-        } else {
-            index -= inner.layout_state.offset;
-        }
-        if count == 0 || index > inner.instances.len() {
-            return;
-        }
-        self.is_dirty.set(true);
-        inner.instances.splice(
-            index..index,
-            core::iter::repeat_n((RepeatedInstanceState::Dirty, None), count),
-        );
-        for c in inner.instances[index + count..].iter_mut() {
-            // Because all the indexes are dirty
-            c.0 = RepeatedInstanceState::Dirty;
+    fn row_added(self: Pin<&Self>, index: usize, count: usize) {
+        if self.inner.borrow_mut().row_added(index, count) {
+            self.instances_changed();
         }
     }
     /// Notify the peers that rows were removed
-    fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
-        let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
-                // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset -= count;
-                self.is_dirty.set(true);
-                for c in inner.instances.iter_mut() {
-                    c.0 = RepeatedInstanceState::Dirty;
-                }
-                return;
-            }
-            count -= inner.layout_state.offset - index;
-            inner.layout_state.offset = index;
-            index = 0;
-        } else {
-            index -= inner.layout_state.offset;
-        }
-        if count == 0 || index >= inner.instances.len() {
-            return;
-        }
-        if (index + count) > inner.instances.len() {
-            count = inner.instances.len() - index;
-        }
-        self.is_dirty.set(true);
-        inner.instances.drain(index..(index + count));
-        for c in inner.instances[index..].iter_mut() {
-            // Because all the indexes are dirty
-            c.0 = RepeatedInstanceState::Dirty;
+    fn row_removed(self: Pin<&Self>, index: usize, count: usize) {
+        if self.inner.borrow_mut().row_removed(index, count) {
+            self.instances_changed();
         }
     }
 
     fn reset(self: Pin<&Self>) {
-        self.is_dirty.set(true);
+        self.instances_changed();
         self.inner.borrow_mut().instances.clear();
     }
 }
@@ -639,7 +816,108 @@ impl<C: RepeatedItemTree> Default for Repeater<C> {
     }
 }
 
+/// Implements [`Repeater::listview_ensure_row_visible`] for the Rust and the C++ repeater.
+/// `heights` are the heights of the instances from `state.offset` on.
+/// Returns whether the ListView needs a layout pass.
+fn listview_ensure_row_visible(
+    state: &RepeaterLayoutState,
+    heights: &[Coord],
+    scroll_to_row: &mut Option<scroll::ScrollToRowRequest>,
+    row_count: usize,
+    row: i32,
+    behavior: ScrollBehavior,
+    flickable_rc: &ItemRc,
+) -> bool {
+    let Some(row) = usize::try_from(row).ok().filter(|row| *row < row_count) else {
+        return false;
+    };
+    let Some(flickable) = flickable_rc.downcast::<Flickable>() else {
+        return false;
+    };
+    let flickable = flickable.as_pin_ref();
+    let content_y = flickable.content_y();
+    let viewport_height = flickable_rc.geometry().height();
+    let row_in_viewport =
+        (!heights.is_empty() && state.cached_item_height > 0 as Coord).then(|| {
+            let (top_anchor, height) = scroll::row_geometry(state, heights.iter().copied(), row);
+            (top_anchor + content_y.get(), height)
+        });
+    // an instant scroll pulls an overscroll back in bounds.
+    let stop_scrolling = || {
+        flickable.scroll_to(
+            flickable_rc,
+            LogicalPosition::new(-flickable.content_x().get() as f32, -content_y.get() as f32),
+            ScrollBehavior::Instant,
+        )
+    };
+
+    let animation = match (row_in_viewport, behavior) {
+        (None, ScrollBehavior::Instant) => {
+            stop_scrolling();
+            scroll::ScrollAnimation::Instant(scroll::RowAlignment::Bottom)
+        }
+        (None, ScrollBehavior::Smooth) => {
+            scroll::ScrollAnimation::AccelerateJumpDecelerate(AccelerateJumpDecelerate::new())
+        }
+        (Some((top_anchor, row_height)), behavior) => {
+            let Some(alignment) =
+                scroll::RowAlignment::for_row(top_anchor, row_height, viewport_height)
+            else {
+                // The row is already in view, so we don't have to scroll. Stop any scrolling
+                *scroll_to_row = None;
+                stop_scrolling();
+                return false;
+            };
+            let distance = alignment.distance(top_anchor, row_height, viewport_height);
+            match behavior {
+                ScrollBehavior::Instant => {
+                    flickable.scroll_to(
+                        flickable_rc,
+                        LogicalPosition::new(
+                            -flickable.content_x().get() as f32,
+                            -(content_y.get() + distance) as f32,
+                        ),
+                        ScrollBehavior::Instant,
+                    );
+                    scroll::ScrollAnimation::Instant(alignment)
+                }
+                ScrollBehavior::Smooth => scroll::ScrollAnimation::AccelerateJumpDecelerate(
+                    AccelerateJumpDecelerate::new(),
+                ),
+            }
+        }
+    };
+    *scroll_to_row =
+        Some(scroll::ScrollToRowRequest { row, flickable: flickable_rc.downgrade(), animation });
+    true
+}
+
 impl<C: RepeatedItemTree + 'static> Repeater<C> {
+    /// Scrolls the ListView that the Flickable `flickable_rc` belongs to, so that `row` is fully visible.
+    /// With `ScrollBehavior::Smooth`, it animates the scroll.
+    ///
+    /// A row above the viewport, or one taller than it, ends up at the top edge;
+    /// any other row ends up at the bottom edge.
+    /// A row that is already fully visible stops a running scroll.
+    /// An out-of-range row does nothing.
+    pub fn listview_ensure_row_visible(
+        self: Pin<&Self>,
+        row: i32,
+        behavior: ScrollBehavior,
+        flickable_rc: &ItemRc,
+    ) {
+        let row_count = self.model().row_count();
+        if listview_ensure_instance_row_visible(
+            &self.0.inner,
+            row_count,
+            row,
+            behavior,
+            flickable_rc,
+        ) {
+            self.data().is_dirty.set(true);
+        }
+    }
+
     fn data(self: Pin<&Self>) -> Pin<&RepeaterTracker<C>> {
         self.project_ref().0.get()
     }
@@ -653,9 +931,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     }
 
     /// Register the instance generation as a dependency of the current
-    /// tracking scope. This is for layout and visit code that should
-    /// re-evaluate only after `ensure_updated` has materialized instance
-    /// changes, not when the model first becomes dirty.
+    /// tracking scope. This is for layout and visit code that reads the
+    /// instances through [`Self::len`] and [`Self::instance_at`]: it is
+    /// notified when rows are inserted or removed, and again when
+    /// `ensure_updated` creates their instances.
     pub fn track_instance_changes(self: Pin<&Self>) {
         self.data().project_ref().instance_generation.register_as_dependency();
     }
@@ -668,7 +947,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             let m = model.get();
             if old_model != m {
                 *self.data().inner.borrow_mut() = RepeaterInner::default();
-                self.data().is_dirty.set(true);
+                self.data().instances_changed();
                 let peer = self.project_ref().0.model_peer();
                 m.model_tracker().attach_peer(peer);
             }
@@ -687,7 +966,11 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
             let offset = self.0.inner.borrow().layout_state.offset;
-            let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
+            let mut ops = RustRepeaterOps {
+                inner: &self.0.inner,
+                typed: &RepeaterTypedOps::<C> { init: &init, model: &model },
+                instance_generation: self.data().project_ref().instance_generation,
+            };
             self.data().is_dirty.set(false);
             update_all_instances(&mut ops, offset, count);
             self.data().instance_generation.mark_dirty();
@@ -695,17 +978,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         } else {
             false
         };
-        self.ensure_children_instantiated() || changed
-    }
-
-    /// Recurse into child instances to ensure they are instantiated.
-    fn ensure_children_instantiated(&self) -> bool {
-        let mut changed = false;
-        for instance in self.instances_vec() {
-            changed |=
-                crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(instance));
-        }
-        changed
+        ensure_children_instantiated(&self.0.inner) || changed
     }
 
     /// Register the ListView content properties as dependencies so that
@@ -774,21 +1047,32 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 
         let data = self.data();
         let mut layout_state = data.inner.borrow().layout_state.clone();
-        let mut ops = RustRepeaterOps { inner: &data.inner, init: &init, model: &model };
+        let mut scroll_to_row = data.inner.borrow_mut().scroll_to_row.take();
+        let mut ops = RustRepeaterOps {
+            inner: &data.inner,
+            typed: &RepeaterTypedOps::<C> { init: &init, model: &model },
+            instance_generation: data.project_ref().instance_generation,
+        };
         let changed = update_visible_instances(
             &mut ops,
             &mut layout_state,
+            &mut scroll_to_row,
             row_count,
             props,
             listview_width,
             listview_height,
         );
-        data.inner.borrow_mut().layout_state = layout_state;
+        {
+            let mut inner = data.inner.borrow_mut();
+            inner.layout_state = layout_state;
+            // A request made while the layout ran, from a row's init code, wins.
+            inner.scroll_to_row = inner.scroll_to_row.take().or(scroll_to_row);
+        }
 
         if changed {
             self.data().instance_generation.mark_dirty();
         }
-        self.ensure_children_instantiated() || changed
+        ensure_children_instantiated(&self.0.inner) || changed
     }
 
     /// Sets the data directly in the model
@@ -814,21 +1098,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn visit(
         self: Pin<&Self>,
         order: TraversalOrder,
-        mut visitor: crate::item_tree::ItemVisitorRefMut,
+        visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
         self.track_model_changes();
-        // We can't keep self.inner borrowed because the event might modify the model
-        let count = self.0.inner.borrow().instances.len() as u32;
-        for i in 0..count {
-            let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
-            let c = self.0.inner.borrow().instances.get(i as usize).and_then(|c| c.1.clone());
-            if let Some(c) = c
-                && c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
-            {
-                return crate::item_tree::VisitChildrenResult::abort(i, 0);
-            }
-        }
-        crate::item_tree::VisitChildrenResult::CONTINUE
+        visit_instances(&self.0.inner, order, visitor)
     }
 
     /// Call `cb` with the model row index and the z value of every instance, when the
@@ -845,7 +1118,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             (inner.layout_state.offset, inner.instances.iter().map(|c| c.1.clone()).collect())
         };
         for (i, c) in instances.iter().enumerate() {
-            let z = c.as_ref().and_then(|c| c.as_pin_ref().z_order()).unwrap_or_default();
+            let z = c.as_ref().and_then(|c| as_typed::<C>(c).z_order()).unwrap_or_default();
             cb((offset + i) as u32, z);
         }
     }
@@ -871,7 +1144,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The index should be within [`Self::range()`]
     pub fn instance_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
-        inner.instances.get(index.checked_sub(inner.layout_state.offset)?).and_then(|c| c.1.clone())
+        inner.instances.get(index.checked_sub(inner.layout_state.offset)?)?.1.as_ref().map(downcast)
     }
 
     /// Return true if the Repeater as empty
@@ -881,20 +1154,106 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
 
     /// Returns a vector containing all instances
     pub fn instances_vec(&self) -> Vec<ItemTreeRc<C>> {
-        self.0.inner.borrow().instances.iter().flat_map(|x| x.1.clone()).collect()
+        self.0.inner.borrow().instances.iter().filter_map(|x| x.1.as_ref()).map(downcast).collect()
     }
+}
+
+/// Implements [`Repeater::listview_ensure_row_visible`] with the instances of `inner`.
+/// Returns whether the ListView needs a layout pass.
+fn listview_ensure_instance_row_visible(
+    inner: &RefCell<RepeaterInner>,
+    row_count: usize,
+    row: i32,
+    behavior: ScrollBehavior,
+    flickable_rc: &ItemRc,
+) -> bool {
+    let (state, heights, mut scroll_to_row) = {
+        let mut inner = inner.borrow_mut();
+        let state = inner.layout_state.clone();
+        let heights = inner
+            .instances
+            .iter()
+            .map(|c| c.1.as_ref().map_or(state.cached_item_height, instance_height))
+            .collect::<Vec<_>>();
+        (state, heights, inner.scroll_to_row.take())
+    };
+    let needs_layout = listview_ensure_row_visible(
+        &state,
+        &heights,
+        &mut scroll_to_row,
+        row_count,
+        row,
+        behavior,
+        flickable_rc,
+    );
+    inner.borrow_mut().scroll_to_row = scroll_to_row;
+    needs_layout
+}
+
+/// Ensures that the children of the instances are instantiated.
+/// Returns whether any of them changed.
+fn ensure_children_instantiated(inner: &RefCell<RepeaterInner>) -> bool {
+    // We can't keep inner borrowed because instantiating a child might modify the model
+    let instances: Vec<_> = inner.borrow().instances.iter().flat_map(|x| x.1.clone()).collect();
+    let mut changed = false;
+    for instance in instances {
+        changed |= crate::item_tree::ensure_item_tree_instantiated(&instance);
+    }
+    changed
+}
+
+/// Calls the visitor for the root of `instance`. Returns whether the visit was aborted.
+fn visit_instance(
+    instance: &ItemTreeRc,
+    order: TraversalOrder,
+    visitor: crate::item_tree::ItemVisitorRefMut,
+) -> bool {
+    vtable::VRc::borrow_pin(instance).as_ref().visit_children_item(-1, order, visitor).has_aborted()
+}
+
+/// Implements [`Repeater::visit`].
+fn visit_instances(
+    inner: &RefCell<RepeaterInner>,
+    order: TraversalOrder,
+    mut visitor: crate::item_tree::ItemVisitorRefMut,
+) -> crate::item_tree::VisitChildrenResult {
+    // We can't keep inner borrowed because the event might modify the model
+    let count = inner.borrow().instances.len() as u32;
+    for i in 0..count {
+        let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
+        let c = inner.borrow().instances.get(i as usize).and_then(|c| c.1.clone());
+        if let Some(c) = c
+            && visit_instance(&c, order, visitor.borrow_mut())
+        {
+            return crate::item_tree::VisitChildrenResult::abort(i, 0);
+        }
+    }
+    crate::item_tree::VisitChildrenResult::CONTINUE
 }
 
 #[pin_project]
 pub struct Conditional<C: RepeatedItemTree> {
     #[pin]
-    model: Property<bool>,
-    #[pin]
-    instance_generation: Property<()>,
-    instance: RefCell<Option<ItemTreeRc<C>>>,
+    inner: ConditionalInner,
+    phantom: core::marker::PhantomData<ItemTreeRc<C>>,
 }
 
 impl<C: RepeatedItemTree> Default for Conditional<C> {
+    fn default() -> Self {
+        Self { inner: ConditionalInner::default(), phantom: core::marker::PhantomData }
+    }
+}
+
+#[pin_project]
+struct ConditionalInner {
+    #[pin]
+    model: Property<bool>,
+    #[pin]
+    instance_generation: Property<()>,
+    instance: RefCell<Option<ItemTreeRc>>,
+}
+
+impl Default for ConditionalInner {
     fn default() -> Self {
         Self {
             model: Property::new_named(false, "i_slint_core::Conditional::model"),
@@ -907,32 +1266,23 @@ impl<C: RepeatedItemTree> Default for Conditional<C> {
     }
 }
 
-impl<C: RepeatedItemTree + 'static> Conditional<C> {
-    /// Register the condition as a dependency of the current tracking scope
-    /// (e.g. the redraw tracker) so it is notified when the condition changes.
-    pub fn track_model_changes(self: Pin<&Self>) {
-        self.project_ref().model.register_as_dependency();
-    }
-
-    /// Register the instance generation as a dependency of the current
-    /// tracking scope. Layout code uses this to re-evaluate only after
-    /// `ensure_updated` materializes instance changes.
-    pub fn track_instance_changes(self: Pin<&Self>) {
-        self.project_ref().instance_generation.register_as_dependency();
-    }
-
-    /// Call this function to make sure that the model is updated.
-    /// The init function is the function to create a ItemTree.
-    /// Returns `true` if the instance was created or removed, or any child changed.
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
+impl ConditionalInner {
+    /// Implements [`Conditional::ensure_updated`].
+    fn ensure_updated(
+        self: Pin<&Self>,
+        create: &dyn Fn() -> ItemTreeRc,
+        init: &dyn Fn(&ItemTreeRc),
+    ) -> bool {
         let model = self.project_ref().model.get();
 
         let changed = if !model {
             self.instance.take().is_some()
         } else if self.instance.borrow().is_none() {
-            let i = init();
+            let i = create();
             self.instance.replace(Some(i.clone()));
-            i.init();
+            // #13723
+            self.instance_generation.mark_dirty();
+            init(&i);
             true
         } else {
             false
@@ -941,17 +1291,60 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
             self.instance_generation.mark_dirty();
         }
         if let Some(instance) = self.instance.borrow().as_ref() {
-            crate::item_tree::ensure_item_tree_instantiated(&vtable::VRc::into_dyn(
-                instance.clone(),
-            )) || changed
+            crate::item_tree::ensure_item_tree_instantiated(instance) || changed
         } else {
             changed
         }
     }
 
+    /// Implements [`Conditional::visit`].
+    fn visit(
+        self: Pin<&Self>,
+        order: TraversalOrder,
+        mut visitor: crate::item_tree::ItemVisitorRefMut,
+    ) -> crate::item_tree::VisitChildrenResult {
+        // We can't keep self.instance borrowed because the event might modify the model
+        let instance = self.instance.borrow().clone();
+        if let Some(c) = instance
+            && visit_instance(&c, order, visitor.borrow_mut())
+        {
+            return crate::item_tree::VisitChildrenResult::abort(0, 0);
+        }
+
+        crate::item_tree::VisitChildrenResult::CONTINUE
+    }
+}
+
+impl<C: RepeatedItemTree + 'static> Conditional<C> {
+    fn inner(self: Pin<&Self>) -> Pin<&ConditionalInner> {
+        self.project_ref().inner
+    }
+
+    /// Register the condition as a dependency of the current tracking scope
+    /// (e.g. the redraw tracker) so it is notified when the condition changes.
+    pub fn track_model_changes(self: Pin<&Self>) {
+        self.inner().project_ref().model.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate when
+    /// `ensure_updated` creates or removes the instance.
+    pub fn track_instance_changes(self: Pin<&Self>) {
+        self.inner().project_ref().instance_generation.register_as_dependency();
+    }
+
+    /// Call this function to make sure that the model is updated.
+    /// The init function is the function to create a ItemTree.
+    /// Returns `true` if the instance was created or removed, or any child changed.
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ItemTreeRc<C>) -> bool {
+        self.inner().ensure_updated(&|| vtable::VRc::into_dyn(init()), &|instance| {
+            as_typed::<C>(instance).init()
+        })
+    }
+
     /// Set the model binding
     pub fn set_model_binding(&self, binding: impl Fn() -> bool + 'static) {
-        self.model.set_binding(binding);
+        self.inner.model.set_binding(binding);
     }
 
     /// Call the visitor for the root of each instance.
@@ -960,18 +1353,10 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
     pub fn visit(
         self: Pin<&Self>,
         order: TraversalOrder,
-        mut visitor: crate::item_tree::ItemVisitorRefMut,
+        visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
         self.track_model_changes();
-        // We can't keep self.inner borrowed because the event might modify the model
-        let instance = self.instance.borrow().clone();
-        if let Some(c) = instance
-            && c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
-        {
-            return crate::item_tree::VisitChildrenResult::abort(0, 0);
-        }
-
-        crate::item_tree::VisitChildrenResult::CONTINUE
+        self.inner().visit(order, visitor)
     }
 
     /// Call `cb` with the index and the z value of the instance if the condition is
@@ -979,15 +1364,15 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
     /// Also registers the condition as a dependency of the current tracking scope.
     pub fn for_each_instance_z(self: Pin<&Self>, cb: &mut dyn FnMut(u32, f32)) {
         self.track_model_changes();
-        let instance = self.instance.borrow().clone();
+        let instance = self.inner.instance.borrow().clone();
         if let Some(c) = instance {
-            cb(0, c.as_pin_ref().z_order().unwrap_or_default());
+            cb(0, as_typed::<C>(&c).z_order().unwrap_or_default());
         }
     }
 
     /// Return the amount of instances (1 if the conditional is active, 0 otherwise)
     pub fn len(&self) -> usize {
-        self.instance.borrow().is_some() as usize
+        self.inner.instance.borrow().is_some() as usize
     }
 
     /// Return the range of indices used by this Conditional.
@@ -1003,7 +1388,7 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
         if index != 0 {
             return None;
         }
-        self.instance.borrow().clone()
+        self.inner.instance.borrow().as_ref().map(downcast)
     }
 
     /// Return true if the Repeater as empty
@@ -1013,7 +1398,7 @@ impl<C: RepeatedItemTree + 'static> Conditional<C> {
 
     /// Returns a vector containing all instances
     pub fn instances_vec(&self) -> Vec<ItemTreeRc<C>> {
-        self.instance.borrow().clone().into_iter().collect()
+        self.inner.instance.borrow().as_ref().map(downcast).into_iter().collect()
     }
 }
 
@@ -1022,6 +1407,35 @@ mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
+    use crate::slice::Slice;
+    use alloc::boxed::Box;
+
+    /// The C++ repeater's storage of its pending `ensure-row-visible` request.
+    #[repr(C)]
+    pub struct ScrollToRowRequestOpaque {
+        _inner: *const core::ffi::c_void,
+    }
+
+    type ScrollToRowRequestStorage = Option<Box<scroll::ScrollToRowRequest>>;
+
+    static_assertions::assert_eq_align!(ScrollToRowRequestOpaque, ScrollToRowRequestStorage);
+    static_assertions::assert_eq_size!(ScrollToRowRequestOpaque, ScrollToRowRequestStorage);
+
+    /// Initialize the request storage.
+    /// slint_repeater_scroll_to_row_drop must be called.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_repeater_scroll_to_row_construct(
+        request: *mut ScrollToRowRequestOpaque,
+    ) {
+        unsafe { core::ptr::write(request.cast::<ScrollToRowRequestStorage>(), None) };
+    }
+
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_repeater_scroll_to_row_drop(
+        request: *mut ScrollToRowRequestOpaque,
+    ) {
+        unsafe { core::ptr::drop_in_place(request.cast::<ScrollToRowRequestStorage>()) };
+    }
 
     /// C++ callback table for [`RepeaterInstanceOps`], including the opaque
     /// user_data pointer that is passed to each callback.
@@ -1086,10 +1500,13 @@ mod ffi {
         update_all_instances(ops, offset, count);
     }
 
+    /// `state` and `scroll_to_row` are pointers, not references, because a row's init code,
+    /// which `ops` runs, can call `slint_repeater_listview_ensure_row_visible` on them.
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_repeater_ensure_updated_listview(
+    pub unsafe extern "C" fn slint_repeater_ensure_updated_listview(
         ops: &mut RepeaterInstanceOpsVTable,
-        state: &mut RepeaterLayoutState,
+        state: *mut RepeaterLayoutState,
+        scroll_to_row: *mut ScrollToRowRequestOpaque,
         row_count: usize,
         content_width: Option<Pin<&Property<LogicalLength>>>,
         content_height: Option<Pin<&Property<LogicalLength>>>,
@@ -1098,6 +1515,69 @@ mod ffi {
         listview_height: LogicalLength,
     ) -> bool {
         let props = TypedListViewProps { content_width, content_height, content_y };
-        update_visible_instances(ops, state, row_count, &props, listview_width, listview_height)
+        let mut layout_state = unsafe { (*state).clone() };
+        // When a new item gets created in update_visible_instances and in its init
+        // we call ensure-row-visible() we modify scroll_to_row
+        // here we make a copy and reset `scroll_to_row`. If below `scroll_to_row`
+        // is still not valid we set our new request otherwise we keep the `scroll_to_row`
+        // request set by ensure-row-visible
+        // Tested in `listview_ensure_row_visible_from_row_init.slint`
+        // Safety: `slint_repeater_scroll_to_row_construct` initialized it, with the same layout.
+        let storage = scroll_to_row.cast::<ScrollToRowRequestStorage>();
+        let mut request = unsafe { (*storage).take() }.map(|request| *request);
+        let changed = update_visible_instances(
+            ops,
+            &mut layout_state,
+            &mut request,
+            row_count,
+            &props,
+            listview_width,
+            listview_height,
+        );
+        unsafe {
+            *state = layout_state;
+            // See `Repeater::ensure_updated_listview_callback`.
+            if (*storage).is_none() {
+                *storage = request.map(Box::new);
+            }
+        }
+        changed
+    }
+
+    /// See [`Repeater::listview_ensure_row_visible`].
+    /// `heights` are the heights of the instances, NaN for one that isn't created yet.
+    /// Returns whether the ListView needs a layout pass.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_repeater_listview_ensure_row_visible(
+        state: &RepeaterLayoutState,
+        scroll_to_row: &mut ScrollToRowRequestOpaque,
+        heights: Slice<Coord>,
+        row_count: usize,
+        row: i32,
+        behavior: ScrollBehavior,
+        flickable_rc: &ItemRc,
+    ) -> bool {
+        let heights = heights
+            .iter()
+            .map(|height| if height.is_nan() { state.cached_item_height } else { *height })
+            .collect::<Vec<_>>();
+
+        // Safety: `slint_repeater_scroll_to_row_construct` initialized it, with the same layout.
+        let storage = unsafe {
+            &mut *(scroll_to_row as *mut ScrollToRowRequestOpaque)
+                .cast::<ScrollToRowRequestStorage>()
+        };
+        let mut request = storage.take().map(|request| *request);
+        let needs_layout = listview_ensure_row_visible(
+            state,
+            &heights,
+            &mut request,
+            row_count,
+            row,
+            behavior,
+            flickable_rc,
+        );
+        *storage = request.map(Box::new);
+        needs_layout
     }
 }

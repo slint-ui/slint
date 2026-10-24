@@ -70,6 +70,8 @@ impl slint::platform::Platform for EspBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
+        // Sized here, not when the event loop starts, so a window created later is too
+        window.set_size(DISPLAY_SIZE);
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -88,6 +90,8 @@ impl Default for EspBackend {
         EspBackend { window: RefCell::new(None), state: RefCell::new(None) }
     }
 }
+
+const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
 
 /// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
@@ -245,10 +249,6 @@ impl EspBackend {
         let BoardState { mut buffer_provider, touch, mut i2c, _backlight, _int_pin } =
             self.state.borrow_mut().take().expect("event loop already running");
 
-        // Update the Slint window size from the display.
-        let size = slint::PhysicalSize::new(320, 240);
-        self.window.borrow().as_ref().unwrap().set_size(size);
-
         // Variable to track the last touch position.
         let mut last_touch = None;
 
@@ -266,23 +266,23 @@ impl EspBackend {
                             .to_logical(window.scale_factor());
 
                         let event = if let Some(previous_pos) = last_touch.replace(pos) {
-                            // If the position changed, send a PointerMoved event.
-                            if previous_pos != pos {
-                                WindowEvent::PointerMoved { position: pos }
-                            } else {
-                                // If the position is unchanged, skip event generation.
-                                continue;
-                            }
+                            // Only a change of position is an event. A still finger is
+                            // not, but the frame must still be drawn below: timers and
+                            // animations keep changing the UI while it is held down.
+                            (previous_pos != pos)
+                                .then_some(WindowEvent::PointerMoved { position: pos })
                         } else {
                             // No previous touch recorded, generate a PointerPressed event.
-                            WindowEvent::PointerPressed {
+                            Some(WindowEvent::PointerPressed {
                                 position: pos,
                                 button: PointerEventButton::Left,
-                            }
+                            })
                         };
 
                         // Dispatch the event to Slint.
-                        window.dispatch_event_with_result(event)?;
+                        if let Some(event) = event {
+                            window.dispatch_event_with_result(event)?;
+                        }
                     }
                     // No active touch: if a previous touch existed, dispatch pointer release.
                     Ok(None) => {

@@ -4,6 +4,8 @@
 import { StateLayer } from "components.slint";
 import { MaterialFontSettings, MaterialPalette, Elevation } from "styling.slint";
 
+import { ButtonInterface } from "../common/std-widget-interfaces.slint";
+
 component MaterialButtonBase {
     in property <string> text;
     in property <image> icon;
@@ -71,6 +73,8 @@ component MaterialButtonBase {
 
 // Default button widget with Material Design Filled Button look and feel.
 export component Button {
+    implement ButtonInterface <=> self;
+
     in property <string> text <=> base.text;
     in property <bool> enabled <=> base.enabled;
     in property <bool> checkable;
@@ -112,8 +116,6 @@ export component Button {
     ]
 
     background := Rectangle {
-        width: 100%;
-        height: 100%;
         border-radius: 20px;
         background: root.primary ? MaterialPalette.accent-background : MaterialPalette.control-background;
         drop-shadow-color: transparent;

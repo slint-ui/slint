@@ -26,6 +26,12 @@ CI's `lint_typecheck` job spell-checks the diff and gates the rest of the CI mat
 cp scripts/pre-push-spellcheck.sh .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 ```
 
+Set up the commit message template, which marks where the implementation notes go:
+
+```
+git config commit.template "$(git rev-parse --show-toplevel)/scripts/commit-template.txt"
+```
+
 ## Repository structures
 
 For the crate/directory map of `internal/`, `api/`, `tools/`, and `editors/`, see the
@@ -66,9 +72,17 @@ Run `cargo xtask --help` for the full list.
 ### `ai-plugins`
 
 The Slint skill and marketplace manifests shipped to AI coding assistants (Claude Code,
-Cursor, Antigravity); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
-Each assistant reads its own manifest: `.claude-plugin/`, `.cursor-plugin/`, and, for
+Codex, Cursor, Antigravity); see [ai-plugins/skills/slint/SKILL.md](../ai-plugins/skills/slint/SKILL.md).
+Each assistant reads its own manifest: `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, and, for
 Antigravity, `plugin.json` and `mcp_config.json` at the `ai-plugins` root.
+`mcp/slint-preview` is an MCP App that shows `.slint` source as a live preview in the conversation.
+Its `channel.json` selects the WebAssembly interpreter:
+`snapshot` loads the `master` build from `snapshots.slint.dev`, and `release` loads the plugin's version from `releases.slint.dev`.
+The slint-ui/ai-plugins mirror sets `release` on its `master` branch, synced from `release/1`,
+and keeps `snapshot` on its `nightly` branch, synced from `master`.
+`hooks/` holds hooks that report `.slint` compiler diagnostics to the agent, or tell it the tool for that is missing.
+Claude Code uses `slint-lsp` for diagnostics, and Codex, which has no LSP support, runs `hooks/check-slint-edit.mjs` after each patch or shell command.
+Run their tests with `mise run test:ai-plugins`.
 
 ## Documentation
 
@@ -142,7 +156,7 @@ these as follow-up fixes:
 
 Finally, the PR is approved. As contributor, in your local branch, feel free to merge 4. into 1. and 5. into 2.:
 
-(commits are real, sha1s are just examples)
+(commits are real, hashes are just examples)
 
 As a first step, let's rebase our changes to make sure that there are no conflicts:
 
@@ -210,17 +224,3 @@ If that looks okay and targets the right branch for your PR, push with force:
 ```
 $ git push -f
 ```
-
-## Changelog
-
-Don't edit `CHANGELOG.md` in a pull request.
-It's written later from the git log, in one commit per release cycle that covers a range of commits.
-
-If a change is noteworthy, add a `ChangeLog:` trailer to the commit message:
-
-```
-ChangeLog: Fixed a GridLayout row collapsing to its min-height when a sibling cell had a fixed zero size
-```
-
-The trailer sets the wording of the entry.
-It doesn't decide whether there is one: the whole log is read, so a commit without a trailer can still get an entry.

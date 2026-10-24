@@ -5,6 +5,9 @@
 
 #include "slint.h"
 
+#include <concepts>
+#include <filesystem>
+
 #ifndef SLINT_FEATURE_INTERPRETER
 #    warning "slint-interpreter.h API only available when SLINT_FEATURE_INTERPRETER is activated"
 #else
@@ -12,6 +15,7 @@
 #    include "private/slint_interpreter_internal.h"
 
 #    include <optional>
+#    include <filesystem>
 
 #    ifdef SLINT_FEATURE_BACKEND_QT
 class QWidget;
@@ -829,6 +833,8 @@ public:
 ///
 /// The ComponentDefinition acts as a factory to create new instances. When you've finished
 /// creating the instances it is safe to destroy the ComponentDefinition.
+///
+/// Copies of a ComponentDefinition share the same underlying data, so copying is cheap.
 class ComponentDefinition
 {
     friend class ComponentCompiler;
@@ -971,7 +977,7 @@ inline ComponentDefinition ComponentInstance::definition() const
 
 /// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string
-/// (using build_from_source()) or from a path  (using build_from_source())
+/// (using build_from_source()) or from a path  (using build_from_path())
 class ComponentCompiler
 {
     cbindgen_private::ComponentCompilerOpaque inner;
@@ -981,6 +987,7 @@ class ComponentCompiler
 
 public:
     /// Constructs a new ComponentCompiler instance.
+    ///
     ComponentCompiler() { cbindgen_private::slint_interpreter_component_compiler_new(&inner); }
 
     /// Destroys this ComponentCompiler.
@@ -990,7 +997,7 @@ public:
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of
-    /// paths.
+    /// paths. This wins over the include paths of the project file.
     void set_include_paths(const slint::SharedVector<slint::SharedString> &paths)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_include_paths(&inner, &paths);
@@ -1018,6 +1025,38 @@ public:
                 &inner, slint::private_api::string_to_slice(domain));
     }
 
+    /// Sets a custom file loader for the compiler.
+    /// The callback is invoked with a `const std::filesystem::path&` and should return the file
+    /// contents as a `std::optional<std::string>`, throw an `std::exception`, or return
+    /// `std::nullopt` to use default resolution behaviour.
+    /// `[](const std::filesystem::path& path) -> std::optional<std::string>`
+    template<std::invocable<const std::filesystem::path &> F>
+        requires(std::is_convertible_v<std::invoke_result_t<F, const std::filesystem::path &>,
+                                       std::optional<std::string>>)
+    void set_file_loader(F callback)
+    {
+        using namespace cbindgen_private;
+        cbindgen_private::slint_interpreter_component_compiler_set_file_loader(
+                &inner,
+                [](void *data, Slice<PathValueType> path_units,
+                   SharedString *out) -> FileLoaderResult {
+                    std::filesystem::path path;
+                    path.assign(std::basic_string_view(path_units.ptr, path_units.len));
+                    try {
+                        auto result = (*static_cast<F *>(data))(path);
+                        if (result.has_value()) {
+                            *out = result.value();
+                            return FileLoaderResult::Found;
+                        }
+                        return FileLoaderResult::NotFound;
+                    } catch (const std::exception &e) {
+                        *out = e.what();
+                        return FileLoaderResult::Error;
+                    }
+                },
+                new F(std::move(callback)), [](void *data) { delete static_cast<F *>(data); });
+    }
+
     /// Returns the include paths the component compiler is currently configured with.
     slint::SharedVector<slint::SharedString> include_paths() const
     {
@@ -1035,7 +1074,11 @@ public:
         return result;
     }
 
-    /// Compile a .slint file into a ComponentDefinition
+    /// Compile some .slint code into a ComponentDefinition
+    ///
+    /// The `path` argument will be used for diagnostics and to compute relative
+    /// paths while importing.
+    /// Both \a source_code and \a path must be UTF-8 encoded; otherwise this function fails.
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
@@ -1058,14 +1101,20 @@ public:
         }
     }
 
-    /// Compile some .slint code into a ComponentDefinition
+    /// Compile a .slint file into a ComponentDefinition
     ///
-    /// The `path` argument will be used for diagnostics and to compute relative
-    /// paths while importing.
+    /// \a path must be UTF-8 encoded; otherwise this function fails.
+    ///
+    /// If `path` is a directory, Slint loads the project file (`slint-project.json`) inside that
+    /// directory. The project file provides the settings not set on this compiler. It must contain
+    /// a `main` entry, which specifies the `.slint` file the compiler loads. A `.slint` file path
+    /// compiles without loading a project file.
+    ///
+    /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
-    /// in this ComponentCompiler and can be retrieved after the call using the
-    /// Self::diagnostics() function.
+    /// in this ComponentCompiler and can be retrieved after the call using the diagnostics()
+    /// function.
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     std::optional<ComponentDefinition> build_from_path(std::string_view path)
@@ -1074,6 +1123,28 @@ public:
         if (cbindgen_private::slint_interpreter_component_compiler_build_from_path(
                     &inner, slint::private_api::string_to_slice(path), &result)) {
 
+            return ComponentDefinition(result);
+        } else {
+            return {};
+        }
+    }
+
+    /// Compile the .slint file at \a path into a ComponentDefinition,
+    /// like build_from_path(std::string_view).
+    ///
+    /// Use this overload for paths that may not be UTF-8 encoded,
+    /// such as paths obtained from `std::filesystem`.
+    template<typename P>
+    // A template so that strings still pick the std::string_view overload
+    // instead of being ambiguous between the two.
+        requires std::same_as<P, std::filesystem::path>
+    std::optional<ComponentDefinition> build_from_path(const P &path)
+    {
+        cbindgen_private::ComponentDefinitionOpaque result;
+        const auto &native = path.native();
+        if (cbindgen_private::slint_interpreter_component_compiler_build_from_native_path(
+                    &inner, slint::private_api::make_slice(native.data(), native.size()),
+                    &result)) {
             return ComponentDefinition(result);
         } else {
             return {};

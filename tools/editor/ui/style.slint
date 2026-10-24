@@ -3,6 +3,19 @@
 
 import { Palette } from "std-widgets.slint";
 
+export struct ScrollIndicatorStyle {
+    thickness: length = 6px,
+    active-thickness: length = 8px,
+    hit-width: length = 12px,
+    inset: length = 2px,
+    minimum-length: length = 24px,
+    idle-duration: duration = 700ms,
+    reveal-duration: duration = 80ms,
+    fade-duration: duration = 200ms,
+    color: color,
+    active-color: color,
+}
+
 export struct TextStyle {
     size: length,
     weight: int = FontWeight.normal,
@@ -12,6 +25,33 @@ export struct ShadowStyle {
     color: color,
     blur: length,
     offset-y: length,
+}
+
+export struct FloatingSurfaceStyle {
+    background: brush,
+    border: brush,
+    radius: length = 12px,
+    ambient-shadow: ShadowStyle,
+    key-shadow: ShadowStyle,
+}
+
+struct SurfaceTheme {
+    titlebar: brush,
+    raised: brush,
+    raised-hover: brush,
+    raised-border: color,
+    recessed: brush,
+    recessed-border: brush,
+    input-divider: color,
+    hover: color,
+    selected: color,
+    selected-hover: color,
+    panel: brush,
+    floating: brush,
+    floating-top: color,
+    floating-border: brush,
+    ambient-shadow: color,
+    key-shadow: color,
 }
 
 export struct PaintStyle {
@@ -31,14 +71,23 @@ export struct ShellStyle {
 }
 
 export struct PanesStyle {
-    left-width: length = 286px,
-    inspector-width: length = 232px,
+    left-width: length = 320px,
+    inspector-width: length = 280px,
+    maximum-width: length = 480px,
+    canvas-minimum-width: length = 400px,
     splitter-size: length = 6px,
+    resize-hit-size: length = 12px,
     minimum: length = 120px,
     component-height: length = 360px,
     image-height: length = 540px,
     files-minimum: length = 250px,
     heading-height: length = 48px,
+}
+
+export struct SidebarSpacingStyle {
+    padding: length = 12px,
+    list-inset: length = 8px,
+    section-gap: length = 10px,
 }
 
 export struct CollapsedSidebarStyle {
@@ -99,7 +148,6 @@ export struct DialogStyle {
     background: color,
     footer-background: color,
     footer-border: color,
-    shadow: ShadowStyle,
     error: ErrorNoticeStyle,
     close-button: ButtonStyle,
 }
@@ -157,9 +205,6 @@ export struct ImageSyntaxStyle {
 export struct ImageDetailsStyle {
     height: length = 260px,
     preview-height: length = 154px,
-    shadow: ShadowStyle,
-    background: brush,
-    border: brush,
     radius: length,
     padding: length,
     gap: length,
@@ -176,11 +221,8 @@ export struct ImagePreviewStyle {
     heading-top: length = 8px,
     body-top: length = 34px,
     body-bottom: length = 12px,
-    border: color,
-    background: color,
     canvas: color,
     handle-size: length = 14px,
-    shadow: ShadowStyle,
 }
 
 export struct ImageCanvasStyle {
@@ -208,7 +250,6 @@ export struct WelcomeShellStyle {
     side-width: length = 270px,
     radius: length = 20px,
     border: color,
-    shadow: ShadowStyle,
 }
 
 export struct WelcomeHeroStyle {
@@ -255,7 +296,7 @@ export struct WelcomeBrandStyle {
 }
 
 export struct GridStyle {
-    pitch: length = 32px,
+    pitch: length = 28px,
     line-width: length = 1px,
     color: color,
 }
@@ -271,8 +312,20 @@ export struct ArtboardStyle {
     padding: length = 1px,
     top-minimum: length = 40px,
     background: color,
-    shadow: ShadowStyle,
     border: brush,
+}
+
+export struct PreviewDiagnosticsStyle {
+    max-width: length = 520px,
+    margin: length = 24px,
+    padding: length = 24px,
+    max-details-height: length = 200px,
+    radius: length = 12px,
+    background: color,
+    foreground: color,
+    muted: color,
+    border: color,
+    veil: color,
 }
 
 export struct SelectionFrameStyle {
@@ -287,7 +340,7 @@ export struct SelectionFrameStyle {
 
 export struct RadiusHandleStyle {
     size: length = 10px,
-    inset: length = 10px,
+    inset: length = 12px,
 }
 
 export struct TransparencyGridStyle {
@@ -297,10 +350,17 @@ export struct TransparencyGridStyle {
 }
 
 export struct GradientMarkerStyle {
-    inactive: color,
-    active: color = #0c8ce9,
     size: length = 24px,
-    radius: length = 5px,
+    height: length = 30px,
+    body-size: length = 24px,
+    indicator-size: length = 16px,
+    indicator-inset: length = 4px,
+    indicator-radius: length = 4px,
+    border-width: length = 1px,
+    background: brush,
+    border: brush,
+    active-border: brush,
+    swatch-border: color,
     checker: TransparencyGridStyle,
 }
 
@@ -336,7 +396,6 @@ export struct TooltipStyle {
     offset: length = 12px,
     padding-inline: length = 7px,
     padding-block: length = 4px,
-    shadow: ShadowStyle,
     normal: PaintStyle,
     radius: length,
     text: TextStyle,
@@ -370,7 +429,6 @@ export struct TreeStyle {
     guide-width: length,
     drop-background: color,
     drop-border-width: length,
-    drop-line-height: length,
     root-drop-height: length,
     rename: PaintStyle,
 }
@@ -379,7 +437,7 @@ export struct DragPreviewStyle {
     background: color = #ffffff,
     subtle: color = #f6f8fa,
     border: color = #d0d7de,
-    muted: color = #6e7781,
+    muted: color = #728093,
     content-opacity: float = 0.72,
     shadow: ShadowStyle,
     foreground: color = #20252d,
@@ -389,15 +447,8 @@ export struct DragPreviewStyle {
     text: TextStyle,
 }
 
-export struct FloatingPanelStyle {
-    shadow: ShadowStyle,
-    border: color,
-    background: color,
-}
-
 export struct InspectorStyle {
     gradient-label-width: length = 58px,
-    gradient-value-width: length = 62px,
     divider: color,
     label-width: length = 52px,
     row-gap: length,
@@ -408,13 +459,11 @@ export struct InspectorStyle {
 }
 
 export struct FillPickerStyle {
-    recent-swatch-size: length = 22px,
-    width: length = 260px,
+    recent-swatch-size: length = 20px,
+    width: length = 248px,
+    body-top: length = 56px,
     gap: length,
     margin: length,
-    min-height: length = 200px,
-    shadow: ShadowStyle,
-    close-width: length = 48px,
     background: brush,
     border: brush,
     radius: length,
@@ -423,33 +472,9 @@ export struct FillPickerStyle {
 export struct EffectSliderStyle {
     height: length = 34px,
     label-width: length = 48px,
-    track-width: length = 62px,
-    track-height: length = 3px,
-    thumb-size: length = 11px,
-    value-width: length = 44px,
-    plain-value-width: length = 52px,
-    suffix-width: length = 12px,
-    pressed-thumb: color,
-    shadow: ShadowStyle,
-    track: brush,
-    fill: color,
-    thumb: color,
+    value-width: length = 52px,
     control-height: length,
-    border: color,
     foreground: color,
-    suffix-text: TextStyle,
-}
-
-export struct RadiusSliderStyle {
-    thumb-size: length = 10px,
-    track-height: length = 2px,
-    inset: length = 6px,
-    fill: color,
-    thumb: color,
-    track: color,
-    height: length,
-    min-width: length,
-    focus-border: brush,
 }
 
 export struct RotationDialStyle {
@@ -468,17 +493,33 @@ export struct RotationDialStyle {
     focus-border: brush,
 }
 
+export struct InspectorSliderStyle {
+    thumb-width: length = 22px,
+    thumb-height: length = 14px,
+    track-height: length = 10px,
+    fill-height: length = 2px,
+    zero-height: length = 6px,
+    dot-size: length = 3px,
+    fill: color,
+    track: brush,
+    track-border: color,
+    zero: color,
+    hover-border: color,
+    dial: RotationDialStyle,
+    height: length,
+    min-width: length,
+}
+
 export struct ComboMenuStyle {
     row-height: length = 26px,
     max-height: length = 220px,
     background: brush,
     border: brush,
-    shadow: ShadowStyle,
 }
 
 export struct ColorPlaneStyle {
-    height: length = 170px,
-    thumb-size: length = 12px,
+    height: length = 188px,
+    thumb-size: length = 10px,
     shadow: ShadowStyle,
     thumb-border: color,
     border: brush,
@@ -489,29 +530,15 @@ export struct ColorPlaneStyle {
 
 export struct ColorSliderStyle {
     height: length = 16px,
-    thumb-size: length = 14px,
     shadow: ShadowStyle,
     thumb-border: color,
     radius: length,
-}
-
-export struct ColorHexStyle {
-    width: length = 78px,
-    input-width: length = 58px,
 }
 
 export struct GradientRampStyle {
     height: length,
     inset: length,
     pick-distance: length = 10px,
-}
-
-export struct GradientStopRowStyle {
-    action-width: length = 24px,
-    position-width: length = 66px,
-    opacity-width: length = 48px,
-    height: length = 28px,
-    swatch-size: length = 14px,
 }
 
 export struct InfoIconStyle {
@@ -524,6 +551,7 @@ export struct InfoIconStyle {
 }
 
 export struct PaletteRowStyle {
+    min-column-width: length = 132px,
     drag-opacity: float = 0.56,
     icon-opacity: float = 0.5,
     height: length,
@@ -543,6 +571,7 @@ export struct FieldAppearance {
     disabled: PaintStyle,
     muted: color,
     selection: color,
+    selection-foreground: color,
 }
 
 export struct FieldStyle {
@@ -551,6 +580,8 @@ export struct FieldStyle {
     border-width: length,
     padding-inline: length,
     gap: length,
+    padding-end: length = 8px,
+    prefix-width: length = 12px,
     text: TextStyle,
     appearance: FieldAppearance,
 }
@@ -579,15 +610,24 @@ export struct SidebarToggleStyle {
 export struct ColorControlsStyle {
     plane: ColorPlaneStyle,
     slider: ColorSliderStyle,
-    hex: ColorHexStyle,
     row-height: length,
-    gap: length,
+    hue-width: length = 20px,
+    hue-thumb-width: length = 20px,
+    hue-thumb-height: length = 10px,
+    opacity-thumb-width: length = 24px,
+    opacity-thumb-height: length = 20px,
+    opacity-label-offset: length = 14px,
+    opacity-rail-offset: length = 36px,
+    value-offset: length = 70px,
 }
 
 export struct GradientStopsStyle {
+    position-width: length = 48px,
+    action-width: length = 18px,
+    list-height: length = 128px,
+    row-height: length = 36px,
     ramp: GradientRampStyle,
     marker: GradientMarkerStyle,
-    row: GradientStopRowStyle,
 }
 
 export struct ImageAssetEditorStyle {
@@ -602,7 +642,8 @@ export struct ImageAssetEditorStyle {
 }
 
 export struct CornerModeStyle {
-    selected-background: color,
+    selected-background: brush,
+    border: brush,
     width: length,
     height: length,
     radius: length,
@@ -616,13 +657,20 @@ export struct CornerEditorStyle {
     field-width: length = 72px,
     gap: length,
     mode: CornerModeStyle,
-    slider: RadiusSliderStyle,
+    slider: InspectorSliderStyle,
     field: FieldStyle,
 }
 
 export struct ColorFieldStyle {
-    decorative: color,
+    opacity-field: FieldStyle,
+    checker: TransparencyGridStyle,
+    divider: color,
     field: FieldStyle,
+    opacity-width: length = 66px,
+    divider-inset: length = 8px,
+    swatch-slot-width: length = 22px,
+    swatch-size: length = 18px,
+    swatch-radius: length = 9px,
     swatch-border: color,
 }
 
@@ -640,8 +688,10 @@ export struct ColorPalette {
     subtle-selection: color,
     focus-background: color,
     text-selection: color,
+    text-selection-foreground: color,
     on-accent: color,
     danger: color,
+    warning: color,
 }
 
 export enum ThemeKind { light, dark }
@@ -656,7 +706,6 @@ struct ShellTheme {
 struct ImageTheme {
     image-tabs: ImageTabsStyle,
     image-rail: ImageRailStyle,
-    image-details: ImageDetailsStyle,
     image-field: ImageFieldStyle,
     syntax-background: brush,
     image-preview: ImagePreviewStyle,
@@ -680,17 +729,11 @@ struct OverlayTheme {
     slice-label-border: color,
     tooltip-paint: PaintStyle,
     drag-preview: DragPreviewStyle,
-    floating-panel: PaintStyle,
-    marker-inactive: color,
 }
 
 struct InspectorTheme {
     divider: color,
-    fill-picker: FillPickerStyle,
-    effect-slider: EffectSliderStyle,
-    radius-slider: RadiusSliderStyle,
     rotation-dial: RotationDialStyle,
-    combo-menu: ComboMenuStyle,
 }
 
 struct PickerTheme {
@@ -746,6 +789,7 @@ export global Metrics {
     out property <length> control-small: 28px;
     out property <length> control-medium: 32px;
     out property <length> control-large: 36px;
+    out property <length> outline-row-height: 26px;
     out property <length> icon-medium: 16px;
     out property <length> icon-small: 12px;
     out property <length> icon-large: 18px;
@@ -771,29 +815,47 @@ export global Motion {
 }
 
 export global LightTheme {
+    out property <SurfaceTheme> surfaces: {
+        titlebar: @linear-gradient(180deg, #fcfdfe, #f0f3f7),
+        raised: @linear-gradient(180deg, #ffffff, #f3f5f7),
+        raised-hover: @linear-gradient(180deg, #ffffff, #edf3f9),
+        raised-border: #c6cfd9,
+        recessed: @linear-gradient(180deg, #edf1f5, #f6f8fa),
+        recessed-border: @linear-gradient(180deg, #cbd4df, #e1e7ef),
+        input-divider: #d4dbe3,
+        hover: #405c7907,
+        selected: #e3f1fc,
+        selected-hover: #dfedff,
+        panel: @linear-gradient(100deg, #fbfcfd, #f3f6f9),
+        floating: @linear-gradient(155deg, #fdfefe, #f7f9fc 48%, #f0f3f8),
+        floating-top: #fdfefe,
+        floating-border: @linear-gradient(180deg, #cbd5e0, #dbe2eb 35%, #cfd8e3),
+        ambient-shadow: #18202b14,
+        key-shadow: #18202b17,
+    };
+
     private property <color> accent: #0d99ff;
 
     out property <ColorPalette> colors: {
         background: #f6f8fa,
         surface: #ffffff,
         subtle: #f6f8fa,
-        foreground: #1f2328,
-        muted: #6e7781,
+        foreground: #293442,
+        muted: #728093,
         border: #d0d7de,
         subtle-border: #eaeef2,
         accent: root.accent,
         focus: #52aeff,
-        selection: root.accent.with-alpha(0.14),
-        subtle-selection: root.accent.with-alpha(0.10),
+        selection: LightTheme.surfaces.selected,
+        subtle-selection: LightTheme.surfaces.hover,
         focus-background: root.accent.with-alpha(0.12),
-        text-selection: root.accent.with-alpha(0.28),
+        text-selection: #2563eb,
+        text-selection-foreground: #ffffff,
         on-accent: #ffffff,
         danger: #cf222e,
+        warning: #9a6700,
     };
 
-    out property <ShadowStyle> popup: { color: #64748b30, blur: 12px, offset-y: 4px };
-
-    out property <ShadowStyle> floating: { color: #64748b28, blur: 18px, offset-y: 8px };
 
     out property <PaletteCardStyle> palette-card: {
         background: LightTheme.colors.subtle.with-alpha(0.72),
@@ -808,7 +870,6 @@ export global LightTheme {
         background: #ffffff,
         footer-background: #fafafa,
         footer-border: #e1e2e6,
-        shadow: { color: #161b233d, blur: 24px, offset-y: 12px },
     };
 
     out property <ErrorNoticeStyle> error-notice: {
@@ -833,12 +894,6 @@ export global LightTheme {
         border: #cbd5e166,
     };
 
-    out property <ImageDetailsStyle> image-details: {
-        shadow: { color: #64748b25, blur: 18px, offset-y: 8px },
-        background: LightTheme.colors.surface,
-        border: LightTheme.colors.border,
-    };
-
     out property <ImageFieldStyle> image-field: {
         background: #f5f5f5cc,
         foreground: LightTheme.colors.foreground,
@@ -848,10 +903,7 @@ export global LightTheme {
     out property <brush> syntax-background: LightTheme.inspector-field.normal.background;
 
     out property <ImagePreviewStyle> image-preview: {
-        border: #cbd5e166,
-        background: LightTheme.colors.surface.with-alpha(0.76),
         canvas: LightTheme.background.with-alpha(0.72),
-        shadow: { color: #64748b12, blur: 8px, offset-y: 3px },
     };
 
     out property <ShadowStyle> canvas-shadow: { color: #64748b30, blur: 24px, offset-y: 14px };
@@ -863,7 +915,6 @@ export global LightTheme {
         foreground: #252527,
         muted: #797a7d,
         border: #98999d,
-        shadow: { color: #00000030, blur: 18px, offset-y: 8px },
     };
 
     out property <RecentProjectRowStyle> recent-project-row: {
@@ -872,13 +923,12 @@ export global LightTheme {
         muted: LightTheme.welcome-shell.muted,
     };
 
-    out property <color> background: #eef2f7;
+    out property <color> background: #eaf0f6;
 
-    out property <color> grid-color: #00000008;
+    out property <color> grid-color: #526b8510;
 
     out property <ArtboardStyle> artboard: {
         background: #ffffff,
-        shadow: { color: #64748b30, blur: 30px, offset-y: 18px },
         border: LightTheme.colors.border,
     };
 
@@ -898,57 +948,25 @@ export global LightTheme {
         row-border: LightTheme.guide,
     };
 
-    out property <PaintStyle> floating-panel: {
-        border: #d0d7de,
-        background: LightTheme.colors.surface.with-alpha(0.92),
-    };
 
-    out property <color> marker-inactive: #b5ccdd;
+    out property <color> divider: #4e688512;
 
-    out property <color> divider: #e5e5e5;
-
-    out property <FillPickerStyle> fill-picker: {
-        shadow: { color: #64748b35, blur: 18px, offset-y: 8px },
-        background: LightTheme.colors.surface,
-        border: LightTheme.divider,
-    };
-
-    out property <EffectSliderStyle> effect-slider: {
-        pressed-thumb: LightTheme.colors.accent.with-alpha(0.88),
-        track: LightTheme.inspector-field.normal.background,
-        fill: LightTheme.colors.accent,
-        thumb: LightTheme.colors.accent,
-        border: LightTheme.colors.surface,
-        foreground: LightTheme.colors.foreground,
-    };
-
-    out property <RadiusSliderStyle> radius-slider: {
-        fill: transparent,
-        thumb: LightTheme.colors.muted,
-        track: LightTheme.divider,
-        focus-border: LightTheme.colors.accent,
-    };
 
     out property <RotationDialStyle> rotation-dial: {
-        ring: @linear-gradient(145deg, #bdc3cc, #ffffff),
-        face: @radial-gradient(circle at 10px 7px, #ffffff, #f4f6f9 55%, #d8dde5),
+        ring: @linear-gradient(145deg, #dce4ec, #ffffff),
+        face: @radial-gradient(circle at 10px 7px, #ffffff, #f1f4f8 65%, #e2e8ef),
         ring-border: #cbd0d8,
         face-border: #ffffff,
         dot-border: #b9cbd9,
         focus-border: LightTheme.colors.accent,
     };
 
-    out property <ComboMenuStyle> combo-menu: {
-        background: LightTheme.colors.surface,
-        border: LightTheme.divider,
-        shadow: LightTheme.popup,
-    };
 
     out property <ColorPlaneStyle> color-plane: {
         thumb-border: LightTheme.colors.on-accent,
         border: LightTheme.divider,
         checker-light: LightTheme.colors.surface,
-        checker-dark: LightTheme.inspector-field.normal.border,
+        checker-dark: #dce3eb,
     };
 
     out property <color> slider-thumb-border: LightTheme.colors.on-accent;
@@ -961,8 +979,8 @@ export global LightTheme {
     };
 
     out property <TreeRowStyle> tree-row: {
-        hover-background: #f5f5f5,
-        selected-background: #e4f4ff,
+        hover-background: #e2e9f1,
+        selected-background: #cfe4f9,
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
         accent: #0969da,
@@ -970,7 +988,7 @@ export global LightTheme {
     };
 
     out property <color> guide: LightTheme.divider;
-    out property <color> selected-guide: #c4c4c4;
+    out property <color> selected-guide: LightTheme.surfaces.input-divider;
     out property <color> file-guide: LightTheme.divider;
 
     out property <color> drop-background: #eaf5ff;
@@ -1018,30 +1036,24 @@ export global LightTheme {
         icon-color: LightTheme.colors.muted,
     };
 
-    out property <FieldAppearance> field: {
-        normal: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
-        hover: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.border },
-        focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.focus },
-        disabled: { background: LightTheme.colors.subtle, foreground: LightTheme.colors.muted, border: LightTheme.colors.border },
-        muted: LightTheme.colors.muted,
-        selection: LightTheme.colors.text-selection,
-    };
+    out property <FieldAppearance> field: LightTheme.inspector-field;
 
     out property <FieldAppearance> inspector-field: {
-        normal: { background: #f5f5f5, foreground: LightTheme.colors.foreground, border: #d9d9d9},
-        hover: { background: #eeeeee, foreground: LightTheme.colors.foreground, border: #d9d9d9},
-        focus: { background: LightTheme.colors.surface, foreground: LightTheme.colors.foreground, border: LightTheme.colors.accent },
-        disabled: { background: ( #f5f5f5).with-alpha(0.65), foreground: LightTheme.colors.muted, border: #d9d9d9},
+        normal: { background: LightTheme.surfaces.recessed, foreground: LightTheme.colors.foreground, border: LightTheme.surfaces.recessed-border },
+        hover: { background: LightTheme.surfaces.recessed, foreground: LightTheme.colors.foreground, border: LightTheme.surfaces.recessed-border },
+        focus: { background: LightTheme.surfaces.recessed, foreground: LightTheme.colors.foreground, border: LightTheme.colors.accent.with-alpha(0.65) },
+        disabled: { background: LightTheme.surfaces.recessed, foreground: LightTheme.colors.muted, border: LightTheme.surfaces.recessed-border },
         muted: LightTheme.colors.muted,
         selection: LightTheme.colors.text-selection,
+        selection-foreground: LightTheme.colors.text-selection-foreground,
     };
 
     out property <SegmentStyle> segment: {
-        hover: LightTheme.inspector-field.hover.background,
+        hover: LightTheme.surfaces.hover,
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
-        selected-surface: LightTheme.colors.surface,
-        border: LightTheme.divider,
+        selected-surface: LightTheme.surfaces.raised,
+        border: LightTheme.surfaces.raised-border,
         focus-border: LightTheme.colors.accent,
     };
 
@@ -1061,43 +1073,69 @@ export global LightTheme {
     };
 
     out property <CornerModeStyle> corner-mode: {
-        selected-background: LightTheme.colors.accent.with-alpha(0.14),
-        background: LightTheme.inspector-field.normal.background,
+        selected-background: LightTheme.surfaces.raised,
+        background: transparent,
+        border: LightTheme.surfaces.raised-border,
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
         focus-border: LightTheme.colors.accent,
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: LightTheme.colors.muted.with-alpha(0.35),
-        swatch-border: LightTheme.colors.muted,
+        divider: LightTheme.surfaces.input-divider,
+        swatch-border: LightTheme.surfaces.input-divider,
     };
 }
 
 export global DarkTheme {
-    private property <color> accent: #2379f4;
-
-    out property <ColorPalette> colors: {
-        background: #2c2c2c,
-        surface: #2c2c2c,
-        subtle: #383838,
-        foreground: #f1f1f1,
-        muted: #b7b7b7,
-        border: #494949,
-        subtle-border: #3f3f3f,
-        accent: root.accent,
-        focus: root.accent.mix(#ffffff, 0.75),
-        selection: root.accent.with-alpha(0.14),
-        subtle-selection: root.accent.with-alpha(0.10),
-        focus-background: root.accent.with-alpha(0.12),
-        text-selection: root.accent.with-alpha(0.28),
-        on-accent: #ffffff,
-        danger: #ff7b72,
+    private property <color> neutral-950: #202226;
+    private property <color> neutral-900: #25272b;
+    private property <color> neutral-850: #292b30;
+    private property <color> neutral-800: #303238;
+    private property <color> neutral-750: #373a40;
+    private property <color> neutral-700: #454951;
+    private property <color> neutral-600: #5b616a;
+    out property <SurfaceTheme> surfaces: {
+        titlebar: @linear-gradient(180deg, root.neutral-800, root.neutral-850),
+        raised: @linear-gradient(180deg, root.neutral-750, root.neutral-800),
+        raised-hover: @linear-gradient(180deg, root.neutral-700, root.neutral-750),
+        raised-border: root.neutral-600,
+        recessed: @linear-gradient(180deg, root.neutral-900, root.neutral-850),
+        recessed-border: @linear-gradient(180deg, root.neutral-950, root.neutral-700),
+        input-divider: root.neutral-700,
+        hover: #ffffff0d,
+        selected: #3a4c62,
+        selected-hover: #435b76,
+        panel: @linear-gradient(100deg, root.neutral-800, root.neutral-850),
+        floating: @linear-gradient(155deg, root.neutral-750, root.neutral-800 48%, root.neutral-850),
+        floating-top: root.neutral-750,
+        floating-border: @linear-gradient(180deg, root.neutral-600, root.neutral-700 24%, root.neutral-750),
+        ambient-shadow: #0000002e,
+        key-shadow: #00000021,
     };
 
-    out property <ShadowStyle> popup: { color: #00000066, blur: 12px, offset-y: 4px };
+    private property <color> accent: #49a7ff;
 
-    out property <ShadowStyle> floating: { color: #00000055, blur: 18px, offset-y: 8px };
+    out property <ColorPalette> colors: {
+        background: root.neutral-850,
+        surface: root.neutral-850,
+        subtle: root.neutral-750,
+        foreground: #e5e7eb,
+        muted: #adb2bc,
+        border: root.neutral-700,
+        subtle-border: root.neutral-750,
+        accent: root.accent,
+        focus: root.accent,
+        selection: DarkTheme.surfaces.selected,
+        subtle-selection: DarkTheme.surfaces.hover,
+        focus-background: root.accent.with-alpha(0.12),
+        text-selection: #93c5fd,
+        text-selection-foreground: #111827,
+        on-accent: #ffffff,
+        danger: #ff7b72,
+        warning: #e3b341,
+    };
+
 
     out property <PaletteCardStyle> palette-card: {
         background: DarkTheme.colors.subtle.with-alpha(0.72),
@@ -1108,11 +1146,10 @@ export global DarkTheme {
     };
 
     out property <DialogStyle> dialog: {
-        border: #4a4d55,
-        background: #292a30,
-        footer-background: #25262b,
-        footer-border: #3b3d43,
-        shadow: { color: #00000085, blur: 24px, offset-y: 12px },
+        border: root.neutral-700,
+        background: root.neutral-850,
+        footer-background: root.neutral-900,
+        footer-border: root.neutral-750,
     };
 
     out property <ErrorNoticeStyle> error-notice: {
@@ -1137,14 +1174,8 @@ export global DarkTheme {
         border: #ffffff16,
     };
 
-    out property <ImageDetailsStyle> image-details: {
-        shadow: { color: #00000055, blur: 18px, offset-y: 8px },
-        background: DarkTheme.colors.surface,
-        border: DarkTheme.colors.border,
-    };
-
     out property <ImageFieldStyle> image-field: {
-        background: #383838aa,
+        background: root.neutral-750.with-alpha(0.67),
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
     };
@@ -1152,22 +1183,18 @@ export global DarkTheme {
     out property <brush> syntax-background: DarkTheme.inspector-field.normal.background;
 
     out property <ImagePreviewStyle> image-preview: {
-        border: #ffffff18,
-        background: DarkTheme.colors.surface.with-alpha(0.76),
         canvas: DarkTheme.background.with-alpha(0.72),
-        shadow: { color: #00000028, blur: 8px, offset-y: 3px },
     };
 
     out property <ShadowStyle> canvas-shadow: { color: #00000055, blur: 24px, offset-y: 14px };
 
     out property <WelcomeShellStyle> welcome-shell: {
-        stage: #202124,
-        background: #303134,
-        sidebar: #2a2b2e,
-        foreground: #f4f4f5,
-        muted: #b5b6ba,
+        stage: root.neutral-950,
+        background: root.neutral-800,
+        sidebar: root.neutral-850,
+        foreground: DarkTheme.colors.foreground,
+        muted: DarkTheme.colors.muted,
         border: #ffffff22,
-        shadow: { color: #00000080, blur: 18px, offset-y: 8px },
     };
 
     out property <RecentProjectRowStyle> recent-project-row: {
@@ -1176,17 +1203,16 @@ export global DarkTheme {
         muted: DarkTheme.welcome-shell.muted,
     };
 
-    out property <color> background: #1f1f1f;
+    out property <color> background: root.neutral-950;
 
-    out property <color> grid-color: #ffffff0a;
+    out property <color> grid-color: #ffffff05;
 
     out property <ArtboardStyle> artboard: {
         background: #f7f8fb,
-        shadow: { color: #00000055, blur: 30px, offset-y: 18px },
         border: DarkTheme.colors.border,
     };
 
-    out property <color> selection-accent: #0c8ce9;
+    out property <color> selection-accent: root.accent;
 
     out property <GradientOverlayStyle> gradient-overlay: {
         endpoint-background: DarkTheme.colors.on-accent,
@@ -1202,57 +1228,25 @@ export global DarkTheme {
         row-border: DarkTheme.guide,
     };
 
-    out property <PaintStyle> floating-panel: {
-        border: #ffffff18,
-        background: DarkTheme.colors.surface.with-alpha(0.92),
-    };
 
-    out property <color> marker-inactive: #3f3f3f;
+    out property <color> divider: #ffffff09;
 
-    out property <color> divider: #414141;
-
-    out property <FillPickerStyle> fill-picker: {
-        shadow: { color: #00000080, blur: 18px, offset-y: 8px },
-        background: DarkTheme.colors.surface,
-        border: DarkTheme.divider,
-    };
-
-    out property <EffectSliderStyle> effect-slider: {
-        pressed-thumb: DarkTheme.colors.accent.with-alpha(0.88),
-        track: DarkTheme.inspector-field.normal.background,
-        fill: DarkTheme.colors.accent,
-        thumb: DarkTheme.colors.accent,
-        border: DarkTheme.colors.surface,
-        foreground: DarkTheme.colors.foreground,
-    };
-
-    out property <RadiusSliderStyle> radius-slider: {
-        fill: DarkTheme.colors.accent,
-        thumb: DarkTheme.colors.accent,
-        track: DarkTheme.divider,
-        focus-border: DarkTheme.colors.accent,
-    };
 
     out property <RotationDialStyle> rotation-dial: {
-        ring: @linear-gradient(145deg, #262a30, #737c87),
-        face: @radial-gradient(circle at 10px 7px, #89919b, #5b626d, #343a43),
-        ring-border: #454b55,
-        face-border: #858e99,
-        dot-border: #343e4a,
+        ring: @linear-gradient(145deg, root.neutral-900, root.neutral-600),
+        face: @radial-gradient(circle at 10px 7px, root.neutral-700, root.neutral-750 65%, root.neutral-800),
+        ring-border: root.neutral-700,
+        face-border: root.neutral-600,
+        dot-border: root.neutral-800,
         focus-border: DarkTheme.colors.accent,
     };
 
-    out property <ComboMenuStyle> combo-menu: {
-        background: DarkTheme.colors.surface,
-        border: DarkTheme.divider,
-        shadow: DarkTheme.popup,
-    };
 
     out property <ColorPlaneStyle> color-plane: {
         thumb-border: DarkTheme.colors.on-accent,
         border: DarkTheme.divider,
         checker-light: DarkTheme.colors.surface,
-        checker-dark: DarkTheme.inspector-field.normal.border,
+        checker-dark: root.neutral-950,
     };
 
     out property <color> slider-thumb-border: DarkTheme.colors.on-accent;
@@ -1265,8 +1259,8 @@ export global DarkTheme {
     };
 
     out property <TreeRowStyle> tree-row: {
-        hover-background: #383838,
-        selected-background: DarkTheme.colors.accent.with-alpha(0.22),
+        hover-background: DarkTheme.surfaces.hover,
+        selected-background: DarkTheme.surfaces.selected,
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
         accent: DarkTheme.colors.accent,
@@ -1274,7 +1268,7 @@ export global DarkTheme {
     };
 
     out property <color> guide: DarkTheme.divider;
-    out property <color> selected-guide: #474747;
+    out property <color> selected-guide: DarkTheme.surfaces.input-divider;
     out property <color> file-guide: DarkTheme.divider;
 
     out property <color> drop-background: DarkTheme.colors.accent.with-alpha(0.14);
@@ -1322,30 +1316,24 @@ export global DarkTheme {
         icon-color: DarkTheme.colors.muted,
     };
 
-    out property <FieldAppearance> field: {
-        normal: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
-        hover: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.border },
-        focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.focus },
-        disabled: { background: DarkTheme.colors.subtle, foreground: DarkTheme.colors.muted, border: DarkTheme.colors.border },
-        muted: DarkTheme.colors.muted,
-        selection: DarkTheme.colors.text-selection,
-    };
+    out property <FieldAppearance> field: DarkTheme.inspector-field;
 
     out property <FieldAppearance> inspector-field: {
-        normal: { background: #383838, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
-        hover: { background: #414141, foreground: DarkTheme.colors.foreground, border: #4b4b4b},
-        focus: { background: DarkTheme.colors.surface, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.accent },
-        disabled: { background: ( #383838).with-alpha(0.65), foreground: DarkTheme.colors.muted, border: #4b4b4b},
+        normal: { background: DarkTheme.surfaces.recessed, foreground: DarkTheme.colors.foreground, border: DarkTheme.surfaces.recessed-border },
+        hover: { background: DarkTheme.surfaces.recessed, foreground: DarkTheme.colors.foreground, border: DarkTheme.surfaces.recessed-border },
+        focus: { background: DarkTheme.surfaces.recessed, foreground: DarkTheme.colors.foreground, border: DarkTheme.colors.accent.with-alpha(0.65) },
+        disabled: { background: DarkTheme.surfaces.recessed, foreground: DarkTheme.colors.muted, border: DarkTheme.surfaces.recessed-border },
         muted: DarkTheme.colors.muted,
         selection: DarkTheme.colors.text-selection,
+        selection-foreground: DarkTheme.colors.text-selection-foreground,
     };
 
     out property <SegmentStyle> segment: {
-        hover: DarkTheme.inspector-field.hover.background,
+        hover: DarkTheme.surfaces.hover,
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
-        selected-surface: DarkTheme.colors.surface,
-        border: DarkTheme.divider,
+        selected-surface: DarkTheme.surfaces.raised,
+        border: DarkTheme.surfaces.raised-border,
         focus-border: DarkTheme.colors.accent,
     };
 
@@ -1365,20 +1353,22 @@ export global DarkTheme {
     };
 
     out property <CornerModeStyle> corner-mode: {
-        selected-background: DarkTheme.primary-button.normal.background,
-        background: DarkTheme.inspector-field.normal.background,
+        selected-background: DarkTheme.surfaces.raised,
+        background: transparent,
+        border: DarkTheme.surfaces.raised-border,
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
         focus-border: DarkTheme.colors.accent,
     };
 
     out property <ColorFieldStyle> color-field: {
-        decorative: DarkTheme.colors.muted.with-alpha(0.35),
-        swatch-border: DarkTheme.colors.muted,
+        divider: DarkTheme.surfaces.input-divider,
+        swatch-border: DarkTheme.surfaces.input-divider,
     };
 }
 
 export global Theme {
+    out property <SurfaceTheme> surfaces: root.current == ThemeKind.dark ? DarkTheme.surfaces : LightTheme.surfaces;
     out property <ThemeKind> current: Palette.color-scheme == ColorScheme.dark ? ThemeKind.dark : ThemeKind.light;
 
     out property <ColorPalette> colors: root.current == ThemeKind.dark ? DarkTheme.colors : LightTheme.colors;
@@ -1397,7 +1387,6 @@ export global Theme {
     out property <ImageTheme> image: root.current == ThemeKind.dark ? {
         image-tabs: DarkTheme.image-tabs,
         image-rail: DarkTheme.image-rail,
-        image-details: DarkTheme.image-details,
         image-field: DarkTheme.image-field,
         syntax-background: DarkTheme.syntax-background,
         image-preview: DarkTheme.image-preview,
@@ -1405,7 +1394,6 @@ export global Theme {
     } : {
         image-tabs: LightTheme.image-tabs,
         image-rail: LightTheme.image-rail,
-        image-details: LightTheme.image-details,
         image-field: LightTheme.image-field,
         syntax-background: LightTheme.syntax-background,
         image-preview: LightTheme.image-preview,
@@ -1437,31 +1425,19 @@ export global Theme {
         slice-label-border: DarkTheme.slice-label-border,
         tooltip-paint: DarkTheme.tooltip-paint,
         drag-preview: DarkTheme.drag-preview,
-        floating-panel: DarkTheme.floating-panel,
-        marker-inactive: DarkTheme.marker-inactive,
     } : {
         gradient-overlay: LightTheme.gradient-overlay,
         slice-label-border: LightTheme.slice-label-border,
         tooltip-paint: LightTheme.tooltip-paint,
         drag-preview: LightTheme.drag-preview,
-        floating-panel: LightTheme.floating-panel,
-        marker-inactive: LightTheme.marker-inactive,
     };
 
     out property <InspectorTheme> inspector: root.current == ThemeKind.dark ? {
         divider: DarkTheme.divider,
-        fill-picker: DarkTheme.fill-picker,
-        effect-slider: DarkTheme.effect-slider,
-        radius-slider: DarkTheme.radius-slider,
         rotation-dial: DarkTheme.rotation-dial,
-        combo-menu: DarkTheme.combo-menu,
     } : {
         divider: LightTheme.divider,
-        fill-picker: LightTheme.fill-picker,
-        effect-slider: LightTheme.effect-slider,
-        radius-slider: LightTheme.radius-slider,
         rotation-dial: LightTheme.rotation-dial,
-        combo-menu: LightTheme.combo-menu,
     };
 
     out property <PickerTheme> picker: root.current == ThemeKind.dark ? {
@@ -1524,7 +1500,6 @@ export global Theme {
         corner-mode: LightTheme.corner-mode,
     };
 
-    out property <ShadowStyle> floating-shadow: root.current == ThemeKind.dark ? DarkTheme.floating : LightTheme.floating;
 }
 
 export global Colors {
@@ -1541,12 +1516,39 @@ export global Colors {
     out property <color> focus-background: Theme.colors.focus-background;
     out property <color> on-accent: Theme.colors.on-accent;
     out property <color> danger: Theme.colors.danger;
+    out property <color> warning: Theme.colors.warning;
 }
 
 export global Style {
+    out property <brush> titlebar-background: Theme.surfaces.titlebar;
+    out property <brush> panel-background: Theme.surfaces.panel;
+    out property <brush> control-well: Theme.surfaces.recessed;
+    out property <FloatingSurfaceStyle> floating-surface: {
+        background: Theme.surfaces.floating,
+        border: Theme.surfaces.floating-border,
+        ambient-shadow: { color: Theme.surfaces.ambient-shadow, blur: 16px, offset-y: 6.4px },
+        key-shadow: { color: Theme.surfaces.key-shadow, blur: 2.4px, offset-y: 0.8px },
+    };
+    out property <brush> hue-spectrum: @linear-gradient(180deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+    out property <brush> saturation-spectrum: @linear-gradient(90deg, white, transparent);
+    out property <brush> brightness-spectrum: @linear-gradient(0deg, black, transparent);
+
+    out property <PreviewDiagnosticsStyle> preview-diagnostics: {
+        background: Colors.surface,
+        foreground: Colors.foreground,
+        muted: Colors.muted,
+        border: Colors.border,
+        veil: Colors.background.with-alpha(0.72),
+    };
+    out property <ScrollIndicatorStyle> scroll-indicator: {
+        color: Colors.foreground.with-alpha(0.4),
+        active-color: Colors.foreground.with-alpha(0.6),
+    };
+
     out property <ShellStyle> shell;
 
     out property <PanesStyle> panes;
+    out property <SidebarSpacingStyle> sidebar-spacing;
 
     out property <CollapsedSidebarStyle> collapsed-sidebar;
 
@@ -1578,7 +1580,6 @@ export global Style {
         background: Theme.shell.dialog.background,
         footer-background: Theme.shell.dialog.footer-background,
         footer-border: Theme.shell.dialog.footer-border,
-        shadow: Theme.shell.dialog.shadow,
     };
 
     private property <ErrorNoticeStyle> error-notice: {
@@ -1618,9 +1619,6 @@ export global Style {
         field: root.image-field,
         syntax: root.image-syntax,
         copy: root.copy-button,
-        shadow: Theme.image.image-details.shadow,
-        background: Theme.image.image-details.background,
-        border: Theme.image.image-details.border,
     };
 
     out property <ImageFieldStyle> image-field: {
@@ -1643,10 +1641,7 @@ export global Style {
     };
 
     private property <ImagePreviewStyle> image-preview: {
-        border: Theme.image.image-preview.border,
-        background: Theme.image.image-preview.background,
         canvas: Theme.image.image-preview.canvas,
-        shadow: Theme.image.image-preview.shadow,
     };
 
     private property <ImageCanvasStyle> image-canvas: {
@@ -1660,7 +1655,6 @@ export global Style {
         foreground: Theme.welcome.welcome-shell.foreground,
         muted: Theme.welcome.welcome-shell.muted,
         border: Theme.welcome.welcome-shell.border,
-        shadow: Theme.welcome.welcome-shell.shadow,
     };
 
     out property <WelcomeActionsStyle> welcome-actions: {
@@ -1690,7 +1684,6 @@ export global Style {
 
     out property <ArtboardStyle> artboard: {
         background: Theme.canvas.artboard.background,
-        shadow: Theme.canvas.artboard.shadow,
         border: Theme.canvas.artboard.border,
     };
 
@@ -1698,10 +1691,13 @@ export global Style {
         accent: Theme.canvas.selection-accent,
     };
 
+    out property <color> shadow-spread-color: #facc15;
+    out property <color> shadow-spread-foreground: #422006;
+
     out property <GradientOverlayStyle> gradient-overlay: {
+        marker: root.gradient-marker,
         endpoint-shadow: { color: #0008, blur: 3px, offset-y: 0px },
         axis-shadow: { color: #000a, blur: 2px, offset-y: 0px },
-        marker: root.gradient-marker,
         endpoint-background: Theme.overlay.gradient-overlay.endpoint-background,
         focus-border: Theme.overlay.gradient-overlay.focus-border,
     };
@@ -1713,7 +1709,6 @@ export global Style {
     };
 
     out property <TooltipStyle> tooltip: {
-        shadow: { color: #33415535, blur: 12px, offset-y: 4px },
         radius: Metrics.radius-medium,
         text: Typography.control,
         normal: Theme.overlay.tooltip-paint,
@@ -1726,53 +1721,46 @@ export global Style {
         row-border: Theme.overlay.drag-preview.row-border,
     };
 
-    out property <FloatingPanelStyle> floating-panel: {
-        shadow: Theme.floating-shadow,
-        border: Theme.overlay.floating-panel.border,
-        background: Theme.overlay.floating-panel.background,
-    };
 
     private property <GradientMarkerStyle> gradient-marker: {
+        background: Theme.current == ThemeKind.dark ? Theme.surfaces.raised-hover : Theme.surfaces.raised,
+        border: Theme.current == ThemeKind.dark ? Colors.muted.with-alpha(0.75) : Theme.surfaces.raised-border,
+        active-border: Colors.focus,
+        swatch-border: Theme.surfaces.raised-border,
         checker: root.transparency-grid,
-        inactive: Theme.overlay.marker-inactive,
     };
 
     out property <InspectorStyle> inspector-layout: {
         row-gap: Metrics.space-compact,
-        padding: Metrics.space-medium,
+        padding: root.sidebar-spacing.padding,
         column-gap: Metrics.space-regular,
-        content-width: root.panes.inspector-width - Metrics.border-width - 2 * Metrics.space-medium,
+        content-width: root.panes.inspector-width - Metrics.border-width - 2 * root.sidebar-spacing.padding,
         divider: Theme.inspector.divider,
     };
 
     out property <FillPickerStyle> fill-picker: {
         gap: Metrics.space-regular,
         margin: Metrics.space-regular,
-        radius: Metrics.radius-large,
-        shadow: Theme.inspector.fill-picker.shadow,
-        background: Theme.inspector.fill-picker.background,
-        border: Theme.inspector.fill-picker.border,
+        radius: root.floating-surface.radius,
+        background: root.floating-surface.background,
+        border: root.floating-surface.border,
     };
 
     out property <EffectSliderStyle> effect-slider: {
-        shadow: { color: #00000028, blur: 6px, offset-y: 2px },
+        height: root.inspector-field.height,
         control-height: root.inspector-field.height,
-        suffix-text: { size: 9px },
-        pressed-thumb: Theme.inspector.effect-slider.pressed-thumb,
-        track: Theme.inspector.effect-slider.track,
-        fill: Theme.inspector.effect-slider.fill,
-        thumb: Theme.inspector.effect-slider.thumb,
-        border: Theme.inspector.effect-slider.border,
-        foreground: Theme.inspector.effect-slider.foreground,
+        foreground: Colors.foreground,
     };
 
-    out property <RadiusSliderStyle> radius-slider: {
+    out property <InspectorSliderStyle> inspector-slider: {
         height: Metrics.control-compact,
         min-width: Metrics.control-medium,
-        fill: Theme.inspector.radius-slider.fill,
-        thumb: Theme.inspector.radius-slider.thumb,
-        track: Theme.inspector.radius-slider.track,
-        focus-border: Theme.inspector.radius-slider.focus-border,
+        fill: Colors.accent.with-alpha(0.65),
+        track: Theme.fields.inspector-field.normal.background,
+        track-border: Theme.fields.inspector-field.normal.border,
+        zero: Colors.muted.with-alpha(0.55),
+        hover-border: Colors.muted,
+        dial: root.rotation-dial,
     };
 
     out property <RotationDialStyle> rotation-dial: {
@@ -1790,9 +1778,8 @@ export global Style {
     };
 
     out property <ComboMenuStyle> combo-menu: {
-        background: Theme.inspector.combo-menu.background,
-        border: Theme.inspector.combo-menu.border,
-        shadow: Theme.inspector.combo-menu.shadow,
+        background: root.floating-surface.background,
+        border: root.floating-surface.border,
     };
 
     private property <ColorPlaneStyle> color-plane: {
@@ -1811,7 +1798,7 @@ export global Style {
     };
 
     private property <GradientRampStyle> gradient-ramp: {
-        height: Metrics.space-small + root.inspector-field.height + root.gradient-marker.size + Metrics.space-compact,
+        height: Metrics.space-small + root.gradient-marker.body-size / 2 + Metrics.control-compact,
         inset: root.gradient-marker.size / 2,
     };
 
@@ -1847,10 +1834,9 @@ export global Style {
         selected-guide: Theme.navigation.selected-guide,
         file-guide: Theme.navigation.file-guide,
         drop-border-width: Metrics.border-width,
-        drop-line-height: Metrics.focus-width,
         root-drop-height: Metrics.space-regular,
         drop-background: Theme.navigation.drop-background,
-        rename: { background: Palette.control-background, border: Palette.border },
+        rename: { background: root.field.appearance.normal.background, border: root.field.appearance.normal.border },
     };
 
     out property <PaletteRowStyle> palette-row: {
@@ -1909,24 +1895,16 @@ export global Style {
     };
 
     out property <FieldStyle> field: {
-        height: Metrics.control-medium,
-        radius: Metrics.radius-medium,
-        border-width: Metrics.border-width,
-        padding-inline: Metrics.space-medium,
-        gap: Metrics.space-regular,
-        text: Typography.body,
+        height: 28px,
+        radius: 7px,
+        border-width: 1px,
+        padding-inline: 10px,
+        gap: 6px,
+        text: { size: 13px, weight: FontWeight.normal },
         appearance: Theme.fields.field,
     };
 
-    out property <FieldStyle> inspector-field: {
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
-        border-width: Metrics.border-width,
-        padding-inline: Metrics.space-regular,
-        gap: Metrics.space-compact,
-        text: Typography.control,
-        appearance: Theme.fields.inspector-field,
-    };
+    out property <FieldStyle> inspector-field: root.field;
 
     pure function field-variant(base: FieldStyle, gap: length, text: TextStyle) -> FieldStyle {
         return {
@@ -1935,10 +1913,37 @@ export global Style {
             border-width: base.border-width,
             padding-inline: base.padding-inline,
             gap: gap,
+            padding-end: base.padding-end,
+            prefix-width: base.prefix-width,
             text: text,
             appearance: base.appearance,
         };
     }
+
+    out property <FieldStyle> gradient-position-field: {
+        height: root.field.height, radius: root.field.radius, border-width: root.field.border-width,
+        padding-inline: 8px, padding-end: 2px, gap: 1px,
+        text: root.field.text, appearance: root.field.appearance,
+    };
+    out property <ColorFieldStyle> gradient-color-field: {
+        field: { height: root.field.height, radius: root.field.radius, border-width: root.field.border-width,
+            padding-inline: 6px, padding-end: 4px, gap: 4px, text: Typography.control, appearance: root.field.appearance },
+        opacity-field: { height: root.field.height, radius: root.field.radius, border-width: root.field.border-width,
+            padding-inline: 3px, padding-end: 3px, gap: 2px, text: Typography.caption, appearance: root.field.appearance },
+        opacity-width: 44px, swatch-size: 16px, swatch-radius: 4px, swatch-slot-width: 16px,
+        checker: root.transparency-grid, divider: root.color-field.divider, swatch-border: root.color-field.swatch-border,
+    };
+    out property <FieldStyle> opacity-field: {
+        height: root.field.height,
+        radius: root.field.radius,
+        border-width: root.field.border-width,
+        padding-inline: 12px,
+        padding-end: 16px,
+        gap: 3px,
+        prefix-width: root.field.prefix-width,
+        text: Typography.caption,
+        appearance: root.field.appearance,
+    };
 
     out property <FieldStyle> editable-field: root.field-variant(root.inspector-field, Metrics.space-small, root.inspector-field.text);
     out property <FieldStyle> code-field: root.field-variant(root.inspector-field, root.inspector-field.gap, Typography.caption);
@@ -1966,8 +1971,7 @@ export global Style {
     out property <ColorControlsStyle> color-controls: {
         plane: root.color-plane,
         slider: root.color-slider,
-        row-height: root.combo-menu.row-height,
-        gap: Metrics.space-medium,
+        row-height: root.inspector-field.height,
     };
 
     out property <GradientStopsStyle> gradient-stops: {
@@ -1998,9 +2002,10 @@ export global Style {
     };
 
     out property <CornerModeStyle> corner-mode: {
-        width: Metrics.control-small,
-        height: Metrics.control-compact,
-        radius: Metrics.radius-small,
+        width: root.field.height,
+        height: root.field.height,
+        radius: root.field.radius,
+        border: Theme.controls.corner-mode.border,
         selected-background: Theme.controls.corner-mode.selected-background,
         background: Theme.controls.corner-mode.background,
         foreground: Theme.controls.corner-mode.foreground,
@@ -2011,13 +2016,56 @@ export global Style {
     out property <CornerEditorStyle> corner-editor: {
         gap: Metrics.space-compact,
         mode: root.corner-mode,
-        slider: root.radius-slider,
+        slider: root.inspector-slider,
         field: root.inspector-field,
     };
 
     out property <ColorFieldStyle> color-field: {
+        opacity-field: root.opacity-field,
         field: root.inspector-field,
-        decorative: Theme.fields.color-field.decorative,
+        checker: root.transparency-grid,
+        divider: Theme.fields.color-field.divider,
+        opacity-width: Theme.fields.color-field.opacity-width,
+        swatch-size: Theme.fields.color-field.swatch-size,
         swatch-border: Theme.fields.color-field.swatch-border,
     };
+}
+
+export global ViewerStyle {
+    // Keep toolbar dimensions independent of the larger popup geometry.
+    out property <float> pill-scale: 2 / 3;
+    out property <float> scale: 0.8;
+    out property <length> radius: 17px * root.pill-scale;
+    out property <length> inset: 12px * root.scale;
+    out property <length> row-height: 47px * root.scale;
+    out property <bool> dark: Theme.current == ThemeKind.dark;
+    out property <color> ink: Colors.foreground;
+    out property <color> muted: Colors.muted;
+    out property <color> accent: Colors.accent;
+    out property <color> border: root.dark ? Theme.surfaces.raised-border : LightTheme.rotation-dial.ring-border;
+    out property <brush> pill-rim: root.dark ? Theme.surfaces.recessed-border : @linear-gradient(180deg, #cdd5df, #e7ebf0 45%, #dde3ea);
+    out property <brush> pill-face: root.dark ? Theme.surfaces.recessed : @linear-gradient(180deg, #e9edf2, #f0f3f6 30%, #f5f7f9);
+    out property <color> pill-hover: Theme.surfaces.hover;
+    out property <color> pill-text: root.dark ? Colors.foreground : #435169;
+    out property <color> icon: root.dark ? Colors.muted : #647187;
+    out property <color> strong-icon: root.dark ? Colors.foreground : #475569;
+    out property <brush> popup: Style.floating-surface.background;
+    out property <color> arrow: Theme.surfaces.floating-top;
+    out property <brush> field: Theme.surfaces.raised;
+    out property <brush> field-hover: Theme.surfaces.raised-hover;
+    out property <color> field-border: Theme.surfaces.raised-border;
+    out property <color> action-text: root.dark ? Colors.muted : #556278;
+    out property <brush> menu: Style.floating-surface.background;
+    out property <color> selected: Theme.surfaces.selected;
+    out property <color> selected-hover: Theme.surfaces.selected-hover;
+    out property <color> unavailable: Colors.muted.with-alpha(0.8);
+    out property <color> warning: Colors.warning;
+    out property <brush> dial-ring: Style.rotation-dial.ring;
+    out property <brush> dial-face: Style.rotation-dial.face;
+    out property <brush> dial-hover: Theme.surfaces.raised-hover;
+    out property <color> dial-border: Style.rotation-dial.face-border;
+    out property <color> title-border: Colors.border;
+    out property <color> device-row: root.dark ? #ffffff03 : #ffffff65;
+    out property <color> error: Colors.danger;
+    out property <color> connected: root.dark ? #5f826d : #94b9a0;
 }

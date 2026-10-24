@@ -166,12 +166,10 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
 
     fn clipboard_text(&self, clipboard: Clipboard) -> Option<String> {
         if clipboard == Clipboard::DefaultClipboard {
-            Some(
-                self.window
-                    .java_helper
-                    .get_clipboard()
-                    .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e)),
-            )
+            self.window
+                .java_helper
+                .get_clipboard()
+                .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e))
         } else {
             None
         }
@@ -180,20 +178,12 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
     fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
         let _ = self.context.set(ctx.clone());
         let ctx = ctx.upgrade().expect("bind_context called while the SlintContext is still alive");
-        let color_scheme = match self
+        let night_mode = self
             .window
             .java_helper
             .color_scheme()
-            .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e))
-        {
-            0x10 => i_slint_core::items::ColorScheme::Light, // UI_MODE_NIGHT_NO
-            0x20 => i_slint_core::items::ColorScheme::Dark,  // UI_MODE_NIGHT_YES
-            _ => i_slint_core::items::ColorScheme::Unknown,
-        };
-        ctx.set_color_scheme(color_scheme);
-        if let Ok(accent) = self.window.java_helper.accent_color() {
-            ctx.set_accent_color(accent);
-        }
+            .unwrap_or_else(|e| javahelper::print_jni_error(&self.app, e));
+        self.window.java_helper.set_system_colors(&ctx, night_mode);
         if let Ok(scale) = self.window.java_helper.font_scale()
             && let Some(size) = javahelper::font_scale_to_logical_length(scale)
         {

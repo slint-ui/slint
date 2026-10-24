@@ -32,4 +32,8 @@ export component A {
         Menu { MenuItem { title: "nope"; } }
 //      >   <error{Menu must be declared inside the component inheriting ContextMenuArea}
     }
+    Good {
+        if true : Menu { MenuItem { title: "nope"; } }
+//                >   <error{Menu must be declared inside the component inheriting ContextMenuArea}
+    }
 }

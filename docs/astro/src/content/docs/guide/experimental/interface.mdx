@@ -33,6 +33,26 @@ An interface body may contain:
 An interface body may **not** contain bindings, child elements, layouts, `states`, two-way bindings, `animate` blocks, or private properties.
 An interface can be exported with `export interface`.
 
+## Inheriting an Interface
+
+An interface can extend another with `inherits`:
+
+```slint no-test
+interface Named {
+    in-out property <string> name;
+}
+
+interface Greeter inherits Named {
+    callback greet();
+}
+```
+
+`Greeter`'s contract is `name` and `greet`, so a component implementing `Greeter` must provide both.
+An interface can only inherit another interface.
+
+Redeclaring a member the base already declares is an error.
+If the base marks the member [`@shadowable`](/guide/experimental/shadowable/#interface-members), redeclaring it is a warning instead.
+
 ## Implementing an interface
 
 A component declares that it implements an interface with an `implement I <=> self;` statement in its body.
@@ -56,6 +76,27 @@ export component MyText {
     public pure function length(text: string) -> int {
         return text.character-count;
     }
+}
+```
+
+When the interface marks a member [`@shadowable`](/guide/experimental/shadowable/#interface-members),
+the component's member must be `@shadowable` too.
+When the interface marks a member [`@deprecated`](/reference/language/deprecation/),
+the compiler warns unless the component's member is `@deprecated` too.
+The deprecation message may differ.
+The component may also add attributes the interface doesn't have.
+If the component inherits the member from a base that lacks the attribute, add the attribute to the base.
+Alternatively, delegate to a child with `implement I <=> child`.
+
+```slint
+interface Scrollable {
+    @shadowable in-out property <length> content-width;
+}
+
+export component MyScrollable {
+    implement Scrollable <=> self;
+
+    @shadowable in-out property <length> content-width;
 }
 ```
 
@@ -84,6 +125,7 @@ component Container {
 ```
 
 The named child must satisfy the interface API (directly or through its own delegation) the listed interface.
+The parent's members take the interface's `@shadowable` and `@deprecated` attributes, whatever the child declares.
 
 ## Full example
 

@@ -16,7 +16,9 @@ impl Mapping {
             LocalMemberIndex::Property(p) => self.prop_mapping[*p].is_some(),
             LocalMemberIndex::Callback(c) => self.callback_mapping[*c].is_some(),
             LocalMemberIndex::Function(f) => self.function_mapping[*f].is_some(),
-            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => true,
+            LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Timer(_)
+            | LocalMemberIndex::Repeater(_) => true,
         }
     }
 }
@@ -82,6 +84,10 @@ pub fn remove_unused(root: &mut CompilationUnit) {
             keep(x)
         });
         sc.animations.retain(|x, _| keep(&x.clone().into()));
+        for props in sc.testable_properties.values_mut() {
+            props.retain(|p| keep(&p.prop));
+        }
+        sc.testable_properties.retain(|_, v| !v.is_empty());
     }
     for (idx, g) in root.globals.iter_mut_enumerated() {
         g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
@@ -337,6 +343,7 @@ mod visitor {
             grid_layout_children,
             accessible_prop,
             element_infos: _,
+            testable_properties,
             row_child_templates: _,
             prop_analysis,
             debug_info: _,
@@ -459,6 +466,10 @@ mod visitor {
 
         for a in accessible_prop.values_mut() {
             visit_expression(a.get_mut(), &scope, state, visitor);
+        }
+
+        for p in testable_properties.values_mut().flatten() {
+            visit_member_reference(&mut p.prop, &scope, state, visitor);
         }
 
         *prop_analysis = std::mem::take(prop_analysis)
@@ -640,7 +651,9 @@ mod visitor {
             LocalMemberIndex::Callback(c) => {
                 visitor.visit_callback_idx(c, scope, state);
             }
-            LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => {}
+            LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Timer(_)
+            | LocalMemberIndex::Repeater(_) => {}
         }
     }
 }
@@ -652,16 +665,7 @@ mod tests {
     /// across all sub-components. The names are prefixed by the element path, so
     /// callers match with `contains`.
     fn lowered_property_names(source: &str) -> std::collections::HashSet<String> {
-        let mut config =
-            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-        config.style = Some("fluent".into());
-        let mut diags = crate::diagnostics::BuildDiagnostics::default();
-        let doc_node =
-            crate::parser::parse(source.into(), Some(std::path::Path::new("t.slint")), &mut diags);
-        let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config.clone()));
-        assert!(!diag.has_errors(), "compile error: {:#?}", diag.to_string_vec());
-        let unit = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc, &config);
+        let unit = crate::llr::lower_test_source(source);
         unit.sub_components
             .iter()
             .flat_map(|sc| sc.properties.iter().map(|p| p.name.to_string()))

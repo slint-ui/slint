@@ -1,19 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore Eisu Endcall Hankaku Headsethook Henkan Muhenkan Numpad Pictsymbols Sysrq teriary Thumbl Thumbr Zenkaku
+// cSpell:ignore Eisu Endcall Hankaku Headsethook Henkan luma Muhenkan Numpad Pictsymbols Sysrq teriary Thumbl Thumbr Zenkaku
 
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
-    ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
+    ButtonState, InputEvent, KeyAction, KeyMapChar, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::SharedString;
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
-use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
+use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     InternalEvent, Key, PointerEventButton, WindowAdapter, WindowEvent, WindowEventDispatchResult,
@@ -40,6 +40,7 @@ pub struct AndroidWindowAdapter {
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
     pub(crate) fullscreen: Cell<bool>,
+    light_system_bars: Cell<Option<bool>>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
     pub offset: Cell<PhysicalPosition>,
 
@@ -48,7 +49,13 @@ pub struct AndroidWindowAdapter {
     pub(crate) show_cursor_handles: Cell<bool>,
 
     long_press: RefCell<Option<LongPressDetection>>,
+    /// Whether a long press selected text and the text selection menu waits for the finger to lift.
+    show_menu_on_release: Cell<bool>,
     last_pressed_state: Cell<ButtonState>,
+
+    /// Pending dead-key accent from `KeyMapChar::CombiningAccent`, composed with
+    /// the next Unicode key.
+    pending_dead_key: Cell<Option<char>>,
 }
 
 impl WindowAdapter for AndroidWindowAdapter {
@@ -73,6 +80,21 @@ impl WindowAdapter for AndroidWindowAdapter {
         let f = properties.is_fullscreen();
         if self.fullscreen.replace(f) != f {
             self.resize().unwrap();
+        }
+
+        // The system bars are drawn over the window, so give their icons a color that
+        // contrasts with the window background.
+        let background = properties.background().color();
+        // The perceived brightness (luma) as defined by ITU-R BT.601:
+        // https://en.wikipedia.org/wiki/Luma_(video)
+        let luma = 0.299 * background.red() as f32
+            + 0.587 * background.green() as f32
+            + 0.114 * background.blue() as f32;
+        let light = luma > 127.5;
+        if self.light_system_bars.replace(Some(light)) != Some(light) {
+            self.java_helper
+                .set_light_system_bars(light)
+                .unwrap_or_else(|e| print_jni_error(&self.app, e));
         }
     }
 
@@ -174,6 +196,14 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
 }
 
 impl AndroidWindowAdapter {
+    fn cancel_menu_on_release(&self) {
+        if self.show_menu_on_release.take() {
+            self.java_helper
+                .defer_action_menu(false)
+                .unwrap_or_else(|e| print_jni_error(&self.app, e));
+        }
+    }
+
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
         Rc::<Self>::new_cyclic(|w| Self {
@@ -190,10 +220,13 @@ impl AndroidWindowAdapter {
             pending_redraw: Default::default(),
             java_helper,
             fullscreen: Cell::new(false),
+            light_system_bars: Cell::new(None),
             offset: Default::default(),
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
+            show_menu_on_release: Cell::new(false),
             last_pressed_state: Cell::new(ButtonState(0)),
+            pending_dead_key: Cell::new(None),
         })
     }
 
@@ -229,6 +262,7 @@ impl AndroidWindowAdapter {
                         false,
                     )?;
                     self.resize()?;
+                    self.request_redraw();
 
                     // Fixes a problem for old Android versions: the soft input always prompt out on startup.
                     #[cfg(feature = "native-activity")]
@@ -236,6 +270,12 @@ impl AndroidWindowAdapter {
                         .show_or_hide_soft_input(false)
                         .unwrap_or_else(|e| print_jni_error(&self.app, e));
                 }
+            }
+            PollEvent::Main(MainEvent::LowMemory) => self.renderer.free_gpu_resources(),
+            PollEvent::Main(MainEvent::TerminateWindow { .. }) => {
+                // The window, and with it the context that a rendering notifier's resources belong
+                // to, is only valid until this callback returns.
+                self.renderer.suspend()?;
             }
             PollEvent::Main(
                 MainEvent::WindowResized { .. } | MainEvent::ContentRectChanged { .. },
@@ -282,9 +322,13 @@ impl AndroidWindowAdapter {
         loop {
             let mut result = Ok(());
             let read_input = iter.next(|event| match event {
-                InputEvent::KeyEvent(key_event) => match map_key_event(key_event) {
+                InputEvent::KeyEvent(key_event) => match self.map_key_event(key_event) {
                     Some(ev) => match self.window.dispatch_event_with_result(ev) {
-                        Ok(WindowEventDispatchResult::Accepted) => InputStatus::Handled,
+                        Ok(WindowEventDispatchResult::Accepted) => {
+                            // Like an input method's edits, keys hide the handles.
+                            self.show_cursor_handles.set(false);
+                            InputStatus::Handled
+                        }
                         Ok(_) => InputStatus::Unhandled,
                         Err(e) => {
                             result = Err(e);
@@ -296,14 +340,21 @@ impl AndroidWindowAdapter {
                 InputEvent::MotionEvent(motion_event) => {
                     let offset = self.offset.get();
                     let scale = self.window.scale_factor();
-                    let touch_pos = |p: &android_activity::input::Pointer<'_>| {
+                    let touch_pos = |x: f32, y: f32| {
                         i_slint_core::lengths::logical_point_from_api(pointer_logical_position(
-                            p.x(),
-                            p.y(),
-                            offset,
-                            scale,
+                            x, y, offset, scale,
                         ))
                     };
+                    let touch_pos_pointer =
+                        |p: &android_activity::input::Pointer<'_>| touch_pos(p.x(), p.y());
+                    // android-activity 0.5's native-activity backend has no API for coalesced
+                    // touch samples, so there's nothing to map for `aa-05`.
+                    #[cfg(feature = "aa-06")]
+                    let touch_pos_hist_pointer =
+                        |p: &android_activity::input::HistoricalPointer<'_>| {
+                            touch_pos(p.x(), p.y())
+                        };
+
                     match motion_event.action() {
                         MotionAction::ButtonPress => {
                             result = self
@@ -334,6 +385,13 @@ impl AndroidWindowAdapter {
                         MotionAction::Down => {
                             let position = position_for_event(motion_event, offset, scale);
 
+                            // A tap dismisses the text selection menu, like in native text fields.
+                            // The menu and the handles are separate windows, so touches on them
+                            // don't get here.
+                            self.java_helper
+                                .hide_action_menu()
+                                .unwrap_or_else(|e| print_jni_error(&self.app, e));
+                            self.cancel_menu_on_release();
                             self.show_cursor_handles.set(true);
                             let _timer = Timer::default();
                             _timer.start(
@@ -348,8 +406,13 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -361,10 +424,21 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
+                            }
+                            if self.show_menu_on_release.get() {
+                                self.cancel_menu_on_release();
+                                self.java_helper
+                                    .show_action_menu()
+                                    .unwrap_or_else(|e| print_jni_error(&self.app, e));
                             }
                             InputStatus::Handled
                         }
@@ -381,12 +455,37 @@ impl AndroidWindowAdapter {
                             }
                             drop(lp);
 
+                            // Get high frequency move samples
+                            let now_event_time = motion_event.event_time();
                             for p in motion_event.pointers() {
+                                let id = p.pointer_id();
+                                let event_pos = touch_pos_pointer(&p);
+                                let event_time =
+                                    self.java_helper.input_timestamp(now_event_time, &self.window);
+                                #[cfg(feature = "aa-06")]
+                                let history = TouchHistory {
+                                    history: p
+                                        .history()
+                                        .map(|sample| {
+                                            (
+                                                touch_pos_hist_pointer(&sample),
+                                                self.java_helper.input_timestamp(
+                                                    sample.event_time(),
+                                                    &self.window,
+                                                ),
+                                            )
+                                        })
+                                        .collect(),
+                                };
+                                #[cfg(not(feature = "aa-06"))]
+                                let history = TouchHistory::default();
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
-                                        id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        id,
+                                        position: event_pos,
                                         phase: TouchPhase::Moved,
+                                        event_time: Some(event_time),
+                                        history,
                                     },
                                 ));
                             }
@@ -395,13 +494,19 @@ impl AndroidWindowAdapter {
                         MotionAction::PointerDown => {
                             // A second finger means no long-press.
                             self.long_press.take();
+                            self.cancel_menu_on_release();
                             let idx = motion_event.pointer_index();
                             if let Some(p) = motion_event.pointers().nth(idx) {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -413,8 +518,13 @@ impl AndroidWindowAdapter {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -429,12 +539,18 @@ impl AndroidWindowAdapter {
                         }
                         MotionAction::Cancel | MotionAction::Outside => {
                             self.long_press.take();
+                            self.cancel_menu_on_release();
                             for p in motion_event.pointers() {
                                 self.window.dispatch_event(WindowEvent::internal(
                                     InternalEvent::Touch {
                                         id: p.pointer_id(),
-                                        position: touch_pos(&p),
+                                        position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Cancelled,
+                                        event_time: Some(self.java_helper.input_timestamp(
+                                            motion_event.event_time(),
+                                            &self.window,
+                                        )),
+                                        history: Default::default(),
                                     },
                                 ));
                             }
@@ -516,11 +632,10 @@ impl AndroidWindowAdapter {
     pub fn do_render(&self) -> Result<(), PlatformError> {
         if let Some(win) = self.app.native_window() {
             let o = self.offset.get();
-            let _ = self.renderer.render_transformed_with_post_callback(
+            let _ = self.renderer.render_transformed(
                 0.,
                 (o.x as f32, o.y as f32),
                 PhysicalSize { width: win.width() as _, height: win.height() as _ },
-                None,
             )?;
         }
         Ok(())
@@ -597,17 +712,18 @@ fn long_press_timeout() {
             if !geometry.contains(i_slint_core::lengths::logical_point_from_api(current.position)) {
                 return;
             };
-            let (cursor, anchor) = text_input.selection_anchor_and_cursor();
-            if cursor == anchor {
-                let text = text_input.text();
-                if text.len() > cursor && text.as_bytes()[cursor] != b'\n' {
-                    let adaptor = adaptor.clone() as Rc<dyn WindowAdapter>;
-                    text_input.select_word(&adaptor, &focus_item);
-                }
-            }
+            // The handles show for a selection made by touch, even if the input method moved the
+            // cursor and hid them since the finger went down.
+            adaptor.show_cursor_handles.set(true);
+            text_input.select_word_on_long_press(
+                &(adaptor.clone() as Rc<dyn WindowAdapter>),
+                &focus_item,
+            );
+            // Like in native text fields, the menu shows once the finger lifts.
+            adaptor.show_menu_on_release.set(true);
             adaptor
                 .java_helper
-                .show_action_menu()
+                .defer_action_menu(true)
                 .unwrap_or_else(|e| print_jni_error(&adaptor.app, e))
         }
     };
@@ -689,17 +805,84 @@ fn button_for_event(
     return PointerEventButton::Other;
 }
 
-fn map_key_event(key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
-    let text = map_key_code(key_event.key_code())?;
-    let repeat = key_event.repeat_count() > 0;
-    match key_event.action() {
-        KeyAction::Down if repeat => Some(WindowEvent::KeyPressRepeated { text }),
-        KeyAction::Down => Some(WindowEvent::KeyPressed { text }),
-        KeyAction::Up => Some(WindowEvent::KeyReleased { text }),
-        KeyAction::Multiple if repeat => Some(WindowEvent::KeyPressRepeated { text }),
-        KeyAction::Multiple => Some(WindowEvent::KeyPressed { text }),
-        _ => None,
+impl AndroidWindowAdapter {
+    fn map_key_event(&self, key_event: &android_activity::input::KeyEvent) -> Option<WindowEvent> {
+        let text = match self.layout_aware_text(key_event) {
+            LayoutKey::Text(t) => t,
+            // Dead-key press/release: the accent is stashed until the next key.
+            // Swallow the event so nothing gets typed in the meantime.
+            LayoutKey::Consumed => return None,
+            LayoutKey::Fallback => map_key_code(key_event.key_code())?,
+        };
+        let repeat = key_event.repeat_count() > 0;
+        match key_event.action() {
+            KeyAction::Down if repeat => Some(WindowEvent::KeyPressRepeated { text }),
+            KeyAction::Down => Some(WindowEvent::KeyPressed { text }),
+            KeyAction::Up => Some(WindowEvent::KeyReleased { text }),
+            KeyAction::Multiple if repeat => Some(WindowEvent::KeyPressRepeated { text }),
+            KeyAction::Multiple => Some(WindowEvent::KeyPressed { text }),
+            _ => None,
+        }
     }
+
+    /// Translate the key event into the Unicode character actually produced by the
+    /// device's keyboard layout, honoring the active meta state (Shift, AltGr, …)
+    /// and composing pending dead-key accents. Returns [`LayoutKey::Fallback`] for
+    /// keys that don't produce Unicode (arrows, function keys, modifiers, …), so
+    /// the caller can fall back to [`map_key_code`] for the special-key mapping.
+    fn layout_aware_text(&self, key_event: &android_activity::input::KeyEvent) -> LayoutKey {
+        let device_id = key_event.device_id();
+        // Virtual devices (soft keyboard, injected events) have device_id == 0
+        // and no character map — let the caller handle them via `map_key_code`.
+        if device_id == 0 {
+            return LayoutKey::Fallback;
+        }
+        let map = match self.app.device_key_character_map(device_id) {
+            Ok(m) => m,
+            Err(_) => return LayoutKey::Fallback,
+        };
+        let is_down = matches!(key_event.action(), KeyAction::Down | KeyAction::Multiple);
+        match map.get(key_event.key_code(), key_event.meta_state()) {
+            Ok(KeyMapChar::Unicode(c)) => {
+                let composed = if let Some(accent) = self.pending_dead_key.get() {
+                    if is_down {
+                        self.pending_dead_key.set(None);
+                    }
+                    map.get_dead_char(accent, c).ok().flatten().unwrap_or(c)
+                } else {
+                    c
+                };
+                // Non-printable control chars (aside from Tab/CR/LF) are better
+                // handled through `map_key_code`, which turns e.g. Backspace into
+                // Key::Backspace rather than U+0008.
+                if composed.is_control() && !matches!(composed, '\t' | '\n' | '\r') {
+                    LayoutKey::Fallback
+                } else {
+                    LayoutKey::Text(SharedString::from(composed))
+                }
+            }
+            Ok(KeyMapChar::CombiningAccent(a)) => {
+                if is_down {
+                    self.pending_dead_key.set(Some(a));
+                }
+                LayoutKey::Consumed
+            }
+            Ok(KeyMapChar::None) => LayoutKey::Fallback,
+            Err(_) => LayoutKey::Fallback,
+        }
+    }
+}
+
+/// Outcome of [`AndroidWindowAdapter::layout_aware_text`].
+enum LayoutKey {
+    /// The layout produced a Unicode character (possibly the result of composing
+    /// a pending dead-key accent with this key).
+    Text(SharedString),
+    /// The event was a dead-key press/release; the accent is being held for the
+    /// next key. No event should be dispatched.
+    Consumed,
+    /// The layout has no Unicode for this key; use [`map_key_code`] instead.
+    Fallback,
 }
 
 fn map_key_code(code: android_activity::input::Keycode) -> Option<SharedString> {

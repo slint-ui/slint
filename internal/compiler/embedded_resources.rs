@@ -46,48 +46,13 @@ impl Texture {
 }
 
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone, Default)]
-pub struct BitmapGlyph {
-    pub x: i16,
-    pub y: i16,
-    pub width: i16,
-    pub height: i16,
-    pub x_advance: i16,
-    /// 8bit alpha map or SDF if `BitMapGlyphs`'s `sdf` is `true`.
-    pub data: Vec<u8>,
-}
-
+use i_slint_common::bitmapfont::OwnedStorage;
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone)]
-pub struct BitmapGlyphs {
-    pub pixel_size: i16,
-    pub glyph_data: Vec<BitmapGlyph>,
-}
-
+pub type BitmapGlyph = i_slint_common::bitmapfont::BitmapGlyph<OwnedStorage>;
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone)]
-pub struct CharacterMapEntry {
-    pub code_point: char,
-    pub glyph_index: u16,
-}
-
+pub type BitmapGlyphs = i_slint_common::bitmapfont::BitmapGlyphs<OwnedStorage>;
 #[cfg(feature = "renderer-software")]
-#[derive(Debug, Clone)]
-pub struct BitmapFont {
-    pub family_name: String,
-    /// map of available glyphs, sorted by char
-    pub character_map: Vec<CharacterMapEntry>,
-    pub units_per_em: f32,
-    pub ascent: f32,
-    pub descent: f32,
-    pub x_height: f32,
-    pub cap_height: f32,
-    pub glyphs: Vec<BitmapGlyphs>,
-    pub weight: u16,
-    pub italic: bool,
-    /// true when the font is represented as a signed distance field
-    pub sdf: bool,
-}
+pub type BitmapFont = i_slint_common::bitmapfont::BitmapFont<OwnedStorage>;
 
 #[derive(Debug, Clone)]
 pub enum EmbeddedResourcesKind {
@@ -111,8 +76,8 @@ pub enum EmbeddedResourcesKind {
 
 #[derive(Debug, Clone)]
 pub struct EmbeddedResources {
-    /// Path on disk of the resource, or `None` for in-memory payloads such as data URIs.
-    pub path: Option<smol_str::SmolStr>,
+    /// `None` for in-memory payloads such as data URIs.
+    pub path: Option<crate::source_path::SourcePath>,
 
     pub kind: EmbeddedResourcesKind,
 }

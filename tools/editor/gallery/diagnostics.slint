@@ -1,0 +1,88 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, ComboBox, Palette } from "std-widgets.slint";
+import { Diagnostics, DiagnosticsMock, DiagnosticMockScenario, PreviewAvailability } from "../ui/diagnostics.slint";
+import { FileTreeNodeKind } from "../ui/api.slint";
+import { Project } from "../ui/project.slint";
+import { FileTreeView } from "../ui/components/file-tree-view.slint";
+import { PreviewDiagnostics } from "../ui/components/preview-diagnostics.slint";
+import { Colors, Metrics, Typography } from "../ui/style.slint";
+import "../ui/assets/Inter-VariableFont.ttf";
+
+export { DiagnosticMockScenario } from "../ui/diagnostics.slint";
+
+export component DiagnosticsGalleryWindow inherits Window {
+    title: "Visual Editor · Diagnostics Gallery";
+    width: 360px;
+    height: 700px;
+    default-font-family: Typography.family;
+    background: Colors.background;
+    accessible-role: AccessibleRole.region;
+    accessible-label: "Diagnostics mock gallery";
+    in-out property <DiagnosticMockScenario> scenario: DiagnosticMockScenario.Current;
+    in-out property <bool> dark-theme;
+    private property <[DiagnosticMockScenario]> scenarios: [
+        DiagnosticMockScenario.Current, DiagnosticMockScenario.Warnings,
+        DiagnosticMockScenario.Stale, DiagnosticMockScenario.Unavailable,
+        DiagnosticMockScenario.NoComponent, DiagnosticMockScenario.ManyErrors,
+        DiagnosticMockScenario.Imports,
+    ];
+    changed scenario => { DiagnosticsMock.scenario = root.scenario; }
+    changed dark-theme => { Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light; }
+    init => {
+        DiagnosticsMock.scenario = root.scenario;
+        Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light;
+        Project.selected-project-file = "Main.slint";
+        Project.file-tree = [
+            { label: "Sample project", path: "/mock/project", kind: FileTreeNodeKind.folder, has-children: true, is-expanded: true },
+            { label: "Main.slint", path: "/mock/project/Main.slint", kind: FileTreeNodeKind.file, is-slint-file: true, is-selected: true, indent-level: 1 },
+            { label: "components", path: "/mock/project/components", kind: FileTreeNodeKind.folder, has-children: true, indent-level: 1 },
+        ];
+    }
+
+    VerticalLayout {
+        padding: Metrics.space-large;
+        spacing: Metrics.space-large;
+        HorizontalLayout {
+            spacing: Metrics.space-medium;
+            ComboBox {
+                width: 128px;
+                model: ["Current", "Warnings", "Stale", "Unavailable", "No component", "Many errors", "Imported error"];
+                current-index: root.scenario == DiagnosticMockScenario.Current ? 0
+                    : root.scenario == DiagnosticMockScenario.Warnings ? 1
+                    : root.scenario == DiagnosticMockScenario.Stale ? 2
+                    : root.scenario == DiagnosticMockScenario.Unavailable ? 3
+                    : root.scenario == DiagnosticMockScenario.NoComponent ? 4
+                    : root.scenario == DiagnosticMockScenario.ManyErrors ? 5 : 6;
+                selected(value) => { root.scenario = root.scenarios[self.current-index]; }
+            }
+            Button { text: root.dark-theme ? "Light theme" : "Dark theme"; clicked => { root.dark-theme = !root.dark-theme; } }
+            Text {
+                text: "Copies: \{DiagnosticsMock.copy-count}";
+                color: Colors.foreground;
+                vertical-alignment: center;
+            }
+        }
+        VerticalLayout {
+            spacing: Metrics.space-large;
+            FileTreeView { height: 112px; }
+            Rectangle {
+                vertical-stretch: 1;
+                background: Colors.surface;
+                if Diagnostics.preview-availability == PreviewAvailability.Current || Diagnostics.preview-availability == PreviewAvailability.Stale: Rectangle {
+                    x: 50px; y: 50px; width: 180px; height: 100px;
+                    background: #2563eb;
+                    border-radius: 12px;
+                    Text {
+                        text: "Sample render";
+                        color: white;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                PreviewDiagnostics { }
+            }
+        }
+    }
+}

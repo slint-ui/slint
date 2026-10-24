@@ -8,12 +8,17 @@ name: Crater
 
 on:
     workflow_dispatch:
+    schedule:
+        # Saturday 0:17 UTC = ~1:00-2:00 CET, before the nightly snapshot and while
+        # no pull request competes for the organization's concurrent job limit
+        - cron: "17 0 * * 6"
 
 jobs:
     # The crater matrix is split across two jobs (crater and crater_subpath) because GitHub
     # limits a matrix to 256 jobs; the combined project list exceeds that. crater builds the
     # projects that live at the repository root; crater_subpath builds those in a sub-directory.
     crater:
+        if: github.event_name != 'schedule' || github.repository == 'slint-ui/slint'
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -27,7 +32,7 @@ jobs:
                     - "https://github.com/GaspardCulis/slint-tetris"
                     - "https://github.com/dngulin/gpcl"
                     - "https://codeberg.org/flovansl/co_sl"
-                    - "https://seed.radicle.garden/z3oxAZSLcyXgpa7fcvgtueF49jHpH.git" #vivi
+                    - "https://codeberg.org/vivi-ui/vivi"
                     #- "https://github.com/ElevenJune/mastermind_Rust" # Not upgraded to Slint 1.0
                     #- "https://github.com/Project-Trains/launcher" # Not upgraded to Slint 1.0
                     - "https://github.com/bjorn/raccoin"
@@ -165,21 +170,22 @@ jobs:
                     - "https://github.com/mooofin/Thalix"
 
                     # from ecosystem survey (added 2026-07)
-                    - "https://github.com/jeff141/meatshell"
+                    #- "https://github.com/yituorou/meatshell" # only builds against its vendored Slint fork
                     - "https://github.com/qarmin/szyszka"
                     - "https://github.com/rodgtr1/profit-first-income-calculator-desktop"
                     - "https://github.com/waydeerwm/layer-shika"
                     - "https://github.com/swedishembedded/sven"
                     - "https://github.com/junelva/wl-gammarelay-applet"
                     #- "https://github.com/FelgoSDK/RustyWeather" # lives in this repository as demos/weather-demo
-                    - "https://github.com/masak1yu/winxmerge"
                     - "https://github.com/IDE0224/rust-calendar-app"
                     - "https://github.com/ninjitsuytber/Aegis-OTA"
                     #- "https://github.com/TuEmb/can-viewer-rs" # depends on pcan-basic, which can't be fetched
                     - "https://github.com/tilladam/slint-node-editor"
                     - "https://github.com/xiaoxinghaha/xiaoxingshell"
                     - "https://github.com/owu/aura-factory"
-                    - "https://github.com/mdabir1203/ShadowMap"
+                    # Slint is only in its optional `dashboard` feature, whose .slint file doesn't parse,
+                    # and its optional iced 0.12 pins web-sys =0.3.67, older than what Slint needs
+                    #- "https://github.com/mdabir1203/ShadowMap"
                     - "https://github.com/okhsunrog/slint_realtime_plotting_experiments"
                     - "https://github.com/draugvar/llaunchpad"
                     - "https://github.com/PonderForge/LBProxy"
@@ -281,12 +287,15 @@ jobs:
             - name: build
               run: |
                   cd $HOME/the_repo
-                  rm -r rust-toolchain.toml .cargo/config.toml || true
+                  # Build with the toolchain under test, even where a sub-directory pins another one
+                  find . \( -name rust-toolchain -o -name rust-toolchain.toml \) -delete
+                  rm -f .cargo/config.toml
                   # The patch applies only to a requirement that accepts this checkout's version, so
                   # relax the exact and tilde pins a project puts on the Slint crates.
                   find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
                       s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
-                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   ${{ matrix.extra_commands || 'cargo update' }}
@@ -302,6 +311,7 @@ jobs:
     # Projects whose Slint crate lives in a sub-directory of the repository. Kept in a separate
     # job from crater so that neither matrix exceeds GitHub's 256-job limit (see crater above).
     crater_subpath:
+        if: github.event_name != 'schedule' || github.repository == 'slint-ui/slint'
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -351,6 +361,7 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libasound2-dev
                     - git_url: "https://github.com/ahqsoftwares/tauri-ahq-store"
                       sub_path: "src-setup"
+                      toolchain: nightly # its .cargo/config.toml passes -Z threads=2
                     - git_url: "https://github.com/qarmin/czkawka"
                       sub_path: krokiet
                     - git_url: "https://github.com/Vjze/Rust_demo"  # this is using SurrealismUI
@@ -367,8 +378,9 @@ jobs:
                       extra_args: "--no-default-features --features=slint_frontend"
                     - git_url: "https://github.com/niqt/matrust/"
                       sub_path: "."
-                    - git_url: "https://github.com/obhq/obliteration"
-                      sub_path: "gui"
+                    # uses i-slint-core internals (WindowAdapterInternal::as_any, the Skia renderer's set_window_handle)
+                    #- git_url: "https://github.com/obhq/obliteration"
+                    #  sub_path: "gui"
                     - git_url: "https://github.com/jaymedavis/romboy"
                       sub_path: "romboy"
                     #- git_url: "https://github.com/somantics/retrodungeon"  # compile error
@@ -407,19 +419,32 @@ jobs:
                     - git_url: "https://github.com/R3alCl0ud/Rust4Diva"
                       sub_path: "."
                       extra_packages: libarchive-dev
+                      extra_commands: |
+                          cargo update
+                          # zip 2.6 added a type parameter to ZipFile, which cra 0.1.4 doesn't pass
+                          cargo update zip --precise 2.4.2
+                    - git_url: "https://github.com/masak1yu/winxmerge"
+                      sub_path: "."
+                      extra_commands: |
+                          cargo update
+                          # zip 2.6 added a type parameter to ZipFile, which calamine 0.26 doesn't pass
+                          cargo update zip --precise 2.4.2
+                    # n_music replaced its Slint UIs with Qt Quick and Jetpack Compose after this revision
                     - git_url: "https://github.com/Enn3Developer/n_music"
+                      git_rev: "4a26c2da537f68d1c39995809b5ec2908aa008ba"
                       extra_packages: libasound2-dev libfontconfig-dev libfreetype-dev
                       sub_path: "n_music_desktop"
                       extra_commands: |
                           # the android crate asks for the fontique 0.10 feature, so the patched slint is rejected
-                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' ../n_music_android/Cargo.toml
+                          sed -E -i 's/unstable-fontique-01[01]/unstable-fontique-012/' ../n_music_android/Cargo.toml
                           cargo update
                           # zune-imageprocs 0.5.1 doesn't handle the enum variants added in 0.5.3
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/Enn3Developer/n_music"
+                      git_rev: "4a26c2da537f68d1c39995809b5ec2908aa008ba"
                       sub_path: "n_music_android"
                       extra_commands: |
-                          sed -i 's/unstable-fontique-010/unstable-fontique-011/' Cargo.toml
+                          sed -E -i 's/unstable-fontique-01[01]/unstable-fontique-012/' Cargo.toml
                           cargo update
                           cargo update zune-core --precise 0.5.1
                     - git_url: "https://github.com/TsaoLun/always-blue"
@@ -503,6 +528,8 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libgl1-mesa-dev libvulkan-dev libjsoncpp-dev libx11-dev libxxf86vm-dev libxrandr-dev libpipewire-0.3-dev
                       extra_commands: |
                           sed -i 's/"<1\.16\.0"/"*"/g' ../lib/Cargo.toml ../android/Cargo.toml
+                          # the android crate pins android-activity below what the Slint backend needs
+                          sed -i 's/android-activity = {version = "=0.6.0"/android-activity = {version = "0.6"/' ../android/Cargo.toml
                           cargo update
                     - git_url: "https://github.com/heng30/wayshot"
                       extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
@@ -546,8 +573,16 @@ jobs:
                     #  sub_path: "crates/qbz-ui"
                     - git_url: "https://github.com/crabnebula-dev/cargo-packager"
                       sub_path: "examples/slint"
+                      extra_commands: |
+                          # the example isn't a member of the repository's workspace
+                          printf '\n[workspace]\n' >> Cargo.toml
+                          cargo update
                     - git_url: "https://github.com/ancwrd1/snx-rs"
                       sub_path: "apps/snx-rs-gui"
+                      extra_commands: |
+                          cargo update
+                          # tokio-util 0.7.20 adds an Encoder impl that makes a call in snxcore ambiguous
+                          cargo update tokio-util --precise 0.7.19
                     - git_url: "https://github.com/snolab/CapsLockX"
                       sub_path: "rs/tools/clx-prefs-slint"
                       extra_commands: |
@@ -608,14 +643,11 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/hsiatein/Helenium"
                       sub_path: "heleny-gui"
-                    - git_url: "https://github.com/BlackMIDIDevs/meridian"
-                      sub_path: "crates/meridian-ui"
-                      extra_commands: |
-                          # unstable-wgpu-28 no longer exists
-                          sed -i 's/unstable-wgpu-28/unstable-wgpu-29/' ../../Cargo.toml
-                          cargo update
-                      extra_packages: alsa-utils libasound2-dev
-                      toolchain: nightly # midi-toolkit-rs uses #![feature]
+                    # uses wgpu 28 through slint::wgpu_28, which Slint no longer supports
+                    #- git_url: "https://github.com/BlackMIDIDevs/meridian"
+                    #  sub_path: "crates/meridian-ui"
+                    #  extra_packages: alsa-utils libasound2-dev
+                    #  toolchain: nightly # midi-toolkit-rs uses #![feature]
                     - git_url: "https://github.com/Irminsul-dev/CheshireLane9"
                       sub_path: "crates/cheshire-server-app"
                       extra_packages: protobuf-compiler
@@ -629,9 +661,10 @@ jobs:
                       sub_path: "app"
                     - git_url: "https://github.com/myst6re/mumba"
                       sub_path: "gui"
-                    - git_url: "https://github.com/jpfaria/OpenRig"
-                      sub_path: "crates/adapter-gui"
-                      extra_packages: alsa-utils libasound2-dev
+                    # the repository is gone
+                    #- git_url: "https://github.com/jpfaria/OpenRig"
+                    #  sub_path: "crates/adapter-gui"
+                    #  extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/yfn020/slintcn"
                       sub_path: "examples/showcase"
                     - git_url: "https://github.com/taichi765/TsukuyomiDMX"
@@ -641,8 +674,9 @@ jobs:
                     #- git_url: "https://github.com/PavelLizunov/suflyor"
                     #  sub_path: "slint-experiment"
                     #  extra_packages: alsa-utils libasound2-dev
-                    - git_url: "https://github.com/crypto-widget/crypto-hud"
-                      sub_path: "crates/crypto-hud"
+                    # uses i-slint-compiler internals (parser::parse, watch_paths)
+                    #- git_url: "https://github.com/crypto-widget/crypto-hud"
+                    #  sub_path: "crates/crypto-hud"
                     - git_url: "https://github.com/sullivant/eightyeighty"
                       sub_path: "frontend"
                     # the fonts and assets it compiles in live in private submodules
@@ -676,9 +710,10 @@ jobs:
                       extra_packages: alsa-utils libasound2-dev
                     - git_url: "https://github.com/Trystan-SA/rproc"
                       sub_path: "."
-                    - git_url: "https://github.com/ruapotato/Flick"
-                      sub_path: "shell"
-                      extra_packages: libdisplay-info-dev
+                    # its own code doesn't build against the current smithay
+                    #- git_url: "https://github.com/ruapotato/Flick"
+                    #  sub_path: "shell"
+                    #  extra_packages: libdisplay-info-dev
                     - git_url: "https://github.com/reciperium/temporis"
                       sub_path: "."
                       extra_packages: alsa-utils libasound2-dev
@@ -725,14 +760,15 @@ jobs:
                       extra_commands: |
                           export CC=clang CXX=clang++
                           cargo update
+                    # the repository no longer has crates/lipl-display-slint
                     # The crate inherits package fields and dependencies from the workspace, so it
                     # must stay a member; the two skia-based siblings conflict in one dependency graph
-                    - git_url: "https://github.com/paulusminus/lipl-display"
-                      sub_path: "crates/lipl-display-slint"
-                      extra_packages: libdbus-1-dev
-                      extra_commands: |
-                          sed -i 's|# *"crates/lipl-display-slint",|"crates/lipl-display-slint",|; /lipl-display-freya/d; /lipl-display-gpui/d' ../../Cargo.toml
-                          cargo update
+                    #- git_url: "https://github.com/paulusminus/lipl-display"
+                    #  sub_path: "crates/lipl-display-slint"
+                    #  extra_packages: libdbus-1-dev
+                    #  extra_commands: |
+                    #      sed -i 's|# *"crates/lipl-display-slint",|"crates/lipl-display-slint",|; /lipl-display-freya/d; /lipl-display-gpui/d' ../../Cargo.toml
+                    #      cargo update
                     # out of sync with its own gldf-rs library (LocaleFoo::value,
                     # format_version.pre_release)
                     #- git_url: "https://github.com/holg/gldf-rs"
@@ -802,12 +838,15 @@ jobs:
             - name: build
               run: |
                   cd $HOME/the_repo
-                  rm -r rust-toolchain.toml .cargo/config.toml || true
+                  # Build with the toolchain under test, even where a sub-directory pins another one
+                  find . \( -name rust-toolchain -o -name rust-toolchain.toml \) -delete
+                  rm -f .cargo/config.toml
                   # The patch applies only to a requirement that accepts this checkout's version, so
                   # relax the exact and tilde pins a project puts on the Slint crates.
                   find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
                       s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
-                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd ./${{ matrix.sub_path }}
                   sed -i "s/{{project-name}}/the-project/" Cargo.toml
                   ${{ matrix.extra_commands || 'cargo update' }}
@@ -823,6 +862,7 @@ jobs:
     # Windows-only projects: gated on cfg(windows) or using Windows-only crates, so they can
     # only build on a Windows runner - which still exercises the Slint build on Windows.
     crater_windows:
+        if: github.event_name != 'schedule' || github.repository == 'slint-ui/slint'
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -831,7 +871,7 @@ jobs:
             fail-fast: false
             matrix:
                 git_url:
-                    - "https://github.com/0hgawa/Clipo"
+                    #- "https://github.com/0hgawa/Clipo" # the 0hgawa account is gone
                     - "https://github.com/MelDxKviel/zapret-ui"
                     - "https://github.com/kirinonakar/ocr_trans"
                     - "https://github.com/WardLordRuby/elden_mod_loader_gui"
@@ -849,7 +889,7 @@ jobs:
                     #  toolchain: nightly
                     - git_url: "https://github.com/chengbuilds/PetPhrase"
                       sub_path: "app-slint"
-                    - git_url: "https://github.com/0hgawa/vayou-slint"
+                    #- git_url: "https://github.com/0hgawa/vayou-slint" # the 0hgawa account is gone
                     # servicemanager-win32 has no Linux implementation
                     - git_url: "https://github.com/chstc/NGSM"
                       sub_path: "crates/servicemanager-gui"
@@ -907,12 +947,15 @@ jobs:
               shell: bash
               run: |
                   cd "$HOME/the_repo"
-                  rm -f rust-toolchain.toml .cargo/config.toml || true
+                  # Build with the toolchain under test, even where a sub-directory pins another one
+                  find . \( -name rust-toolchain -o -name rust-toolchain.toml \) -delete
+                  rm -f .cargo/config.toml
                   # The patch applies only to a requirement that accepts this checkout's version, so
                   # relax the exact and tilde pins a project puts on the Slint crates.
                   find . -name Cargo.toml -print0 | xargs -0 perl -0777 -pi -e '
                       s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mg;
-                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
+                      s/^(\s*(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\s*=\s*\{[^}]*?version\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;
+                      s/^(\[[^\]\n]*dependencies\.(?:slint|slint-build|slint-interpreter|i-slint-[\w-]+)\][^\[]*?\bversion\s*=\s*)"[=~]\s*[^"]*"/$1"*"/mgs;'
                   cd "./${{ matrix.sub_path || '.' }}"
                   ${{ matrix.extra_commands || 'cargo update' }}
                   # A project that pins or vendors a released Slint resolves it from crates.io despite the
@@ -927,6 +970,7 @@ jobs:
     # Build slint-compiler once and share it with the check_slint_only matrix below, instead of
     # rebuilding it for every project.
     build_slint_compiler:
+        if: github.event_name != 'schedule' || github.repository == 'slint-ui/slint'
         runs-on: "ubuntu-latest"
         steps:
             - uses: actions/checkout@v7
@@ -1009,8 +1053,9 @@ jobs:
                       files: "package/desktop-app/terminal/ui/app.slint"
                     - git_url: "https://github.com/Dominic485649/AWJimage"
                       files: "ui/awj_studio.slint"
-                    - git_url: "https://github.com/FernTech-EU/qleany"
-                      files: "crates/slint_ui/ui/app.slint"
+                    # the repository no longer has .slint files
+                    #- git_url: "https://github.com/FernTech-EU/qleany"
+                    #  files: "crates/slint_ui/ui/app.slint"
                     - git_url: "https://github.com/GDATASoftwareAG/vaas"
                       files: "rust/examples/kde_dolphin/ui/app.slint"
                     - git_url: "https://github.com/Ibrahim-hikal/EUI-SIS_-upgraded-"
@@ -1075,8 +1120,9 @@ jobs:
                       files: "widgets/checkbox.slint"
                     - git_url: "https://github.com/lonerOrz/slint-mt"
                       files: "material-1.0/ui/styling/material_schemes.slint"
-                    - git_url: "https://github.com/mikezaby/blibliki"
-                      files: "apps/pi-display/ui/dashboard.slint"
+                    # the repository is gone
+                    #- git_url: "https://github.com/mikezaby/blibliki"
+                    #  files: "apps/pi-display/ui/dashboard.slint"
                     - git_url: "https://github.com/nash87/parkhub-rust"
                       files: "ui/main.slint"
                     - git_url: "https://github.com/open-vela/nuttx-apps"
@@ -1177,9 +1223,9 @@ jobs:
                       files: "ui/appwindow.slint"
                     #- git_url: "https://github.com/vudinhkhoa0/DEMO_DOAN_CTDL-GT" # entry .slint file not identified yet
                     # Cannot build in the crater matrix for a reason outside Slint (noted per entry):
-                    # build.rs needs the liboqs native library (not packaged)
-                    - git_url: "https://github.com/GurudattaRK/PQrypt"
-                      files: "desktop/ui/main.slint"
+                    # the repository is gone
+                    #- git_url: "https://github.com/GurudattaRK/PQrypt"
+                    #  files: "desktop/ui/main.slint"
                     # depends on Slint via git, so the crates.io patch does not apply
                     - git_url: "https://github.com/Montel/ruqola-rust"
                       files: "ruqola-rust-slint/src/slint/mainwindow.slint"

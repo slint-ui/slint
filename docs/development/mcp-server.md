@@ -29,7 +29,7 @@ The MCP server is controlled by two layers:
 
 1. **Cargo feature `mcp`** — Compiles the MCP server code. Defined in `internal/backends/testing/Cargo.toml`, forwarded through `internal/backends/selector/Cargo.toml`, and exposed as the public `slint/mcp` feature.
 
-2. **Environment variable `SLINT_MCP_PORT`** — Controls whether the server actually starts at runtime. If not set, `mcp_server::init()` returns immediately with no overhead.
+2. **Environment variables** — `SLINT_MCP_PORT` controls whether the server actually starts at runtime. If not set, `mcp_server::init()` returns immediately with no overhead. `SLINT_MCP_HOST` sets the bind address and defaults to `127.0.0.1`.
 
 ### Enabling for a Slint Application
 
@@ -54,8 +54,8 @@ The central data structure, stored as a thread-local `Rc<IntrospectionState>`. `
 defined via `slotmap::new_key_type!`), not the `generational_arena` crate:
 
 - **`windows`** — `RefCell<SlotMap<ArenaIndex, TrackedWindow>>`: tracks live windows via weak references to their `WindowAdapter`.
-- **`element_handles`** — `RefCell<SlotMap<ArenaIndex, ElementHandle>>`: maps arena indices to `ElementHandle` instances.
-- **`element_handle_order`** — `RefCell<VecDeque<ArenaIndex>>`: tracks insertion order for FIFO eviction.
+- **`element_handles`** — `RefCell<SlotMap<ArenaIndex, TrackedElement>>`: maps arena indices to `ElementHandle` instances, each with the tick of its last use.
+- **`element_handle_clock`** — `Cell<u64>`: the tick, counted up on each use of a handle.
 
 ### Handle System
 
@@ -65,13 +65,35 @@ Handles are generational: if an element is evicted and its arena slot reused, st
 
 Window handles and element handles share the same `{index, generation}` shape, so clients (especially LLM agents) easily confuse them. To disambiguate, `tool_definitions()` gives the `windowHandle` and `elementHandle` parameters distinct `description`s, and the `initialize` instructions spell out that the two kinds are not interchangeable and where each one comes from.
 
-### FIFO Eviction
+### Eviction
 
-The element arena is capped at 10,000 entries (`ELEMENT_HANDLE_CAP`). When the cap is exceeded, the oldest handles are evicted (FIFO order), with one exception: root element handles for tracked windows are never evicted — they are pushed to the back of the queue instead.
+The element arena is capped at 10,000 entries (`ELEMENT_HANDLE_CAP`).
+A handle is used when a reply returns it, and when a request looks it up.
+When a new handle takes the arena past the cap, the least recently used handles are evicted,
+until the arena is an eighth under the cap (`ELEMENT_HANDLE_EVICTION_SLACK`).
+Root element handles for tracked windows are never evicted.
 
 ### Validity Checking
 
 When a handle is resolved via `IntrospectionState::element()`, the returned `ElementHandle` is checked with `is_valid()`. If the underlying UI element has been destroyed (e.g. the component was removed), the stale handle is cleaned up and an error is returned.
+
+### Testable Properties
+
+`element_properties()` fills `testableProperties` from `ElementHandle::testable_properties()`
+and `testable_property_value()`.
+They read the compiler-emitted per-element property table
+through `ItemTreeVTable::element_testable_properties` and `element_testable_property_value`
+(see `SubComponent::testable_properties` in the compiler's LLR).
+Values cross the vtable as strings in the `i_slint_core::debug_info` encoding;
+`mcp_server.rs::convert_testable_property_values` retypes them into JSON booleans and
+numbers for both `get_element_properties` and `get_element_tree`.
+The table exists only when the application was compiled with debug info.
+An item tree whose generator doesn't implement the entries reports "unsupported",
+which surfaces as a `note` instead of an empty list.
+Only properties declared with the experimental
+[`@testable` attribute](../astro/src/content/docs/guide/experimental/testable.mdx) are in the table,
+whatever their visibility.
+The compiler keeps them and their bindings alive, so the listing never depends on the optimizer.
 
 ## MCP Transport (`mcp_server.rs`)
 
@@ -96,9 +118,9 @@ The HTTP server is built directly on `async-net` (async TCP) and `httparse` (HTT
 
 ### Security
 
-- **Localhost only**: the server binds to `127.0.0.1`, not `0.0.0.0`.
-- **Origin validation**: cross-origin requests from non-localhost origins are rejected with 403.
-- **No authentication**: since the server is localhost-only and intended for development/testing, there is no auth mechanism.
+- **Bind address**: the server binds to `127.0.0.1` by default. Set `SLINT_MCP_HOST` to bind another address, such as `0.0.0.0`, when clients connect from outside the machine.
+- **Origin validation**: cross-origin requests from non-localhost origins are rejected with 403. This restricts browser clients to the same machine; non-browser clients send no `Origin` header and are unaffected.
+- **No authentication**: the server is intended for development and testing, so there is no auth mechanism.
 
 ### Tool Dispatch
 

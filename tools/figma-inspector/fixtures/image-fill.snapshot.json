@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "image:1",
+    "nodeName": "Image fill"
+  },
+  "root": {
+    "kind": "rectangle",
+    "id": "image:1",
+    "name": "Image fill",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "layoutPositioning": "auto",
+    "containerKind": "group",
+    "layoutFallback": "freeform",
+    "fills": [
+      {
+        "kind": "image",
+        "mimeType": "image/png",
+        "data": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGP4z8AAQv8BD/kD/YURmXYAAAAASUVORK5CYII=",
+        "intrinsicWidth": 2,
+        "intrinsicHeight": 1,
+        "scaleMode": "FIT",
+        "opacity": 0.8
+      }
+    ],
+    "strokes": [],
+    "cornerRadii": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "clipsContent": false,
+    "shadows": []
+  }
+}

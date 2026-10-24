@@ -40,9 +40,9 @@ pub unsafe trait OpenGLInterface {
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 struct WebGLNeedsNoCurrentContext;
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
 unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok(())
@@ -102,7 +102,7 @@ impl Drop for SnapshotTargetGuard<'_> {
 pub struct OpenGLBackend {
     opengl_context: RefCell<Box<dyn OpenGLInterface>>,
     snapshot_target: RefCell<Option<femtovg::ImageId>>,
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     html_canvas: RefCell<Option<web_sys::HtmlCanvasElement>>,
 }
 
@@ -110,14 +110,16 @@ impl OpenGLBackend {
     pub fn set_opengl_context(
         &self,
         renderer: &FemtoVGRenderer<Self>,
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         let opengl_context = WebGLNeedsNoCurrentContext {};
 
         let opengl_context = Box::new(opengl_context);
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
         let gl_renderer = unsafe {
             femtovg::renderer::OpenGl::new_from_function_cstr(|name| {
                 opengl_context.get_proc_address(name)
@@ -125,7 +127,7 @@ impl OpenGLBackend {
             .unwrap()
         };
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
             Ok(gl_renderer) => gl_renderer,
             Err(_) => {
@@ -155,7 +157,7 @@ impl OpenGLBackend {
         .unwrap();
 
         *self.opengl_context.borrow_mut() = opengl_context;
-        #[cfg(target_family = "wasm")]
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
         {
             *self.html_canvas.borrow_mut() = Some(html_canvas);
         }
@@ -242,7 +244,7 @@ impl GraphicsBackend for OpenGLBackend {
         Self {
             opengl_context: RefCell::new(Box::new(SuspendedRenderer {})),
             snapshot_target: RefCell::new(None),
-            #[cfg(target_family = "wasm")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas: RefCell::new(None),
         }
     }
@@ -279,7 +281,7 @@ impl GraphicsBackend for OpenGLBackend {
         }
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -293,7 +295,7 @@ impl GraphicsBackend for OpenGLBackend {
         Ok(callback(Some(api)))
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -369,16 +371,18 @@ impl FemtoVGRenderer<OpenGLBackend> {
     /// Creates a new renderer that renders using OpenGL. An implementation of the OpenGLInterface
     /// trait needs to supplied.
     pub fn new(
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
-        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        opengl_context: impl OpenGLInterface + 'static,
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<Self, PlatformError> {
         use super::FemtoVGRendererExt;
         let this = Self::new_suspended();
         this.graphics_backend.set_opengl_context(
             &this,
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             opengl_context,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             html_canvas,
         )?;
         Ok(this)

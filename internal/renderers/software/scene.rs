@@ -3,11 +3,11 @@
 
 //! This is the module contain data structures for a scene of items that can be rendered
 
+use super::box_shadow::BoxShadowCommand;
 use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
@@ -22,6 +22,7 @@ pub struct SceneVectors {
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
+    pub box_shadows: Vec<BoxShadowCommand>,
 }
 
 pub struct Scene {
@@ -44,6 +45,8 @@ pub struct Scene {
 
     pub(super) current_line_ranges: Vec<core::ops::Range<i16>>,
     pub(super) range_valid_until_line: PhysicalLength,
+
+    items_valid_until_line: PhysicalLength,
 }
 
 impl Scene {
@@ -55,9 +58,9 @@ impl Scene {
         let current_line =
             dirty_region.iter_box().map(|x| x.min.y_length()).min().unwrap_or_default();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
-        items.sort_unstable_by(compare_scene_item);
+        sort_items(&mut items, scene_item_key);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
-        items[..current_items_index].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
+        sort_items(&mut items[..current_items_index], z_desc_key);
         let mut r = Self {
             items,
             current_line,
@@ -67,8 +70,10 @@ impl Scene {
             dirty_region,
             current_line_ranges: Default::default(),
             range_valid_until_line: Default::default(),
+            items_valid_until_line: Default::default(),
         };
         r.recompute_ranges();
+        r.update_items_valid_until_line();
         debug_assert_eq!(r.current_line, r.dirty_region.bounding_rect().origin.y_length());
         r
     }
@@ -78,6 +83,9 @@ impl Scene {
         self.current_line += PhysicalLength::new(1);
 
         let skipped = self.current_line >= self.range_valid_until_line && self.recompute_ranges();
+        if !skipped && self.current_line < self.items_valid_until_line {
+            return;
+        }
 
         // The items array is split in part:
         // 1. [0..i] are the items that have already been processed, that are on this line
@@ -110,14 +118,15 @@ impl Scene {
                     break;
                 }
                 self.future_items_index += 1;
-                if item.pos.y_length() + item.size.height_length() < self.current_line {
+                if item.pos.y_length() + item.size.height_length() <= self.current_line {
                     continue;
                 }
                 self.items[i] = item;
                 i += 1;
             }
-            self.items[0..i].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
+            sort_items(&mut self.items[0..i], z_desc_key);
             self.current_items_index = i;
+            self.update_items_valid_until_line();
             return;
         }
 
@@ -197,7 +206,7 @@ impl Scene {
                     self.items[i] = item;
                     i += 1;
                 }
-                self.items[sort_begin..i].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
+                sort_items(&mut self.items[sort_begin..i], z_desc_key);
                 break;
             }
             self.items[i] = item;
@@ -205,7 +214,20 @@ impl Scene {
         }
         self.current_items_index = i;
         // check that current items are properly sorted
-        debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
+        debug_assert!(
+            self.items[0..self.current_items_index].array_windows().all(|[a, b]| a.z >= b.z)
+        );
+        self.update_items_valid_until_line();
+    }
+
+    fn update_items_valid_until_line(&mut self) {
+        let next_start = self.items.get(self.future_items_index).map(|i| i.pos.y_length());
+        let next_end = self.items[..self.current_items_index]
+            .iter()
+            .map(|i| i.pos.y_length() + i.size.height_length())
+            .min();
+        self.items_valid_until_line =
+            next_start.into_iter().chain(next_end).min().unwrap_or(PhysicalLength::new(i16::MAX));
     }
 
     // return true if lines were skipped
@@ -233,22 +255,44 @@ impl Scene {
         false
     }
 
-    pub fn is_guaranteed_opaque(&self, command: &SceneCommand) -> bool {
-        match command {
+    /// Whether drawing `item` overwrites every pixel it spans on the current line.
+    pub fn covers_line(&self, item: &SceneItem) -> bool {
+        match &item.command {
             SceneCommand::Rectangle { color } => color.alpha == 255,
             SceneCommand::Texture { texture_index } => {
                 let texture = &self.vectors.textures[*texture_index as usize];
-                // Below alpha 255 an RGB texture blends rather than overwrites (see
+                // Below alpha 255 the texture blends rather than overwrites (see
                 // draw_texture_line), so it is not opaque.
-                texture.format == TexturePixelFormat::Rgb && texture.extra.alpha == 255
+                let opaque_format = match texture.format {
+                    TexturePixelFormat::Rgb => true,
+                    #[cfg(feature = "image-pixel-format-rgb565")]
+                    TexturePixelFormat::Rgb565 => true,
+                    #[cfg(feature = "image-pixel-format-gray8")]
+                    TexturePixelFormat::Gray8 => true,
+                    _ => false,
+                };
+                opaque_format && texture.extra.alpha == 255
             }
             SceneCommand::SharedBuffer { shared_buffer_index } => {
                 let buffer = &self.vectors.shared_buffers[*shared_buffer_index as usize];
-                buffer.extra.alpha == 255
-                    && matches!(
-                        buffer.buffer,
-                        SharedBufferData::SharedImage(SharedImageBuffer::RGB8(_))
-                    )
+                let opaque_format = match buffer.buffer {
+                    SharedBufferData::SharedImage(SharedImageBuffer::RGB8(_)) => true,
+                    #[cfg(feature = "image-pixel-format-rgb565")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::RGB565(_)) => true,
+                    #[cfg(feature = "image-pixel-format-gray8")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::Gray8(_)) => true,
+                    SharedBufferData::SharedImage(
+                        SharedImageBuffer::RGBA8(_) | SharedImageBuffer::RGBA8Premultiplied(_),
+                    ) => false,
+                    _ => false,
+                };
+                opaque_format && buffer.extra.alpha == 255
+            }
+            SceneCommand::LinearGradient { linear_gradient_index } => {
+                self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line(
+                    &PhysicalRect { origin: item.pos, size: item.size },
+                    self.current_line,
+                )
             }
             _ => false,
         }
@@ -264,20 +308,23 @@ pub struct SceneItem {
     pub command: SceneCommand,
 }
 
-fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
-    // First, order by line (top to bottom)
-    match a.pos.y.partial_cmp(&b.pos.y) {
-        None | Some(core::cmp::Ordering::Equal) => {}
-        Some(ord) => return ord,
-    }
-    // Then by the reverse z (front to back)
-    match a.z.partial_cmp(&b.z) {
-        None | Some(core::cmp::Ordering::Equal) => {}
-        Some(ord) => return ord.reverse(),
-    }
+/// Orders by `y` (top to bottom), then by `z` (front to back).
+fn scene_item_key(item: &SceneItem) -> u32 {
+    // Flipping the sign bit maps i16 order onto u16 order.
+    let y = (item.pos.y as u16) ^ 0x8000;
+    (y as u32) << 16 | !item.z as u32
+}
 
-    // anything else, we don't care
-    core::cmp::Ordering::Equal
+/// Orders by `z` (front to back).
+fn z_desc_key(item: &SceneItem) -> u32 {
+    !item.z as u32
+}
+
+/// Takes the key as a function pointer, so all sorts share one `sort_unstable` instantiation,
+/// which costs several KB of code.
+#[inline(never)]
+fn sort_items(items: &mut [SceneItem], key: fn(&SceneItem) -> u32) {
+    items.sort_unstable_by_key(key);
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -309,6 +356,10 @@ pub enum SceneCommand {
     /// conic_gradient_index is an index in the [`SceneVectors::conic_gradients`] array
     ConicGradient {
         conic_gradient_index: u16,
+    },
+    /// box_shadow_index is an index in the [`SceneVectors::box_shadows`] array
+    BoxShadow {
+        box_shadow_index: u16,
     },
 }
 
@@ -439,7 +490,7 @@ impl SceneTextureExtra {
 #[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
-    AlphaMap { data: Rc<[u8]>, width: u16 },
+    AlphaMap { data: crate::fonts::GlyphAlphaMap, width: u16, sdf: bool },
 }
 
 impl SharedBufferData {
@@ -449,11 +500,12 @@ impl SharedBufferData {
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
         }
     }
-    #[allow(unused)]
     pub fn height(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.height() as usize,
-            SharedBufferData::AlphaMap { data, width, .. } => data.len() / *width as usize,
+            SharedBufferData::AlphaMap { data, width, .. } => {
+                data.as_slice().len() / *width as usize
+            }
         }
     }
 }
@@ -491,12 +543,42 @@ impl SharedBufferCommand {
                     extra: self.extra,
                 }
             }
-            SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[start..end],
-                pixel_stride: *width,
-                format: TexturePixelFormat::AlphaMap,
+            #[cfg(feature = "image-pixel-format-rgb565")]
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => SceneTexture {
+                data: &b.as_bytes()[start * 2..end * 2],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Rgb565,
                 extra: self.extra,
             },
+            #[cfg(feature = "image-pixel-format-gray8")]
+            SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => SceneTexture {
+                data: &b.as_bytes()[start..end],
+                pixel_stride: stride as u16,
+                format: TexturePixelFormat::Gray8,
+                extra: self.extra,
+            },
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap { alpha, .. }) => {
+                SceneTexture {
+                    data: &alpha.as_bytes()[start..end],
+                    pixel_stride: stride as u16,
+                    format: TexturePixelFormat::AlphaMap,
+                    extra: self.extra,
+                }
+            }
+            SharedBufferData::AlphaMap { data, width, sdf } => SceneTexture {
+                data: &data.as_slice()[start..end],
+                pixel_stride: *width,
+                format: if *sdf {
+                    TexturePixelFormat::SignedDistanceField
+                } else {
+                    TexturePixelFormat::AlphaMap
+                },
+                extra: self.extra,
+            },
+            SharedBufferData::SharedImage(_) => unreachable!(
+                "pixel format without the matching image-pixel-format feature on i-slint-renderer-software"
+            ),
         }
     }
 }
@@ -511,20 +593,43 @@ pub fn compute_range_in_buffer(
     start..end
 }
 
-#[derive(Debug)]
-pub struct RoundedRectangle {
+/// The outline of a rounded rectangle relative to the rectangle a command draws in.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct RoundedShape {
     pub radius: PhysicalBorderRadius,
-    /// the border's width
-    pub width: PhysicalLength,
-    pub border_color: PremultipliedRgbaColor,
-    pub inner_color: PremultipliedRgbaColor,
     /// The clips is the amount of pixels of the rounded rectangle that is clipped away.
-    /// For example, if left_clip > width, then the left border will not be visible, and
+    /// For example, if left_clip > border width, then the left border will not be visible, and
     /// if left_clip > radius, then no radius will be seen in the left side
     pub left_clip: PhysicalLength,
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
+}
+
+/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct GradientClip {
+    /// A zero radius means no clip.
+    pub shape: RoundedShape,
+    /// The width of the opaque border drawn over the gradient, or 0.
+    /// When set, the gradient is clipped without anti-aliasing to the border's inner edge.
+    /// This keeps it from bleeding through the border's anti-aliased outer edge.
+    pub opaque_border: PhysicalLength,
+}
+
+#[derive(Debug)]
+pub struct RoundedRectangle {
+    pub shape: RoundedShape,
+    /// the border's width
+    pub width: PhysicalLength,
+    pub border_color: PremultipliedRgbaColor,
+    pub inner_color: PremultipliedRgbaColor,
+}
+
+pub enum AnyGradientCommand {
+    Linear(LinearGradientCommand),
+    Radial(RadialGradientCommand),
+    Conic(ConicGradientCommand),
 }
 
 /// Goes from color 1 to color2
@@ -547,6 +652,59 @@ pub struct LinearGradientCommand {
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
+    pub clip: GradientClip,
+}
+
+pub(crate) type GradientPosition = Fixed<i32, 16>;
+/// An interpolation factor between two stops, or its rate of change.
+pub(crate) type GradientFactor = Fixed<u32, 12>;
+
+#[derive(Clone, Copy, Debug)]
+pub struct PremultipliedGradientStop {
+    pub color: PremultipliedRgbaColor,
+    pub position: GradientPosition,
+    /// The factor's rate of change per unit of position, towards the next stop.
+    /// 0 when the next stop isn't after this one.
+    pub step: GradientFactor,
+}
+
+impl PremultipliedGradientStop {
+    pub fn collect(
+        stops: impl Iterator<Item = (PremultipliedRgbaColor, f32)>,
+    ) -> i_slint_core::SharedVector<Self> {
+        // Keeps the distance between any two stops within an i32.
+        const MAX_POSITION: f32 = (1 << (30 - GradientPosition::SHIFT)) as f32;
+        let mut stops = stops
+            .map(|(color, position)| Self {
+                color,
+                position: GradientPosition::from_f32(position.clamp(-MAX_POSITION, MAX_POSITION))
+                    .unwrap_or_default(),
+                step: Fixed(0),
+            })
+            .peekable();
+        core::iter::from_fn(|| {
+            let mut stop = stops.next()?;
+            if let Some(next) = stops.peek() {
+                let distance = next.position - stop.position;
+                if distance.0 > 0 {
+                    stop.step = Fixed::from_fraction(
+                        GradientPosition::from_integer(1).0 as u32,
+                        distance.0 as u32,
+                    );
+                }
+            }
+            Some(stop)
+        })
+        .collect()
+    }
+
+    /// The interpolation factor towards the next stop at `position`,
+    /// which is between this stop and the next.
+    pub fn factor(&self, position: GradientPosition) -> GradientFactor {
+        let offset = (position - self.position).0 as u32;
+        let half = 1 << (GradientPosition::SHIFT - 1);
+        Fixed((offset * self.step.0 + half) >> GradientPosition::SHIFT)
+    }
 }
 
 /// Radial gradient that interpolates colors from the center outward
@@ -557,13 +715,15 @@ pub struct LinearGradientCommand {
 #[derive(Debug)]
 pub struct RadialGradientCommand {
     /// The gradient stops (colors and positions)
-    pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
+    pub stops: i_slint_core::SharedVector<PremultipliedGradientStop>,
     /// Center in physical pixels, relative to the clipped rect's top-left corner.
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
-    /// Explicit radius in physical pixels. Always resolved (non-negative) before command construction.
-    pub radius: f32,
+    /// Radii in physical pixels. Always resolved (positive) before command construction.
+    pub radius_x: f32,
+    pub radius_y: f32,
+    pub clip: GradientClip,
 }
 
 /// Conic gradient that interpolates colors around a center point
@@ -576,9 +736,84 @@ pub struct RadialGradientCommand {
 pub struct ConicGradientCommand {
     /// The gradient stops (colors and normalized angle positions)
     /// Position 0 = 0 degrees (north), 1 = 360 degrees
-    pub stops: i_slint_core::SharedVector<i_slint_core::graphics::GradientStop>,
+    pub stops: i_slint_core::SharedVector<PremultipliedGradientStop>,
     /// Center in physical pixels, relative to the clipped rect's top-left corner.
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
+    pub clip: GradientClip,
+    /// Clockwise rotation of the whole gradient, in radians.
+    pub rotation: f32,
+}
+
+#[test]
+fn next_line_skipping_a_gap_drops_items_ending_at_the_new_line() {
+    // Two dirty boxes with a gap at lines 10..20, so `next_line` jumps from line 10 to 20.
+    let mut dirty_region = PhysicalRegion {
+        rectangles: [euclid::Box2D::zero(); super::PHYSICAL_REGION_MAX_SIZE],
+        count: 2,
+    };
+    dirty_region.rectangles[0] = euclid::Box2D::new((0, 0).into(), (10, 10).into());
+    dirty_region.rectangles[1] = euclid::Box2D::new((0, 20).into(), (10, 30).into());
+
+    let item = |y, height, z| SceneItem {
+        pos: PhysicalPoint::new(0, y),
+        size: PhysicalSize::new(10, height),
+        z,
+        command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+    };
+    // Both start inside the gap: the first covers lines 15..20, the second lines 15..21.
+    let mut scene =
+        Scene::new(alloc::vec![item(15, 5, 1), item(15, 6, 2)], Default::default(), dirty_region);
+
+    while scene.current_line.get() < 10 {
+        scene.next_line();
+    }
+    assert_eq!(scene.current_line.get(), 20);
+
+    let active: Vec<_> = scene.items[..scene.current_items_index].iter().map(|i| i.z).collect();
+    assert_eq!(active, [2]);
+}
+
+#[test]
+fn next_line_keeps_exactly_the_items_on_the_current_line() {
+    let mut dirty_region = PhysicalRegion {
+        rectangles: [euclid::Box2D::zero(); super::PHYSICAL_REGION_MAX_SIZE],
+        count: 3,
+    };
+    dirty_region.rectangles[0] = euclid::Box2D::new((0, 0).into(), (100, 40).into());
+    dirty_region.rectangles[1] = euclid::Box2D::new((0, 55).into(), (100, 80).into());
+    dirty_region.rectangles[2] = euclid::Box2D::new((0, 90).into(), (100, 120).into());
+
+    // Deterministic mix of tall and short items starting and ending at varied lines.
+    // Heights start at 1 because next_line expects non-empty items.
+    let mut seed = 0x2545_f491_u32;
+    let mut next = |max: u32| {
+        seed ^= seed << 13;
+        seed ^= seed >> 17;
+        seed ^= seed << 5;
+        (seed % max) as i16
+    };
+    let items: Vec<SceneItem> = (0..200)
+        .map(|z| SceneItem {
+            pos: PhysicalPoint::new(0, next(120)),
+            size: PhysicalSize::new(10, 1 + if z % 5 == 0 { next(120) } else { next(12) }),
+            z,
+            command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+        })
+        .collect();
+
+    let mut scene = Scene::new(items.clone(), Default::default(), dirty_region);
+    while scene.current_line.get() < 120 {
+        let line = scene.current_line.get();
+        let mut expected: Vec<_> = items
+            .iter()
+            .filter(|i| i.pos.y <= line && line < i.pos.y + i.size.height)
+            .map(|i| i.z)
+            .collect();
+        expected.sort_unstable_by(|a, b| b.cmp(a));
+        let active: Vec<_> = scene.items[..scene.current_items_index].iter().map(|i| i.z).collect();
+        assert_eq!(active, expected, "line {line}");
+        scene.next_line();
+    }
 }

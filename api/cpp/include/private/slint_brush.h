@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #pragma once
+#include <algorithm>
 #include <string_view>
 #include <limits>
 #include "private/slint_color.h"
 #include "private/slint_brush_internal.h"
 #include "private/slint_string.h"
+#include "private/slint_builtin_functions.h"
 
 namespace slint {
 
@@ -62,54 +64,53 @@ private:
 };
 
 /// \private
-/// RadialGradientBrush represents a circular gradient.
-///
-/// Internally the brush encodes center-x, center-y, and radius as the first three
-/// fake GradientStop entries (positions 0–2), following the same pattern as
-/// LinearGradientBrush (which stores the angle as stop 0). Real color stops begin at
-/// index 3. NaN center values mean "use bounding-box center"; a negative radius means
-/// "use half the bounding-box diagonal".
+/// RadialGradientBrush represents a circular or elliptical gradient.
 class RadialGradientBrush
 {
 public:
     /// Constructs an empty radial gradient with no color stops.
     RadialGradientBrush() = default;
-    /// Constructs a new circular radial gradient centered in the bounding box.
-    /// The color stops will be
-    /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
-    RadialGradientBrush(const GradientStop *firstStop, int stopCount)
+    /// Constructs a new radial gradient of the given \a shape whose radii derive from the
+    /// bounding box.
+    RadialGradientBrush(const GradientStop *firstStop, int stopCount, float center_x,
+                        float center_y, float shape)
     {
-        // Header: center_x (NaN=bbox), center_y (NaN=bbox), radius (negative=bbox diagonal/2)
-        inner.push_back(
-                { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
-        inner.push_back(
-                { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
-        inner.push_back({ Color::from_argb_encoded(0).inner, -1.0f });
-        for (int i = 0; i < stopCount; ++i, ++firstStop)
-            inner.push_back(*firstStop);
+        init(firstStop, stopCount, center_x, center_y,
+             cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_RADIUS,
+             cbindgen_private::types::RADIAL_GRADIENT_DEFAULT_RADIUS, shape);
     }
 
-    /// Constructs a new circular radial gradient with an explicit center and radius.
+    /// Constructs a new radial gradient of the given \a shape with explicit radii.
+    /// Negative radii are treated as 0.
     RadialGradientBrush(const GradientStop *firstStop, int stopCount, float center_x,
-                        float center_y, float radius)
+                        float center_y, float radius_x, float radius_y, float shape)
     {
-        inner.push_back({ Color::from_argb_encoded(0).inner, center_x });
-        inner.push_back({ Color::from_argb_encoded(0).inner, center_y });
-        inner.push_back({ Color::from_argb_encoded(0).inner, radius });
-        for (int i = 0; i < stopCount; ++i, ++firstStop)
-            inner.push_back(*firstStop);
+        init(firstStop, stopCount, center_x, center_y, std::max(0.f, radius_x),
+             std::max(0.f, radius_y), shape);
     }
 
     /// Returns the number of gradient stops.
-    int stopCount() const { return int(inner.size()) - 3; }
+    int stopCount() const { return int(inner.size()) - 5; }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
-    const GradientStop *stopsBegin() const { return inner.begin() + 3; }
+    const GradientStop *stopsBegin() const { return inner.begin() + 5; }
     /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
     /// it can only be used for comparison.
     const GradientStop *stopsEnd() const { return inner.end(); }
 
 private:
+    void init(const GradientStop *firstStop, int stopCount, float center_x, float center_y,
+              float radius_x, float radius_y, float shape)
+    {
+        inner.push_back({ Color::from_argb_encoded(0).inner, center_x });
+        inner.push_back({ Color::from_argb_encoded(0).inner, center_y });
+        inner.push_back({ Color::from_argb_encoded(0).inner, radius_x });
+        inner.push_back({ Color::from_argb_encoded(0).inner, radius_y });
+        inner.push_back({ Color::from_argb_encoded(0).inner, shape });
+        for (int i = 0; i < stopCount; ++i, ++firstStop)
+            inner.push_back(*firstStop);
+    }
+
     cbindgen_private::types::RadialGradientBrush inner;
 
     friend class slint::Brush;
@@ -191,6 +192,8 @@ private:
 
 /// Brush is used to declare how to fill or outline shapes, such as rectangles, paths or text. A
 /// brush is either a solid color or a linear gradient.
+///
+/// Copies of a Brush share the same underlying data, so copying is cheap.
 class Brush
 {
 public:
@@ -246,11 +249,10 @@ public:
     /// identical. Returns false if the brushes differ in what they hold or their respective color
     /// or gradient are not equal.
     ///
-    /// \note Radial and conic gradient brushes store center and radius as fake header stops whose
-    /// position fields use NaN as a sentinel for "use the bounding box default" and a negative
-    /// value for the default radius. Two brushes with default (NaN / negative) metadata compare
-    /// equal, matching the Rust \c PartialEq semantics. A plain memory comparison would treat
-    /// NaN != NaN and give incorrect results, hence this custom function.
+    /// \note Radial and conic gradient brushes store their center as fake header stops whose
+    /// position fields use NaN as a sentinel for "use the bounding box center". Two brushes with
+    /// a NaN center compare equal, matching the Rust \c PartialEq semantics. A plain memory
+    /// comparison would treat NaN != NaN and give incorrect results, hence this custom function.
     friend bool operator==(const Brush &a, const Brush &b)
     {
         return cbindgen_private::types::slint_brush_compare_equal(&a.data, &b.data);
@@ -278,9 +280,9 @@ Color Brush::color() const
         }
         break;
     case Tag::RadialGradient:
-        // First 3 stops are the fake header (center_x, center_y, radius); real stops start at 3.
-        if (data.radial_gradient._0.size() > 3) {
-            result.inner = data.radial_gradient._0[3].color;
+        // The first 5 stops are the fake header: center_x, center_y, radius_x, radius_y, shape.
+        if (data.radial_gradient._0.size() > 5) {
+            result.inner = data.radial_gradient._0[5].color;
         }
         break;
     case Tag::ConicGradient:
@@ -295,128 +297,24 @@ Color Brush::color() const
 
 inline Brush Brush::brighter(float factor) const
 {
-    Brush result = *this;
-    switch (data.tag) {
-    case Tag::SolidColor:
-        cbindgen_private::types::slint_color_brighter(&data.solid_color._0, factor,
-                                                      &result.data.solid_color._0);
-        break;
-    case Tag::LinearGradient:
-        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_brighter(&data.linear_gradient._0[i].color, factor,
-                                                          &result.data.linear_gradient._0[i].color);
-        }
-        break;
-    case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_brighter(&data.radial_gradient._0[i].color, factor,
-                                                          &result.data.radial_gradient._0[i].color);
-        }
-        break;
-    case Tag::ConicGradient:
-        for (std::size_t i = 3; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_brighter(&data.conic_gradient._0[i].color, factor,
-                                                          &result.data.conic_gradient._0[i].color);
-        }
-        break;
-    }
-    return result;
+    return private_api::call_builtin(cbindgen_private::slint_builtin_color_brighter, *this, factor);
 }
 
 inline Brush Brush::darker(float factor) const
 {
-    Brush result = *this;
-    switch (data.tag) {
-    case Tag::SolidColor:
-        cbindgen_private::types::slint_color_darker(&data.solid_color._0, factor,
-                                                    &result.data.solid_color._0);
-        break;
-    case Tag::LinearGradient:
-        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_darker(&data.linear_gradient._0[i].color, factor,
-                                                        &result.data.linear_gradient._0[i].color);
-        }
-        break;
-    case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_darker(&data.radial_gradient._0[i].color, factor,
-                                                        &result.data.radial_gradient._0[i].color);
-        }
-        break;
-    case Tag::ConicGradient:
-        for (std::size_t i = 3; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_darker(&data.conic_gradient._0[i].color, factor,
-                                                        &result.data.conic_gradient._0[i].color);
-        }
-        break;
-    }
-    return result;
+    return private_api::call_builtin(cbindgen_private::slint_builtin_color_darker, *this, factor);
 }
 
 inline Brush Brush::transparentize(float factor) const
 {
-    Brush result = *this;
-    switch (data.tag) {
-    case Tag::SolidColor:
-        cbindgen_private::types::slint_color_transparentize(&data.solid_color._0, factor,
-                                                            &result.data.solid_color._0);
-        break;
-    case Tag::LinearGradient:
-        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_transparentize(
-                    &data.linear_gradient._0[i].color, factor,
-                    &result.data.linear_gradient._0[i].color);
-        }
-        break;
-    case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_transparentize(
-                    &data.radial_gradient._0[i].color, factor,
-                    &result.data.radial_gradient._0[i].color);
-        }
-        break;
-    case Tag::ConicGradient:
-        for (std::size_t i = 3; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_transparentize(
-                    &data.conic_gradient._0[i].color, factor,
-                    &result.data.conic_gradient._0[i].color);
-        }
-        break;
-    }
-    return result;
+    return private_api::call_builtin(cbindgen_private::slint_builtin_color_transparentize, *this,
+                                     factor);
 }
 
 inline Brush Brush::with_alpha(float alpha) const
 {
-    Brush result = *this;
-    switch (data.tag) {
-    case Tag::SolidColor:
-        cbindgen_private::types::slint_color_with_alpha(&data.solid_color._0, alpha,
-                                                        &result.data.solid_color._0);
-        break;
-    case Tag::LinearGradient:
-        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_with_alpha(
-                    &data.linear_gradient._0[i].color, alpha,
-                    &result.data.linear_gradient._0[i].color);
-        }
-        break;
-    case Tag::RadialGradient:
-        for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_with_alpha(
-                    &data.radial_gradient._0[i].color, alpha,
-                    &result.data.radial_gradient._0[i].color);
-        }
-        break;
-    case Tag::ConicGradient:
-        for (std::size_t i = 3; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_with_alpha(
-                    &data.conic_gradient._0[i].color, alpha,
-                    &result.data.conic_gradient._0[i].color);
-        }
-        break;
-    }
-    return result;
+    return private_api::call_builtin(cbindgen_private::slint_builtin_color_with_alpha, *this,
+                                     alpha);
 }
 
 namespace private_api {

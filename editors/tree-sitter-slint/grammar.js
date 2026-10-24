@@ -11,7 +11,9 @@ module.exports = grammar({
     [$._assignment_value_block],
     [$.assignment_block],
     // Caused by accepting arbitrary expressions in the radial-gradient/conical-gradient without a separator!
-    [$.unary_prec_operator, $.add_prec_operator]
+    [$.unary_prec_operator, $.add_prec_operator],
+    // `match (x)` starts either a match element or a handler for a callback named `match`.
+    [$.parens_op, $.argument],
   ],
 
   externals: ($) => [$.block_comment],
@@ -134,16 +136,15 @@ module.exports = grammar({
       ),
 
     property_deprecation: ($) =>
-      seq(
-        "@deprecated",
-        optional(seq("(", field("message", $.string_value), ")")),
-      ),
+      seq("@deprecated", "(", field("message", $.string_value), ")"),
 
     shadowable: (_) => "@shadowable",
 
-    // `@deprecated` / `@shadowable` prefixing a member declaration, in any order
+    testable: (_) => "@testable",
+
+    // `@deprecated` / `@shadowable` / `@testable` prefixing a member declaration, in any order
     _member_attributes: ($) =>
-      repeat1(choice($.property_deprecation, $.shadowable)),
+      repeat1(choice($.property_deprecation, $.shadowable, $.testable)),
 
     property: ($) =>
       seq(
@@ -214,7 +215,12 @@ module.exports = grammar({
       ),
 
     interface_definition: ($) =>
-      seq("interface", field("name", $.user_type_identifier), $.interface_block),
+      seq(
+        "interface",
+        field("name", $.user_type_identifier),
+        optional($.component_modifier),
+        $.interface_block,
+      ),
 
     struct_field_definition: ($) =>
       seq(
@@ -296,24 +302,56 @@ module.exports = grammar({
       ),
 
     slot_declaration: ($) =>
-      seq("slot", field("name", $.simple_identifier), ";"),
+      seq(
+        "slot",
+        optional(seq(
+          "<",
+          field("type", $.user_type_identifier),
+          repeat(seq(".", $.user_type_identifier)),
+          ">",
+        )),
+        field("name", $.simple_identifier),
+        choice(";", seq("<<", field("default", $.component))),
+      ),
 
-    // `slot` is a contextual keyword: it only introduces a slot declaration when a
-    // name follows it, so it stays a valid identifier everywhere else. As with
-    // "changed" in $.callback_event, the lexer would otherwise always prefer the
-    // "slot" keyword over the identifier regex, so alias it back to an identifier
+    // `slot` and `match` are contextual keywords and stay valid identifiers elsewhere.
+    // `slot` only introduces a slot declaration when a name or type annotation follows it.
+    // `match` only introduces a match element when an expression follows it.
+    // As with "changed" in $.callback_event, the lexer would otherwise always prefer a
+    // keyword over the identifier regex, so alias both back to identifiers
     // in every statement that may start with one.
     _statement_identifier: ($) =>
-      choice($.simple_identifier, alias("slot", $.simple_identifier)),
+      choice(
+        $.simple_identifier,
+        alias("slot", $.simple_identifier),
+        alias("match", $.simple_identifier),
+      ),
 
     _statement_type_identifier: ($) =>
-      choice($.user_type_identifier, alias("slot", $.user_type_identifier)),
+      choice(
+        $.user_type_identifier,
+        alias("slot", $.user_type_identifier),
+        alias("match", $.user_type_identifier),
+      ),
 
     slot_assignment: ($) =>
-      seq(field("name", $._statement_identifier), "<<", $.component),
+      seq(
+        field("name", $._statement_identifier),
+        "<<",
+        choice($.component, seq("{", "}")),
+      ),
 
+    // After `<<`, a component named `match` can also follow, so the lexer reads `match`
+    // as the keyword rather than an identifier.
     slot_forwarding: ($) =>
-      seq(field("name", $._statement_identifier), "<<", field("value", $.expression), ";"),
+      seq(
+        field("name", $._statement_identifier),
+        "<<",
+        field("value", choice($.expression, alias($._match_identifier, $.expression))),
+        ";",
+      ),
+
+    _match_identifier: ($) => alias("match", $.simple_identifier),
 
     property_assignment: ($) =>
       seq(
@@ -369,7 +407,15 @@ module.exports = grammar({
       seq("animate", choice("*", commaSep1($.expression)), $.animate_body),
 
     animate_option_identifier: (_) =>
-      choice("delay", "duration", "iteration-count", "direction", "easing", "enabled"),
+      choice(
+        "delay",
+        "duration",
+        "iteration-count",
+        "direction",
+        "easing",
+        "enabled",
+        "angle-interpolation",
+      ),
 
     animate_option: ($) =>
       seq(
@@ -415,9 +461,7 @@ module.exports = grammar({
 
     match_case: ($) =>
       seq(
-        field("case", choice($._basic_value,
-          $.user_type_identifier,
-          seq($.user_type_identifier, ".", $.user_type_identifier))),
+        field("case", $.expression),
         ":",
         choice($.component, seq("{", "}"))
       ),
@@ -698,12 +742,29 @@ module.exports = grammar({
     //
     // By using the alias here we can force Tree-sitter to treat it also as an identifier.
     callback_event: ($) =>
-      seq(
-        field("name", choice($._statement_identifier, alias("changed", $.simple_identifier))),
-        optional(field("arguments", $.arguments)),
-        "=>",
-        field("action", $._binding),
+      choice(
+        seq(
+          field("name", choice($._statement_identifier, alias("changed", $.simple_identifier))),
+          optional(field("arguments", $.arguments)),
+          "=>",
+          field("action", $._binding),
+        ),
+        // After `match (x`, a closure can also follow, so the lexer reads `) =>` as one
+        // $._closure_arrow token.
+        seq(
+          field("name", alias("match", $.simple_identifier)),
+          field("arguments", alias($._match_handler_arguments, $.arguments)),
+          field("action", $._binding),
+        ),
       ),
+
+    _match_handler_arguments: ($) =>
+      seq("(", alias($._match_handler_argument, $.argument), $._closure_arrow),
+
+    _match_handler_argument: ($) => alias($._match_handler_expression, $.expression),
+
+    // Outranks $.closure_expression, so `match (x) =>` is never a match on a closure.
+    _match_handler_expression: ($) => prec(2, $.simple_identifier),
 
     changed_event: ($) =>
       seq(
@@ -745,7 +806,11 @@ module.exports = grammar({
             "arguments",
             seq(
               field("type", $.radial_gradient_kind),
-              optional(field("radius", $.length_value)),
+              // One radius for a circle, two for an ellipse.
+              optional(seq(
+                field("radius", $.expression),
+                optional(field("radius", $.expression)),
+              )),
               optional(seq(
                 "at",
                 field("center_x", $.expression),
@@ -764,7 +829,7 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              optional(seq("from", field("from_angle", $.angle_value))),
+              optional(seq("from", field("from_angle", $.expression))),
               optional(seq(
                 "at",
                 field("center_x", $.expression),
@@ -962,7 +1027,7 @@ module.exports = grammar({
       choice("@linear-gradient", "@linear_gradient"),
     radial_gradient_identifier: (_) =>
       choice("@radial-gradient", "@radial_gradient"),
-    radial_gradient_kind: (_) => "circle", // currently only one
+    radial_gradient_kind: (_) => choice("circle", "ellipse"),
     conic_gradient_identifier: (_) =>
       choice("@conic-gradient", "@conic_gradient"),
 

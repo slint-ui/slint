@@ -5,8 +5,9 @@
 //! Make sure that the top level element of the component is always a Window
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
@@ -31,6 +32,8 @@ pub fn ensure_window(
         return; // already a window, nothing to do
     }
 
+    normalize_root_sizes(component);
+
     let window_type = type_register.lookup_builtin_element("Window").unwrap();
 
     let win_elem = component.root_element.clone();
@@ -42,13 +45,14 @@ pub fn ensure_window(
         base_type: std::mem::replace(&mut win_elem_mut.base_type, window_type),
         bindings: Default::default(),
         change_callbacks: Default::default(),
+        moved_property_declarations: Default::default(),
         is_component_placeholder: false,
-        is_injected_wrapper_element: false,
         property_analysis: Default::default(),
         children: std::mem::take(&mut win_elem_mut.children),
         enclosing_component: win_elem_mut.enclosing_component.clone(),
         property_declarations: Default::default(),
         shadowing_members: Default::default(),
+        implement_statements: Default::default(),
         named_references: Default::default(),
         repeated: Default::default(),
         states: Default::default(),
@@ -76,6 +80,9 @@ pub fn ensure_window(
         inline_depth: 0,
         is_legacy_syntax: false,
         slot_target: None,
+        slot_default: None,
+        cleared_slots: Vec::new(),
+        typed_slot_interface: None,
         forwarded_slots: Vec::new(),
     };
     let new_root = new_root.make_rc();
@@ -155,6 +162,26 @@ pub fn ensure_window(
     // The element only became a window here, so it missed the defaults that `Element::from_node`
     // gives a window the source writes, such as the title
     crate::object_tree::apply_default_type_properties(&mut component.root_element.borrow_mut());
+}
+
+fn normalize_root_sizes(component: &Rc<Component>) {
+    for property in ["width", "height"] {
+        if !component
+            .root_element
+            .borrow()
+            .binding(property)
+            .is_some_and(|binding| binding.expression.ty() == Type::Percent)
+        {
+            continue;
+        }
+        let mut root_element = component.root_element.borrow_mut();
+        let mut binding = root_element.take_binding(property).unwrap();
+        if let Expression::DebugHook { expression, synthetic, .. } = &mut binding.expression {
+            *expression = Expression::default_value_for_type(&Type::LogicalLength).into();
+            *synthetic = true;
+            root_element.set_binding(property.into(), binding);
+        }
+    }
 }
 
 pub fn inherits_window(component: &Rc<Component>) -> bool {

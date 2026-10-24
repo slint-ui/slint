@@ -7,7 +7,8 @@ use std::ptr::NonNull;
 use std::rc::Weak;
 
 use accesskit::{
-    Action, ActionRequest, Live, Node, NodeId, Orientation, Role, Toggled, Tree, TreeId, TreeUpdate,
+    Action, ActionRequest, Live, Node, NodeId, Orientation, Role, Toggled, TreeId, TreeInfo,
+    TreeUpdate,
 };
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
@@ -221,12 +222,7 @@ impl AccessKitAdapter {
     }
 
     pub fn unregister_item_tree(&mut self, component: ItemTreeRef) {
-        let component_ptr = ItemTreeRef::as_ptr(component);
-        if let Some(component_id) = self.nodes.component_ids.remove(&component_ptr) {
-            self.nodes.components_by_id.remove(&component_id);
-            self.nodes.free_component_ids.push(component_id);
-        }
-        self.nodes.text_state.component_destroyed(component);
+        self.nodes.forget_component(ItemTreeRef::as_ptr(component));
         self.reload_tree();
     }
 
@@ -404,13 +400,13 @@ impl NodeCollection {
                         self.focused_node_tracker
                             .as_ref()
                             .evaluate(|| {
-                                parent.accessible_string_property(
-                                    AccessibleStringProperty::DelegateFocus,
+                                i_slint_core::accessibility::accessible_focus_delegate_position(
+                                    &parent,
                                 )
                             })
-                            .and_then(|s| s.parse::<usize>().ok())
-                            .and_then(|i| {
-                                i_slint_core::accessibility::accessible_descendents(&parent).nth(i)
+                            .and_then(|position| {
+                                i_slint_core::accessibility::accessible_descendents(&parent)
+                                    .nth(position)
                             })
                             .unwrap_or(parent)
                     })
@@ -439,6 +435,29 @@ impl NodeCollection {
             self.next_component_id += 1;
             id
         })
+    }
+
+    fn forget_component(&mut self, component_ptr: NonNull<u8>) {
+        if let Some(component_id) = self.component_ids.remove(&component_ptr) {
+            self.components_by_id.remove(&component_id);
+            self.free_component_ids.push(component_id);
+        }
+        self.text_state.component_destroyed_at(component_ptr);
+    }
+
+    /// Forgets the components that were destroyed without being unregistered: their
+    /// `unregister_item_tree` is skipped when it finds the adapter borrowed, such as while
+    /// building the tree destroys repeated components (#13670).
+    fn forget_destroyed_components(&mut self) {
+        let destroyed = self
+            .component_ids
+            .iter()
+            .filter(|(_, id)| self.components_by_id.get(id).is_none_or(|c| c.upgrade().is_none()))
+            .map(|(component_ptr, _)| *component_ptr)
+            .collect::<Vec<_>>();
+        for component_ptr in destroyed {
+            self.forget_component(component_ptr);
+        }
     }
 
     fn encode_item_node_id(&mut self, item: &ItemRc) -> NodeId {
@@ -565,16 +584,13 @@ impl NodeCollection {
             inner_item_rc.map_to_window(inner_geometry.origin) + window_position.to_vector();
         let physical_origin = (inner_absolute_origin * scale_factor).cast::<f64>();
 
-        let mut update =
-            TreeUpdate { nodes: Vec::new(), tree: None, tree_id: TreeId::ROOT, focus: NodeId(0) };
-
         // Borrows the font context itself, so we must not be holding it here.
         let emitted_runs = state.emit(
             window_adapter.renderer().as_core_renderer(),
             text_input.as_pin_ref(),
             &inner_item_rc,
             inner_geometry.size,
-            &mut update,
+            text_run_nodes,
             wrapper_node,
             wrapper_id,
             (physical_origin.x, physical_origin.y),
@@ -588,12 +604,10 @@ impl NodeCollection {
         {
             wrapper_node.add_action(Action::SetTextSelection);
         }
-
-        text_run_nodes.extend(update.nodes);
     }
 
-    fn tree_info(&self, root: NodeId) -> Tree {
-        let mut tree = Tree::new(root);
+    fn tree_info(&self, root: NodeId) -> TreeInfo {
+        let mut tree = TreeInfo::new(root);
         tree.toolkit_name = Some("Slint".into());
         tree.toolkit_version = Some(env!("CARGO_PKG_VERSION").into());
         tree
@@ -659,6 +673,7 @@ impl NodeCollection {
             )
         });
         self.root_node_id = root_id;
+        self.forget_destroyed_components();
 
         TreeUpdate {
             nodes,

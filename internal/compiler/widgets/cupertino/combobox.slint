@@ -6,14 +6,10 @@ import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 import { ScrollView } from "./scrollview.slint";
 
-export component ComboBox {
-    in property <[string]> model <=> base.model;
-    in property <bool> enabled <=> base.enabled;
-    out property <bool> has-focus <=> base.has-focus;
-    in-out property <int> current-index <=> base.current-index;
-    in-out property <string> current-value <=> base.current-value;
+import { ComboBoxInterface } from "../common/std-widget-interfaces.slint";
 
-    callback selected <=> base.selected;
+export component ComboBox {
+    implement ComboBoxInterface <=> base;
 
     property <brush> background: CupertinoPalette.control-background;
     property <length> popup-padding: 4px;
@@ -113,12 +109,9 @@ export component ComboBox {
 
             Rectangle {
                 x: 0px;
-                width: 100%;
                 y: (parent.height - self.height) / 2;
 
                 if root.enabled : Rectangle {
-                    width: 100%;
-                    height: 100%;
                     drop-shadow-blur: 3px;
                     drop-shadow-color: #00000066;
                     drop-shadow-offset-y: 0.5px;
@@ -153,14 +146,12 @@ export component ComboBox {
                     spacing: 4px;
 
                     top-icon := Image {
-                        x: (parent.width - self.width) / 2;
                         colorize: CupertinoPalette.accent-foreground;
                         source: Icons.chevron-up;
                         accessible-role: none;
                     }
 
                     bottom-icon := Image {
-                        x: (parent.width - self.width) / 2;
                         colorize: CupertinoPalette.accent-foreground;
                         source: Icons.chevron-down;
                         accessible-role: none;

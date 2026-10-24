@@ -1,0 +1,33 @@
+---
+title: Norm Mapping
+description: How Slint SC meets each requirement of ISO 26262, and where in this manual.
+---
+
+The Norm Mapping lists the requirements of ISO 26262:2018 that apply to Slint SC.
+For each requirement, it states whether Slint SC meets the requirement, and links to the part of this manual that does.
+The rest of the manual describes what we do, and leaves the clause numbers to this mapping.
+
+## Pages
+
+* [ISO 26262-2](/norm-mapping/iso-26262-2/): management of functional safety, Clauses 5 to 7.
+* [ISO 26262-6](/norm-mapping/iso-26262-6/): product development at the software level, Clauses 5 to 11 and Annex C.
+* [ISO 26262-6 Method Tables](/norm-mapping/iso-26262-6-methods/): the methods of Tables 1 to 15, at ASIL B.
+* [ISO 26262-8](/norm-mapping/iso-26262-8/): supporting processes, Clauses 5 to 16.
+
+The other parts apply to Slint SC only partly, or not at all.
+[Parts of the Lifecycle](/safety-plan/standards-compliance/#parts-of-the-lifecycle) states which clauses of Parts 3, 4, 5, 7, and 9 apply, and why.
+
+## Status
+
+Each requirement has one of these statuses:
+
+| Status | Meaning |
+| --- | --- |
+| Met | The linked part of the manual meets the requirement. |
+| Partly met | The linked part meets the requirement in part. The row names what's missing. |
+| Open | Nothing meets the requirement yet. |
+| Integrator | The integrator meets the requirement, under the linked assumption of use. |
+| N/A | The requirement doesn't apply to Slint SC. The row gives the reason. |
+
+The method tables use Applied, Partly applied, and Not applied instead, since ISO 26262 asks for a combination of methods rather than every method.
+A method recommended at ASIL B that isn't applied has its rationale in the row.

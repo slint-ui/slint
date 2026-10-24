@@ -74,6 +74,9 @@ Calling an impure callback from a pure context is a compile error.
 
 A duplicate callback declaration is a compile error.
 
+A declaration may be preceded by a [`@deprecated` annotation](../deprecation/),
+which marks the callback as deprecated and points users at its replacement.
+
 <SC>
 ## Calling
 

@@ -9,18 +9,40 @@ extern crate alloc;
 extern crate std;
 
 use alloc::rc::Rc;
-use alloc::string::ToString;
 use core::ffi::c_void;
 use i_slint_core::SharedString;
-use i_slint_core::items::OperatingSystemType;
 use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::window::{WindowAdapter, ffi::WindowAdapterRcOpaque};
 
 pub mod platform;
 
-#[cfg(feature = "i-slint-backend-selector")]
-use i_slint_backend_selector::with_platform;
+#[cfg(all(target_os = "emscripten", feature = "std"))]
+mod emscripten;
+
+#[cfg(all(feature = "i-slint-backend-selector", not(target_os = "emscripten")))]
+use i_slint_backend_selector::{with_global_context, with_platform};
+
+/// The selector has no Emscripten backend, so create the platform here.
+#[cfg(all(target_os = "emscripten", feature = "std"))]
+fn with_global_context<R>(
+    f: impl FnOnce(&i_slint_core::SlintContext) -> R,
+) -> Result<R, i_slint_core::platform::PlatformError> {
+    i_slint_core::with_global_context(emscripten::create_platform, f)
+}
+
+#[cfg(all(target_os = "emscripten", feature = "std"))]
+pub fn with_platform<R>(
+    f: impl FnOnce(
+        &dyn i_slint_core::platform::Platform,
+    ) -> Result<R, i_slint_core::platform::PlatformError>,
+) -> Result<R, i_slint_core::platform::PlatformError> {
+    with_global_context(|ctx| f(ctx.platform()))?
+}
+
+// Without the selector, the application installs the platform itself.
+#[cfg(not(feature = "i-slint-backend-selector"))]
+use i_slint_core::with_existing_context as with_global_context;
 
 #[cfg(not(feature = "i-slint-backend-selector"))]
 pub fn with_platform<R>(
@@ -60,19 +82,10 @@ mod android {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_context_accent_color(
-    root: &i_slint_core::item_tree::ItemTreeRc,
-    out: &mut i_slint_core::graphics::Color,
-) {
-    *out = i_slint_core::window::accent_color(root);
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_context_color_scheme(
     root: &i_slint_core::item_tree::ItemTreeRc,
 ) -> i_slint_core::items::ColorScheme {
-    i_slint_core::window::context_for_root(root)
-        .map_or(i_slint_core::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(root)))
+    i_slint_core::window::context_for_root(root).color_scheme(Some(root))
 }
 
 #[unsafe(no_mangle)]
@@ -81,7 +94,7 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = with_platform(|b| b.create_window_adapter()).unwrap();
+    let win = with_global_context(|ctx| ctx.create_window_adapter()).and_then(|r| r).unwrap();
     unsafe {
         core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
     }
@@ -96,9 +109,11 @@ pub extern "C" fn slint_ensure_backend() {
     .unwrap()
 }
 
-#[unsafe(no_mangle)]
 /// Enters the main event loop.
-pub extern "C" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
+/// On Emscripten, it leaves `main()` by unwinding with a JavaScript exception; see
+/// `emscripten_set_main_loop`.
+#[unsafe(no_mangle)]
+pub extern "C-unwind" fn slint_run_event_loop(quit_on_last_window_closed: bool) {
     with_platform(|b| {
         if !quit_on_last_window_closed {
             #[allow(deprecated)]
@@ -181,7 +196,7 @@ pub unsafe extern "C" fn slint_register_font_from_data(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_register_bitmap_font(
     win: *const WindowAdapterRcOpaque,
-    font_data: &'static i_slint_core::graphics::BitmapFont,
+    font_data: &'static i_slint_core::graphics::BitmapFont<i_slint_core::graphics::StaticStorage>,
 ) {
     let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
     window_adapter.renderer().register_bitmap_font(font_data);
@@ -189,17 +204,13 @@ pub unsafe extern "C" fn slint_register_bitmap_font(
 
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_float(string: &SharedString, value: &mut f32) -> bool {
-    if let Some(v) = i_slint_core::string::string_to_float(string.as_str()) {
+    use i_slint_core::string::{current_decimal_separator, parse_number};
+    if let Some(v) = parse_number(current_decimal_separator(), string.as_str()) {
         *value = v;
         true
     } else {
         false
     }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_string_character_count(string: &SharedString) -> usize {
-    unicode_segmentation::UnicodeSegmentation::graphemes(string.as_str(), true).count()
 }
 
 #[unsafe(no_mangle)]
@@ -274,13 +285,71 @@ use esp_backtrace as _;
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_set_xdg_app_id(_app_id: &SharedString) {
     #[cfg(feature = "i-slint-backend-selector")]
-    i_slint_backend_selector::with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone()))
-        .unwrap();
+    with_global_context(|ctx| ctx.set_xdg_app_id(_app_id.clone())).unwrap();
 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum RequiredGraphicsAPI {
+    Any,
+    OpenGL,
+    OpenGLES,
+    Metal,
+    Vulkan,
+    Direct3D,
+}
+
+/// Empty names leave the choice to the selector. A `version_major` of 0 requests any version.
+/// Returns false and sets `error` if the requirements can't be met.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_detect_operating_system() -> OperatingSystemType {
-    i_slint_core::detect_operating_system()
+pub extern "C" fn slint_select_backend(
+    backend_name: &SharedString,
+    renderer_name: &SharedString,
+    graphics_api: RequiredGraphicsAPI,
+    version_major: u8,
+    version_minor: u8,
+    error: &mut SharedString,
+) -> bool {
+    #[cfg(all(feature = "i-slint-backend-selector", not(target_os = "emscripten")))]
+    {
+        use alloc::string::ToString;
+        use i_slint_backend_selector::api::BackendSelector;
+        let mut selector = BackendSelector::new();
+        if !backend_name.is_empty() {
+            selector = selector.backend_name(backend_name.to_string());
+        }
+        if !renderer_name.is_empty() {
+            selector = selector.renderer_name(renderer_name.to_string());
+        }
+        let version = (version_major != 0).then_some((version_major, version_minor));
+        selector = match (graphics_api, version) {
+            (RequiredGraphicsAPI::Any, _) => selector,
+            (RequiredGraphicsAPI::OpenGL, None) => selector.require_opengl(),
+            (RequiredGraphicsAPI::OpenGL, Some((major, minor))) => {
+                selector.require_opengl_with_version(major, minor)
+            }
+            (RequiredGraphicsAPI::OpenGLES, None) => selector.require_opengl_es(),
+            (RequiredGraphicsAPI::OpenGLES, Some((major, minor))) => {
+                selector.require_opengl_es_with_version(major, minor)
+            }
+            (RequiredGraphicsAPI::Metal, _) => selector.require_metal(),
+            (RequiredGraphicsAPI::Vulkan, _) => selector.require_vulkan(),
+            (RequiredGraphicsAPI::Direct3D, _) => selector.require_d3d(),
+        };
+        match selector.select() {
+            Ok(()) => true,
+            Err(err) => {
+                *error = err.to_string().into();
+                false
+            }
+        }
+    }
+    #[cfg(not(all(feature = "i-slint-backend-selector", not(target_os = "emscripten"))))]
+    {
+        let _ = (backend_name, renderer_name, graphics_api, version_major, version_minor);
+        *error = "Slint was built without any of the built-in backends".into();
+        false
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -293,27 +362,8 @@ pub extern "C" fn slint_parse_markdown(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_open_url(
-    url: &SharedString,
-    win: *const WindowAdapterRcOpaque,
-) -> bool {
-    let window_adapter = unsafe { &*(win as *const Rc<dyn WindowAdapter>) };
-    i_slint_core::open_url(url, window_adapter.window()).is_ok()
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn slint_macos_bring_all_windows_to_front() {
     i_slint_core::macos_bring_all_windows_to_front()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn slint_color_to_styled_text(color: &i_slint_core::Color, out: &mut StyledText) {
-    *out = i_slint_core::styled_text::color_to_styled_text(*color);
 }
 
 // Translator API is currently considered experimental due to discussions
@@ -403,7 +453,7 @@ mod translator {
         ntranslate: NTranslateCallback,
     ) -> bool {
         #[cfg(feature = "i-slint-backend-selector")]
-        i_slint_backend_selector::with_global_context(|ctx| {
+        crate::with_global_context(|ctx| {
             if !obj.is_null() {
                 ctx.set_external_translator(Some(Box::new(CppTranslator {
                     obj,

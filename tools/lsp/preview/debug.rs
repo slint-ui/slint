@@ -148,7 +148,7 @@ fn recurse_into_element(state: &mut State, element: &ElementRc) -> (usize, Vec<S
 
     let mut lines = Vec::new();
 
-    if let i_slint_compiler::langtype::ElementType::Component(comp) = &e.base_type {
+    if let i_slint_compiler::element_type::ElementType::Component(comp) = &e.base_type {
         state.register_component(comp, format!("c{}", state.components.len()));
         let component_root = comp.root_element.clone();
         let (root_id, component_lines) = recurse_into_element(state, &component_root);
@@ -169,12 +169,12 @@ fn add_element_node(state: &mut State, element: &ElementRc, node_number: usize) 
     let e = element.borrow();
     let layout = if e.debug.iter().any(|d| d.layout.is_some()) { ",shape = box" } else { "" };
     let repeated = if e.repeated.is_some() { ",color = blue" } else { "" };
-    let component = if matches!(e.base_type, i_slint_compiler::langtype::ElementType::Component(_))
-    {
-        ",fontcolor = blue"
-    } else {
-        ""
-    };
+    let component =
+        if matches!(e.base_type, i_slint_compiler::element_type::ElementType::Component(_)) {
+            ",fontcolor = blue"
+        } else {
+            ""
+        };
     let mark_up = if let Some(mu) = &state.mark_up {
         if Rc::ptr_eq(element, mu) { ",style=filled,fillcolor=lightgrey" } else { "" }
     } else {

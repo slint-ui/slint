@@ -51,6 +51,23 @@ impl<T> Default for ItemCache<T> {
 
 #[cfg(feature = "std")]
 impl<T: Clone> ItemCache<T> {
+    /// Like [`Self::get_or_update_cache_entry`], but drops a value for which `is_stale` returns
+    /// `true` and computes it again: for values whose validity depends on state the dependency
+    /// tracker doesn't see, such as the renderer's current transform.
+    pub fn get_or_update_cache_entry_unless(
+        &self,
+        item_rc: &ItemRc,
+        mut update_fn: impl FnMut() -> T,
+        is_stale: impl FnOnce(&T) -> bool,
+    ) -> T {
+        let value = self.get_or_update_cache_entry(item_rc, &mut update_fn);
+        if !is_stale(&value) {
+            return value;
+        }
+        self.release(item_rc);
+        self.get_or_update_cache_entry(item_rc, update_fn)
+    }
+
     /// Returns the cached value associated to the `item_rc` if it is still valid.
     /// Otherwise call the `update_fn` to compute that value, and track property access
     /// so it is automatically invalided when property becomes dirty.
@@ -126,8 +143,13 @@ impl<T> ItemCache<T> {
     ///
     /// Usually can be called from [`crate::window::WindowAdapterInternal::unregister_item_tree`]
     pub fn component_destroyed(&self, component: crate::item_tree::ItemTreeRef) {
-        let component_ptr: *const _ =
-            crate::item_tree::ItemTreeRef::as_ptr(component).cast().as_ptr();
+        self.component_destroyed_at(crate::item_tree::ItemTreeRef::as_ptr(component));
+    }
+
+    /// Like [`Self::component_destroyed`], for a component that is already gone,
+    /// given the address that [`crate::item_tree::ItemTreeRef::as_ptr`] returned for it.
+    pub fn component_destroyed_at(&self, component_ptr: core::ptr::NonNull<u8>) {
+        let component_ptr: *const _ = component_ptr.cast().as_ptr();
         self.map.borrow_mut().remove(&component_ptr);
     }
 
@@ -350,9 +372,12 @@ pub trait RenderBorderRectangle {
 /// the renderers that stroke the border centered on a path: the border is drawn entirely
 /// inside the item's geometry, the background doesn't extend under an opaque border, and
 /// brushes are resolved against the full border box.
+#[derive(Clone, Debug, PartialEq)]
 pub struct BorderRectLayout {
     /// The size of the border box, for resolving the background and border brushes.
     pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The corner radii of the outer border box, adjusted for the border width.
+    pub outer_radius: PhysicalBorderRadius,
     /// The rectangle to fill with the background brush.
     pub background_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `background_rect`.
@@ -414,6 +439,7 @@ impl BorderRectLayout {
 
         Some(Self {
             brush_size,
+            outer_radius: fill_radius,
             background_rect,
             background_radius,
             border_rect: geometry,
@@ -631,6 +657,13 @@ pub trait ItemRenderer {
         _self_rc: &ItemRc,
         _size: LogicalSize,
     );
+    fn draw_backdrop_blur(
+        &mut self,
+        _backdrop_blur: Pin<&BackdropBlur>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
+    }
     fn visit_opacity(
         &mut self,
         opacity_item: Pin<&Opacity>,
@@ -829,4 +862,6 @@ where
 pub trait ItemRendererFeatures {
     /// The renderer supports applying 2D transformations to items.
     const SUPPORTS_TRANSFORMATIONS: bool;
+    /// The renderer draws [`BackdropBlur`] items, see [`ItemRenderer::draw_backdrop_blur`].
+    const SUPPORTS_BACKDROP_BLUR: bool = false;
 }

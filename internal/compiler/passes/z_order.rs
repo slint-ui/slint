@@ -10,8 +10,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::diagnostics::Spanned;
-use crate::expression_tree::{BindingExpression, Expression, Unit};
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
+use crate::expression_tree::{BindingExpression, Expression};
+use crate::expression_types::Unit;
 use crate::object_tree::{Component, ElementRc};
 
 pub fn reorder_by_z_order(root_component: &Rc<Component>) {

@@ -102,6 +102,7 @@ impl SlintWindowRenderer for RecordingWindowRenderer {
         &mut self,
         _surface_size: i_slint_core::api::PhysicalSize,
         base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
+        _notify: &mut dyn FnMut(i_slint_core::api::RenderingState),
         draw: F,
     ) -> Result<i_slint_core::renderer::DrawOutcome, PlatformError>
     where

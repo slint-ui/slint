@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "1:3",
+    "nodeName": "Mixed text"
+  },
+  "root": {
+    "kind": "text",
+    "id": "1:3",
+    "name": "Mixed text",
+    "x": 0,
+    "y": 0,
+    "width": 240,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "characters": "Mixed",
+    "fills": [],
+    "fontFamily": "Inter",
+    "fontStyle": "Regular",
+    "fontSize": "mixed",
+    "fontWeight": 400,
+    "textAutoResize": "none",
+    "horizontalAlign": "CENTER",
+    "verticalAlign": "CENTER",
+    "layoutPositioning": "auto",
+    "italic": false,
+    "letterSpacing": 0,
+    "lineHeightFactor": null,
+    "wrap": false,
+    "overflow": "clip",
+    "maxLines": null,
+    "runs": []
+  }
+}

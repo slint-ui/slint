@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+// The example of the User Manual's Get Started guide, see
+// docs/safety/src/content/docs/user-manual/get-started/.
+
+export component Indicator inherits Window {
+    in property <bool> alarm: false;
+    callback acknowledged;
+
+    background: #202020;
+
+    Rectangle {
+        x: 16px;
+        y: 16px;
+        width: 32px;
+        height: 32px;
+        background: root.alarm ? #c02020 : #20a020;
+
+        TouchArea {
+            clicked => { root.acknowledged(); }
+        }
+    }
+}
+
+/*
+```rust
+struct Application {
+    acknowledged: bool,
+}
+
+impl IndicatorCallbacks for Application {
+    fn on_acknowledged(&mut self, indicator: &mut Indicator) {
+        self.acknowledged = true;
+        indicator.set_alarm(false);
+    }
+}
+
+let mut indicator = Indicator::new(crate::harness::WINDOW_SIZE);
+let mut application = Application { acknowledged: false };
+let mut frame_buffer = [0u8; 64 * 64 * 3];
+let center = (32 * 64 + 32) * 3;
+
+indicator.set_alarm(true);
+indicator.render_rgb8(&mut frame_buffer)?;
+assert_eq!(frame_buffer[center..center + 3], [0xc0, 0x20, 0x20]);
+
+let inside = slint_sc::Point::new(32, 32);
+indicator.dispatch_touch_event(slint_sc::TouchEvent::pressed(inside), &mut application);
+indicator.dispatch_touch_event(slint_sc::TouchEvent::released(inside), &mut application);
+assert!(application.acknowledged);
+indicator.render_rgb8(&mut frame_buffer)?;
+assert_eq!(frame_buffer[center..center + 3], [0x20, 0xa0, 0x20]);
+
+assert_eq!(
+    indicator.render_rgb8(&mut frame_buffer[1..]),
+    Err(slint_sc::RenderError::InvalidFrameBufferSize)
+);
+```
+*/

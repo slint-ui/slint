@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
+import { Api, PropertyValue } from "../../../api.slint";
+import { InspectorColorField, InspectorPropertyRow, InspectorSection, InspectorValueField } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorBorderSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> pane-width;
+
+    title: @tr("Border");
+
+    InspectorPropertyRow {
+        label: @tr("Width");
+        InspectorValueField {
+            property <PropertyValue> border-value: Api.source-property-value-data("border-width", {});
+            accessible-name: @tr("Border width");
+            value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : InspectorContext.property-length-label("border-width", "0");
+            suffix: "px";
+            suffix-width: Metrics.icon-small;
+            commit-key: InspectorContext.inspector-key;
+            scrubbable: true;
+            scrub-on-suffix: true;
+            scrub-value: self.border-value.value-float;
+            scrub-has-minimum: true;
+            scrub-preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "border-width", value); }
+            scrub-accepted(value) => { return InspectorContext.commit-inspector("border-width", value); }
+            scrub-canceled(value) => { Api.inspector-cancel(); }
+            accepted(text) => { return text.is-float() && InspectorContext.commit-inspector("border-width", text.to-float()); }
+        }
+    }
+
+    VerticalLayout {
+        padding-left: root.style.padding;
+        padding-right: root.style.padding;
+        spacing: Metrics.space-small;
+
+        Text {
+            height: Metrics.icon-small;
+            text: @tr("Color");
+            color: Colors.muted;
+            font-size: Typography.control.size;
+            vertical-alignment: center;
+        }
+
+        InspectorColorField {
+            accessible-name: @tr("Border color");
+            target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
+            value: Api.source-property-value("border-color", "");
+            swatch: InspectorContext.property-brush("border-color");
+            commit-key: InspectorContext.field-key("border-color");
+            preview-key: InspectorContext.field-key("border-color");
+            session-key: InspectorContext.fill-session-key("border-color");
+            property-name: "border-color";
+            width: root.pane-width - 2 * root.style.padding;
+            accepted(text) => { return InspectorContext.commit-code("border-color", text); }
+        }
+    }
+}

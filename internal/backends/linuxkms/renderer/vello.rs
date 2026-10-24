@@ -3,7 +3,6 @@
 
 //! Render with vello on WGPU, onto a DRM plane.
 
-use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_anyrender::VelloRenderer;
@@ -25,7 +24,7 @@ impl VelloRendererAdapter {
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-        let (surface_target, size) = drm_output.wgpu_29_surface_target()?;
+        let (surface_target, size) = drm_output.wgpu_30_surface_target()?;
 
         let renderer = VelloRenderer::new_vello();
         renderer.set_surface(
@@ -49,15 +48,9 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for VelloRendererAdapter
     fn render_and_present(
         &self,
         rotation: RenderingRotation,
-        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Result<DrawOutcome, PlatformError> {
-        self.renderer.render_with_options(
-            rotation.degrees(),
-            rotation.translation_after_rotation(self.size),
-            Some(&|item_renderer| {
-                draw_mouse_cursor_callback(item_renderer);
-            }),
-        )
+        self.renderer
+            .render_transformed(rotation.degrees(), rotation.translation_after_rotation(self.size))
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {

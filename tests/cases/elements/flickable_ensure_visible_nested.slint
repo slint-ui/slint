@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 200phx;
+
+    public function reveal(behavior: ScrollBehavior) {
+        target.ensure-visible(behavior);
+    }
+
+    outer := Flickable {
+        content_width: 200phx;
+        content_height: 1000phx;
+
+        inner := Flickable {
+            y: 100phx;
+            width: 200phx;
+            height: 200phx;
+            content_width: 200phx;
+            content_height: 2000phx;
+
+            target := Rectangle {
+                y: 1000phx;
+                height: 50phx;
+                background: green;
+            }
+        }
+    }
+
+    out property <length> outer_offset: -outer.content_y;
+    out property <length> inner_offset: -inner.content_y;
+}
+
+/*
+
+```rust
+use slint::language::ScrollBehavior;
+for behavior in [ScrollBehavior::Instant, ScrollBehavior::Smooth] {
+    let instance = TestCase::new().unwrap();
+    instance.invoke_reveal(behavior);
+    slint_testing::mock_elapsed_time(5000);
+    assert_eq!(instance.get_inner_offset(), 850., "{behavior:?}");
+    assert_eq!(instance.get_outer_offset(), 100., "{behavior:?}");
+}
+```
+
+```cpp
+using slint::language::ScrollBehavior;
+for (auto behavior : { ScrollBehavior::Instant, ScrollBehavior::Smooth }) {
+    auto handle = TestCase::create();
+    const TestCase &instance = *handle;
+    instance.invoke_reveal(behavior);
+    slint_testing::mock_elapsed_time(5000);
+    assert_eq(instance.get_inner_offset(), 850.);
+    assert_eq(instance.get_outer_offset(), 100.);
+}
+```
+
+```js
+const EPSILON = 0.001;
+
+for (const behavior of ["instant", "smooth"]) {
+    var instance = new slint.TestCase({});
+    instance.reveal(behavior);
+    slintlib.private_api.mock_elapsed_time(5000);
+    assert(Math.abs(instance.inner_offset - 850) < EPSILON, `${behavior}: ${instance.inner_offset}`);
+    assert(Math.abs(instance.outer_offset - 100) < EPSILON, `${behavior}: ${instance.outer_offset}`);
+}
+```
+
+*/

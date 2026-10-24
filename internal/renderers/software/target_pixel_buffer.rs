@@ -119,11 +119,39 @@ impl DrawTextureArgs {
                             size,
                         )
                     }
-                    SharedBufferData::AlphaMap { data, .. } => TextureData::new(
-                        &data[start..end],
+                    #[cfg(feature = "image-pixel-format-rgb565")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::RGB565(b)) => {
+                        TextureData::new(
+                            &b.as_bytes()[start * 2..end * 2],
+                            TexturePixelFormat::Rgb565,
+                            stride * 2,
+                            size,
+                        )
+                    }
+                    #[cfg(feature = "image-pixel-format-gray8")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::Gray8(b)) => TextureData::new(
+                        &b.as_bytes()[start..end],
+                        TexturePixelFormat::Gray8,
+                        stride,
+                        size,
+                    ),
+                    #[cfg(feature = "image-pixel-format-alpha-map")]
+                    SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap {
+                        alpha, ..
+                    }) => TextureData::new(
+                        &alpha.as_bytes()[start..end],
                         TexturePixelFormat::AlphaMap,
                         stride,
                         size,
+                    ),
+                    SharedBufferData::AlphaMap { data, .. } => TextureData::new(
+                        &data.as_slice()[start..end],
+                        TexturePixelFormat::AlphaMap,
+                        stride,
+                        size,
+                    ),
+                    SharedBufferData::SharedImage(_) => unreachable!(
+                        "pixel format without the matching image-pixel-format feature on i-slint-renderer-software"
                     ),
                 }
             }

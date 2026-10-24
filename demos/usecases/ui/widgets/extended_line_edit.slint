@@ -73,7 +73,6 @@ component LineEditBase inherits Rectangle {
         width: max(parent.width - self.text-cursor-width, self.preferred-width);
         height: 100%;
         vertical-alignment: center;
-        single-line: true;
         color: root.text-color;
 
         cursor-position-changed(cpos) => {

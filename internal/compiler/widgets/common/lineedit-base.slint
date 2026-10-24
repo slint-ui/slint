@@ -12,6 +12,7 @@ export component LineEditBase inherits Rectangle {
     in-out property <string> text <=> text-input.text;
     in property <bool> enabled <=> text-input.enabled;
     out property <bool> has-focus: text-input.has-focus;
+    @shadowable out property <bool> has-selection: text-input.has-selection;
 
     // When true, the password input shows as plain text.
     // Cleared automatically on focus loss.
@@ -115,6 +116,7 @@ export component LineEditBase inherits Rectangle {
 
             if !root.read-only: MenuItem {
                 title: @tr("Cut");
+                enabled: text-input.has-selection && root.input-type != InputType.password;
                 activated => {
                     text-input.cut();
                 }
@@ -122,7 +124,7 @@ export component LineEditBase inherits Rectangle {
 
             MenuItem {
                 title: @tr("Copy");
-                enabled: !root.text.is-empty;
+                enabled: text-input.has-selection && root.input-type != InputType.password;
                 activated => {
                     text-input.copy();
                 }
@@ -151,7 +153,6 @@ export component LineEditBase inherits Rectangle {
             width: max(parent.width - self.text-cursor-width, self.preferred-width);
             height: 100%;
             vertical-alignment: center;
-            single-line: true;
             color: root.text-color;
             input-type: root.password-revealed ? InputType.text : root.input-type;
             // Disable TextInput's built-in accessibility support as the widget takes care of that.
@@ -187,7 +188,6 @@ export component LineEditBase inherits Rectangle {
 export component LineEditClearIcon inherits Image {
     callback clear();
 
-    vertical-alignment: center;
     TouchArea {
         clicked => { root.clear(); }
     }
@@ -200,7 +200,6 @@ export component LineEditPasswordIcon inherits Image {
     callback clicked();
 
     source: show-password ? hide-password-image : show-password-image;
-    vertical-alignment: center;
     TouchArea {
         clicked => {
             root.show-password = !root.show-password;

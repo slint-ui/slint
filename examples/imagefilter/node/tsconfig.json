@@ -1,11 +1,12 @@
 {
     "compilerOptions": {
-        "module": "node16",
+        "module": "esnext",
+        "moduleResolution": "bundler",
         "target": "esnext",
         "esModuleInterop": true,
-        "sourceMap": true,
-        "incremental": true,
-        "composite": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "paths": {
+            "slint-ui": ["./node_modules/slint-ui"]
+        }
     }
 }

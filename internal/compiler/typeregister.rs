@@ -9,12 +9,11 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::expression_tree::BuiltinFunction;
-use crate::langtype::{
-    BuiltinElement, BuiltinStruct, ElementType, Enumeration, Function, PropertyLookupResult,
-    Struct, Type,
-};
-use crate::object_tree::{Component, PropertyVisibility};
+use crate::builtin_functions::BuiltinFunction;
+use crate::element_type::{BuiltinElement, ElementType, PropertyLookupResult};
+use crate::langtype::{BuiltinStruct, Enumeration, Function, Struct, Type};
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::Component;
 use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -61,7 +60,11 @@ macro_rules! declare_enums {
         }
         impl BuiltinEnums {
             fn new() -> Self {
-                Self { $($Name: enumeration(stringify!($Name), &[$(stringify!($Value)),*])),* }
+                Self { $($Name: enumeration(
+                    stringify!($Name),
+                    &[$(stringify!($Value)),*],
+                    stringify!($vis) == "pub",
+                )),* }
             }
             fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
                 [$(&self.$Name),*].into_iter()
@@ -79,12 +82,13 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
-fn enumeration(name: &str, values: &[&str]) -> Arc<Enumeration> {
+fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
     Arc::new(Enumeration {
         name: name.into(),
+        public,
         values: values
             .iter()
-            .map(|v| crate::generator::to_kebab_case(v.trim_start_matches("r#")).into())
+            .map(|v| crate::names::to_kebab_case(v.trim_start_matches("r#")).into())
             .collect(),
         default_value: 0,
         node: None,
@@ -97,60 +101,172 @@ pub struct BuiltinTypes {
     pub noarg_callback_type: Type,
     pub strarg_callback_type: Type,
     pub set_selection_offsets_callback_type: Type,
-    pub logical_point_type: Arc<Struct>,
-    pub logical_size_type: Arc<Struct>,
-    pub layout_info_type: Arc<Struct>,
-    pub state_info_type: Arc<Struct>,
-    pub gridlayout_input_data_type: Type,
-    pub path_element_type: Type,
-    pub layout_item_info_type: Type,
-    pub flexbox_layout_item_info_type: Type,
-    pub flex_item_props_type: Type,
+    /// The builtin structs that aren't in `for_each_builtin_structs` nor path elements,
+    /// by name. See [`builtin_structs::get`].
+    structs: HashMap<BuiltinStruct, Arc<Struct>>,
 }
 
 impl BuiltinTypes {
     fn new() -> Self {
-        let layout_info_type = Arc::new(Struct::new(
-            ["min", "max", "preferred"]
-                .iter()
-                .map(|s| (SmolStr::new_static(s), Type::LogicalLength))
-                .chain(
-                    ["min_percent", "max_percent", "stretch"]
-                        .iter()
-                        .map(|s| (SmolStr::new_static(s), Type::Float32)),
-                )
-                .collect(),
-            BuiltinStruct::LayoutInfo,
-        ));
         let enums = BuiltinEnums::new();
-        let align_self_type = Type::Enumeration(enums.CrossAxisAlignment.clone());
-        // Shared by `flex_item_props_type` and nested as `props` in
-        // `flexbox_layout_item_info_type`, so the field list is defined once.
-        let flex_item_props_struct = Arc::new(Struct::new(
-            IntoIterator::into_iter([
-                ("cross-axis-self-alignment".into(), align_self_type),
-                ("layout-order".into(), Type::Int32),
-            ])
-            .collect(),
+        let mut structs = HashMap::new();
+        let mut add = |name: BuiltinStruct, fields: &[(&str, Type)]| {
+            let fields = fields.iter().map(|(field, ty)| (SmolStr::new(field), ty.clone()));
+            let s = Arc::new(Struct::new(fields.collect(), name.clone()));
+            structs.insert(name, s.clone());
+            Type::Struct(s)
+        };
+        let enumeration = |e: &Arc<Enumeration>| Type::Enumeration(e.clone());
+
+        let layout_info = add(
+            BuiltinStruct::LayoutInfo,
+            &[
+                ("min", Type::LogicalLength),
+                ("max", Type::LogicalLength),
+                ("preferred", Type::LogicalLength),
+                ("min_percent", Type::Float32),
+                ("max_percent", Type::Float32),
+                ("stretch", Type::Float32),
+            ],
+        );
+        let align_self = enumeration(&enums.CrossAxisAlignment);
+        let flex_item_props = add(
             BuiltinStruct::FlexItemProps,
-        ));
+            &[("cross-axis-self-alignment", align_self.clone()), ("layout-order", Type::Int32)],
+        );
+        let layout_item_info = add(
+            BuiltinStruct::LayoutItemInfo,
+            &[
+                ("constraint", layout_info.clone()),
+                ("cross-axis-self-alignment", align_self.clone()),
+                ("layout-order", Type::Int32),
+            ],
+        );
+        add(
+            BuiltinStruct::FlexboxLayoutItemInfo,
+            &[("constraint", layout_info), ("props", flex_item_props.clone())],
+        );
+        let padding =
+            add(BuiltinStruct::Padding, &[("begin", Type::Float32), ("end", Type::Float32)]);
+        let cells = Type::Array(Arc::new(layout_item_info));
+        let layout_alignment = enumeration(&enums.LayoutAlignment);
+        add(
+            BuiltinStruct::BoxLayoutData,
+            &[
+                ("size", Type::Float32),
+                ("spacing", Type::Float32),
+                ("padding", padding.clone()),
+                ("alignment", layout_alignment.clone()),
+                ("cells", cells.clone()),
+            ],
+        );
+        add(
+            BuiltinStruct::BoxLayoutOrthoData,
+            &[
+                ("size", Type::Float32),
+                ("padding", padding.clone()),
+                ("cross_axis_alignment", align_self.clone()),
+                ("cells", cells.clone()),
+            ],
+        );
+        add(
+            BuiltinStruct::GridLayoutData,
+            &[
+                ("size", Type::Float32),
+                ("spacing", Type::Float32),
+                ("padding", padding.clone()),
+                ("organized_data", Type::ArrayOfU16),
+            ],
+        );
+        add(
+            BuiltinStruct::GridLayoutInputData,
+            &[
+                ("new_row", Type::Bool),
+                ("row", Type::Float32),
+                ("col", Type::Float32),
+                ("rowspan", Type::Float32),
+                ("colspan", Type::Float32),
+            ],
+        );
+        add(
+            BuiltinStruct::FlexboxLayoutData,
+            &[
+                ("width", Type::Float32),
+                ("height", Type::Float32),
+                ("spacing_h", Type::Float32),
+                ("spacing_v", Type::Float32),
+                ("padding_h", padding.clone()),
+                ("padding_v", padding),
+                ("alignment", layout_alignment.clone()),
+                ("direction", enumeration(&enums.FlexboxLayoutDirection)),
+                ("cross_axis_alignment", align_self),
+                ("cross_axis_line_alignment", layout_alignment),
+                ("flex_wrap", enumeration(&enums.FlexboxLayoutWrap)),
+                ("cells_h", cells.clone()),
+                ("cells_v", cells),
+                ("flex_props", Type::Array(Arc::new(flex_item_props))),
+            ],
+        );
+        add(
+            BuiltinStruct::StateInfo,
+            &[
+                ("current-state", Type::Int32),
+                ("previous-state", Type::Int32),
+                ("change-time", Type::Duration),
+            ],
+        );
+        add(
+            BuiltinStruct::PropertyAnimation,
+            &[
+                ("duration", Type::Int32),
+                ("iteration-count", Type::Float32),
+                ("direction", enumeration(&enums.AnimationDirection)),
+                ("easing", Type::Easing),
+                ("delay", Type::Int32),
+                ("enabled", Type::Bool),
+                ("angle-interpolation", enumeration(&enums.AngleInterpolation)),
+            ],
+        );
+        add(
+            BuiltinStruct::LogicalPosition,
+            &[("x", Type::LogicalLength), ("y", Type::LogicalLength)],
+        );
+        add(
+            BuiltinStruct::LogicalSize,
+            &[("width", Type::LogicalLength), ("height", Type::LogicalLength)],
+        );
+        add(BuiltinStruct::Point, &[("x", Type::Float32), ("y", Type::Float32)]);
+        add(BuiltinStruct::Size, &[("width", Type::Int32), ("height", Type::Int32)]);
+        add(BuiltinStruct::PathElement, &[]);
+        add(
+            BuiltinStruct::ColorRgba,
+            &[
+                ("red", Type::Int32),
+                ("green", Type::Int32),
+                ("blue", Type::Int32),
+                ("alpha", Type::Int32),
+            ],
+        );
+        add(
+            BuiltinStruct::ColorHsva,
+            &[
+                ("hue", Type::Float32),
+                ("saturation", Type::Float32),
+                ("value", Type::Float32),
+                ("alpha", Type::Float32),
+            ],
+        );
+        add(
+            BuiltinStruct::ColorOklch,
+            &[
+                ("lightness", Type::Float32),
+                ("chroma", Type::Float32),
+                ("hue", Type::Float32),
+                ("alpha", Type::Float32),
+            ],
+        );
+
         Self {
-            logical_point_type: Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    (SmolStr::new_static("x"), Type::LogicalLength),
-                    (SmolStr::new_static("y"), Type::LogicalLength),
-                ])
-                .collect(),
-                BuiltinStruct::LogicalPosition,
-            )),
-            logical_size_type: Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    (SmolStr::new_static("width"), Type::LogicalLength),
-                    (SmolStr::new_static("height"), Type::LogicalLength),
-                ])
-                .collect(),
-                BuiltinStruct::LogicalSize,
-            )),
             noarg_callback_type: Type::Callback(Arc::new(Function {
                 return_type: Type::Void,
                 args: Vec::new(),
@@ -166,52 +282,7 @@ impl BuiltinTypes {
                 args: vec![Type::Int32, Type::Int32],
                 arg_names: vec![SmolStr::new_static("anchor"), SmolStr::new_static("focus")],
             })),
-            layout_info_type: layout_info_type.clone(),
-            state_info_type: Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    (SmolStr::new_static("current-state"), Type::Int32),
-                    (SmolStr::new_static("previous-state"), Type::Int32),
-                    (SmolStr::new_static("change-time"), Type::Duration),
-                ])
-                .collect(),
-                BuiltinStruct::StateInfo,
-            )),
-            path_element_type: Type::Struct(Arc::new(Struct::new(
-                Default::default(),
-                BuiltinStruct::PathElement,
-            ))),
-            layout_item_info_type: Type::Struct(Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    ("constraint".into(), layout_info_type.clone().into()),
-                    (
-                        "cross-axis-self-alignment".into(),
-                        Type::Enumeration(enums.CrossAxisAlignment.clone()),
-                    ),
-                    ("layout-order".into(), Type::Int32),
-                ])
-                .collect(),
-                BuiltinStruct::LayoutItemInfo,
-            ))),
-            flexbox_layout_item_info_type: Type::Struct(Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    ("constraint".into(), layout_info_type.into()),
-                    ("props".into(), Type::Struct(flex_item_props_struct.clone())),
-                ])
-                .collect(),
-                BuiltinStruct::FlexboxLayoutItemInfo,
-            ))),
-            flex_item_props_type: Type::Struct(flex_item_props_struct),
-            gridlayout_input_data_type: Type::Struct(Arc::new(Struct::new(
-                IntoIterator::into_iter([
-                    ("row".into(), Type::Int32),
-                    ("column".into(), Type::Int32),
-                    ("rowspan".into(), Type::Int32),
-                    ("colspan".into(), Type::Int32),
-                ])
-                .collect(),
-                BuiltinStruct::GridLayoutInputData,
-            ))),
-            // Last: the field initializers above still borrow from it.
+            structs,
             enums,
         }
     }
@@ -241,6 +312,9 @@ pub const RESERVED_INNER_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("inner-shadow-spread", Type::LogicalLength),
     ("inner-shadow-color", Type::Color),
 ];
+
+pub const RESERVED_BACKDROP_BLUR_PROPERTIES: &[(&str, Type)] =
+    &[("backdrop-blur", Type::LogicalLength)];
 
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
     ("transform-rotation", Type::Angle),
@@ -308,6 +382,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_INNER_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_BACKDROP_BLUR_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
@@ -337,16 +412,6 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ("absolute-position", logical_point_type().into(), PropertyVisibility::Output),
             ("forward-focus", Type::ElementReference, PropertyVisibility::Constexpr),
             (
-                "focus",
-                Type::Function(BuiltinFunction::SetFocusItem.ty()),
-                PropertyVisibility::Public,
-            ),
-            (
-                "clear-focus",
-                Type::Function(BuiltinFunction::ClearFocusItem.ty()),
-                PropertyVisibility::Public,
-            ),
-            (
                 "dialog-button-role",
                 Type::Enumeration(BUILTIN.enums.DialogButtonRole.clone()),
                 PropertyVisibility::Constexpr,
@@ -368,6 +433,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
             ),
         ]))
         .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
+        .chain(reserved_member_functions().map(|(name, f, v)| (name, Type::Function(f.ty()), v)))
 }
 
 /// lookup reserved property injected in every item
@@ -385,10 +451,10 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
         return PropertyLookupResult {
             property_type: ty,
             is_slint_sc: matches!(name.as_ref(), "x" | "y" | "width" | "height"),
+            is_shadowable: name == "ensure-visible",
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
-            is_shadowable: false,
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
@@ -410,7 +476,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         is_local_to_component: false,
                         is_in_direct_base: false,
                         is_shadowable: false,
-                        property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                        property_visibility: crate::native_class::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
                         is_slint_sc: false,
@@ -424,12 +490,18 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
     PropertyLookupResult::invalid(name)
 }
 
+pub fn reserved_member_functions()
+-> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility)> {
+    IntoIterator::into_iter([
+        ("focus", BuiltinFunction::SetFocusItem, PropertyVisibility::Public), // match for callable "focus" property
+        ("clear-focus", BuiltinFunction::ClearFocusItem, PropertyVisibility::Public), // match for callable "clear-focus" property
+        ("ensure-visible", BuiltinFunction::EnsureVisible, PropertyVisibility::Public),
+    ])
+}
+
 /// These member functions are injected in every time
 pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
-    for (m, e) in [
-        ("focus", BuiltinFunction::SetFocusItem), // match for callable "focus" property
-        ("clear-focus", BuiltinFunction::ClearFocusItem), // match for callable "clear-focus" property
-    ] {
+    for (m, e, _) in reserved_member_functions() {
         if m == name {
             return Some(e);
         }
@@ -491,6 +563,13 @@ impl TypeRegister {
     }
 
     fn builtin_internal() -> Self {
+        let mut register = Self::with_builtin_types();
+        crate::builtin_elements::load(&mut register);
+        register
+    }
+
+    /// A register with the basic types, the builtin structs and enums, but no elements.
+    pub(crate) fn with_builtin_types() -> Self {
         let mut register = TypeRegister::default();
 
         register.insert_type(Type::Float32);
@@ -537,8 +616,6 @@ impl TypeRegister {
             )* };
         }
         i_slint_common::for_each_builtin_structs!(register_builtin_structs);
-
-        crate::builtin_elements::load(&mut register);
 
         register
     }
@@ -642,7 +719,7 @@ impl TypeRegister {
         self.elements.insert(name, ElementType::Component(comp)).is_none()
     }
 
-    pub fn add_builtin(&mut self, builtin: Rc<BuiltinElement>) {
+    pub fn add_builtin(&mut self, builtin: Arc<BuiltinElement>) {
         self.elements.insert(builtin.name.clone(), ElementType::Builtin(builtin));
     }
 
@@ -697,18 +774,9 @@ pub mod builtin_structs {
 
     #[rustfmt::skip]
     macro_rules! map_type {
-        ($pub_type:ident, bool) => { Type::Bool };
-        ($pub_type:ident, i32) => { Type::Int32 };
-        ($pub_type:ident, f32) => { Type::Float32 };
-        ($pub_type:ident, SharedString) => { Type::String };
-        ($pub_type:ident, Image) => { Type::Image };
-        ($pub_type:ident, Coord) => { Type::LogicalLength };
-        ($pub_type:ident, Keys) => { Type::Keys };
-        ($pub_type:ident, DataTransfer) => { Type::DataTransfer };
-        ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         // A builtin struct declared earlier: `$pub_type` names the local of `BuiltinStructs::new`
         ($pub_type:ident, KeyboardModifiers) => { Type::Struct($pub_type.clone()) };
-        ($pub_type:ident, $enum:ident) => { Type::Enumeration(BUILTIN.enums.$enum.clone()) };
+        ($pub_type:ident, $ty:ident) => { builtin_type!($ty) };
     }
 
     #[rustfmt::skip]
@@ -719,7 +787,7 @@ pub mod builtin_structs {
         ($enum:ident :: $value:ident) => {
             Some(ConstantExpression::EnumerationValue(
                 BUILTIN.enums.$enum.clone()
-                    .try_value_from_string(&crate::generator::to_kebab_case(stringify!($value)))
+                    .try_value_from_string(&crate::names::to_kebab_case(stringify!($value)))
                     .expect(concat!("unknown enum variant in field default ", stringify!($enum), "::", stringify!($value))),
             ))
         };
@@ -757,6 +825,13 @@ pub mod builtin_structs {
                 }
             }
 
+            fn from_macro(name: &BuiltinStruct) -> Option<Arc<Struct>> {
+                match name {
+                    $(BuiltinStruct::$Name => Some($Name()),)*
+                    _ => None,
+                }
+            }
+
             $(
             #[allow(non_snake_case)]
             pub fn $Name() -> Arc<Struct> {
@@ -766,6 +841,36 @@ pub mod builtin_structs {
         };
     }
     i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
+
+    /// The path elements' structs, made of the properties of their native class.
+    static PATH_ELEMENTS: std::sync::LazyLock<HashMap<BuiltinStruct, Arc<Struct>>> =
+        std::sync::LazyLock::new(|| {
+            crate::builtin_elements::BUILTIN_ELEMENTS
+                .elements()
+                .filter_map(|element| {
+                    let class = &element.native_class;
+                    let name = class.builtin_struct.clone()?;
+                    let fields = class.properties.iter().map(|(k, v)| (k.clone(), v.ty.clone()));
+                    Some((name.clone(), Arc::new(Struct::new(fields.collect(), name))))
+                })
+                .collect()
+        });
+
+    /// The definition of the builtin struct `name`.
+    /// Code that makes a struct with a builtin name takes its type from here.
+    pub fn get(name: &BuiltinStruct) -> Arc<Struct> {
+        // Each lookup touches only the static that holds `name`: the macro structs ask for
+        // `LogicalPosition` while they're built, and the path elements need a builtin register.
+        if let Some(s) = from_macro(name) {
+            return s;
+        }
+        BUILTIN
+            .structs
+            .get(name)
+            .or_else(|| PATH_ELEMENTS.get(name))
+            .unwrap_or_else(|| panic!("no definition for {name:?}"))
+            .clone()
+    }
 
     fn build_struct(
         name: BuiltinStruct,
@@ -785,11 +890,11 @@ pub mod builtin_structs {
 }
 
 pub fn logical_point_type() -> Arc<Struct> {
-    BUILTIN.logical_point_type.clone()
+    builtin_structs::get(&BuiltinStruct::LogicalPosition)
 }
 
 pub fn logical_size_type() -> Arc<Struct> {
-    BUILTIN.logical_size_type.clone()
+    builtin_structs::get(&BuiltinStruct::LogicalSize)
 }
 
 pub fn font_metrics_type() -> Type {
@@ -798,25 +903,20 @@ pub fn font_metrics_type() -> Type {
 
 /// The [`Type`] for a runtime LayoutInfo structure
 pub fn layout_info_type() -> Arc<Struct> {
-    BUILTIN.layout_info_type.clone()
+    builtin_structs::get(&BuiltinStruct::LayoutInfo)
 }
 
 /// The [`Type`] for a runtime PathElement structure
 pub fn path_element_type() -> Type {
-    BUILTIN.path_element_type.clone()
+    builtin_structs::get(&BuiltinStruct::PathElement).into()
 }
 
 /// The [`Type`] for a runtime LayoutItemInfo structure
 pub fn layout_item_info_type() -> Type {
-    BUILTIN.layout_item_info_type.clone()
-}
-
-/// The [`Type`] for a runtime FlexboxLayoutItemInfo structure
-pub fn flexbox_layout_item_info_type() -> Type {
-    BUILTIN.flexbox_layout_item_info_type.clone()
+    builtin_structs::get(&BuiltinStruct::LayoutItemInfo).into()
 }
 
 /// The [`Type`] for a runtime FlexItemProps structure
 pub fn flex_item_props_type() -> Type {
-    BUILTIN.flex_item_props_type.clone()
+    builtin_structs::get(&BuiltinStruct::FlexItemProps).into()
 }

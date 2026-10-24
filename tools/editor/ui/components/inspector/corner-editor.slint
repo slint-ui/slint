@@ -4,7 +4,7 @@
 import { Style, Metrics, Colors, Typography, CornerModeStyle, CornerEditorStyle } from "../../style.slint";
 
 import { InspectorValueField } from "value-field.slint";
-import { InspectorRadiusSlider } from "radius-slider.slint";
+import { InspectorSlider } from "slider.slint";
 
 component CornerMode inherits FocusScope {
     in property <CornerModeStyle> style: Style.corner-mode;
@@ -14,21 +14,21 @@ component CornerMode inherits FocusScope {
     width: root.style.width;
     height: root.style.height;
     accessible-role: AccessibleRole.button;
-    accessible-label: root.separate ? "Separate corners" : "All corners";
-    accessible-value: root.selected ? "selected" : "";
+    accessible-label: root.separate ? @tr("Separate corners") : @tr("All corners");
+    accessible-value: root.selected ? @tr("selected") : "";
     accessible-action-default => { root.activated(); }
     key-pressed(event) => {
-        if event.text == " " || event.text == Key.Return { root.activated(); return accept; }
+        if event.text == Key.Space || event.text == Key.Return { root.activated(); return accept; }
         return reject;
     }
     Rectangle {
         border-radius: root.style.radius;
         background: root.selected ? root.style.selected-background : root.style.background;
-        border-width: root.has-focus ? 1px : 0px;
-        border-color: root.style.focus-border;
+        border-width: root.has-focus || root.selected ? 1px : 0px;
+        border-color: root.has-focus ? root.style.focus-border : root.style.border;
         Rectangle {
-            x: 7px; y: 5px; width: 14px; height: 14px;
-            border-radius: root.style.radius; border-width: Metrics.border-width;
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: 14px; height: 14px;
+            border-radius: Metrics.radius-small; border-width: Metrics.border-width;
             border-color: root.selected ? root.style.foreground : root.style.muted;
             if root.separate: Rectangle { x: 5px; y: -1px; width: 4px; height: 16px; background: root.selected ? root.style.selected-background : root.style.background; }
             if root.separate: Rectangle { x: -1px; y: 5px; width: 16px; height: 4px; background: root.selected ? root.style.selected-background : root.style.background; }
@@ -57,7 +57,7 @@ export component InspectorCornerEditor inherits Rectangle {
         HorizontalLayout {
             spacing: Metrics.space-tight;
             Text {
-                text: "Corner Radius";
+                text: @tr("Corner Radius");
                 color: Colors.foreground;
                 font-size: Typography.control.size;
                 vertical-alignment: center;
@@ -76,7 +76,8 @@ export component InspectorCornerEditor inherits Rectangle {
         }
         if !root.separate: HorizontalLayout {
             spacing: Metrics.space-regular;
-            slider := InspectorRadiusSlider {
+            slider := InspectorSlider {
+                accessible-name: @tr("All corner radii slider");
                 style: root.style.slider;
                 value: root.values[0]; maximum: root.maximum; commit-key: root.commit-key;
                 preview(value) => { return root.preview(value); }
@@ -86,8 +87,7 @@ export component InspectorCornerEditor inherits Rectangle {
             InspectorValueField {
                 style: root.style.field;
                 width: root.style.field-width;
-                accessible-name: "All corner radii";
-                prefix: "px";
+                accessible-name: @tr("All corner radii");
                 value: "\{slider.visual-value}";
                 commit-key: root.commit-key;
                 accepted(text) => { return text.is-float() && text.to-float() >= 0 && root.accepted(-1, text.to-float()); }
@@ -101,7 +101,7 @@ export component InspectorCornerEditor inherits Rectangle {
                 style: root.style.field;
                     property <int> index: row * 2 + column;
                     width: (root.width - root.style.gap) / 2;
-                    accessible-name: index == 0 ? "Top left corner radius" : index == 1 ? "Top right corner radius" : index == 2 ? "Bottom left corner radius" : "Bottom right corner radius";
+                    accessible-name: index == 0 ? @tr("Top left corner radius") : index == 1 ? @tr("Top right corner radius") : index == 2 ? @tr("Bottom left corner radius") : @tr("Bottom right corner radius");
                     corner-index: self.index;
                     value: "\{root.values[index]}";
                     commit-key: root.commit-key;

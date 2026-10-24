@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A colorized image that is also tiled, without and with a source clip.
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: white;
+
+    Image {
+        y: 0px;
+        width: 100%;
+        height: 50%;
+        source: @image-url("border-image.png");
+        horizontal-tiling: repeat;
+        vertical-tiling: repeat;
+        colorize: #2050c0;
+    }
+
+    Image {
+        y: 32px;
+        width: 100%;
+        height: 50%;
+        source: @image-url("border-image.png");
+        source-clip-x: 0;
+        source-clip-y: 0;
+        source-clip-width: 10;
+        source-clip-height: 10;
+        horizontal-tiling: repeat;
+        vertical-tiling: repeat;
+        colorize: #c02050;
+    }
+}

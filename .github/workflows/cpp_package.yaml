@@ -59,7 +59,7 @@ jobs:
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
               with:
                 arch: ${{ matrix.msvc_arch }}
               if: runner.os == 'Windows'
@@ -96,11 +96,11 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: gcc-arm-none-eabi libnewlib-arm-none-eabi
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
-            - name: Install GNU Arm Embedded Toolchain
-              run: sudo timeout 600 apt-get update && sudo timeout 600 apt-get install gcc-arm-none-eabi
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -181,18 +181,11 @@ jobs:
             CARGO_INCREMENTAL: false
         strategy:
             matrix:
-                gcc_target: [aarch64-linux-gnu, arm-linux-gnueabihf]
                 include:
-                  - gcc_target: aarch64-linux-gnu
-                    rust_target: aarch64-unknown-linux-gnu
+                  - rust_target: aarch64-unknown-linux-gnu
                     cmake_system_processor: arm64
-                    gcc_suffix: ""
-                  # armv7 compiles Skia from source, which needs C++20 / GCC 10
-                  # (the default GCC 9 only knows -std=c++2a, not -std=c++20).
-                  - gcc_target: arm-linux-gnueabihf
-                    rust_target: armv7-unknown-linux-gnueabihf
+                  - rust_target: armv7-unknown-linux-gnueabihf
                     cmake_system_processor: armhf
-                    gcc_suffix: "-10"
 
         runs-on: ubuntu-22.04
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
@@ -202,7 +195,7 @@ jobs:
               run: bash -x ../../scripts/prepare_binary_package.sh ../../build
               working-directory: api/cpp/
             - name: CMake configure
-              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc${{ matrix.gcc_suffix }} -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++${{ matrix.gcc_suffix }}  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
+              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=/opt/toolchain.cmake -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target }} -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
             - name: CMake build
               run: cmake --build build --parallel
             - name: CMake package
@@ -244,7 +237,7 @@ jobs:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
               with:
                 arch: ${{ matrix.msvc_arch }}
               if: runner.os == 'Windows'

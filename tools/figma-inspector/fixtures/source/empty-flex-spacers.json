@@ -1,0 +1,200 @@
+{
+  "sourceVersion": 1,
+  "root": {
+    "id": "empty-flex-root",
+    "name": "OpenBridge empty spacer regression",
+    "type": "FRAME",
+    "errors": [],
+    "properties": {
+      "x": 0,
+      "y": 0,
+      "rotation": 0,
+      "opacity": 1,
+      "layoutPositioning": "AUTO",
+      "cornerRadius": 0,
+      "strokes": [],
+      "effects": [],
+      "clipsContent": false,
+      "paddingLeft": 0,
+      "paddingRight": 0,
+      "paddingTop": 0,
+      "paddingBottom": 0,
+      "itemSpacing": 0,
+      "counterAxisSpacing": 0,
+      "layoutWrap": "NO_WRAP",
+      "width": 120,
+      "height": 100,
+      "visible": true,
+      "layoutMode": "HORIZONTAL",
+      "layoutSizingHorizontal": "FIXED",
+      "layoutSizingVertical": "FIXED",
+      "primaryAxisAlignItems": "MIN",
+      "counterAxisAlignItems": "MIN",
+      "fills": []
+    },
+    "children": [
+      {
+        "id": "empty-spacer",
+        "name": "Empty FILL spacer",
+        "type": "FRAME",
+        "errors": [],
+        "properties": {
+          "x": 0,
+          "y": 0,
+          "rotation": 0,
+          "opacity": 1,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 0,
+          "strokes": [],
+          "effects": [],
+          "clipsContent": false,
+          "paddingLeft": 0,
+          "paddingRight": 0,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "itemSpacing": 0,
+          "counterAxisSpacing": 0,
+          "layoutWrap": "NO_WRAP",
+          "width": 60,
+          "height": 100,
+          "visible": true,
+          "layoutMode": "HORIZONTAL",
+          "layoutSizingHorizontal": "FILL",
+          "layoutSizingVertical": "FILL",
+          "primaryAxisAlignItems": "MIN",
+          "counterAxisAlignItems": "MIN",
+          "fills": []
+        },
+        "children": []
+      },
+      {
+        "id": "bar",
+        "name": "Bar with empty lower half",
+        "type": "FRAME",
+        "errors": [],
+        "properties": {
+          "x": 60,
+          "y": 0,
+          "rotation": 0,
+          "opacity": 1,
+          "layoutPositioning": "AUTO",
+          "cornerRadius": 0,
+          "strokes": [],
+          "effects": [],
+          "clipsContent": false,
+          "paddingLeft": 0,
+          "paddingRight": 0,
+          "paddingTop": 0,
+          "paddingBottom": 0,
+          "itemSpacing": 0,
+          "counterAxisSpacing": 0,
+          "layoutWrap": "NO_WRAP",
+          "width": 60,
+          "height": 100,
+          "visible": true,
+          "layoutMode": "VERTICAL",
+          "layoutSizingHorizontal": "FILL",
+          "layoutSizingVertical": "FILL",
+          "primaryAxisAlignItems": "MIN",
+          "counterAxisAlignItems": "MIN",
+          "fills": []
+        },
+        "children": [
+          {
+            "id": "positive",
+            "name": "Positive bar",
+            "type": "RECTANGLE",
+            "errors": [],
+            "properties": {
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "opacity": 1,
+              "layoutPositioning": "AUTO",
+              "cornerRadius": 0,
+              "strokes": [],
+              "effects": [],
+              "clipsContent": false,
+              "width": 60,
+              "height": 50,
+              "visible": true,
+              "layoutSizingHorizontal": "FILL",
+              "layoutSizingVertical": "FILL",
+              "fills": [
+                {
+                  "type": "SOLID",
+                  "color": {
+                    "r": 1,
+                    "g": 0,
+                    "b": 0
+                  },
+                  "opacity": 1
+                }
+              ]
+            }
+          },
+          {
+            "id": "negative",
+            "name": "Empty negative half",
+            "type": "FRAME",
+            "errors": [],
+            "properties": {
+              "x": 0,
+              "y": 50,
+              "rotation": 0,
+              "opacity": 1,
+              "layoutPositioning": "AUTO",
+              "cornerRadius": 0,
+              "strokes": [],
+              "effects": [],
+              "clipsContent": false,
+              "paddingLeft": 0,
+              "paddingRight": 0,
+              "paddingTop": 0,
+              "paddingBottom": 0,
+              "itemSpacing": 0,
+              "counterAxisSpacing": 0,
+              "layoutWrap": "NO_WRAP",
+              "width": 60,
+              "height": 50,
+              "visible": true,
+              "layoutMode": "HORIZONTAL",
+              "layoutSizingHorizontal": "FILL",
+              "layoutSizingVertical": "FILL",
+              "primaryAxisAlignItems": "MIN",
+              "counterAxisAlignItems": "MIN",
+              "fills": []
+            },
+            "children": [
+              {
+                "id": "hidden-bar",
+                "name": "Hidden bar",
+                "type": "RECTANGLE",
+                "errors": [],
+                "properties": {
+                  "x": 0,
+                  "y": 0,
+                  "rotation": 0,
+                  "opacity": 1,
+                  "layoutPositioning": "AUTO",
+                  "cornerRadius": 0,
+                  "strokes": [],
+                  "effects": [],
+                  "clipsContent": false,
+                  "width": 60,
+                  "height": 50,
+                  "visible": false,
+                  "fills": []
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "images": {},
+  "exportScale": 1,
+  "pngEnabled": false,
+  "options": {}
+}

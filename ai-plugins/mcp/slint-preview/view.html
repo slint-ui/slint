@@ -1,0 +1,513 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slint Preview</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --text: light-dark(#171717, #fafafa);
+    --muted: light-dark(#6b6b6b, #a3a3a3);
+    --error: light-dark(#b42318, #f97066);
+    --warning: light-dark(#a15c07, #fdb022);
+  }
+  body {
+    margin: 0;
+    background: transparent;
+    color: var(--text);
+    font: 13px/1.4 system-ui, sans-serif;
+  }
+  #stage { overflow: hidden; }
+  canvas { display: block; margin-inline: auto; outline: none; }
+  canvas[hidden] { display: none; }
+  /* winit writes the canvas size inline in logical pixels; a fitted canvas keeps the size the view gives it. */
+  canvas.fitted {
+    width: var(--fit-width) !important;
+    height: var(--fit-height) !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+  }
+  #status { margin: 8px; color: var(--muted); white-space: pre-wrap; }
+  #status:empty { display: none; }
+  #status.error { color: var(--error); }
+  #diagnostics { margin: 8px; padding: 0; list-style: none; font-family: ui-monospace, monospace; }
+  #diagnostics:empty { display: none; }
+  #diagnostics li { white-space: pre-wrap; }
+  .error { color: var(--error); }
+  .warning { color: var(--warning); }
+</style>
+</head>
+<body>
+<div id="status">Waiting for Slint source…</div>
+<div id="stage"><canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas></div>
+<ul id="diagnostics"></ul>
+<script type="module">
+  const INTERPRETER_URL = "__INTERPRETER_URL__";
+  const CHANNEL = "__CHANNEL__";
+  const LEVELS = ["error", "warning", "note"];
+
+  const statusEl = document.getElementById("status");
+  let canvas = document.getElementById("preview");
+  const pristineCanvas = canvas.cloneNode();
+  const diagnosticsEl = document.getElementById("diagnostics");
+  const stage = document.getElementById("stage");
+
+  let nextId = 1;
+  const pending = new Map();
+
+  function post(message) {
+    window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+  }
+  function request(method, params) {
+    const id = nextId++;
+    post({ id, method, params });
+    return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+  }
+  function notify(method, params) {
+    post({ method, params });
+  }
+
+  // winit reads the color scheme from this media query and re-reads `matches` on "change",
+  // so answering it with the host's theme makes the Slint widgets follow the host.
+  const DARK_QUERY = "(prefers-color-scheme: dark)";
+  const nativeMatchMedia = window.matchMedia.bind(window);
+  let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
+  const darkQueryLists = [];
+  // A design wider than the view renders at a reduced scale factor, so it stays crisp, rather than the
+  // browser shrinking the drawn canvas. winit takes the scale factor from devicePixelRatio, watches it
+  // through a "(resolution: …dppx)" query, and reads pointer offsets as logical pixels.
+  const nativeDevicePixelRatio =
+    Object.getOwnPropertyDescriptor(window, "devicePixelRatio") ?? Object.getOwnPropertyDescriptor(Window.prototype, "devicePixelRatio");
+  let fitScale = 1;
+  Object.defineProperty(window, "devicePixelRatio", { configurable: true, get: () => nativeDevicePixelRatio.get.call(window) * fitScale });
+  const resolutionQueryLists = [];
+  for (const axis of ["offsetX", "offsetY"]) {
+    const nativeOffset = Object.getOwnPropertyDescriptor(MouseEvent.prototype, axis);
+    Object.defineProperty(MouseEvent.prototype, axis, {
+      configurable: true,
+      get() {
+        const offset = nativeOffset.get.call(this);
+        return this.target === canvas ? offset / fitScale : offset;
+      },
+    });
+  }
+
+  window.matchMedia = (query) => {
+    const list = nativeMatchMedia(query);
+    if (query === DARK_QUERY) {
+      Object.defineProperty(list, "matches", { get: () => hostIsDark });
+      darkQueryLists.push(list);
+    }
+    const resolution = query.match(/resolution:\s*([\d.]+)dppx/);
+    if (resolution) {
+      const value = Number(resolution[1]);
+      Object.defineProperty(list, "matches", { get: () => Math.abs(value - window.devicePixelRatio) < 1e-6 });
+      resolutionQueryLists.push(list);
+    }
+    return list;
+  };
+
+  function setFitScale(scale) {
+    if (scale === fitScale) return;
+    fitScale = scale;
+    for (const list of resolutionQueryLists) list.dispatchEvent(new Event("change"));
+  }
+
+  // Slint draws with WebGL, which clears the canvas after each frame unless asked to keep it,
+  // and the screenshot reads the canvas later.
+  const nativeGetContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, options) {
+    if (type === "webgl" || type === "webgl2") options = { ...options, preserveDrawingBuffer: true };
+    return nativeGetContext.call(this, type, options);
+  };
+
+  function applyTheme(context) {
+    if (context?.theme !== "light" && context?.theme !== "dark") return;
+    document.documentElement.style.colorScheme = context.theme;
+    const isDark = context.theme === "dark";
+    if (isDark === hostIsDark) return;
+    hostIsDark = isDark;
+    for (const list of darkQueryLists) list.dispatchEvent(new Event("change"));
+  }
+
+  let lastSize = "";
+  new ResizeObserver(() => {
+    // The document's scroll size never drops below the frame's current size, so it can't shrink.
+    const width = Math.ceil(document.body.scrollWidth);
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
+    const size = `${width}x${height}`;
+    if (size === lastSize) return;
+    lastSize = size;
+    notify("ui/notifications/size-changed", { width, height });
+  }).observe(document.body);
+
+  // The component's preferred size in logical pixels, measured at scale 1.
+  let designSize = null;
+
+  function fitCanvas() {
+    if (canvas.hidden || !designSize) return;
+    const scale = Math.min(1, stage.clientWidth / designSize.width);
+    canvas.style.setProperty("--fit-width", `${designSize.width * scale}px`);
+    canvas.style.setProperty("--fit-height", `${designSize.height * scale}px`);
+    setFitScale(scale);
+  }
+  new ResizeObserver(fitCanvas).observe(stage);
+
+  // Slint sizes the canvas to the component's preferred size only while auto-resizing at scale 1.
+  function startMeasuring() {
+    designSize = null;
+    canvas.classList.remove("fitted");
+    canvas.dataset.slintAutoResizeToPreferred = "true";
+    canvas.style.visibility = "hidden";
+    setFitScale(1);
+  }
+
+  async function finishMeasuring() {
+    await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(300)]);
+    designSize = { width: canvas.offsetWidth, height: canvas.offsetHeight };
+    canvas.dataset.slintAutoResizeToPreferred = "false";
+    canvas.classList.add("fitted");
+    fitCanvas();
+    canvas.style.visibility = "";
+  }
+
+  function showStatus(text, className = "") {
+    statusEl.textContent = text;
+    statusEl.className = className;
+  }
+
+  // A Rust panic leaves the interpreter module unusable, and its pending promises never settle.
+  // The module's panic hook reports the panic through console.error.
+  class Panic extends Error {}
+  let interpreter = null;
+  let interpreterLoads = 0;
+
+  function loadInterpreter() {
+    // One interpreter per view: a second module instance can't share the event loop.
+    if (interpreter) return interpreter;
+    let panic;
+    const panicked = new Promise((_, reject) => (panic = reject));
+    panicked.catch(() => {});
+    // A new fragment imports a fresh module instance, with its own WebAssembly memory.
+    // Stack traces of the module's panics include the fragment.
+    const tag = `#instance-${++interpreterLoads}`;
+    const slint = import(INTERPRETER_URL + tag).then(async (slint) => {
+      await slint.default();
+      slint.run_event_loop();
+      return slint;
+    });
+    // wasm-pack publishes the interpreter's package.json next to it.
+    const runtime = fetch(new URL("package.json", INTERPRETER_URL))
+      .then((response) => response.json())
+      .then(({ version }) => `Slint ${version} (${CHANNEL})`)
+      .catch(() => `Slint (${CHANNEL})`);
+    interpreter = { tag, slint, panicked, panic, runtime };
+    return interpreter;
+  }
+
+  // A promise can resolve in the same task that panics, so a resolved value may belong to a dead module.
+  async function untilPanic(current, promise) {
+    const result = await Promise.race([promise, current.panicked]);
+    if (current !== interpreter) throw new Panic();
+    return result;
+  }
+
+  const nativeConsoleError = console.error.bind(console);
+  console.error = (...args) => {
+    nativeConsoleError(...args);
+    const [message] = args;
+    // A dead module can panic again from its leftover event listeners.
+    if (typeof message === "string" && message.startsWith("panicked at ") && message.includes(`${interpreter?.tag}:`)) {
+      handlePanic(message.split("\n\nStack:")[0]);
+    }
+  };
+
+  function handlePanic(message) {
+    if (!interpreter) return;
+    interpreter.panic(new Panic(message));
+    interpreter = null;
+    instance = null;
+    // The dead module keeps its listeners on the old canvas and media queries.
+    darkQueryLists.length = 0;
+    resolutionQueryLists.length = 0;
+    fitScale = 1;
+    designSize = null;
+    const freshCanvas = pristineCanvas.cloneNode();
+    canvas.replaceWith(freshCanvas);
+    canvas = freshCanvas;
+    showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
+    reportToModel(
+      "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
+        "The next preview_slint call starts a fresh interpreter. " +
+        "Offer the user to report it at https://github.com/slint-ui/slint/issues with this message, " +
+        `the Slint version, and the smallest .slint source that reproduces it.\n${message}`,
+    );
+  }
+
+  // Files compile under this scheme, so the interpreter resolves their images to URLs and loads
+  // them with <img> elements, rather than reading them from a filesystem the browser doesn't have.
+  const FILE_SCHEME = "slint-file:";
+  function toFileUrl(path) {
+    const posix = path.replaceAll("\\", "/");
+    return `${FILE_SCHEME}//${(posix.startsWith("/") ? posix : `/${posix}`).split("/").map(encodeURIComponent).join("/")}`;
+  }
+  function fromFileUrl(url) {
+    const path = decodeURIComponent(new URL(url).pathname);
+    return /^\/[A-Za-z]:\//.test(path) ? path.slice(1) : path;
+  }
+
+  // The view can't read the disk, so it hands each image the interpreter loads from a file to the server.
+  // pendingImages holds the loads still in flight, which the screenshot waits for.
+  const pendingImages = new Set();
+  const nativeImageSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "src");
+  Object.defineProperty(HTMLImageElement.prototype, "src", {
+    configurable: true,
+    get() {
+      return nativeImageSrc.get.call(this);
+    },
+    set(value) {
+      if (typeof value !== "string" || !value.startsWith(FILE_SCHEME)) {
+        nativeImageSrc.set.call(this, value);
+        return;
+      }
+      const path = fromFileUrl(value);
+      const loaded = readImageFile(path).then(
+        (url) =>
+          new Promise((resolve) => {
+            this.addEventListener("load", resolve, { once: true });
+            this.addEventListener("error", resolve, { once: true });
+            nativeImageSrc.set.call(this, url);
+          }),
+        (e) => reportMissingImage(path, e.message ?? e),
+      );
+      pendingImages.add(loaded);
+      loaded.finally(() => pendingImages.delete(loaded));
+    },
+  });
+
+  async function readBinaryFile(path) {
+    const result = await request("tools/call", { name: "read_binary_file", arguments: { path } });
+    const block = result?.content?.[0];
+    if (result?.isError || block?.type !== "resource") throw new Error(block?.text ?? "no file data");
+    const bytes = Uint8Array.from(atob(block.resource.blob), (c) => c.charCodeAt(0));
+    return { bytes, mimeType: block.resource.mimeType };
+  }
+
+  async function readImageFile(path) {
+    const { bytes, mimeType } = await readBinaryFile(path);
+    return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+  }
+
+  function reportMissingImage(path, message) {
+    const li = document.createElement("li");
+    li.className = "warning";
+    li.textContent = `Couldn't load image ${path}: ${message}`;
+    diagnosticsEl.append(li);
+    reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
+  }
+
+  async function readSlintFile(path) {
+    const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
+    const text = result?.content?.[0]?.text ?? "";
+    if (result?.isError) throw new Error(text);
+    return text;
+  }
+
+  let instance = null;
+  let runtime = null;
+  async function render({ source, path, style }) {
+    let url = "main.slint";
+    let loadImport = null;
+    let loadResource = null;
+    if (path) {
+      showStatus(`Reading ${path}…`);
+      try {
+        source = await readSlintFile(path);
+      } catch (e) {
+        showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
+        reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
+        return;
+      }
+      url = toFileUrl(path);
+      // The interpreter reports only a string rejection as the import error.
+      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
+      // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
+      loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
+    }
+    const posixPath = path?.replaceAll("\\", "/");
+    const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";
+    const location = (d) => {
+      let file = d.fileName || url;
+      if (file.startsWith(FILE_SCHEME)) file = fromFileUrl(file);
+      if (baseDir && file.startsWith(baseDir)) file = file.slice(baseDir.length);
+      return `${file}:${d.lineNumber}:${d.columnNumber}`;
+    };
+
+    showStatus("Loading the Slint interpreter…");
+    const current = loadInterpreter();
+    let slint;
+    try {
+      slint = await untilPanic(current, current.slint);
+    } catch (e) {
+      if (e instanceof Panic) throw e;
+      if (current === interpreter) interpreter = null;
+      showStatus(`Couldn't load the Slint interpreter: ${e}`, "error");
+      reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
+      return;
+    }
+    runtime = await current.runtime;
+    showStatus("Compiling…");
+    const { component, diagnostics } = await untilPanic(
+      current,
+      style
+        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource)
+        : slint.compile_from_string(source, url, loadImport, loadResource),
+    );
+
+    diagnosticsEl.replaceChildren(...diagnostics.map((d) => {
+      const li = document.createElement("li");
+      li.className = LEVELS[d.level] ?? "";
+      li.textContent = `${location(d)}: ${LEVELS[d.level]}: ${d.message}`;
+      return li;
+    }));
+
+    const problems = diagnostics.filter((d) => d.level <= 1);
+    if (problems.length) {
+      reportToModel(
+        `The Slint preview, with ${runtime}, reported:\n` +
+          problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
+      );
+    }
+
+    if (!component) {
+      canvas.hidden = true;
+      showStatus("");
+      return;
+    }
+    canvas.hidden = false;
+    startMeasuring();
+    instance = await untilPanic(
+      current,
+      instance ? component.create_with_existing_window(instance) : component.create("preview"),
+    );
+    await untilPanic(current, instance.show());
+    await finishMeasuring();
+    showStatus("");
+  }
+
+  // Each preview_slint result names its preview, and each tool input renders the next one.
+  const previewIds = [];
+  const previewIdWaiters = [];
+  function receivePreviewId(result) {
+    const id = result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+    if (!id) return;
+    publish({ previewId: id, started: true });
+    const waiter = previewIdWaiters.shift();
+    waiter ? waiter(id) : previewIds.push(id);
+  }
+  function nextPreviewId() {
+    return previewIds.length ? Promise.resolve(previewIds.shift()) : new Promise((resolve) => previewIdWaiters.push(resolve));
+  }
+
+  function publish(args) {
+    request("tools/call", { name: "publish_preview_capture", arguments: args }).catch(() => {});
+  }
+
+  const MAX_CAPTURE_SIZE = 1500;
+  const SETTLE_MS = 500;
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function failureText() {
+    if (statusEl.className === "error") return statusEl.textContent;
+    if (!canvas.hidden) return null;
+    return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
+  }
+
+  function captureCanvas() {
+    const scale = Math.min(1, MAX_CAPTURE_SIZE / Math.max(canvas.width, canvas.height));
+    let image = canvas;
+    if (scale < 1) {
+      image = document.createElement("canvas");
+      image.width = Math.round(canvas.width * scale);
+      image.height = Math.round(canvas.height * scale);
+      image.getContext("2d").drawImage(canvas, 0, 0, image.width, image.height);
+    }
+    return { png: image.toDataURL("image/png").split(",")[1], width: image.width, height: image.height };
+  }
+
+  async function publishCapture(previewId) {
+    const error = failureText();
+    if (!error) {
+      await Promise.race([new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))), delay(1000)]);
+      await delay(SETTLE_MS);
+      // Slint requests images when it draws, and draws them again once they load.
+      while (pendingImages.size) {
+        await Promise.allSettled([...pendingImages]);
+        await delay(SETTLE_MS);
+      }
+    }
+    const capture = error ? { error } : captureCanvas();
+    publish({ previewId: await previewId, runtime: runtime ?? undefined, ...capture });
+  }
+
+  function reportToModel(text) {
+    request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
+  }
+
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent) return;
+    const message = event.data;
+    if (message?.jsonrpc !== "2.0") return;
+    if (message.id !== undefined && pending.has(message.id) && !message.method) {
+      const { resolve, reject } = pending.get(message.id);
+      pending.delete(message.id);
+      message.error ? reject(message.error) : resolve(message.result);
+      return;
+    }
+    switch (message.method) {
+      case "ui/notifications/tool-input": {
+        const args = message.params?.arguments ?? {};
+        const previewId = nextPreviewId();
+        render(args)
+          .catch((e) => {
+            if (e instanceof Panic) return;
+            if (e instanceof WebAssembly.RuntimeError) {
+              handlePanic(String(e));
+              return;
+            }
+            showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
+          })
+          .then(() => publishCapture(previewId));
+        break;
+      }
+      case "ui/notifications/tool-result":
+        receivePreviewId(message.params);
+        break;
+      case "ui/notifications/host-context-changed":
+        applyTheme(message.params);
+        break;
+      case "ui/resource-teardown":
+        post({ id: message.id, result: {} });
+        break;
+      default:
+        if (message.id !== undefined && message.method) {
+          post({ id: message.id, error: { code: -32601, message: `Method not found: ${message.method}` } });
+        }
+    }
+  });
+
+  const result = await request("ui/initialize", {
+    protocolVersion: "2026-01-26",
+    appInfo: { name: "Slint Preview", version: "1.0.0" },
+    appCapabilities: { availableDisplayModes: ["inline"] },
+  });
+  applyTheme(result?.hostContext);
+  notify("ui/notifications/initialized", {});
+</script>
+</body>
+</html>

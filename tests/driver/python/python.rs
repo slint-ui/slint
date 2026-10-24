@@ -8,6 +8,13 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
+/// The `ty` version that `api/python/slint` pins, so that a new `ty` release can't break the tests.
+static TY_VERSION: LazyLock<&str> = LazyLock::new(|| {
+    let pyproject = include_str!("../../../api/python/slint/pyproject.toml");
+    let (_, version) = pyproject.split_once("\"ty==").expect("pyproject.toml pins ty");
+    version.split('"').next().unwrap()
+});
+
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
@@ -19,7 +26,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .collect::<std::collections::HashMap<_, _>>();
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
+    let syntax_node = parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
+        &mut diag,
+    );
 
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Python);
     compiler_config.include_paths = include_paths;
@@ -27,7 +38,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
     if source.contains("//bundle-translations") {
-        compiler_config.translation_path_bundle =
+        compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
         compiler_config.translation_domain =
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
@@ -129,7 +140,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let o = std::process::Command::new("uvx")
         .arg("--python")
         .arg("3.12")
-        .arg("ty")
+        .arg(format!("ty@{}", *TY_VERSION))
         .arg("check")
         .arg(&python_file)
         .env("PYTHONPATH", PYTHON_PATH.clone())

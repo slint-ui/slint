@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 90phx;
+
+    source := TextInput {
+        y: 0phx;
+        width: 200phx;
+        height: 20phx;
+        font-family: "FixedTestFont";
+        font-size: 10px;
+        text: "Pasted";
+    }
+
+    editable := TextInput {
+        y: 30phx;
+        width: 200phx;
+        height: 20phx;
+        font-family: "FixedTestFont";
+        font-size: 10px;
+        text: "Hello";
+    }
+
+    read-only-input := TextInput {
+        y: 60phx;
+        width: 200phx;
+        height: 20phx;
+        font-family: "FixedTestFont";
+        font-size: 10px;
+        read-only: true;
+        text: "World";
+        edited => {
+            root.read-only-edited-count += 1;
+        }
+    }
+
+    out property <string> editable-text: editable.text;
+    out property <string> read-only-text: read-only-input.text;
+    out property <int> read-only-cursor: read-only-input.cursor-position-byte-offset;
+    out property <int> read-only-anchor: read-only-input.anchor-position-byte-offset;
+    out property <int> read-only-edited-count;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+let press_and_release = |x: f32, y: f32, button: PointerEventButton| {
+    let position = LogicalPosition::new(x, y);
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+};
+
+// Double-clicking a word selects it and copies it to the selection clipboard.
+press_and_release(10., 10., PointerEventButton::Left);
+press_and_release(10., 10., PointerEventButton::Left);
+slint_testing::mock_elapsed_time(1000);
+
+// A middle click pastes the selection clipboard into an editable input.
+press_and_release(150., 40., PointerEventButton::Middle);
+assert_eq!(instance.get_editable_text(), "HelloPasted");
+
+// A read-only input keeps its text and its cursor.
+press_and_release(150., 70., PointerEventButton::Middle);
+assert_eq!(instance.get_read_only_text(), "World");
+assert_eq!(instance.get_read_only_cursor(), 0);
+assert_eq!(instance.get_read_only_anchor(), 0);
+slint_testing::mock_elapsed_time(1000);
+
+// A selection in a read-only input survives a middle click.
+press_and_release(10., 70., PointerEventButton::Left);
+press_and_release(10., 70., PointerEventButton::Left);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_read_only_anchor(), 0);
+assert_eq!(instance.get_read_only_cursor(), 5);
+press_and_release(150., 70., PointerEventButton::Middle);
+assert_eq!(instance.get_read_only_text(), "World");
+assert_eq!(instance.get_read_only_anchor(), 0);
+assert_eq!(instance.get_read_only_cursor(), 5);
+assert_eq!(instance.get_read_only_edited_count(), 0);
+```
+*/

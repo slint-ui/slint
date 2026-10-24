@@ -16,11 +16,21 @@ pub struct LineBreakIterator<'a> {
 
 impl LineBreakIterator<'_> {
     pub fn new(text: &str) -> Self {
-        let iterator = unicode_linebreak::linebreaks(text).filter(|(offset, opportunity)| {
-            // unicode-linebreaks emits a mandatory break at the end of the text. We're not interested
-            // in that.
-            *offset != text.len() || !matches!(opportunity, BreakOpportunity::Mandatory)
+        // unicode-linebreaks emits a mandatory break at the end of the text, per UAX #14 rule LB3.
+        // That break is a separator's own when the text ends with one, and a line follows it.
+        let ends_on_break = text.chars().next_back().is_some_and(|c| {
+            use unicode_linebreak::BreakClass;
+            matches!(
+                unicode_linebreak::break_property(c as u32),
+                BreakClass::Mandatory
+                    | BreakClass::CarriageReturn
+                    | BreakClass::LineFeed
+                    | BreakClass::NextLine
+            )
         });
+        let text_len = text.len();
+        let iterator = unicode_linebreak::linebreaks(text)
+            .filter(move |(offset, _)| ends_on_break || *offset != text_len);
 
         Self { breaks: iterator.collect(), pos: 0, phantom: Default::default() }
     }

@@ -12,23 +12,20 @@ Both must be on `PATH`. If a tool reports it can't find `slint-lsp` or
 
 ## Prebuilt binaries (preferred)
 
-Released alongside every Slint release, downloadable without an API call from
-`https://github.com/slint-ui/slint/releases/latest/download/<file>` (pin a
-version with `…/releases/download/v<version>/<file>`). `<file>` is
-`slint-lsp-<target>` or `slint-viewer-<target>` with `<target>` one of:
+Download `https://github.com/slint-ui/slint/releases/latest/download/slint-<tool>-<suffix>`,
+where `<tool>` is `lsp` or `viewer` (pin a version with `…/releases/download/v<version>/…`).
+`<suffix>` and the archive layout:
 
-- `linux.tar.gz` (x86_64), `aarch64-unknown-linux-gnu.tar.gz`,
-  `armv7-unknown-linux-gnueabihf.tar.gz`
-- `macos.tar.gz`
-- `windows-x86_64.zip`, `windows-arm64.zip`
-
-Each archive extracts to a directory named after the tool with the binary
-inside; put that on `PATH`:
+- `x86_64-unknown-linux-gnu.tar.gz`, `universal-apple-darwin.tar.gz` (macOS): binary in `slint-<tool>/`
+- `aarch64-unknown-linux-gnu.tar.gz`, `armv7-unknown-linux-gnueabihf.tar.gz`: binary in `slint-<tool>-<suffix without .tar.gz>/`
+- `x86_64-pc-windows-msvc.zip`, `aarch64-pc-windows-msvc.zip`: `.exe` at the top level
 
 ```sh
-curl -fsSL https://github.com/slint-ui/slint/releases/latest/download/slint-viewer-linux.tar.gz | tar xz
+curl -fsSL https://github.com/slint-ui/slint/releases/latest/download/slint-viewer-x86_64-unknown-linux-gnu.tar.gz | tar xz
 install slint-viewer/slint-viewer ~/.local/bin/
 ```
+
+The prebuilt `slint-viewer` includes the `mcp` feature.
 
 On Debian/Ubuntu, install the runtime dependencies:
 
@@ -39,8 +36,8 @@ sudo apt install -y libx11-xcb1 libxkbcommon0 libinput10 libgbm1
 ## cargo install (requires Rust)
 
 ```sh
-cargo install slint-lsp
-cargo install slint-viewer --features mcp
+cargo install --locked slint-lsp
+cargo install --locked slint-viewer --features mcp
 ```
 
 Cargo places binaries in `$HOME/.cargo/bin`, which is on `PATH` when Rust was

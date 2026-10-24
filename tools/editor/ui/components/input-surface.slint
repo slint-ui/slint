@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, FieldStyle, PaintStyle } from "../style.slint";
+
+export component InputSurface inherits Rectangle {
+    in property <FieldStyle> style: Style.field;
+    in property <bool> enabled: true;
+    in property <bool> focused;
+    in property <bool> hovered;
+    in property <bool> framed: true;
+    in property <length> radius: root.style.radius;
+    out property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : root.focused ? root.style.appearance.focus
+        : root.hovered ? root.style.appearance.hover : root.style.appearance.normal;
+
+    height: root.style.height;
+    border-radius: root.radius;
+    background: root.framed ? root.border-color : transparent;
+    border-color: root.paint.border;
+    if root.framed: Rectangle {
+        x: root.style.border-width;
+        y: root.style.border-width;
+        width: parent.width - 2 * root.style.border-width;
+        height: parent.height - 2 * root.style.border-width;
+        border-radius: max(0px, root.radius - root.style.border-width);
+        background: root.paint.background;
+    }
+    @children
+}

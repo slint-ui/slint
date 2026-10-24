@@ -16,6 +16,8 @@ export component TestCase inherits TouchArea {
 
     // Test for #11148
     public function unused_arg(arg: string, arg2: length) { }
+    public function same_name_in_typescript(default: int, default_: int) { }
+    public function fallback_name_taken(arg_2: int, default: int, default_: int) { }
 }
 
 
@@ -31,6 +33,33 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 assert_eq(instance.invoke_fn1(Foo2{ Foo1{ 123 } }).b, 124);
+```
+
+```d.ts
+export interface Foo1 {
+    member: number;
+}
+
+export interface Foo2 {
+    a: Foo1;
+}
+
+export interface Foo3 {
+    b: number;
+}
+
+export interface TestCase {
+    fallback_name_taken: (arg_2: number, default_: number, arg_2_: number) => void;
+    fn1: (foo2: Foo2) => Foo3;
+    fn2: () => void;
+    same_name_in_typescript: (default_: number, arg_1: number) => void;
+    unused_arg: (arg: string, arg2: number) => void;
+}
+
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
+export declare function Foo1(properties?: Partial<Foo1>): Foo1;
+export declare function Foo2(properties?: Partial<Foo2>): Foo2;
+export declare function Foo3(properties?: Partial<Foo3>): Foo3;
 ```
 
 ```js

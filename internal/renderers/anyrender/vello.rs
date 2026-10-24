@@ -4,9 +4,9 @@
 //! [`SlintWindowRenderer`] implementation rendering through [`vello`] on WGPU.
 //!
 //! The WGPU instance, adapter, device and surface come from
-//! [`i_slint_core::graphics::wgpu_29`], the same initialization the FemtoVG
+//! [`i_slint_core::graphics::wgpu_30`], the same initialization the FemtoVG
 //! and Skia renderers use, so a device requested through
-//! `BackendSelector::require_wgpu_29()` is honored here too. Only the scene
+//! `BackendSelector::require_wgpu_30()` is honored here too. Only the scene
 //! recording is taken from [`anyrender_vello`]; its window renderer, which
 //! sets WGPU up on its own, is not used.
 //!
@@ -15,19 +15,22 @@
 //! [`suspend_window`](AnyrenderSlintRenderer::suspend_window) to attach it to
 //! a window from the windowing backend's event handling.
 
-// cSpell: ignore blitted blitter msaa readback Texel unpadded unpremultiplied winsys
+// cSpell: ignore blitted blitter blitters msaa readback Texel unpadded unpremultiplied winsys
 
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::sync::Arc;
 
 use anyrender::{WindowHandle, WindowRenderer};
 use anyrender_vello::VelloScenePainter;
 use i_slint_core::api::PhysicalSize;
-use i_slint_core::graphics::wgpu_29::wgpu;
-use i_slint_core::graphics::{RequestedGraphicsAPI, Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::graphics::wgpu_30::wgpu;
+use i_slint_core::graphics::{RequestedGraphicsAPI, Rgba8Pixel, SharedPixelBuffer, euclid};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::DrawOutcome;
 
-use crate::{AnyrenderSlintRenderer, SlintWindowRenderer};
+use crate::{AnyrenderSlintRenderer, SharedImageData, SlintWindowRenderer, TextureImporter};
 
 /// vello rasterizes with a compute pipeline into a storage texture, so frames
 /// are rendered into an intermediate texture of this format and blitted to the
@@ -77,13 +80,178 @@ impl TargetTexture {
     }
 }
 
+/// A region of a WGPU texture that a Slint image wraps, drawn through
+/// [`vello::Renderer::override_image`]: vello copies the region into its image
+/// atlas wherever a scene draws [`Self::image`].
+struct ImportedTexture {
+    /// Stands in for the region in the scene. Its blob is empty and only
+    /// identifies the override.
+    image: SharedImageData,
+    registered: bool,
+    used_in_frame: bool,
+}
+
+/// vello copies from the texture, which needs `COPY_SRC`. Textures imported
+/// into Slint aren't required to have it, so those are blitted into a copy
+/// that has it, once per frame.
+struct StagingTexture {
+    texture: wgpu::Texture,
+    source_view: wgpu::TextureView,
+    view: wgpu::TextureView,
+}
+
+type TextureRegion = euclid::default::Rect<u32>;
+
+/// The WGPU texture regions that are drawn or still referenced, see [`ImportedTexture`].
+#[derive(Default)]
+struct TextureImports {
+    textures: RefCell<HashMap<(wgpu::Texture, TextureRegion), ImportedTexture>>,
+    staging: RefCell<HashMap<wgpu::Texture, StagingTexture>>,
+    blitters: RefCell<HashMap<wgpu::TextureFormat, wgpu::util::TextureBlitter>>,
+}
+
+impl TextureImporter for TextureImports {
+    fn import_texture(
+        &self,
+        image: &i_slint_core::graphics::Image,
+        region: Option<TextureRegion>,
+    ) -> Option<SharedImageData> {
+        let texture = image.to_wgpu_30_texture()?;
+        // `Image::try_from()` only checks the format and usage. vello and the
+        // staging blit copy a single sample of a single 2D layer.
+        if texture.dimension() != wgpu::TextureDimension::D2
+            || texture.sample_count() != 1
+            || texture.depth_or_array_layers() != 1
+        {
+            return None;
+        }
+        let full = TextureRegion::from_size(euclid::default::Size2D::new(
+            texture.width(),
+            texture.height(),
+        ));
+        let region = region.unwrap_or(full);
+        if region.is_empty() || !full.contains_rect(&region) {
+            return None;
+        }
+        let mut textures = self.textures.borrow_mut();
+        let imported = textures.entry((texture, region)).or_insert_with(|| ImportedTexture {
+            image: Rc::new(peniko::ImageData {
+                data: peniko::Blob::new(Arc::new([])),
+                format: peniko::ImageFormat::Rgba8,
+                alpha_type: peniko::ImageAlphaType::Alpha,
+                width: region.width(),
+                height: region.height(),
+            }),
+            registered: false,
+            used_in_frame: false,
+        });
+        imported.used_in_frame = true;
+        Some(imported.image.clone())
+    }
+}
+
+impl TextureImports {
+    /// Make the texture regions imported while recording the frame available
+    /// to `renderer`, and release the ones that are neither drawn nor referenced.
+    fn prepare(&self, renderer: &mut vello::Renderer, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let mut textures = self.textures.borrow_mut();
+        textures.retain(|_, imported| {
+            let used_in_frame = std::mem::take(&mut imported.used_in_frame);
+            if !used_in_frame && Rc::strong_count(&imported.image) == 1 {
+                renderer.override_image(&imported.image, None);
+                return false;
+            }
+            true
+        });
+        // wgpu hashes and compares textures by ID.
+        #[allow(clippy::mutable_key_type)]
+        let used: HashSet<&wgpu::Texture> = textures.keys().map(|(texture, _)| texture).collect();
+        let mut staging = self.staging.borrow_mut();
+        staging.retain(|texture, _| used.contains(texture));
+
+        for (texture, _) in textures.keys() {
+            if texture.usage().contains(wgpu::TextureUsages::COPY_SRC)
+                || staging.contains_key(texture)
+            {
+                continue;
+            }
+            let staging_texture = device.create_texture(&wgpu::TextureDescriptor {
+                label: Some("slint vello texture import staging"),
+                size: wgpu::Extent3d {
+                    width: texture.width(),
+                    height: texture.height(),
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: texture.format(),
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                view_formats: &[],
+            });
+            staging.insert(
+                texture.clone(),
+                StagingTexture {
+                    source_view: texture.create_view(&wgpu::TextureViewDescriptor {
+                        mip_level_count: Some(1),
+                        ..Default::default()
+                    }),
+                    view: staging_texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                    texture: staging_texture,
+                },
+            );
+        }
+
+        for ((texture, region), imported) in textures.iter_mut() {
+            if imported.registered {
+                // The application may have rendered into the texture since the last frame.
+                renderer.mark_override_image_dirty(&imported.image);
+                continue;
+            }
+            let copy_source = staging.get(texture).map_or(texture, |staging| &staging.texture);
+            renderer.override_image(
+                &imported.image,
+                Some(wgpu::TexelCopyTextureInfoBase {
+                    texture: copy_source.clone(),
+                    mip_level: 0,
+                    origin: wgpu::Origin3d { x: region.origin.x, y: region.origin.y, z: 0 },
+                    aspect: wgpu::TextureAspect::All,
+                }),
+            );
+            imported.registered = true;
+        }
+
+        if staging.is_empty() {
+            return;
+        }
+        let mut blitters = self.blitters.borrow_mut();
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("slint vello texture import"),
+        });
+        for (texture, staging) in staging.iter() {
+            let blitter = blitters
+                .entry(texture.format())
+                .or_insert_with(|| wgpu::util::TextureBlitter::new(device, texture.format()));
+            blitter.copy(device, &mut encoder, &staging.source_view, &staging.view);
+        }
+        queue.submit(std::iter::once(encoder.finish()));
+    }
+
+    /// Forget which textures a frame drew, for a frame that failed before rendering.
+    fn discard_frame(&self) {
+        for imported in self.textures.borrow_mut().values_mut() {
+            imported.used_in_frame = false;
+        }
+    }
+}
+
 /// The WGPU objects and the vello renderer of a window that currently has a
 /// surface. Dropped when the window is suspended.
 struct ActiveState {
     /// Names the WGPU backend and adapter this surface ended up on, for
     /// `SLINT_DEBUG_PERFORMANCE` to report what is doing the rendering.
     winsys_info: String,
-    _instance: wgpu::Instance,
+    instance: wgpu::Instance,
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
@@ -92,6 +260,7 @@ struct ActiveState {
     target: TargetTexture,
     blitter: wgpu::util::TextureBlitter,
     renderer: vello::Renderer,
+    texture_imports: Rc<TextureImports>,
 }
 
 /// Renders Slint's scene with vello onto a WGPU surface.
@@ -101,9 +270,6 @@ pub struct VelloWindowRenderer {
     scene: vello::Scene,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     transparent: bool,
-    /// [`WindowRenderer::resume`] cannot report failures, so the error is kept
-    /// here for [`AnyrenderSlintRenderer::resume_window`] to return.
-    resume_error: Option<String>,
     pre_present_callback: Option<Box<dyn Fn()>>,
 }
 
@@ -114,7 +280,6 @@ impl VelloWindowRenderer {
             scene: vello::Scene::new(),
             requested_graphics_api: None,
             transparent: false,
-            resume_error: None,
             pre_present_callback: None,
         }
     }
@@ -148,31 +313,18 @@ impl VelloWindowRenderer {
         }
     }
 
-    /// Create the surface and everything derived from it, see
-    /// [`AnyrenderSlintRenderer::set_surface`].
-    pub(crate) fn set_state_from_surface_target(
-        &mut self,
-        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
-        width: u32,
-        height: u32,
-    ) -> Result<(), PlatformError> {
-        let state = self.create_state(surface_target, width, height)?;
-        self.state = Some(state);
-        self.resume_error = None;
-        Ok(())
-    }
-
     fn create_state(
-        &self,
-        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_30::SurfaceTarget>,
         width: u32,
         height: u32,
+        requested_graphics_api: Option<RequestedGraphicsAPI>,
+        transparent: bool,
     ) -> Result<ActiveState, String> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu_30::init_instance_adapter_device_queue_surface(
                 surface_target,
-                self.requested_graphics_api.clone(),
-                i_slint_core::graphics::wgpu_29::default_backends_to_avoid(),
+                requested_graphics_api,
+                i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )
             .map_err(|e| format!("Error initializing WGPU for vello rendering: {e}"))?;
 
@@ -203,7 +355,7 @@ impl VelloWindowRenderer {
         // The default `Opaque` discards the scene's alpha; pick a translucent
         // mode if offered. Metal (CAMetalLayer) only offers `PostMultiplied`,
         // so it must be a fallback - same choice as the FemtoVG renderer.
-        if self.transparent {
+        if transparent {
             use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
             if let Some(mode) = [PreMultiplied, PostMultiplied]
                 .into_iter()
@@ -229,13 +381,14 @@ impl VelloWindowRenderer {
             ),
             target: TargetTexture::new(&device, width.max(1), height.max(1)),
             blitter: wgpu::util::TextureBlitter::new(&device, surface_config.format),
-            _instance: instance,
+            instance,
             device,
             queue,
             surface,
             surface_config,
             alpha_modes: capabilities.alpha_modes,
             renderer,
+            texture_imports: Default::default(),
         })
     }
 }
@@ -247,6 +400,7 @@ impl VelloWindowRenderer {
 #[allow(clippy::too_many_arguments)]
 fn render_scene_to_target(
     scene: &mut vello::Scene,
+    texture_imports: &TextureImports,
     renderer: &mut vello::Renderer,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -257,7 +411,11 @@ fn render_scene_to_target(
     draw: impl FnOnce(&mut VelloScenePainter<'static, '_>) -> Result<(), PlatformError>,
 ) -> Result<(), PlatformError> {
     scene.reset();
-    draw(&mut VelloScenePainter::new(scene))?;
+    if let Err(error) = draw(&mut VelloScenePainter::new(scene)) {
+        texture_imports.discard_frame();
+        return Err(error);
+    }
+    texture_imports.prepare(renderer, device, queue);
 
     renderer
         .render_to_texture(
@@ -296,19 +454,16 @@ impl WindowRenderer for VelloWindowRenderer {
         height: u32,
         on_ready: F,
     ) {
-        let surface_target: i_slint_core::graphics::wgpu_29::SurfaceTarget =
-            (Box::new(window) as Box<dyn wgpu::DisplayAndWindowHandle>).into();
-
-        match self.create_state(surface_target, width, height) {
-            Ok(state) => {
-                self.state = Some(state);
-                self.resume_error = None;
-            }
-            Err(error) => {
-                self.state = None;
-                self.resume_error = Some(error);
-            }
-        }
+        drop(self.state.take());
+        self.state = Self::create_state(
+            window_surface_target(window),
+            width,
+            height,
+            self.requested_graphics_api.clone(),
+            self.transparent,
+        )
+        .map_err(|error| i_slint_core::debug_log!("{error}"))
+        .ok();
         on_ready();
     }
 
@@ -342,6 +497,7 @@ impl WindowRenderer for VelloWindowRenderer {
         let _ = self.slint_render(
             PhysicalSize::default(),
             peniko::color::palette::css::WHITE,
+            &mut |_| {},
             |scene| {
                 draw_fn(scene);
                 Ok(())
@@ -358,10 +514,26 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             .unwrap_or_else(|| "vello renderer on WGPU (no surface)".into())
     }
 
+    const PROVIDES_GRAPHICS_API: bool = true;
+
+    fn texture_importer(&self) -> Option<Rc<dyn TextureImporter>> {
+        Some(self.state.as_ref()?.texture_imports.clone())
+    }
+
+    fn graphics_api(&self) -> Option<i_slint_core::api::GraphicsAPI<'static>> {
+        let state = self.state.as_ref()?;
+        Some(i_slint_core::graphics::create_graphics_api_wgpu_30(
+            state.instance.clone(),
+            state.device.clone(),
+            state.queue.clone(),
+        ))
+    }
+
     fn slint_render<F>(
         &mut self,
         _surface_size: PhysicalSize,
         base_color: peniko::color::AlphaColor<peniko::color::Srgb>,
+        notify: &mut dyn FnMut(i_slint_core::api::RenderingState),
         draw: F,
     ) -> Result<DrawOutcome, PlatformError>
     where
@@ -379,6 +551,7 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             target,
             blitter,
             renderer,
+            texture_imports,
             ..
         }) = state
         else {
@@ -418,8 +591,10 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             }
         };
 
-        render_scene_to_target(
+        notify(i_slint_core::api::RenderingState::BeforeRendering);
+        let rendered = render_scene_to_target(
             scene,
+            texture_imports,
             renderer,
             device,
             queue,
@@ -428,23 +603,26 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             height,
             base_color,
             draw,
-        )?;
-
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("slint vello surface blit"),
-        });
-        blitter.copy(
-            device,
-            &mut encoder,
-            &target.view,
-            &surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default()),
         );
-        queue.submit(std::iter::once(encoder.finish()));
+        if rendered.is_ok() {
+            let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("slint vello surface blit"),
+            });
+            blitter.copy(
+                device,
+                &mut encoder,
+                &target.view,
+                &surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            );
+            queue.submit(std::iter::once(encoder.finish()));
+        }
+        rendered?;
+        notify(i_slint_core::api::RenderingState::AfterRendering);
 
         if let Some(callback) = pre_present_callback {
             callback();
         }
-        surface_texture.present();
+        queue.present(surface_texture);
 
         Ok(DrawOutcome::Success)
     }
@@ -464,7 +642,7 @@ impl SlintWindowRenderer for VelloWindowRenderer {
         F: FnOnce(&mut Self::ScenePainter<'_>) -> Result<(), PlatformError>,
     {
         let Self { state, scene, .. } = self;
-        let Some(ActiveState { device, queue, renderer, .. }) = state else {
+        let Some(ActiveState { device, queue, renderer, texture_imports, .. }) = state else {
             return Err("take_snapshot requires the vello renderer to have a window".into());
         };
         let (width, height) = (surface_size.width.max(1), surface_size.height.max(1));
@@ -482,7 +660,16 @@ impl SlintWindowRenderer for VelloWindowRenderer {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         render_scene_to_target(
-            scene, renderer, device, queue, &view, width, height, base_color, draw,
+            scene,
+            texture_imports,
+            renderer,
+            device,
+            queue,
+            &view,
+            width,
+            height,
+            base_color,
+            draw,
         )?;
 
         let unpadded_bytes_per_row = width * 4;
@@ -527,7 +714,9 @@ impl SlintWindowRenderer for VelloWindowRenderer {
             .map_err(|e| format!("take_snapshot: map_async callback was not delivered: {e}"))?
             .map_err(|e| format!("take_snapshot: map_async failed: {e}"))?;
 
-        let mapped = slice.get_mapped_range();
+        let mapped = slice
+            .get_mapped_range()
+            .map_err(|e| format!("take_snapshot: mapping the readback buffer failed: {e}"))?;
         let mut pixels = SharedPixelBuffer::<Rgba8Pixel>::new(width, height);
         let destination = pixels.make_mut_bytes();
         for (row_index, source_row) in mapped.chunks(bytes_per_row as usize).enumerate() {
@@ -557,6 +746,12 @@ fn unpremultiply_rgba(buffer: &mut [u8]) {
     }
 }
 
+fn window_surface_target(
+    window: Arc<dyn WindowHandle>,
+) -> i_slint_core::graphics::wgpu_30::SurfaceTarget {
+    (Box::new(window) as Box<dyn wgpu::DisplayAndWindowHandle>).into()
+}
+
 impl AnyrenderSlintRenderer<VelloWindowRenderer> {
     /// Create a Slint renderer that renders through vello on WGPU. It starts
     /// out suspended; call [`Self::resume_window`] to attach it to a window.
@@ -564,17 +759,20 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
         Self::with_window_renderer(VelloWindowRenderer::new())
     }
 
-    /// Create the WGPU surface for `window` and make the renderer ready to
-    /// present frames of `width` x `height` physical pixels. `transparent`
-    /// selects whether the surface is composited with an alpha channel, and
-    /// `requested_graphics_api` carries an application supplied WGPU
-    /// configuration, if any.
     /// Adjusts the surface for a window that became transparent or opaque after it was
     /// created, so that the scene's alpha is kept or discarded to match.
     pub fn set_transparent(&self, transparent: bool) {
         self.window_renderer().set_transparent(transparent);
     }
 
+    /// Create the WGPU surface for `window` and make the renderer ready to
+    /// present frames of `width` x `height` physical pixels. `transparent`
+    /// selects whether the surface is composited with an alpha channel, and
+    /// `requested_graphics_api` carries an application supplied WGPU
+    /// configuration, if any.
+    ///
+    /// Any previous surface is released first. On error, the renderer has no
+    /// surface until the next successful call.
     pub fn resume_window<W: WindowHandle + 'static>(
         &self,
         window: Arc<W>,
@@ -583,46 +781,38 @@ impl AnyrenderSlintRenderer<VelloWindowRenderer> {
         transparent: bool,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), PlatformError> {
-        let mut window_renderer = self.window_renderer();
-        window_renderer.set_transparent(transparent);
-        window_renderer.set_requested_graphics_api(requested_graphics_api);
-        window_renderer.resume(window as Arc<dyn WindowHandle>, width, height, || {});
-        if window_renderer.complete_resume() {
-            drop(window_renderer);
-            self.reset_metrics_collector();
-            Ok(())
-        } else {
-            Err(window_renderer
-                .resume_error
-                .take()
-                .unwrap_or_else(|| "the vello renderer did not become active".to_string())
-                .into())
-        }
+        self.window_renderer().transparent = transparent;
+        self.set_surface(window_surface_target(window), width, height, requested_graphics_api)
     }
 
     /// Render to `surface_target` directly, for windowing systems that hand
     /// out a WGPU surface target rather than a window handle - linuxkms, which
     /// renders to a DRM plane.
+    ///
+    /// Any previous surface is released first. On error, the renderer has no
+    /// surface until the next successful call.
     pub fn set_surface(
         &self,
-        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_30::SurfaceTarget>,
         width: u32,
         height: u32,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), PlatformError> {
+        self.suspend_window();
+        // Cached images may refer to textures imported for the released surface.
+        self.item_image_cache.clear_all();
         let mut window_renderer = self.window_renderer();
         window_renderer.set_requested_graphics_api(requested_graphics_api);
-        window_renderer.set_state_from_surface_target(surface_target, width, height)?;
+        window_renderer.state = Some(VelloWindowRenderer::create_state(
+            surface_target,
+            width,
+            height,
+            window_renderer.requested_graphics_api.clone(),
+            window_renderer.transparent,
+        )?);
         drop(window_renderer);
         self.reset_metrics_collector();
         Ok(())
-    }
-
-    /// Release the WGPU surface, for example when the windowing system takes
-    /// the window away. Rendering is skipped until the next
-    /// [`Self::resume_window`].
-    pub fn suspend_window(&self) {
-        self.window_renderer().suspend();
     }
 
     /// Set the callback invoked right before a frame is presented.

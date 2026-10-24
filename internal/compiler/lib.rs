@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore inlines namedreference pathutils
+// cSpell: ignore inlines namedreference
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -18,11 +18,15 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 mod builtin_elements;
+#[macro_use]
+pub mod builtin_functions;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
+pub mod element_type;
 pub mod embedded_resources;
 pub mod expression_tree;
+pub mod expression_types;
 pub mod fileaccess;
 pub mod generator;
 pub mod langtype;
@@ -32,9 +36,13 @@ pub mod literals;
 pub mod llr;
 pub mod lookup;
 pub mod namedreference;
+pub mod names;
+pub mod native_class;
 pub mod object_tree;
 pub mod parser;
-pub mod pathutils;
+pub mod project_file;
+pub mod property_analysis;
+pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
@@ -44,10 +52,10 @@ pub mod typeregister;
 pub mod passes;
 
 use crate::generator::OutputFormat;
-use std::path::Path;
+use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EmbedResourcesKind {
     /// Embeds nothing (only useful for interpreter)
     Nothing,
@@ -73,7 +81,7 @@ pub enum EmbedResourcesKind {
 
 /// This enum specifies the default translation context when no context is explicitly
 /// specified in the `@tr("context" => ...)` macro.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum DefaultTranslationContext {
     /// The default translation context is the component name in which the `@tr` is written.
@@ -106,6 +114,11 @@ pub enum ComponentSelection {
 
     /// The component with the given name is generated
     Named(String),
+
+    /// All exported components, regardless if they inherit Window or not
+    ///
+    /// A document that exports no component, such as a library of globals, is valid.
+    AllExported,
 }
 
 /// Type alias for the callback to open files mentioned in `import` statements
@@ -113,12 +126,12 @@ pub enum ComponentSelection {
 /// This is a dyn-compatible version of:
 ///
 /// ```ignore
-/// async fn(String) -> Option<std::io::Result<String>>
+/// async fn(SourcePath) -> Option<std::io::Result<String>>
 /// ```
 ///
 /// Unfortunately AsyncFn is not dyn-compatible yet.
 pub type OpenImportCallback =
-    Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
+    Rc<dyn Fn(SourcePath) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
 pub type ResourceUrlMapper =
     Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
@@ -170,11 +183,18 @@ pub struct CompilerConfiguration {
     /// Add support for experimental features
     pub enable_experimental: bool,
 
+    /// The Slint release whose language behavior to use. `None` keeps the behavior from
+    /// before editions existed.
+    pub edition: Option<project_file::SlintEdition>,
+
+    /// An invalid `SLINT_EDITION`, which the compilation reports as an error.
+    invalid_edition_env: Option<String>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
     #[cfg(feature = "bundle-translations")]
-    pub translation_path_bundle: Option<std::path::PathBuf>,
+    pub bundled_translations_path: Option<std::path::PathBuf>,
     /// Default translation context
     pub default_translation_context: DefaultTranslationContext,
 
@@ -207,6 +227,10 @@ pub struct CompilerConfiguration {
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
 
+    /// The project directory that a tool was given as input.
+    /// Generated Python code loads it at run time so that run time applies the same project file.
+    pub input_project_directory: Option<std::path::PathBuf>,
+
     /// Set automatically when the output format is `SlintSc`.
     /// The compiler rejects all features not supported by the
     /// safety-critical subset.
@@ -220,6 +244,24 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// Whether an `if`/`for` child counts toward the size of a non-layout parent (#407).
+    pub fn repeated_children_constrain_parent(&self) -> bool {
+        self.edition.is_some_and(|version| version >= project_file::SlintEdition::V1_19)
+    }
+
+    /// The absolute path of the directory the translations are bundled from, if any.
+    pub fn absolute_bundled_translations_path(&self) -> Option<String> {
+        #[cfg(feature = "bundle-translations")]
+        return self.bundled_translations_path.as_ref().map(|path| {
+            std::path::absolute(path)
+                .unwrap_or_else(|_| path.clone())
+                .to_string_lossy()
+                .into_owned()
+        });
+        #[cfg(not(feature = "bundle-translations"))]
+        return None;
+    }
+
     pub fn new(output_format: OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
@@ -279,6 +321,15 @@ impl CompilerConfiguration {
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
+        // Undocumented. Selects an edition without a project file,
+        // for the test drivers or to try a `.slint` file in slint-viewer.
+        let (edition, invalid_edition_env) = match std::env::var("SLINT_EDITION")
+            .map_or(Ok(None), |value| edition_from_env(&value))
+        {
+            Ok(edition) => (edition, None),
+            Err(message) => (None, Some(message)),
+        };
+
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
         #[cfg(feature = "slint-sc")]
@@ -307,6 +358,8 @@ impl CompilerConfiguration {
             const_image_sizes,
             accessibility: true,
             enable_experimental,
+            edition,
+            invalid_edition_env,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -319,15 +372,30 @@ impl CompilerConfiguration {
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
-            translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
+            bundled_translations_path: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
                 .ok()
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            input_project_directory: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,
         }
+    }
+}
+
+fn edition_from_env(value: &str) -> Result<Option<project_file::SlintEdition>, String> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let current = project_file::SlintEdition::current();
+    match value.parse() {
+        Ok(edition) if edition > current => Err(format!(
+            "SLINT_EDITION is {edition}, newer than this Slint {current}: set it to {current} or older"
+        )),
+        Ok(edition) => Ok(Some(edition)),
+        Err(message) => Err(format!("SLINT_EDITION: {message}")),
     }
 }
 
@@ -346,6 +414,10 @@ fn prepare_for_compile(
     }
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
+    // Not a panic, which would crash the LSP.
+    if let Some(message) = &compiler_config.invalid_edition_env {
+        diagnostics.push_error_with_span(message.clone(), Default::default());
+    }
     #[cfg(feature = "slint-sc")]
     {
         diagnostics.slint_sc = compiler_config.slint_sc;
@@ -391,47 +463,34 @@ pub async fn compile_syntax_node(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
+/// `TypeLoader` with all compilation passes applied.
 pub async fn load_root_file(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, _) =
-        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
-
-    (path, diagnostics, loader)
+    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
+    (diagnostics, loader)
 }
 
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes, just like `load_root_file`.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics`, a `TypeLoader` with all compilation passes
-/// applied and another `TypeLoader` with a minimal set of passes applied to it.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and another `TypeLoader` with a minimal
+/// set of passes applied to it.
 pub async fn load_root_file_with_raw_type_loader(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (
-    std::path::PathBuf,
-    diagnostics::BuildDiagnostics,
-    typeloader::TypeLoader,
-    Option<typeloader::TypeLoader>,
-) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, raw_type_loader) =
-        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
-
-    (path, diagnostics, loader, raw_type_loader)
+    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    (diagnostics, loader, raw_type_loader)
 }
 
 /// Returns true and emits an error if experimental features should be disabled.
@@ -449,5 +508,30 @@ fn reject_experimental_feature(
         true
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{edition_from_env, project_file::SlintEdition};
+
+    #[test]
+    fn slint_edition_variable_selects_the_edition() {
+        assert_eq!(edition_from_env("1.19"), Ok(Some(SlintEdition::V1_19)));
+        assert_eq!(edition_from_env(""), Ok(None));
+    }
+
+    #[test]
+    fn an_invalid_slint_edition_variable_is_an_error() {
+        assert!(
+            edition_from_env("1.19.0")
+                .unwrap_err()
+                .starts_with("SLINT_EDITION: '1.19.0' is not a Slint edition")
+        );
+        assert!(
+            edition_from_env("999.0")
+                .unwrap_err()
+                .starts_with("SLINT_EDITION is 999.0, newer than this Slint")
+        );
     }
 }

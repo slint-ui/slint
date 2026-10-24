@@ -9,12 +9,10 @@ use std::{
 };
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_live_preview::protocol::{
     LspToPreview, LspToPreviewMessage, PreviewTarget, SourceFileVersion,
 };
-
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
 
 async fn parse_source(
     include_paths: Vec<PathBuf>,
@@ -24,7 +22,7 @@ async fn parse_source(
     style: String,
     enable_experimental: bool,
     file_loader_fallback: impl Fn(
-        &Path,
+        SourcePath,
     ) -> core::pin::Pin<
         Box<
             dyn core::future::Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>,
@@ -34,23 +32,21 @@ async fn parse_source(
     let config = {
         let mut tmp = crate::document_cache::CompilerConfiguration::default();
         if !style.is_empty() {
-            tmp.style = Some(style);
+            tmp.compiler_config.style = Some(style);
         }
-        tmp.include_paths = include_paths;
-        tmp.library_paths = library_paths;
-        tmp.enable_experimental |= enable_experimental;
-        tmp.open_import_callback = Some(Rc::new(move |path| {
-            let path = PathBuf::from(&path);
-            file_loader_fallback(&path)
-        }));
+        tmp.compiler_config.include_paths = include_paths;
+        tmp.compiler_config.library_paths = library_paths;
+        tmp.compiler_config.enable_experimental |= enable_experimental;
+        tmp.open_import_callback = Some(Rc::new(file_loader_fallback));
         // The preview's resource URL mapper is installed by the wasm application at
         // runtime, so it was never set when this fixture ran.
-        tmp.resource_url_mapper = None;
+        tmp.compiler_config.resource_url_mapper = None;
         tmp
     };
 
     let mut document_cache = crate::DocumentCache::new(config);
     let mut diag = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+    diag.enable_experimental = enable_experimental;
 
     document_cache.load_url(&url, None, source_code, &mut diag).await.unwrap();
 
@@ -63,12 +59,12 @@ pub fn test_file_prefix() -> PathBuf {
     #[cfg(not(windows))]
     return std::path::PathBuf::from("/");
 }
-pub fn main_test_file_name() -> PathBuf {
+pub fn main_test_file_name() -> SourcePath {
     test_file_name("test_data.slint")
 }
 
-pub fn test_file_name(name: &str) -> PathBuf {
-    test_file_prefix().join(name)
+pub fn test_file_name(name: &str) -> SourcePath {
+    SourcePath::File(test_file_prefix().join(name))
 }
 
 pub type CapturedPreviewMessages = Rc<RefCell<Vec<LspToPreviewMessage>>>;
@@ -115,6 +111,25 @@ pub fn compile_test_with_sources_experimental(
     recompile_test_with_sources(style, code, allow_warnings, true)
 }
 
+#[track_caller]
+pub fn recompile_test_with_edits(
+    document_cache: &crate::DocumentCache,
+    edited: &[crate::editing::text_edit::EditedText],
+    allow_warnings: bool,
+) -> crate::DocumentCache {
+    let mut code: HashMap<lsp_types::Url, String> = document_cache
+        .all_url_documents()
+        .map(|(url, document)| (url, document.source_file.source().unwrap().to_string()))
+        .collect();
+    for edited_text in edited {
+        code.insert(edited_text.url.clone(), edited_text.contents.clone());
+    }
+    let enable_experimental =
+        document_cache.compiler_configuration().compiler_config.enable_experimental;
+    recompile_test_with_sources("fluent", code, allow_warnings, enable_experimental)
+}
+
+#[track_caller]
 pub fn recompile_test_with_sources(
     style: &str,
     code: HashMap<lsp_types::Url, String>,
@@ -123,7 +138,7 @@ pub fn recompile_test_with_sources(
 ) -> crate::DocumentCache {
     let code = Rc::new(code);
 
-    let url = lsp_types::Url::from_file_path(main_test_file_name()).unwrap();
+    let url = main_test_file_name().to_url().unwrap();
     let source_code = code.get(&url).unwrap().clone();
     let (diagnostics, type_loader) = spin_on::spin_on(parse_source(
         Vec::new(),
@@ -134,10 +149,10 @@ pub fn recompile_test_with_sources(
         enable_experimental,
         move |path| {
             let code = code.clone();
-            let url = lsp_types::Url::from_file_path(path);
+            let url = path.to_url();
 
             Box::pin(async move {
-                if let Ok(url) = url {
+                if let Some(url) = url {
                     let Some(source) = code.get(&url) else {
                         return Some(Result::Err(std::io::Error::new(
                             std::io::ErrorKind::NotFound,
@@ -159,9 +174,9 @@ pub fn recompile_test_with_sources(
     for d in diagnostics.iter() {
         tracing::debug!("    {:?}: {d}", d.level());
     }
-    assert!(!diagnostics.has_errors());
+    assert!(!diagnostics.has_errors(), "{:#?}", diagnostics.to_string_vec());
     if !allow_warnings {
-        assert!(diagnostics.is_empty());
+        assert!(diagnostics.is_empty(), "{:#?}", diagnostics.to_string_vec());
     }
 
     type_loader
@@ -170,7 +185,12 @@ pub fn recompile_test_with_sources(
 /// Create an empty `DocumentCache`
 pub fn empty_document_cache() -> crate::DocumentCache {
     let config = crate::document_cache::CompilerConfiguration {
-        style: Some("fluent".to_string()),
+        compiler_config: {
+            let mut compiler_config =
+                crate::document_cache::CompilerConfiguration::default().compiler_config;
+            compiler_config.style = Some("fluent".to_string());
+            compiler_config
+        },
         ..Default::default()
     };
     crate::DocumentCache::new(config)
@@ -179,8 +199,13 @@ pub fn empty_document_cache() -> crate::DocumentCache {
 /// Create an empty `DocumentCache` with experimental features enabled.
 pub fn empty_document_cache_with_experimental() -> crate::DocumentCache {
     let config = crate::document_cache::CompilerConfiguration {
-        style: Some("fluent".to_string()),
-        enable_experimental: true,
+        compiler_config: {
+            let mut compiler_config =
+                crate::document_cache::CompilerConfiguration::default().compiler_config;
+            compiler_config.style = Some("fluent".to_string());
+            compiler_config.enable_experimental = true;
+            compiler_config
+        },
         ..Default::default()
     };
     crate::DocumentCache::new(config)
@@ -188,17 +213,10 @@ pub fn empty_document_cache_with_experimental() -> crate::DocumentCache {
 
 /// Create an `EditorSession` around `document_cache` that sends nowhere.
 pub fn session_with(document_cache: crate::DocumentCache) -> crate::EditorSession {
-    crate::EditorSession {
+    crate::EditorSession::new(
         document_cache,
-        preview_config: Default::default(),
-        open_urls: Default::default(),
-        previews: vec![crate::PreviewConnection {
-            to_preview: crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: None,
-        }],
-        pending_recompile: Default::default(),
-    }
+        crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
+    )
 }
 
 /// Create a `DocumentCache` with one document loaded into it.
@@ -234,7 +252,7 @@ fn load_content_with_document_cache(
     } else {
         format!("/foo/{file_name}")
     };
-    let url = lsp_types::Url::from_file_path(dummy_absolute_path).unwrap();
+    let url = SourcePath::new(dummy_absolute_path).to_url().unwrap();
     let mut session = session_with(document_cache);
     let (extra_files, diag) =
         spin_on::spin_on(session.load_document_impl(content, url.clone(), Some(42)));
@@ -312,7 +330,7 @@ pub fn load(
     path: &Path,
     content: &str,
 ) -> (lsp_types::Url, HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>>) {
-    let url = lsp_types::Url::from_file_path(path).unwrap();
+    let url = SourcePath::new(path).to_url().unwrap();
 
     let (main_file, diag) =
         spin_on::spin_on(session.load_document_impl(content.into(), url.clone(), Some(1)));

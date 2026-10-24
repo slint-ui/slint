@@ -7,8 +7,9 @@
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
-use crate::langtype::ElementType;
-use crate::object_tree::{Component, Document, ExportedName, PropertyVisibility};
+use crate::element_type::ElementType;
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::{Component, Document, ExportedName};
 use crate::{CompilerConfiguration, ComponentSelection};
 use itertools::Either;
 
@@ -19,7 +20,12 @@ pub fn check_public_api(
 ) {
     let last = doc.last_exported_component();
 
-    if last.is_none() && !matches!(&config.components_to_generate, ComponentSelection::Named(_)) {
+    if last.is_none()
+        && !matches!(
+            &config.components_to_generate,
+            ComponentSelection::Named(_) | ComponentSelection::AllExported
+        )
+    {
         let last_imported = doc
             .node
             .as_ref()
@@ -65,6 +71,7 @@ pub fn check_public_api(
                 }
             true
         }),
+        ComponentSelection::AllExported => {}
         // Only keep the last component if there is one
         ComponentSelection::LastExported => doc.exports.retain(|export| {
             if let Either::Left(c) = &export.1 {
@@ -73,11 +80,17 @@ pub fn check_public_api(
                 true
             }
         }),
-        // Only keep the component with the given name
+        // Only keep the component with the given name, which may be one it is exported under
         ComponentSelection::Named(name) => {
+            let selected = doc.exports.iter().find_map(|(export_name, item)| match item {
+                Either::Left(c) if !c.is_global() && (c.id == *name || export_name.name == *name) => {
+                    Some(c.clone())
+                }
+                _ => None,
+            });
             doc.exports.retain(|export| {
                 if let Either::Left(c) = &export.1 {
-                    c.is_global() || c.id == name
+                    c.is_global() || selected.as_ref().is_some_and(|s| Rc::ptr_eq(s, c))
                 } else {
                     true
                 }
@@ -113,7 +126,7 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
     let mut root_elem = root_component.root_element.borrow_mut();
     let root_elem = &mut *root_elem;
     let mut pa = root_elem.property_analysis.borrow_mut();
-    root_elem.property_declarations.iter_mut().for_each(|(n, d)| {
+    root_elem.property_declarations.iter_mut().filter(|(_, d)| !d.synthesized).for_each(|(n, d)| {
         if d.property_type.ok_for_public_api() {
             if d.visibility == PropertyVisibility::Private {
                 root_component.private_properties.borrow_mut().push((d.declared_name(n).clone(), d.property_type.clone()));
@@ -131,4 +144,53 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
             );
         }
     });
+}
+
+#[test]
+fn component_selected_by_either_of_its_names() {
+    fn selected(name: &str) -> Option<smol_str::SmolStr> {
+        let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        config.components_to_generate = ComponentSelection::Named(name.into());
+        let mut diags = BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            "component Foo inherits Window { } export { Foo as Bob }".into(),
+            Some(crate::source_path::SourcePath::new("test.slint")),
+            &mut diags,
+        );
+        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        assert!(!diag.has_errors(), "{:#?}", diag.to_string_vec());
+        doc.last_exported_component().map(|c| c.id.clone())
+    }
+
+    assert_eq!(selected("Foo").as_deref(), Some("Foo"));
+    assert_eq!(selected("Bob").as_deref(), Some("Foo"));
+}
+
+#[test]
+fn synthesized_properties_stay_out_of_public_api() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    config.enable_experimental = true;
+    let mut diags = BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+export component Foo {
+    in-out property <bool> cond;
+    property <int> hidden;
+    match cond {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+}"#
+        .into(),
+        Some(crate::source_path::SourcePath::new("test.slint")),
+        &mut diags,
+    );
+    let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+    assert!(!diag.has_errors(), "{:#?}", diag.to_string_vec());
+    let component = doc.last_exported_component().unwrap();
+    let private_names: Vec<_> =
+        component.private_properties.borrow().iter().map(|(n, _)| n.clone()).collect();
+    assert_eq!(private_names, ["hidden"]);
 }

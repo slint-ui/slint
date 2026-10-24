@@ -7,22 +7,25 @@
 //! layout info expressions and `init_code` blocks.
 //! Resolves `MemberReference`s by walking the sub-component parent chain.
 
-use crate::Value;
 use crate::globals::{GlobalInstance, GlobalStorage};
-use crate::instance::SubComponentInstance;
+use crate::instance::{RepeaterOrConditional, SubComponentInstance};
+use crate::prelude::*;
+use alloc::rc::Weak;
+use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::diagnostics::SourceLocation;
-use i_slint_compiler::expression_tree::{BuiltinFunction, MinMaxOp};
+use i_slint_compiler::expression_types::MinMaxOp;
 use i_slint_compiler::langtype::{ConstantExpression, Type};
-use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference};
+use i_slint_compiler::llr::{
+    self, Expression, LocalMemberIndex, MemberReference, RadialGradientShape,
+};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
+use i_slint_core::item_tree::ItemRc;
+use i_slint_core::items::ScrollBehavior;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector};
-use smol_str::SmolStr;
-use std::collections::HashMap;
-use std::pin::Pin;
-use std::rc::{Rc, Weak};
 
 /// Dynamic context for one expression evaluation.
 pub struct EvalContext {
@@ -88,9 +91,7 @@ impl EvalContext {
 
 /// The root instance, for builtins that need the window.
 /// In a global context, reach it through the global storage.
-fn root_instance(
-    ctx: &EvalContext,
-) -> Option<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>> {
+fn root_instance(ctx: &EvalContext) -> Option<VRc<ItemTreeVTable, Instance>> {
     match ctx.current.as_ref() {
         Some(c) => c.root.get()?.upgrade(),
         None => ctx.globals.upgrade()?.root.get()?.upgrade(),
@@ -114,6 +115,8 @@ pub(crate) fn try_walk_parent(
 }
 
 /// Walk `parent_level` steps up the parent chain.
+///
+/// Only for instantiation, where the chain is still alive; evaluation uses [`try_walk_parent`].
 pub(crate) fn walk_parent(
     start: &Pin<Rc<SubComponentInstance>>,
     level: usize,
@@ -133,7 +136,9 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                     // The stored `Type::Callback` — `Expression::ty()`'s
                     // CallBackCall arm extracts the return type from it.
                     LocalMemberIndex::Callback(idx) => &g.callbacks[*idx].ty,
-                    LocalMemberIndex::Native { .. } | LocalMemberIndex::Timer(_) => &Type::Invalid,
+                    LocalMemberIndex::Native { .. }
+                    | LocalMemberIndex::Timer(_)
+                    | LocalMemberIndex::Repeater(_) => &Type::Invalid,
                 }
             }
             MemberReference::Relative { parent_level, local_reference } => {
@@ -142,7 +147,9 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                 // The `Type` values live in the shared `CompilationUnit`, so
                 // resolve the target sub-component index through the runtime
                 // parent chain and borrow from `cu`.
-                let sub = walk_parent(current, *parent_level);
+                let Some(sub) = try_walk_parent(current, *parent_level) else {
+                    return &Type::Invalid;
+                };
                 let mut sc_idx = sub.sub_component_idx;
                 for i in &local_reference.sub_component_path {
                     sc_idx = cu.sub_components[sc_idx].sub_components[*i].ty;
@@ -154,6 +161,8 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                     LocalMemberIndex::Callback(idx) => &sc.callbacks[*idx].ty,
                     // A timer reference is only valid as the RestartTimer argument.
                     LocalMemberIndex::Timer(_) => &Type::Invalid,
+                    // A repeater reference is only valid as the ListViewEnsureRowVisible argument.
+                    LocalMemberIndex::Repeater(_) => &Type::Invalid,
                     LocalMemberIndex::Native { item_index, prop_name, .. } => {
                         if prop_name == "elements" {
                             // The `Path::elements` property is not in the NativeClass
@@ -192,21 +201,10 @@ pub(crate) fn walk_sub_path(
 pub(crate) fn try_walk_to(
     ctx: &EvalContext,
     parent_level: usize,
-    path: &[llr::SubComponentInstanceIdx],
+    local_reference: &llr::LocalMemberReference,
 ) -> Option<Pin<Rc<SubComponentInstance>>> {
-    Some(walk_sub_path(try_walk_parent(ctx.current.as_ref()?, parent_level)?, path))
-}
-
-/// Walk to the sub-component that owns `local`.
-///
-/// Panics if `ctx.current` is unset; the caller must check beforehand.
-pub(crate) fn walk_to(
-    ctx: &EvalContext,
-    parent_level: usize,
-    path: &[llr::SubComponentInstanceIdx],
-) -> Pin<Rc<SubComponentInstance>> {
-    let start = ctx.current.as_ref().expect("relative member reference without a sub-component");
-    walk_sub_path(walk_parent(start, parent_level), path)
+    let base = try_walk_parent(ctx.current.as_ref()?, parent_level)?;
+    Some(walk_sub_path(base, &local_reference.sub_component_path))
 }
 
 /// Flat tree index of the `item_table` entry matching `(path, item_index)`.
@@ -231,8 +229,9 @@ fn load_local(instance: &SubComponentInstance, member: &LocalMemberIndex) -> Val
         }
         LocalMemberIndex::Callback(_)
         | LocalMemberIndex::Function(_)
-        | LocalMemberIndex::Timer(_) => {
-            panic!("load_local called on callback/function/timer reference")
+        | LocalMemberIndex::Timer(_)
+        | LocalMemberIndex::Repeater(_) => {
+            panic!("load_local called on callback/function/timer/repeater reference")
         }
     }
 }
@@ -263,7 +262,7 @@ fn eval_array_row_predicate(
 
 /// Set `value` on `prop`, interpolating through `animation` when present.
 fn set_maybe_animated(
-    prop: Pin<&i_slint_core::Property<Value>>,
+    prop: Pin<&Property<Value>>,
     ty: &Type,
     value: Value,
     animation: Option<i_slint_core::items::PropertyAnimation>,
@@ -299,8 +298,9 @@ fn store_local(
         }
         LocalMemberIndex::Callback(_)
         | LocalMemberIndex::Function(_)
+        | LocalMemberIndex::Repeater(_)
         | LocalMemberIndex::Timer(_) => {
-            panic!("store_local called on callback/function/timer reference")
+            panic!("store_local called on callback/function/repeater/timer reference")
         }
     }
 }
@@ -352,7 +352,9 @@ pub fn load_property(ctx: &EvalContext, mr: &MemberReference) -> Value {
             load_global(global, member)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             load_local(&instance, &local_reference.reference)
         }
     }
@@ -366,10 +368,12 @@ pub fn store_property(ctx: &EvalContext, mr: &MemberReference, value: Value) {
             store_global(global, member, value);
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let start =
-                ctx.current.as_ref().expect("relative member reference without a sub-component");
-            let (instance, animation) =
-                walk_to_target_with_animation(walk_parent(start, *parent_level), local_reference);
+            let Some(base) =
+                ctx.current.as_ref().and_then(|start| try_walk_parent(start, *parent_level))
+            else {
+                return;
+            };
+            let (instance, animation) = walk_to_target_with_animation(base, local_reference);
             store_local(&instance, &local_reference.reference, value, animation);
         }
     }
@@ -397,7 +401,9 @@ pub fn invoke_callback(ctx: &EvalContext, mr: &MemberReference, args: &[Value]) 
             ensure_typed_default(res, &cb.ret_ty)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             match &local_reference.reference {
                 LocalMemberIndex::Callback(idx) => {
                     // Register a dependency on the handler so bindings
@@ -448,7 +454,9 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
             eval_expression(&mut inner_ctx, &code)
         }
         MemberReference::Relative { parent_level, local_reference } => {
-            let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
+            let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
+                return Value::Void;
+            };
             let LocalMemberIndex::Function(idx) = &local_reference.reference else {
                 panic!("invoke_function on non-function reference")
             };
@@ -515,10 +523,11 @@ fn cast_to_path_data(ctx: &mut EvalContext, from: &Expression) -> Value {
             Value::PathData(PathData::Elements(elements))
         }
         Expression::Struct { values, .. }
-            if values.contains_key("events") && values.contains_key("points") =>
+            if let Some(events) = values.get("events")
+                && let Some(points) = values.get("points") =>
         {
-            let events_value = eval_expression(ctx, &values["events"]);
-            let points_value = eval_expression(ctx, &values["points"]);
+            let events_value = eval_expression(ctx, events);
+            let points_value = eval_expression(ctx, points);
             // `for_each_enums!` already produces a `TryFrom<Value>` impl for
             // every Slint enum (via `declare_value_enum_conversion!` in
             // `api.rs`), so model rows of `Value::EnumerationValue` convert
@@ -651,7 +660,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::Easing
         | Type::ElementReference
         | Type::ArrayOfU16
-        | Type::LayoutCache
+        | Type::ArrayOfCoord
         | Type::Closure => Value::Void,
     }
 }
@@ -668,6 +677,15 @@ pub fn default_value_for_struct_field(
         None => default_value_for_type(
             s.fields.get(field_name).expect("default value requested for unknown struct field"),
         ),
+    }
+}
+
+pub(crate) fn fill_missing_struct_fields(
+    value: &mut crate::Struct,
+    ty: &i_slint_compiler::langtype::Struct,
+) {
+    for k in ty.fields.keys() {
+        value.0.entry(k.clone()).or_insert_with(|| default_value_for_struct_field(ty, k));
     }
 }
 
@@ -709,16 +727,52 @@ fn eval_constant_expression(expr: &ConstantExpression) -> Value {
 
 /// Convert a value to the given type, as [`Expression::Cast`] does.
 fn cast_constant_value(value: Value, to: &Type) -> Value {
+    debug_assert!(*to != Type::String, "struct field defaults reject casts to string");
     match (value, to) {
         (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-        (Value::Number(n), Type::String) => {
-            Value::String(i_slint_core::string::shared_string_from_number(n))
-        }
         (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
         (Value::Brush(brush), Type::Color) => brush.color().into(),
-        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
         (v, _) => v,
     }
+}
+
+/// Builds the brush of a `@radial-gradient` from its shape, evaluated center, and stops.
+pub fn radial_gradient_brush<E>(
+    shape: &RadialGradientShape<E>,
+    mut radius: impl FnMut(&E) -> f32,
+    center: Option<(f32, f32)>,
+    stops: impl IntoIterator<Item = GradientStop>,
+) -> RadialGradientBrush {
+    let g = match shape {
+        RadialGradientShape::Circle(None) => RadialGradientBrush::new_circle(stops),
+        RadialGradientShape::Circle(Some(r)) => {
+            RadialGradientBrush::new_circle(stops).with_radius(radius(r))
+        }
+        RadialGradientShape::Ellipse(None) => RadialGradientBrush::new_ellipse(stops),
+        RadialGradientShape::Ellipse(Some((rx, ry))) => {
+            RadialGradientBrush::new_ellipse(stops).with_radii(radius(rx), radius(ry))
+        }
+    };
+    match center {
+        Some((cx, cy)) => g.with_center(cx, cy),
+        None => g,
+    }
+}
+
+/// Returns the shape and center part of a `@radial-gradient`,
+/// such as `ellipse 80px 40px at 10px 20px`.
+#[cfg(any(feature = "internal", feature = "internal-json"))]
+pub fn radial_gradient_shape_to_string(g: &RadialGradientBrush) -> String {
+    let mut result = String::from(if g.is_circle() { "circle" } else { "ellipse" });
+    match g.explicit_radii() {
+        Some((r, _)) if g.is_circle() => result += &format!(" {r}px"),
+        Some((rx, ry)) => result += &format!(" {rx}px {ry}px"),
+        None => {}
+    }
+    if let Some((cx, cy)) = g.explicit_center() {
+        result += &format!(" at {cx}px {cy}px");
+    }
+    result
 }
 
 pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value {
@@ -753,10 +807,18 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             ctx.locals.get(name).cloned().unwrap_or(Value::Void)
         }
         Expression::StructFieldAccess { base, name } => {
-            if let Value::Struct(s) = eval_expression(ctx, base) {
-                s.get_field(name).cloned().unwrap_or(Value::Void)
-            } else {
-                Value::Void
+            if let Value::Struct(s) = eval_expression(ctx, base)
+                && let Some(v) = s.get_field(name)
+                && !matches!(v, Value::Void)
+            {
+                return v.clone();
+            }
+            // Native code can provide a struct that lacks the field.
+            match base.ty(&*ctx) {
+                Type::Struct(s) if s.fields.contains_key(name) => {
+                    default_value_for_struct_field(&s, name)
+                }
+                _ => Value::Void,
             }
         }
         Expression::ArrayIndex { array, index } => {
@@ -785,7 +847,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+                    Value::String(component_context(ctx).format_number(n))
                 }
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
@@ -814,7 +876,6 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             let args: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
             invoke_function(ctx, function, args)
         }
-        Expression::ItemMemberFunctionCall { function } => call_item_member_function(ctx, function),
         Expression::ExtraBuiltinFunctionCall { function, arguments, .. } => {
             crate::eval_layout::call_extra_builtin(ctx, function, arguments)
         }
@@ -826,11 +887,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::ModelDataAssignment { level, value } => {
             let new_value = eval_expression(ctx, value);
             if let Some(current) = ctx.current.as_ref() {
-                let mut walker = current.clone();
-                for _ in 0..*level {
-                    let parent = walker.parent.upgrade().expect("parent vanished");
-                    walker = std::pin::Pin::new(parent);
-                }
+                let Some(walker) = try_walk_parent(current, *level) else { return Value::Void };
                 if let Some((parent_weak, repeater_idx)) = walker.repeated_in.get()
                     && let Some(parent) = parent_weak.upgrade()
                 {
@@ -841,11 +898,11 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                         .iter_enumerated()
                         .find(|(_, p)| p.name.as_str() == "model_index")
                         .map(|(idx, _)| {
-                            let v = std::pin::Pin::as_ref(&walker.properties[idx]).get();
+                            let v = Pin::as_ref(&walker.properties[idx]).get();
                             f64::try_from(v).unwrap_or(0.) as usize
                         })
                         .unwrap_or(0);
-                    let parent_pinned = std::pin::Pin::new(parent);
+                    let parent_pinned = Pin::new(parent);
                     let repeater = &parent_pinned.repeaters[*repeater_idx];
                     repeater.model_set_row_data(row, new_value);
                 }
@@ -909,7 +966,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             }
         }
         Expression::ImageReference { resource_ref, nine_slice } => {
-            let mut image = load_image_reference(resource_ref);
+            let mut image = load_image_reference(resource_ref, ctx);
             if let Some(n) = nine_slice {
                 image.set_nine_slice_edges(n[0], n[1], n[2], n[3]);
             }
@@ -929,7 +986,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             values.iter().map(|(k, v)| (k.to_string(), eval_expression(ctx, v))).collect(),
         ),
         Expression::EasingCurve(curve) => {
-            use i_slint_compiler::expression_tree::EasingCurve as EC;
+            use i_slint_compiler::expression_types::EasingCurve as EC;
             use i_slint_core::animations::EasingCurve as Core;
             Value::EasingCurve(match curve {
                 EC::Linear => Core::Linear,
@@ -944,7 +1001,7 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             })
         }
         Expression::MouseCursor(cursor) => {
-            use i_slint_compiler::expression_tree::MouseCursorInner as Expr;
+            use i_slint_compiler::expression_types::MouseCursorInner as Expr;
             use i_slint_core::cursor::MouseCursorInner as Core;
             Value::MouseCursorInner(match cursor {
                 Expr::BuiltIn(cursor) => {
@@ -966,18 +1023,12 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
                 eval_stops(ctx, stops),
             )))
         }
-        Expression::RadialGradient { stops, center, radius } => {
-            let mut g = RadialGradientBrush::new_circle(eval_stops(ctx, stops));
-            if let Some((cx, cy)) = center {
-                let cx: f32 = eval_expression(ctx, cx).try_into().unwrap_or_default();
-                let cy: f32 = eval_expression(ctx, cy).try_into().unwrap_or_default();
-                g = g.with_center(cx, cy);
-            }
-            if let Some(r) = radius {
-                let r: f32 = eval_expression(ctx, r).try_into().unwrap_or_default();
-                g = g.with_radius(r);
-            }
-            Value::Brush(Brush::RadialGradient(g))
+        Expression::RadialGradient { stops, center, shape } => {
+            let stops = eval_stops(ctx, stops);
+            let mut number =
+                |e: &Expression| -> f32 { eval_expression(ctx, e).try_into().unwrap_or_default() };
+            let center = center.as_ref().map(|(cx, cy)| (number(cx), number(cy)));
+            Value::Brush(Brush::RadialGradient(radial_gradient_brush(shape, number, center, stops)))
         }
         Expression::ConicGradient { from_angle, stops, center } => {
             let from_angle: f32 = eval_expression(ctx, from_angle).try_into().unwrap_or_default();
@@ -1083,15 +1134,20 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::BoxLayoutInfoOrthoWithMeasure { .. } => {
             crate::eval_layout::box_layout_info_ortho_with_measure(ctx, expression)
         }
-        Expression::TranslationReference { .. } => {
-            // TranslationReference is only emitted when `bundle-translations`
-            // is active, which the interpreter does not use. Runtime @tr()
-            // goes through BuiltinFunction::Translate instead.
-            Value::String(Default::default())
+        #[cfg(feature = "bundle-translations")]
+        Expression::TranslationReference { format_args, string_index, plural } => {
+            eval_translation_reference(ctx, format_args, *string_index, plural.as_deref())
         }
+        // TranslationReference is only emitted when `bundle-translations` is active.
+        // Runtime @tr() goes through BuiltinFunction::Translate instead.
+        #[cfg(not(feature = "bundle-translations"))]
+        Expression::TranslationReference { .. } => Value::String(Default::default()),
         Expression::Closure { .. } => unreachable!(
             "closures are dispatched by their consuming builtin and should not go through eval_expression"
         ),
+        Expression::DashArray(dash_array) => {
+            Value::ArrayOfCoord(SharedVector::from_slice(dash_array))
+        }
         Expression::DebugHook { expression, id } => {
             if let Some(hook_value) = crate::debug_hook::trigger_debug_hook(ctx, id) {
                 return hook_value;
@@ -1104,8 +1160,8 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
 fn with_layout_item_info(
     ctx: &mut EvalContext,
     cells_variable: &str,
-    elements: &[itertools::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
-    orientation: i_slint_compiler::layout::Orientation,
+    elements: &[either::Either<Expression, i_slint_compiler::llr::LayoutRepeatedElement>],
+    orientation: i_slint_compiler::expression_types::Orientation,
     repeated_cross_size: Option<&Expression>,
     sub_expression: &Expression,
 ) -> Value {
@@ -1120,8 +1176,8 @@ fn with_layout_item_info(
     let mut repeater_steps: Vec<u32> = Vec::new();
     for el in elements {
         match el {
-            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
-            itertools::Either::Right(repeater) => {
+            either::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            either::Either::Right(repeater) => {
                 let offset = cells.len() as u32;
                 let (instances, step) = push_repeater_layout_items(
                     ctx,
@@ -1163,7 +1219,7 @@ fn push_repeater_layout_items(
     ctx: &mut EvalContext,
     repeater_idx: i_slint_compiler::llr::RepeatedElementIdx,
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
-    orientation: i_slint_compiler::layout::Orientation,
+    orientation: i_slint_compiler::expression_types::Orientation,
     cross_size: Option<f32>,
     grid_cross_width: Option<&Expression>,
     cells: &mut Vec<Value>,
@@ -1260,7 +1316,7 @@ fn push_repeater_layout_items(
 /// cache read for one instance. `None` on a non-numeric value, so the caller
 /// falls back to the plain layout info rather than measuring at 0.
 fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usize) -> Option<f32> {
-    use i_slint_compiler::llr::lower_layout_expression::GRID_MEASURE_REPEATER_INDEX_LOCAL;
+    use i_slint_compiler::llr::GRID_MEASURE_REPEATER_INDEX_LOCAL;
     let prev = ctx.locals.insert(
         SmolStr::new_static(GRID_MEASURE_REPEATER_INDEX_LOCAL),
         Value::Number(index as f64),
@@ -1271,7 +1327,7 @@ fn eval_grid_measure_width(ctx: &mut EvalContext, expr: &Expression, index: usiz
 }
 
 fn total_row_child_count(
-    sub: &Pin<std::rc::Rc<crate::instance::SubComponentInstance>>,
+    sub: &Pin<Rc<crate::instance::SubComponentInstance>>,
     templates: &[i_slint_compiler::llr::RowChildTemplateInfo],
 ) -> usize {
     use i_slint_compiler::llr::{RowChildTemplateInfo, static_child_count};
@@ -1287,13 +1343,13 @@ fn total_row_child_count(
 }
 
 pub(crate) fn llr_to_core_orientation(
-    o: i_slint_compiler::layout::Orientation,
+    o: i_slint_compiler::expression_types::Orientation,
 ) -> i_slint_core::items::Orientation {
     match o {
-        i_slint_compiler::layout::Orientation::Horizontal => {
+        i_slint_compiler::expression_types::Orientation::Horizontal => {
             i_slint_core::items::Orientation::Horizontal
         }
-        i_slint_compiler::layout::Orientation::Vertical => {
+        i_slint_compiler::expression_types::Orientation::Vertical => {
             i_slint_core::items::Orientation::Vertical
         }
     }
@@ -1304,7 +1360,7 @@ fn with_flexbox_layout_item_info(
     cells_h_variable: &str,
     cells_v_variable: &str,
     flex_props_variable: Option<&str>,
-    elements: &[itertools::Either<
+    elements: &[either::Either<
         (Expression, Expression, Expression),
         i_slint_compiler::llr::LayoutRepeatedElement,
     >],
@@ -1321,7 +1377,7 @@ fn with_flexbox_layout_item_info(
     let mut repeated_indices: Vec<u32> = Vec::new();
     for el in elements {
         match el {
-            itertools::Either::Left((h, v, props)) => {
+            either::Either::Left((h, v, props)) => {
                 cells_h.push(eval_expression(ctx, h));
                 cells_v.push(eval_expression(ctx, v));
                 // With no flex-props variable the sub-expression only reads the
@@ -1331,7 +1387,7 @@ fn with_flexbox_layout_item_info(
                     flex_props.push(eval_expression(ctx, props));
                 }
             }
-            itertools::Either::Right(repeater) => {
+            either::Either::Right(repeater) => {
                 let offset = cells_h.len() as u32;
                 let instances = push_repeater_flexbox_items(
                     ctx,
@@ -1436,7 +1492,7 @@ fn flex_props_to_value(props: i_slint_core::layout::FlexItemProps) -> Value {
 fn with_grid_input_data(
     ctx: &mut EvalContext,
     cells_variable: &str,
-    elements: &[itertools::Either<Expression, i_slint_compiler::llr::GridLayoutRepeatedElement>],
+    elements: &[either::Either<Expression, i_slint_compiler::llr::GridLayoutRepeatedElement>],
     sub_expression: &Expression,
 ) -> Value {
     // `repeated_indices` holds `(offset, len)` pairs into `cells`,
@@ -1452,8 +1508,8 @@ fn with_grid_input_data(
 
     for el in elements {
         match el {
-            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
-            itertools::Either::Right(repeater) => {
+            either::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            either::Either::Right(repeater) => {
                 ctx.locals.insert(SmolStr::new_static("new_row"), Value::Bool(repeater.new_row));
                 let offset = cells.len() as u32;
                 let is_row_repeater = repeater.row_child_templates.is_some();
@@ -1513,9 +1569,9 @@ fn push_repeater_grid_input_data(
     row_child_templates: Option<&[i_slint_compiler::llr::RowChildTemplateInfo]>,
     cells: &mut Vec<Value>,
 ) -> (u32, u32) {
+    use Rc;
     use i_slint_compiler::llr::RowChildTemplateInfo;
     use i_slint_core::model::VecModel;
-    use std::rc::Rc;
     let Some(current) = ctx.current.as_ref() else { return (0, 0) };
     let repeater = &current.repeaters[repeater_idx];
     repeater.track_instance_changes();
@@ -1595,10 +1651,16 @@ fn push_repeater_grid_input_data(
                         // Let each inner cell report its own
                         // col/row/colspan/rowspan via its
                         // `grid_layout_input_for_repeated` expression.
-                        for inner_inst in inner_rep.instances_vec() {
+                        // An empty slot keeps its position, like in `layout_item_info` (#13726).
+                        for slot in inner_rep.range() {
                             if written >= step {
                                 break;
                             }
+                            let Some(inner_inst) = inner_rep.instance_at(slot) else {
+                                cells.push(auto_grid_input_data());
+                                written += 1;
+                                continue;
+                            };
                             for mut v in eval_grid_input_for_repeated(
                                 &inner_inst.root_sub_component,
                                 written == 0 && current_new_row,
@@ -1699,6 +1761,11 @@ fn binary_op(op: char, lhs: Value, rhs: Value) -> Value {
         (Value::Bool(a), Value::Void) => (Value::Bool(a), Value::Bool(false)),
         (Value::Void, Value::String(b)) => (Value::String(Default::default()), Value::String(b)),
         (Value::String(a), Value::Void) => (Value::String(a), Value::String(Default::default())),
+        // With no operand to take the type from, the operator decides.
+        (Value::Void, Value::Void) if matches!(op, '&' | '|') => {
+            (Value::Bool(false), Value::Bool(false))
+        }
+        (Value::Void, Value::Void) => (Value::Number(0.), Value::Number(0.)),
         (a, b) => (a, b),
     };
     match (op, lhs, rhs) {
@@ -1745,10 +1812,12 @@ fn eval_stops(ctx: &mut EvalContext, stops: &[(Expression, Expression)]) -> Vec<
         .collect()
 }
 
+#[cfg_attr(not(feature = "internal-embed-textures"), allow(unused_variables))]
 fn load_image_reference(
-    resource_ref: &i_slint_compiler::expression_tree::ImageReference,
+    resource_ref: &i_slint_compiler::expression_types::ImageReference,
+    ctx: &EvalContext,
 ) -> i_slint_core::graphics::Image {
-    use i_slint_compiler::expression_tree::ImageReference as Ref;
+    use i_slint_compiler::expression_types::ImageReference as Ref;
     let image = match resource_ref {
         Ref::None => Ok(Default::default()),
         Ref::DataUri(data_uri) => i_slint_compiler::data_uri::decode_data_uri(data_uri)
@@ -1757,15 +1826,12 @@ fn load_image_reference(
                 i_slint_core::graphics::load_image_from_data_uri(data_uri, &data, &extension).ok()
             })
             .ok_or_else(Default::default),
-        Ref::Url(url) if url.scheme() == "builtin" => {
+        Ref::Source(path @ SourcePath::Builtin(builtin_path)) => {
             // Style-bundled resources (e.g. cosmic/material widget icons) are
-            // baked into the compiler's builtin library and need to be fetched
-            // through `fileaccess::load_file` rather than the filesystem.
-            let path = std::path::Path::new(url.as_str());
-            i_slint_compiler::fileaccess::load_file(path)
-                .and_then(|virtual_file| virtual_file.builtin_contents)
+            // baked into the compiler's builtin library.
+            i_slint_compiler::fileaccess::builtin_contents(builtin_path)
                 .map(|contents| {
-                    let extension = path.extension().unwrap().to_str().unwrap();
+                    let extension = path.extension().unwrap();
                     i_slint_core::graphics::load_image_from_embedded_data(
                         i_slint_core::slice::Slice::from_slice(contents),
                         i_slint_core::slice::Slice::from_slice(extension.as_bytes()),
@@ -1773,13 +1839,11 @@ fn load_image_reference(
                 })
                 .ok_or_else(Default::default)
         }
-        Ref::Path(path) => {
-            i_slint_core::graphics::Image::load_from_path(std::path::Path::new(path.as_str()))
-        }
-        Ref::Url(url) => {
+        Ref::Source(SourcePath::File(path)) => i_slint_core::graphics::Image::load_from_path(path),
+        Ref::Source(url) => {
             #[cfg(target_arch = "wasm32")]
             {
-                i_slint_core::graphics::load_as_html_image(url.as_str())
+                i_slint_core::graphics::load_as_html_image(&url.to_string())
             }
             // URL image references only work on the web, where the browser fetches them.
             #[cfg(not(target_arch = "wasm32"))]
@@ -1788,7 +1852,15 @@ fn load_image_reference(
                 Err(Default::default())
             }
         }
-        Ref::EmbeddedData { .. } | Ref::EmbeddedTexture { .. } => Ok(Default::default()),
+        #[cfg(feature = "internal-embed-textures")]
+        Ref::EmbeddedTexture { resource_id } => ctx
+            .globals
+            .upgrade()
+            .and_then(|globals| globals.resources.pre_rendered.image(*resource_id))
+            .ok_or_else(Default::default),
+        #[cfg(not(feature = "internal-embed-textures"))]
+        Ref::EmbeddedTexture { .. } => Ok(Default::default()),
+        Ref::EmbeddedData { .. } => Ok(Default::default()),
     };
     image.unwrap_or_else(|_| {
         eprintln!("Could not load image {resource_ref:?}");
@@ -1804,7 +1876,7 @@ fn layout_cache_access(
     entries_per_item: usize,
 ) -> Value {
     match cache {
-        Value::LayoutCache(cache) => {
+        Value::ArrayOfCoord(cache) => {
             if let Some(ri) = repeater_index {
                 let offset: usize = eval_expression(ctx, ri).try_into().unwrap_or_default();
                 Value::Number(
@@ -1852,7 +1924,7 @@ fn grid_repeater_cache_access(
         if data_idx < slice_len { Value::Number(read(data_idx)) } else { Value::Number(0.) }
     };
     match cache {
-        Value::LayoutCache(cache) => {
+        Value::ArrayOfCoord(cache) => {
             let base = cache.get(index).copied().unwrap_or(0.) as usize;
             let data_idx = base + repeater_index * stride + child_offset + inner_offset;
             get(data_idx, cache.len(), &|i| cache[i] as f64)
@@ -1866,247 +1938,205 @@ fn grid_repeater_cache_access(
     }
 }
 
-/// Dispatch a `BuiltinFunction` call to the corresponding runtime helper.
-/// The location of a builtin function call in the .slint source, in the form
-/// attached to the log messages it emits.
-fn log_message_location(
-    source_location: &Option<SourceLocation>,
-) -> Option<i_slint_core::debug_log::LogMessageLocation<'_>> {
+/// The location of a builtin function call in the .slint source, which the log
+/// messages it emits borrow through [`LogLocation::get`].
+struct LogLocation<'a> {
+    path: alloc::borrow::Cow<'a, str>,
+    line: usize,
+    column: usize,
+}
+
+impl LogLocation<'_> {
+    fn get(&self) -> i_slint_core::debug_log::LogMessageLocation<'_> {
+        i_slint_core::debug_log::LogMessageLocation {
+            path: &self.path,
+            line: self.line,
+            column: self.column,
+        }
+    }
+}
+
+fn log_message_location(source_location: &Option<SourceLocation>) -> Option<LogLocation<'_>> {
     let location = source_location.as_ref()?;
     let source_file = location.source_file.as_ref()?;
     let (line, column) = source_file
         .line_column(location.span.offset, i_slint_compiler::diagnostics::ByteFormat::Utf8);
-    Some(i_slint_core::debug_log::LogMessageLocation {
-        path: source_file.path().to_str()?,
-        line,
-        column,
-    })
+    let path = match source_file.path() {
+        SourcePath::File(path) => path.to_string_lossy(),
+        path => path.to_string().into(),
+    };
+    Some(LogLocation { path, line, column })
 }
 
+/// Arguments of a `@tr(...)` formatting, as a model of strings.
+struct StringModelWrapper(ModelRc<Value>);
+impl i_slint_core::translations::FormatArgs for StringModelWrapper {
+    type Output<'a> = SharedString;
+    fn from_index(&self, index: usize) -> Option<SharedString> {
+        self.0.row_data(index).and_then(|v| v.try_into().ok())
+    }
+}
+
+/// Look up a string that the compiler bundled from the `.po` files, in the language currently
+/// selected with `slint::select_bundled_translation`.
+#[cfg(feature = "bundle-translations")]
+fn eval_translation_reference(
+    ctx: &mut EvalContext,
+    format_args: &Expression,
+    string_index: usize,
+    plural: Option<&Expression>,
+) -> Value {
+    let unit = ctx.compilation_unit.clone();
+    let Some(translations) = unit.translations.as_ref() else {
+        return Value::String(Default::default());
+    };
+    let Value::Model(args) = eval_expression(ctx, format_args) else {
+        return Value::String(Default::default());
+    };
+    let args = StringModelWrapper(args);
+    let Some(plural) = plural else {
+        return Value::String(
+            component_context(ctx)
+                .translate_from_bundle(&translations.strings[string_index], &args),
+        );
+    };
+
+    let n: i32 = eval_expression(ctx, plural).try_into().unwrap_or(0);
+    let forms = translations.plurals[string_index].iter().map(|f| f.as_deref()).collect::<Vec<_>>();
+    let globals = ctx.globals.clone();
+    Value::String(component_context(ctx).translate_from_bundle_with_plural_form(
+        &forms,
+        |language_index| {
+            let rule = translations.plural_rules.get(language_index)?.as_ref()?;
+            // The rules can't access any property, they only take `n` as argument
+            let mut rule_ctx = EvalContext::for_global(globals, unit.clone());
+            rule_ctx.function_arguments = vec![Value::Number(n as f64)];
+            rule_ctx.function_arg_types = vec![Type::Int32];
+            let form: i32 = eval_expression(&mut rule_ctx, rule).try_into().ok()?;
+            usize::try_from(form).ok()
+        },
+        &args,
+        n,
+    ))
+}
+
+/// Unlike `From<_> for Value`, this isn't public API.
+trait IntoBuiltinValue {
+    fn into_value(self) -> Value;
+}
+
+impl<T: Into<Value>> IntoBuiltinValue for T {
+    fn into_value(self) -> Value {
+        self.into()
+    }
+}
+
+macro_rules! declare_builtin_struct_result {
+    (struct $name:path { $($field:ident),* }) => {
+        impl IntoBuiltinValue for $name {
+            fn into_value(self) -> Value {
+                let $name { $($field),* } = self;
+                Value::Struct(
+                    [$((stringify!($field).into(), Value::Number($field.into()))),*]
+                        .into_iter()
+                        .collect(),
+                )
+            }
+        }
+    };
+}
+
+declare_builtin_struct_result!(struct i_slint_core::graphics::RgbaColorU8 { red, green, blue, alpha });
+declare_builtin_struct_result!(struct i_slint_core::graphics::HsvaColor { hue, saturation, value, alpha });
+declare_builtin_struct_result!(struct i_slint_core::graphics::OklchColor { lightness, chroma, hue, alpha });
+
+macro_rules! call_runtime_function {
+    ($context:ident, $item:ident, $args:ident, ($($params:tt)*)) => { None };
+    ($context:ident, $item:ident, $args:ident, $name:ident ($(& $ctx:ident $(,)?)? $($param:ident: $ty:tt $(<$gen:ident>)? $(=> $as:tt)?),*) $body:block) => {{
+        $(let Some($ctx) = $context else { return Some(Value::Void) };)?
+        $(let $param = runtime_function_argument!($item, $args, ($ty $(<$gen>)?) $($as)?);)*
+        Some(i_slint_core::builtin_functions::$name($($ctx,)? $($param),*).into_value())
+    }};
+}
+
+macro_rules! runtime_function_argument {
+    ($item:ident, $args:ident, (ItemRc) ElementReference) => {
+        $item?.clone()
+    };
+    ($item:ident, $args:ident, (ItemArg<$native:ident>) ElementReference) => {
+        i_slint_core::builtin_functions::ItemArg::new($item?)?
+    };
+    ($item:ident, $args:ident, ($($ty:tt)*) $($as:tt)?) => {
+        $args.next().and_then(|v| v.try_into().ok()).unwrap_or_default()
+    };
+}
+
+macro_rules! declare_call_runtime_builtin_function {
+    ($(
+        $(#[$attr:meta])*
+        $Name:ident $(($Payload:ident))? : $(#[$runtime_attr:meta])*
+            $purity:ident fn $($name:ident)? ($($params:tt)*) -> $Ret:tt $(=> $RetType:tt)? $($body:block)?
+    )*) => {
+        /// Calls the function that implements `f`, if it has one, with the arguments converted
+        /// to its parameter types. Without a context, the ones that need it return `Value::Void`.
+        /// `item` is the first argument if it's an `ElementReference`, and isn't in `args` then.
+        /// Without it, or if it isn't of the right type, the ones that need it return `None`.
+        pub fn call_runtime_builtin_function(
+            f: &BuiltinFunction,
+            context: Option<&SlintContext>,
+            item: Option<&ItemRc>,
+            args: Vec<Value>,
+        ) -> Option<Value> {
+            let mut args = args.into_iter();
+            match f {
+                $(BuiltinFunction::$Name { .. } => {
+                    call_runtime_function!(context, item, args, $($name)? ($($params)*) $($body)?)
+                })*
+            }
+        }
+    };
+}
+i_slint_common::for_each_builtin_function!(declare_call_runtime_builtin_function);
+
+#[allow(
+    clippy::redundant_closure_call,
+    reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
+)]
 fn call_builtin_function(
     ctx: &mut EvalContext,
     f: BuiltinFunction,
     arguments: &[Expression],
     source_location: &Option<SourceLocation>,
 ) -> Value {
-    let to_num = |ctx: &mut EvalContext, e: &Expression| -> f64 {
-        eval_expression(ctx, e).try_into().unwrap_or_default()
-    };
     let to_string = |ctx: &mut EvalContext, e: &Expression| -> SharedString {
         eval_expression(ctx, e).try_into().unwrap_or_default()
     };
 
     match f {
-        BuiltinFunction::Mod => {
-            Value::Number(to_num(ctx, &arguments[0]).rem_euclid(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Round => Value::Number(to_num(ctx, &arguments[0]).round()),
-        BuiltinFunction::Ceil => Value::Number(to_num(ctx, &arguments[0]).ceil()),
-        BuiltinFunction::Floor => Value::Number(to_num(ctx, &arguments[0]).floor()),
-        BuiltinFunction::Sqrt => Value::Number(to_num(ctx, &arguments[0]).sqrt()),
-        BuiltinFunction::Abs => Value::Number(to_num(ctx, &arguments[0]).abs()),
-        BuiltinFunction::Sin => Value::Number(to_num(ctx, &arguments[0]).to_radians().sin()),
-        BuiltinFunction::Cos => Value::Number(to_num(ctx, &arguments[0]).to_radians().cos()),
-        BuiltinFunction::Tan => Value::Number(to_num(ctx, &arguments[0]).to_radians().tan()),
-        BuiltinFunction::ASin => Value::Number(to_num(ctx, &arguments[0]).asin().to_degrees()),
-        BuiltinFunction::ACos => Value::Number(to_num(ctx, &arguments[0]).acos().to_degrees()),
-        BuiltinFunction::ATan => Value::Number(to_num(ctx, &arguments[0]).atan().to_degrees()),
-        BuiltinFunction::ATan2 => {
-            Value::Number(to_num(ctx, &arguments[0]).atan2(to_num(ctx, &arguments[1])).to_degrees())
-        }
-        BuiltinFunction::Log => {
-            Value::Number(to_num(ctx, &arguments[0]).log(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Ln => Value::Number(to_num(ctx, &arguments[0]).ln()),
-        BuiltinFunction::Pow => {
-            Value::Number(to_num(ctx, &arguments[0]).powf(to_num(ctx, &arguments[1])))
-        }
-        BuiltinFunction::Exp => Value::Number(to_num(ctx, &arguments[0]).exp()),
-        BuiltinFunction::ToFixed => {
-            let n = to_num(ctx, &arguments[0]);
-            let digits: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(i_slint_core::string::shared_string_from_number_fixed(
-                n,
-                digits.max(0) as usize,
-            ))
-        }
-        BuiltinFunction::ToPrecision => {
-            let n = to_num(ctx, &arguments[0]);
-            let p: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-            Value::String(i_slint_core::string::shared_string_from_number_precision(
-                n,
-                p.max(0) as usize,
-            ))
-        }
-        BuiltinFunction::StringStartsWith => Value::Bool(
-            to_string(ctx, &arguments[0])
-                .as_str()
-                .starts_with(to_string(ctx, &arguments[1]).as_str()),
-        ),
-        BuiltinFunction::StringEndsWith => Value::Bool(
-            to_string(ctx, &arguments[0])
-                .as_str()
-                .ends_with(to_string(ctx, &arguments[1]).as_str()),
-        ),
-        BuiltinFunction::ToStringUnlocalized => {
-            let n = to_num(ctx, &arguments[0]);
-            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
-        }
-        BuiltinFunction::DefaultWindowTitle => {
-            Value::String(i_slint_core::window::default_window_title())
-        }
-        BuiltinFunction::DecimalSeparator => Value::String(
-            find_window_adapter(ctx)
-                .map(|adapter| {
-                    i_slint_core::window::WindowInner::from_pub(adapter.window())
-                        .context()
-                        .locale_decimal_separator()
-                })
-                .unwrap_or_default()
-                .into(),
-        ),
+        i_slint_compiler::runtime_builtin_function!() => (|| {
+            let context = f.runtime_function_takes_context().then(|| component_context(ctx));
+            let (element, arguments) = llr::split_element_argument(&f, arguments);
+            let item = match element {
+                Some(element) => {
+                    // The item's component may be gone
+                    let Some((instance, index)) = resolve_item_rc_from_ref(ctx, element) else {
+                        return default_value_for_type(&f.ty().return_type);
+                    };
+                    Some(ItemRc::new(VRc::into_dyn(instance), index as u32))
+                }
+                None => None,
+            };
+            let args = arguments.iter().map(|a| eval_expression(ctx, a)).collect();
+            call_runtime_builtin_function(&f, context.as_ref(), item.as_ref(), args).unwrap()
+        })(),
         BuiltinFunction::MacosBringAllWindowsToFront => {
             i_slint_core::macos_bring_all_windows_to_front();
             Value::Void
         }
-        BuiltinFunction::ColorToStyledText => {
-            let color: i_slint_core::Color =
-                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
-            Value::StyledText(i_slint_core::styled_text::color_to_styled_text(color))
-        }
         BuiltinFunction::SetupSystemTrayIcon => {
             crate::popup::setup_system_tray_icon(ctx, arguments)
         }
-        BuiltinFunction::StringIsFloat => Value::Bool(
-            <f64 as core::str::FromStr>::from_str(to_string(ctx, &arguments[0]).as_str()).is_ok(),
-        ),
-        BuiltinFunction::StringToFloat => Value::Number(
-            core::str::FromStr::from_str(to_string(ctx, &arguments[0]).as_str()).unwrap_or(0.),
-        ),
-        BuiltinFunction::StringIsEmpty => Value::Bool(to_string(ctx, &arguments[0]).is_empty()),
-        BuiltinFunction::StringCharacterCount => Value::Number(
-            unicode_segmentation::UnicodeSegmentation::graphemes(
-                to_string(ctx, &arguments[0]).as_str(),
-                true,
-            )
-            .count() as f64,
-        ),
-        BuiltinFunction::StringToLowercase => {
-            Value::String(to_string(ctx, &arguments[0]).to_lowercase().into())
-        }
-        BuiltinFunction::StringToUppercase => {
-            Value::String(to_string(ctx, &arguments[0]).to_uppercase().into())
-        }
-        BuiltinFunction::StringReplaceAll => {
-            if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to StringReplaceAll")
-            }
-
-            if let (Value::String(s), Value::String(from), Value::String(to)) = (
-                eval_expression(ctx, &arguments[0]),
-                eval_expression(ctx, &arguments[1]),
-                eval_expression(ctx, &arguments[2]),
-            ) {
-                Value::String(i_slint_core::string::shared_string_replace_all(
-                    &s,
-                    from.as_str(),
-                    to.as_str(),
-                ))
-            } else {
-                panic!("Not all arguments are strings");
-            }
-        }
-        BuiltinFunction::ColorRgbaStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color();
-                let values = [
-                    ("red".to_string(), Value::Number(color.red().into())),
-                    ("green".to_string(), Value::Number(color.green().into())),
-                    ("blue".to_string(), Value::Number(color.blue().into())),
-                    ("alpha".to_string(), Value::Number(color.alpha().into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorHsvaStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color().to_hsva();
-                let values = [
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("saturation".to_string(), Value::Number(color.saturation.into())),
-                    ("value".to_string(), Value::Number(color.value.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorOklchStruct => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                let color = brush.color().to_oklch();
-                let values = [
-                    ("lightness".to_string(), Value::Number(color.lightness.into())),
-                    ("chroma".to_string(), Value::Number(color.chroma.into())),
-                    ("hue".to_string(), Value::Number(color.hue.into())),
-                    ("alpha".to_string(), Value::Number(color.alpha.into())),
-                ]
-                .into_iter()
-                .collect();
-                Value::Struct(values)
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorBrighter => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.brighter(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorDarker => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.darker(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorTransparentize => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.transparentize(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorWithAlpha => {
-            if let Value::Brush(brush) = eval_expression(ctx, &arguments[0]) {
-                brush.with_alpha(to_num(ctx, &arguments[1]) as f32).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ColorMix => {
-            let a = eval_expression(ctx, &arguments[0]);
-            let b = eval_expression(ctx, &arguments[1]);
-            let factor = to_num(ctx, &arguments[2]) as f32;
-            if let (
-                Value::Brush(i_slint_core::Brush::SolidColor(ca)),
-                Value::Brush(i_slint_core::Brush::SolidColor(cb)),
-            ) = (a, b)
-            {
-                ca.mix(&cb, factor).into()
-            } else {
-                Value::Void
-            }
-        }
-        BuiltinFunction::ArrayPush => {
+        BuiltinFunction::ArrayPush => (|| {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ArrayPush")
             }
@@ -2118,14 +2148,15 @@ fn call_builtin_function(
             let value = eval_expression(ctx, &arguments[1]);
 
             i_slint_core::model::report_model_error(
+                &component_context(ctx),
                 "push",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 model.push_row(value),
             );
 
             Value::Void
-        }
-        BuiltinFunction::ArrayRemove => {
+        })(),
+        BuiltinFunction::ArrayRemove => (|| {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ArrayRemove")
             }
@@ -2144,15 +2175,16 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
+                &component_context(ctx),
                 "remove",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
             Value::Void
-        }
+        })(),
 
-        BuiltinFunction::ArrayInsert => {
+        BuiltinFunction::ArrayInsert => (|| {
             if arguments.len() != 3 {
                 panic!("internal error: incorrect argument count to ArrayInsert")
             }
@@ -2172,52 +2204,18 @@ fn call_builtin_function(
                 Err(_) => Err(i_slint_core::model::ModelError::out_of_bounds(model.row_count())),
             };
             i_slint_core::model::report_model_error(
+                &component_context(ctx),
                 "insert",
-                log_message_location(source_location),
+                log_message_location(source_location).as_ref().map(LogLocation::get),
                 result,
             );
 
             Value::Void
-        }
-        BuiltinFunction::Rgb => {
-            let r: i32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let g: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            let b: i32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            let r: u8 = r.clamp(0, 255) as u8;
-            let g: u8 = g.clamp(0, 255) as u8;
-            let b: u8 = b.clamp(0, 255) as u8;
-            let a: u8 = (255. * a).clamp(0., 255.) as u8;
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_argb_u8(
-                a, r, g, b,
-            )))
-        }
-        BuiltinFunction::Hsv => {
-            let h: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
-            let s: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
-            let v: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            let a = a.clamp(0., 1.);
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_hsva(
-                h, s, v, a,
-            )))
-        }
-        BuiltinFunction::Oklch => {
-            let l: f32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0.0);
-            let c: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0.0);
-            let h: f32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0.0);
-            let a: f32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(1.0);
-            Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_oklch(
-                l.clamp(0.0, 1.0),
-                c,
-                h,
-                a.clamp(0.0, 1.0),
-            )))
-        }
+        })(),
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
-        BuiltinFunction::GetWindowScaleFactor => {
+        BuiltinFunction::GetWindowScaleFactor => (|| {
             let factor = root_instance(ctx)
                 .and_then(|inst| inst.window_adapter_or_default())
                 .map(|adapter| {
@@ -2226,8 +2224,8 @@ fn call_builtin_function(
                 })
                 .unwrap_or(1.0);
             Value::Number(factor)
-        }
-        BuiltinFunction::GetWindowDefaultFontSize => {
+        })(),
+        BuiltinFunction::GetWindowDefaultFontSize => (|| {
             // Read `default-font-size` from the nearest enclosing
             // `WindowItem`. The walk crosses popup and embedded-tree
             // boundaries, so `1rem` inside a popup of an embedded component
@@ -2235,43 +2233,24 @@ fn call_builtin_function(
             // window that the window adapter points at.
             let size = root_instance(ctx)
                 .map(|inst| {
-                    i_slint_core::items::WindowItem::resolved_default_font_size(
-                        vtable::VRc::into_dyn(inst),
-                    )
-                    .get() as f64
+                    i_slint_core::items::WindowItem::resolved_default_font_size(VRc::into_dyn(inst))
+                        .get() as f64
                 })
                 .unwrap_or(12.0);
             Value::Number(size)
-        }
-        BuiltinFunction::DetectOperatingSystem => i_slint_core::detect_operating_system().into(),
-        BuiltinFunction::Use24HourFormat => {
-            Value::Bool(i_slint_core::date_time::use_24_hour_format())
-        }
-        BuiltinFunction::ColorScheme => {
-            let scheme = root_instance(ctx)
-                .map(vtable::VRc::into_dyn)
-                .and_then(|root| {
-                    i_slint_core::window::context_for_root(&root)
-                        .map(|ctx| ctx.color_scheme(Some(&root)))
-                })
-                .unwrap_or(i_slint_core::items::ColorScheme::Unknown);
-            scheme.into()
-        }
-        BuiltinFunction::AccentColor => {
-            let color = root_instance(ctx)
-                .map(vtable::VRc::into_dyn)
-                .map(|root| i_slint_core::window::accent_color(&root))
-                .unwrap_or_default();
-            Value::Brush(i_slint_core::Brush::SolidColor(color))
-        }
-        BuiltinFunction::SupportsNativeMenuBar => {
+        })(),
+        BuiltinFunction::ColorScheme => (|| {
+            let root = root_instance(ctx).map(VRc::into_dyn);
+            component_context(ctx).color_scheme(root.as_ref()).into()
+        })(),
+        BuiltinFunction::SupportsNativeMenuBar => (|| {
             let supports = find_window_adapter(ctx).is_some_and(|a| {
                 a.internal(i_slint_core::InternalToken)
                     .is_some_and(|x| x.supports_native_menu_bar())
             });
             Value::Bool(supports)
-        }
-        BuiltinFunction::TextInputFocused => {
+        })(),
+        BuiltinFunction::TextInputFocused => (|| {
             let focused = ctx
                 .current
                 .as_ref()
@@ -2284,8 +2263,8 @@ fn call_builtin_function(
                 })
                 .unwrap_or(false);
             Value::Bool(focused)
-        }
-        BuiltinFunction::SetTextInputFocused => {
+        })(),
+        BuiltinFunction::SetTextInputFocused => (|| {
             let value = arguments
                 .first()
                 .map(|e| eval_expression(ctx, e))
@@ -2302,13 +2281,13 @@ fn call_builtin_function(
                     .set_text_input_focused(value);
             }
             Value::Void
-        }
+        })(),
         BuiltinFunction::UpdateTimers => {
             // Timers react to property changes through the change trackers
             // installed in `bindings::install_timers`; nothing to do here.
             Value::Void
         }
-        BuiltinFunction::RestartTimer => {
+        BuiltinFunction::RestartTimer => (|| {
             // The timer is referenced through a member reference carrying a
             // `LocalMemberIndex::Timer`, so it resolves in the component that
             // declares it even when the call is made from (or inlined into) a
@@ -2320,48 +2299,28 @@ fn call_builtin_function(
                 }),
             ] = arguments
                 && let LocalMemberIndex::Timer(timer_idx) = &local_reference.reference
-                && ctx.current.is_some()
+                && let Some(instance) = try_walk_to(ctx, *parent_level, local_reference)
+                && let Some(timer) = instance.timers.get(usize::from(*timer_idx))
             {
-                let instance = walk_to(ctx, *parent_level, &local_reference.sub_component_path);
-                if let Some(timer) = instance.timers.get(usize::from(*timer_idx)) {
-                    timer.restart();
-                }
+                timer.restart();
             }
             Value::Void
-        }
-        BuiltinFunction::KeysToString => {
-            let v = arguments.first().map(|e| eval_expression(ctx, e));
-            if let Some(Value::Keys(keys)) = v {
-                Value::String(keys.to_string().into())
-            } else {
-                Value::String(Default::default())
-            }
-        }
-        BuiltinFunction::SetSelectionOffsets => {
-            // (item_ref, anchor, focus) -> applied to a TextInput.
-            use i_slint_core::items::TextInput;
-            let [Expression::PropertyReference(mr), anchor_expr, focus_expr] = arguments else {
-                return Value::Void;
-            };
-            let anchor: i32 = eval_expression(ctx, anchor_expr).try_into().unwrap_or(0);
-            let focus: i32 = eval_expression(ctx, focus_expr).try_into().unwrap_or(0);
-            let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr) else {
-                return Value::Void;
-            };
-            let Some(adapter) = parent_inst.window_adapter_or_default() else {
-                return Value::Void;
-            };
-            let parent_dyn = vtable::VRc::into_dyn(parent_inst);
-            let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
-            if let Some(text_input) = vtable::VRef::downcast_pin::<TextInput>(item_rc.borrow()) {
-                text_input.set_selection_offsets(&adapter, &item_rc, anchor, focus);
-            }
-            Value::Void
-        }
-        BuiltinFunction::RegisterCustomFontByPath => {
+        })(),
+        BuiltinFunction::RegisterCustomFontByPath => (|| {
             if let Value::String(s) = eval_expression(ctx, &arguments[0])
                 && let Some(root) = find_root_instance(ctx)
             {
+                if let Some(data) = root.globals.resources.font_files.get(s.as_str()) {
+                    let blob =
+                        i_slint_core::textlayout::sharedparley::fontique::Blob::new(data.clone());
+                    root.globals.context.font_context().borrow_mut().register_fonts(blob);
+                    return Value::Void;
+                }
+                // The browser has no file system to read the font from,
+                // and a font that failed to load got a warning when compiling.
+                if cfg!(all(target_arch = "wasm32", target_os = "unknown")) {
+                    return Value::Void;
+                }
                 // Log and skip if the window adapter can't be created; the
                 // same error resurfaces when the window is actually used.
                 let result =
@@ -2376,71 +2335,9 @@ fn call_builtin_function(
                 }
             }
             Value::Void
-        }
+        })(),
         BuiltinFunction::SetupMenuBar => crate::popup::setup_menubar(ctx, arguments),
-        BuiltinFunction::ItemFontMetrics => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-                && let Some(adapter) = inst.window_adapter_or_default()
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                let metrics = i_slint_core::items::slint_text_item_fontmetrics(
-                    &adapter,
-                    item_rc.borrow(),
-                    &item_rc,
-                );
-                return metrics.into();
-            }
-            i_slint_core::items::FontMetrics::default().into()
-        }
-        BuiltinFunction::ItemAbsolutePosition => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                // Map the item's own geometry origin through the ancestor transforms so the
-                // result is the item's absolute position (not its parent's). The lowering no
-                // longer adds the element's x/y on top (see the ItemAbsolutePosition change).
-                return item_rc.map_to_window(item_rc.geometry().origin).to_untyped().into();
-            }
-            i_slint_core::api::LogicalPosition::default().into()
-        }
-        BuiltinFunction::PathPointAt => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                let t: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-                return item_rc
-                    .downcast::<i_slint_core::items::Path>()
-                    .unwrap()
-                    .as_pin_ref()
-                    .point_at(&item_rc, t)
-                    .to_untyped()
-                    .into();
-            }
-            panic!("internal error: argument to PathPointAt must be an element")
-        }
-        BuiltinFunction::PathAngleAt => {
-            if let Some(Expression::PropertyReference(mr)) = arguments.first()
-                && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
-            {
-                let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
-                let t: f32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or_default();
-                return item_rc
-                    .downcast::<i_slint_core::items::Path>()
-                    .unwrap()
-                    .as_pin_ref()
-                    .angle_at(&item_rc, t)
-                    .into();
-            }
-            panic!("internal error: argument to PathAngleAt must be an element")
-        }
-        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => {
+        BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => (|| {
             let is_all = matches!(f, BuiltinFunction::ArrayAll);
             let model: i_slint_core::model::ModelRc<Value> =
                 eval_expression(ctx, &arguments[0]).try_into().unwrap();
@@ -2454,8 +2351,8 @@ fn call_builtin_function(
             } else {
                 i_slint_core::model::model_any(&model, &mut predicate)
             })
-        }
-        BuiltinFunction::ArrayFindIndex => {
+        })(),
+        BuiltinFunction::ArrayFindIndex => (|| {
             let model: i_slint_core::model::ModelRc<Value> =
                 eval_expression(ctx, &arguments[0]).try_into().unwrap();
             let Expression::Closure { arg_name, expression } = &arguments[1] else {
@@ -2464,8 +2361,8 @@ fn call_builtin_function(
             Value::Number(i_slint_core::model::model_find_index(&model, |row_value| {
                 eval_array_row_predicate(arg_name, expression, ctx, row_value)
             }) as f64)
-        }
-        BuiltinFunction::ImplicitLayoutInfo(orient) => {
+        })(),
+        BuiltinFunction::ImplicitLayoutInfo(orient) => (|| {
             // The argument is a `PropertyReference` to a `Native { prop_name: "" }`,
             // i.e. the item itself; the optional second argument carries the
             // cross-axis constraint (-1 when unconstrained).
@@ -2478,7 +2375,7 @@ fn call_builtin_function(
                 && let Some(adapter) = inst.window_adapter_or_default()
             {
                 let item_rc =
-                    i_slint_core::items::ItemRc::new(vtable::VRc::into_dyn(inst), flat_idx as u32);
+                    i_slint_core::items::ItemRc::new(VRc::into_dyn(inst), flat_idx as u32);
                 return item_rc
                     .borrow()
                     .as_ref()
@@ -2491,31 +2388,17 @@ fn call_builtin_function(
                     .into();
             }
             i_slint_core::layout::LayoutInfo::default().into()
-        }
-        BuiltinFunction::Debug => {
+        })(),
+        BuiltinFunction::Debug => (|| {
             use i_slint_core::debug_log::*;
             let msg = to_string(ctx, &arguments[0]);
-            let root = ctx
-                .current
-                .as_ref()
-                .and_then(|c| c.root.get())
-                .and_then(|w| w.upgrade())
-                .map(vtable::VRc::into_dyn);
-            if let Some(context) = root.as_ref().and_then(i_slint_core::window::context_for_root) {
-                context.dispatch_log_message(LogMessage::new(
-                    LogMessageSource::SlintCode,
-                    log_message_location(source_location),
-                    format_args!("{msg}"),
-                ));
-            } else {
-                log_message(LogMessage::new(
-                    LogMessageSource::SlintCode,
-                    log_message_location(source_location),
-                    format_args!("{msg}"),
-                ));
-            }
+            component_context(ctx).dispatch_log_message(LogMessage::new(
+                LogMessageSource::SlintCode,
+                log_message_location(source_location).as_ref().map(LogLocation::get),
+                format_args!("{msg}"),
+            ));
             Value::Void
-        }
+        })(),
         BuiltinFunction::ArrayLength => match eval_expression(ctx, &arguments[0]) {
             // Track the row count so bindings reading `.length` re-evaluate
             // when rows are added or removed.
@@ -2523,9 +2406,11 @@ fn call_builtin_function(
                 m.model_tracker().track_row_count_changes();
                 Value::Number(m.row_count() as f64)
             }
+            // A number model, see the repeater model binding in `bindings.rs`.
+            Value::Number(n) => Value::Number((n.max(0.) as usize) as f64),
             _ => Value::Number(0.),
         },
-        BuiltinFunction::ImageSize => {
+        BuiltinFunction::ImageSize => (|| {
             if let Value::Image(img) = eval_expression(ctx, &arguments[0]) {
                 let size = img.size();
                 let mut s = crate::api::Struct::default();
@@ -2535,8 +2420,8 @@ fn call_builtin_function(
             } else {
                 Value::Void
             }
-        }
-        BuiltinFunction::ParseMarkdown => {
+        })(),
+        BuiltinFunction::ParseMarkdown => (|| {
             let format_string: SharedString =
                 eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
             let args = eval_expression(ctx, &arguments[1]);
@@ -2551,13 +2436,8 @@ fn call_builtin_function(
                 Vec::new()
             };
             Value::StyledText(i_slint_core::styled_text::parse_markdown(&format_string, &args))
-        }
-        BuiltinFunction::StringToStyledText => {
-            let string: SharedString =
-                eval_expression(ctx, &arguments[0]).try_into().unwrap_or_default();
-            Value::StyledText(i_slint_core::styled_text::string_to_styled_text(string.to_string()))
-        }
-        BuiltinFunction::Translate => {
+        })(),
+        BuiltinFunction::Translate => (|| {
             let original: SharedString = to_string(ctx, &arguments[0]);
             let context: SharedString = to_string(ctx, &arguments[1]);
             let domain: SharedString = to_string(ctx, &arguments[2]);
@@ -2565,16 +2445,9 @@ fn call_builtin_function(
             let Value::Model(args) = args else {
                 return Value::String(original);
             };
-            struct StringModelWrapper(ModelRc<Value>);
-            impl i_slint_core::translations::FormatArgs for StringModelWrapper {
-                type Output<'a> = SharedString;
-                fn from_index(&self, index: usize) -> Option<SharedString> {
-                    self.0.row_data(index).and_then(|v| v.try_into().ok())
-                }
-            }
             let n: i32 = eval_expression(ctx, &arguments[4]).try_into().unwrap_or(0);
             let plural: SharedString = to_string(ctx, &arguments[5]);
-            Value::String(i_slint_core::translations::translate(
+            Value::String(component_context(ctx).translate(
                 &original,
                 &context,
                 &domain,
@@ -2582,15 +2455,15 @@ fn call_builtin_function(
                 n,
                 &plural,
             ))
-        }
+        })(),
         BuiltinFunction::ShowPopupWindow => crate::popup::show_popup_window(ctx, arguments),
         BuiltinFunction::ClosePopupWindow => crate::popup::close_popup_window(ctx, arguments),
-        BuiltinFunction::SetFocusItem => {
+        BuiltinFunction::SetFocusItem => (|| {
             if let Some(Expression::PropertyReference(mr)) = arguments.first()
                 && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
                 && let Some(adapter) = find_window_adapter(ctx)
             {
-                let dyn_rc = vtable::VRc::into_dyn(inst);
+                let dyn_rc = VRc::into_dyn(inst);
                 let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
                 i_slint_core::window::WindowInner::from_pub(adapter.window()).set_focus_item(
                     &item_rc,
@@ -2599,13 +2472,13 @@ fn call_builtin_function(
                 );
             }
             Value::Void
-        }
-        BuiltinFunction::ClearFocusItem => {
+        })(),
+        BuiltinFunction::ClearFocusItem => (|| {
             if let Some(Expression::PropertyReference(mr)) = arguments.first()
                 && let Some((inst, flat_idx)) = resolve_item_rc_from_ref(ctx, mr)
                 && let Some(adapter) = find_window_adapter(ctx)
             {
-                let dyn_rc = vtable::VRc::into_dyn(inst);
+                let dyn_rc = VRc::into_dyn(inst);
                 let item_rc = i_slint_core::items::ItemRc::new(dyn_rc, flat_idx as u32);
                 i_slint_core::window::WindowInner::from_pub(adapter.window()).set_focus_item(
                     &item_rc,
@@ -2614,24 +2487,7 @@ fn call_builtin_function(
                 );
             }
             Value::Void
-        }
-        BuiltinFunction::MonthDayCount => {
-            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            Value::Number(i_slint_core::date_time::month_day_count(m, y).unwrap_or(0) as f64)
-        }
-        BuiltinFunction::MonthOffset => {
-            let m: u32 = eval_expression(ctx, &arguments[0]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            Value::Number(i_slint_core::date_time::month_offset(m, y) as f64)
-        }
-        BuiltinFunction::FormatDate => {
-            let f: SharedString = to_string(ctx, &arguments[0]);
-            let d: u32 = eval_expression(ctx, &arguments[1]).try_into().unwrap_or(0);
-            let m: u32 = eval_expression(ctx, &arguments[2]).try_into().unwrap_or(0);
-            let y: i32 = eval_expression(ctx, &arguments[3]).try_into().unwrap_or(0);
-            Value::String(i_slint_core::date_time::format_date(&f, d, m, y))
-        }
+        })(),
         BuiltinFunction::DateNow => {
             Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
                 i_slint_core::date_time::date_now()
@@ -2640,12 +2496,7 @@ fn call_builtin_function(
                     .collect::<Vec<_>>(),
             )))
         }
-        BuiltinFunction::ValidDate => {
-            let d: SharedString = to_string(ctx, &arguments[0]);
-            let f: SharedString = to_string(ctx, &arguments[1]);
-            Value::Bool(i_slint_core::date_time::parse_date(d.as_str(), f.as_str()).is_some())
-        }
-        BuiltinFunction::ParseDate => {
+        BuiltinFunction::ParseDate => (|| {
             let d: SharedString = to_string(ctx, &arguments[0]);
             let f: SharedString = to_string(ctx, &arguments[1]);
             Value::Model(i_slint_core::model::ModelRc::new(i_slint_core::model::VecModel::from(
@@ -2653,24 +2504,64 @@ fn call_builtin_function(
                     .map(|v| v.into_iter().map(|x| Value::Number(x as f64)).collect::<Vec<_>>())
                     .unwrap_or_default(),
             )))
-        }
+        })(),
         BuiltinFunction::ShowPopupMenu | BuiltinFunction::ShowPopupMenuInternal => {
             crate::popup::show_popup_menu(ctx, arguments)
         }
-        BuiltinFunction::OpenUrl => {
-            let url = to_string(ctx, &arguments[0]);
-            let result = find_window_adapter(ctx)
-                .map(|adapter| i_slint_core::open_url(&url, adapter.window()).is_ok())
-                .unwrap_or(false);
-            Value::Bool(result)
+        BuiltinFunction::RegisterBitmapFont => {
+            #[cfg(feature = "internal-embed-textures")]
+            if let [Expression::NumberLiteral(resource_id)] = arguments
+                && let Some(root) = find_root_instance(ctx)
+                && let Some(font) = root.globals.resources.pre_rendered.bitmap_font(
+                    i_slint_compiler::embedded_resources::EmbeddedResourcesIdx(
+                        *resource_id as usize,
+                    ),
+                )
+            {
+                match root.try_window_adapter() {
+                    Ok(adapter) => adapter.renderer().register_shared_bitmap_font(&font),
+                    Err(err) => i_slint_core::debug_log!("Cannot register bitmap font: {err}"),
+                }
+            }
+            Value::Void
         }
-        BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
-            // Bitmap font registration is generated by build.rs, not callable from .slint.
+        BuiltinFunction::RegisterCustomFontByMemory => {
+            // The interpreter doesn't embed font files, only pre-rendered bitmap fonts.
             Value::Void
         }
         BuiltinFunction::StartTimer | BuiltinFunction::StopTimer => {
             // Lowered into property assignments by `materialize_state`; never reached.
             Value::Void
+        }
+        BuiltinFunction::ListViewEnsureRowVisible => {
+            if let [
+                Expression::PropertyReference(MemberReference::Relative {
+                    parent_level,
+                    local_reference,
+                }),
+                Expression::PropertyReference(flickable),
+                row,
+                behavior,
+            ] = arguments
+                && let LocalMemberIndex::Repeater(repeater_idx) = &local_reference.reference
+                && let Some(instance) = try_walk_to(ctx, *parent_level, local_reference)
+                && let RepeaterOrConditional::Repeater(repeater) =
+                    &instance.repeaters[*repeater_idx]
+                && let Some((flickable_instance, flat_idx)) =
+                    resolve_item_rc_from_ref(ctx, flickable)
+            {
+                let row: i32 = eval_expression(ctx, row).try_into().unwrap_or_default();
+                let behavior: ScrollBehavior =
+                    eval_expression(ctx, behavior).try_into().unwrap_or_default();
+                let flickable_rc = i_slint_core::items::ItemRc::new(
+                    VRc::into_dyn(flickable_instance),
+                    flat_idx as u32,
+                );
+                repeater.as_ref().listview_ensure_row_visible(row, behavior, &flickable_rc);
+                return Value::Void;
+            }
+
+            panic!("internal error: invalid arguments to ListViewEnsureRowVisible {arguments:?}")
         }
     }
 }
@@ -2681,13 +2572,12 @@ fn call_builtin_function(
 pub(crate) fn resolve_item_rc_from_ref(
     ctx: &EvalContext,
     mr: &MemberReference,
-) -> Option<(vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>, usize)>
-{
+) -> Option<(VRc<ItemTreeVTable, Instance>, usize)> {
     let MemberReference::Relative { parent_level, local_reference } = mr else { return None };
     let LocalMemberIndex::Native { item_index, .. } = &local_reference.reference else {
         return None;
     };
-    let owner = try_walk_to(ctx, *parent_level, &local_reference.sub_component_path)?;
+    let owner = try_walk_to(ctx, *parent_level, local_reference)?;
     let parent_inst = owner.root.get().and_then(|w| w.upgrade())?;
     let full_path = crate::item_tree_vtable::sub_component_path_of(&owner, &parent_inst);
     let flat_idx = find_flat_item_index(&parent_inst.item_table, &full_path, *item_index)?;
@@ -2697,9 +2587,7 @@ pub(crate) fn resolve_item_rc_from_ref(
 /// Walk up the parent chain from the current context to find the root
 /// `Instance` of the public component. A repeated or conditional sub-tree
 /// doesn't have its own window adapter or public component index.
-pub(crate) fn find_root_instance(
-    ctx: &EvalContext,
-) -> Option<vtable::VRc<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>> {
+pub(crate) fn find_root_instance(ctx: &EvalContext) -> Option<VRc<ItemTreeVTable, Instance>> {
     let current = ctx.current.as_ref()?;
     let mut sub = current.clone();
     loop {
@@ -2721,74 +2609,10 @@ pub(crate) fn find_window_adapter(
     find_root_instance(ctx)?.window_adapter_or_default()
 }
 
-/// Dispatch an `Expression::ItemMemberFunctionCall` (like
-/// `TextInput.select-all()`) to the matching native item method by
-/// downcasting the runtime `ItemRc` to its concrete item type.
-fn call_item_member_function(ctx: &EvalContext, function: &MemberReference) -> Value {
-    use i_slint_core::items::{ContextMenu, SwipeGestureHandler, TextInput, WindowItem};
-    let MemberReference::Relative { local_reference, .. } = function else {
-        return Value::Void;
-    };
-    let LocalMemberIndex::Native { prop_name, .. } = &local_reference.reference else {
-        return Value::Void;
-    };
-    let Some((parent_inst, flat_idx)) = resolve_item_rc_from_ref(ctx, function) else {
-        return Value::Void;
-    };
-    let Some(adapter) = parent_inst.window_adapter_or_default() else { return Value::Void };
-    let parent_dyn = vtable::VRc::into_dyn(parent_inst);
-    let item_rc = i_slint_core::items::ItemRc::new(parent_dyn, flat_idx as u32);
-    let item_ref = item_rc.borrow();
-
-    // Map a Slint-side member-function name to the matching Rust method on
-    // a downcast item type.
-    macro_rules! dispatch {
-        ($item:expr, $name:expr; $($slint_name:literal => $rust_method:ident $(=> $into:ty)?),* $(,)?) => {
-            match $name {
-                $(
-                    $slint_name => {
-                        let res = $item.$rust_method(&adapter, &item_rc);
-                        $(let res: $into = res.into();)?
-                        return res.into();
-                    }
-                )*
-                _ => {}
-            }
-        };
+pub(crate) fn component_context(ctx: &EvalContext) -> SlintContext {
+    match ctx.globals.upgrade() {
+        Some(globals) => globals.context.clone(),
+        None => SlintContext::current()
+            .expect("a component is being evaluated, so there is a current context"),
     }
-
-    if let Some(text_input) = vtable::VRef::downcast_pin::<TextInput>(item_ref) {
-        dispatch!(text_input, prop_name.as_str();
-            "select-all" => select_all => (),
-            "clear-selection" => clear_selection => (),
-            "select-word" => select_word => (),
-            "cut" => cut => (),
-            "copy" => copy => (),
-            "paste" => paste => (),
-            "undo" => undo => (),
-            "redo" => redo => (),
-        );
-    }
-    if let Some(swipe) = vtable::VRef::downcast_pin::<SwipeGestureHandler>(item_rc.borrow()) {
-        dispatch!(swipe, prop_name.as_str();
-            "cancel" => cancel => (),
-        );
-    }
-    if let Some(menu) = vtable::VRef::downcast_pin::<ContextMenu>(item_rc.borrow()) {
-        dispatch!(menu, prop_name.as_str();
-            "close" => close => (),
-            "is-open" => is_open,
-        );
-    }
-    if let Some(window) = vtable::VRef::downcast_pin::<WindowItem>(item_rc.borrow()) {
-        match prop_name.as_str() {
-            "hide" => {
-                window.hide(&adapter, &item_rc);
-                return Value::Void;
-            }
-            "close" => return Value::Bool(window.close(&adapter, &item_rc)),
-            _ => {}
-        }
-    }
-    unimplemented!("ItemMemberFunctionCall `{prop_name}`")
 }

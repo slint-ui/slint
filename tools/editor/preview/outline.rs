@@ -250,9 +250,7 @@ fn create_node(
         icon_kind,
         element_type,
         element_id,
-        uri: i_slint_editor_preview::file_to_uri(element.source_file.path())
-            .unwrap()
-            .to_shared_string(),
+        uri: element.source_file.path().to_url().unwrap().to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,
     }
@@ -268,7 +266,7 @@ pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::C
 pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_select_element(|uri, offset, notify_editor| {
         super::element_selection::select_element_at_source_code_position(
-            i_slint_editor_preview::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
+            i_slint_compiler::source_path::SourcePath::from(Url::parse(uri.as_str()).unwrap()),
             TextSize::new(offset as u32),
             None,
             if notify_editor {
@@ -386,8 +384,8 @@ fn drop_edit(
                 document_cache.format,
             )?
         }
-        DragItem::NewComponent { kind } => {
-            let component = super::palette_component(kind)?;
+        DragItem::NewComponent { kind, type_name } => {
+            let component = super::palette_component(type_name)?;
             let size = super::PREVIEW_STATE.with_borrow(|state| {
                 state
                     .editor_ui
@@ -395,7 +393,10 @@ fn drop_edit(
                     .map(|ui| ui.global::<ui::ElementVisuals>().invoke_for_kind(kind).preview_size)
             })?;
             let mut properties = Vec::new();
-            if !i_slint_compiler::layout::is_layout(
+            if !matches!(
+                kind,
+                ui::ElementKind::Text | ui::ElementKind::StyledText | ui::ElementKind::Widget
+            ) && !i_slint_compiler::layout::is_layout(
                 &drop_info.target_element_node.as_element().borrow().base_type,
             ) {
                 properties.extend([

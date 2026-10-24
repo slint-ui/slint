@@ -24,7 +24,6 @@ export component Example inherits Window {
     time_picker := TimePickerPopup {
         x: (root.width - self.width) / 2;
         y: (root.height - self.height ) / 2;
-        close_policy: PopupClosePolicy.no_auto_close;
         time: { hour: 12, minute: 24 };
 
     }

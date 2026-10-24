@@ -7,9 +7,6 @@ use lsp_types::Url;
 
 use super::{PairingRejection, PreviewComponent, Result, SourceFileVersion};
 
-#[cfg(target_arch = "wasm32")]
-use super::wasm_prelude::*;
-
 /// Where the local preview is rendered. Remote viewers are layered on top
 /// of one of these via [`super::LspToPreviewMessage::RemoteConnectionState`];
 /// they aren't a target of their own.
@@ -24,7 +21,12 @@ pub enum PreviewTarget {
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToLspMessage {
     /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
+    Diagnostics {
+        uri: Url,
+        version: SourceFileVersion,
+        #[serde(with = "json_encoded")]
+        diagnostics: Vec<lsp_types::Diagnostic>,
+    },
     /// Show a document in the editor.
     ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
     /// Switch between native and WASM preview (if supported)
@@ -79,8 +81,14 @@ pub enum PreviewToLspMessage {
     /// The client offered no usable token, so the viewer is now showing a
     /// pairing code and waiting for the user to type it. `element` starts
     /// the SPAKE2 exchange the code is established through; a fresh one is
-    /// sent for every attempt.
-    PairingRequired { attempts_left: u8, expires_in_seconds: u16, element: super::pairing::Element },
+    /// sent for every attempt. `code_digits` is the length of the code, which
+    /// may be longer than [`super::pairing::CODE_DIGITS`] if it's pinned.
+    PairingRequired {
+        attempts_left: u8,
+        expires_in_seconds: u16,
+        code_digits: u8,
+        element: super::pairing::Element,
+    },
     /// The client announced a token this viewer issued, so the viewer opens
     /// the reconnect exchange, with the token as the secret and nobody on
     /// the screen. Answered like a code prompt, by
@@ -98,6 +106,27 @@ pub enum PreviewToLspMessage {
     PairingRejected { reason: PairingRejection },
     /// The preview exited.
     Exited,
+    /// Clear the highlight in the visual editor run preview.
+    ClearHighlight,
+}
+
+/// `lsp_types` omits empty optional fields when serializing, which the
+/// remote preview's postcard encoding can't read back, so these travel as JSON.
+mod json_encoded {
+    use serde::{Deserialize as _, de::Error as _, ser::Error as _};
+
+    pub fn serialize<S: serde::Serializer, T: serde::Serialize>(
+        value: &T,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&serde_json::to_string(value).map_err(S::Error::custom)?)
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>, T: serde::de::DeserializeOwned>(
+        deserializer: D,
+    ) -> Result<T, D::Error> {
+        serde_json::from_str(&String::deserialize(deserializer)?).map_err(D::Error::custom)
+    }
 }
 
 /// One transport from a preview back to the LSP.
@@ -118,17 +147,10 @@ pub trait PreviewToLsp {
     /// Ask the editor to show some document
     fn ask_editor_to_show_document(
         &self,
-        file: &str,
+        file: lsp_types::Url,
         selection: lsp_types::Range,
         take_focus: bool,
     ) -> Result<()> {
-        let file = match lsp_types::Url::from_file_path(file) {
-            Ok(file) => file,
-            Err(()) => {
-                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
-                return Err("Failed to convert file path to URL".to_string().into());
-            }
-        };
         if selection.start.character == 0 || selection.end.character == 0 {
             return Ok(());
         }
@@ -149,5 +171,33 @@ pub trait PreviewToLsp {
             return Err(err);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diagnostics_survive_the_wire_format() {
+        let message = PreviewToLspMessage::Diagnostics {
+            uri: Url::parse("file:///app.slint").unwrap(),
+            version: Some(3),
+            diagnostics: vec![lsp_types::Diagnostic {
+                severity: Some(lsp_types::DiagnosticSeverity::WARNING),
+                message: "unused property".into(),
+                ..Default::default()
+            }],
+        };
+        let bytes = postcard::to_allocvec(&message).unwrap();
+        let PreviewToLspMessage::Diagnostics { version, diagnostics, .. } =
+            postcard::from_bytes(&bytes).unwrap()
+        else {
+            panic!("Expected diagnostics");
+        };
+        assert_eq!(version, Some(3));
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::WARNING));
+        assert_eq!(diagnostics[0].message, "unused property");
     }
 }

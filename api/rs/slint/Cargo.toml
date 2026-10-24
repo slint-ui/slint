@@ -103,6 +103,23 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## This feature has no effect on the web, where the browser decodes images.
 image-default-formats = ["i-slint-core/image-default-formats"]
 
+## Enable storing an image's pixels in the RGB565 format ([`Image::from_rgb565`]).
+## The software renderer then draws such an image
+## without any per-pixel conversion when the render target is RGB565 too.
+image-pixel-format-rgb565 = [
+  "i-slint-core/image-pixel-format-rgb565",
+  "i-slint-renderer-software?/image-pixel-format-rgb565",
+  "i-slint-backend-selector/image-pixel-format-rgb565",
+]
+
+## Enable storing an image's pixels as a single 8 bit grayscale channel
+## ([`Image::from_gray8`]).
+image-pixel-format-gray8 = [
+  "i-slint-core/image-pixel-format-gray8",
+  "i-slint-renderer-software?/image-pixel-format-gray8",
+  "i-slint-backend-selector/image-pixel-format-gray8",
+]
+
 ## Enable the live preview feature
 ##
 ## Enable this feature to reload the .slint files at runtime and reload it whenever the files are modified on disk.
@@ -205,6 +222,9 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-
 ## Same as `renderer-skia`, but Skia will prefer Vulkan when selecting a backend.
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
+## Same as `renderer-skia`, but compiles only Skia's CPU rendering path, without a GPU renderer.
+renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software", "std"]
+
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
 
@@ -236,6 +256,10 @@ backend-linuxkms-libinput = ["i-slint-backend-selector/backend-linuxkms-libinput
 ## but no libseat.
 backend-linuxkms-noseat = ["i-slint-backend-selector/backend-linuxkms-noseat", "std"]
 
+## Add libdlmclient to the LinuxKMS backend, to obtain a DRM lease by name from the AGL
+## drm-lease-manager. Enables the backend on its own.
+backend-linuxkms-libdlmclient = ["i-slint-backend-selector/backend-linuxkms-libdlmclient", "std"]
+
 ## Use the backend based on the [android-activity](https://docs.rs/android-activity) crate. (Using it's native activity feature)
 backend-android-activity-06 = [
   "i-slint-backend-android-activity/native-activity",
@@ -262,7 +286,7 @@ backend-android-activity-05 = [
 #! in your `Cargo.toml` when enabling any of these features:
 #!
 #! ```toml
-#! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+#! slint = { version = "~1.19", features = ["unstable-wgpu-30"] }
 #! ```
 
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.
@@ -287,8 +311,8 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## Enable support for exposing [libinput](https://docs.rs/input/latest/input/index.html) related APIs in the LinuxKMS backend.
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.11.0/fontique/) related APIs.
-unstable-fontique-011 = ["i-slint-common/shared-fontique"]
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.12.0/fontique/) related APIs.
+unstable-fontique-012 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -305,11 +329,9 @@ vtable = { workspace = true }
 
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
-num-traits = { version = "0.2", default-features = false }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 
-unicode-segmentation = { workspace = true }
 
 wgpu-29 = { workspace = true, optional = true }
 wgpu-30 = { workspace = true, optional = true }
@@ -354,12 +376,14 @@ features = [
   "log",
   "gettext",
   "renderer-software",
+  "image-pixel-format-rgb565",
+  "image-pixel-format-gray8",
   "renderer-femtovg",
   "raw-window-handle-06",
   "unstable-wgpu-29",
   "unstable-wgpu-30",
   "unstable-winit-030",
   "unstable-libinput-09",
-  "unstable-fontique-011",
+  "unstable-fontique-012",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

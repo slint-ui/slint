@@ -9,9 +9,6 @@ use crate::util;
 use i_slint_compiler::parser::{SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range};
 
-#[cfg(target_arch = "wasm32")]
-use crate::editor_preview::wasm_prelude::*;
-
 pub fn goto_definition(
     document_cache: &mut editor_preview::DocumentCache,
     token: SyntaxToken,
@@ -25,14 +22,14 @@ pub fn goto_definition(
             if let Some(doc) = document_cache.get_document_by_path(&f) {
                 let doc_node = doc.node.clone()?;
                 goto_node(&doc_node, document_cache.format)
-            } else if f.is_file() || cfg!(test) {
+            } else if f.as_native_path().is_some_and(std::path::Path::is_file) || cfg!(test) {
                 // WASM will never get here, but that is fine: Slintpad can not open images anyway;-)
                 Some(GotoDefinitionResponse::Link(vec![LocationLink {
                     origin_selection_range: Some(util::token_to_lsp_range(
                         &token,
                         document_cache.format,
                     )),
-                    target_uri: lsp_types::Url::from_file_path(&f).ok()?,
+                    target_uri: f.to_url()?,
                     target_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
                     target_selection_range: Range::new(Position::new(0, 0), Position::new(0, 0)),
                 }]))
@@ -364,4 +361,33 @@ export component Test {
     assert_eq!(token.text(), "up");
     let def = goto_definition(&mut dc, token).unwrap();
     assert_eq!(first_link(&def).target_range.start.line, 1);
+}
+
+#[test]
+fn test_goto_definition_match_case() {
+    fn first_link(def: &GotoDefinitionResponse) -> &LocationLink {
+        let GotoDefinitionResponse::Link(link) = def else { panic!("not a single link {def:?}") };
+        link.first().unwrap()
+    }
+
+    let source = r#"
+enum Nums { one, two }
+export component Test {
+    in property <Nums> num;
+    match num {
+        one: Rectangle { }
+        Nums.two: Rectangle { }
+    }
+}"#;
+    let (mut dc, uri, _) =
+        crate::language::test::loaded_document_cache_with_experimental(source.into());
+    let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+
+    for (anchor, name) in [("one:", "one"), ("two:", "two")] {
+        let offset: TextSize = (source.find(anchor).unwrap() as u32).into();
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), name);
+        let def = goto_definition(&mut dc, token).unwrap();
+        assert_eq!(first_link(&def).target_range.start.line, 1);
+    }
 }

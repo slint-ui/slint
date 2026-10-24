@@ -723,6 +723,16 @@ mod software_renderer {
     }
 
     #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_software_renderer_set_dirty_region_alignment(
+        r: SoftwareRendererOpaque,
+        horizontal: u16,
+        vertical: u16,
+    ) {
+        let renderer = unsafe { &*(r as *const SoftwareRenderer) };
+        renderer.set_dirty_region_alignment(horizontal, vertical);
+    }
+
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_software_renderer_handle(
         r: SoftwareRendererOpaque,
     ) -> RendererPtr {

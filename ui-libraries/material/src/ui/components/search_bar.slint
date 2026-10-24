@@ -73,7 +73,6 @@ component SearchTextInput  {
             font_size: MaterialTypography.body_large.font_size;
             font_weight: MaterialTypography.body_large.font_weight;
             vertical_alignment: center;
-            single_line: true;
             input-type: search;
             color: MaterialPalette.on_surface;
             selection_background_color: MaterialPalette.secondary_container;
@@ -287,8 +286,6 @@ export component SearchBar {
                 if root.items.length == 0 : Rectangle {}
 
                 if root.items.length > 0 : ListView {
-                    horizontal_stretch: 1;
-
                     for item[index] in root.items : SearchTile {
                         text: item.text;
                         supporting_text: item.supporting_text;

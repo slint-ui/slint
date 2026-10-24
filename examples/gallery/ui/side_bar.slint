@@ -51,10 +51,7 @@ component SideBarItem inherits Rectangle {
         }
     }
 
-    touch := TouchArea {
-        width: 100%;
-        height: 100%;
-    }
+    touch := TouchArea { }
 }
 
 export component SideBar inherits Rectangle {
@@ -116,7 +113,6 @@ export component SideBar inherits Rectangle {
 
                 property <int> focused-tab: 0;
 
-                x: 0;
                 width: 0; // Do not react on clicks
             }
 

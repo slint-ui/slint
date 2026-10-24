@@ -23,7 +23,7 @@
 //! should be an additional character to the left, which is useful if the diagnostic starts or ends
 //! in the first or second column, where otherwise the `//` is located.
 //!
-//! Warnings with `> <warning{expected_message}` are also supported.
+//! Warnings, infos, and notes with `> <warning{expected_message}`, `info{…}`, and `note{…}` are also supported.
 //!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
@@ -65,6 +65,11 @@ fn syntax_tests() -> std::io::Result<()> {
             // Skip slint-sc tests when the feature is not enabled
             #[cfg(not(feature = "slint-sc"))]
             if path.file_name().is_some_and(|n| n == "slint-sc") {
+                continue;
+            }
+            // Skip the tests that need the software renderer when the feature is not enabled
+            #[cfg(not(feature = "renderer-software"))]
+            if path.file_name().is_some_and(|n| n == "renderer-software") {
                 continue;
             }
             for test_entry in path.read_dir()? {
@@ -175,7 +180,7 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
     let re = regex::Regex::new(
-        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note)\{([^\n]*)\}",
+        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note|info)\{([^\n]*)\}",
     )
     .unwrap();
 
@@ -243,6 +248,7 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
         let expected_diag_level = match warning_or_error {
             "warning" => DiagnosticLevel::Warning,
             "error" => DiagnosticLevel::Error,
+            "info" => DiagnosticLevel::Info,
             "note" => DiagnosticLevel::Note,
             _ => panic!("Unsupported diagnostic level {warning_or_error}"),
         };
@@ -273,7 +279,8 @@ fn process_diagnostics(
         .iter()
         .filter(|d| {
             canonical(
-                d.source_file()
+                i_slint_compiler::diagnostics::Spanned::source_file(*d)
+                    .and_then(|f| f.path().as_native_path())
                     .unwrap_or_else(|| panic!("{path:?}: Error without a source file {d:?}",)),
             ) == path
         })
@@ -410,6 +417,7 @@ fn update(
             let level = match d.level() {
                 DiagnosticLevel::Error => "error",
                 DiagnosticLevel::Warning => "warning",
+                DiagnosticLevel::Info => "info",
                 DiagnosticLevel::Note => "note",
                 _ => todo!(),
             };
@@ -474,8 +482,11 @@ fn process_file_source(
     update: bool,
 ) -> std::io::Result<bool> {
     let mut parse_diagnostics = BuildDiagnostics::default();
-    let syntax_node =
-        i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+    let syntax_node = i_slint_compiler::parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        &mut parse_diagnostics,
+    );
 
     let has_parse_error = parse_diagnostics.has_errors();
     // Only the tests in the `slint-sc` directory are Slint SC tests; don't
@@ -501,8 +512,20 @@ fn process_file_source(
     .into_iter()
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
+    // The `renderer-software` tests diagnose the glyph embedding, which the other tests skip.
+    #[cfg(feature = "renderer-software")]
+    if path.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "renderer-software") {
+        compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
+    }
     compiler_config.enable_experimental = true;
+    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
     compiler_config.style = Some("fluent".into());
+    // The interpreter inlines every component, which merges an instance into
+    // its base. A diagnostic that depends on the two staying apart needs the
+    // element tree native codegen sees.
+    if source.contains("config:no_inlining") {
+        compiler_config.inline_all_elements = false;
+    }
     compiler_config.components_to_generate =
         if is_slint_sc || source.contains("config:generate_all_exported_windows") {
             // Slint SC always compiles the exported windows
@@ -525,7 +548,7 @@ fn process_file_source(
     let mut success = true;
     success &= process_diagnostics(&compile_diagnostics, path, &source, silent, update)?;
 
-    for p in &compile_diagnostics.all_loaded_files {
+    for p in compile_diagnostics.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
         let source = if p.is_absolute() {
             std::fs::read_to_string(p)?
         } else {

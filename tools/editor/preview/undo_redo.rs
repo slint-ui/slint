@@ -3,6 +3,7 @@
 
 use super::ui;
 use core::hash::{Hash as _, Hasher as _};
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_editor_preview::editing::text_edit;
 use i_slint_live_preview::protocol::PreviewToLspMessage;
 
@@ -35,8 +36,11 @@ fn prepare_history_edit(
     for (url, expected) in &item.file_hashes {
         let document = document_cache.get_document(url)?;
         let cached = document.node.as_ref()?.source_file.source()?;
-        let disk = std::fs::read_to_string(url.to_file_path().ok()?).ok()?;
-        if content_hash(cached) != *expected || content_hash(&disk) != *expected {
+        let disk = SourcePath::from_url(url).read_to_string().ok()?;
+        let cached_hash = content_hash(cached);
+        let disk_hash = content_hash(&disk);
+        if cached_hash != *expected || disk_hash != *expected {
+            tracing::debug!(%url, expected, cached_hash, disk_hash, "Preview: history source mismatch");
             return None;
         }
     }
@@ -103,6 +107,7 @@ pub fn setup(api: &ui::Api<'_>) {
                 return;
             }
             let Some(edit) = state.undo_redo_stack.undo_stack.pop() else {
+                tracing::debug!("Preview: Undo requested without history");
                 return;
             };
             let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
@@ -137,6 +142,7 @@ pub fn setup(api: &ui::Api<'_>) {
                 return;
             }
             let Some(edit) = state.undo_redo_stack.redo_stack.pop() else {
+                tracing::debug!("Preview: Redo requested without history");
                 return;
             };
             let Some((reverse, file_hashes)) = prepare_history_edit(&document_cache, &edit) else {
@@ -238,5 +244,40 @@ mod tests {
         assert!(stack.check_set_contents_valid(&url, "x: 80px;"));
         assert!(stack.check_set_contents_valid(&unrelated, "external edit"));
         assert_eq!(stack.redo_stack.len(), 2);
+    }
+
+    #[test]
+    fn unchanged_source_notifications_preserve_pending_history() {
+        use crate::preview::{PREVIEW_STATE, PreviewState, SourceCodeCacheEntry};
+        use i_slint_live_preview::protocol::VersionedUrl;
+
+        let url = lsp_types::Url::parse("file:///rectangle.slint").unwrap();
+        for undo in [true, false] {
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                *state = PreviewState::default();
+                state.source_code.insert(
+                    url.clone(),
+                    SourceCodeCacheEntry { version: None, code: "original".into() },
+                );
+                state.workspace_edit_sent = true;
+                let stack = &mut state.undo_redo_stack;
+                if undo {
+                    stack.undo_stack.push(item(&url, "edited"));
+                } else {
+                    stack.redo_stack.push(item(&url, "edited"));
+                }
+            });
+            crate::preview::set_contents(&VersionedUrl::new(url.clone(), None), "original".into());
+            PREVIEW_STATE.with_borrow(|state| {
+                let stack = &state.undo_redo_stack;
+                assert_eq!(stack.undo_stack.len() + stack.redo_stack.len(), 1);
+            });
+            crate::preview::set_contents(&VersionedUrl::new(url.clone(), None), "external".into());
+            PREVIEW_STATE.with_borrow(|state| {
+                let stack = &state.undo_redo_stack;
+                assert!(stack.undo_stack.is_empty());
+                assert!(stack.redo_stack.is_empty());
+            });
+        }
     }
 }

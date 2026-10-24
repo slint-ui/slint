@@ -1,0 +1,80 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScrollView } from "std-widgets.slint";
+import { RecipeCard } from "recipe-card.slint";
+import { Recipe } from "../recipe-adapter.slint";
+import { Header } from "header.slint";
+import { Styles } from "../styles.slint";
+
+export component RecipesGrid {
+    in property <[Recipe]> recipes;
+    in property <int> columns: 4;
+    property <length> card-size: 109px;
+    in property <length> spacing: (root.width - (Styles.side-margin * 2) - (card-size * columns)) / (columns - 1);
+
+    callback item-clicked(int);
+    callback recipe-clicked(Recipe);
+
+    ScrollView {
+        x: 0px;
+        y: header.height;
+        width: root.width;
+        height: root.height - header.height;
+        // viewport-height: gl.preferred-height + 30px;
+        // enabled: false;
+        vertical-scrollbar-policy: always-off;
+        mouse-drag-pan-enabled: false;
+
+        gl := GridLayout {
+            x: Styles.side-margin;
+            y: 8px;
+            spacing: root.spacing;
+            for i[index] in recipes: RecipeCard {
+                photo: root.recipes[index].photo-grid;
+                title: root.recipes[index].title;
+                time: root.recipes[index].total-time + " Min.";
+                col: (index.mod(columns));
+                row: (index / columns);
+                recipe-clicked => {
+                    root.item-clicked(index);
+                }
+            }
+        }
+    }
+
+    header := Header {
+        y: 0px;
+
+        Rectangle {
+            height: vl.preferred-height;
+            vl := VerticalLayout {
+                x: Styles.side-margin;
+                alignment: start;
+                spacing: 2px;
+                Text {
+                    color: #171717;
+                    font-size: 12px;
+                    text: "Recipes";
+                    font-weight: FontWeight.semi-bold;
+                }
+                Text {
+                    color: #737373;
+                    font-size: Styles.small-font-size;
+                    text: "Explore curated recipes for your food processor";
+                    font-weight: FontWeight.medium;
+                }
+            }
+        }
+    }
+
+    footer := Rectangle {
+        visible: false; // Only needed if the grid is scrollable.
+        x: 0px;
+        y: root.height - self.height;
+        // -10px to stop the gradient overlapping the scroll thumb
+        width: parent.width - 10px;
+        height: 10px;
+        background: @linear-gradient(0deg, #f8f9fa 30%, #f8f9fa00 100%);
+    }
+}

@@ -21,7 +21,7 @@ use i_slint_compiler::CompilerConfiguration;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile, SourceFileInner};
 use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser;
-use std::path::PathBuf;
+use i_slint_compiler::source_path::SourcePath;
 use std::sync::Arc;
 
 #[global_allocator]
@@ -198,7 +198,7 @@ fn parse_source(source: &str) -> parser::SyntaxNode {
     let mut diagnostics = BuildDiagnostics::default();
     let tokens = i_slint_compiler::lexer::lex(source);
     let source_file: SourceFile =
-        Arc::new(SourceFileInner::new(PathBuf::from("bench.slint"), source.to_string()));
+        Arc::new(SourceFileInner::new(SourcePath::new("bench.slint"), source.to_string()));
     parser::parse_tokens(tokens, source_file, &mut diagnostics)
 }
 

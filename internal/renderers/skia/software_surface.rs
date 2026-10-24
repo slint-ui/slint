@@ -193,19 +193,22 @@ impl super::Surface for SoftwareSurface {
             window,
             size,
             &mut |width, height, pixel_format, age, pixels| {
-                let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
-                    &crate::image_info(
-                        (width.get() as i32, height.get() as i32),
-                        pixel_format,
-                        skia_safe::AlphaType::Opaque,
-                    ),
-                    pixels,
-                    None,
-                    None,
-                )
-                .ok_or_else(|| {
-                    "Error wrapping target buffer for rendering into with Skia".to_string()
-                })?;
+                let image_info = crate::image_info(
+                    (width.get() as i32, height.get() as i32),
+                    pixel_format,
+                    skia_safe::AlphaType::Opaque,
+                );
+                // A scanout buffer may carry padding at the end of each row:
+                // DRM dumb buffers have their pitch aligned by the driver, so a
+                // 1366 px wide XRGB8888 row occupies 5504 bytes, not 5464.
+                // Take the row length from the buffer, as the display does.
+                let row_bytes = pixels.len() / height.get() as usize;
+                let row_bytes = (row_bytes >= image_info.min_row_bytes()).then_some(row_bytes);
+                let mut surface_borrow =
+                    skia_safe::surfaces::wrap_pixels(&image_info, pixels, row_bytes, None)
+                        .ok_or_else(|| {
+                            "Error wrapping target buffer for rendering into with Skia".to_string()
+                        })?;
 
                 let dirty_region = callback(surface_borrow.canvas(), None, age);
 

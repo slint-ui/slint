@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "defaults:1",
+    "nodeName": "Default-heavy"
+  },
+  "root": {
+    "kind": "group",
+    "id": "defaults:1",
+    "name": "Default-heavy",
+    "x": 0,
+    "y": 0,
+    "width": 320,
+    "height": 180,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "children": [
+      {
+        "kind": "rectangle",
+        "id": "defaults:2",
+        "name": "Full parent rectangle",
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 180,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": null,
+        "layoutSizingVertical": null,
+        "fills": [],
+        "strokes": [
+          {
+            "paint": {
+              "kind": "solid",
+              "color": { "r": 0.2, "g": 0.6, "b": 1, "a": 1 },
+              "opacity": 1
+            },
+            "strokeTopWeight": 2,
+            "strokeRightWeight": 0,
+            "strokeBottomWeight": 1,
+            "strokeLeftWeight": 0,
+            "dashPattern": []
+          }
+        ],
+        "layoutPositioning": "auto",
+        "cornerRadii": [
+          4,
+          0,
+          0,
+          0
+        ],
+        "clipsContent": false,
+        "containerKind": "native",
+        "layoutFallback": "freeform",
+        "shadows": [
+          {
+            "color": { "r": 0, "g": 0, "b": 0, "a": 0.2 },
+            "offsetX": 0,
+            "offsetY": 0,
+            "blur": 0,
+            "spread": 0
+          },
+          {
+            "color": { "r": 0, "g": 0, "b": 0, "a": 0.25 },
+            "offsetX": 0,
+            "offsetY": 2,
+            "blur": 4,
+            "spread": 0
+          }
+        ]
+      },
+      {
+        "kind": "text",
+        "id": "defaults:3",
+        "name": "Default text",
+        "x": 24,
+        "y": 68,
+        "width": 272,
+        "height": 44,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutSizingHorizontal": null,
+        "layoutSizingVertical": null,
+        "characters": "Defaults",
+        "fills": [
+          {
+            "kind": "solid",
+            "color": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "opacity": 1
+          }
+        ],
+        "fontFamily": "Inter",
+        "fontStyle": "Regular",
+        "fontSize": 20,
+        "fontWeight": 400,
+        "textAutoResize": "none",
+        "horizontalAlign": "LEFT",
+        "verticalAlign": "TOP",
+        "layoutPositioning": "auto",
+        "italic": false,
+        "letterSpacing": 0,
+    "lineHeightFactor": 1,
+        "wrap": false,
+        "overflow": "clip",
+        "maxLines": null,
+        "runs": []
+      }
+    ],
+    "layoutPositioning": "auto",
+    "containerKind": "group",
+    "layoutFallback": "freeform"
+  }
+}

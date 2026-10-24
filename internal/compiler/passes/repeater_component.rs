@@ -5,8 +5,8 @@
 Make sure that the Repeated expression are just components without any children
  */
 
+use crate::element_type::ElementType;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::ElementType;
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -43,13 +43,16 @@ fn create_repeater_components(component: &Rc<Component>) {
                 bindings: std::mem::take(&mut original_elem.bindings),
                 change_callbacks: std::mem::take(&mut original_elem.change_callbacks),
                 property_analysis: std::mem::take(&mut original_elem.property_analysis),
+                moved_property_declarations: std::mem::take(
+                    &mut original_elem.moved_property_declarations,
+                ),
                 children: std::mem::take(&mut original_elem.children),
                 property_declarations: std::mem::take(&mut original_elem.property_declarations),
                 shadowing_members: std::mem::take(&mut original_elem.shadowing_members),
+                implement_statements: Default::default(),
                 named_references: Default::default(),
                 repeated: None,
                 is_component_placeholder: false,
-                is_injected_wrapper_element: original_elem.is_injected_wrapper_element,
                 debug: original_elem.debug.clone(),
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut original_elem.states),
@@ -74,6 +77,9 @@ fn create_repeater_components(component: &Rc<Component>) {
                 is_legacy_syntax: original_elem.is_legacy_syntax,
                 inline_depth: 0,
                 slot_target: original_elem.slot_target.clone(),
+                slot_default: original_elem.slot_default.clone(),
+                cleared_slots: original_elem.cleared_slots.clone(),
+                typed_slot_interface: original_elem.typed_slot_interface.clone(),
                 forwarded_slots: original_elem.forwarded_slots.clone(),
                 grid_layout_cell: original_elem.grid_layout_cell.clone(),
             })),

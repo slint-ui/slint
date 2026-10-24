@@ -66,13 +66,16 @@ instance.window().dispatch_event(WindowEvent::Resized { size: LogicalSize::new(7
 assert_eq!(instance.get_offset_x(), 20.);
 assert_eq!(instance.get_offset_y(), 20.);
 
-// Test that items that gain focus scroll to visible
+// Test that items that gain focus scroll smoothly to visible
 
 instance.invoke_remove_focus();
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 20.0, delta_y: 20.0 });
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 instance.invoke_set_focus();
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+slint_testing::mock_elapsed_time(1000000);
 assert_eq!(instance.get_offset_x(), 20.);
 assert_eq!(instance.get_offset_y(), 20.);
 

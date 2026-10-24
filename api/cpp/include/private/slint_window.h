@@ -344,7 +344,8 @@ public:
     }
 
     /// Registers a bitmap font for use with the software renderer.
-    inline void register_bitmap_font(const cbindgen_private::BitmapFont &font)
+    inline void
+    register_bitmap_font(const cbindgen_private::BitmapFont<cbindgen_private::StaticStorage> &font)
     {
         cbindgen_private::slint_register_bitmap_font(&inner, &font);
     }
@@ -650,9 +651,8 @@ public:
     {
         private_api::assert_main_thread();
         using slint::cbindgen_private::WindowEvent;
-        WindowEvent event { .resized =
-                                    WindowEvent::Resized_Body { .tag = WindowEvent::Tag::Resized,
-                                                                .size = { s.width, s.height } } };
+        WindowEvent event { .resized = WindowEvent::Resized_Body { .tag = WindowEvent::Tag::Resized,
+                                                                   .size = s } };
         cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
     }
 
@@ -699,7 +699,7 @@ public:
         cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
     }
 
-    /// Returns true if there is an animation currently active on any property in the Window.
+    /// Returns true if an active animation may change what this window renders.
     bool has_active_animations() const
     {
         private_api::assert_main_thread();

@@ -8,13 +8,144 @@ use lsp_types::Url;
 use smol_str::SmolStr;
 
 use i_slint_compiler::{
-    expression_tree, langtype, literals, object_tree,
+    expression_types, langtype, literals, object_tree,
     parser::{SyntaxKind, TextRange, syntax_nodes},
 };
 
 use slint::{Model as _, SharedString, VecModel};
 
 use crate::preview::{properties, ui};
+
+pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
+    use slint::ComponentHandle as _;
+    let api_weak = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(api);
+    let selection_api_weak = api_weak.clone();
+    let editor_weak = editor.as_weak();
+    let selected_item = selected_item_cache(move || {
+        let editor = editor_weak.upgrade()?;
+        let _ = editor.global::<ui::Hover>().get_preview_generation();
+        let api = selection_api_weak.upgrade()?;
+        let element = api.get_current_element();
+        let instance_index = usize::try_from(api.get_selection().highlight_index).ok()?;
+        let instance = crate::preview::component_instance()?;
+        let source_uri = lsp_types::Url::parse(element.source_uri.as_str()).ok()?;
+        let path = i_slint_compiler::source_path::SourcePath::from_url(&source_uri);
+        let offset = u32::try_from(element.offset).ok()?;
+        instance.component_item(&path, offset, instance_index, i_slint_core::InternalToken)
+    });
+    api.on_source_property_value_data(move |property_name, fallback| {
+        api_weak
+            .upgrade()
+            .and_then(|api| ui::source_property_value_data(&api, property_name))
+            .unwrap_or(fallback)
+    });
+    api.on_runtime_property_value_data(move |property_name, fallback| {
+        let runtime = selected_item
+            .as_ref()
+            .get()
+            .upgrade()
+            .and_then(|item| runtime_property(&item, property_name.as_str()));
+        runtime_property_value(runtime, fallback)
+    });
+}
+
+fn selected_item_cache(
+    lookup: impl Fn() -> Option<i_slint_core::items::ItemRc> + 'static,
+) -> std::pin::Pin<Rc<i_slint_core::Property<i_slint_core::item_tree::ItemWeak>>> {
+    let selected_item = Rc::pin(i_slint_core::Property::default());
+    selected_item.set_binding(move || lookup().map(|item| item.downgrade()).unwrap_or_default());
+    selected_item
+}
+
+fn runtime_property(
+    item: &i_slint_core::items::ItemRc,
+    property_name: &str,
+) -> Option<slint_interpreter::Value> {
+    if matches!(property_name, "font-family" | "font-size" | "font-weight") {
+        let font = font_request(item)?;
+        return match property_name {
+            "font-family" => font.family.map(slint_interpreter::Value::String),
+            "font-size" => {
+                font.pixel_size.map(|size| slint_interpreter::Value::Number(size.get() as f64))
+            }
+            "font-weight" => {
+                font.weight.map(|weight| slint_interpreter::Value::Number(weight as f64))
+            }
+            _ => unreachable!(),
+        };
+    }
+    if matches!(property_name, "width" | "height") {
+        let size = item.geometry().size;
+        return Some(slint_interpreter::Value::Number(match property_name {
+            "width" => size.width as f64,
+            _ => size.height as f64,
+        }));
+    }
+    slint_interpreter::ComponentInstance::item_property(
+        item,
+        property_name,
+        i_slint_core::InternalToken,
+    )
+}
+
+fn font_request(item: &i_slint_core::items::ItemRc) -> Option<i_slint_core::graphics::FontRequest> {
+    use i_slint_core::item_rendering::HasFont;
+    use i_slint_core::items::{ComplexText, SimpleText, StyledTextItem, TextInput};
+    macro_rules! resolve_font {
+        ($($item_type:ty),*) => {
+            $(if let Some(text) = item.downcast::<$item_type>() {
+                return Some(text.as_pin_ref().font_request(item));
+            })*
+        };
+    }
+    resolve_font!(ComplexText, SimpleText, StyledTextItem, TextInput);
+    None
+}
+
+fn runtime_property_value(
+    runtime: Option<slint_interpreter::Value>,
+    fallback: ui::PropertyValue,
+) -> ui::PropertyValue {
+    use slint_interpreter::Value;
+    let Some(value) = runtime else { return fallback };
+    let mut property = ui::PropertyValue { value_resolved: true, ..Default::default() };
+    property.value_kind = match value {
+        Value::Number(number) => {
+            property.value_float = number as f32;
+            property.value_int = number as i32;
+            ui::PropertyValueKind::Float
+        }
+        Value::String(text) => {
+            property.value_string = text;
+            ui::PropertyValueKind::String
+        }
+        Value::Bool(value) => {
+            property.value_bool = value;
+            ui::PropertyValueKind::Boolean
+        }
+        Value::Brush(brush) => {
+            property.value_brush = brush;
+            ui::PropertyValueKind::Brush
+        }
+        Value::EnumerationValue(enumeration_name, value) => {
+            let enumeration_type = i_slint_compiler::typeregister::TypeRegister::builtin()
+                .borrow()
+                .lookup(&enumeration_name);
+            let mapped = ui::map_value_and_type_to_property_value(
+                &enumeration_type,
+                &Some(Value::EnumerationValue(enumeration_name, value)),
+                "",
+            );
+            property.visual_items = mapped.visual_items;
+            property.value_int = mapped.value_int;
+            property.value_string = mapped.value_string;
+            ui::PropertyValueKind::Enum
+        }
+        _ => return fallback,
+    };
+    property.kind = property.value_kind;
+    property
+}
 
 fn is_complex(expression: Option<syntax_nodes::Expression>, ty: &langtype::Type) -> bool {
     fn handle_node(node: i_slint_compiler::parser::SyntaxNode, ty: &langtype::Type) -> bool {
@@ -78,18 +209,18 @@ fn map_property_to_ui(
 
         fn extract_value_with_unit(
             expression: &syntax_nodes::Expression,
-            units: &[expression_tree::WrittenUnit],
+            units: &[expression_types::WrittenUnit],
             value: &mut ui::PropertyValue,
         ) {
             fn extract_value_with_unit_impl(
                 expression: &syntax_nodes::Expression,
-                units: &[i_slint_compiler::expression_tree::WrittenUnit],
+                units: &[i_slint_compiler::expression_types::WrittenUnit],
             ) -> Option<(ui::PropertyValueKind, f32, i32, String)> {
                 let (value, unit) = convert_number_literal(expression)?;
 
                 let index = units.iter().position(|u| u == &unit).or_else(|| {
                     (units.is_empty()
-                        && unit == i_slint_compiler::expression_tree::WrittenUnit::None)
+                        && unit == i_slint_compiler::expression_types::WrittenUnit::None)
                         .then_some(0_usize)
                 })?;
 
@@ -151,7 +282,7 @@ fn map_property_to_ui(
         }
 
         if value.value_kind == ui::PropertyValueKind::Float {
-            use expression_tree::WrittenUnit;
+            use expression_types::WrittenUnit;
             use langtype::Type;
 
             match &property_info.ty {
@@ -340,7 +471,7 @@ fn map_property_declaration(
 
     Some(ui::PropertyDeclaration {
         defined_at,
-        source_path: da.path.to_string_lossy().to_string().into(),
+        source_path: da.path.to_string().into(),
         source_version,
         range: ui::to_ui_range(pos)?,
     })
@@ -361,7 +492,7 @@ fn map_property_definition(
 
 fn convert_number_literal(
     node: &syntax_nodes::Expression,
-) -> Option<(f64, i_slint_compiler::expression_tree::WrittenUnit)> {
+) -> Option<(f64, i_slint_compiler::expression_types::WrittenUnit)> {
     if let Some(unary) = &node.UnaryOpExpression() {
         let factor = match unary.first_token().unwrap().text() {
             "-" => -1.0,
@@ -378,6 +509,7 @@ fn convert_number_literal(
 #[cfg(test)]
 mod tests {
     use slint::{Model, SharedString};
+    use std::rc::Rc;
 
     use crate::preview::{properties, ui};
     use i_slint_editor_preview::test::loaded_document_cache;
@@ -416,6 +548,157 @@ mod tests {
         let (e, pi, dc, _) = properties_at_position(contents, property_line, 30).unwrap();
         let test1 = pi.iter().find(|pi| pi.name == "test1").unwrap();
         super::map_property_to_ui(&dc, &e.element, test1, None).0
+    }
+
+    #[test]
+    fn runtime_property_values_are_independent_of_source_and_preserve_fallbacks() {
+        use slint_interpreter::Value;
+        let source = property_conversion_test(
+            "export component Test { in property <length> test1: 2rem; }",
+            0,
+        );
+        let resolved = super::runtime_property_value(Some(Value::Number(40.0)), source.clone());
+        assert_eq!(source.value_float, 2.0);
+        assert_eq!(resolved.value_float, 40.0);
+        assert!(resolved.code.is_empty());
+        assert_eq!(resolved.visual_items.row_count(), 0);
+        let fallback = ui::PropertyValue {
+            value_float: 12.0,
+            value_int: 400,
+            value_string: "Fallback".into(),
+            value_bool: true,
+            ..Default::default()
+        };
+        assert_eq!(super::runtime_property_value(None, fallback.clone()), fallback);
+        for value in [Value::Number(0.0), Value::String("".into()), Value::Bool(false)] {
+            let result = super::runtime_property_value(Some(value.clone()), fallback.clone());
+            assert!(result.value_resolved);
+            match value {
+                Value::Number(_) => assert_eq!(result.value_float, 0.0),
+                Value::String(_) => assert!(result.value_string.is_empty()),
+                Value::Bool(_) => assert!(!result.value_bool),
+                _ => unreachable!(),
+            }
+        }
+        let alignment = super::runtime_property_value(
+            Some(Value::EnumerationValue("TextHorizontalAlignment".into(), "right".into())),
+            fallback,
+        );
+        assert_eq!(alignment.value_int, 4);
+    }
+
+    #[test]
+    fn runtime_properties_follow_selected_occurrence_and_font_defaults() {
+        i_slint_backend_testing::init_no_event_loop();
+        let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 200px;
+    default-font-family: "Test Family";
+    default-font-size: 20px;
+    default-font-weight: 600;
+    in property <int> count: 2;
+    Rectangle { width: 70px; height: 80px; }
+    for index in count: Text {
+        text: "Row";
+        font-size: 2rem;
+        color: index == 0 ? red : blue;
+    }
+}"#;
+        let path = i_slint_compiler::source_path::SourcePath::new("/tmp/property-query.slint");
+        let mut compiler = slint_interpreter::Compiler::default();
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+            Some(std::hash::RandomState::new());
+        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+            Some(code.into()),
+            path.clone(),
+            i_slint_core::InternalToken,
+        ));
+        assert!(!compiled.has_errors(), "{:?}", compiled.diagnostics().collect::<Vec<_>>());
+        let instance = compiled.components().next().unwrap().create().unwrap();
+        let rectangle = instance
+            .component_item(
+                &path,
+                code.find("Rectangle {").unwrap() as u32,
+                0,
+                i_slint_core::InternalToken,
+            )
+            .unwrap();
+        for (name, expected) in [("width", 70.0), ("height", 80.0)] {
+            assert_eq!(
+                super::runtime_property(&rectangle, name),
+                Some(slint_interpreter::Value::Number(expected))
+            );
+        }
+        drop(rectangle);
+        let offset = code.find("Text {").unwrap() as u32;
+        for (index, color) in
+            [slint::Color::from_rgb_u8(255, 0, 0), slint::Color::from_rgb_u8(0, 0, 255)]
+                .into_iter()
+                .enumerate()
+        {
+            let item =
+                instance.component_item(&path, offset, index, i_slint_core::InternalToken).unwrap();
+            assert_eq!(
+                slint_interpreter::ComponentInstance::item_property(
+                    &item,
+                    "color",
+                    i_slint_core::InternalToken
+                ),
+                Some(slint_interpreter::Value::Brush(color.into()))
+            );
+            let font = super::font_request(&item).unwrap();
+            assert_eq!(font.family.as_deref(), Some("Test Family"));
+            assert_eq!(font.pixel_size.unwrap().get(), 40.0);
+            assert_eq!(font.weight, Some(600));
+        }
+        let current_instance = Rc::new(std::cell::RefCell::new(instance));
+        let generation = Rc::pin(i_slint_core::Property::new(0));
+        let lookups = Rc::new(std::cell::Cell::new(0));
+        let cache = {
+            let current_instance = current_instance.clone();
+            let generation = generation.clone();
+            let lookups = lookups.clone();
+            let path = path.clone();
+            super::selected_item_cache(move || {
+                generation.as_ref().get();
+                lookups.set(lookups.get() + 1);
+                current_instance.borrow().component_item(
+                    &path,
+                    offset,
+                    1,
+                    i_slint_core::InternalToken,
+                )
+            })
+        };
+        assert!(cache.as_ref().get().upgrade().is_some());
+        assert!(cache.as_ref().get().upgrade().is_some());
+        assert_eq!(lookups.get(), 1);
+        current_instance
+            .borrow()
+            .set_property("count", slint_interpreter::Value::Number(1.0))
+            .unwrap();
+        assert!(cache.as_ref().get().upgrade().is_none());
+        current_instance
+            .borrow()
+            .set_property("count", slint_interpreter::Value::Number(3.0))
+            .unwrap();
+        let item = cache.as_ref().get().upgrade().unwrap();
+        assert_eq!(lookups.get(), 3);
+        drop(item);
+        let old_item = cache.as_ref().get();
+        let compiled = spin_on::spin_on(compiler.build_from_source_path(
+            Some(code.replace("Test Family", "Next Family")),
+            path,
+            i_slint_core::InternalToken,
+        ));
+        assert!(!compiled.has_errors());
+        *current_instance.borrow_mut() = compiled.components().next().unwrap().create().unwrap();
+        generation.set(1);
+        assert!(old_item.upgrade().is_none());
+        let item = cache.as_ref().get().upgrade().unwrap();
+        assert_eq!(super::font_request(&item).unwrap().family.as_deref(), Some("Next Family"));
+        assert_eq!(lookups.get(), 4);
     }
 
     #[test]
@@ -1039,6 +1322,38 @@ export component Test { in property <Foobar> test1; }"#,
         assert_eq!(result.value_kind, ui::PropertyValueKind::Brush);
         assert_eq!(result.kind, ui::PropertyValueKind::Brush);
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 20px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
+
+        let result = property_conversion_test(
+            r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
+            1,
+        );
+        assert!(result.value_resolved);
+        assert!(result.fill.custom_radius);
+        assert_eq!(result.fill.radius, 0.);
+
+        let result = property_conversion_test(
+            r#"global Foo {
+                out property <brush> ellipse: @radial-gradient(ellipse, #f00 0%, #00f 100%);
+            }
+            export component Test { in property <brush> test1: Foo.ellipse; }"#,
+            3,
+        );
+        assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
+        assert!(!result.value_resolved);
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,

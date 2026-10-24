@@ -1,0 +1,38 @@
+{
+  "name": "slint",
+  "version": "1.19.0",
+  "description": "Enhances Codex's ability to work with, debug, and build Slint GUI applications",
+  "author": {
+    "name": "Slint",
+    "email": "info@slint.dev"
+  },
+  "homepage": "https://slint.dev",
+  "repository": "https://github.com/slint-ui/slint",
+  "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
+  "skills": "./skills/",
+  "hooks": "./hooks/codex.json",
+  "interface": {
+    "displayName": "Slint",
+    "shortDescription": "Write, debug, and preview Slint UIs",
+    "longDescription": "Teaches Codex the Slint language and tooling, searches the Slint documentation, and shows live previews of .slint code.",
+    "developerName": "Slint",
+    "category": "Coding",
+    "capabilities": ["Interactive"],
+    "logo": "./assets/slint.svg",
+    "composerIcon": "./assets/slint.svg",
+    "websiteURL": "https://slint.dev",
+    "privacyPolicyURL": "https://slint.dev/imprint#privacy",
+    "defaultPrompt": ["Preview a Slint window with a button and a slider."]
+  },
+  "mcpServers": {
+    "slint-docs": {
+      "type": "http",
+      "url": "https://docs.slint.dev/mcp"
+    },
+    "slint-preview": {
+      "command": "node",
+      "args": ["mcp/slint-preview/server.mjs"],
+      "cwd": "."
+    }
+  }
+}

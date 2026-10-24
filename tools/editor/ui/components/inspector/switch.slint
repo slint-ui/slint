@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SwitchBase } from "../../../controls/src/headless.slint";
+
+import { Style, Colors, Metrics, Motion } from "../../style.slint";
+import { Diagnostics } from "../../diagnostics.slint";
+
+export component InspectorSwitch inherits SwitchBase {
+    enabled: Diagnostics.preview-editable;
+    indicator-width: Metrics.control-medium;
+    indicator-height: Metrics.icon-medium;
+    spacing: 0px;
+    indicator << Rectangle {
+        opacity: Diagnostics.preview-status-visible ? Metrics.disabled-opacity : 1;
+        background: Style.inspector-slider.track;
+        border-color: root.hovered || root.pressed
+            ? Style.inspector-slider.hover-border : Style.inspector-slider.track-border;
+        border-width: Metrics.hairline-width;
+        border-radius: self.height / 2;
+        inner-shadow-color: Style.rotation-dial.shadow.color;
+        inner-shadow-blur: Style.rotation-dial.shadow.blur;
+        inner-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
+        for on in [false, true]: Rectangle {
+            x: parent.width * (on ? 0.75 : 0.25) - self.width / 2;
+            y: (parent.height - self.height) / 2;
+            width: on ? 1.5px : 6px;
+            height: on ? 7px : 6px;
+            border-radius: on ? 0.75px : self.height / 2;
+            background: on ? Colors.muted.with-alpha(0.3) : transparent;
+            border-width: on ? 0px : Metrics.border-width;
+            border-color: Colors.muted.with-alpha(0.3);
+        }
+        Rectangle {
+            x: root.checked ? parent.width - self.width : 0px;
+            width: parent.width / 2 + Metrics.space-tight;
+            height: parent.height;
+            border-radius: self.height / 2;
+            background: Style.rotation-dial.ring;
+            border-width: Metrics.hairline-width;
+            border-color: Style.rotation-dial.ring-border;
+            drop-shadow-color: Style.rotation-dial.shadow.color;
+            drop-shadow-blur: Style.rotation-dial.shadow.blur;
+            drop-shadow-offset-y: Style.rotation-dial.shadow.offset-y;
+            animate x { duration: Motion.fast; easing: ease-out; }
+            Rectangle {
+                x: 1px;
+                y: 1px;
+                width: parent.width - 2px;
+                height: parent.height - 2px;
+                border-radius: self.height / 2;
+                background: Style.rotation-dial.face;
+                border-width: Metrics.hairline-width;
+                border-color: Style.rotation-dial.face-border;
+            }
+            Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: root.checked ? 1.5px : 6px;
+                height: root.checked ? 7px : 6px;
+                border-radius: root.checked ? 0.75px : self.height / 2;
+                background: root.checked ? Style.rotation-dial.dot : transparent;
+                border-width: root.checked ? 0px : Metrics.border-width;
+                border-color: Colors.muted;
+            }
+        }
+        if !Diagnostics.preview-status-visible && root.focus-visible: switch-focus-ring := Rectangle {
+            x: -2px;
+            y: -2px;
+            width: parent.width + 4px;
+            height: parent.height + 4px;
+            border-width: Metrics.focus-width;
+            border-color: Colors.focus;
+            border-radius: self.height / 2;
+        }
+    }
+}

@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The generated BackdropBlur element doesn't change the rectangle's geometry or layout.
+
+component Glass inherits Rectangle {
+    background: #ffffff40;
+    border-radius: 8px;
+    backdrop-blur: 6px;
+    opacity: 0.8;
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+    in-out property <length> blur: 4px;
+
+    layout := VerticalLayout {
+        padding: 10px;
+        spacing: 10px;
+        glass := Glass { }
+        for i in 2: Rectangle {
+            background: #ffffff40;
+            backdrop-blur: root.blur;
+            drop-shadow-blur: 4px;
+            drop-shadow-color: black;
+        }
+    }
+
+    cached := Rectangle {
+        background: #ffffff40;
+        opacity: 0.5;
+        cache-rendering-hint: true;
+    }
+    out property <length> cached-blur: cached.backdrop-blur;
+    public function blur-cached() {
+        cached.backdrop-blur = 8px;
+    }
+
+    out property <bool> test: abs(glass.height - (200px - 40px) / 3) < 0.01px && glass.width == 180px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_blur(0.);
+assert!(instance.get_test());
+instance.invoke_blur_cached();
+assert_eq!(instance.get_cached_blur(), 8.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.set_blur(0.);
+assert(instance.get_test());
+instance.invoke_blur_cached();
+assert_eq(instance.get_cached_blur(), 8.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.blur = 0;
+assert(instance.test);
+instance.blur_cached();
+assert.equal(instance.cached_blur, 8);
+```
+*/

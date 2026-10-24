@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 /// Styled text that has been parsed and separated into paragraphs
+///
+/// Clones of a StyledText share the same underlying data, so cloning is cheap.
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
@@ -86,6 +88,8 @@ pub mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
+    #[cfg(feature = "std")]
+    use alloc::string::String;
 
     #[unsafe(no_mangle)]
     /// Create a new default styled text
@@ -122,8 +126,7 @@ pub mod ffi {
         text: crate::slice::Slice<u8>,
         out: &mut StyledText,
     ) {
-        let text = unsafe { core::str::from_utf8_unchecked(text.as_slice()) };
-        *out = StyledText::from_plain_text(text);
+        *out = StyledText::from_plain_text(&String::from_utf8_lossy(text.as_slice()));
     }
 
     #[cfg(feature = "std")]
@@ -134,8 +137,7 @@ pub mod ffi {
         markdown: crate::slice::Slice<u8>,
         out: &mut StyledText,
     ) -> bool {
-        let markdown = unsafe { core::str::from_utf8_unchecked(markdown.as_slice()) };
-        match StyledText::from_markdown(markdown) {
+        match StyledText::from_markdown(&String::from_utf8_lossy(markdown.as_slice())) {
             Ok(styled) => {
                 *out = styled;
                 true

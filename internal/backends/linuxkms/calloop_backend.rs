@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore CLOEXEC GETFL NOCTTY NONBLOCK
+// cSpell: ignore CLOEXEC GETFL NOCTTY NONBLOCK dlm dlmclient
 use std::cell::RefCell;
 #[cfg(not(feature = "libseat"))]
 use std::fs::OpenOptions;
-use std::os::fd::OwnedFd;
+use std::os::fd::{AsFd, OwnedFd};
 #[cfg(feature = "libseat")]
-use std::os::fd::{AsFd, AsRawFd, FromRawFd};
+use std::os::fd::{AsRawFd, FromRawFd};
 #[cfg(not(feature = "libseat"))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::rc::Rc;
@@ -25,6 +25,9 @@ use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
     not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32"))
 ))]
 mod input;
+
+#[cfg(all(feature = "libinput", not(feature = "libseat")))]
+mod console;
 
 #[derive(Clone)]
 struct Proxy {
@@ -85,10 +88,103 @@ pub struct Backend {
     clipboard: RefCell<Option<String>>,
     #[cfg(feature = "libinput")]
     libinput_event_hook: Option<Box<dyn Fn(&::input::Event) -> bool>>,
+    drm_lease_fd: Option<Rc<OwnedFd>>,
+}
+
+// Pick the lease fd: builder, then SLINT_DRM_LEASE_FD, then SLINT_DRM_LEASE_NAME.
+// A variable that is set but unusable is an error.
+fn resolve_drm_lease_fd(builder_fd: Option<OwnedFd>) -> Result<Option<Rc<OwnedFd>>, String> {
+    let fd = if let Some(fd) = builder_fd {
+        fd
+    } else if let Some(fd) = drm_lease_fd_from_env()? {
+        fd
+    } else if let Some(fd) = drm_lease_fd_from_manager()? {
+        fd
+    } else {
+        return Ok(None);
+    };
+    make_blocking(fd.as_fd())?;
+    Ok(Some(Rc::new(fd)))
+}
+
+// Polling for drm::control::Event::PageFlip needs a blocking fd.
+fn make_blocking(fd: std::os::fd::BorrowedFd<'_>) -> Result<(), String> {
+    let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
+        .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
+    let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
+    flags.remove(nix::fcntl::OFlag::O_NONBLOCK);
+    nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
+        .map_err(|e| format!("Error making file descriptor blocking: {e}"))?;
+    Ok(())
+}
+
+// Lease fd inherited from a launcher. Ok(None) when the variable is unset.
+fn drm_lease_fd_from_env() -> Result<Option<OwnedFd>, String> {
+    use std::os::fd::FromRawFd;
+    let Ok(value) = std::env::var("SLINT_DRM_LEASE_FD") else { return Ok(None) };
+    match value.trim().parse::<std::os::fd::RawFd>() {
+        // Safety: the launcher promises an open fd that we now own.
+        Ok(raw) if raw >= 0 => Ok(Some(unsafe { OwnedFd::from_raw_fd(raw) })),
+        _ => Err(format!("SLINT_DRM_LEASE_FD {value:?} is not a file descriptor number")),
+    }
+}
+
+// Ask the AGL drm-lease-manager for the lease named by SLINT_DRM_LEASE_NAME.
+// Ok(None) when the variable is unset.
+#[cfg(have_libdlmclient)]
+fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
+    use std::os::fd::FromRawFd;
+
+    #[repr(C)]
+    struct DlmLease {
+        _opaque: [u8; 0],
+    }
+    // From dlmclient.h
+    unsafe extern "C" {
+        fn dlm_get_lease(name: *const std::os::raw::c_char) -> *mut DlmLease;
+        fn dlm_lease_fd(lease: *mut DlmLease) -> std::os::raw::c_int;
+    }
+
+    let Ok(name) = std::env::var("SLINT_DRM_LEASE_NAME") else { return Ok(None) };
+    let c_name = std::ffi::CString::new(name.as_str())
+        .map_err(|_| format!("SLINT_DRM_LEASE_NAME {name:?} contains a NUL byte"))?;
+
+    // Safety: plain C calls; c_name outlives them.
+    let lease = unsafe { dlm_get_lease(c_name.as_ptr()) };
+    if lease.is_null() {
+        return Err(format!(
+            "drm-lease-manager did not grant the lease {name:?}: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let raw = unsafe { dlm_lease_fd(lease) };
+    if raw < 0 {
+        return Err(format!("drm-lease-manager returned no file descriptor for lease {name:?}"));
+    }
+    // dlm_release_lease() closes the fd, so the lease is kept for the whole process.
+    // Safety: the fd stays open because the lease is never released.
+    Ok(Some(unsafe { OwnedFd::from_raw_fd(raw) }))
+}
+
+#[cfg(not(have_libdlmclient))]
+fn drm_lease_fd_from_manager() -> Result<Option<OwnedFd>, String> {
+    match std::env::var("SLINT_DRM_LEASE_NAME") {
+        Ok(name) => Err(format!(
+            "SLINT_DRM_LEASE_NAME is set to {name:?} but this build has no drm-lease-manager support: enable the backend-linuxkms-libdlmclient feature and have libdlmclient installed when building"
+        )),
+        Err(_) => Ok(None),
+    }
 }
 
 impl Backend {
     pub fn build(builder: BackendBuilder) -> Result<Self, PlatformError> {
+        #[cfg(all(feature = "dlopen", feature = "libinput", not(test)))]
+        {
+            crate::dlopen::libudev::load()?;
+            crate::dlopen::libinput::load()?;
+            crate::dlopen::xkbcommon::load()?;
+        }
+
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 
         let renderer_factory = match builder.renderer_name.as_deref() {
@@ -146,6 +242,8 @@ impl Backend {
             }
         }
 
+        let drm_lease_fd = resolve_drm_lease_fd(builder.drm_lease_fd)?;
+
         Ok(Backend {
             context: Default::default(),
             #[cfg(feature = "libseat")]
@@ -159,7 +257,25 @@ impl Backend {
             clipboard: Default::default(),
             #[cfg(feature = "libinput")]
             libinput_event_hook: builder.libinput_event_hook,
+            drm_lease_fd,
         })
+    }
+}
+
+#[cfg(all(test, enable_skia, not(any(feature = "libseat", feature = "libinput"))))]
+impl Backend {
+    pub(crate) fn with_renderer_factory(
+        mut self,
+        renderer_factory: fn(
+            &crate::DeviceOpener,
+            Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
+        ) -> Result<
+            Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
+            PlatformError,
+        >,
+    ) -> Self {
+        self.renderer_factory = renderer_factory;
+        self
     }
 }
 
@@ -179,14 +295,9 @@ impl i_slint_core::platform::Platform for Backend {
                 .open_device(&device)
                 .map_err(|e| format!("Error opening device {}: {e}", device.display()))?;
 
-            // For polling for drm::control::Event::PageFlip we need a blocking FD. Would be better to do this non-blocking
+            // Would be better to poll non-blocking.
             let fd = device.as_fd();
-            let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
-                .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
-            let mut flags = nix::fcntl::OFlag::from_bits_retain(flags);
-            flags.remove(nix::fcntl::OFlag::O_NONBLOCK);
-            nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
-                .map_err(|e| format!("Error making device fd non-blocking: {e}"))?;
+            make_blocking(fd)?;
 
             // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
             Ok(Rc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd.as_raw_fd()) }))
@@ -214,8 +325,10 @@ impl i_slint_core::platform::Platform for Backend {
                     .map_err(|e| format!("Failed to parse SLINT_KMS_ROTATION: {e}"))
             })?;
 
+        let device_opener = crate::DeviceOpener::new(device_accessor, self.drm_lease_fd.clone());
+
         let renderer =
-            (self.renderer_factory)(&device_accessor, self.requested_graphics_api.as_ref())?;
+            (self.renderer_factory)(&device_opener, self.requested_graphics_api.as_ref())?;
         let adapter = FullscreenWindowAdapter::new(renderer, rotation)?;
 
         *self.window.borrow_mut() = Some(adapter.clone());
@@ -224,6 +337,12 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
+        #[cfg(all(feature = "libinput", not(feature = "libseat")))]
+        let _console_keyboard = console::ConsoleKeyboard::acquire().unwrap_or_else(|e| {
+            eprintln!("Warning: Could not switch off the console keyboard: {e}");
+            None
+        });
+
         let mut event_loop: EventLoop<LoopData> =
             EventLoop::try_new().map_err(|e| format!("Error creating event loop: {}", e))?;
 
@@ -236,20 +355,13 @@ impl i_slint_core::platform::Platform for Backend {
         let quit_loop = self.proxy.quit_loop.clone();
 
         #[cfg(feature = "libinput")]
-        let mouse_position_property = input::LibInputHandler::init(
+        input::LibInputHandler::init(
             &self.window,
             &event_loop.handle(),
             #[cfg(feature = "libseat")]
             &self.seat,
             &self.libinput_event_hook,
         )?;
-
-        // Without libinput there is no pointer to track, so the cursor property
-        // stays empty for the lifetime of the loop.
-        #[cfg(not(feature = "libinput"))]
-        let mouse_position_property = Rc::pin(i_slint_core::Property::<
-            Option<i_slint_core::api::LogicalPosition>,
-        >::new(None));
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err("Re-entering the linuxkms event loop is currently not supported"
@@ -285,26 +397,35 @@ impl i_slint_core::platform::Platform for Backend {
             .and_then(|ctx| ctx.upgrade())
             .expect("the event loop runs inside the context that owns this backend");
 
-        while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
-            ctx.update_timers_and_animations();
+        let mut run = || -> Result<(), PlatformError> {
+            while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
+                ctx.update_timers_and_animations();
 
-            // Only after updating the animation tick, invoke callbacks from invoke_from_event_loop(). They
-            // might set animated properties, which requires an up-to-date start time.
-            for callback in callbacks_to_invoke_per_iteration.take().into_iter() {
-                callback();
+                // Only after updating the animation tick, invoke callbacks from invoke_from_event_loop(). They
+                // might set animated properties, which requires an up-to-date start time.
+                for callback in callbacks_to_invoke_per_iteration.take().into_iter() {
+                    callback();
+                }
+
+                if let Some(adapter) = self.window.borrow().as_ref() {
+                    adapter.clone().render_if_needed()?;
+                    adapter.flush_unless_frame_follows()?;
+                };
+
+                let next_timeout = ctx.duration_until_next_timer_update();
+                event_loop
+                    .dispatch(next_timeout, &mut loop_data)
+                    .map_err(|e| format!("Error dispatch events: {e}"))?;
             }
+            Ok(())
+        };
+        let result = run();
 
-            if let Some(adapter) = self.window.borrow().as_ref() {
-                adapter.clone().render_if_needed(mouse_position_property.as_ref())?;
-            };
-
-            let next_timeout = ctx.duration_until_next_timer_update();
-            event_loop
-                .dispatch(next_timeout, &mut loop_data)
-                .map_err(|e| format!("Error dispatch events: {e}"))?;
-        }
-
-        Ok(())
+        let flushed = match self.window.borrow().as_ref() {
+            Some(adapter) => adapter.flush_pending_frame(),
+            None => Ok(()),
+        };
+        result.and(flushed)
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {

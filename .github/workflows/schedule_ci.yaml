@@ -6,9 +6,10 @@ name: Scheduled CI
 
 on:
   schedule:
-    # One night build + two during the European working day
-    # 1:00 UTC = ~2:00-3:00 CET, 9:00 UTC = ~10:00-11:00 CET, 14:00 UTC = ~15:00-16:00 CET
-    - cron: '18 1,9,14 * * *'
+    # Pull requests share the organization's concurrent job limit with these runs,
+    # so they start before, in the middle of, and after the European working day.
+    # 4:18 UTC = ~5:00-6:00 CET, 11:18 UTC = ~12:00-13:00 CET, 18:18 UTC = ~19:00-20:00 CET
+    - cron: '18 4,11,18 * * *'
   workflow_dispatch:
     inputs:
       branch:
@@ -21,9 +22,20 @@ jobs:
     if: github.repository == 'slint-ui/slint'
     runs-on: ubuntu-latest
     steps:
+      # GitHub doesn't start workflows from the events of a run dispatched with GITHUB_TOKEN.
+      # notify_ci_failure.yaml needs the runs to be dispatched with a GitHub App token.
+      - name: Create a token to dispatch with
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-actions: write
+          permission-contents: read
+
       - name: Trigger CI on branches with recent changes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           if [ -n "${{ inputs.branch }}" ]; then
             echo "Triggering full CI for ${{ inputs.branch }}"

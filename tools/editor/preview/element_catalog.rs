@@ -1,69 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// This catalog owns primitive identity and grouping. Presentation belongs in
-// ui/components/element-presentation.slint. Add each primitive to both sources;
-// metadata_is_complete checks every ElementKind except none and component.
-
-use super::ui::ElementKind;
-use std::hash::{Hash, Hasher};
-
-impl Eq for ElementKind {}
-impl Hash for ElementKind {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        std::mem::discriminant(self).hash(state);
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Group {
-    Visual,
-    InputInteraction,
-}
-
-impl Group {
-    pub(super) fn label(self) -> &'static str {
-        match self {
-            Self::Visual => "Visual",
-            Self::InputInteraction => "Input & interaction",
-        }
-    }
-}
-
-pub(super) const GROUPS: [Group; 2] = [Group::Visual, Group::InputInteraction];
-
-pub(super) struct Primitive {
-    pub kind: ElementKind,
-    pub type_name: &'static str,
-    pub group: Group,
-}
-
-pub(super) const PRIMITIVES: [Primitive; 4] = [
-    Primitive { kind: ElementKind::Rectangle, type_name: "Rectangle", group: Group::Visual },
-    Primitive { kind: ElementKind::Text, type_name: "Text", group: Group::Visual },
-    Primitive { kind: ElementKind::Image, type_name: "Image", group: Group::Visual },
-    Primitive {
-        kind: ElementKind::TouchArea,
-        type_name: "TouchArea",
-        group: Group::InputInteraction,
-    },
-];
-
-pub(super) fn primitive(kind: ElementKind) -> Option<&'static Primitive> {
-    PRIMITIVES.iter().find(|entry| entry.kind == kind)
-}
-
-pub(super) fn kind_for_type(type_name: &str) -> ElementKind {
-    PRIMITIVES
-        .iter()
-        .find(|entry| entry.type_name == type_name.trim())
-        .map_or(ElementKind::Component, |entry| entry.kind)
-}
+pub use slint_editor::component_support::element_catalog::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::preview::{DragItem, new_component_data_for_kind};
+    use crate::preview::ui::ElementKind;
+    use crate::preview::{DragItem, new_component_data};
 
     #[test]
     fn metadata_is_complete() {
@@ -102,7 +46,7 @@ mod tests {
             .expect("ElementKind must be exported");
         let mut count = 0;
         for variant in &enumeration.values {
-            if matches!(variant.as_str(), "none" | "component") {
+            if matches!(variant.as_str(), "none" | "component" | "widget") {
                 continue;
             }
             count += 1;
@@ -134,15 +78,75 @@ mod tests {
             (ElementKind::Image, "Image", "Visual"),
             (ElementKind::Rectangle, "Rectangle", "Visual"),
             (ElementKind::Text, "Text", "Visual"),
+            (ElementKind::StyledText, "StyledText", "Visual"),
             (ElementKind::TouchArea, "TouchArea", "Input & interaction"),
+            (ElementKind::Widget, "Button", "Widgets"),
+            (ElementKind::Widget, "CheckBox", "Widgets"),
+            (ElementKind::Widget, "LineEdit", "Widgets"),
         ] {
-            let entry = primitive(kind).unwrap();
-            assert_eq!(entry.type_name, name);
+            let entry = entry(name).unwrap();
+            assert_eq!(entry.kind, kind);
             assert_eq!(entry.group.label(), group);
             assert_eq!(kind_for_type(&format!(" {name} ")), kind);
             assert_eq!(
-                DragItem::try_from(new_component_data_for_kind(kind)).unwrap(),
-                DragItem::NewComponent { kind }
+                DragItem::try_from(new_component_data(name.into())).unwrap(),
+                DragItem::NewComponent { kind, type_name: name }
+            );
+        }
+    }
+
+    #[test]
+    fn widgets_compile_with_default_properties_in_every_style() {
+        use i_slint_editor_preview::component_catalog::all_exported_components;
+        use i_slint_editor_preview::document_cache::CompilerConfiguration;
+
+        for style in ["fluent", "material", "cupertino", "cosmic", "qt"] {
+            let mut config = CompilerConfiguration::default();
+            config.compiler_config.style = Some(style.into());
+            let mut document_cache = i_slint_editor_preview::DocumentCache::new(config);
+            spin_on::spin_on(document_cache.preload_builtins());
+            let mut components = Vec::new();
+            all_exported_components(&document_cache, &mut |_| true, &mut components);
+
+            let elements = WIDGETS
+                .iter()
+                .map(|widget| {
+                    let component = components
+                        .iter()
+                        .find(|component| {
+                            component.is_std_widget && component.name == widget.type_name
+                        })
+                        .unwrap_or_else(|| panic!("{style} must export {}", widget.type_name));
+                    assert_eq!(
+                        *component,
+                        i_slint_editor_preview::component_catalog::std_widgets_info(
+                            widget.type_name,
+                            false
+                        ),
+                    );
+                    let properties = component
+                        .default_properties
+                        .iter()
+                        .map(|property| format!("{}: {};", property.name, property.value))
+                        .collect::<String>();
+                    format!("{} {{ {properties} }}\n", widget.type_name)
+                })
+                .collect::<String>();
+            let names = WIDGETS.iter().map(|widget| widget.type_name).collect::<Vec<_>>();
+            let source = format!(
+                "import {{ {} }} from \"std-widgets.slint\";\n\
+                 export component Probe inherits Window {{\n{elements}}}",
+                names.join(", "),
+            );
+            let mut compiler = slint_interpreter::Compiler::default();
+            compiler.set_style(style.into());
+            let result = spin_on::spin_on(
+                compiler.build_from_source(source, std::path::PathBuf::from("probe.slint")),
+            );
+            assert!(
+                !result.has_errors(),
+                "{style}: {:?}",
+                result.diagnostics().collect::<Vec<_>>()
             );
         }
     }
@@ -151,10 +155,8 @@ mod tests {
     fn fallback_kinds_cannot_create_palette_drops() {
         for name in ["", "Window", "CustomComponent"] {
             assert_eq!(kind_for_type(name), ElementKind::Component);
-        }
-        for kind in [ElementKind::None, ElementKind::Component] {
-            assert!(primitive(kind).is_none());
-            assert!(DragItem::try_from(new_component_data_for_kind(kind)).is_err());
+            assert!(entry(name).is_none());
+            assert!(DragItem::try_from(new_component_data(name.into())).is_err());
         }
     }
 }

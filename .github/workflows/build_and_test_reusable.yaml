@@ -58,6 +58,16 @@ on:
                 required: false
                 type: boolean
                 default: true
+            test_styles:
+                description: 'Comma-separated widget styles to run the widget tests with (default: all)'
+                required: false
+                type: string
+                default: ""
+            check_deterministic_output:
+                description: 'Check that the Rust driver compiles each test case to the same code twice'
+                required: false
+                type: boolean
+                default: true
             build_examples:
                 description: 'Build the examples and demos workspaces'
                 required: false
@@ -82,6 +92,9 @@ jobs:
             CARGO_INCREMENTAL: false
             RUST_BACKTRACE: 1
             SLINT_EMIT_DEBUG_INFO: 1
+            SLINT_TEST_STYLES: ${{ inputs.test_styles }}
+            CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld
+            SLINT_TEST_DETERMINISTIC_OUTPUT: ${{ inputs.check_deterministic_output && '1' || '' }}
 
         runs-on: ${{ inputs.os }}
 
@@ -100,8 +113,13 @@ jobs:
                 df -h
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - uses: ./.github/actions/install-skia-dependencies
-            - uses: ilammy/msvc-dev-cmd@v1
+            - uses: TheMrMilchmann/setup-msvc-dev@v4
+              if: runner.os == 'Windows'
+              with:
+                  arch: x64
             - uses: actions/setup-python@v7
               with:
                 python-version: '3.10'
@@ -114,12 +132,9 @@ jobs:
                   version: "6.2.2"
                   setup-python: false
                   cache: true
-            - name: Install ffmpeg, alsa, gstreamer and libunwind (Linux)
-              if: runner.os == 'Linux'
-              run: sudo timeout 600 apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - name: Setup headless display
               if: runner.os != 'macOS'
-              uses: pyvista/setup-headless-display-action@v4
+              uses: pyvista/setup-headless-display-action@v5
             # Skia is built from source here, and ninja resolves cl.exe's relative
             # includes with the ANSI GetFullPathNameA, so the paths have to stay
             # below MAX_PATH; the default target directory is one character too
@@ -141,29 +156,30 @@ jobs:
               run: cargo update ${{ (inputs.rust_version == 'stable' || inputs.rust_version == 'nightly') && '--ignore-rust-version' || '' }}
             - name: Run tests
               if: inputs.test_workspace
-              # The excluded crates are the root-workspace members that need a
-              # dedicated toolchain (node/python/cpp) and are covered by their own
-              # ci.yaml jobs. Crates moved into the examples/demos/tests workspaces
+              # The excluded root-workspace crates have dedicated CI test jobs.
+              # Node, Python, and C++ also need their own toolchains.
+              # Crates moved into the examples/demos/tests workspaces
               # are no longer root members, so they need no exclude here.
-              run: "cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc -- --skip=qt::"
+              run: "cargo test --locked --verbose --all-features --workspace --timings ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-editor -- --skip=qt::"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
               if: runner.os != 'Windows' && inputs.run_qt && inputs.test_workspace
-              run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc qt:: -- --test-threads=1"
+              run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-editor qt:: -- --test-threads=1"
               shell: bash
             # The integration tests now live in their own workspace (tests/Cargo.toml).
-            # The C++/Node/Python drivers and doctests are run by dedicated jobs in ci.yaml.
+            # The C++/Node/Python/TypeScript drivers and doctests are run by dedicated jobs in
+            # ci.yaml; they need a toolchain this job doesn't install.
             - name: Run integration tests
               if: inputs.test_integration
-              run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} ${{ !inputs.test_rust_driver && '--exclude test-driver-rust' || '' }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python -- --skip=qt"
+              run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} ${{ !inputs.test_rust_driver && '--exclude test-driver-rust' || '' }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude test-driver-typescript -- --skip=qt"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run integration tests (qt)
               if: runner.os != 'Windows' && inputs.run_qt && inputs.test_integration
-              run: "cargo test --locked --verbose --all-features --workspace --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python qt -- --test-threads=1"
+              run: "cargo test --locked --verbose --all-features --workspace --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude test-driver-typescript qt -- --test-threads=1"
               shell: bash
             # The examples and demos are also their own workspaces. The mcu/uefi
             # members need dedicated targets/features and are checked in ci.yaml.
@@ -225,4 +241,3 @@ jobs:
             - name: Print Disk Usage
               if: always()
               run: df -h
-

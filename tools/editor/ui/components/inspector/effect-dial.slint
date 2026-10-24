@@ -9,7 +9,9 @@ export component InspectorEffectDial inherits Rectangle {
     in property <string> accessible-name: "";
     in property <angle> value: 90deg;
     in property <string> commit-key;
+    callback preview(angle) -> bool;
     callback accepted(angle) -> bool;
+    callback canceled();
 
     width: Style.rotation-dial.size;
     height: Style.rotation-dial.size;
@@ -19,7 +21,8 @@ export component InspectorEffectDial inherits Rectangle {
         value: root.value / 1deg;
         angle-offset: 90deg;
         commit-key: root.commit-key;
-        preview(value) => { return true; }
+        preview(value) => { return root.preview(value * 1deg); }
         accepted(value) => { return root.accepted(value * 1deg); }
+        canceled => { root.canceled(); }
     }
 }

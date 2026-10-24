@@ -4,6 +4,8 @@
 use std::collections::HashMap;
 
 use i_slint_compiler::parser::{TextRange, TextSize};
+#[cfg(test)]
+use i_slint_compiler::source_path::SourcePath;
 
 #[derive(Clone, Debug)]
 pub struct TextOffsetAdjustment {
@@ -204,9 +206,10 @@ impl TextEditor {
         let current_range =
             crate::util::lsp_range_to_text_range(&self.source_file, text_edit.range, format);
         let adjusted_range = self.adjustments.adjust_range(current_range);
+        let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
 
-        if self.contents.len() < adjusted_range.end().into() {
-            return Err("Text edit range is out of bounds".into());
+        if self.contents.get(r.clone()).is_none() {
+            return Err("Text edit range is out of bounds or splits a character".into());
         }
 
         // Book keeping:
@@ -214,7 +217,6 @@ impl TextEditor {
             self.original_offset_range.0.min(current_range.start().into());
         self.original_offset_range.1 = self.original_offset_range.1.max(current_range.end().into());
 
-        let r: std::ops::Range<usize> = adjusted_range.start().into()..adjusted_range.end().into();
         self.contents.replace_range(r, &text_edit.new_text);
 
         self.adjustments.add_adjustment(TextOffsetAdjustment::new(
@@ -928,7 +930,7 @@ fn test_edit_iterator_document_mixed() {
 fn test_texteditor_no_content_in_source_file() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
-    let source_file = SourceFileInner::from_path_only(std::path::PathBuf::from("/tmp/foo.slint"));
+    let source_file = SourceFileInner::from_path_only(SourcePath::new("/tmp/foo.slint"));
 
     assert!(TextEditor::new(source_file).is_err());
 }
@@ -938,7 +940,7 @@ fn test_texteditor_edit_out_of_range() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#""#.to_string(),
     ));
 
@@ -955,11 +957,42 @@ fn test_texteditor_edit_out_of_range() {
 }
 
 #[test]
+fn test_texteditor_edit_splitting_a_character() {
+    use i_slint_compiler::diagnostics::SourceFileInner;
+
+    let source_file = std::sync::Arc::new(SourceFileInner::new(
+        SourcePath::new("/tmp/foo.slint"),
+        "abc".to_string(),
+    ));
+
+    let mut editor = TextEditor::new(source_file.clone()).unwrap();
+
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(0, 0),
+            lsp_types::Position::new(0, 3),
+        ),
+        new_text: "ééé".to_string(),
+    };
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_ok());
+
+    // Used to panic: the adjusted offset of 'c' lands in the middle of the second 'é'.
+    let edit = lsp_types::TextEdit {
+        range: lsp_types::Range::new(
+            lsp_types::Position::new(0, 2),
+            lsp_types::Position::new(0, 2),
+        ),
+        new_text: "x".to_string(),
+    };
+    assert!(editor.apply(&edit, crate::ByteFormat::Utf8).is_err());
+}
+
+#[test]
 fn test_texteditor_delete_everything() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -989,7 +1022,7 @@ fn test_texteditor_replace() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -1024,7 +1057,7 @@ fn test_texteditor_2step_replace_all() {
     use i_slint_compiler::diagnostics::SourceFileInner;
 
     let source_file = std::sync::Arc::new(SourceFileInner::new(
-        std::path::PathBuf::from("/tmp/foo.slint"),
+        SourcePath::new("/tmp/foo.slint"),
         r#"abc
 def
 geh"#
@@ -1091,7 +1124,7 @@ mod test_apply_reversed_edit {
 
     #[test]
     fn test_multi_line_edit() {
-        let url = lsp_types::Url::from_file_path(crate::test::main_test_file_name()).unwrap();
+        let url = crate::test::main_test_file_name().to_url().unwrap();
         let code = HashMap::from([(url.clone(), "component Foo { /*..*/ }\n".to_string())]);
         let mut document_cache = crate::test::compile_test_with_sources("fluent", code, true);
 

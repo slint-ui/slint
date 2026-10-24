@@ -49,8 +49,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// animate someProp { }
 /// animate * { }
 /// @children
-/// @deprecated property alias <=> two.way;
-/// @shadowable @deprecated in-out property <int> yyy <=> two.way;
+/// @deprecated("") property alias <=> two.way;
+/// @shadowable @deprecated("") in-out property <int> yyy <=> two.way;
 /// @deprecated("Use 'foobar' instead") callback old_callback <=> foobar;
 /// @shadowable public function foo() {}
 /// double_binding <=> element.property;
@@ -59,6 +59,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// match (foo) { 1: Elem { } }
 /// match bar.property { 1: Elem { } }
 /// slot header;
+/// slot <HeaderInterface> header;
+/// slot header << Text {}
 /// header {}
 /// header << HeaderComponent {}
 /// header << parentHeader;
@@ -70,7 +72,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
             SyntaxKind::RBrace => return,
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
-                SyntaxKind::Identifier | SyntaxKind::Semicolon if p.peek().as_str() == "slot" => {
+                SyntaxKind::Identifier | SyntaxKind::Semicolon | SyntaxKind::LAngle
+                    if p.peek().as_str() == "slot" =>
+                {
                     parse_slot_declaration(&mut *p)
                 }
                 SyntaxKind::Colon => parse_property_binding(&mut *p),
@@ -126,7 +130,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     parse_if_element(&mut *p);
                 }
                 _ if p.peek().as_str() == "match" => {
-                    let mut i = 2;
+                    let mut i = 1;
                     loop {
                         match p.nth(i).kind() {
                             SyntaxKind::FatArrow => {
@@ -142,6 +146,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                                     p.error("Error: Expected '{'");
                                     had_parse_error = true;
                                 }
+                                p.consume();
                                 break;
                             }
                             _ => i += 1,
@@ -171,7 +176,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
             },
             SyntaxKind::At => {
-                if matches!(p.nth(1).as_str(), "deprecated" | "shadowable") {
+                if matches!(p.nth(1).as_str(), "deprecated" | "shadowable" | "testable") {
                     let checkpoint = p.checkpoint();
                     let attribute = parse_member_attributes(&mut *p);
                     // skip the visibility/purity keywords to reach the member keyword
@@ -244,21 +249,56 @@ fn parse_sub_element(p: &mut impl Parser) -> bool {
 #[cfg_attr(test, parser_test)]
 /// ```test,SlotDeclaration
 /// slot header;
+/// slot <ContentInterface> content;
+/// slot header << Text { text: "Default"; }
+/// slot header << label := Text {}
 /// ```
 fn parse_slot_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "slot");
-    let mut p = p.start_node(SyntaxKind::SlotDeclaration);
-    p.expect(SyntaxKind::Identifier); // "slot"
     {
-        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
-        p.expect(SyntaxKind::Identifier);
+        let mut p = p.start_node(SyntaxKind::SlotDeclaration);
+        p.expect(SyntaxKind::Identifier); // "slot"
+        if p.test(SyntaxKind::LAngle) {
+            parse_qualified_name(&mut *p);
+            p.expect(SyntaxKind::RAngle);
+        }
+        let name = p.peek().as_str().to_owned();
+        {
+            let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+            p.expect(SyntaxKind::Identifier);
+        }
+        if !p.test(SyntaxKind::DoubleLess) {
+            p.expect(SyntaxKind::Semicolon);
+            return;
+        }
+        match p.peek().as_str() {
+            _ if p.peek().kind() == SyntaxKind::LBrace => {
+                if p.nth(1).kind() == SyntaxKind::RBrace {
+                    p.error(format!("Use 'slot {name};' for a slot without default content"));
+                }
+                parse_sub_element_or_empty(&mut *p, "slot");
+            }
+            keyword @ ("if" | "for")
+                if !matches!(p.nth(1).kind(), SyntaxKind::LBrace | SyntaxKind::ColonEqual) =>
+            {
+                p.error(format!(
+                    "Wrap the '{keyword}' in an element to use it as slot default content"
+                ));
+                p.until(SyntaxKind::Colon);
+                parse_sub_element(&mut *p);
+            }
+            _ => {
+                parse_sub_element(&mut *p);
+            }
+        }
     }
-    p.expect(SyntaxKind::Semicolon);
+    report_stray_semicolon(p);
 }
 
 #[cfg_attr(test, parser_test)]
 /// ```test,SlotAssignment
 /// header << HeaderComponent {}
+/// header << { }
 /// ```
 fn parse_slot_assignment(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::SlotAssignment);
@@ -267,7 +307,7 @@ fn parse_slot_assignment(p: &mut impl Parser) -> bool {
         p.expect(SyntaxKind::Identifier);
     }
     p.expect(SyntaxKind::DoubleLess);
-    if !parse_sub_element(&mut *p) {
+    if !parse_sub_element_or_empty(&mut *p, "slot") {
         p.error("Expected element after '<<'");
         return false;
     }
@@ -297,10 +337,18 @@ fn parse_slot_assignment_or_forwarding(p: &mut impl Parser) -> bool {
     let rhs_first = p.nth(2).kind();
     let rhs_second = p.nth(3).kind();
 
-    let is_slot_assignment = rhs_first == SyntaxKind::Identifier
-        && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual);
+    let is_slot_assignment = rhs_first == SyntaxKind::LBrace
+        || (rhs_first == SyntaxKind::Identifier
+            && matches!(rhs_second, SyntaxKind::LBrace | SyntaxKind::ColonEqual));
 
-    if is_slot_assignment { parse_slot_assignment(p) } else { parse_slot_forwarding(p) }
+    if !is_slot_assignment {
+        return parse_slot_forwarding(p);
+    }
+    if !parse_slot_assignment(&mut *p) {
+        return false;
+    }
+    report_stray_semicolon(p);
+    true
 }
 
 #[cfg_attr(test, parser_test)]
@@ -427,23 +475,34 @@ fn parse_case_inner(p: &mut impl Parser, after: &str) {
             p.consume();
         }
     }
-    if p.peek().kind() == SyntaxKind::LBrace {
-        // pass case
-        p.expect(SyntaxKind::LBrace);
-        if p.peek().kind() == SyntaxKind::Identifier {
-            p.error("Remove '{ }' around case element");
-            parse_sub_element(&mut *p);
-        }
-        p.expect(SyntaxKind::RBrace);
-        return;
+    parse_sub_element_or_empty(p, "case");
+}
+
+fn parse_sub_element_or_empty(p: &mut impl Parser, what: &str) -> bool {
+    if p.peek().kind() != SyntaxKind::LBrace {
+        return parse_sub_element(p);
     }
-    parse_sub_element(&mut *p);
+    p.expect(SyntaxKind::LBrace);
+    if p.peek().kind() == SyntaxKind::Identifier {
+        p.error(format!("Remove '{{ }}' around {what} element"));
+        parse_sub_element(&mut *p);
+    }
+    p.expect(SyntaxKind::RBrace);
+    true
+}
+
+fn report_stray_semicolon(p: &mut impl Parser) {
+    if p.peek().kind() == SyntaxKind::Semicolon {
+        p.error("Remove the ';' after the slot content");
+        p.consume();
+    }
 }
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Binding
 /// foo: bar;
 /// foo: {}
+/// foo: {};
 /// ```
 fn parse_property_binding(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Binding);
@@ -458,10 +517,17 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// expression ;
 /// {expression }
 /// {object: 42};
+/// {};
 /// ```
 fn parse_binding_expression(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::BindingExpression);
-    if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
+    // Tell a code block from an object literal, which is '{};' or '{ identifier:'
+    if p.nth(0).kind() == SyntaxKind::LBrace
+        && !matches!(
+            (p.nth(1).kind(), p.nth(2).kind()),
+            (_, SyntaxKind::Colon) | (SyntaxKind::RBrace, SyntaxKind::Semicolon)
+        )
+    {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
         true
@@ -632,20 +698,21 @@ fn parse_callback_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkp
 
 #[cfg_attr(test, parser_test)]
 /// ```test
-/// @deprecated
+/// @deprecated("")
 /// @deprecated("Some message")
 /// @shadowable
+/// @testable
 /// ```
 fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
     let mut seen: Vec<&'static str> = Vec::new();
     while p.nth(0).kind() == SyntaxKind::At
-        && matches!(p.nth(1).as_str(), "deprecated" | "shadowable")
+        && matches!(p.nth(1).as_str(), "deprecated" | "shadowable" | "testable")
     {
         let is_deprecated = p.nth(1).as_str() == "deprecated";
-        let (name, kind) = if is_deprecated {
-            ("deprecated", SyntaxKind::PropertyDeprecation)
-        } else {
-            ("shadowable", SyntaxKind::ShadowableAttribute)
+        let (name, kind) = match p.nth(1).as_str() {
+            "deprecated" => ("deprecated", SyntaxKind::PropertyDeprecation),
+            "shadowable" => ("shadowable", SyntaxKind::ShadowableAttribute),
+            _ => ("testable", SyntaxKind::TestableAttribute),
         };
         let duplicated = seen.contains(&name);
         seen.push(name);
@@ -655,17 +722,21 @@ fn parse_member_attributes(p: &mut impl Parser) -> Option<&'static str> {
         if duplicated {
             p.error(format!("Duplicated @{name} attribute"));
         }
-        if is_deprecated && p.test(SyntaxKind::LParent) {
-            let peek = p.peek();
-            if peek.kind() != SyntaxKind::StringLiteral
-                || !peek.as_str().starts_with('"')
-                || !peek.as_str().ends_with('"')
-            {
-                p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
-                p.until(SyntaxKind::RParent);
+        if is_deprecated {
+            if !p.test(SyntaxKind::LParent) {
+                p.error("@deprecated requires a message in parentheses. Use '@deprecated(\"\")' to deprecate without advising on a replacement");
             } else {
-                p.expect(SyntaxKind::StringLiteral);
-                p.expect(SyntaxKind::RParent);
+                let peek = p.peek();
+                if peek.kind() != SyntaxKind::StringLiteral
+                    || !peek.as_str().starts_with('"')
+                    || !peek.as_str().ends_with('"')
+                {
+                    p.error("@deprecated message must be a plain string literal, without any '\\{}' expressions");
+                    p.until(SyntaxKind::RParent);
+                } else {
+                    p.expect(SyntaxKind::StringLiteral);
+                    p.expect(SyntaxKind::RParent);
+                }
             }
         }
     }
@@ -989,5 +1060,25 @@ fn parse_function<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) {
         parse_code_block(&mut *p);
     } else if !p.test(SyntaxKind::Semicolon) {
         p.error("Expected function body or semicolon");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slot_default_wrapped_in_if_or_for_recovers() {
+        for source in ["slot x << if true: Text {}", "slot x << for i in 2: Text {}"] {
+            let mut diag = Default::default();
+            let mut p = DefaultParser::new(source, &mut diag);
+            parse_slot_declaration(&mut p);
+            assert!(p.diags.has_errors(), "{source}");
+            assert_eq!(p.cursor, p.tokens.len(), "{source}");
+            syntax_nodes::SlotDeclaration::verify(SyntaxNode {
+                node: rowan::SyntaxNode::new_root(p.builder.finish()),
+                source_file: Default::default(),
+            });
+        }
     }
 }

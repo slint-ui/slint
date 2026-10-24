@@ -91,6 +91,12 @@ fn rc_dyn_test() {
         assert_eq!(rc_origin.e, 42);
         assert!(VRc::ptr_eq(&VRc::into_dyn(rc_origin), &rc));
     }
+    {
+        let downcast = VRc::downcast::<SomeStruct>(&rc).unwrap();
+        assert_eq!(downcast.e, 42);
+        assert_eq!(VRc::strong_count(&rc), 2);
+        assert!(VRc::downcast::<SyncStruct>(&rc).is_none());
+    }
     drop(rc);
     assert_eq!(Rc::strong_count(&string), 1);
     assert!(w.upgrade().is_none());

@@ -18,9 +18,9 @@ jobs:
         # Exactly one branch uses `mode: full-nightly`: it owns the `nightly` tag and the VS Code extension.
         include:
           - branch: pre-release/1.18
-            mode: full-nightly
-          - branch: master
             mode: website-only
+          - branch: master
+            mode: full-nightly
 
     steps:
       - uses: actions/checkout@v7
@@ -37,8 +37,18 @@ jobs:
             echo "has_commits=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # See the same step in schedule_ci.yaml.
+      - name: Create a token to dispatch with
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-actions: write
+          permission-contents: read
+
       - name: Trigger nightly workflow
         if: steps.recent.outputs.has_commits == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: gh workflow run "Nightly snapshot" --ref ${{ matrix.branch }} --repo ${{ github.repository }} -f mode=${{ matrix.mode }}

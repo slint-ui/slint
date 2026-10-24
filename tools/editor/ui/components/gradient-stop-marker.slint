@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { GradientMarkerStyle } from "../style.slint";
+import { ColorIndicator } from "../../../lsp/ui/components/widgets/color-indicator.slint";
+
+export component EditorGradientStopMarker inherits Rectangle {
+    in property <GradientMarkerStyle> style;
+    in property <bool> active;
+    in property <bool> pointer-up;
+    in property <color> stop-color;
+    width: root.style.size;
+    height: root.style.height;
+
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        transform-origin: { x: self.width / 2, y: self.height / 2 };
+        transform-rotation: root.pointer-up ? 180deg : 0deg;
+        Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: 24;
+            viewbox-height: 30;
+            commands: "M 7 0.5 L 17 0.5 Q 23.5 0.5 23.5 7 L 23.5 17 Q 23.5 23.5 17 23.5 L 16.5 23.5 L 12 29 L 7.5 23.5 L 7 23.5 Q 0.5 23.5 0.5 17 L 0.5 7 Q 0.5 0.5 7 0.5 Z";
+            fill: root.style.background;
+            stroke: root.active ? root.style.active-border : root.style.border;
+            stroke-width: root.style.border-width;
+        }
+        ColorIndicator {
+            x: root.style.indicator-inset;
+            y: root.style.indicator-inset;
+            width: root.style.indicator-size;
+            height: self.width;
+            border-radius: root.style.indicator-radius;
+            color: root.stop-color;
+            border-width: root.style.border-width;
+            outline-color: root.style.swatch-border;
+            checker-light: root.style.checker.light;
+            checker-dark: root.style.checker.dark;
+        }
+    }
+}

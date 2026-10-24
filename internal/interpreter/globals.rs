@@ -6,14 +6,11 @@
 //! Created once per root instance and shared across the sub-component tree.
 //! Globals carry properties, callbacks and functions, but no items or children.
 
-use crate::Value;
 use crate::erased::{SubComponentCallback, SubComponentProperty};
 use crate::eval::{EvalContext, eval_expression};
+use crate::prelude::*;
 use i_slint_compiler::llr::{CompilationUnit, GlobalIdx, LocalMemberIndex};
 use i_slint_core::rtti;
-use i_slint_core::{Callback, Property};
-use std::pin::Pin;
-use std::rc::Rc;
 use typed_index_collections::TiVec;
 
 /// Name-based access to a native (builtin) global like `NativeStyleMetrics`,
@@ -104,7 +101,7 @@ pub struct GlobalInstance {
     /// `SubComponentInstance::callback_trackers`.
     pub callback_trackers: TiVec<
         i_slint_compiler::llr::CallbackIdx,
-        Option<std::pin::Pin<Rc<i_slint_core::properties::Property<()>>>>,
+        Option<Pin<Rc<i_slint_core::properties::Property<()>>>>,
     >,
     /// One `ChangeTracker` per entry of the global's `change_callbacks`.
     pub change_trackers: Vec<i_slint_core::properties::ChangeTracker>,
@@ -118,17 +115,21 @@ pub struct GlobalInstance {
 pub struct GlobalStorage {
     globals: TiVec<GlobalIdx, Option<Rc<GlobalInstance>>>,
     /// The owning instance, so global bindings can reach the window.
-    pub root: std::cell::OnceCell<
-        vtable::VWeak<i_slint_core::item_tree::ItemTreeVTable, crate::instance::Instance>,
-    >,
+    pub root: OnceCell<vtable::VWeak<ItemTreeVTable, Instance>>,
+    pub context: SlintContext,
+    pub resources: Rc<crate::component::Resources>,
     /// Set through [`ComponentInstance::set_debug_hook_callback`]; see [`crate::debug_hook`].
-    pub debug_hook_callback: std::cell::RefCell<Option<crate::debug_hook::DebugHookCallback>>,
+    pub debug_hook_callback: RefCell<Option<crate::debug_hook::DebugHookCallback>>,
 }
 
 impl GlobalStorage {
     /// Allocate one `GlobalInstance` per declared global.
     /// Bindings are installed separately by [`install_global_bindings`].
-    pub fn new(compilation_unit: &Rc<CompilationUnit>) -> Self {
+    pub fn new(
+        compilation_unit: &Rc<CompilationUnit>,
+        context: SlintContext,
+        resources: Rc<crate::component::Resources>,
+    ) -> Self {
         let globals = compilation_unit
             .globals
             .iter_enumerated()
@@ -168,7 +169,7 @@ impl GlobalStorage {
                     properties,
                     callbacks,
                     callback_trackers,
-                    change_trackers: std::iter::repeat_with(Default::default)
+                    change_trackers: core::iter::repeat_with(Default::default)
                         .take(global.change_callbacks.len())
                         .collect(),
                     native: None,
@@ -177,8 +178,10 @@ impl GlobalStorage {
             .collect();
         Self {
             globals,
-            root: std::cell::OnceCell::new(),
-            debug_hook_callback: std::cell::RefCell::new(None),
+            root: OnceCell::new(),
+            context,
+            resources,
+            debug_hook_callback: RefCell::new(None),
         }
     }
 
@@ -293,6 +296,7 @@ fn install_for_global(g: &Rc<GlobalInstance>, storage: &Rc<GlobalStorage>) {
             }
             LocalMemberIndex::Function(_)
             | LocalMemberIndex::Native { .. }
+            | LocalMemberIndex::Repeater(_)
             | LocalMemberIndex::Timer(_) => {
                 // Function bodies live on `GlobalComponent::functions[*].code`.
                 // Natives and timers don't appear on globals.

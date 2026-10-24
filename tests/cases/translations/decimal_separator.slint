@@ -1,9 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// C++ live preview: no bundled translations
-//ignore: cpp-live-preview
-
 // Check that the correct decimal separator is used when specifying a locale
 
 // Include this keyword to bundle the translations
@@ -87,6 +84,9 @@ assert_eq(instance.get_const_float_as_string(), "1.5");
 assert_eq(instance.get_const_int_as_string(), "42");
 assert_eq(instance.get_const_to_fixed(), "1.50");
 assert_eq(instance.get_const_is_float(), false);
+
+assert(!slint::select_bundled_translation("fr\xff"));
+assert_eq(instance.get_the_decimal_separator(), ".");
 
 assert(slint::select_bundled_translation("fr"));
 assert_eq(instance.get_the_decimal_separator(), ",");

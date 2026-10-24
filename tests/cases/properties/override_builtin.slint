@@ -21,7 +21,12 @@ export component TestCase inherits Base {
     pure callback close(string) -> string;
     close(s) => { s + "!" }
 
-    out property <bool> test: maximized == "shadowed" && minimized == 42 && close("a") == "a!";
+    // shadows `ensure-visible()`, which every element has
+    item := Rectangle {
+        public pure function ensure-visible(x: int) -> int { x * 2 }
+    }
+
+    out property <bool> test: maximized == "shadowed" && minimized == 42 && close("a") == "a!" && item.ensure-visible(21) == 42;
 }
 /*
 ```rust
