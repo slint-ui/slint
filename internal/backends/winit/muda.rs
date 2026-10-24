@@ -10,7 +10,10 @@ use i_slint_core::api::LogicalPosition;
 use i_slint_core::items::MenuEntry;
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
+use itertools::EitherOrBoth;
+use itertools::Itertools;
 use muda::ContextMenu;
+use std::collections::HashMap;
 use std::rc::Weak;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64};
@@ -18,10 +21,21 @@ use winit::event_loop::EventLoopProxy;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
+const MAX_DEPTH: u32 = 15;
+
+#[derive(Clone, Debug)]
+struct MenuNode {
+    entry: MenuEntry,
+    children: Vec<MenuNode>,
+    id: usize,
+}
+
 pub struct MudaAdapter {
-    entries: Vec<MenuEntry>,
+    map: HashMap<usize, MenuEntry>,
+    map_next_id: usize,
     tracker: Option<Pin<Box<PropertyTracker<false, MudaPropertyTracker>>>>,
     menu: Option<muda::Menu>,
+    menu_tree: Vec<MenuNode>,
     generation: u64,
 }
 
@@ -56,6 +70,227 @@ impl PropertyDirtyHandler for MudaPropertyTracker {
     }
 }
 
+fn build_menu_tree_for_parent(
+    menu: vtable::VRef<'_, MenuVTable>,
+    parent: Option<&MenuEntry>,
+    depth: u32,
+    map_next_id: &mut usize,
+) -> Vec<MenuNode> {
+    let mut raw_entries = Default::default();
+    menu.sub_menu(parent, &mut raw_entries);
+
+    let mut tree = Vec::new();
+    if depth > MAX_DEPTH {
+        if !raw_entries.is_empty() {
+            let entry = MenuEntry {
+                title: "<Error: Menu Depth limit reached>".into(),
+                enabled: false,
+                ..Default::default()
+            };
+            let id = *map_next_id;
+            *map_next_id += 1;
+            tree.push(MenuNode { entry, children: Vec::new(), id });
+        }
+        return tree;
+    }
+    for entry in raw_entries {
+        let children = if entry.has_sub_menu && depth <= MAX_DEPTH {
+            build_menu_tree_for_parent(menu, Some(&entry), depth + 1, map_next_id)
+        } else {
+            Vec::new()
+        };
+        let id = *map_next_id;
+        *map_next_id += 1;
+        tree.push(MenuNode { entry: entry.clone(), children, id });
+    }
+    tree
+}
+
+fn build_menu_tree(menu: &vtable::VRc<MenuVTable>, map_next_id: &mut usize) -> Vec<MenuNode> {
+    build_menu_tree_for_parent(vtable::VRc::borrow(menu), None, 0, map_next_id)
+}
+
+fn build_menu_item(node: &MenuNode, id: muda::MenuId) -> Box<dyn muda::IsMenuItem> {
+    if !node.entry.has_sub_menu {
+        let accelerator = keys_to_accelerator(&node.entry.shortcut);
+        let err_handler = |err| {
+            i_slint_core::debug_log!(
+                "Warning: Could not set accelerator {} for menu item {}: {err}",
+                node.entry.shortcut,
+                node.entry.title
+            )
+        };
+
+        if node.entry.checkable {
+            let check_menu = muda::CheckMenuItem::with_id(
+                id.clone(),
+                &node.entry.title,
+                node.entry.enabled,
+                node.entry.checked,
+                None,
+            );
+            check_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
+            return Box::new(check_menu);
+        }
+
+        if let Some(rgba) = node.entry.icon.to_rgba8() {
+            let icon =
+                muda::Icon::from_rgba(rgba.as_bytes().to_vec(), rgba.width(), rgba.height()).ok();
+            let icon_menu = muda::IconMenuItem::with_id(
+                id.clone(),
+                &node.entry.title,
+                node.entry.enabled,
+                icon,
+                None,
+            );
+            icon_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
+            return Box::new(icon_menu);
+        }
+
+        let menu_item =
+            muda::MenuItem::with_id(id.clone(), &node.entry.title, node.entry.enabled, None);
+        menu_item.set_key_accelerator(accelerator).map_err(err_handler).ok();
+        Box::new(menu_item)
+    } else {
+        let sub_menu = muda::Submenu::with_id(id.clone(), &node.entry.title, node.entry.enabled);
+        Box::new(sub_menu)
+    }
+}
+
+fn update_menu_branch(
+    map: &mut HashMap<usize, MenuEntry>,
+    generation: u64,
+    menu: MenuRef<'_>,
+    old_items: &[MenuNode],
+    new_items: &[MenuNode],
+    window_id: &str,
+    muda_type: MudaType,
+    menu_offset: usize,
+) {
+    // Get all menu items out of the muda item
+    let menu_items = menu.items();
+
+    // Enumerate through the old and new items simultaneously
+    for (position, zipped) in Itertools::zip_longest(old_items.iter(), new_items.iter()).enumerate()
+    {
+        let (old_item_to_remove, new_item_to_build) = match zipped {
+            EitherOrBoth::Both(old_item, new_item) => {
+                // This item is there for the old and new; check for changes
+                if menu_entry_looks_same(&old_item.entry, &new_item.entry) {
+                    // Looks the same - recurse if this is a submenu
+                    if let Some(muda::MenuItemKind::Submenu(submenu)) =
+                        menu_items.get(position + menu_offset)
+                    {
+                        update_menu_branch(
+                            map,
+                            generation,
+                            MenuRef::Submenu(submenu),
+                            &old_item.children,
+                            &new_item.children,
+                            window_id,
+                            muda_type,
+                            0,
+                        );
+                    }
+
+                    // We have not changed anything, but we need to refresh the item
+                    if let Some(item) = menu_items.get(position + menu_offset)
+                        && let Some((_, _, id, _)) = parse_menu_item_id(item.id())
+                    {
+                        map.insert(id, new_item.entry.clone());
+                    }
+                    (None, None)
+                } else {
+                    (Some(old_item), Some(new_item))
+                }
+            }
+            EitherOrBoth::Left(old_item) => {
+                // The old menu had an entry where the new menu does not; we need to remove it
+                (Some(old_item), None)
+            }
+            EitherOrBoth::Right(new_item) => {
+                // The new menu has an entry where the old menu did not; we need to append it
+                (None, Some(new_item))
+            }
+        };
+
+        // Do we have to remove the old menu?
+        if let Some(old_item_to_remove) = old_item_to_remove {
+            // If this is a submenu, we have to "update" (i.e. - delete the branch)
+            if let Some(muda::MenuItemKind::Submenu(submenu)) =
+                menu_items.get(position + menu_offset)
+            {
+                update_menu_branch(
+                    map,
+                    generation,
+                    MenuRef::Submenu(submenu),
+                    &old_item_to_remove.children,
+                    &[],
+                    window_id,
+                    muda_type,
+                    0,
+                );
+            }
+
+            // Only remove if we're going to be inserting later; we'll take care of the other scenario later
+            if new_item_to_build.is_some() {
+                let idx = position + menu_offset;
+                if let Some(item) = menu.remove_at(idx)
+                    && let Some((_, _, entry_id, _)) = parse_menu_item_id(item.id())
+                {
+                    map.remove(&entry_id);
+                }
+                // Removing shifts items, but we handle by position carefully
+            }
+        }
+
+        // Do we need to add a new item?
+        if let Some(new_item_to_build) = new_item_to_build {
+            // Create the new item
+            let new_muda_item = if new_item_to_build.entry.is_separator {
+                Box::new(muda::PredefinedMenuItem::separator())
+            } else {
+                map.insert(new_item_to_build.id, new_item_to_build.entry.clone());
+                let menu_id = menu_item_id(window_id, generation, new_item_to_build.id, muda_type);
+
+                // And build it
+                build_menu_item(new_item_to_build, menu_id)
+            };
+
+            // And if this is a submenu, recurse
+            if let muda::MenuItemKind::Submenu(submenu) = new_muda_item.kind() {
+                update_menu_branch(
+                    map,
+                    generation,
+                    MenuRef::Submenu(&submenu),
+                    &[],
+                    &new_item_to_build.children,
+                    window_id,
+                    muda_type,
+                    0,
+                );
+            }
+
+            // And insert
+            let _ = menu.insert(&*new_muda_item, position + menu_offset);
+        }
+    }
+
+    // Purge extraneous items
+    let idx = new_items.len() + menu_offset;
+    let old_count = old_items.len();
+    for _ in new_items.len()..old_count {
+        if let Some(item) = menu.remove_at(idx) {
+            if let Some((_, _, entry_id, _)) = parse_menu_item_id(item.id()) {
+                map.remove(&entry_id);
+            }
+            // Don't increment idx because items shift
+        } else {
+            break;
+        }
+    }
+}
+
 impl MudaAdapter {
     pub fn setup(
         menubar: &vtable::VRc<MenuVTable>,
@@ -70,7 +305,14 @@ impl MudaAdapter {
                 window_adapter_weak,
             })));
 
-        let mut s = Self { entries: Default::default(), tracker, menu: None, generation: 0 };
+        let mut s = Self {
+            map: Default::default(),
+            map_next_id: 0,
+            tracker,
+            menu: None,
+            menu_tree: Vec::new(),
+            generation: 0,
+        };
         s.rebuild_menu(winit_window, Some(menubar), MudaType::Menubar);
         s
     }
@@ -83,7 +325,14 @@ impl MudaAdapter {
     ) -> Option<Self> {
         install_event_handler_if_necessary(proxy);
 
-        let mut s = Self { entries: Default::default(), tracker: None, menu: None, generation: 0 };
+        let mut s = Self {
+            map: Default::default(),
+            map_next_id: 0,
+            tracker: None,
+            menu: None,
+            menu_tree: Vec::new(),
+            generation: 0,
+        };
         s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
 
         match winit_window.window_handle().ok()?.as_raw() {
@@ -126,162 +375,76 @@ impl MudaAdapter {
         menu_tree: Option<&vtable::VRc<MenuVTable>>,
         muda_type: MudaType,
     ) {
-        let must_set_window_redraw = cfg!(windows) && winit_window.is_visible() == Some(true);
-        if must_set_window_redraw {
-            win32_set_window_redraw(winit_window, false);
-        }
-
-        self.reset_entries();
-        let generation = self.generation;
-
-        fn generate_menu_entry(
-            menu: vtable::VRef<'_, MenuVTable>,
-            entry: &MenuEntry,
-            depth: usize,
-            map: &mut Vec<MenuEntry>,
-            window_id: &str,
-            muda_type: MudaType,
-            generation: u64,
-        ) -> Box<dyn muda::IsMenuItem> {
-            let id = menu_item_id(window_id, generation, map.len(), muda_type);
-            map.push(entry.clone());
-            if entry.is_separator {
-                Box::new(muda::PredefinedMenuItem::separator())
-            } else if !entry.has_sub_menu {
-                let accelerator = keys_to_accelerator(&entry.shortcut);
-
-                let err_handler = |err| {
-                    i_slint_core::debug_log!(
-                        "Warning: Could not set accelerator {} for menu item {}: {err}",
-                        entry.shortcut,
-                        entry.title
-                    )
-                };
-
-                // the top level always has a sub menu regardless of entry.has_sub_menu
-                if entry.checkable {
-                    let check_menu = muda::CheckMenuItem::with_id(
-                        id.clone(),
-                        &entry.title,
-                        entry.enabled,
-                        entry.checked,
-                        None,
-                    );
-                    check_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
-                    Box::new(check_menu)
-                } else if let Some(rgba) = entry.icon.to_rgba8() {
-                    let icon = muda::Icon::from_rgba(
-                        rgba.as_bytes().to_vec(),
-                        rgba.width(),
-                        rgba.height(),
-                    )
-                    .ok();
-                    let icon_menu = muda::IconMenuItem::with_id(
-                        id.clone(),
-                        &entry.title,
-                        entry.enabled,
-                        icon,
-                        None,
-                    );
-                    icon_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
-                    Box::new(icon_menu)
-                } else {
-                    let menu_item =
-                        muda::MenuItem::with_id(id.clone(), &entry.title, entry.enabled, None);
-                    menu_item.set_key_accelerator(accelerator).map_err(err_handler).ok();
-                    Box::new(menu_item)
-                }
-            } else {
-                let sub_menu = muda::Submenu::with_id(id.clone(), &entry.title, entry.enabled);
-                if depth < 15 {
-                    let mut sub_entries = Default::default();
-                    menu.sub_menu(Some(entry), &mut sub_entries);
-                    for e in sub_entries {
-                        sub_menu
-                            .append(&*generate_menu_entry(
-                                menu,
-                                &e,
-                                depth + 1,
-                                map,
-                                window_id,
-                                muda_type,
-                                generation,
-                            ))
-                            .unwrap();
-                    }
-                } else {
-                    // infinite menu depth is possible, but we want to limit the amount of item passed to muda
-                    sub_menu
-                        .append(&muda::MenuItem::new(
-                            "<Error: Menu Depth limit reached>",
-                            false,
-                            None,
-                        ))
-                        .unwrap();
-                }
-                Box::new(sub_menu)
-            }
-        }
-
         if let Some(menu_tree) = menu_tree {
+            // Eventually, we will have to be doing full rebuilds
+            if self.map_next_id > 1000000 {
+                self.reset_entries();
+            }
+
             let mut build_menu = || {
-                let mut menu_entries = Default::default();
-                if vtable::VRc::borrow(menu_tree).visible() {
-                    vtable::VRc::borrow(menu_tree).sub_menu(None, &mut menu_entries);
-                }
-
-                if menu_entries.is_empty() && muda_type == MudaType::Menubar {
-                    self.menu = None;
-                } else if let Some(menu) = self.menu.as_ref() {
-                    while menu.remove_at(0).is_some() {}
+                let mut new_map_next_id = self.map_next_id;
+                let new_menu_tree = if vtable::VRc::borrow(menu_tree).visible() {
+                    build_menu_tree(menu_tree, &mut new_map_next_id)
                 } else {
-                    self.menu = Some(muda::Menu::new());
+                    Vec::new()
+                };
+                self.map_next_id = new_map_next_id;
 
-                    if muda_type == MudaType::Menubar
-                        && let Some(menu) = self.menu.as_ref()
-                    {
-                        #[cfg(target_os = "windows")]
-                        if let RawWindowHandle::Win32(handle) =
-                            winit_window.window_handle().unwrap().as_raw()
-                        {
-                            let theme = match winit_window.theme() {
-                                Some(winit::window::Theme::Dark) => muda::MenuTheme::Dark,
-                                Some(winit::window::Theme::Light) => muda::MenuTheme::Light,
-                                None => muda::MenuTheme::Auto,
-                            };
-                            unsafe {
-                                menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap()
-                            };
-                        }
-
-                        #[cfg(target_os = "macos")]
-                        {
-                            menu.init_for_nsapp();
-                        }
-                    }
-                }
-
-                // Until we have menu roles, always create an app menu on macOS.
-                #[cfg(target_os = "macos")]
-                if matches!(muda_type, MudaType::Menubar)
-                    && let Some(menu) = self.menu.as_ref()
+                // There is a very special case we need to watch out for; if there are no items in the menu bar
+                // (and not a context menu) either before or after, just leave everything alone
+                if !new_menu_tree.is_empty()
+                    || muda_type != MudaType::Menubar
+                    || !self.menu_tree.is_empty()
                 {
-                    create_default_app_menu(menu).unwrap();
-                }
+                    // Access the menu, creating if if necessary
+                    let menu = self.menu.get_or_insert_with(|| {
+                        let menu = muda::Menu::new();
 
-                let window_id = u64::from(winit_window.id()).to_string();
-                if let Some(menu) = self.menu.as_ref() {
-                    for e in menu_entries {
-                        menu.append(&*generate_menu_entry(
-                            vtable::VRc::borrow(menu_tree),
-                            &e,
-                            0,
-                            &mut self.entries,
-                            &window_id,
-                            muda_type,
-                            generation,
-                        ))
-                        .unwrap();
+                        if muda_type == MudaType::Menubar {
+                            #[cfg(target_os = "windows")]
+                            if let RawWindowHandle::Win32(handle) =
+                                winit_window.window_handle().unwrap().as_raw()
+                            {
+                                let theme = match winit_window.theme() {
+                                    Some(winit::window::Theme::Dark) => muda::MenuTheme::Dark,
+                                    Some(winit::window::Theme::Light) => muda::MenuTheme::Light,
+                                    None => muda::MenuTheme::Auto,
+                                };
+                                unsafe {
+                                    menu.init_for_hwnd_with_theme(handle.hwnd.get(), theme).unwrap()
+                                };
+                            }
+
+                            #[cfg(target_os = "macos")]
+                            {
+                                menu.init_for_nsapp();
+                                create_default_app_menu(&menu).unwrap();
+                            }
+                        };
+                        menu
+                    });
+
+                    let window_id = u64::from(winit_window.id()).to_string();
+                    #[cfg(target_os = "macos")]
+                    let menu_offset = if muda_type == MudaType::Menubar { 1usize } else { 0 };
+                    #[cfg(not(target_os = "macos"))]
+                    let menu_offset = 0;
+                    update_menu_branch(
+                        &mut self.map,
+                        self.generation,
+                        MenuRef::Menu(menu),
+                        &self.menu_tree,
+                        &new_menu_tree,
+                        &window_id,
+                        muda_type,
+                        menu_offset,
+                    );
+                    self.menu_tree = new_menu_tree;
+
+                    // And related to the special case above, if the new menu bar is empty just
+                    // blow it away (the `update_menu_branch()` was necessary to clean things up)
+                    if self.menu_tree.is_empty() && muda_type == MudaType::Menubar {
+                        self.menu = None;
                     }
                 }
             };
@@ -292,23 +455,21 @@ impl MudaAdapter {
                 build_menu()
             }
         }
-
-        if must_set_window_redraw {
-            win32_set_window_redraw(winit_window, true);
-        }
     }
 
     fn reset_entries(&mut self) {
         // AppKit can retain old items after a rebuild or adapter replacement.
         self.generation = NEXT_MENU_GENERATION.fetch_add(1, Ordering::Relaxed);
-        self.entries.clear();
+        self.map.clear();
+        self.menu_tree.clear();
+        self.map_next_id = 0;
     }
 
     pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, generation: u64, entry_id: usize) {
         if generation != self.generation {
             return;
         }
-        let Some(entry) = &self.entries.get(entry_id) else { return };
+        let Some(entry) = &self.map.get(&entry_id) else { return };
         vtable::VRc::borrow(menubar).activate(entry);
     }
 
@@ -335,7 +496,14 @@ impl MudaAdapter {
         let menu_bar = muda::Menu::new();
         create_default_app_menu(&menu_bar)?;
         menu_bar.init_for_nsapp();
-        Ok(Self { entries: Vec::new(), menu: Some(menu_bar), tracker: None, generation: 0 })
+        Ok(Self {
+            map: Default::default(),
+            map_next_id: 0,
+            menu: Some(menu_bar),
+            tracker: None,
+            menu_tree: Vec::new(),
+            generation: 0,
+        })
     }
 
     #[cfg(target_os = "macos")]
@@ -345,6 +513,90 @@ impl MudaAdapter {
         }
     }
 }
+
+/// Used to check if these menu items look the same
+fn menu_entry_looks_same(a: &MenuEntry, b: &MenuEntry) -> bool {
+    // There are two things stopping us from using the normal `Eq` trait
+    // - `id` can change at will but is not relevant for our purposes
+    // - Comparisons with `icon` seem to always return false
+    a.title == b.title
+        && icons_equal(&a.icon, &b.icon)
+        && a.enabled == b.enabled
+        && a.checkable == b.checkable
+        && a.checked == b.checked
+        && a.has_sub_menu == b.has_sub_menu
+        && a.is_separator == b.is_separator
+        && a.shortcut == b.shortcut
+}
+
+fn icons_equal(a: &i_slint_core::graphics::Image, b: &i_slint_core::graphics::Image) -> bool {
+    let a_path = a.path();
+    let b_path = b.path();
+    if a_path.is_some() && b_path.is_some() {
+        a_path == b_path
+    } else if a_path.is_none() && b_path.is_none() {
+        a == b
+    } else {
+        a_path == b_path
+    }
+}
+
+enum MenuRef<'a> {
+    Menu(&'a muda::Menu),
+    Submenu(&'a muda::Submenu),
+}
+
+impl<'a> MenuRef<'a> {
+    pub fn items(&self) -> Vec<muda::MenuItemKind> {
+        match self {
+            Self::Menu(menu) => menu.items(),
+            Self::Submenu(submenu) => submenu.items(),
+        }
+    }
+
+    pub fn remove_at(&self, position: usize) -> Option<muda::MenuItemKind> {
+        match self {
+            Self::Menu(menu) => menu.remove_at(position),
+            Self::Submenu(submenu) => submenu.remove_at(position),
+        }
+    }
+
+    pub fn insert(&self, item: &dyn muda::IsMenuItem, position: usize) -> muda::Result<()> {
+        match self {
+            Self::Menu(menu) => menu.insert(item, position),
+            Self::Submenu(submenu) => submenu.insert(item, position),
+        }
+    }
+}
+
+/*
+#[derive(Debug)]
+struct EntryMap<T> {
+    map: HashMap<usize, T>,
+    pool: IdPool,
+}
+
+impl<T> EntryMap<T> {
+    pub fn new() -> Self {
+        Self { map: HashMap::new(), pool: IdPool::new() }
+    }
+
+    pub fn insert(&mut self, entry: T) -> usize {
+        let id = self.pool.request_id().unwrap();
+        self.map.insert(id, entry);
+        id
+    }
+
+    pub fn release(&mut self, id: usize) {
+        let _ = self.pool.return_id(id);
+        self.map.remove(&id);
+    }
+
+    pub fn get(&self, id: usize) -> Option<&T> {
+        self.map.get(&id)
+    }
+}
+     */
 
 fn menu_item_id(
     window_id: &str,
@@ -458,33 +710,6 @@ fn create_default_app_menu(menu_bar: &muda::Menu) -> Result<(), i_slint_core::ap
     Ok(())
 }
 
-/// On Windows, we need to disable window redraw while rebuilding the menu, otherwise
-/// we might see flickering
-#[allow(unused_variables)]
-fn win32_set_window_redraw(winit_window: &Window, redraw: bool) {
-    #[cfg(target_os = "windows")]
-    if let RawWindowHandle::Win32(handle) = winit_window.window_handle().unwrap().as_raw() {
-        use std::os::raw::c_void;
-        use windows::Win32::Foundation::HWND;
-        use windows::Win32::Foundation::WPARAM;
-        use windows::Win32::UI::WindowsAndMessaging::DrawMenuBar;
-        use windows::Win32::UI::WindowsAndMessaging::SendMessageW;
-        use windows::Win32::UI::WindowsAndMessaging::WM_SETREDRAW;
-
-        let hwnd = HWND(handle.hwnd.get() as *mut c_void);
-
-        unsafe {
-            SendMessageW(hwnd, WM_SETREDRAW, Some(WPARAM(redraw as usize)), None);
-        }
-
-        if redraw {
-            unsafe {
-                let _ = DrawMenuBar(hwnd);
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,15 +735,21 @@ mod tests {
     i_slint_core::MenuVTable_static!(static RECORDING_MENU_VT for RecordingMenu);
 
     fn adapter(id: &str) -> MudaAdapter {
-        let mut adapter =
-            MudaAdapter { entries: Vec::new(), tracker: None, menu: None, generation: 0 };
+        let mut adapter = MudaAdapter {
+            map: Default::default(),
+            map_next_id: 0,
+            tracker: None,
+            menu: None,
+            menu_tree: Vec::new(),
+            generation: 0,
+        };
         replace_entry(&mut adapter, id);
         adapter
     }
 
     fn replace_entry(adapter: &mut MudaAdapter, id: &str) {
         adapter.reset_entries();
-        adapter.entries.push(MenuEntry { id: id.into(), ..Default::default() });
+        adapter.map.insert(0, MenuEntry { id: id.into(), ..Default::default() });
     }
 
     fn recording_menu() -> (vtable::VRc<MenuVTable>, Rc<RefCell<Vec<i_slint_core::SharedString>>>) {
