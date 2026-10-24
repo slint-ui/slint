@@ -197,7 +197,6 @@ harness = false
 [[test]]
 name = "redraw_before_reshow"
 harness = false
-required-features = ["renderer-femtovg"]
 
 [[test]]
 name = "initial_window_icon"
