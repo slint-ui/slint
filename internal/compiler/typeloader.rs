@@ -1446,6 +1446,7 @@ impl TypeLoader {
         let mut borrowed_state = state.borrow_mut();
 
         let mut resolved = false;
+        let mut include_candidates = Vec::new();
         let path_canon = match borrowed_state
             .tl
             .resolve_import_path(import_token.as_ref(), file_to_import)
@@ -1484,14 +1485,27 @@ impl TypeLoader {
                 } else {
                     // We will load using the `open_import_callback`
                     // Simplify the path to remove the ".."
-                    let base_dir = import_token
-                        .as_ref()
-                        .and_then(|tok| tok.source_file())
-                        .map_or_else(SourcePath::default, |f| f.path().parent());
-                    base_dir.join(file_to_import).ok_or(None)?
+                    let referencing_file =
+                        import_token.as_ref().and_then(|tok| tok.source_file()).map(|f| f.path());
+                    let base_dir =
+                        referencing_file.map_or_else(SourcePath::default, SourcePath::parent);
+                    let path = base_dir.join(file_to_import).ok_or(None)?;
+                    include_candidates = borrowed_state
+                        .tl
+                        .include_path_candidates(referencing_file, file_to_import)
+                        .into_iter()
+                        .filter(|candidate| !candidate.is_builtin() && *candidate != path)
+                        .unique()
+                        .collect();
+                    path
                 }
             }
         };
+
+        drop(borrowed_state);
+        let (path_canon, mut preloaded) =
+            Self::find_import_through_loader(state, path_canon, include_candidates).await;
+        let mut borrowed_state = state.borrow_mut();
 
         if !import_stack.insert(path_canon.clone()) {
             borrowed_state
@@ -1541,36 +1555,17 @@ impl TypeLoader {
             }
             Some(doc_node)
         } else {
-            let callback = state
-                .borrow()
-                .tl
-                .compiler_config
-                .open_import_callback
-                .clone()
-                .filter(|_| !path_canon.is_builtin());
-            let loaded = match callback {
-                Some(callback) => callback(path_canon.clone()).await,
-                None => None,
+            let source_code_result = match preloaded.take() {
+                Some(result) => result,
+                None => Self::read_import(state, &path_canon).await,
             };
-            let source_code_result = loaded.unwrap_or_else(|| path_canon.read_to_string());
             match source_code_result {
                 Ok(source) => syntax_nodes::Document::new(crate::parser::parse(
                     source,
                     Some(path_canon.clone()),
                     state.borrow_mut().diag,
                 )),
-                Err(err)
-                    if !resolved
-                        && matches!(
-                            err.kind(),
-                            // A path that can't name a file (e.g. one with a character
-                            // Windows forbids) can't be found either, so report it the
-                            // same way rather than leaking the raw OS error.
-                            ErrorKind::NotFound
-                                | ErrorKind::NotADirectory
-                                | ErrorKind::InvalidFilename
-                        ) =>
-                {
+                Err(err) if !resolved && is_not_found(&err) => {
                     let import_kind =
                         if file_to_import.starts_with('@') { "library" } else { "include" };
                     state.borrow_mut().diag.push_error(
@@ -1613,6 +1608,52 @@ impl TypeLoader {
         }
 
         if ok { Ok(path_canon) } else { Err(Some(path_canon)) }
+    }
+
+    async fn read_import<'a>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        path: &SourcePath,
+    ) -> std::io::Result<String> {
+        let callback = state
+            .borrow()
+            .tl
+            .compiler_config
+            .open_import_callback
+            .clone()
+            .filter(|_| !path.is_builtin());
+        let loaded = match callback {
+            Some(callback) => callback(path.clone()).await,
+            None => None,
+        };
+        loaded.unwrap_or_else(|| path.read_to_string())
+    }
+
+    async fn find_import_through_loader<'a>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        path: SourcePath,
+        include_candidates: Vec<SourcePath>,
+    ) -> (SourcePath, Option<std::io::Result<String>>) {
+        if include_candidates.is_empty() {
+            return (path, None);
+        }
+        let mut first_error = None;
+        for candidate in std::iter::once(path.clone()).chain(include_candidates) {
+            let known = {
+                let all_documents = &state.borrow().tl.all_documents;
+                all_documents.docs.contains_key(&candidate)
+                    || all_documents.currently_loading.contains_key(&candidate)
+            };
+            if known {
+                return (candidate, None);
+            }
+            match Self::read_import(state, &candidate).await {
+                Err(error) if is_not_found(&error) => {
+                    first_error.get_or_insert(error);
+                }
+                result => return (candidate, Some(result)),
+            }
+        }
+        (path, first_error.map(Err))
     }
 
     /// Load a file, and its dependency, running only the import passes.
@@ -1848,6 +1889,16 @@ impl TypeLoader {
         referencing_file: Option<&SourcePath>,
         file_to_import: &str,
     ) -> Option<SourcePath> {
+        self.include_path_candidates(referencing_file, file_to_import)
+            .iter()
+            .find_map(crate::fileaccess::find_file)
+    }
+
+    fn include_path_candidates(
+        &self,
+        referencing_file: Option<&SourcePath>,
+        file_to_import: &str,
+    ) -> Vec<SourcePath> {
         let referencing_dir = referencing_file.map(SourcePath::parent);
         let include_dirs = self.compiler_config.include_paths.iter().filter_map(|include_path| {
             match (&referencing_dir, include_path.to_str()) {
@@ -1879,7 +1930,7 @@ impl TypeLoader {
                     .then(|| SourcePath::Builtin("common".into())),
             )
             .filter_map(|dir| dir.join(file_to_import))
-            .find_map(|candidate| crate::fileaccess::find_file(&candidate))
+            .collect()
     }
 
     fn collect_dependencies<'a: 'b, 'b>(
@@ -2045,6 +2096,16 @@ fn get_native_style(all_loaded_files: &mut std::collections::BTreeSet<SourcePath
         return style;
     }
     i_slint_common::get_native_style(false, &std::env::var("TARGET").unwrap_or_default()).into()
+}
+
+fn is_not_found(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        // A path that can't name a file (e.g. one with a character
+        // Windows forbids) can't be found either, so report it the
+        // same way rather than leaking the raw OS error.
+        ErrorKind::NotFound | ErrorKind::NotADirectory | ErrorKind::InvalidFilename
+    )
 }
 
 /// For a .rs file, return the manifest directory
@@ -2325,6 +2386,101 @@ fn test_load_from_callback_with_url_base() {
         ["https://slint.dev/ui/widgets/a%20b.slint", "https://slint.dev/ui/y.slint"]
     );
     assert!(loader.get_document(&SourcePath::new("https://slint.dev/ui/y.slint")).is_some());
+}
+
+#[cfg(test)]
+fn load_url_imports_with_include_paths(
+    source: &str,
+    include_paths: &[&str],
+    files: &'static [(&'static str, &'static str)],
+) -> (BuildDiagnostics, Vec<String>) {
+    let requested = Rc::new(RefCell::new(Vec::new()));
+    let requested_ = requested.clone();
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.include_paths = include_paths.iter().map(PathBuf::from).collect();
+    compiler_config.open_import_callback = Some(Rc::new(move |path| {
+        requested_.borrow_mut().push(path.to_string());
+        Box::pin(async move {
+            Some(
+                files
+                    .iter()
+                    .find(|(url, _)| *url == path.to_string())
+                    .map(|(_, source)| source.to_string())
+                    .ok_or_else(|| ErrorKind::NotFound.into()),
+            )
+        })
+    }));
+
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let doc_node: syntax_nodes::Document = crate::parser::parse(
+        source.into(),
+        Some(SourcePath::new("https://slint.dev/project/ui/main.slint")),
+        &mut build_diagnostics,
+    )
+    .into();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&loader.global_type_registry)));
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+    let requested = requested.borrow().clone();
+    (build_diagnostics, requested)
+}
+
+#[test]
+fn test_load_from_callback_searches_url_include_paths() {
+    let (diagnostics, requested) = load_url_imports_with_include_paths(
+        "import { Card } from \"card.slint\"; export component X { Card {} }",
+        &["https://slint.dev/project/empty", "../shared"],
+        &[("https://slint.dev/project/shared/card.slint", "export component Card {}")],
+    );
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    assert_eq!(
+        requested,
+        [
+            "https://slint.dev/project/ui/card.slint",
+            "https://slint.dev/project/empty/card.slint",
+            "https://slint.dev/project/shared/card.slint",
+        ]
+    );
+}
+
+#[test]
+fn test_load_from_callback_prefers_the_importing_directory() {
+    let (diagnostics, requested) = load_url_imports_with_include_paths(
+        "import { Card } from \"card.slint\"; export component X { Card {} }",
+        &["../shared"],
+        &[
+            ("https://slint.dev/project/ui/card.slint", "export component Card {}"),
+            ("https://slint.dev/project/shared/card.slint", "export component Other {}"),
+        ],
+    );
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    assert_eq!(requested, ["https://slint.dev/project/ui/card.slint"]);
+}
+
+#[test]
+fn test_load_from_callback_reports_an_import_missing_from_url_include_paths() {
+    let (diagnostics, requested) = load_url_imports_with_include_paths(
+        "import { Card } from \"card.slint\"; export component X { Card {} }",
+        &["../shared"],
+        &[],
+    );
+    assert_eq!(
+        diagnostics.to_string_vec(),
+        [
+            "https://slint.dev/project/ui/main.slint:1: Cannot find requested import \"card.slint\" in the include search path"
+        ]
+    );
+    assert_eq!(
+        requested,
+        ["https://slint.dev/project/ui/card.slint", "https://slint.dev/project/shared/card.slint"]
+    );
 }
 
 #[test]
