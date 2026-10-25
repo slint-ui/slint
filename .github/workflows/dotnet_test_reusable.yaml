@@ -36,7 +36,7 @@ jobs:
                   key: x-dotnet-v0
             - uses: actions/setup-dotnet@v5
               with:
-                  global-json-file: api/dotnet/global.json
+                  dotnet-version: 10.0.401
             - name: Build the native library and slint-compiler
               run: cargo build -p slint-dotnet --features testing -p slint-compiler
             - name: Check the formatting

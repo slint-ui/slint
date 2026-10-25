@@ -218,6 +218,10 @@ Build with `-p:SlintCargoProfile=release` to use the release build instead,
 and rebuild the C# project after building the native library for the first time.
 At run time, `SLINT_DOTNET_NATIVE_LIBRARY` overrides the library path.
 
+`api/dotnet/global.json` pins the .NET SDK to 10.0.401, accepting newer patches of its feature band locally,
+and the workflows install exactly that version.
+The day a new SDK appears in the release list, its download can still fail, which broke every .NET job once.
+
 ## Roadmap
 
 1. Native crate and C# library: compile from a string or file, properties, callbacks, functions, globals, event loop (done).
