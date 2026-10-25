@@ -5,6 +5,12 @@ use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1",);
+    // The cases target the edition of this Slint, like in the other drivers.
+    println!(
+        "cargo:rustc-env=SLINT_EDITION={}.{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR")
+    );
 
     let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let mut tests_file = std::fs::File::create(out_dir.join("test_functions.rs"))?;

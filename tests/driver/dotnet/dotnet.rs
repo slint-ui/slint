@@ -33,6 +33,9 @@ pub fn test(identifier: &str) -> Result<(), Box<dyn Error>> {
         .arg(&BATCH.runner)
         .arg(identifier)
         .env("SLINT_BACKEND", "testing")
+        // The generated code compiles the case again at run time, which needs the same settings.
+        .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
+        .env("SLINT_EDITION", env!("SLINT_EDITION"))
         .output()?;
     if output.status.success() {
         Ok(())
