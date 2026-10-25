@@ -202,11 +202,12 @@
       return slint;
     });
     // wasm-pack publishes the interpreter's package.json next to it.
-    const runtime = fetch(new URL("package.json", INTERPRETER_URL))
+    const current = { tag, slint, panicked, panic, runtime: `Slint (${CHANNEL})` };
+    fetch(new URL("package.json", INTERPRETER_URL))
       .then((response) => response.json())
-      .then(({ version }) => `Slint ${version} (${CHANNEL})`)
-      .catch(() => `Slint (${CHANNEL})`);
-    interpreter = { tag, slint, panicked, panic, runtime };
+      .then(({ version }) => { current.runtime = `Slint ${version} (${CHANNEL})`; })
+      .catch(() => {});
+    interpreter = current;
     return interpreter;
   }
 
@@ -362,7 +363,7 @@
       reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
       return;
     }
-    runtime = await current.runtime;
+    runtime = current.runtime;
     showStatus("Compiling…");
     publish({ previewId, stage: "compiling" }).catch(() => {});
     const { component, diagnostics } = await untilPanic(
@@ -456,7 +457,7 @@
       }
     }
     const capture = error ? { error } : captureCanvas();
-    return publish({ previewId: await previewId, runtime: runtime ?? undefined, ...capture });
+    return publish({ previewId: await previewId, runtime: interpreter?.runtime ?? runtime ?? undefined, ...capture });
   }
 
   function reportToModel(text) {
