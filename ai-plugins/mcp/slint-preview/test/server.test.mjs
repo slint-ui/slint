@@ -23,6 +23,12 @@ const serverPath = new URL("../server.mjs", import.meta.url);
 const readManifest = (path) =>
     JSON.parse(readFileSync(new URL(path, pluginRoot), "utf8"));
 
+const capabilities = {
+    extensions: {
+        "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
+    },
+};
+
 let server;
 let nextId = 1;
 const pending = new Map();
@@ -55,7 +61,7 @@ before(async () => {
     });
     await request("initialize", {
         protocolVersion: "2025-11-25",
-        capabilities: {},
+        capabilities,
     });
 });
 
@@ -63,7 +69,7 @@ after(() => server.kill());
 
 test("reports the plugin version", async () => {
     const { result } = await request("initialize", {
-        protocolVersion: "2025-11-25",
+        protocolVersion: "2025-11-25", capabilities,
     });
     assert.equal(
         result.serverInfo.version,
@@ -398,4 +404,25 @@ test("tells a waiting call that a newer preview replaced it", async () => {
         content[0].text,
         new RegExp(`newer preview_slint call replaced preview ${previewId}`),
     );
+});
+
+
+test("returns a screenshot fallback immediately without MCP Apps support", async () => {
+    try {
+        for (const hostCapabilities of [{}, {
+            extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html"] } },
+        }]) {
+            await request("initialize", { capabilities: hostCapabilities });
+            for (const name of ["preview_slint", "get_preview_screenshot"]) {
+                const start = Date.now();
+                const result = await callTool(name, { source: "export component A {}" });
+                assert.equal(result.isError, true);
+                assert.match(result.content[0].text, /slint-viewer --screenshot/);
+                assert.doesNotMatch(result.content[0].text, /again|pending/);
+                assert.ok(Date.now() - start < 200);
+            }
+        }
+    } finally {
+        await request("initialize", { capabilities });
+    }
 });
