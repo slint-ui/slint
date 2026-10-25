@@ -13,7 +13,9 @@ use std::sync::OnceLock;
 use itertools::Itertools;
 
 use crate::CompilerConfiguration;
-use crate::langtype::{BuiltinStruct, Function, StructName, Type};
+use crate::langtype::{
+    BuiltinStruct, ConstantExpression, EnumerationValue, Function, StructName, Type,
+};
 use crate::llr;
 use crate::names::{normalize_identifier, to_pascal_case};
 use crate::object_tree::Document;
@@ -147,6 +149,128 @@ fn default_value(ty: &Type) -> Option<String> {
             _ => Some("new global::Slint.Struct()".into()),
         },
         _ => None,
+    }
+}
+
+/// The C# value of the struct field default `expr` of type `ty`, like `eval_constant_expression` in the interpreter.
+/// Returns `None` for a type without a typed C# equivalent.
+fn constant_value(expr: &ConstantExpression, ty: &Type) -> Option<String> {
+    match ty {
+        Type::String => match expr {
+            ConstantExpression::StringLiteral(s) => Some(string_literal(s)),
+            _ => None,
+        },
+        Type::Bool => constant_bool(expr).map(|b| b.to_string()),
+        Type::Int32 => constant_number(expr).map(|n| {
+            // Like `as` in Rust: saturating, and 0 for NaN.
+            (n as i32).to_string()
+        }),
+        Type::Float32
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Angle
+        | Type::Percent
+        | Type::Rem
+        | Type::UnitProduct(_) => constant_number(expr).map(|n| float_literal(n as f32)),
+        Type::Duration => constant_number(expr).map(|n| {
+            format!("global::System.TimeSpan.FromMilliseconds({}d)", float_literal_f64(n))
+        }),
+        Type::Color => constant_color(expr),
+        Type::Brush => constant_color(expr).map(|c| format!("new global::Slint.Brush({c})")),
+        Type::Enumeration(_) => match expr {
+            ConstantExpression::EnumerationValue(value) => Some(enum_value(value)),
+            _ => None,
+        },
+        Type::Struct(s) if matches!(s.name, StructName::User { .. }) => match expr {
+            ConstantExpression::Struct { values, .. } => {
+                let mut field_names = Members::new(&[csharp_type(ty).as_str()]);
+                let fields = s
+                    .fields
+                    .iter()
+                    .map(|(name, field_ty)| (field_names.claim(ident(name)), name, field_ty))
+                    .filter_map(|(member, name, field_ty)| {
+                        let value = constant_value(values.get(name)?, field_ty)?;
+                        Some(format!("{member} = {value}"))
+                    })
+                    .join(", ");
+                Some(format!("new {} {{ {fields} }}", csharp_type(ty)))
+            }
+            _ => None,
+        },
+        Type::Array(element) => match expr {
+            ConstantExpression::Array { values, .. } => {
+                let values = values
+                    .iter()
+                    .map(|v| constant_value(v, element))
+                    .collect::<Option<Vec<_>>>()?;
+                Some(format!(
+                    "new global::Slint.ListModel<{}> {{ {} }}",
+                    csharp_type(element),
+                    values.join(", ")
+                ))
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn constant_number(expr: &ConstantExpression) -> Option<f64> {
+    match expr {
+        ConstantExpression::NumberLiteral(n, _) => Some(*n),
+        ConstantExpression::UnaryOp { sub, op: '-' } => constant_number(sub).map(|n| -n),
+        ConstantExpression::UnaryOp { sub, op: '+' } => constant_number(sub),
+        ConstantExpression::Cast { from, to: Type::Int32 } => constant_number(from).map(f64::trunc),
+        ConstantExpression::Cast { from, .. } => constant_number(from),
+        _ => None,
+    }
+}
+
+fn constant_bool(expr: &ConstantExpression) -> Option<bool> {
+    match expr {
+        ConstantExpression::BoolLiteral(b) => Some(*b),
+        ConstantExpression::UnaryOp { sub, op: '!' } => constant_bool(sub).map(|b| !b),
+        _ => None,
+    }
+}
+
+fn constant_color(expr: &ConstantExpression) -> Option<String> {
+    match expr {
+        ConstantExpression::Cast { from, to: Type::Color | Type::Brush } => constant_number(from)
+            .map(|argb| format!("global::Slint.Color.FromArgb(0x{:08x}u)", argb as u32)),
+        _ => None,
+    }
+}
+
+fn enum_value(value: &EnumerationValue) -> String {
+    let enumeration = &value.enumeration;
+    let variant = &enumeration.values[value.value];
+    if enumeration.node.is_some() {
+        format!("{}.{}", ident(&enumeration.name), ident(variant))
+    } else {
+        format!(
+            "new global::Slint.EnumValue({}, {})",
+            string_literal(&enumeration.name),
+            string_literal(variant)
+        )
+    }
+}
+
+fn float_literal(n: f32) -> String {
+    match n {
+        f32::INFINITY => "float.PositiveInfinity".into(),
+        f32::NEG_INFINITY => "float.NegativeInfinity".into(),
+        n if n.is_nan() => "float.NaN".into(),
+        n => format!("{n}f"),
+    }
+}
+
+fn float_literal_f64(n: f64) -> String {
+    match n {
+        f64::INFINITY => "double.PositiveInfinity".into(),
+        f64::NEG_INFINITY => "double.NegativeInfinity".into(),
+        n if n.is_nan() => "double.NaN".into(),
+        n => n.to_string(),
     }
 }
 
@@ -360,28 +484,36 @@ fn write_struct(
         .iter()
         .map(|(field, ty)| {
             collect_models(ty, models);
-            (normalize_identifier(field), field_names.claim(ident(field)), ty)
+            let init = structty
+                .field_defaults
+                .get(field)
+                .and_then(|expr| constant_value(expr, ty))
+                .or_else(|| default_value(ty));
+            (normalize_identifier(field), field_names.claim(ident(field)), ty, init)
         })
         .collect::<Vec<_>>();
     let _ = writeln!(out, "public sealed record {class}\n{{");
-    for (_, member, ty) in &fields {
-        let init = default_value(ty).map(|v| format!(" = {v};")).unwrap_or_default();
+    for (_, member, ty, init) in &fields {
+        let init = init.as_ref().map(|v| format!(" = {v};")).unwrap_or_default();
         let _ = writeln!(out, "    public {} {member} {{ get; init; }}{init}", csharp_type(ty));
     }
     let _ = writeln!(out, "}}\n");
 
     let to = fields
         .iter()
-        .map(|(slint, member, _)| {
+        .map(|(slint, member, _, _)| {
             format!("[{}] = {}", string_literal(slint), to_slint(&format!("v.{member}")))
         })
         .join(", ");
     let from = fields
         .iter()
-        .map(|(slint, member, ty)| {
+        .map(|(slint, member, ty, init)| {
+            // A struct from a model of the application can lack fields, which then take their defaults.
             format!(
-                "{member} = {}",
-                from_slint(ty, &format!("{CONVERSION}.Field(s, {})", string_literal(slint)))
+                "{member} = {CONVERSION}.Field<{}>(s, {}, {})",
+                csharp_type(ty),
+                string_literal(slint),
+                init.as_deref().unwrap_or("default!")
             )
         })
         .join(", ");

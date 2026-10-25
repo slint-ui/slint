@@ -423,7 +423,17 @@ internal static unsafe class ValueConverter
         var target = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
         if (value is double number && target.IsPrimitive)
         {
-            return (T)Convert.ChangeType(number, target, System.Globalization.CultureInfo.InvariantCulture);
+            // Saturating and truncating, like Slint's own conversions to integers.
+            object converted = target == typeof(int) ? int.CreateSaturating(number)
+                : target == typeof(long) ? long.CreateSaturating(number)
+                : target == typeof(uint) ? uint.CreateSaturating(number)
+                : target == typeof(ulong) ? ulong.CreateSaturating(number)
+                : target == typeof(short) ? short.CreateSaturating(number)
+                : target == typeof(ushort) ? ushort.CreateSaturating(number)
+                : target == typeof(byte) ? byte.CreateSaturating(number)
+                : target == typeof(sbyte) ? sbyte.CreateSaturating(number)
+                : Convert.ChangeType(number, target, System.Globalization.CultureInfo.InvariantCulture);
+            return (T)converted;
         }
         if (value is null && default(T) is null)
         {

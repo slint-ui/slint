@@ -228,4 +228,15 @@ public sealed class InstanceTests
         Assert.AreEqual(3.0, point["x"]);
         Assert.AreEqual(new LogicalPosition(3, 4), global::Slint.Generated.Conversion.FromSlint<LogicalPosition>(point));
     });
+
+    [TestMethod]
+    public void NumbersConvertToIntegersLikeSlint()
+    {
+        Assert.AreEqual(int.MaxValue, global::Slint.Generated.Conversion.FromSlint<int>(double.PositiveInfinity));
+        Assert.AreEqual(int.MinValue, global::Slint.Generated.Conversion.FromSlint<int>(double.NegativeInfinity));
+        Assert.AreEqual(0, global::Slint.Generated.Conversion.FromSlint<int>(double.NaN));
+        Assert.AreEqual(2, global::Slint.Generated.Conversion.FromSlint<int>(2.7));
+        Assert.AreEqual(-2, global::Slint.Generated.Conversion.FromSlint<int>(-2.7));
+        Assert.AreEqual((byte)255, global::Slint.Generated.Conversion.FromSlint<byte>(300.0));
+    }
 }

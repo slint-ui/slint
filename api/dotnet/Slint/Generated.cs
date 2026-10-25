@@ -38,8 +38,9 @@ public static class Conversion
     /// <summary>Converts a value returned by <see cref="ComponentInstance"/> to <typeparamref name="T"/>.</summary>
     public static T FromSlint<T>(object? value) => ValueConverter.ConvertTo<T>(value);
 
-    /// <summary>Returns the field <paramref name="name"/> of <paramref name="value"/>, or <c>null</c> if there's none.</summary>
-    public static object? Field(Struct value, string name) => value.TryGetValue(name, out var field) ? field : null;
+    /// <summary>Returns the field <paramref name="name"/> of <paramref name="value"/> as <typeparamref name="T"/>, or <paramref name="fallback"/> if there's none.</summary>
+    public static T Field<T>(Struct value, string name, T fallback) =>
+        value.TryGetValue(name, out var field) ? FromSlint<T>(field) : fallback;
 
     /// <summary>Converts <paramref name="value"/> for <see cref="ComponentInstance"/>.</summary>
     public static object? ToSlint<T>(T value) => value;

@@ -79,6 +79,7 @@ C# declares the exports with `[LibraryImport]` in `Slint/Interop/NativeMethods.c
 | anything else | `Slint.OpaqueValue`, passed back unchanged; no public property type gives one today |
 
 Generated code narrows the numeric types and maps structs and enums to C# records and enums.
+Numbers convert to integers with saturation and truncation, like Rust's `as`, which Slint uses.
 
 ## Models
 
@@ -98,6 +99,8 @@ a `record` per struct, and an `enum` per enum.
 Properties become C# properties, functions become methods,
 and each callback becomes an `On…` method that sets the handler and an `Invoke…` method.
 Names are PascalCase; one that collides with another member gets a `_` suffix.
+A record initializes its fields with the struct's field defaults, which the compiler has already folded to constants.
+A field that a struct from the application lacks takes the same default.
 `--csharp-namespace` sets the namespace,
 and `--csharp-runtime-path` sets where the code loads the `.slint` file from, relative to the application directory.
 
