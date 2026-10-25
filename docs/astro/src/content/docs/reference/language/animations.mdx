@@ -164,6 +164,19 @@ export component Example inherits Window {
 ```
 </SlintProperty>
 
+## Reduced motion
+
+Slint follows the operating system's reduced-motion setting.
+While it is on, every `animate` block behaves as if `enabled` were `false`: a change sets the property to its target value at once.
+A change of the setting applies to animations that start afterwards; one already running finishes at its own pace.
+A `Flickable` still pans while the pointer is down, since that is the user's own movement, but a mouse wheel step lands at once and releasing the pointer doesn't start a fling.
+Effects driven by `animation-tick()` are not animations of a property change and are left as they are.
+
+Currently only the winit backend on Windows reads the setting: "Animation effects" under Settings > Accessibility > Visual effects.
+The backend reads it at startup and again whenever one of the application's windows gains focus.
+
+On microcontrollers, which have no such setting, animations always run as designed.
+
 ## Transitions
 
 Inside a [transition](../states-and-transitions/) an `animate` block instead describes how the property moves when the state changes.

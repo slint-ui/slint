@@ -2695,6 +2695,10 @@ impl WindowInner {
         self.context().xdg_app_id()
     }
 
+    pub(crate) fn reduced_motion(&self) -> bool {
+        self.context().motion_preference() == crate::MotionPreference::Reduced
+    }
+
     /// Returns the upgraded window adapter
     pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
         self.window_adapter_weak.upgrade().unwrap()
@@ -2747,6 +2751,26 @@ pub fn context_for_root(root: &ItemTreeRc) -> crate::SlintContext {
     result
         .or_else(crate::SlintContext::current)
         .expect("an item tree exists, so there is a current context")
+}
+
+/// Runtime entry point for `BuiltinFunction::ReducedMotion`, which `lower_animation` ANDs
+/// into each animation's `enabled` field. Returns whether the component's
+/// [`crate::SlintContext`], see [`context_for_root`], reports
+/// [`crate::MotionPreference::Reduced`]; `false` once the component is gone.
+/// Without the `std` feature it is always `false`, so the check costs nothing on microcontrollers.
+#[inline]
+pub fn reduced_motion(root: &ItemTreeWeak) -> bool {
+    #[cfg(feature = "std")]
+    {
+        root.upgrade().is_some_and(|root| {
+            context_for_root(&root).motion_preference() == crate::MotionPreference::Reduced
+        })
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        let _ = root;
+        false
+    }
 }
 
 /// This module contains the functions needed to interface with the event loop and window traits

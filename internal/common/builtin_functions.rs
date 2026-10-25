@@ -168,6 +168,8 @@ macro_rules! for_each_builtin_function {
             }
             ColorScheme: pure fn() -> ColorScheme
             AccentColor: pure fn accent_color(&context) -> Color { context.accent_color() }
+            /// Not callable from `.slint`: `lower_animation` ANDs it into each animation's `enabled` field.
+            ReducedMotion: pure fn() -> bool
             SupportsNativeMenuBar: pure fn() -> bool
             /// Setup the menu bar
             ///

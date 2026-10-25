@@ -41,6 +41,7 @@ fn builtin_function_is_const(
         BuiltinFunction::AnimationTick => false,
         BuiltinFunction::ColorScheme => false,
         BuiltinFunction::AccentColor => false,
+        BuiltinFunction::ReducedMotion => false,
         BuiltinFunction::SupportsNativeMenuBar => false,
         BuiltinFunction::SetupMenuBar => false,
         BuiltinFunction::SetupSystemTrayIcon => false,
