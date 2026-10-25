@@ -54,8 +54,8 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: windows-2022
-                      name: "Windows 2022 1.95"
+                    - os: windows-2025
+                      name: "Windows 2025 1.95"
                       rust_version: "1.95"
                       # The platform-independent interpreter test driver only runs on macOS
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter"
