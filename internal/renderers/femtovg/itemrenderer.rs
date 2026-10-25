@@ -144,7 +144,7 @@ fn render_inset_box_shadow_image<R: femtovg::Renderer + TextureImporter>(
     canvas: &CanvasRc<R>,
     textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
     current_render_target: femtovg::RenderTarget,
-    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
     pad: f32,
 ) -> Option<ItemGraphicsCacheEntry<R>> {
     let width = shadow_options.width.get();
@@ -202,7 +202,7 @@ fn blur_and_colorize<R: femtovg::Renderer + TextureImporter>(
     textures_to_delete_after_flush: &RefCell<Vec<Rc<Texture<R>>>>,
     current_render_target: femtovg::RenderTarget,
     shadow_image: Rc<Texture<R>>,
-    shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
 ) -> Option<Rc<Texture<R>>> {
     let shadow_image = if shadow_options.blur.get() > 0. {
         let blurred_image = shadow_image
@@ -998,20 +998,32 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
         font: &parley::FontData,
         font_size: PhysicalLength,
         normalized_coords: &[i16],
-        _synthesis: &fontique::Synthesis,
+        synthesis: &fontique::Synthesis,
         mut brush: Self::PlatformBrush,
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) {
         let font_id = font_cache::FONT_CACHE.with(|cache| cache.borrow_mut().font(font));
 
-        let glyphs_it = glyphs_it.map(|glyph| femtovg::PositionedGlyph {
-            x: glyph.x,
-            y: glyph.y + y_offset.get(),
-            glyph_id: glyph.id as u16,
-        });
+        let mut glyphs_it = glyphs_it
+            .map(|glyph| femtovg::PositionedGlyph {
+                x: glyph.x,
+                y: glyph.y + y_offset.get(),
+                glyph_id: glyph.id as u16,
+            })
+            .peekable();
 
         let mut canvas = self.canvas.borrow_mut();
+
+        // Faux italic for a font without an italic face: lean the glyphs to the right around
+        // the baseline.
+        let skew = synthesis.skew().zip(glyphs_it.peek().map(|glyph| glyph.y));
+        if let Some((skew_degrees, baseline)) = skew {
+            canvas.save();
+            canvas.translate(0., baseline);
+            canvas.skew_x(-skew_degrees.to_radians());
+            canvas.translate(0., -baseline);
+        }
 
         match &mut brush {
             GlyphBrush::Fill(paint) => {
@@ -1022,6 +1034,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GlyphRenderer for GLItemRendere
                 paint.set_font_size(font_size.get());
                 canvas.stroke_glyph_run(font_id, normalized_coords, glyphs_it, paint).unwrap();
             }
+        }
+
+        if skew.is_some() {
+            canvas.restore();
         }
     }
 
@@ -1372,6 +1388,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let image = item.source();
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
+                let image = item.source();
                 let image_inner: &ImageInner = (&image).into();
                 let tiling = item.tiling();
 

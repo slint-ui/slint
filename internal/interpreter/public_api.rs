@@ -8,17 +8,13 @@
 //! `MemberReference`; dispatch forwards to the evaluator helpers in
 //! [`crate::eval`].
 
-use crate::Value;
 use crate::api::SetPropertyError;
 use crate::eval::{EvalContext, invoke_callback, invoke_function, load_property, store_property};
-use crate::instance::{Instance, SubComponentInstance};
+use crate::instance::SubComponentInstance;
+use crate::prelude::*;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::llr::{MemberReference, PublicComponent, PublicProperty};
-use i_slint_core::item_tree::ItemTreeVTable;
 use i_slint_core::model::Model;
-use std::pin::Pin;
-use std::rc::Rc;
-use vtable::VRc;
 
 /// Look up a public property by name on the given public component.
 /// Normalizes `name` through `normalize_identifier` so
@@ -352,10 +348,8 @@ pub fn invoke_global(
             let global = &cu.globals[target_inst.global_idx];
             let function = &global.functions[fn_idx];
             let expr = function.code.borrow().clone();
-            let mut ctx = crate::eval::EvalContext::for_global(
-                std::rc::Rc::downgrade(&instance.globals),
-                cu.clone(),
-            );
+            let mut ctx =
+                crate::eval::EvalContext::for_global(Rc::downgrade(&instance.globals), cu.clone());
             ctx.function_arg_types = function.args.clone();
             ctx.function_arguments = args.to_vec();
             Some(crate::eval::eval_expression(&mut ctx, &expr))

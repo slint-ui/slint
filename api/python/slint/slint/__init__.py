@@ -10,6 +10,7 @@ import base64
 import copy
 import gettext
 import gzip
+import keyword
 import logging
 import os
 import pathlib
@@ -46,7 +47,7 @@ Struct = native.PyStruct
 
 class CompileError(Exception):
     message: str
-    """The error message that produced this compile error."""
+    """The error message of this compile error."""
 
     diagnostics: list[native.PyDiagnostic]
     """A list of detailed diagnostics that were produced as part of the compilation."""
@@ -62,7 +63,7 @@ class CompileError(Exception):
 
 class Component:
     """Component is the base class for all instances of Slint components. Use the member functions to show or hide the
-    window, or spin the event loop."""
+    window, or run the event loop."""
 
     __instance__: native.ComponentInstance
 
@@ -84,7 +85,9 @@ class Component:
 
 
 def _normalize_prop(name: str) -> str:
-    return name.replace("-", "_")
+    # Like `ident` in the Python generator, which names these in the type hints
+    name = name.replace("-", "_")
+    return name + "_" if keyword.iskeyword(name) or name == "self" else name
 
 
 def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
@@ -278,7 +281,7 @@ def _build_class(
 
             return property(global_getter)
 
-        properties_and_callbacks[global_name] = mk_global(global_class)
+        properties_and_callbacks[_normalize_prop(global_name)] = mk_global(global_class)
 
     return type("SlintClassWrapper", (Component,), properties_and_callbacks)
 
@@ -310,17 +313,18 @@ def _load_file(
     """This function is the low-level entry point into Slint for instantiating components. It loads the `.slint` file at
     the specified `path` and returns a namespace with all exported components as Python classes, as well as enums, and structs.
 
-    * `quiet`: Set to true to prevent any warnings during compilation from being printed to stderr.
-    * `style`: Specify a widget style.
+    * `quiet`: Set to `True` to prevent any warnings during compilation from being logged.
+    * `style`: The widget style to use.
     * `include_paths`: Additional include paths used to look up `.slint` files imported from other `.slint` files.
     * `library_paths`: A dictionary that maps library names to their location in the file system. This is then used to look up
        library imports, such as `import { MyButton } from "@mylibrary";`.
-    * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
+    * `translation_domain`: The domain to use for looking up run-time translations in the catalog. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
 
-    A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
-    settings that are not given here. The arguments above win over the project file.
-    `path` can also be a `slint-project.json`, whose `main` is loaded.
+    If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+    The project file provides the settings that are not given here.
+    It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+    A `.slint` file path does not load a project file.
 
     """
 
@@ -390,17 +394,18 @@ def load_file(
     """This function is the low-level entry point into Slint for instantiating components. It loads the `.slint` file at
     the specified `path` and returns a namespace with all exported components as Python classes, as well as enums, and structs.
 
-    * `quiet`: Set to true to prevent any warnings during compilation from being printed to stderr.
-    * `style`: Specify a widget style.
+    * `quiet`: Set to `True` to prevent any warnings during compilation from being logged.
+    * `style`: The widget style to use.
     * `include_paths`: Additional include paths used to look up `.slint` files imported from other `.slint` files.
     * `library_paths`: A dictionary that maps library names to their location in the file system. This is then used to look up
        library imports, such as `import { MyButton } from "@mylibrary";`.
-    * `translation_domain`: The domain to use for looking up the catalogue run-time translations. This must match the
+    * `translation_domain`: The domain to use for looking up run-time translations in the catalog. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
 
-    A `slint-project.json` in the directory of `path`, or in a directory above it, provides the
-    settings that are not given here. The arguments above win over the project file.
-    `path` can also be a `slint-project.json`, whose `main` is loaded.
+    If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+    The project file provides the settings that are not given here.
+    It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+    A `.slint` file path does not load a project file.
 
     """
 
@@ -464,10 +469,10 @@ class SlintAutoLoader:
 
 loader = SlintAutoLoader()
 """Use the global `loader` object to load Slint files from the file system. It exposes two stages of attributes:
-1. Any lookup of an attribute in the loader tries to match a file in `sys.path` with the `.slint` extension. For example
+1. Any lookup of an attribute in the loader tries to match a file in `sys.path` with the `.slint` extension. For example,
    `loader.my_component` looks for a file `my_component.slint` in the directories in `sys.path`.
 2. Any lookup in the object returned by the first stage tries to match an exported component in the loaded file, or a
-   struct, or enum. For example `loader.my_component.MyComponent` looks for an *exported* component named `MyComponent`
+   struct, or enum. For example, `loader.my_component.MyComponent` looks for an *exported* component named `MyComponent`
    in the file `my_component.slint`.
 
 **Note:** The first entry in the module search path `sys.path` is the directory that contains the input script.
@@ -475,8 +480,8 @@ loader = SlintAutoLoader()
 Example:
 ```python
 import slint
-# Look for a file `main.slint` in the current directory,
-# #load & compile it, and instantiate the exported `MainWindow` component
+# Look for a file `main_window.slint` in the script's directory,
+# load and compile it, and instantiate the exported `MainWindow` component.
 main_window = slint.loader.main_window.MainWindow()
 main_window.show()
 ...
@@ -514,7 +519,7 @@ def callback(
 ) -> typing.Callable[..., Any]:
     """Use the callback decorator to mark a method as a callback that can be invoked from the Slint component.
 
-    For the decorator to work, the method must be a member of a class that is Slint component.
+    For the decorator to work, the method must be a member of a subclass of a Slint component.
 
     Example:
     ```python
@@ -535,8 +540,8 @@ def callback(
     the correct name. Similarly, use the `global_name` parameter to specify the name of the correct global singleton in
     the Slint component.
 
-    **Note:** The callback decorator can also be used with async functions. They will be run as task in the asyncio event loop.
-    This is only supported for callbacks that don't return any value, and requires Python >= 3.13.
+    **Note:** You can also use the callback decorator with async functions. They run as tasks in the asyncio event loop.
+    This is only supported for callbacks that don't return any value, and requires Python 3.13 or newer.
     """
 
     if callable(global_name):
@@ -552,7 +557,7 @@ def callback(
 
 
 def set_xdg_app_id(app_id: str) -> None:
-    """Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
+    """Sets the application id for use on Wayland or X11 with [XDG](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
     compliant window managers. This id must be set before the window is shown; it only applies to Wayland or X11."""
 
     native.set_xdg_app_id(app_id)
@@ -565,7 +570,7 @@ def run_event_loop(
     main_coro: Coroutine[None, None, None] | None = None,
 ) -> None:
     """Runs the main Slint event loop. If specified, the coroutine `main_coro` is run in parallel. The event loop doesn't
-    terminate when the coroutine finishes, it terminates when calling `quit_event_loop()`.
+    terminate when the coroutine finishes; it terminates when you call `quit_event_loop()`.
 
     Example:
     ```python
@@ -643,7 +648,7 @@ def run_event_loop(
 
 
 def quit_event_loop() -> None:
-    """Quits the running event loop in the next event processing cycle. This will make an earlier call to `run_event_loop()`
+    """Quits the running event loop in the next event processing cycle. This makes an earlier call to `run_event_loop()`
     return."""
     quit_event.set()
 
@@ -654,12 +659,13 @@ def init_translations(translations: gettext.GNUTranslations | None) -> None:
     Example:
     ```python
     import gettext
+    import os
     import slint
 
     translations_dir = os.path.join(os.path.dirname(__file__), "lang")
     try:
         translations = gettext.translation("my_app", translations_dir, ["de"])
-        slint.install_translations(translations)
+        slint.init_translations(translations)
     except OSError:
         pass
     ```

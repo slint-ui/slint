@@ -146,6 +146,14 @@ cpp_cmake_config:
  - 'api/cpp/cmake/**'
  - 'cmake/**'
 
+# What the C++ test driver's live-preview mode exercises beyond its normal mode.
+live_preview_cpp:
+ - 'internal/live-preview/**'
+ - 'internal/interpreter/**'
+ - 'api/cpp/**'
+ - 'internal/compiler/generator/cpp*{,/**}'
+ - *ci_config
+
 android_backend:
  - 'internal/backends/android-activity/**'
 

@@ -36,7 +36,10 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
                 }
             }
 
-            enclosing.optimized_elements.borrow_mut().push(elem);
+            enclosing
+                .optimized_elements
+                .borrow_mut()
+                .push(OptimizedElement { element: elem, former_parent: Rc::downgrade(parent_) });
         }
     });
 }

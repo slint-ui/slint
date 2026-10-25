@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { InspectorComboOption } from "components/inspector/control-data.slint";
+
 export struct CodeBinding {
     name: string,
     value: string,
@@ -20,8 +22,10 @@ export enum ElementKind {
     component,
     rectangle,
     text,
+    styled-text,
     image,
     touch-area,
+    widget,
 }
 
 /// A palette item whose kind selects its icon and drag payload.
@@ -161,6 +165,13 @@ export global Hover {
     out property <[SelectionRectangle]> geometry: tree-source-uri != ""
         ? Api.highlight-positions(tree-source-uri, tree-offset) : element.geometry;
     pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
+    /// Called with an empty `source-uri` when nothing is hovered anymore.
+    callback hovered-changed(source-uri: string, offset: int);
+
+    private property <{ source-uri: string, offset: int }> hovered: tree-source-uri != ""
+        ? { source-uri: tree-source-uri, offset: tree-offset }
+        : element.valid ? { source-uri: element.source-uri, offset: element.element-offset } : { source-uri: "", offset: -1 };
+    changed hovered => { root.hovered-changed(self.hovered.source-uri, self.hovered.offset); }
 }
 
 /// A `Selection`
@@ -511,7 +522,7 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
-    pure callback new-component-data-for-kind(kind: ElementKind) -> data-transfer;
+    pure callback new-component-data(type-name: string) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
@@ -529,6 +540,7 @@ export global Api {
     pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
     pure callback source-property-value(property-name: string, fallback: string) -> string;
     pure callback source-color-field-data(property-name: string) -> ColorFieldData;
+    pure callback combo-option-index(value: string, options: [InspectorComboOption]) -> int;
     public pure function number-property(name: string, fallback: float) -> float {
         let property = Api.source-property-value-data(name, {});
         return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)

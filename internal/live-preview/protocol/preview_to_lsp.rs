@@ -108,6 +108,9 @@ pub enum PreviewToLspMessage {
     Exited,
     /// Clear the highlight in the visual editor run preview.
     ClearHighlight,
+    /// Highlight an element in the visual editor run preview without showing it in the editor.
+    /// `None` clears the highlight.
+    HighlightInRunPreview { url: Option<Url>, offset: u32 },
 }
 
 /// `lsp_types` omits empty optional fields when serializing, which the

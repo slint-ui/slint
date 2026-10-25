@@ -47,7 +47,7 @@ component EditorTreeRow {
         && root.tree-pointer.x >= root.absolute-position.x
         && root.tree-pointer.x < root.absolute-position.x + root.width
         && root.tree-pointer.y >= root.absolute-position.y + root.content-y
-        && root.tree-pointer.y < root.absolute-position.y + root.content-y + Metrics.outline-row-height - 4px;
+        && root.tree-pointer.y < root.absolute-position.y + root.content-y + Metrics.outline-row-height;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
     property <DropLocation> active-drop-location: DropLocation.onto;
     property <bool> drop-allowed: false;
@@ -146,13 +146,13 @@ component EditorTreeRow {
             row-chrome := Rectangle {
                 opacity: root.hide-drag-source && row-drag.dragging ? 0 : 1;
                 horizontal-stretch: 1;
-                height: Metrics.outline-row-height - 4px + root.gap-height;
+                height: Metrics.outline-row-height + root.gap-height;
 
                 row-highlight := Rectangle {
-                    x: root.style.row.hit-size;
+                    x: Style.sidebar-spacing.list-inset;
                     width: parent.width - self.x;
                     y: root.content-y;
-                    height: Metrics.outline-row-height - 4px;
+                    height: Metrics.outline-row-height;
                     border-radius: root.style.row.radius;
                     border-width: row-drop.has-drag
                         && root.drop-allowed
@@ -258,7 +258,7 @@ component EditorTreeRow {
                     row-touch := TouchArea {
                         width: parent.width;
                         y: root.content-y;
-                        height: Metrics.outline-row-height - 4px;
+                        height: Metrics.outline-row-height;
                         mouse-cursor: pointer;
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
@@ -279,7 +279,7 @@ component EditorTreeRow {
                         x: 0px;
                         y: root.content-y;
                         width: parent.width;
-                        height: Metrics.outline-row-height - 4px;
+                        height: Metrics.outline-row-height;
                         alignment: start;
                         cross-axis-alignment: center;
                         padding-left: root.style.row.padding-inline;
@@ -346,7 +346,7 @@ component EditorTreeRow {
                     if root.gap-before || root.gap-after: OutlineDragRow {
                         style: root.style.row;
                         row-background: root.style.row.hover-background;
-                        y: root.gap-before ? 0px : Metrics.outline-row-height - 4px;
+                        y: root.gap-before ? 0px : Metrics.outline-row-height;
                         width: parent.width;
                         height: root.gap-height;
                         content-inset: root.style.row.padding-inline

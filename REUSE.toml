@@ -136,6 +136,7 @@ path = [
   "package.json",
   "ai-plugins/hooks/package.json",
   "ai-plugins/mcp/slint-preview/package.json",
+  "ai-plugins/mcp/slint-preview/channel.json",
   "pnpm-lock.yaml",
   "rustfmt.toml",
   "*.md",
@@ -286,6 +287,7 @@ path = [
   "scripts/commit-template.txt",
 
   "tools/**.md",
+  "tools/compiler/npm/package.json",
   "tools/slintpad/**.html",
   "tools/slintpad/**.json",
   "tools/slintpad/styles/**.css",
@@ -533,12 +535,22 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 path = ["tools/editor/ui/assets/lucide/*.svg"]
 SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
-SPDX-License-Identifier = "MIT"
+SPDX-License-Identifier = "ISC"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/lucide/square.svg", "tools/editor/ui/assets/lucide/type.svg"]
+path = [
+  "tools/editor/ui/assets/lucide/check.svg",
+  "tools/editor/ui/assets/lucide/chevron-down.svg",
+  "tools/editor/ui/assets/lucide/monitor.svg",
+  "tools/editor/ui/assets/lucide/smartphone.svg",
+  "tools/editor/ui/assets/lucide/square.svg",
+  "tools/editor/ui/assets/lucide/square-filled.svg",
+  "tools/editor/ui/assets/lucide/trash.svg",
+  "tools/editor/ui/assets/lucide/type.svg",
+  "tools/editor/ui/assets/lucide/x.svg",
+]
 SPDX-FileCopyrightText = ["Copyright (c) 2026 Lucide Icons and Contributors", "Copyright (c) 2013-present Cole Bemis"]
-SPDX-License-Identifier = "MIT"
+SPDX-License-Identifier = "ISC AND MIT"
 
 [[annotations]]
 path = [

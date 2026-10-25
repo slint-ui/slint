@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { ViewerStyle } from "../style.slint";
+export { ViewerStyle }
+import { FloatingSurface } from "floating-surface.slint";
+
+export component ViewerPopup inherits PopupWindow {
+    in property <length> anchor-width;
+    in property <length> anchor-height;
+    in property <length> panel-height;
+    out property <length> panel-width: 461px * ViewerStyle.scale;
+    in property <string> label;
+    close-policy: close-on-click-outside;
+    x: root.anchor-width - self.width + 16px;
+    y: root.anchor-height + 8px / 3;
+    width: root.panel-width + 32px;
+    height: panel.y + panel.height + 20px * ViewerStyle.scale;
+    panel := FloatingSurface {
+        x: 16px; y: 9px * ViewerStyle.scale;
+        width: root.panel-width; height: root.panel-height;
+        accessible-role: groupbox; accessible-label: root.label;
+        border-radius: ViewerStyle.radius;
+        background: ViewerStyle.popup;
+        border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
+        @children
+    }
+    Path {
+        x: panel.x + 298px * ViewerStyle.scale; y: 0px;
+        width: 29px * ViewerStyle.scale; height: 11px * ViewerStyle.scale;
+        commands: "M 0 10 L 14 -4 L 28 10";
+        fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: 1px * ViewerStyle.scale;
+    }
+}
+
+export component ViewerButton inherits ButtonBase {
+    mouse-cursor: MouseCursor.default;
+    slot body;
+    in property <bool> ghost;
+    height: 52px * ViewerStyle.scale;
+    background << Rectangle {
+        border-radius: 10px * ViewerStyle.scale;
+        border-width: !root.ghost || root.hovered || root.has-focus ? 1px * ViewerStyle.scale : 0px;
+        border-color: root.has-focus ? ViewerStyle.accent : ViewerStyle.field-border;
+        background: root.ghost ? transparent : root.hovered ? ViewerStyle.field-hover : ViewerStyle.field;
+    }
+    content << Rectangle {
+        body { }
+    }
+}
+
+export component Chevron inherits Image {
+    width: 20px * ViewerStyle.scale;
+    height: 20px * ViewerStyle.scale;
+    source: @image-url("../assets/lucide/chevron-down.svg");
+    colorize: ViewerStyle.icon;
+}
+
+export component Checkmark inherits Image {
+    width: 20px * ViewerStyle.scale;
+    height: 20px * ViewerStyle.scale;
+    source: @image-url("../assets/lucide/check.svg");
+    colorize: ViewerStyle.accent;
+}
+
+export component ViewerIcon inherits Image {
+    width: 26px * ViewerStyle.scale;
+    height: (root.remote ? 28px : 26px) * ViewerStyle.scale;
+    in property <bool> remote;
+    in property <color> ink: ViewerStyle.strong-icon;
+    source: root.remote ? @image-url("../assets/lucide/smartphone.svg") : @image-url("../assets/lucide/monitor.svg");
+    colorize: root.ink;
+}

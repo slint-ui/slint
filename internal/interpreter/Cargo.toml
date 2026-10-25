@@ -169,6 +169,17 @@ internal-highlight = []
 # NOTE: this is not a semver compatible feature
 internal-json = ["dep:serde_json"]
 
+# (internal) Show the images and fonts that the compiler pre-renders for the software renderer,
+# with `EmbedResourcesKind::EmbedTextures` or `SLINT_EMBED_TEXTURES`.
+# Only the software renderer draws the images of a single color, which stay alpha maps.
+# NOTE: this is not a semver compatible feature
+internal-embed-textures = [
+  "i-slint-compiler/renderer-software",
+  "i-slint-core/image-pixel-format-alpha-map",
+  "dep:i-slint-renderer-software",
+  "i-slint-renderer-software/image-pixel-format-alpha-map",
+]
+
 
 [dependencies]
 i-slint-compiler = { workspace = true }
@@ -176,16 +187,17 @@ i-slint-common = { workspace = true }
 i-slint-core = { workspace = true, features = ["default", "rtti"] }
 i-slint-core-macros = { workspace = true }
 i-slint-backend-selector = { workspace = true, features = ["rtti"] }
+i-slint-renderer-software = { workspace = true, optional = true }
 
 vtable = { workspace = true }
 
 derive_more = { workspace = true, features = ["std", "error"] }
+either = { version = "1.13", default-features = false }
 lyon_path = { workspace = true }
 serde_json = { workspace = true, optional = true }
 document-features = { version = "0.2.0", optional = true }
 spin_on = { workspace = true, optional = true }
 raw-window-handle-06 = { workspace = true, optional = true }
-itertools = { workspace = true }
 smol_str = { workspace = true }
 typed-index-collections = { workspace = true }
 

@@ -2,6 +2,10 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.5.1] - Unreleased
+
+ - Added `VRc::downcast`.
+
 ## [0.5.0] - 2026-08-18
 
  - Replaced the `static_vtable` function with `STATIC_VTABLE` associated

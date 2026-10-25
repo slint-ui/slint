@@ -34,6 +34,15 @@ export global ElementVisuals {
                 label: "Text",
             };
         }
+        if kind == ElementKind.styled-text {
+            return {
+                icon: EditorTreeIcons.text,
+                preview-size: {},
+                corner-radius: 8px,
+                show-thumbnail: false,
+                label: "StyledText",
+            };
+        }
         if kind == ElementKind.image {
             return {
                 icon: Icons.image,
@@ -50,6 +59,15 @@ export global ElementVisuals {
                 corner-radius: 0px,
                 show-thumbnail: false,
                 label: "TouchArea",
+            };
+        }
+        if kind == ElementKind.widget {
+            return {
+                icon: EditorTreeIcons.default-item,
+                preview-size: { width: 120px, height: 32px },
+                corner-radius: 4px,
+                show-thumbnail: false,
+                label: "Widget",
             };
         }
         return {

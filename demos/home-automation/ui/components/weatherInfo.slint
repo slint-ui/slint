@@ -4,21 +4,20 @@ import { Palette, Style } from "../common.slint";
 import { Info } from "info.slint";
 import { HaText } from "./general/haText.slint";
 import { Api, WeatherData, WeatherCondition } from "../api.slint";
-import { AppState } from "../appState.slint";
 
 export component Day inherits Rectangle {
-    property <length> default-width: 50px;
+    in property <float> content-scale: 1;
+    property <length> default-width: 50px * root.content-scale;
     in property <length> special-height;
     width: default-width;
     in property <WeatherData> weather-data;
-    in property <bool> highlight: false;
     in property <brush> tint: #2e1248;
 
     Rectangle {
         width: default-width;
         height: special-height;
         border-color: #ffffff4a;
-        border-width: 2px;
+        border-width: 2px * root.content-scale;
         border-radius: self.width / 2;
         background: root.tint;
     }
@@ -26,15 +25,13 @@ export component Day inherits Rectangle {
     VerticalLayout {
         alignment: center;
         width: default-width;
-        spacing: 10px;
+        spacing: 10px * root.content-scale;
         HaText {
             text: weather-data.day;
             horizontal-alignment: center;
             color: Palette.info-foreground;
-            font-size: Style.H4-font-size;
+            font-size: Style.H4-font-size * root.content-scale;
         }
-
-        property <length> icon-size: 40px;
 
         pure function weather-icon-source() -> image {
             if weather-data.condition == WeatherCondition.sunny {
@@ -57,9 +54,10 @@ export component Day inherits Rectangle {
         }
 
         Rectangle {
-            height: 38px;
+            height: 38px * root.content-scale;
             Image {
-                width: AppState.graphics-accelerator-available ? self.source.width * 1px : self.source.width * 1px;
+                width: self.source.width * 1px * root.content-scale;
+                height: self.source.height * 1px * root.content-scale;
                 source: weather-icon-source();
             }
         }
@@ -70,14 +68,14 @@ export component Day inherits Rectangle {
                 text: weather-data.temperature;
                 horizontal-alignment: center;
                 color: Palette.info-foreground;
-                font-size: Style.H3-font-size;
+                font-size: Style.H3-font-size * root.content-scale;
                 vertical-alignment: center;
             }
 
             Text {
                 text: "°C";
                 color: white;
-                font-size: 8px;
+                font-size: 8px * root.content-scale;
                 vertical-alignment: center;
             }
         }
@@ -90,46 +88,25 @@ export component WeatherInfo {
     in property <string> name;
     in property <string> id;
     in property <bool> full-screen: false;
-    property <length> special-height: Math.min(180px, root.height);
+    property <length> natural-width: 280px;
+    property <float> content-scale: Math.min(1, root.width / root.natural-width);
+    property <length> special-height: Math.min(180px, root.height) * root.content-scale;
 
     Rectangle {
-        y: 1px;
-        width: 220px;
-        height: parent.height - 2px;
+        y: (root.height - self.height) / 2;
+        width: root.natural-width * root.content-scale;
+        height: root.special-height;
 
         HorizontalLayout {
             alignment: space-between;
-            spacing: 6px;
-            width: 280px;
-            Day {
-                weather-data: Api.weather-forecast[0];
-                highlight: true;
-                tint: #391659;
+            spacing: 6px * root.content-scale;
+            width: parent.width;
+            height: parent.height;
+            for i in 5: Day {
+                weather-data: Api.weather-forecast[i];
+                tint: [#391659, #31134C, #29103F, #210D34, #180925][i];
                 special-height: root.special-height;
-            }
-
-            Day {
-                weather-data: Api.weather-forecast[1];
-                tint: #31134C;
-                special-height: root.special-height;
-            }
-
-            Day {
-                weather-data: Api.weather-forecast[2];
-                tint: #29103F;
-                special-height: root.special-height;
-            }
-
-            Day {
-                weather-data: Api.weather-forecast[3];
-                tint: #210D34;
-                special-height: root.special-height;
-            }
-
-            Day {
-                weather-data: Api.weather-forecast[4];
-                tint: #180925;
-                special-height: root.special-height;
+                content-scale: root.content-scale;
             }
         }
     }

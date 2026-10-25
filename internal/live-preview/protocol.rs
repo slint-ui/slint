@@ -42,6 +42,7 @@ pub const PROTOCOL_SUBPROTOCOL: &str = concat!(
     env!("CARGO_PKG_VERSION_MAJOR"),
     ".",
     env!("CARGO_PKG_VERSION_MINOR"),
+    ".overrides-1",
 );
 
 /// Full Slint version of this build, shown in the discovery picker and in

@@ -3,20 +3,17 @@
 
 //! Highlight support for running component instances.
 //!
-use crate::instance::{Instance, SubComponentInstance};
+use crate::instance::SubComponentInstance;
+use crate::prelude::*;
 use i_slint_compiler::diagnostics::SourceLocation;
 use i_slint_compiler::llr::ItemInstanceIdx;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::graphics::euclid;
-use i_slint_core::item_tree::{ItemTreeRc, ItemTreeVTable, TraversalOrder, VisitChildrenResult};
+use i_slint_core::item_tree::{ItemTreeRc, TraversalOrder, VisitChildrenResult};
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{ItemTransform, LogicalPoint, LogicalRect, LogicalVector};
-use std::cell::OnceCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::pin::Pin;
-use std::rc::Rc;
-use vtable::VRc;
+use std::collections::{BTreeMap, HashSet};
 
 /// The rectangle of an element, which may be rotated around its center.
 #[derive(Clone, Copy, Debug, Default)]
@@ -138,7 +135,7 @@ pub(crate) fn element_candidates_at(
     let mut seen_enclosing_elements = HashSet::new();
     for (instance, flat_index) in runtime_items {
         let Some(&item_index) =
-            sources.item_indices.get(&(std::ptr::from_ref(&*instance), flat_index))
+            sources.item_indices.get(&(core::ptr::from_ref(&*instance), flat_index))
         else {
             continue;
         };
@@ -172,7 +169,7 @@ pub(crate) fn element_candidates_at(
 
         let mut owner = Some(item.owner.clone());
         while let Some(component) = owner {
-            let component_pointer = std::ptr::from_ref(&*component);
+            let component_pointer = core::ptr::from_ref(&*component);
             if seen_enclosing_elements.insert(component_pointer)
                 && let Some((source_location, item_indices)) =
                     sources.enclosing_elements.get(&component_pointer)
@@ -279,10 +276,10 @@ impl<'a> SourceOccurrences<'a> {
                 }
                 let item_index = sources.items.len();
                 local_item_indices
-                    .insert((std::ptr::from_ref(&*owner), *local_item_index), item_index);
+                    .insert((core::ptr::from_ref(&*owner), *local_item_index), item_index);
                 sources
                     .item_indices
-                    .insert((std::ptr::from_ref(&*instance), flat_index), item_index);
+                    .insert((core::ptr::from_ref(&*instance), flat_index), item_index);
                 sources.items.push(RuntimeItem {
                     instance: instance.clone(),
                     flat_index,
@@ -315,7 +312,7 @@ impl<'a> SourceOccurrences<'a> {
         if let Some(debug_info) = &definition.debug_info {
             for (local_item_index, debug_entries) in debug_info.items.iter_enumerated() {
                 let Some(&item_index) =
-                    local_item_indices.get(&(std::ptr::from_ref(&**component), local_item_index))
+                    local_item_indices.get(&(core::ptr::from_ref(&**component), local_item_index))
                 else {
                     continue;
                 };
@@ -341,7 +338,7 @@ impl<'a> SourceOccurrences<'a> {
             {
                 let root_items = component_root_items(child, &child_elements, source_location);
                 self.enclosing_elements.insert(
-                    std::ptr::from_ref(&**child),
+                    core::ptr::from_ref(&**child),
                     (source_location.clone(), root_items.clone()),
                 );
                 merge_sources(
@@ -368,7 +365,7 @@ impl<'a> SourceOccurrences<'a> {
                         source_location,
                     );
                     self.enclosing_elements.insert(
-                        std::ptr::from_ref(&*row.root_sub_component),
+                        core::ptr::from_ref(&*row.root_sub_component),
                         (source_location.clone(), row_root_items.clone()),
                     );
                     root_items.extend(row_root_items);
@@ -743,13 +740,14 @@ fn source_location_contains(
 
 #[cfg(all(test, feature = "internal"))]
 mod tests {
+    use crate::prelude::*;
     use crate::{
         ComponentInstance,
         debug_hook::tests::{compile_with_debug_hooks, test_path},
     };
+    use VRc;
     use i_slint_core::item_tree::ParentItemTraversalMode;
     use i_slint_core::items::{BoxShadow, Clip, ItemRc, Layer, Opacity, Transform};
-    use vtable::VRc;
 
     fn geometry_of(
         instance: &ComponentInstance,

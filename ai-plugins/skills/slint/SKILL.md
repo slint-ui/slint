@@ -25,11 +25,30 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
+   When available, call `preview_slint` with the saved file's absolute `path`, then `get_preview_screenshot` to inspect it.
+   Use `slint-viewer --screenshot` if the host lacks MCP Apps support.
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only
    environments.
 5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
+
+## Standalone Component Previews
+
+For a new standalone component preview, start with a transparent Window:
+
+```slint
+export component Preview inherits Window {
+    width: 320px;
+    height: 160px;
+    background: transparent;
+}
+```
+
+Place the requested component directly inside the Window with explicit dimensions.
+Leave its position unset so Slint centers it, and size the Window to leave modest space around it.
+Add a background only when the user requests one.
+Preserve the window, background, and layout of an existing application.
 
 ## Show your support
 

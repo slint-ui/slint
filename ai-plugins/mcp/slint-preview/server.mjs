@@ -9,28 +9,19 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { extname, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 
 const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
-const SLINT_RELEASE = "1.18.1";
-const INTERPRETER_URLS = {
-    release: `https://releases.slint.dev/${SLINT_RELEASE}/wasm-interpreter/slint_wasm_interpreter.js`,
-    snapshot:
-        "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
-};
-const INTERPRETER_HOSTS = [
-    "https://releases.slint.dev",
-    // releases.slint.dev redirects the newest release to docs.slint.dev/latest.
-    "https://docs.slint.dev",
-    "https://snapshots.slint.dev",
-];
-// A client that shows the view has it check in quickly; one that doesn't never will.
 const VIEW_START_TIMEOUT_MS = Number(
-    process.env.SLINT_PREVIEW_VIEW_START_TIMEOUT_MS ?? 3000,
+    process.env.SLINT_PREVIEW_VIEW_START_TIMEOUT_MS ?? 10000,
 );
 // The first preview downloads and compiles the interpreter, about 9 MB of WebAssembly.
 const SCREENSHOT_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS ?? 20000,
+);
+const PREVIEW_TIMEOUT_MS = Number(
+    process.env.SLINT_PREVIEW_TIMEOUT_MS ?? 60000,
 );
 
 const pluginVersion = JSON.parse(
@@ -40,12 +31,44 @@ const pluginVersion = JSON.parse(
     ),
 ).version;
 
+const { channel } = JSON.parse(
+    readFileSync(new URL("channel.json", import.meta.url), "utf8"),
+);
+const INTERPRETERS = {
+    release: {
+        url: `https://releases.slint.dev/${pluginVersion}/wasm-interpreter/slint_wasm_interpreter.js`,
+        // releases.slint.dev redirects the newest release to docs.slint.dev/latest.
+        hosts: ["https://releases.slint.dev", "https://docs.slint.dev"],
+    },
+    snapshot: {
+        url: "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
+        hosts: ["https://snapshots.slint.dev"],
+    },
+};
+const interpreter = INTERPRETERS[channel];
+if (!interpreter) {
+    throw new Error(`Unknown channel in channel.json: ${channel}`);
+}
+
+const icons = [
+    {
+        src:
+            "data:image/svg+xml;base64," +
+            readFileSync(
+                new URL("../../assets/slint.svg", import.meta.url),
+            ).toString("base64"),
+        mimeType: "image/svg+xml",
+        sizes: ["any"],
+    },
+];
+
 const tools = [
     {
         name: "preview_slint",
         title: "Preview Slint",
+        icons,
         description:
-            "Render .slint code as a live, interactive preview in the conversation. " +
+            "Preview saved Slint source using the matching Wasm interpreter. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "Compile errors are reported back to you once the preview has loaded. " +
             "Then call get_preview_screenshot to see the preview as the user sees it.",
@@ -67,13 +90,9 @@ const tools = [
                     enum: ["fluent", "material", "cupertino", "cosmic"],
                     description: "Widget style for std-widgets.slint.",
                 },
-                channel: {
-                    type: "string",
-                    enum: ["release", "snapshot"],
-                    description: `'snapshot' (the default) runs the latest development build of Slint, 'release' runs Slint ${SLINT_RELEASE}.`,
-                },
             },
         },
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
         _meta: { ui: { resourceUri: VIEW_URI } },
     },
     {
@@ -88,9 +107,9 @@ const tools = [
         _meta: { ui: { visibility: ["app"] } },
     },
     {
-        name: "read_image_file",
-        title: "Read Image File",
-        description: "Read an image file that the preview shows.",
+        name: "read_binary_file",
+        title: "Read Binary File",
+        description: "Read an image or font file that the preview uses.",
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -101,21 +120,28 @@ const tools = [
     {
         name: "get_preview_screenshot",
         title: "Get Slint Preview Screenshot",
+        icons,
         description:
             "Get a PNG screenshot of the latest preview_slint preview at its full size, with the Slint version it ran on. " +
-            "Waits until the preview has rendered. Check it before you judge how the UI looks.",
+            "Waits until the preview has rendered, or returns pending with its current stage. " +
+            "If pending, call again to keep waiting for the same preview. Stop retrying on timeout. " +
+            "Check it before you judge how the UI looks.",
         inputSchema: { type: "object", properties: {} },
     },
     {
         name: "publish_preview_capture",
         title: "Publish Slint Preview Capture",
         description:
-            "Tell the server that the preview view started, or hand it the preview's PNG capture or why there is none.",
+            "Report preview startup and progress, or hand the server the preview's PNG capture or why there is none.",
         inputSchema: {
             type: "object",
             properties: {
                 previewId: { type: "string" },
                 started: { type: "boolean" },
+                stage: {
+                    type: "string",
+                    enum: ["reading", "loading", "compiling", "rendering", "capturing"],
+                },
                 png: { type: "string" },
                 width: { type: "integer" },
                 height: { type: "integer" },
@@ -131,7 +157,6 @@ const tools = [
 // The latest preview_slint call, whether its view has started, its capture once the view
 // publishes it, and the get_preview_screenshot calls waiting for any of these to change.
 let latestPreview = null;
-
 function notify(preview) {
     for (const listener of preview.listeners.splice(0)) listener();
 }
@@ -148,7 +173,7 @@ function nextChange(preview, ms) {
     });
 }
 
-const IMAGE_MIME_TYPES = {
+const BINARY_MIME_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -156,6 +181,9 @@ const IMAGE_MIME_TYPES = {
     ".webp": "image/webp",
     ".svg": "image/svg+xml",
     ".bmp": "image/bmp",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
+    ".ttc": "font/collection",
 };
 
 function textResult(text, isError = false) {
@@ -178,6 +206,8 @@ const toolCalls = {
             id: randomUUID(),
             requestedAt: Date.now(),
             viewStarted: false,
+            stage: "waiting",
+            timings: {},
             capture: null,
             listeners: [],
         };
@@ -200,10 +230,13 @@ const toolCalls = {
         }
         const viewDeadline = preview.requestedAt + VIEW_START_TIMEOUT_MS;
         const captureDeadline = Date.now() + SCREENSHOT_TIMEOUT_MS;
+        const overallDeadline = preview.requestedAt + PREVIEW_TIMEOUT_MS;
         while (!preview.capture && preview === latestPreview) {
-            const deadline = preview.viewStarted
-                ? captureDeadline
-                : Math.min(viewDeadline, captureDeadline);
+            const deadline = Math.min(
+                overallDeadline,
+                captureDeadline,
+                preview.viewStarted ? Infinity : viewDeadline,
+            );
             const remaining = deadline - Date.now();
             if (remaining <= 0) break;
             await nextChange(preview, remaining);
@@ -214,24 +247,37 @@ const toolCalls = {
                 `A newer preview_slint call replaced preview ${id}. Call get_preview_screenshot again.`,
             );
         }
-        if (!preview.viewStarted) {
-            return textResult(
-                `The view for preview ${id} didn't start within ${VIEW_START_TIMEOUT_MS / 1000} seconds. ` +
-                    "This client may not display previews; use `slint-viewer --screenshot` instead.",
-            );
+        if (!capture && !preview.viewStarted) {
+            return textResult("The preview view did not start. Use slint-viewer --screenshot instead.", true);
         }
+        const structuredContent = {
+            status: capture
+                ? (capture.error ? "error" : "ready")
+                : (Date.now() >= overallDeadline ? "timeout" : "pending"),
+            previewId: id,
+            stage: preview.stage,
+            elapsedMs: Date.now() - preview.requestedAt,
+            timings: preview.timings,
+        };
         if (!capture) {
-            return textResult(
-                `Preview ${id} didn't finish rendering within ${SCREENSHOT_TIMEOUT_MS / 1000} seconds.`,
-            );
+            return {
+                ...textResult(
+                    structuredContent.status === "timeout"
+                        ? `Preview ${id} reached the overall ${PREVIEW_TIMEOUT_MS / 1000}-second limit (${preview.stage}). Stop retrying automatically.`
+                        : `Preview ${id} is pending (${preview.stage}). Call get_preview_screenshot again to keep waiting for this preview.`,
+                ),
+                structuredContent,
+            };
         }
         const runtime = capture.runtime ? ` with ${capture.runtime}` : "";
         if (capture.error) {
-            return textResult(
-                `Preview ${id}${runtime} has no screenshot: ${capture.error}`,
-            );
+            return {
+                ...textResult(`Preview ${id}${runtime} has no screenshot: ${capture.error}`),
+                structuredContent,
+            };
         }
         return {
+            structuredContent,
             content: [
                 { type: "image", data: capture.png, mimeType: "image/png" },
                 {
@@ -250,7 +296,8 @@ const toolCalls = {
             return textResult("This belongs to an older preview.");
         }
         preview.viewStarted = true;
-        if (!args.started) {
+        preview.stage = args.stage ?? "started";
+        if (!args.started && !args.stage) {
             const runtime =
                 typeof args.runtime === "string" ? args.runtime : undefined;
             preview.capture =
@@ -262,7 +309,9 @@ const toolCalls = {
                           runtime,
                       }
                     : { error: String(args.error ?? "unknown error"), runtime };
+            preview.stage = preview.capture.error ? "error" : "ready";
         }
+        preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;
         notify(preview);
         return textResult("Received.");
     },
@@ -276,7 +325,7 @@ const toolCalls = {
             return textResult(e.message, true);
         }
     },
-    read_image_file: (args) => {
+    read_binary_file: (args) => {
         if (typeof args.path !== "string" || !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be an absolute path");
         }
@@ -284,12 +333,15 @@ const toolCalls = {
             return {
                 content: [
                     {
-                        type: "image",
-                        data: readFileSync(args.path).toString("base64"),
-                        mimeType:
-                            IMAGE_MIME_TYPES[
-                                extname(args.path).toLowerCase()
-                            ] ?? "application/octet-stream",
+                        type: "resource",
+                        resource: {
+                            uri: pathToFileURL(args.path).href,
+                            mimeType:
+                                BINARY_MIME_TYPES[
+                                    extname(args.path).toLowerCase()
+                                ] ?? "application/octet-stream",
+                            blob: readFileSync(args.path).toString("base64"),
+                        },
                     },
                 ],
             };
@@ -307,7 +359,7 @@ const handlers = {
     initialize: (params) => ({
         protocolVersion: params?.protocolVersion ?? "2025-06-18",
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "slint-preview", version: pluginVersion },
+        serverInfo: { name: "slint-preview", version: pluginVersion, icons },
     }),
     ping: () => ({}),
     "tools/list": () => ({ tools }),
@@ -337,16 +389,16 @@ const handlers = {
                     uri: VIEW_URI,
                     mimeType: VIEW_MIME_TYPE,
                     text: readView()
-                        .replace("__RELEASE_URL__", INTERPRETER_URLS.release)
-                        .replace("__SNAPSHOT_URL__", INTERPRETER_URLS.snapshot),
+                        .replace("__INTERPRETER_URL__", interpreter.url)
+                        .replace("__CHANNEL__", channel),
                     _meta: {
                         ui: {
                             csp: {
-                                connectDomains: INTERPRETER_HOSTS,
+                                connectDomains: interpreter.hosts,
                                 // The interpreter shows inlined images through blob: URLs,
                                 // which the Codex app blocks unless declared.
                                 resourceDomains: [
-                                    ...INTERPRETER_HOSTS,
+                                    ...interpreter.hosts,
                                     "blob:",
                                 ],
                             },

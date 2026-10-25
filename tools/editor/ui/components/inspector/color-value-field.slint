@@ -5,6 +5,7 @@ import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 
 import { Api, ColorFieldEdit, ColorValueData } from "../../api.slint";
+import { InputSurface } from "../input-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { InspectorValueField } from "value-field.slint";
 
@@ -50,11 +51,12 @@ export component InspectorColorValueField inherits Rectangle {
         return root.opacity-edit.valid && root.accepted(root.opacity-edit.color, root.opacity-edit.expression);
     }
 
-    segmented-field := Rectangle {
+    segmented-field := InputSurface {
+        style: root.style.field;
+        enabled: root.enabled;
+        focused: root.input-focused;
         x: 0px;
         y: 0px;
-        border-radius: root.style.field.radius;
-        background: root.style.field.appearance.normal.background;
         clip: true;
 
         HorizontalLayout {
@@ -73,11 +75,12 @@ export component InspectorColorValueField inherits Rectangle {
                 accepted(text) => { return root.accept-color(text); }
                 normalized(text) => { return root.color-edit.display; }
 
-                Rectangle { width: root.style.field.height; }
+                Rectangle { width: root.style.swatch-slot-width; }
             }
 
             opacity-input := InspectorValueField {
-                style: root.style.field;
+                style: root.style.opacity-field;
+                muted-value: true;
                 radius: 0px;
                 show-focus-border: false;
                 accessible-name: @tr("{} opacity", root.accessible-name);
@@ -86,7 +89,7 @@ export component InspectorColorValueField inherits Rectangle {
                 live-edit: root.live-edit;
                 horizontal-alignment: right;
                 suffix: "%";
-                suffix-width: Metrics.icon-small;
+                suffix-width: root.style.opacity-field.text.size;
                 value: "\{root.data.opacity}";
                 commit-key: root.commit-key;
                 normalize-accepted: true;
@@ -113,40 +116,16 @@ export component InspectorColorValueField inherits Rectangle {
 
         Rectangle {
             x: parent.width - root.style.opacity-width;
-            width: Metrics.border-width;
-            background: root.style.divider;
-        }
-
-        if root.input-focused: Rectangle {
-            x: opacity-input.input-focused ? parent.width - root.style.opacity-width : 0px;
-            y: 0px;
-            width: opacity-input.input-focused ? root.style.opacity-width : parent.width - root.style.opacity-width;
-            height: parent.height;
-            clip: true;
-
-            Rectangle {
-                x: opacity-input.input-focused ? -(segmented-field.width - root.style.opacity-width) : 0px;
-                y: 0px;
-                width: segmented-field.width;
-                height: segmented-field.height;
-                border-radius: root.style.field.radius;
-                border-width: root.style.field.border-width;
-                border-color: root.style.field.appearance.focus.border;
-            }
-        }
-
-        if root.input-focused: Rectangle {
-            x: parent.width - root.style.opacity-width;
-            y: 0px;
+            y: root.style.divider-inset;
             width: root.style.field.border-width;
-            height: parent.height;
-            background: root.style.field.appearance.focus.border;
+            height: parent.height - 2 * root.style.divider-inset;
+            background: root.style.divider;
         }
     }
 
     swatch-focus := FocusScope {
         x: root.style.field.padding-inline;
-        width: root.style.field.height;
+        width: root.style.swatch-size;
         height: parent.height;
         enabled: root.enabled && root.swatch-enabled;
         key-pressed(event) => {
@@ -166,7 +145,7 @@ export component InspectorColorValueField inherits Rectangle {
             y: (parent.height - root.style.swatch-size) / 2;
             width: root.style.swatch-size;
             height: root.style.swatch-size;
-            border-radius: self.width / 2;
+            border-radius: root.style.swatch-radius;
             border-width: Metrics.border-width;
             outline-color: root.style.swatch-border;
             color: root.value;

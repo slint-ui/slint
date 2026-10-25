@@ -51,7 +51,7 @@ fn collect_renames(component: &Rc<Component>, renames: &mut RenameMap) {
             elements.push(elem.clone());
         }
     });
-    elements.extend(component.optimized_elements.borrow().iter().cloned());
+    elements.extend(component.optimized_elements.borrow().iter().map(|o| o.element.clone()));
 
     let mut used: HashSet<SmolStr> =
         component.root_element.borrow().property_declarations.keys().cloned().collect();
@@ -142,7 +142,11 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
         elem.borrow_mut().change_callbacks = new_change_callbacks;
     };
 
-    component.optimized_elements.borrow().iter().for_each(&mut *move_bindings_and_animations);
+    component
+        .optimized_elements
+        .borrow()
+        .iter()
+        .for_each(|o| move_bindings_and_animations(&o.element));
     recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
 
     component
@@ -178,19 +182,35 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
     }
 
     let move_properties = &mut |elem: &ElementRc| {
+        // Ranked so the effective declaration of each source name comes first,
+        // see `collect_testable_properties`.
+        let shadowing = std::mem::take(&mut elem.borrow_mut().shadowing_members);
         let elem_decl = Declarations::take_from_element(&mut elem.borrow_mut());
+        let mut moved = Vec::new();
         decl.property_declarations.extend(elem_decl.property_declarations.into_iter().map(
             |(p, mut d)| {
                 let name = moved_name(renames, elem, &p);
+                let source = d.declared_name(&p).clone();
+                let rank: u8 = if shadowing.get(&source).is_some_and(|key| key == &p) {
+                    0 // the effective shadowing declaration
+                } else if d.shadowed_name.is_none() {
+                    1
+                } else {
+                    2 // a shadowing declaration itself shadowed further down
+                };
+                moved.push((rank, source, name.clone()));
                 d.moved_from = Some(p);
                 (name, d)
             },
         ));
+        moved.sort();
+        elem.borrow_mut().moved_property_declarations =
+            moved.into_iter().map(|(_, source, name)| (source, name)).collect();
     };
 
     recurse_elem(&component.root_element, &(), &mut |elem, _| move_properties(elem));
 
-    component.optimized_elements.borrow().iter().for_each(move_properties);
+    component.optimized_elements.borrow().iter().for_each(|o| move_properties(&o.element));
 
     {
         let mut r = component.root_element.borrow_mut();
@@ -240,9 +260,9 @@ fn simplify_optimized_items_recursive(component: &Rc<Component>) {
 /// Optimized items are not used for the fact that they are items, but their properties
 /// might still be used.  So we must pretend all the properties are declared in the
 /// item itself so the move_declaration pass can move the declaration in the component root
-fn simplify_optimized_items(items: &[ElementRc]) {
-    for elem in items {
-        recurse_elem(elem, &(), &mut |elem, _| {
+fn simplify_optimized_items(items: &[OptimizedElement]) {
+    for item in items {
+        recurse_elem(&item.element, &(), &mut |elem, _| {
             let base = core::mem::take(&mut elem.borrow_mut().base_type);
             if let ElementType::Builtin(c) = base {
                 // This assume that all properties of builtin items are fine with the default value

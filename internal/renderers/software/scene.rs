@@ -3,11 +3,11 @@
 
 //! This is the module contain data structures for a scene of items that can be rendered
 
+use super::box_shadow::BoxShadowCommand;
 use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
-use alloc::rc::Rc;
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
@@ -22,6 +22,7 @@ pub struct SceneVectors {
     pub linear_gradients: Vec<LinearGradientCommand>,
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
+    pub box_shadows: Vec<BoxShadowCommand>,
 }
 
 pub struct Scene {
@@ -280,6 +281,9 @@ impl Scene {
                     SharedBufferData::SharedImage(SharedImageBuffer::RGB565(_)) => true,
                     #[cfg(feature = "image-pixel-format-gray8")]
                     SharedBufferData::SharedImage(SharedImageBuffer::Gray8(_)) => true,
+                    SharedBufferData::SharedImage(
+                        SharedImageBuffer::RGBA8(_) | SharedImageBuffer::RGBA8Premultiplied(_),
+                    ) => false,
                     _ => false,
                 };
                 opaque_format && buffer.extra.alpha == 255
@@ -352,6 +356,10 @@ pub enum SceneCommand {
     /// conic_gradient_index is an index in the [`SceneVectors::conic_gradients`] array
     ConicGradient {
         conic_gradient_index: u16,
+    },
+    /// box_shadow_index is an index in the [`SceneVectors::box_shadows`] array
+    BoxShadow {
+        box_shadow_index: u16,
     },
 }
 
@@ -482,7 +490,7 @@ impl SceneTextureExtra {
 #[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
-    AlphaMap { data: Rc<[u8]>, width: u16 },
+    AlphaMap { data: crate::fonts::GlyphAlphaMap, width: u16, sdf: bool },
 }
 
 impl SharedBufferData {
@@ -492,11 +500,12 @@ impl SharedBufferData {
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
         }
     }
-    #[allow(unused)]
     pub fn height(&self) -> usize {
         match self {
             SharedBufferData::SharedImage(image) => image.height() as usize,
-            SharedBufferData::AlphaMap { data, width, .. } => data.len() / *width as usize,
+            SharedBufferData::AlphaMap { data, width, .. } => {
+                data.as_slice().len() / *width as usize
+            }
         }
     }
 }
@@ -548,12 +557,28 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::Gray8,
                 extra: self.extra,
             },
-            SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[start..end],
+            #[cfg(feature = "image-pixel-format-alpha-map")]
+            SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap { alpha, .. }) => {
+                SceneTexture {
+                    data: &alpha.as_bytes()[start..end],
+                    pixel_stride: stride as u16,
+                    format: TexturePixelFormat::AlphaMap,
+                    extra: self.extra,
+                }
+            }
+            SharedBufferData::AlphaMap { data, width, sdf } => SceneTexture {
+                data: &data.as_slice()[start..end],
                 pixel_stride: *width,
-                format: TexturePixelFormat::AlphaMap,
+                format: if *sdf {
+                    TexturePixelFormat::SignedDistanceField
+                } else {
+                    TexturePixelFormat::AlphaMap
+                },
                 extra: self.extra,
             },
+            SharedBufferData::SharedImage(_) => unreachable!(
+                "pixel format without the matching image-pixel-format feature on i-slint-renderer-software"
+            ),
         }
     }
 }
@@ -581,7 +606,7 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`].
+/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GradientClip {
     /// A zero radius means no clip.
@@ -599,6 +624,12 @@ pub struct RoundedRectangle {
     pub width: PhysicalLength,
     pub border_color: PremultipliedRgbaColor,
     pub inner_color: PremultipliedRgbaColor,
+}
+
+pub enum AnyGradientCommand {
+    Linear(LinearGradientCommand),
+    Radial(RadialGradientCommand),
+    Conic(ConicGradientCommand),
 }
 
 /// Goes from color 1 to color2
@@ -624,10 +655,56 @@ pub struct LinearGradientCommand {
     pub clip: GradientClip,
 }
 
+pub(crate) type GradientPosition = Fixed<i32, 16>;
+/// An interpolation factor between two stops, or its rate of change.
+pub(crate) type GradientFactor = Fixed<u32, 12>;
+
 #[derive(Clone, Copy, Debug)]
 pub struct PremultipliedGradientStop {
     pub color: PremultipliedRgbaColor,
-    pub position: f32,
+    pub position: GradientPosition,
+    /// The factor's rate of change per unit of position, towards the next stop.
+    /// 0 when the next stop isn't after this one.
+    pub step: GradientFactor,
+}
+
+impl PremultipliedGradientStop {
+    pub fn collect(
+        stops: impl Iterator<Item = (PremultipliedRgbaColor, f32)>,
+    ) -> i_slint_core::SharedVector<Self> {
+        // Keeps the distance between any two stops within an i32.
+        const MAX_POSITION: f32 = (1 << (30 - GradientPosition::SHIFT)) as f32;
+        let mut stops = stops
+            .map(|(color, position)| Self {
+                color,
+                position: GradientPosition::from_f32(position.clamp(-MAX_POSITION, MAX_POSITION))
+                    .unwrap_or_default(),
+                step: Fixed(0),
+            })
+            .peekable();
+        core::iter::from_fn(|| {
+            let mut stop = stops.next()?;
+            if let Some(next) = stops.peek() {
+                let distance = next.position - stop.position;
+                if distance.0 > 0 {
+                    stop.step = Fixed::from_fraction(
+                        GradientPosition::from_integer(1).0 as u32,
+                        distance.0 as u32,
+                    );
+                }
+            }
+            Some(stop)
+        })
+        .collect()
+    }
+
+    /// The interpolation factor towards the next stop at `position`,
+    /// which is between this stop and the next.
+    pub fn factor(&self, position: GradientPosition) -> GradientFactor {
+        let offset = (position - self.position).0 as u32;
+        let half = 1 << (GradientPosition::SHIFT - 1);
+        Fixed((offset * self.step.0 + half) >> GradientPosition::SHIFT)
+    }
 }
 
 /// Radial gradient that interpolates colors from the center outward

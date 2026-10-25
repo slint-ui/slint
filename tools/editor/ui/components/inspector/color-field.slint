@@ -5,6 +5,7 @@ import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 
 import { InspectorColorValueField } from "color-value-field.slint";
+import { InputSurface } from "../input-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
 import { Api, BrushKind, ColorFieldData, ColorFieldMode } from "../../api.slint";
@@ -49,20 +50,17 @@ export component InspectorColorField inherits Rectangle {
         swatch-activated => { root.show-picker(); }
     }
 
-    if root.is-gradient: gradient-field := Rectangle {
-        border-radius: root.style.field.radius;
-        background: gradient-touch.has-hover
-            ? root.style.field.appearance.hover.background
-            : root.style.field.appearance.normal.background;
-        border-width: swatch-focus.has-focus ? root.style.field.border-width : 0px;
-        border-color: root.style.field.appearance.focus.border;
+    if root.is-gradient: gradient-field := InputSurface {
+        style: root.style.field;
+        focused: swatch-focus.has-focus;
+        hovered: gradient-touch.has-hover;
 
         HorizontalLayout {
             padding-left: root.style.field.padding-inline;
             padding-right: root.style.field.padding-inline;
             spacing: root.style.field.gap;
             cross-axis-alignment: center;
-            Rectangle { width: root.style.field.height; }
+            Rectangle { width: root.style.swatch-slot-width; }
             Text {
                 horizontal-stretch: 1;
                 text: root.data.label;
@@ -91,13 +89,13 @@ export component InspectorColorField inherits Rectangle {
         commit-key: root.commit-key;
         accepted(text) => { return root.accepted(text); }
 
-        Rectangle { width: root.style.field.height; }
+        Rectangle { width: root.style.swatch-slot-width; }
     }
 
     swatch-focus := FocusScope {
         visible: !root.is-literal-color;
         x: root.style.field.padding-inline;
-        width: root.style.field.height;
+        width: root.style.swatch-size;
         height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == Key.Space {

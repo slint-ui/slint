@@ -127,7 +127,8 @@ component ElementPaletteGroup inherits VerticalLayout {
         spacing-horizontal: Metrics.space-small;
 
         for entry in root.matches: ComponentPaletteRow {
-            width: (root.width - Metrics.space-small) / 2;
+            width: root.width >= 2 * Style.palette-row.min-column-width + Metrics.space-small
+                ? (root.width - Metrics.space-small) / 2 : root.width;
             height: Metrics.control-large;
             horizontal-stretch: 0;
             enabled: root.enabled;
@@ -184,7 +185,7 @@ export component ElementPalette inherits Rectangle {
     callback drag-started();
     VerticalLayout {
             spacing: Metrics.space-regular;
-            padding: Metrics.space-medium;
+            padding: Style.sidebar-spacing.padding;
             padding-bottom: 0px;
 
             SectionTitle { label: @tr("ELEMENTS"); }
@@ -192,7 +193,6 @@ export component ElementPalette inherits Rectangle {
             search := PrimerTextInput {
                 placeholder: @tr("Search elements…");
                 accessible-name: @tr("Search elements");
-                background: Colors.subtle;
             }
 
             if root.image-mode: ElementsUnavailableNotice { }

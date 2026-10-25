@@ -72,7 +72,7 @@ fn middle_click_pastes_primary_selection_into_unfocused_inspector_input() {
 
         let input = i_slint_backend_testing::ElementHandle::find_by_element_id(
             &field,
-            "InspectorTextFieldBase::input",
+            "EditorInput::input",
         )
         .next()
         .unwrap();

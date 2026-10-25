@@ -43,6 +43,9 @@ fn create_repeater_components(component: &Rc<Component>) {
                 bindings: std::mem::take(&mut original_elem.bindings),
                 change_callbacks: std::mem::take(&mut original_elem.change_callbacks),
                 property_analysis: std::mem::take(&mut original_elem.property_analysis),
+                moved_property_declarations: std::mem::take(
+                    &mut original_elem.moved_property_declarations,
+                ),
                 children: std::mem::take(&mut original_elem.children),
                 property_declarations: std::mem::take(&mut original_elem.property_declarations),
                 shadowing_members: std::mem::take(&mut original_elem.shadowing_members),
@@ -74,6 +77,8 @@ fn create_repeater_components(component: &Rc<Component>) {
                 is_legacy_syntax: original_elem.is_legacy_syntax,
                 inline_depth: 0,
                 slot_target: original_elem.slot_target.clone(),
+                slot_default: original_elem.slot_default.clone(),
+                cleared_slots: original_elem.cleared_slots.clone(),
                 typed_slot_interface: original_elem.typed_slot_interface.clone(),
                 forwarded_slots: original_elem.forwarded_slots.clone(),
                 grid_layout_cell: original_elem.grid_layout_cell.clone(),

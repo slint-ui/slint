@@ -384,8 +384,8 @@ fn drop_edit(
                 document_cache.format,
             )?
         }
-        DragItem::NewComponent { kind } => {
-            let component = super::palette_component(kind)?;
+        DragItem::NewComponent { kind, type_name } => {
+            let component = super::palette_component(type_name)?;
             let size = super::PREVIEW_STATE.with_borrow(|state| {
                 state
                     .editor_ui
@@ -393,11 +393,12 @@ fn drop_edit(
                     .map(|ui| ui.global::<ui::ElementVisuals>().invoke_for_kind(kind).preview_size)
             })?;
             let mut properties = Vec::new();
-            if kind != ui::ElementKind::Text
-                && !i_slint_compiler::layout::is_layout(
-                    &drop_info.target_element_node.as_element().borrow().base_type,
-                )
-            {
+            if !matches!(
+                kind,
+                ui::ElementKind::Text | ui::ElementKind::StyledText | ui::ElementKind::Widget
+            ) && !i_slint_compiler::layout::is_layout(
+                &drop_info.target_element_node.as_element().borrow().base_type,
+            ) {
                 properties.extend([
                     i_slint_editor_preview::editing::PropertyChange::new(
                         "width",

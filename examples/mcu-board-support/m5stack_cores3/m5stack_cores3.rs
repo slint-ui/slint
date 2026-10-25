@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell: ignore datasheet
+// cSpell: ignore datasheet reborrow
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     esp_println::println!("Panic: {:?}", info);
@@ -23,7 +23,7 @@ use esp_hal::clock::CpuClock;
 use esp_hal::time::Instant;
 use esp_hal::{
     delay::Delay,
-    gpio::{Level, Output, OutputConfig},
+    gpio::{DriveMode, Level, Output, OutputConfig},
     i2c::master::I2c,
     spi::Mode as SpiMode,
     spi::master::{Config as SpiConfig, Spi},
@@ -149,7 +149,8 @@ impl Default for EspBackend {
 
 /// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
-    let peripherals = esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
+    let mut peripherals =
+        esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     init_logger_from_env();
     info!("Peripherals initialized");
 
@@ -167,10 +168,21 @@ pub fn init() {
 
     let mut delay = Delay::new();
 
+    // A reset while the event loop reads the touch controller leaves that device holding SDA
+    // low; free the bus before the first write to the AXP2101.
+    free_i2c_bus(peripherals.GPIO11.reborrow(), peripherals.GPIO12.reborrow());
+
     // --- Initialize I2C bus for all I2C devices (AXP2101, AW9523, touch controller) ---
+    // Plugging or unplugging USB can leave a transfer that the peripheral never
+    // marks as done. Without a software timeout the blocking driver waits for it
+    // forever and the event loop freezes; with one, the touch read just fails once.
     let power_i2c = I2c::new(
         peripherals.I2C0,
-        esp_hal::i2c::master::Config::default().with_frequency(Rate::from_khz(400)),
+        esp_hal::i2c::master::Config::default()
+            .with_frequency(Rate::from_khz(400))
+            .with_software_timeout(esp_hal::i2c::master::SoftwareTimeout::Transaction(
+                esp_hal::time::Duration::from_millis(10),
+            )),
     )
     .unwrap()
     .with_sda(peripherals.GPIO12) // AXP2101 SDA
@@ -275,6 +287,41 @@ pub fn init() {
         })),
     }))
     .expect("backend already initialized");
+}
+
+/// Frees an I2C bus that a device still holds after the ESP32-S3 was reset in the middle of a
+/// read: the event loop reads the touch controller without pause, so a reset nearly always lands
+/// there, and the devices on the bus are not reset with the chip. The one that was sending keeps
+/// SDA low, waiting for clocks to finish its byte, and the next write fails. Nine clocks with SDA
+/// released let it finish and see a NACK; a STOP then leaves the bus idle.
+///
+/// Boards that reset their touch controller through a GPIO before using the bus get this for
+/// free; on the CoreS3 that reset goes through the AW9523 on the same bus.
+fn free_i2c_bus<'d>(
+    scl: impl esp_hal::gpio::OutputPin + 'd,
+    sda: impl esp_hal::gpio::OutputPin + 'd,
+) {
+    let open_drain = OutputConfig::default().with_drive_mode(DriveMode::OpenDrain);
+    let mut scl = Output::new(scl, Level::High, open_drain);
+    let mut sda = Output::new(sda, Level::High, open_drain);
+    let delay = Delay::new();
+    // Half a period at 100 kHz, which every device on the bus keeps up with.
+    let half_period = || delay.delay_micros(5);
+
+    for _ in 0..9 {
+        scl.set_low();
+        half_period();
+        scl.set_high();
+        half_period();
+    }
+    // STOP: SDA rises while SCL is high.
+    scl.set_low();
+    sda.set_low();
+    half_period();
+    scl.set_high();
+    half_period();
+    sda.set_high();
+    half_period();
 }
 
 /// Initialize the AXP2101 power management unit for M5Stack CoreS3 using shared I2C

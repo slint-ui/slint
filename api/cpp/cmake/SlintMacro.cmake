@@ -111,12 +111,12 @@ function(SLINT_TARGET_SOURCES target)
 
     foreach (it IN ITEMS ${SLINT_TARGET_SOURCES_UNPARSED_ARGUMENTS})
         get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-        get_filename_component(_SLINT_FILE_NAME ${it} NAME)
-        if(_SLINT_FILE_NAME STREQUAL "slint-project.json")
-            # Name the header after the main file, as if that file had been passed.
-            _slint_project_file_main(${_SLINT_ABSOLUTE} _SLINT_MAIN)
+        set(_SLINT_INPUT_DEPENDENCY ${_SLINT_ABSOLUTE})
+        if(IS_DIRECTORY "${_SLINT_ABSOLUTE}")
+            set(_SLINT_INPUT_DEPENDENCY "${_SLINT_ABSOLUTE}/slint-project.json")
+            _slint_project_file_main("${_SLINT_INPUT_DEPENDENCY}" _SLINT_MAIN)
             get_filename_component(_SLINT_BASE_NAME ${_SLINT_MAIN} NAME_WE)
-            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_SLINT_ABSOLUTE})
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_SLINT_INPUT_DEPENDENCY}")
         else()
             get_filename_component(_SLINT_BASE_NAME ${it} NAME_WE)
         endif()
@@ -162,7 +162,7 @@ function(SLINT_TARGET_SOURCES target)
                 ${scale_factor_arg}
                 ${bundle_translations_arg}
                 ${cpp_files_arg}
-            DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
+            DEPENDS Slint::slint-compiler ${_SLINT_INPUT_DEPENDENCY}
             COMMENT "Generating ${_SLINT_BASE_NAME}.h"
             DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

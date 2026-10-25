@@ -371,12 +371,12 @@ class Component implements ComponentHandle {
 
 const componentHandleNames = new Set(["run", "show", "hide", "window"]);
 
-const shadowedBuiltinWarnings = new Set<string>();
+const warnings = new Set<string>();
 
-function warnAboutShadowedBuiltin(message: string) {
-    if (!shadowedBuiltinWarnings.has(message)) {
-        shadowedBuiltinWarnings.add(message);
-        process.emitWarning(message, { code: "SLINT_SHADOWED_BUILTIN" });
+function warnOnce(message: string, code: string) {
+    if (!warnings.has(message)) {
+        warnings.add(message);
+        process.emitWarning(message, { code });
     }
 }
 
@@ -390,20 +390,23 @@ function warnAboutShadowedBuiltins(definition: napi.ComponentDefinition) {
     );
     for (const name of memberNames) {
         if (componentHandleNames.has(name)) {
-            warnAboutShadowedBuiltin(
+            warnOnce(
                 `${definition.name}: '${name}' hides the built-in ${name}`,
+                "SLINT_SHADOWED_BUILTIN",
             );
         }
     }
     for (const globalName of definition.globals) {
         const jsName = translateName(globalName);
         if (memberNames.has(jsName)) {
-            warnAboutShadowedBuiltin(
+            warnOnce(
                 `${definition.name}: '${jsName}' hides the global ${globalName}`,
+                "SLINT_SHADOWED_BUILTIN",
             );
         } else if (componentHandleNames.has(jsName)) {
-            warnAboutShadowedBuiltin(
+            warnOnce(
                 `${definition.name}: the global ${globalName} hides the built-in ${jsName}`,
+                "SLINT_SHADOWED_BUILTIN",
             );
         }
     }
@@ -587,6 +590,23 @@ function loadSlint(loadData: LoadData): Object {
         }
     }
 
+    let live =
+        loadData.from === "file" &&
+        process.env.SLINT_LIVE_PREVIEW !== undefined;
+    const liveUnavailable = (reason: string) => {
+        warnOnce(
+            `SLINT_LIVE_PREVIEW is set, but the live preview couldn't start. ${reason}`,
+            "SLINT_LIVE_PREVIEW",
+        );
+        live = false;
+    };
+    if (live && !napi.buildFeatures().includes("live-preview")) {
+        liveUnavailable(
+            "Install slint-ui-dev, at the same version as slint-ui, to use it.",
+        );
+    } else if (live && options?.fileLoader !== undefined) {
+        liveUnavailable("It doesn't support a fileLoader.");
+    }
     const definitions =
         loadData.from === "file"
             ? compiler.buildFromPath(filePath)
@@ -594,7 +614,7 @@ function loadSlint(loadData: LoadData): Object {
     const diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
-        if (typeof options !== "undefined" && options.quiet !== true) {
+        if (options?.quiet !== true) {
             for (const d of diagnostics) {
                 switch (d.level) {
                     case napi.DiagnosticLevel.Warning:
@@ -668,7 +688,19 @@ function loadSlint(loadData: LoadData): Object {
 
         Object.defineProperty(slint_module, translateName(definition.name), {
             value: function (properties: any) {
-                const instance = definition.create();
+                let instance: napi.ComponentInstance | null = null;
+                if (live) {
+                    try {
+                        instance = napi.createLiveInstance(
+                            filePath,
+                            key,
+                            options ?? {},
+                        );
+                    } catch (error) {
+                        liveUnavailable((error as Error).message);
+                    }
+                }
+                instance ??= definition.create();
 
                 if (instance == null) {
                     throw Error(
@@ -691,16 +723,16 @@ function loadSlint(loadData: LoadData): Object {
                     declaredName.set(translateName(name), name);
                 }
 
-                for (var key in properties) {
-                    const value = properties[key];
+                for (const propertyKey in properties) {
+                    const value = properties[propertyKey];
                     // Unknown names are passed through, to be reported by the
                     // setter below.
-                    const name = declaredName.get(key) ?? key;
+                    const name = declaredName.get(propertyKey) ?? propertyKey;
 
                     if (value instanceof Function) {
                         instance.setCallback(name, value);
                     } else {
-                        instance.setProperty(name, properties[key]);
+                        instance.setProperty(name, value);
                     }
                 }
 
@@ -761,9 +793,13 @@ function loadSlint(loadData: LoadData): Object {
  * main.greeting = "Hello friends";
  * ```
  *
- * A `slint-project.json` in the directory of the file, or in a directory above it,
- * provides the settings that `options` leaves open.
- * `filePath` can also be a `slint-project.json`, whose `main` is loaded.
+ * If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+ * The project file provides the settings that `options` does not specify.
+ * It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+ * A `.slint` file path does not load a project file.
+ *
+ * With the `SLINT_LIVE_PREVIEW` environment variable set, the components reload when one of their files changes.
+ * See [Live Preview](https://slint.dev/docs/slint/guide/tooling/live-preview/).
  *
  * @param filePath The path to the file to load as `string` or `URL`. Relative paths are resolved against the process' current working directory.
  * @param options An optional {@link LoadFileOptions} to configure additional Slint compilation settings,

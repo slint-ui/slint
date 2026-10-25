@@ -54,12 +54,12 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         select_outline_row(window, "fill")
         open_gradient(window)
         if count == 32:
-            assert control(window, "Add gradient stop").size.width == 24
+            assert control(window, "Add gradient stop").size.width == 18
             for index in range(1, 4):
-                assert control(window, f"Remove stop {index}").size.width == 24
+                assert control(window, f"Remove stop {index}").size.width == 18
             click_picker_button(window, "Edit stop 2 color")
             click_picker_button(window, "Close Stop color")
-            click_picker_button(window, "Close Custom")
+            click_picker_button(window, "Close Fill")
             original.assert_unchanged()
             file.write_bytes(full_source)
             wait_for_source(file, full_source)
@@ -74,7 +74,7 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
         )
         last = picker_field(window, f"Stop {count} position")
         assert last.absolute_position.y >= top
-        bottom = control(window, "No recent fills", slint_testing.AccessibleRole.Text)
+        bottom = control(window, "None yet", slint_testing.AccessibleRole.Text)
         assert last.absolute_position.y + last.size.height < bottom.absolute_position.y
         assert bottom.absolute_position.y + bottom.size.height <= window.size.height - 8
         if count == 2:
@@ -87,7 +87,7 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
             slint_testing.PointerScrolledEvent(scroll_point, delta_x=0, delta_y=-10000)
         )
         remove = control(window, f"Remove stop {count + 1}")
-        point = shifted(center(remove), x=-8)
+        point = center(remove)
         assert top <= point.y < bottom.absolute_position.y
         gesture(window, point, point)
         assert not elements(
@@ -95,6 +95,11 @@ def test_stop_list_sizes_and_scrolls_after_insertion_and_deletion(
             f"Gradient stop {count + 1}",
             role=slint_testing.AccessibleRole.Slider,
         )
+        if count == 2:
+            click_picker_button(window, "Remove stop 2")
+            picker_field(window, "Stop 1 position")
+            assert not elements(window, "Stop 2 position")
+            assert not elements(window, "Remove stop 1")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -113,7 +118,7 @@ def test_pickers_drag_independently_and_reopen_beside_current_anchor(
         origin = main.absolute_position
         field = control(window, "Rectangle background color picker")
         assert origin.x + main.size.width < field.absolute_position.x
-        handle = control(window, "Move Custom picker")
+        handle = control(window, "Move Fill picker")
         gesture(window, center(handle), shifted(center(handle), x=-100, y=40))
         assert main.absolute_position.x == pytest.approx(origin.x - 100)
         assert main.absolute_position.y == pytest.approx(origin.y + 40)
@@ -133,7 +138,7 @@ def test_pickers_drag_independently_and_reopen_beside_current_anchor(
         click_picker_button(window, "Edit stop 3 color")
         assert stop.absolute_position == stop_position
         click_picker_button(window, "Close Stop color")
-        handle = control(window, "Move Custom picker")
+        handle = control(window, "Move Fill picker")
         gesture(window, center(handle), shifted(center(handle), x=-50, y=30))
         click_picker_button(window, "Edit stop 1 color")
         wait_until(
@@ -143,17 +148,15 @@ def test_pickers_drag_independently_and_reopen_beside_current_anchor(
             )
         )
         press_key(window, keys.Escape)
-        assert not elements(window, "Close Custom")
+        assert not elements(window, "Close Fill")
         original.assert_unchanged()
         open_gradient(window)
         wait_until(lambda: picker_panel(window, "main").absolute_position == origin)
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         original.assert_unchanged()
 
 
-@pytest.mark.parametrize(
-    "panel_name,title", [("main", "Custom"), ("stop", "Stop color")]
-)
+@pytest.mark.parametrize("panel_name,title", [("main", "Fill"), ("stop", "Stop color")])
 def test_picker_drag_is_bounded_and_keeps_close_clickable(
     editor_binary, editor_environment, tmp_path, panel_name, title
 ):
@@ -182,7 +185,7 @@ def test_picker_drag_is_bounded_and_keeps_close_clickable(
         gesture(window, center(close), center(close))
         assert not elements(window, f"Close {title}")
         if panel_name == "stop":
-            control(window, "Close Custom")
+            control(window, "Close Fill")
             press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -200,7 +203,7 @@ def test_overlapping_pickers_raise_the_dragged_panel(
         open_gradient(window)
         click_picker_button(window, "Edit stop 2 color")
         main, stop = picker_panel(window, "main"), picker_panel(window, "stop")
-        handle = control(window, "Move Custom picker")
+        handle = control(window, "Move Fill picker")
         gesture(
             window,
             center(handle),
@@ -221,10 +224,50 @@ def test_overlapping_pickers_raise_the_dragged_panel(
         assert position.y < point.y < position.y + size.height
         gesture(window, point, point)
         assert not elements(window, "Close Stop color")
-        control(window, "Close Custom")
+        control(window, "Close Fill")
         if panel_name == "main":
             picker_field(window, "Hex color")
         else:
             control(window, "Add gradient stop")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
+
+
+@pytest.mark.parametrize("gradient", [False, True])
+def test_vertical_spectrum_updates_color_and_cancel_restores_source(
+    editor_binary, editor_environment, tmp_path, gradient
+):
+    expression = "@linear-gradient(90deg, red, blue)" if gradient else "red"
+    file = gradient_document(tmp_path, expression)
+    original = SourceSnapshot.capture(tmp_path)
+    baseline = file.read_bytes()
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "fill")
+        open_gradient(window)
+        if gradient:
+            click_picker_button(window, "Edit stop 1 color")
+        hue = control(window, "Hue", slint_testing.AccessibleRole.Slider)
+        assert hue.size.height > 5 * hue.size.width
+        position = hue.absolute_position
+        point = slint_testing.LogicalPosition(
+            x=position.x + hue.size.width / 2,
+            y=position.y + hue.size.height / 3,
+        )
+        gesture(window, point, point)
+        wait_until(
+            lambda: picker_field(window, "Hex color").accessible_value == "00FF00"
+        )
+        opacity = control(window, "Color opacity", slint_testing.AccessibleRole.Slider)
+        position = opacity.absolute_position
+        point = slint_testing.LogicalPosition(
+            x=position.x + opacity.size.width / 2,
+            y=position.y + opacity.size.height / 2,
+        )
+        gesture(window, point, point)
+        wait_until(
+            lambda: picker_field(window, "Hex color opacity").accessible_value == "50"
+        )
         press_key(window, keys.Escape)
         original.assert_unchanged()

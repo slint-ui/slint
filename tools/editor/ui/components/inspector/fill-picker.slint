@@ -12,7 +12,6 @@ import { InspectorGradientGeometry } from "gradient-geometry.slint";
 import { InspectorGradientStops } from "gradient-stops.slint";
 import { InspectorRecentFills } from "recent-fills.slint";
 import { InspectorPickerPanel } from "picker-panel.slint";
-import { InspectorSegment } from "segment.slint";
 
 export component InspectorFillPicker inherits Rectangle {
     in property <FillPickerStyle> style: Style.fill-picker;
@@ -48,7 +47,13 @@ export component InspectorFillPicker inherits Rectangle {
         main-panel := InspectorPickerPanel {
             style: root.style;
             parent-origin: picker-focus.absolute-position;
-            title: @tr("Custom");
+            title: @tr("Fill");
+            show-fill-modes: FillSession.request.allow-gradient && FillSession.editable;
+            gradient: FillSession.working-fill.kind != BrushKind.solid;
+            mode-selected(gradient) => {
+                picker-focus.focus();
+                FillSession.select-kind(gradient ? FillSession.last-gradient : BrushKind.solid);
+            }
             z: root.stop-in-front ? 0 : 1;
             activated => {
                 root.stop-in-front = false;
@@ -71,27 +76,6 @@ export component InspectorFillPicker inherits Rectangle {
                 }
             }
 
-            if FillSession.request.allow-gradient && FillSession.editable: HorizontalLayout {
-                spacing: Metrics.space-small;
-                InspectorSegment {
-                    kind: "text";
-                    label: @tr("Solid");
-                    selected: FillSession.working-fill.kind == BrushKind.solid;
-                    clicked => {
-                        picker-focus.focus();
-                        FillSession.select-kind(BrushKind.solid);
-                    }
-                }
-                InspectorSegment {
-                    kind: "text";
-                    label: @tr("Gradient");
-                    selected: FillSession.working-fill.kind != BrushKind.solid;
-                    clicked => {
-                        picker-focus.focus();
-                        FillSession.select-kind(FillSession.last-gradient);
-                    }
-                }
-            }
             if FillSession.editable && FillSession.working-fill.kind != BrushKind.solid: InspectorGradientGeometry {
                 value: FillSession.working-fill;
                 canvas-active: FillSession.canvas-active;

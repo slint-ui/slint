@@ -285,6 +285,18 @@ test("quiet doesn't warn about hidden built-ins", () => {
     warn.mockRestore();
 });
 
+test("loadSource prints the warnings unless quiet", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The `:=` syntax to declare a component is deprecated.
+    const source = "export Old := Window {}";
+    loadSource(source, "api.spec.ts");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Warning:"));
+    warn.mockClear();
+    loadSource(source, "api.spec.ts", { quiet: true });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+});
+
 test("loadSource constructor parameters", () => {
     const source = `export component Test {
         callback say_hello();

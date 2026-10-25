@@ -1223,7 +1223,7 @@ fn embed_resource(
                 array_size: Some(family_name_size),
                 init: Some(format!(
                     "{{ {} }}",
-                    family_name.as_bytes().iter().map(ToString::to_string).join(", ")
+                    family_name.iter().map(ToString::to_string).join(", ")
                 )),
                 ..Default::default()
             }));
@@ -1261,7 +1261,7 @@ fn embed_resource(
                 }
 
                 declarations.push(Declaration::Var(Var{
-                    ty: "const slint::cbindgen_private::BitmapGlyph".into(),
+                    ty: "const slint::cbindgen_private::BitmapGlyph<slint::cbindgen_private::StaticStorage>".into(),
                     name: format_smolstr!("slint_embedded_resource_{}_glyphset_{}", resource_id, glyphset_index),
                     array_size: Some(glyphset.glyph_data.len()),
                     init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
@@ -1279,7 +1279,7 @@ fn embed_resource(
                 format_smolstr!("slint_embedded_resource_{}_glyphsets", resource_id);
             let glyphsets_size = glyphs.len();
             declarations.push(Declaration::Var(Var {
-                ty: "const slint::cbindgen_private::BitmapGlyphs".into(),
+                ty: "const slint::cbindgen_private::BitmapGlyphs<slint::cbindgen_private::StaticStorage>".into(),
                 name: glyphsets_var.clone(),
                 array_size: Some(glyphsets_size),
                 init: Some(format!(
@@ -1297,7 +1297,7 @@ fn embed_resource(
             }));
 
             let init = format!(
-                "slint::cbindgen_private::BitmapFont {{
+                "slint::cbindgen_private::BitmapFont<slint::cbindgen_private::StaticStorage> {{
                         .family_name = slint::private_api::make_slice({family_name_var} , {family_name_size}),
                         .character_map = slint::private_api::make_slice({charmap_var}, {charmap_size}),
                         .units_per_em = {units_per_em},
@@ -1313,7 +1313,8 @@ fn embed_resource(
             );
 
             declarations.push(Declaration::Var(Var {
-                ty: "const slint::cbindgen_private::BitmapFont".into(),
+                ty: "const slint::cbindgen_private::BitmapFont<slint::cbindgen_private::StaticStorage>"
+                    .into(),
                 name: format_smolstr!("slint_embedded_resource_{}", resource_id),
                 array_size: None,
                 init: Some(init),
@@ -1380,6 +1381,55 @@ fn generate_struct(
     ));
 
     file.declarations.push(Declaration::Struct(Struct { name, members, ..Default::default() }))
+}
+
+/// A C++ expression of type `std::optional<slint::SharedString>` (or convertible):
+/// the property's value encoded per `slint::private_api::debug_info_format_*`,
+/// or None for a type without a debug encoding.
+fn element_testable_property_value_expression(
+    prop: &llr::TestableProperty,
+    ctx: &EvaluationContext,
+) -> Option<String> {
+    let value = compile_expression(&llr::Expression::PropertyReference(prop.prop.clone()), ctx);
+    Some(match &prop.ty {
+        Type::Bool => format!("slint::private_api::debug_info_format_bool({value})"),
+        Type::Int32 | Type::Duration => {
+            format!("slint::private_api::debug_info_format_integer(int64_t({value}))")
+        }
+        Type::Float32
+        | Type::Angle
+        | Type::Percent
+        | Type::Rem
+        | Type::PhysicalLength
+        | Type::LogicalLength => {
+            format!("slint::private_api::debug_info_format_float(float({value}))")
+        }
+        Type::String => value,
+        Type::Color => format!("slint::private_api::debug_info_format_color({value})"),
+        Type::Brush => format!("slint::private_api::debug_info_format_brush({value})"),
+        Type::Enumeration(e) => {
+            let prefix = if e.node.is_some() { "" } else { "slint::cbindgen_private::" };
+            let enum_ty = format!("{prefix}{}", ident(&e.name));
+            let arms = e
+                .values
+                .iter()
+                .enumerate()
+                .map(|(value_idx, spelling)| {
+                    let variant = ident(
+                        &EnumerationValue { value: value_idx, enumeration: e.clone() }
+                            .to_pascal_case(),
+                    );
+                    format!(
+                        "case {enum_ty}::{variant}: return slint::SharedString(\"{spelling}\");"
+                    )
+                })
+                .join(" ");
+            format!(
+                "[&]() -> std::optional<slint::SharedString> {{ switch ({value}) {{ {arms} }} return {{}}; }}()"
+            )
+        }
+        _ => return None,
+    })
 }
 
 fn generate_enum(file: &mut File, en: &std::sync::Arc<Enumeration>) {
@@ -2095,6 +2145,48 @@ fn generate_item_tree_body(
         }),
     ));
 
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "element_testable_properties".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] slint::SharedString *result) -> bool"
+                    .into(),
+            is_static: true,
+            statements: Some(if root.has_debug_info {
+                vec![
+                    format!("if (auto props = reinterpret_cast<const {}*>(component.instance)->element_testable_properties(index)) {{ *result = *props; }};",
+                    item_tree_class_name),
+                    "return true;".into()
+                ]
+            } else {
+                vec!["return false;".into()]
+            }),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "element_testable_property_value".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] slint::cbindgen_private::Slice<uint8_t> property_name, [[maybe_unused]] slint::SharedString *result) -> bool"
+                    .into(),
+            is_static: true,
+            statements: Some(if root.has_debug_info {
+                vec![
+                    format!("if (auto value = reinterpret_cast<const {}*>(component.instance)->element_testable_property_value(index, std::string_view(reinterpret_cast<const char*>(property_name.ptr), property_name.len))) {{ *result = *value; return true; }};",
+                    item_tree_class_name),
+                    "return false;".into()
+                ]
+            } else {
+                vec!["return false;".into()]
+            }),
+            ..Default::default()
+        }),
+    ));
+
     let window_adapter_vtable_statements = if needs_window_adapter {
         vec![format!(
             "*reinterpret_cast<slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
@@ -2149,7 +2241,8 @@ fn generate_item_tree_body(
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
-                supported_accessibility_actions, element_infos, window_adapter, slint_context, \
+                supported_accessibility_actions, element_infos, \
+                element_testable_properties, element_testable_property_value, window_adapter, slint_context, \
                 slint::private_api::drop_in_place<{item_tree_class_name}>, slint::private_api::dealloc }}"
         )),
         ..Default::default()
@@ -2926,6 +3019,51 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> std::optional<slint::SharedString>",
         "",
         element_infos_cases,
+    );
+
+    let mut element_testable_properties_cases = vec!["switch (index) {".to_string()];
+    element_testable_properties_cases.extend(component.testable_properties.iter().map(
+        |(index, props)| {
+            let encoded: String = props.iter().map(|p| format!("{}:{}\n", p.name, p.ty)).collect();
+            format!(
+                "    case {index}: return slint::SharedString(u8\"{}\");",
+                escape_string(&encoded)
+            )
+        },
+    ));
+    element_testable_properties_cases.push("}".into());
+
+    dispatch_item_function(
+        "element_testable_properties",
+        "(uint32_t index) const -> std::optional<slint::SharedString>",
+        "",
+        element_testable_properties_cases,
+    );
+
+    let mut element_testable_property_value_cases = vec!["switch (index) {".to_string()];
+    element_testable_property_value_cases.extend(component.testable_properties.iter().map(
+        |(index, props)| {
+            let mut code = format!("    case {index}: {{\n");
+            for p in props {
+                let Some(value) = element_testable_property_value_expression(p, &ctx) else {
+                    continue;
+                };
+                code.push_str(&format!(
+                    "        if (property_name == \"{}\") {{ return {value}; }}\n",
+                    escape_string(&p.name)
+                ));
+            }
+            code.push_str("        return {};\n    }");
+            code
+        },
+    ));
+    element_testable_property_value_cases.push("}".into());
+
+    dispatch_item_function(
+        "element_testable_property_value",
+        "(uint32_t index, [[maybe_unused]] std::string_view property_name) const -> std::optional<slint::SharedString>",
+        ", property_name",
+        element_testable_property_value_cases,
     );
 
     {

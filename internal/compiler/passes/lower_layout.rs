@@ -546,7 +546,10 @@ fn lower_grid_layout(
                 layout_child.borrow_mut().base_type = type_register.empty_type();
                 collected_children.push(layout_child);
             } else {
-                component.optimized_elements.borrow_mut().push(layout_child);
+                component.optimized_elements.borrow_mut().push(OptimizedElement {
+                    element: layout_child,
+                    former_parent: Rc::downgrade(grid_layout_element),
+                });
             }
         } else {
             grid.add_element(
@@ -1959,6 +1962,12 @@ fn lower_dialog_layout(
                     &role_binding,
                 );
             }
+            if is_standard_button(&layout_child.borrow()) {
+                diag.push_warning(
+                    "'dialog-button-role' overrides the role that a 'StandardButton' gets from its 'kind': remove it, or use a 'Button' for a custom role".into(),
+                    &role_binding,
+                );
+            }
             true
         } else if is_standard_button(&layout_child.borrow()) {
             // layout_child is a StandardButton
@@ -2025,6 +2034,7 @@ fn lower_dialog_layout(
                                         pure: None,
                                         shadowed_name: None,
                                         shadowable: false,
+                                        testable: false,
                                         moved_from: None,
                                         deprecated: None,
                                         synthesized: false,

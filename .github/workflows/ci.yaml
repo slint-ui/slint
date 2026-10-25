@@ -38,8 +38,6 @@ on:
           required: true
         READ_WRITE_PRIVATE_KEY:
           required: true
-        SLINT_TESTING_TOKEN:
-          required: true
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
@@ -81,7 +79,7 @@ jobs:
             test_rust_driver: ${{ !startsWith(matrix.os, 'macos') || inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'tests') || contains(fromJSON(inputs.changes), 'qt') }}
             # Windows is the slower of the two.
             check_deterministic_output: ${{ inputs.full || (!startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'rust_generator')) }}
-            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && (contains(fromJSON(inputs.changes), 'integration') || contains(fromJSON(inputs.changes), 'examples'))) }}
+            build_examples: ${{ inputs.full || (startsWith(matrix.os, 'macos') && contains(fromJSON(inputs.changes), 'examples')) }}
             test_styles: ${{ !inputs.full && !contains(fromJSON(inputs.changes), 'widget_tests') && matrix.pr_test_styles || '' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
@@ -103,6 +101,9 @@ jobs:
                       run_ui_tests: false
         runs-on: ${{ matrix.os }}
         timeout-minutes: 120
+        permissions:
+            contents: read
+            id-token: write
         env:
             RUSTFLAGS: -D warnings
             SLINT_EMIT_DEBUG_INFO: '1'
@@ -122,18 +123,17 @@ jobs:
                   python-version: '3.11'
             - uses: astral-sh/setup-uv@v7
               if: matrix.run_ui_tests
+            - name: Get a testing.slint.dev token
+              if: matrix.run_ui_tests
+              uses: slint-ui/ui-testing-auth@v1
+              with:
+                  account-url: https://account-staging.slint.dev
             - name: Install UI test dependencies
               if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   UV_INDEX: slint-private=https://testing.slint.dev/simple/
-                  UV_INDEX_SLINT_PRIVATE_USERNAME: __token__
-                  SLINT_TESTING_TOKEN: ${{ secrets.SLINT_TESTING_TOKEN }}
-              # GitHub withholds secrets from pull requests from forks.
-              # Until the OIDC setup is ready, those fetch a throwaway token instead.
-              run: |
-                  token="${SLINT_TESTING_TOKEN:-$(curl -fsSL https://gist.githubusercontent.com/ogoffart/2404d9d20e3c3edc38f33645987a52bb/raw/slint-testing-token)}"
-                  UV_INDEX_SLINT_PRIVATE_PASSWORD="$token" uv sync --locked
+              run: uv sync --locked
             # ty needs slint-testing installed, so this also needs the private package.
             - name: Check visual editor UI tests
               if: matrix.run_ui_tests
@@ -144,14 +144,14 @@ jobs:
                   uv run --no-sync ruff format --check
             - name: Build the visual editor UI test binary
               if: matrix.run_ui_tests
-              run: cargo build --locked -p slint-editor --all-features --features slint/mcp --timings
+              run: cargo build --release --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
               if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
                   RUST_LOG: slint_editor=debug,i_slint_editor_preview=debug
-                  SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
+                  SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/release/slint-editor
               run: ./run-tests.sh --basetemp="${{ runner.temp }}/visual-editor-ui-tests"
 
             - name: Upload UI test failure diagnostics
@@ -282,11 +282,9 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install 32-bit build dependencies
-              run: |
-                  sudo dpkg --add-architecture i386
-                  sudo timeout 600 apt-get update
-                  sudo timeout 600 apt-get install -y gcc-multilib g++-multilib libfontconfig-dev:i386
+              with:
+                  add-architecture: i386
+                  extra-packages: gcc-multilib g++-multilib libfontconfig-dev:i386
             - uses: ./.github/actions/setup-rust
               with:
                   target: i686-unknown-linux-gnu
@@ -297,6 +295,7 @@ jobs:
             - name: Run tests
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
             - name: Run tests with live-preview
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'live_preview_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
               env:
                   SLINT_LIVE_PREVIEW: 1
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
@@ -342,6 +341,14 @@ jobs:
               if: matrix.os == 'ubuntu-22.04'
               run: |
                   echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
+            # The VTK example needs VTK 9.4 or newer, which only Homebrew provides as a package.
+            # Installing it takes minutes, so only the full CI run builds the example.
+            - name: Install VTK (macOS, full CI only)
+              if: runner.os == 'macOS' && inputs.full
+              env:
+                  HOMEBREW_NO_AUTO_UPDATE: 1
+                  HOMEBREW_NO_INSTALL_CLEANUP: 1
+              run: brew install vtk
             - name: C++ Build
               uses: lukka/run-cmake@v3.4
               with:
@@ -350,6 +357,10 @@ jobs:
                   cmakeAppendedArgs: "-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=ON -DSLINT_FEATURE_EXPERIMENTAL=ON -DSLINT_FEATURE_TESTING=ON -DSLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565=ON -DSLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8=ON"
                   buildDirectory: ${{ runner.workspace }}/cppbuild
                   buildWithCMakeArgs: "--config Debug"
+            # CMake skips the example without an error when it doesn't find VTK.
+            - name: Check that the VTK example was built
+              if: runner.os == 'macOS' && inputs.full
+              run: test -x "${{ runner.workspace }}/cppbuild/examples/vtk/vtk_example"
             - name: ctest
               working-directory: ${{ runner.workspace }}/cppbuild
               run: ctest --verbose -C Debug
@@ -638,7 +649,7 @@ jobs:
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
             - uses: actions/checkout@v7
-            - run: timeout 600 apt-get update && timeout 600 apt-get install -y libfontconfig1-dev
+            - run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y libfontconfig1-dev
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.7
               with:
@@ -781,7 +792,7 @@ jobs:
               run: cmake --build build --target todo
 
     ios_cpp:
-        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
+        if: ${{ inputs.full }}
         runs-on: macos-26
         steps:
             - uses: actions/checkout@v7
@@ -869,10 +880,8 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install ffmpeg and alsa (Linux)
-              run: sudo timeout 600 apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
-            - name: Install gstreamer and libunwind (Linux)
-              run: sudo timeout 600 apt-get install libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+              with:
+                  extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
             - uses: ./.github/actions/setup-rust
             - name: Run Clippy
               run: ./scripts/run_clippy.sh
@@ -923,7 +932,7 @@ jobs:
             # provides the unversioned tool names. nasm assembles aws-lc-sys' x86 assembly
             # (pulled in via rustls/aws-lc-rs, e.g. by the servo example and live-preview).
             - name: Install LLVM tools and nasm
-              run: sudo timeout 600 apt-get update && sudo timeout 600 apt-get install -y llvm nasm
+              run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y llvm nasm
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-xwin
@@ -1035,7 +1044,7 @@ jobs:
                   wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
                   chmod +x /tmp/llvm.sh
                   sudo /tmp/llvm.sh 20
-                  sudo timeout 600 apt-get install --assume-yes libclang-20-dev
+                  bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install --assume-yes libclang-20-dev
                   rm -f /tmp/llvm.sh
             - name: C++ Build
               run: |
@@ -1262,7 +1271,7 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - name: Install system dependencies
-              run: sudo timeout 600 apt-get update && sudo timeout 600 apt-get install -y libfontconfig-dev
+              run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y libfontconfig-dev
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly

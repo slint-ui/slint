@@ -149,3 +149,16 @@ test("stays silent when slint-viewer is missing", () => {
         "",
     );
 });
+
+
+test("retains diagnostics inside scripts and next to punctuation", { skip }, () => {
+    for (const command of [
+        "bash -lc 'sed -i s/a/b/ ui/broken.slint'",
+        `python3 -c "open('ui/broken.slint','w').write(s)"`,
+        "python3 <<'PY'\nopen('ui/broken.slint','w').write(s)\nPY",
+        "tool ui/broken.slint,",
+        "tool ui/broken.slint:",
+    ]) {
+        assert.ok(runHook("Bash", command).includes("Unknown element"), command);
+    }
+});

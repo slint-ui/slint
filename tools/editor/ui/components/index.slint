@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
+import { EditorInput } from "editor-input.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
@@ -209,63 +210,19 @@ export component SectionTitle inherits Text {
     font-weight: FontWeight.bold;
 }
 
-export component PrimerTextInput inherits Rectangle {
-    in property <FieldStyle> style: Style.field;
-    in-out property <string> text <=> editor.text;
-    in property <string> placeholder: "";
-    in property <string> leading-text: "";
-    in property <string> accessible-name: "";
-    private property <PaintStyle> paint: editor.has-focus ? root.style.appearance.focus : root.style.appearance.normal;
+export component PrimerTextInput inherits EditorInput {
+    in-out property <string> text;
+    in property <string> leading-text;
+    value: root.text;
+    input-type: InputType.search;
+    live-edit: true;
+    accepted(value) => { root.text = value; return true; }
 
-    height: root.style.height;
-    border-radius: root.style.radius;
-    border-width: root.style.border-width;
-    border-color: editor.has-focus ? root.style.appearance.focus.border : root.paint.border;
-    background: root.paint.background;
-
-    animate border-color { duration: Motion.fast; }
-
-    HorizontalLayout {
-        padding-left: root.style.padding-inline;
-        padding-right: root.style.padding-inline;
-        spacing: root.style.gap;
-
-        if root.leading-text != "": Text {
-            text: root.leading-text;
-            color: root.style.appearance.muted;
-            font-size: Typography.action.size;
-            font-weight: FontWeight.bold;
-            vertical-alignment: center;
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-
-            editor := TextInput {
-                width: parent.width;
-                height: parent.height;
-                color: root.paint.foreground;
-                font-size: root.style.text.size;
-                font-weight: root.style.text.weight;
-                accessible-label: root.accessible-name;
-                vertical-alignment: center;
-                selection-background-color: root.style.appearance.selection;
-                selection-foreground-color: root.style.appearance.selection-foreground;
-                input-type: search;
-            }
-
-            if editor.text == "": Text {
-                x: editor.x;
-                y: editor.y;
-                width: editor.width;
-                height: editor.height;
-                text: root.placeholder;
-                color: root.style.appearance.muted;
-                font-size: root.style.text.size;
-                font-weight: root.style.text.weight;
-                vertical-alignment: center;
-            }
-        }
+    if root.leading-text != "": Text {
+        text: root.leading-text;
+        color: root.style.appearance.muted;
+        font-size: root.style.text.size;
+        vertical-alignment: center;
     }
 }
 
@@ -366,12 +323,13 @@ export component ComponentPaletteRow inherits Rectangle {
 
     dragger := DragArea {
         enabled: root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled;
-        data: Api.new-component-data-for-kind(root.kind);
+        data: Api.new-component-data(root.label);
         allow-copy: true;
 
         changed dragging => {
             if self.dragging {
                 AppState.palette-drag-cancelled = false;
+                AppState.palette-drag-label = root.label;
                 AppState.update-palette-drag(root.kind, root.pointer-window-position());
                 root.drag-started();
             } else {
@@ -388,6 +346,7 @@ export component ComponentPaletteRow inherits Rectangle {
 
 export global AppState {
     in-out property <ElementKind> palette-drag-kind: ElementKind.none;
+    in-out property <string> palette-drag-label;
     in-out property <Point> palette-drag-pointer-position: { x: 0px, y: 0px };
     in-out property <Size> palette-drag-size: ElementVisuals.for-kind(ElementKind.none).preview-size;
     in-out property <Size> palette-text-drag-size;
@@ -414,7 +373,7 @@ export global AppState {
     public function update-palette-drag(kind: ElementKind, window-position: Point) {
         if !self.palette-drag-cancelled {
             if self.palette-drag-kind != kind {
-                self.palette-drag-size = kind == ElementKind.text
+                self.palette-drag-size = kind == ElementKind.text || kind == ElementKind.styled-text
                     ? self.palette-text-drag-size
                     : ElementVisuals.for-kind(kind).preview-size;
             }

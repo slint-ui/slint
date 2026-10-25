@@ -35,7 +35,8 @@ def screenshot(window: slint_testing.Window, *, settle: bool = True) -> Image.Im
     return wait_until(settled)
 
 
-PALETTE_KINDS = ("Image", "Rectangle", "Text", "TouchArea")
+WIDGET_KINDS = ("Button", "CheckBox")
+PALETTE_KINDS = ("Image", "Rectangle", "StyledText", "Text", "TouchArea", *WIDGET_KINDS)
 
 
 def press_key(window: slint_testing.Window, key: str) -> None:
@@ -178,6 +179,9 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
 
     tree = element(window, "Files", role=slint_testing.AccessibleRole.Tree)
     role = slint_testing.AccessibleRole.ListItem
+    rect = tree.absolute_rect
+    top = rect.y
+    bottom = top + rect.height
     scroll_step = max(1, min(250, tree.size.height / 2))
     for delta in [0, 10000] + [-scroll_step] * 32:
         if delta:
@@ -186,9 +190,10 @@ def file_row(window: slint_testing.Window, path: Path) -> slint_testing.Element:
                     center(tree), delta_x=0, delta_y=delta
                 )
             )
-        if elements(tree, str(path), role=role):
-            break
-    return element(tree, str(path), role=role)
+        rows = elements(tree, str(path), role=role)
+        if len(rows) == 1 and top < center(rows[0]).y < bottom:
+            return element(tree, str(path), role=role)
+    raise AssertionError(f"No visible file row for {path!s}")
 
 
 def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Element:

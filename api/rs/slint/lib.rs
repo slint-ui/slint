@@ -149,7 +149,11 @@ For each top-level callback
   - [`fn invoke_<callback_name>(&self)`](docs::generated_code::SampleComponent::invoke_hello): to invoke the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
 
-Note: All dashes (`-`) are replaced by underscores (`_`) in names of types or functions.
+In the names of types, struct fields, and functions, use underscores (`_`) in place of dashes (`-`).
+If a name is a Rust keyword, such as a struct field `type`,
+write it as a [raw identifier](https://doc.rust-lang.org/reference/identifiers.html#raw-identifiers): `r#type`.
+Rust doesn't accept `self`, `Self`, `super`, and `crate` as raw identifiers;
+add a trailing underscore to these instead, such as `self_`.
 
 After instantiating the component, call [`ComponentHandle::run()`] on show it on the screen and spin the event loop to
 react to input events. To show multiple components simultaneously, call [`ComponentHandle::show()`] on each instance.

@@ -182,6 +182,7 @@ pub fn initialize_editor(
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
     hover.on_element_at(super::element_selection::hovered_element_at);
+    hover.on_hovered_changed(super::hovered_element_changed);
     api.on_selection_stack_at(super::element_selection::selection_stack_at);
     api.on_filter_sort_selection_stack(super::element_selection::filter_sort_selection_stack);
     api.on_find_selected_selection_stack_frame(|stack| {
@@ -199,7 +200,7 @@ pub fn initialize_editor(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_new_component_data_for_kind(super::new_component_data_for_kind);
+    api.on_new_component_data(super::new_component_data);
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
@@ -292,6 +293,7 @@ pub fn initialize_editor(
 
         source_property_value(&api, property_name, fallback)
     });
+    api.on_combo_option_index(combo_option_index);
     api.on_image_source_file_name(file_tree::image_source_file_name);
     let editor_weak = editor_ui.as_weak();
     api.on_choose_image_file(move |source_uri| {
@@ -1046,7 +1048,12 @@ fn map_value_and_type(
                 }
             }
         }
-        Type::Image | Type::Model | Type::PathData | Type::Easing | Type::UnitProduct(_) => {
+        Type::Image
+        | Type::Model
+        | Type::PathData
+        | Type::Easing
+        | Type::StyledText
+        | Type::UnitProduct(_) => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.is_too_complex = true;
         }
@@ -1218,6 +1225,20 @@ fn source_property_value_data(api: &Api<'_>, property_name: SharedString) -> Opt
     }
 
     None
+}
+
+fn combo_option_index(value: SharedString, options: ModelRc<InspectorComboOption>) -> i32 {
+    let value = match value.split_once('.') {
+        Some((enum_name, member)) if enum_name.starts_with(|c: char| c.is_ascii_uppercase()) => {
+            member
+        }
+        _ => value.as_str(),
+    };
+    options
+        .iter()
+        .position(|option| option.value == value)
+        .and_then(|index| i32::try_from(index).ok())
+        .unwrap_or(-1)
 }
 
 fn source_property_value(
@@ -1632,6 +1653,28 @@ mod tests {
     };
 
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
+
+    #[test]
+    fn test_combo_option_index() {
+        let options: slint::ModelRc<super::InspectorComboOption> =
+            std::rc::Rc::new(VecModel::from(
+                ["left", "center", "right"]
+                    .map(|value| super::InspectorComboOption {
+                        value: value.into(),
+                        label: SharedString::default(),
+                    })
+                    .to_vec(),
+            ))
+            .into();
+
+        assert_eq!(super::combo_option_index("center".into(), options.clone()), 1);
+        assert_eq!(
+            super::combo_option_index("TextHorizontalAlignment.right".into(), options.clone()),
+            2
+        );
+        assert_eq!(super::combo_option_index("root.left".into(), options.clone()), -1);
+        assert_eq!(super::combo_option_index("justify".into(), options), -1);
+    }
 
     #[test]
     fn numeric_property_defaults_and_resolved_bindings() {
@@ -2374,6 +2417,483 @@ mod tests {
         session.invoke_begin(request);
         session.invoke_close_picker(true, false);
         assert_eq!(commits.get(), 1);
+    }
+
+    #[test]
+    fn enabled_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("Button", true),
+            ("CheckBox", true),
+            ("LineEdit", true),
+            ("TouchArea", true),
+            ("TextInput", true),
+            ("KeyBinding", true),
+            ("MenuItem", true),
+            ("Rectangle", false),
+            ("Text", false),
+            ("VerticalLayout", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Enabled"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn enabled_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "Button".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, true),
+            (Some(false), None, false),
+            (Some(true), None, true),
+            (Some(false), Some(true), true),
+            (None, Some(false), false),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "enabled" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "enabled" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Enabled"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn title_field_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("GroupBox", true),
+            ("RadioGroup", true),
+            ("RadioButton", false),
+            ("Button", false),
+            ("Text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                    .next()
+                    .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn title_field_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "GroupBox".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let field =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                .find(|element| {
+                    element.accessible_role()
+                        == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                })
+                .unwrap();
+        field.set_accessible_value("\"Settings\"");
+        assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+    }
+
+    #[test]
+    fn read_only_switch_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("LineEdit", true),
+            ("SpinBox", true),
+            ("TextEdit", true),
+            ("TextInput", true),
+            ("Button", false),
+            ("CheckBox", false),
+            ("TouchArea", false),
+            ("Text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Read-only"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn read_only_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "LineEdit".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, false),
+            (Some(true), None, true),
+            (Some(false), None, false),
+            (Some(true), Some(false), false),
+            (None, Some(true), true),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "read-only" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "read-only" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Read-only"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn read_only_switch_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "TextEdit".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let switch =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Read-only")
+                .find(|element| element.accessible_checked().is_some())
+                .unwrap();
+        switch.invoke_accessible_default_action();
+        assert_eq!(*commits.borrow(), [("read-only".to_string(), "true".to_string())]);
+        assert_eq!(switch.accessible_checked(), Some(false));
+    }
+
+    #[test]
+    fn checked_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [("CheckBox", true), ("Button", false), ("Rectangle", false)] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Checked"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn checked_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "CheckBox".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, false),
+            (Some(false), None, false),
+            (Some(true), None, true),
+            (Some(false), Some(true), true),
+            (Some(true), Some(false), false),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "checked" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "checked" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Checked"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn inline_text_preserves_input_before_the_first_timer_tick() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 30.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let inline = editor.global::<super::InlineTextEdit>();
+        inline.on_begin(|| super::InlineTextEditStart {
+            success: true,
+            text: "Text".into(),
+            ..Default::default()
+        });
+        let committed = std::rc::Rc::new(std::cell::RefCell::new(SharedString::default()));
+        let result = committed.clone();
+        inline.on_commit(move |text| {
+            *result.borrow_mut() = text;
+            true
+        });
+        editor.show().unwrap();
+        slint::platform::update_timers_and_animations();
+        editor.invoke_focus_editor();
+        inline.set_active(true);
+        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        let input = find_element(&editor, "Inline text editor");
+        assert_eq!(input.accessible_value().unwrap(), "Text");
+        for character in "Undo me".chars() {
+            let text: SharedString = character.to_string().into();
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+            slint::platform::update_timers_and_animations();
+        }
+        editor
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Return.into() });
+        assert_eq!(*committed.borrow(), "Undo me");
+    }
+
+    #[test]
+    fn input_type_combo_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in
+            [("LineEdit", true), ("TextEdit", false), ("TextInput", false), ("Text", false)]
+        {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Input Type"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
     }
 
     #[test]

@@ -21,6 +21,10 @@ export global InspectorContext {
         return Api.selection.highlight-index >= 0 && InspectorContext.selection-rects.length > Api.selection.highlight-index;
     }
 
+    public pure function has-orientation-selection() -> bool {
+        return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider");
+    }
+
     public pure function is-rectangle-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }
@@ -33,12 +37,94 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Text";
     }
 
+    public pure function is-styled-text-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StyledText";
+    }
+
     public pure function is-image-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Image";
     }
 
     public pure function is-root-selection() -> bool {
         return Api.selection.highlight-index >= 0 && InspectorContext.element-information.id == "root";
+    }
+
+    public pure function is-button-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Button";
+    }
+
+    public pure function is-checkbox-selection() -> bool {
+        return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "CheckBox";
+    }
+
+    public pure function is-slider-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Slider";
+    }
+
+    public pure function is-resizable-selection() -> bool {
+        return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
+    }
+
+    public pure function has-text-property-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "Text"
+                || InspectorContext.element-information.type-name == "StyledText"
+                || InspectorContext.element-information.type-name == "Button"
+                || InspectorContext.element-information.type-name == "CheckBox"
+                || InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "Switch"
+                || InspectorContext.element-information.type-name == "TextEdit"
+                || InspectorContext.element-information.type-name == "RadioButton"
+                || InspectorContext.element-information.type-name == "TextInput");
+    }
+
+    public pure function is-title-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "GroupBox"
+                || InspectorContext.element-information.type-name == "RadioGroup");
+    }
+
+    public pure function is-lineedit-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "LineEdit";
+    }
+
+    public pure function is-enable-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "Button"
+                || InspectorContext.element-information.type-name == "CheckBox"
+                || InspectorContext.element-information.type-name == "ComboBox"
+                || InspectorContext.element-information.type-name == "ContextMenuArea"
+                || InspectorContext.element-information.type-name == "DragArea"
+                || InspectorContext.element-information.type-name == "DropArea"
+                || InspectorContext.element-information.type-name == "FocusScope"
+                || InspectorContext.element-information.type-name == "GroupBox"
+                || InspectorContext.element-information.type-name == "KeyBinding"
+                || InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "ListView"
+                || InspectorContext.element-information.type-name == "MenuItem"
+                || InspectorContext.element-information.type-name == "RadioGroup"
+                || InspectorContext.element-information.type-name == "ScaleRotateGestureHandler"
+                || InspectorContext.element-information.type-name == "ScrollView"
+                || InspectorContext.element-information.type-name == "Slider"
+                || InspectorContext.element-information.type-name == "SpinBox"
+                || InspectorContext.element-information.type-name == "StandardButton"
+                || InspectorContext.element-information.type-name == "StandardListView"
+                || InspectorContext.element-information.type-name == "StandardTableView"
+                || InspectorContext.element-information.type-name == "SwipeGestureHandler"
+                || InspectorContext.element-information.type-name == "Switch"
+                || InspectorContext.element-information.type-name == "TextEdit"
+                || InspectorContext.element-information.type-name == "TextInput"
+                || InspectorContext.element-information.type-name == "TouchArea"
+                || InspectorContext.element-information.type-name == "RadioButton"
+                || InspectorContext.element-information.type-name == "WindowMoveArea");
+    }
+
+    public pure function is-read-only-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "SpinBox"
+                || InspectorContext.element-information.type-name == "TextEdit"
+                || InspectorContext.element-information.type-name == "TextInput");
     }
 
     public pure function is-layout-selection() -> bool {
@@ -215,7 +301,7 @@ export global InspectorContext {
         if column < 0 || column > 2 || row < 0 || row > 2 {
             return false;
         }
-        if column == InspectorEnumOptions.image-horizontal-alignment-index() && row == InspectorEnumOptions.image-vertical-alignment-index() {
+        if column == InspectorEnumOptions.option-index("horizontal-alignment", "center", InspectorEnumOptions.image-horizontal-alignment-options) && row == InspectorEnumOptions.option-index("vertical-alignment", "center", InspectorEnumOptions.image-vertical-alignment-options) {
             return true;
         }
         return InspectorContext.commit-codes([

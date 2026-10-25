@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Button, CheckBox } from "std-widgets.slint";
+
 export component InspectorCases inherits Window {
     width: 640px;
     height: 480px;
@@ -32,6 +34,16 @@ export component InspectorCases inherits Window {
         font-size: 20px;
     }
 
+    inspect-styled-text := StyledText {
+        x: 448px;
+        y: 40px;
+        width: 152px;
+        height: 48px;
+        text: @markdown("**Styled** text");
+        horizontal-alignment: start;
+        vertical-alignment: top;
+    }
+
     inspect-image := Image {
         x: 224px;
         y: 128px;
@@ -41,5 +53,17 @@ export component InspectorCases inherits Window {
         image-fit: contain;
         horizontal-alignment: center;
         vertical-alignment: center;
+    }
+
+    inspect-button := Button {
+        x: 40px;
+        y: 272px;
+        text: "Inspector button";
+    }
+
+    inspect-checkbox := CheckBox {
+        x: 224px;
+        y: 272px;
+        text: "Inspector checkbox";
     }
 }

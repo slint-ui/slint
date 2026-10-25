@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import {
+    cpSync,
     existsSync,
     mkdtempSync,
     readFileSync,
@@ -12,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { pathToFileURL } from "node:url";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -42,6 +45,7 @@ before(async () => {
             ...process.env,
             SLINT_PREVIEW_VIEW_START_TIMEOUT_MS: "200",
             SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS: "400",
+            SLINT_PREVIEW_TIMEOUT_MS: "700",
         },
     });
     createInterface({ input: server.stdout }).on("line", (line) => {
@@ -73,7 +77,7 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview.html");
     for (const name of [
         "read_slint_file",
-        "read_image_file",
+        "read_binary_file",
         "publish_preview_capture",
     ]) {
         const tool = result.tools.find((t) => t.name === name);
@@ -85,26 +89,66 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     assert.equal(screenshot._meta, undefined);
 });
 
-test("serves the view as an MCP App with the interpreter hosts allowed", async () => {
+function assertServesInterpreter(content, url, hosts) {
+    assert.equal(content.mimeType, "text/html;profile=mcp-app");
+    assert.doesNotMatch(content.text, /__[A-Z_]+__/);
+    assert.ok(content.text.includes(url), url);
+    const { csp } = content._meta.ui;
+    assert.deepEqual(csp.connectDomains, hosts);
+    assert.deepEqual(csp.resourceDomains, [...hosts, "blob:"]);
+}
+
+test("serves the view with the snapshot interpreter", async () => {
     const { result } = await request("resources/read", {
         uri: "ui://slint/preview.html",
     });
-    const [content] = result.contents;
-    assert.equal(content.mimeType, "text/html;profile=mcp-app");
-    assert.doesNotMatch(content.text, /__[A-Z]+_URL__/);
-
-    const { csp } = content._meta.ui;
-    const urls = [
-        "https://releases.slint.dev/1.18.1/wasm-interpreter/slint_wasm_interpreter.js",
+    assertServesInterpreter(
+        result.contents[0],
         "https://snapshots.slint.dev/master/wasm-interpreter/slint_wasm_interpreter.js",
-    ];
-    for (const url of urls) {
-        assert.ok(content.text.includes(url), url);
-        const { origin } = new URL(url);
-        assert.ok(csp.resourceDomains.includes(origin), origin);
-        assert.ok(csp.connectDomains.includes(origin), origin);
+        ["https://snapshots.slint.dev"],
+    );
+});
+
+test("serves the view with the interpreter of the plugin's release on the release channel", async () => {
+    const root = mkdtempSync(join(tmpdir(), "slint-preview-release-"));
+    try {
+        for (const file of [
+            ".claude-plugin/plugin.json",
+            "assets/slint.svg",
+            "mcp/slint-preview/server.mjs",
+            "mcp/slint-preview/view.html",
+        ]) {
+            cpSync(new URL(file, pluginRoot), join(root, file));
+        }
+        writeFileSync(
+            join(root, "mcp/slint-preview/channel.json"),
+            JSON.stringify({ channel: "release" }),
+        );
+        const release = spawn(
+            process.execPath,
+            [join(root, "mcp/slint-preview/server.mjs")],
+            { stdio: ["pipe", "pipe", "inherit"] },
+        );
+        const lines = createInterface({ input: release.stdout });
+        release.stdin.write(
+            JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                method: "resources/read",
+                params: { uri: "ui://slint/preview.html" },
+            }) + "\n",
+        );
+        const [line] = await once(lines, "line");
+        release.kill();
+        const { version } = readManifest(".claude-plugin/plugin.json");
+        assertServesInterpreter(
+            JSON.parse(line).result.contents[0],
+            `https://releases.slint.dev/${version}/wasm-interpreter/slint_wasm_interpreter.js`,
+            ["https://releases.slint.dev", "https://docs.slint.dev"],
+        );
+    } finally {
+        rmSync(root, { recursive: true, force: true });
     }
-    assert.ok(csp.resourceDomains.includes("blob:"));
 });
 
 test("lists the view resource", async () => {
@@ -141,35 +185,46 @@ test("takes either an absolute path or source", async () => {
     }
 });
 
-test("reads Slint and image files for the view", async () => {
+test("reads Slint, image, and font files for the view", async () => {
     const dir = mkdtempSync(join(tmpdir(), "slint-preview-"));
     try {
         const slintFile = join(dir, "main.slint");
         const source = 'Image { source: @image-url("dot.png"); }';
         writeFileSync(slintFile, source);
-        writeFileSync(join(dir, "dot.png"), Buffer.from([0x89, 0x50]));
-        writeFileSync(join(dir, "icon.svg"), "<svg/>");
-
         const slint = await callTool("read_slint_file", { path: slintFile });
         assert.deepEqual(slint.content, [{ type: "text", text: source }]);
 
-        const png = await callTool("read_image_file", {
-            path: join(dir, "dot.png"),
-        });
-        assert.deepEqual(png.content, [
-            { type: "image", data: "iVA=", mimeType: "image/png" },
-        ]);
-        const svg = await callTool("read_image_file", {
-            path: join(dir, "icon.svg"),
-        });
-        assert.equal(svg.content[0].mimeType, "image/svg+xml");
+        for (const [file, mimeType, bytes] of [
+            ["dot.png", "image/png", Buffer.from([0x89, 0x50])],
+            ["icon.svg", "image/svg+xml", Buffer.from("<svg/>")],
+            ["font.ttf", "font/ttf", Buffer.from([0, 1, 0, 0])],
+        ]) {
+            const path = join(dir, file);
+            writeFileSync(path, bytes);
+            const blob = bytes.toString("base64");
+            const result = await callTool("read_binary_file", { path });
+            assert.deepEqual(
+                result.content,
+                [
+                    {
+                        type: "resource",
+                        resource: {
+                            uri: pathToFileURL(path).href,
+                            mimeType,
+                            blob,
+                        },
+                    },
+                ],
+                file,
+            );
+        }
     } finally {
         rmSync(dir, { recursive: true });
     }
 });
 
 test("reports a file it can't read as a tool error", async () => {
-    for (const name of ["read_slint_file", "read_image_file"]) {
+    for (const name of ["read_slint_file", "read_binary_file"]) {
         const result = await callTool(name, {
             path: "/nonexistent/main.slint",
         });
@@ -259,8 +314,9 @@ test("reports why a preview has no screenshot", async () => {
         previewId,
         error: "main.slint:1:23: error: Unknown property colour",
     });
-    const { content } = await callTool("get_preview_screenshot", {});
+    const { content, structuredContent } = await callTool("get_preview_screenshot", {});
     assert.match(content[0].text, /Unknown property colour/);
+    assert.equal(structuredContent.status, "error");
 });
 
 test("ignores a late capture of an earlier preview of the same file", async () => {
@@ -276,25 +332,41 @@ test("ignores a late capture of an earlier preview of the same file", async () =
     assert.equal(content[0].type, "text");
 });
 
-test("fails fast when no view starts", async () => {
+test("returns a fallback when no view starts, then accepts a late view", async () => {
     const previewId = await startPreview({ source: "export component B {}" });
-    const start = Date.now();
-    const { content } = await callTool("get_preview_screenshot", {});
-    assert.match(
-        content[0].text,
-        new RegExp(`view for preview ${previewId} didn't start`),
-    );
-    assert.ok(Date.now() - start < 400);
+    const result = await callTool("get_preview_screenshot", {});
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes("slint-viewer --screenshot"));
+    assert.ok(!result.content[0].text.includes("again"));
+    const again = await callTool("get_preview_screenshot", {});
+    assert.equal(again.isError, true);
+
+    await callTool("publish_preview_capture", { previewId, started: true });
+    await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
+    assert.equal((await callTool("get_preview_screenshot", {})).structuredContent.status, "ready");
 });
 
-test("waits longer once the view has started", async () => {
+test("reports the current stage and timings while rendering remains pending", async () => {
     const previewId = await startPreview({ source: "export component C {}" });
     await callTool("publish_preview_capture", { previewId, started: true });
-    const { content } = await callTool("get_preview_screenshot", {});
-    assert.match(
-        content[0].text,
-        new RegExp(`Preview ${previewId} didn't finish rendering`),
-    );
+    const screenshot = callTool("get_preview_screenshot", {});
+    const stages = ["started", "reading", "loading", "compiling"];
+    for (const stage of stages.slice(1)) {
+        await callTool("publish_preview_capture", { previewId, stage });
+    }
+    const { content, structuredContent } = await screenshot;
+    assert.match(content[0].text, /pending \(compiling\)/);
+    assert.equal(structuredContent.status, "pending");
+    assert.equal(structuredContent.stage, "compiling");
+    assert.deepEqual(Object.keys(structuredContent.timings), stages);
+    let previous = 0;
+    for (const elapsed of Object.values(structuredContent.timings)) {
+        assert.ok(elapsed >= previous && elapsed <= structuredContent.elapsedMs);
+        previous = elapsed;
+    }
+    const timeout = await callTool("get_preview_screenshot", {});
+    assert.equal(timeout.structuredContent.status, "timeout");
+    assert.equal(timeout.structuredContent.stage, "compiling");
 });
 
 test("tells a waiting call that a newer preview replaced it", async () => {

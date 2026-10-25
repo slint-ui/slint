@@ -85,7 +85,7 @@ pub struct Cli {
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Vec<String>,
 
-    /// The style name for the preview. Defaults to 'fluent' if not specified
+    /// The style name for the preview.
     #[arg(long, name = "style name", default_value_t, action)]
     style: String,
 
@@ -458,8 +458,9 @@ async fn run_main_loop(
                 editor_preview::document_cache::CompilerConfiguration::default().compiler_config;
             compiler_config.include_paths = cli_args.include_paths;
             compiler_config.library_paths = library_paths;
-            compiler_config.style =
-                Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
+            if let Some(style) = &startup_style {
+                compiler_config.style = Some(style.clone());
+            }
             compiler_config.resource_url_mapper = None;
             compiler_config
         },
@@ -501,6 +502,12 @@ async fn run_main_loop(
 
     let document_cache = crate::editor_preview::DocumentCache::new(compiler_config);
     let mut session = crate::editor_preview::EditorSession::new(document_cache, to_preview);
+    session.set_workspace_roots(
+        host_language_search::resolve_workspace_folders(&init_param)
+            .into_iter()
+            .filter_map(|folder| SourcePath::from_url(&folder.uri).into_native_path())
+            .collect(),
+    );
     session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {
@@ -621,6 +628,10 @@ async fn run_main_loop(
             }
         }
 
+        #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+        if let Err(error) = language::sync_preview_project_root(&ctx.session) {
+            tracing::warn!("Failed to sync preview project root: {error}");
+        }
         sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
     }
 }
@@ -777,7 +788,9 @@ async fn handle_notification(
         }
         DidCloseTextDocument::METHOD => {
             let params: DidCloseTextDocumentParams = serde_json::from_value(req.params)?;
-            ctx.session.close_document(params.text_document.uri).await
+            let diagnostics = ctx.session.close_document(params.text_document.uri).await?;
+            crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
+            Ok(())
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
@@ -882,8 +895,8 @@ async fn handle_preview_to_lsp_message(
             crate::lsp_to_editor::send_show_document_to_editor(sn, file, selection, take_focus)
                 .await;
         }
-        M::ClearHighlight => {
-            tracing::debug!("Ignoring ClearHighlight from the preview");
+        M::ClearHighlight | M::HighlightInRunPreview { .. } => {
+            tracing::debug!("Ignoring run preview highlight from the preview");
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");

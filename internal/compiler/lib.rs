@@ -55,7 +55,7 @@ use crate::generator::OutputFormat;
 use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EmbedResourcesKind {
     /// Embeds nothing (only useful for interpreter)
     Nothing,
@@ -81,7 +81,7 @@ pub enum EmbedResourcesKind {
 
 /// This enum specifies the default translation context when no context is explicitly
 /// specified in the `@tr("context" => ...)` macro.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum DefaultTranslationContext {
     /// The default translation context is the component name in which the `@tr` is written.
@@ -183,6 +183,13 @@ pub struct CompilerConfiguration {
     /// Add support for experimental features
     pub enable_experimental: bool,
 
+    /// The Slint release whose language behavior to use. `None` keeps the behavior from
+    /// before editions existed.
+    pub edition: Option<project_file::SlintEdition>,
+
+    /// An invalid `SLINT_EDITION`, which the compilation reports as an error.
+    invalid_edition_env: Option<String>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -220,10 +227,9 @@ pub struct CompilerConfiguration {
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
 
-    /// The project file that a tool was given as input, whose main file is being compiled.
-    /// Generated Python code loads it at run time instead of the entry,
-    /// so that run time applies the same project file.
-    pub input_project_file: Option<std::path::PathBuf>,
+    /// The project directory that a tool was given as input.
+    /// Generated Python code loads it at run time so that run time applies the same project file.
+    pub input_project_directory: Option<std::path::PathBuf>,
 
     /// Set automatically when the output format is `SlintSc`.
     /// The compiler rejects all features not supported by the
@@ -238,6 +244,11 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// Whether an `if`/`for` child counts toward the size of a non-layout parent (#407).
+    pub fn repeated_children_constrain_parent(&self) -> bool {
+        self.edition.is_some_and(|version| version >= project_file::SlintEdition::V1_19)
+    }
+
     /// The absolute path of the directory the translations are bundled from, if any.
     pub fn absolute_bundled_translations_path(&self) -> Option<String> {
         #[cfg(feature = "bundle-translations")]
@@ -310,6 +321,15 @@ impl CompilerConfiguration {
 
         let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
 
+        // Undocumented. Selects an edition without a project file,
+        // for the test drivers or to try a `.slint` file in slint-viewer.
+        let (edition, invalid_edition_env) = match std::env::var("SLINT_EDITION")
+            .map_or(Ok(None), |value| edition_from_env(&value))
+        {
+            Ok(edition) => (edition, None),
+            Err(message) => (None, Some(message)),
+        };
+
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
         #[cfg(feature = "slint-sc")]
@@ -338,6 +358,8 @@ impl CompilerConfiguration {
             const_image_sizes,
             accessibility: true,
             enable_experimental,
+            edition,
+            invalid_edition_env,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -355,11 +377,25 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
-            input_project_file: None,
+            input_project_directory: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,
         }
+    }
+}
+
+fn edition_from_env(value: &str) -> Result<Option<project_file::SlintEdition>, String> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let current = project_file::SlintEdition::current();
+    match value.parse() {
+        Ok(edition) if edition > current => Err(format!(
+            "SLINT_EDITION is {edition}, newer than this Slint {current}: set it to {current} or older"
+        )),
+        Ok(edition) => Ok(Some(edition)),
+        Err(message) => Err(format!("SLINT_EDITION: {message}")),
     }
 }
 
@@ -378,6 +414,10 @@ fn prepare_for_compile(
     }
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
+    // Not a panic, which would crash the LSP.
+    if let Some(message) = &compiler_config.invalid_edition_env {
+        diagnostics.push_error_with_span(message.clone(), Default::default());
+    }
     #[cfg(feature = "slint-sc")]
     {
         diagnostics.slint_sc = compiler_config.slint_sc;
@@ -468,5 +508,30 @@ fn reject_experimental_feature(
         true
     } else {
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{edition_from_env, project_file::SlintEdition};
+
+    #[test]
+    fn slint_edition_variable_selects_the_edition() {
+        assert_eq!(edition_from_env("1.19"), Ok(Some(SlintEdition::V1_19)));
+        assert_eq!(edition_from_env(""), Ok(None));
+    }
+
+    #[test]
+    fn an_invalid_slint_edition_variable_is_an_error() {
+        assert!(
+            edition_from_env("1.19.0")
+                .unwrap_err()
+                .starts_with("SLINT_EDITION: '1.19.0' is not a Slint edition")
+        );
+        assert!(
+            edition_from_env("999.0")
+                .unwrap_err()
+                .starts_with("SLINT_EDITION is 999.0, newer than this Slint")
+        );
     }
 }
