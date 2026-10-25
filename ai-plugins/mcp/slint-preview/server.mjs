@@ -157,12 +157,6 @@ const tools = [
 // The latest preview_slint call, whether its view has started, its capture once the view
 // publishes it, and the get_preview_screenshot calls waiting for any of these to change.
 let latestPreview = null;
-let supportsApps = false;
-
-function unsupportedHost() {
-    return textResult("This host does not support MCP Apps previews. Use slint-viewer --screenshot instead.", true);
-}
-
 function notify(preview) {
     for (const listener of preview.listeners.splice(0)) listener();
 }
@@ -198,7 +192,6 @@ function textResult(text, isError = false) {
 
 const toolCalls = {
     preview_slint: (args) => {
-        if (!supportsApps) return unsupportedHost();
         if (
             (typeof args.path === "string") ===
             (typeof args.source === "string")
@@ -231,12 +224,11 @@ const toolCalls = {
         };
     },
     get_preview_screenshot: async () => {
-        if (!supportsApps) return unsupportedHost();
         const preview = latestPreview;
         if (!preview) {
             return textResult("Call preview_slint first.", true);
         }
-        const viewDeadline = Date.now() + VIEW_START_TIMEOUT_MS;
+        const viewDeadline = preview.requestedAt + VIEW_START_TIMEOUT_MS;
         const captureDeadline = Date.now() + SCREENSHOT_TIMEOUT_MS;
         const overallDeadline = preview.requestedAt + PREVIEW_TIMEOUT_MS;
         while (!preview.capture && preview === latestPreview) {
@@ -254,6 +246,9 @@ const toolCalls = {
             return textResult(
                 `A newer preview_slint call replaced preview ${id}. Call get_preview_screenshot again.`,
             );
+        }
+        if (!capture && !preview.viewStarted) {
+            return textResult("The preview view did not start. Use slint-viewer --screenshot instead.", true);
         }
         const structuredContent = {
             status: capture
@@ -361,15 +356,11 @@ function readView() {
 }
 
 const handlers = {
-    initialize: (params) => {
-        supportsApps = params?.capabilities?.extensions?.["io.modelcontextprotocol/ui"]
-            ?.mimeTypes?.includes(VIEW_MIME_TYPE) === true;
-        return {
-            protocolVersion: params?.protocolVersion ?? "2025-06-18",
-            capabilities: { tools: {}, resources: {} },
-            serverInfo: { name: "slint-preview", version: pluginVersion, icons },
-        };
-    },
+    initialize: (params) => ({
+        protocolVersion: params?.protocolVersion ?? "2025-06-18",
+        capabilities: { tools: {}, resources: {} },
+        serverInfo: { name: "slint-preview", version: pluginVersion, icons },
+    }),
     ping: () => ({}),
     "tools/list": () => ({ tools }),
     "tools/call": (params) => {

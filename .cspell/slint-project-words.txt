@@ -430,7 +430,6 @@ MIPI
 mipidsi
 miscompile
 modalnavigationdrawer
-modelcontextprotocol
 modelprop
 monomorphizes
 MOSI
