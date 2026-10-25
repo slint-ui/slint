@@ -30,8 +30,11 @@ for (const match of command.matchAll(
     paths.add(match[1].trim());
 }
 if (!isPatch) {
-    for (const match of command.matchAll(/[^\s'"`<>|;&()=]+\.slint\b/g)) {
-        paths.add(match[0]);
+    const words = command.match(/(?:'[^']*'|"(?:\\.|[^"\\])*"|\\[ \t]|[^\s'"`<>|;&()=])+/g) ?? [];
+    for (const word of words) {
+        const path = word.replace(/'([^']*)'|"((?:\\.|[^"\\])*)"|\\([ \t])/g,
+            (_match, single, double, space) => single ?? double?.replace(/\\(["\\$`])/g, "$1") ?? space);
+        if (path.endsWith(".slint")) paths.add(path);
     }
 }
 

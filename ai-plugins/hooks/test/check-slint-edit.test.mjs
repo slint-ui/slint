@@ -29,6 +29,7 @@ mkdirSync(join(project, "ui"), { recursive: true });
 for (const name of [
     "ok.slint",
     "broken.slint",
+    "a broken.slint",
     "hang.slint",
     "slow-1.slint",
     "slow-2.slint",
@@ -149,3 +150,13 @@ test("stays silent when slint-viewer is missing", () => {
         "",
     );
 });
+
+for (const command of [
+    "cat > 'ui/a broken.slint'",
+    'cat > "ui/a broken.slint"',
+    "cat > ui/a\\ broken.slint",
+]) {
+    test(`checks a shell-edited path with spaces: ${command}`, { skip }, () => {
+        assert.match(runHook("Bash", command), /Unknown element/);
+    });
+}
