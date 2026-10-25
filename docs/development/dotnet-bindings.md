@@ -224,37 +224,46 @@ The day a new SDK appears in the release list, its download can still fail, whic
 
 ## Roadmap
 
-1. Native crate and C# library: compile from a string or file, properties, callbacks, functions, globals, event loop (done).
-2. Models, timers, `async` through a `SynchronizationContext`, lifetime tests (done).
-3. `-f csharp` generator, MSBuild `<SlintFile>` items, API match check, `tests/driver/dotnet` (done).
-4. CI workflow, user documentation, an example, NuGet packages per runtime identifier (done).
-   `.github/workflows/dotnet_test_reusable.yaml` runs the tests, and `examples/memory/dotnet` is the example.
-5. Live reload of `.slint` files, see [Live Reload](#live-reload) (done).
-   Together with .NET Hot Reload, through `dotnet watch` or a debugger, both `.slint` and C# changes apply without a restart.
-6. Publishing to nuget.org with trusted publishing, see [Packages](#packages) (done).
-   Until the Slint project publishes them, a fork publishes community packages under its own IDs,
-   such as `yurkinh.slint.net` and `yurkinh.slint.net.Compiler`, first released as `1.19.0-preview.1`.
+The numbers stay stable, so that commits and discussions can refer to them.
+
+Done:
+
+- **1.** Native crate and C# library: compile from a string or file, properties, callbacks, functions, globals, event loop.
+- **2.** Models, timers, `async` through a `SynchronizationContext`, lifetime tests.
+- **3.** `-f csharp` generator, MSBuild `<SlintFile>` items, API match check, `tests/driver/dotnet`.
+- **4.** CI workflow, user documentation, an example, NuGet packages per runtime identifier.
+  `.github/workflows/dotnet_test_reusable.yaml` runs the tests on macOS, Linux, and Windows,
+  and `examples/memory/dotnet` is the example.
+- **5.** Live reload of `.slint` files, see [Live Reload](#live-reload).
+  Together with .NET Hot Reload, through `dotnet watch` or a debugger, both `.slint` and C# changes apply without a restart.
+- **6.** Publishing to nuget.org with trusted publishing, see [Packages](#packages).
+  Until the Slint project publishes them, a fork publishes community packages under its own IDs,
+  such as `yurkinh.slint.net` and `yurkinh.slint.net.Compiler`.
+  `api/dotnet/WHATS_NEW.md` lists what each preview added.
+- **8.** API gaps compared to Python and Node.js:
+  - a `Window` API, for size, position, scale factor, and close requests
+  - typed `brush`, gradients, `LogicalPosition`, and `LogicalSize`
+  - typed `keys`, styled text, and data transfer
+  - include and library paths in generated code
+  - translations, bundled and through an `ITranslator`
+  - the model adapters, in C# in `Slint/ModelAdapters.cs`
+  - C# names for exported aliases of components; structs and enums keep only their own name
+- **11.** On Windows, a clear exception in `Create` and `Run` for a thread that isn't in a single-threaded apartment,
+  instead of a winit panic, see [Threading and macOS](#threading-and-macos).
+  Turning off drag and drop in winit would make such threads work, but lose file drops,
+  and Slint doesn't expose that option.
 
 Next:
 
-7. Upstreaming: agree on it with the Slint maintainers, then squash the branch into a pull request,
-   with the official `Slint` package IDs and a `ChangeLog:` trailer.
-8. API gaps compared to Python and Node.js (done):
-   - a `Window` API, for size, position, scale factor, and close requests (done)
-   - typed `brush`, gradients, `LogicalPosition`, and `LogicalSize` (done)
-   - typed `keys`, styled text, and data transfer (done)
-   - include and library paths in generated code (done)
-   - translations, bundled and through an `ITranslator` (done)
-   - the model adapters, in C# in `Slint/ModelAdapters.cs` (done)
-   - C# names for exported aliases of components (done); structs and enums keep only their own name
-9. `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
-10. A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
-11. On Windows, throw a clear exception in `Create` and `Run` for a thread that isn't in a single-threaded apartment,
-    instead of letting winit panic, see [Threading and macOS](#threading-and-macos) (done).
-    Turning off drag and drop in winit would make such threads work, but lose file drops,
-    and Slint doesn't expose that option.
-12. Project directories in `<SlintFile>` and generated code, to compile with the settings and the edition of a `slint-project.json`.
-    A `.slint` path compiles without a project file, and so without an edition, which keeps the behavior from before editions.
+- **7.** Upstreaming: agree on it with the Slint maintainers, then squash the branch into a pull request,
+  with the official `Slint` package IDs and a `ChangeLog:` trailer.
+  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
+  A draft pull request can collect design feedback early.
+  The README links to `WHATS_NEW.md` on the fork, which the pull request points at `slint-ui/slint` instead.
+- **9.** `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
+- **10.** A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
+- **12.** Project directories in `<SlintFile>` and generated code, to compile with the settings and the edition of a `slint-project.json`.
+  A `.slint` path compiles without a project file, and so without an edition, which keeps the behavior from before editions.
 
 ## Live Reload
 
