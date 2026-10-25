@@ -1,14 +1,11 @@
 # What's New in Slint for .NET
 
-## Unreleased
+## 1.19.0-preview.4
 
 - Generated records start with the default values that a struct declares for its fields.
   A field that a struct from your code lacks takes its default, too.
 - Numbers convert to integer types with saturation and truncation, like in Slint,
   instead of throwing an `OverflowException` or rounding.
-
-## 1.19.0-preview.4
-
 - Update to the latest Slint, including Slint editions.
 - When a live reload removes a property or callback that your code sets, the application prints a warning and keeps running.
   See [What Needs a Restart](README.md#what-needs-a-restart).
