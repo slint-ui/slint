@@ -6,8 +6,8 @@
 // See https://github.com/modelcontextprotocol/ext-apps for the UI extension.
 
 import { randomUUID } from "node:crypto";
-import { readFileSync, realpathSync } from "node:fs";
-import { dirname, extname, isAbsolute, relative, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { extname, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 
@@ -69,7 +69,7 @@ const tools = [
         icons,
         description:
             "Preview saved Slint source using the matching Wasm interpreter. " +
-            "Pass `path` to preview a file on disk, with imports and assets inside that file's directory tree, or `source` for a snippet that imports only from std-widgets.slint. " +
+            "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "Compile errors are reported back to you once the preview has loaded. " +
             "Then call get_preview_screenshot to see the preview as the user sees it.",
         inputSchema: {
@@ -93,7 +93,7 @@ const tools = [
             },
         },
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
-        _meta: { ui: { resourceUri: VIEW_URI, visibility: ["model"] } },
+        _meta: { ui: { resourceUri: VIEW_URI } },
     },
     {
         name: "read_slint_file",
@@ -101,8 +101,8 @@ const tools = [
         description: "Read a .slint file for the preview.",
         inputSchema: {
             type: "object",
-            properties: { path: { type: "string" }, previewId: { type: "string" } },
-            required: ["path", "previewId"],
+            properties: { path: { type: "string" } },
+            required: ["path"],
         },
         _meta: { ui: { visibility: ["app"] } },
     },
@@ -112,8 +112,8 @@ const tools = [
         description: "Read an image or font file that the preview uses.",
         inputSchema: {
             type: "object",
-            properties: { path: { type: "string" }, previewId: { type: "string" } },
-            required: ["path", "previewId"],
+            properties: { path: { type: "string" } },
+            required: ["path"],
         },
         _meta: { ui: { visibility: ["app"] } },
     },
@@ -196,25 +196,6 @@ function textResult(text, isError = false) {
     return { content: [{ type: "text", text }], ...(isError && { isError }) };
 }
 
-function previewFile(args, extensions) {
-    if (typeof args.path !== "string" || !isAbsolute(args.path)) {
-        throw new Error("'path' must be an absolute path");
-    }
-    const preview = latestPreview;
-    if (!preview?.directory || args.previewId !== preview.id) {
-        throw new Error("File reads require the current file preview's ID");
-    }
-    const path = realpathSync(args.path);
-    const inside = relative(preview.directory, path);
-    if (inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside)) {
-        throw new Error("File is outside the previewed file's directory tree; use slint-viewer --screenshot for external imports or assets");
-    }
-    if (![args.path, path].every((file) => extensions.includes(extname(file).toLowerCase()))) {
-        throw new Error("File type is not supported by this preview reader");
-    }
-    return path;
-}
-
 const toolCalls = {
     preview_slint: (args) => {
         if (!supportsApps) return unsupportedHost();
@@ -227,22 +208,9 @@ const toolCalls = {
         if (typeof args.path === "string" && !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be absolute");
         }
-        let directory = null;
-        if (typeof args.path === "string") {
-            try {
-                const path = realpathSync(args.path);
-                if (![args.path, path].every((file) => extname(file).toLowerCase() === ".slint")) {
-                    return textResult("Preview a .slint file", true);
-                }
-                directory = dirname(path);
-            } catch (e) {
-                return textResult(e.message, true);
-            }
-        }
         const previous = latestPreview;
         latestPreview = {
             id: randomUUID(),
-            directory,
             requestedAt: Date.now(),
             viewStarted: false,
             stage: "waiting",
@@ -353,15 +321,20 @@ const toolCalls = {
         return textResult("Received.");
     },
     read_slint_file: (args) => {
+        if (typeof args.path !== "string" || !isAbsolute(args.path)) {
+            throw rpcError(-32602, "'path' must be an absolute path");
+        }
         try {
-            return textResult(readFileSync(previewFile(args, [".slint"]), "utf8"));
+            return textResult(readFileSync(args.path, "utf8"));
         } catch (e) {
             return textResult(e.message, true);
         }
     },
     read_binary_file: (args) => {
+        if (typeof args.path !== "string" || !isAbsolute(args.path)) {
+            throw rpcError(-32602, "'path' must be an absolute path");
+        }
         try {
-            const path = previewFile(args, Object.keys(BINARY_MIME_TYPES));
             return {
                 content: [
                     {
@@ -371,8 +344,8 @@ const toolCalls = {
                             mimeType:
                                 BINARY_MIME_TYPES[
                                     extname(args.path).toLowerCase()
-                                ],
-                            blob: readFileSync(path).toString("base64"),
+                                ] ?? "application/octet-stream",
+                            blob: readFileSync(args.path).toString("base64"),
                         },
                     },
                 ],

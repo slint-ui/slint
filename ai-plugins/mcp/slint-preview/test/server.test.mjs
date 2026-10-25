@@ -7,8 +7,6 @@ import {
     cpSync,
     existsSync,
     mkdtempSync,
-    mkdirSync,
-    symlinkSync,
     readFileSync,
     rmSync,
     writeFileSync,
@@ -30,11 +28,6 @@ const capabilities = {
         "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] },
     },
 };
-
-const project = mkdtempSync(join(tmpdir(), "slint-preview-project-"));
-const mainFile = join(project, "main.slint");
-writeFileSync(mainFile, "export component Preview {}");
-after(() => rmSync(project, { recursive: true, force: true }));
 
 let server;
 let nextId = 1;
@@ -88,7 +81,6 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     const { result } = await request("tools/list");
     const preview = result.tools.find((t) => t.name === "preview_slint");
     assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview.html");
-    assert.deepEqual(preview._meta.ui.visibility, ["model"]);
     for (const name of [
         "read_slint_file",
         "read_binary_file",
@@ -185,10 +177,10 @@ test("answers a call with text only", async () => {
 test("takes either an absolute path or source", async () => {
     const call = (args) =>
         request("tools/call", { name: "preview_slint", arguments: args });
-    assert.ok((await call({ path: mainFile })).result);
+    assert.ok((await call({ path: "/project/main.slint" })).result);
     for (const args of [
         {},
-        { path: mainFile, source: "" },
+        { path: "/project/main.slint", source: "" },
         { path: "main.slint" },
     ]) {
         assert.equal(
@@ -205,8 +197,7 @@ test("reads Slint, image, and font files for the view", async () => {
         const slintFile = join(dir, "main.slint");
         const source = 'Image { source: @image-url("dot.png"); }';
         writeFileSync(slintFile, source);
-        const previewId = await startPreview({ path: slintFile });
-        const slint = await callTool("read_slint_file", { path: slintFile, previewId });
+        const slint = await callTool("read_slint_file", { path: slintFile });
         assert.deepEqual(slint.content, [{ type: "text", text: source }]);
 
         for (const [file, mimeType, bytes] of [
@@ -217,7 +208,7 @@ test("reads Slint, image, and font files for the view", async () => {
             const path = join(dir, file);
             writeFileSync(path, bytes);
             const blob = bytes.toString("base64");
-            const result = await callTool("read_binary_file", { path, previewId });
+            const result = await callTool("read_binary_file", { path });
             assert.deepEqual(
                 result.content,
                 [
@@ -239,10 +230,9 @@ test("reads Slint, image, and font files for the view", async () => {
 });
 
 test("reports a file it can't read as a tool error", async () => {
-    const previewId = await startPreview({ path: mainFile });
     for (const name of ["read_slint_file", "read_binary_file"]) {
         const result = await callTool(name, {
-            path: "/nonexistent/main.slint", previewId,
+            path: "/nonexistent/main.slint",
         });
         assert.equal(result.isError, true, name);
         assert.match(result.content[0].text, /ENOENT/, name);
@@ -290,7 +280,7 @@ async function startPreview(args) {
 }
 
 test("gives every preview its own ID", async () => {
-    const args = { path: mainFile };
+    const args = { path: "/project/main.slint" };
     assert.notEqual(await startPreview(args), await startPreview(args));
 });
 
@@ -336,7 +326,7 @@ test("reports why a preview has no screenshot", async () => {
 });
 
 test("ignores a late capture of an earlier preview of the same file", async () => {
-    const args = { path: mainFile };
+    const args = { path: "/project/main.slint" };
     const earlier = await startPreview(args);
     await startPreview(args);
     const result = await callTool("publish_preview_capture", {
@@ -434,43 +424,5 @@ test("returns a screenshot fallback immediately without MCP Apps support", async
         }
     } finally {
         await request("initialize", { capabilities });
-    }
-});
-
-
-test("limits reads to allowed files inside the current preview directory", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "slint-preview-access-"));
-    try {
-        const nested = join(dir, "nested");
-        mkdirSync(nested);
-        const main = join(nested, "main.slint");
-        writeFileSync(main, "export component Preview {}");
-        const previewId = await startPreview({ path: main });
-        const outside = join(dir, "outside.slint");
-        writeFileSync(outside, "outside fixture");
-        const text = join(nested, "private.txt");
-        writeFileSync(text, "private fixture");
-        const linked = join(nested, "linked.slint");
-        symlinkSync(outside, linked);
-        const renamed = join(nested, "renamed.slint");
-        symlinkSync(text, renamed);
-        const sibling = join(dir, "nested-other");
-        mkdirSync(sibling);
-        const siblingFile = join(sibling, "other.slint");
-        writeFileSync(siblingFile, "sibling fixture");
-        for (const path of [outside, linked, text, renamed, siblingFile]) {
-            const result = await callTool("read_slint_file", { path, previewId });
-            assert.equal(result.isError, true, path);
-            assert.doesNotMatch(result.content[0].text, /private fixture|outside fixture|sibling fixture/);
-        }
-        assert.equal((await callTool("read_binary_file", { path: text, previewId })).isError, true);
-        assert.equal((await callTool("read_slint_file", { path: main })).isError, true);
-        const current = await startPreview({ path: main });
-        assert.equal((await callTool("read_slint_file", { path: main, previewId })).isError, true);
-        assert.equal((await callTool("read_slint_file", { path: main, previewId: current })).isError, undefined);
-        const inline = await startPreview({ source: "export component Preview {}" });
-        assert.equal((await callTool("read_slint_file", { path: main, previewId: inline })).isError, true);
-    } finally {
-        rmSync(dir, { recursive: true, force: true });
     }
 });

@@ -253,9 +253,9 @@
   // Files compile under this scheme, so the interpreter resolves their images to URLs and loads
   // them with <img> elements, rather than reading them from a filesystem the browser doesn't have.
   const FILE_SCHEME = "slint-file:";
-  function toFileUrl(path, previewId) {
+  function toFileUrl(path) {
     const posix = path.replaceAll("\\", "/");
-    return `${FILE_SCHEME}//${previewId}${(posix.startsWith("/") ? posix : `/${posix}`).split("/").map(encodeURIComponent).join("/")}`;
+    return `${FILE_SCHEME}//${(posix.startsWith("/") ? posix : `/${posix}`).split("/").map(encodeURIComponent).join("/")}`;
   }
   function fromFileUrl(url) {
     const path = decodeURIComponent(new URL(url).pathname);
@@ -277,7 +277,7 @@
         return;
       }
       const path = fromFileUrl(value);
-      const loaded = readImageFile(path, new URL(value).hostname).then(
+      const loaded = readImageFile(path).then(
         (url) =>
           new Promise((resolve) => {
             this.addEventListener("load", resolve, { once: true });
@@ -291,16 +291,16 @@
     },
   });
 
-  async function readBinaryFile(path, previewId) {
-    const result = await request("tools/call", { name: "read_binary_file", arguments: { path, previewId } });
+  async function readBinaryFile(path) {
+    const result = await request("tools/call", { name: "read_binary_file", arguments: { path } });
     const block = result?.content?.[0];
     if (result?.isError || block?.type !== "resource") throw new Error(block?.text ?? "no file data");
     const bytes = Uint8Array.from(atob(block.resource.blob), (c) => c.charCodeAt(0));
     return { bytes, mimeType: block.resource.mimeType };
   }
 
-  async function readImageFile(path, previewId) {
-    const { bytes, mimeType } = await readBinaryFile(path, previewId);
+  async function readImageFile(path) {
+    const { bytes, mimeType } = await readBinaryFile(path);
     return URL.createObjectURL(new Blob([bytes], { type: mimeType }));
   }
 
@@ -312,8 +312,8 @@
     reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
   }
 
-  async function readSlintFile(path, previewId) {
-    const result = await request("tools/call", { name: "read_slint_file", arguments: { path, previewId } });
+  async function readSlintFile(path) {
+    const result = await request("tools/call", { name: "read_slint_file", arguments: { path } });
     const text = result?.content?.[0]?.text ?? "";
     if (result?.isError) throw new Error(text);
     return text;
@@ -329,17 +329,17 @@
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
       try {
-        source = await readSlintFile(path, previewId);
+        source = await readSlintFile(path);
       } catch (e) {
         showStatus(`Couldn't read ${path}: ${e.message ?? e}`, "error");
         reportToModel(`The Slint preview couldn't read ${path}: ${e.message ?? e}`);
         return;
       }
-      url = toFileUrl(path, previewId);
+      url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error.
-      loadImport = (file) => readSlintFile(fromFileUrl(file), previewId).catch((e) => Promise.reject(String(e.message ?? e)));
+      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
-      loadResource = (file) => readBinaryFile(fromFileUrl(file), previewId).then(({ bytes }) => bytes);
+      loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
     const posixPath = path?.replaceAll("\\", "/");
     const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";
