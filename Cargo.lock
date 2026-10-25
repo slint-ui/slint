@@ -3276,6 +3276,7 @@ dependencies = [
  "pin-project",
  "pin-weak",
  "qttypes",
+ "swash",
  "vtable",
 ]
 
