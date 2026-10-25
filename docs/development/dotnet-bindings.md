@@ -273,7 +273,13 @@ Next:
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   A draft pull request can collect design feedback early.
   The README links to `WHATS_NEW.md` on the fork, which the pull request points at `slint-ui/slint` instead.
-- **10.** A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
+- **10.** A C# tab in the pages of the documentation website that have a Python tab, and in `live-preview.mdx`,
+  once the bindings are part of a Slint release.
+  The tutorial needs its C# code next to the other languages in `docs/astro/src/content/code/`.
+  Until then, a community page on the fork's `gh-pages` branch, at <https://yurkinh.github.io/slint/>,
+  extends the README with deployment, troubleshooting, and samples.
+  It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
+  The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
 - **12.** Project directories in `<SlintFile>` and generated code, to compile with the settings and the edition of a `slint-project.json`.
   A `.slint` path compiles without a project file, and so without an edition, which keeps the behavior from before editions.
 - **13.** More `csharp` blocks, for the cases that test input, animations, and models,
