@@ -2077,6 +2077,7 @@ fn build(l: &mut Loader) {
         /// On macOS, Slint moves these items into the application menu.
         /// On other platforms, "About", "Settings", and "Quit" items stay where you declare them,
         /// and items with the macOS-only roles are hidden.
+        /// The same applies on macOS when Slint renders the menu bar in the window, such as with the Qt backend.
         ///
         /// ```slint
         /// export component Example inherits Window {

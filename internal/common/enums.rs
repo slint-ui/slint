@@ -716,16 +716,16 @@ macro_rules! for_each_enums {
                 /// The shortcut defaults to Command+Q on macOS.
                 Quit,
                 /// The item is the system's "Services" sub-menu on macOS.
-                /// `activated` isn't invoked.
+                /// `activated` isn't invoked and `shortcut` is ignored.
                 Services,
                 /// The item hides the application on macOS.
-                /// `activated` isn't invoked.
+                /// `activated` isn't invoked and `shortcut` is ignored.
                 Hide,
                 /// The item hides all other applications on macOS.
-                /// `activated` isn't invoked.
+                /// `activated` isn't invoked and `shortcut` is ignored.
                 HideOthers,
                 /// The item shows all hidden applications on macOS.
-                /// `activated` isn't invoked.
+                /// `activated` isn't invoked and `shortcut` is ignored.
                 ShowAll,
             }
 
