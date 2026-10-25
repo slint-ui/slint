@@ -199,4 +199,46 @@ assert instance.root_flag_value == False
 instance.root_compute = lambda x: x + 1
 assert instance.root_computed == 8
 ```
+
+```csharp
+using var instance = TestCase.Create();
+
+// Global callbacks
+Assert.IsFalse(instance.ShowIt);
+Assert.AreEqual(0, instance.OutValue);
+
+instance.Logic.OnShouldShow(() => true);
+Assert.IsTrue(instance.ShowIt);
+
+instance.Logic.OnComputeValue(() => 42);
+Assert.AreEqual(42, instance.OutValue);
+
+Testing.SendMouseClick(instance.Instance, 50, 50);
+Assert.AreEqual(1, instance.ClickCount);
+
+instance.Logic.OnShouldShow(() => false);
+Assert.IsFalse(instance.ShowIt);
+
+instance.Logic.OnComputeValue(() => 100);
+Assert.AreEqual(100, instance.OutValue);
+
+Testing.SendMouseClick(instance.Instance, 50, 50);
+Assert.AreEqual(1, instance.ClickCount);
+
+// Root-level callbacks
+Assert.IsFalse(instance.RootFlagValue);
+Assert.AreEqual(0, instance.RootComputed);
+
+instance.OnRootFlag(() => true);
+Assert.IsTrue(instance.RootFlagValue);
+
+instance.OnRootCompute(x => x * 3);
+Assert.AreEqual(21, instance.RootComputed);
+
+instance.OnRootFlag(() => false);
+Assert.IsFalse(instance.RootFlagValue);
+
+instance.OnRootCompute(x => x + 1);
+Assert.AreEqual(8, instance.RootComputed);
+```
 */

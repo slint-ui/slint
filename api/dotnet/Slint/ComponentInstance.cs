@@ -25,6 +25,8 @@ public sealed unsafe class ComponentInstance : IDisposable
         _live = live;
     }
 
+    internal ComponentInstanceHandle Handle => _handle;
+
     /// <summary>
     /// Compiles the component <paramref name="componentName"/> of the <c>.slint</c> file <paramref name="path"/> and creates it.
     /// While the event loop runs, the component reloads whenever the file or a file it imports changes,

@@ -21,6 +21,7 @@
   <ItemGroup>
     <None Include="$(SlintNativeLibraryPath)" Link="$(SlintNativeLibraryName)" Condition="Exists('$(SlintNativeLibraryPath)')" CopyToOutputDirectory="PreserveNewest" Visible="false" Pack="false" />
     <InternalsVisibleTo Include="Slint.Tests" />
+    <InternalsVisibleTo Include="Slint.TestDriver" />
     <!-- NuGet imports build/<package id>.targets, so the file takes the name of the package. -->
     <None Include="build/Slint.targets" Pack="true" PackagePath="build/$(PackageId).targets" />
     <None Include="../README.md" Pack="true" PackagePath="/" />

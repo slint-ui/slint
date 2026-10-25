@@ -17,6 +17,8 @@ mod instance;
 mod interpreter;
 mod models;
 mod special;
+#[cfg(feature = "testing")]
+mod testing;
 mod timer;
 mod translations;
 mod value;

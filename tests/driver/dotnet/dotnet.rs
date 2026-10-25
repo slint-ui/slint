@@ -3,6 +3,7 @@
 
 //! Generates C# for every test case, builds all of it into one runner, and runs each case in its own process.
 //! A `dotnet build` per case would take seconds each.
+//! The `csharp` blocks of a case run after the check of its `test` properties.
 
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
@@ -52,6 +53,7 @@ pub fn test(identifier: &str) -> Result<(), Box<dyn Error>> {
 /// The components of a generated case, and whether each has a `bool` `test` property.
 struct Case {
     components: Vec<(String, bool)>,
+    has_blocks: bool,
 }
 
 /// Not canonicalized: on Windows that gives a `\\?\` path, which MSBuild can't import from.
@@ -59,7 +61,8 @@ fn repository() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(3).unwrap().to_path_buf()
 }
 
-fn generate(identifier: &str, path: &Path) -> Result<(String, Case), String> {
+/// Returns the generated code, and the `csharp` blocks as a class, if there are any.
+fn generate(identifier: &str, path: &Path) -> Result<(String, Option<String>, Case), String> {
     let source = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
     let mut diag = BuildDiagnostics::default();
     let syntax_node =
@@ -107,12 +110,28 @@ fn generate(identifier: &str, path: &Path) -> Result<(String, Case), String> {
             (csharp::ident(&doc.export_names(&c)[0]), has_test)
         })
         .collect();
-    Ok((String::from_utf8(code).unwrap(), Case { components }))
+
+    let blocks = test_driver_lib::extract_test_functions(&source)
+        .filter(|f| f.language_id == "csharp")
+        .map(|f| {
+            format!(
+                "        {{\n            {}\n        }}\n",
+                f.source.replace('\n', "\n            ")
+            )
+        })
+        .collect::<String>();
+    let blocks = (!blocks.is_empty()).then(|| {
+        format!(
+            "namespace Case_{identifier};\n\ninternal static class TestBlocks\n{{\n    public static void Run()\n    {{\n{blocks}    }}\n}}\n"
+        )
+    });
+    let has_blocks = blocks.is_some();
+    Ok((String::from_utf8(code).unwrap(), blocks, Case { components, has_blocks }))
 }
 
 fn write_program(dir: &Path, cases: &BTreeMap<String, Case>) {
     let mut program = String::from(
-        "internal static class Program\n{\n    private static int Main(string[] args)\n    {\n        switch (args[0])\n        {\n",
+        "internal static class Program\n{\n    private static int Main(string[] args)\n    {\n        global::Slint.Testing.Init();\n        switch (args[0])\n        {\n",
     );
     for (identifier, case) in cases {
         let _ = writeln!(program, "            case \"{identifier}\":");
@@ -129,6 +148,10 @@ fn write_program(dir: &Path, cases: &BTreeMap<String, Case>) {
                 program,
                 "                using (var c = global::Case_{identifier}.{class}.Create()) {{{check} }}"
             );
+        }
+        if case.has_blocks {
+            let _ =
+                writeln!(program, "                global::Case_{identifier}.TestBlocks.Run();");
         }
         let _ = writeln!(program, "                return 0;");
     }
@@ -167,8 +190,12 @@ fn build_batch() -> Batch {
     for line in std::fs::read_to_string(env!("TEST_CASES")).unwrap().lines() {
         let (identifier, path) = line.split_once('\t').unwrap();
         match generate(identifier, Path::new(path)) {
-            Ok((code, case)) => {
+            Ok((code, blocks, case)) => {
                 std::fs::write(cases_dir.join(format!("{identifier}.g.cs")), code).unwrap();
+                if let Some(blocks) = blocks {
+                    std::fs::write(cases_dir.join(format!("{identifier}.test.cs")), blocks)
+                        .unwrap();
+                }
                 cases.insert(identifier.to_string(), case);
             }
             Err(e) => {
@@ -187,11 +214,17 @@ fn build_batch() -> Batch {
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- Slint.csproj makes Slint.Testing visible to this assembly. -->
+    <AssemblyName>Slint.TestDriver</AssemblyName>
     <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
     <GenerateFullPaths>true</GenerateFullPaths>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="{}" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.0.2" />
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <Using Include="Slint" />
   </ItemGroup>
 </Project>
 "#,
@@ -227,6 +260,7 @@ fn build_batch() -> Batch {
         }
         for (identifier, lines) in failed {
             let _ = std::fs::remove_file(cases_dir.join(format!("{identifier}.g.cs")));
+            let _ = std::fs::remove_file(cases_dir.join(format!("{identifier}.test.cs")));
             cases.remove(&identifier);
             failures.insert(
                 identifier,
@@ -235,16 +269,16 @@ fn build_batch() -> Batch {
         }
     }
 
-    Batch { failures, runner: dir.join("bin/Debug/net10.0/runner.dll") }
+    Batch { failures, runner: dir.join("bin/Debug/net10.0/Slint.TestDriver.dll") }
 }
 
 /// Returns a function that extracts the case of a C# compiler error line, such as
-/// `/…/cases/basic_x.g.cs(3,5): error CS0103: …`.
+/// `/…/cases/basic_x.g.cs(3,5): error CS0103: …`, or of its `csharp` blocks in `basic_x.test.cs`.
 fn regex_lite(cases_dir: &Path) -> impl Fn(&str) -> Option<String> {
     let prefix = format!("{}{}", cases_dir.display(), std::path::MAIN_SEPARATOR);
     move |line: &str| {
         let rest = line.trim().strip_prefix(&prefix)?;
-        let (file, rest) = rest.split_once(".g.cs(")?;
+        let (file, rest) = rest.split_once(".g.cs(").or_else(|| rest.split_once(".test.cs("))?;
         rest.contains("): error ").then(|| file.to_string())
     }
 }

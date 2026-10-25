@@ -130,4 +130,19 @@ instance.dash = With_dash.hallo
 instance.dash = With_dash.hello_world
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(Foo.Bla, instance.Foo);
+Assert.IsTrue(instance.Test);
+instance.Foo = Foo.Blu;
+Assert.IsFalse(instance.Test);
+
+Assert.AreEqual(WithDash.HalloWorld, instance.Dash);
+instance.Dash = WithDash.Hallo;
+instance.Dash = WithDash.HelloWorld;
+Assert.AreEqual(WithDash.HelloWorld, instance.Dash);
+
+// Built-in enums aren't generated, and come as their Slint names.
+Assert.AreEqual(new EnumValue("ColorScheme", "dark"), instance.Scheme);
+```
 */

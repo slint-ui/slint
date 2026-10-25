@@ -91,4 +91,18 @@ assert instance.computed == 6
 instance.Provider.compute = lambda x: x + 100
 assert instance.computed == 105
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(50, instance.Computed);
+Assert.AreEqual(15, instance.Shifted);
+
+// A handler set from C# wins over the one implemented in Slint.
+instance.Impl.OnCompute(x => x + 1);
+Assert.AreEqual(6, instance.Computed);
+
+// Both globals alias the same callback, so the last handler set wins.
+instance.Provider.OnCompute(x => x + 100);
+Assert.AreEqual(105, instance.Computed);
+```
 */

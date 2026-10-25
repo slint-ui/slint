@@ -140,6 +140,11 @@ It passes the include and library paths and the bundled translations of a case l
 Like them, it sets `SLINT_EDITION` to the edition of this Slint, for the compiler and for the runner,
 since layout fixes such as #407 only apply from edition 1.19.
 
+The ```` ```csharp ```` blocks of a case go into `cases/<case>.test.cs`, which the runner calls after the `test` check.
+The runner is the assembly `Slint.TestDriver`, which sees the internal `Slint.Testing`.
+`Testing.Init` installs the testing backend with mocked time before the first use of Slint, like `initTesting` in Node.js.
+`Slint.Tests` keeps the testing backend of `SLINT_BACKEND=testing`, which runs on real time for its timer tests.
+
 ## Packages
 
 There are two packages.
@@ -251,6 +256,9 @@ Done:
   - translations, bundled and through an `ITranslator`
   - the model adapters, in C# in `Slint/ModelAdapters.cs`
   - C# names for exported aliases of components; structs and enums keep only their own name
+- **9.** `csharp` test blocks in `tests/cases`, starting with the cases that have Python blocks,
+  see [Test Driver](#test-driver).
+  More cases can get blocks over time, such as the ones with input or animations.
 - **11.** On Windows, a clear exception in `Create` and `Run` for a thread that isn't in a single-threaded apartment,
   instead of a winit panic, see [Threading and macOS](#threading-and-macos).
   Turning off drag and drop in winit would make such threads work, but lose file drops,
@@ -263,7 +271,6 @@ Next:
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   A draft pull request can collect design feedback early.
   The README links to `WHATS_NEW.md` on the fork, which the pull request points at `slint-ui/slint` instead.
-- **9.** `csharp` test blocks in `tests/cases`, to check the generated API like the other drivers do.
 - **10.** A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
 - **12.** Project directories in `<SlintFile>` and generated code, to compile with the settings and the edition of a `slint-project.json`.
   A `.slint` path compiles without a project file, and so without an edition, which keeps the behavior from before editions.

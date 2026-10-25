@@ -77,4 +77,16 @@ assert hints.auto_correct
 assert hints.auto_complete
 assert hints.capitalization == slint.language.CapitalizationMode.sentences
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+
+// Built-in structs come as untyped structs, with the declared defaults.
+var hints = instance.NeverSet;
+Assert.AreEqual(true, hints["auto-correct"]);
+Assert.AreEqual(true, hints["auto-complete"]);
+Assert.AreEqual(new EnumValue("CapitalizationMode", "sentences"), hints["capitalization"]);
+Assert.AreEqual(new EnumValue("CapitalizationMode", "words"), instance.Partial["capitalization"]);
+```
 */

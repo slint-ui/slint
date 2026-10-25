@@ -564,4 +564,27 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     public static partial void slint_dotnet_window_dispatch_close_requested(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_testing_init();
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_testing_mock_elapsed_time(ulong ms);
+
+    [LibraryImport(Library)]
+    public static partial ulong slint_dotnet_testing_get_mocked_time();
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_testing_send_mouse_click(ComponentInstanceHandle instance, float x, float y);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_testing_send_keyboard_string_sequence(ComponentInstanceHandle instance, Utf8Str sequence);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_testing_send_key_combo(ComponentInstanceHandle instance, Utf8Str* keys, nuint count);
 }
