@@ -2134,7 +2134,11 @@ impl WindowInner {
             };
             flatten_menu(VRc::borrow(&menubar), None)
                 .into_iter()
-                .filter(|entry| entry.enabled && entry.shortcut != Keys::default())
+                .filter(|entry| {
+                    entry.enabled
+                        && entry.shortcut != Keys::default()
+                        && !entry.role.is_application_menu_role()
+                })
                 .collect()
         });
     }
