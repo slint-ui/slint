@@ -158,7 +158,8 @@ jobs:
                   mkdir ui
                   printf 'export component App inherits Window { in-out property <int> counter: 41; }\n' > ui/app.slint
                   sed -i.bak 's#</Project>#<ItemGroup><SlintFile Include="ui/app.slint" /></ItemGroup></Project>#' app.csproj
-                  printf 'using var a = app.App.Create();\na.Counter++;\nif (a.Counter != 42) return 1;\nSystem.Console.WriteLine("ok");\nreturn 0;\n' > Program.cs
+                  # An explicit Main, since Windows needs [STAThread], like the README says.
+                  printf 'static class Program\n{\n    [System.STAThread]\n    static int Main()\n    {\n        using var a = app.App.Create();\n        a.Counter++;\n        if (a.Counter != 42) return 1;\n        System.Console.WriteLine("ok");\n        return 0;\n    }\n}\n' > Program.cs
                   dotnet run
 
     publish:
