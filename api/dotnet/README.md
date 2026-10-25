@@ -10,6 +10,12 @@ Slint for .NET is a preview: its APIs may still change.
 
 See [What's New](https://github.com/yurkinh/slint/blob/dotnet_bindings/api/dotnet/WHATS_NEW.md) for the changes in each preview.
 
+## Documentation
+
+The [Slint for .NET documentation](https://yurkinh.github.io/slint/) covers more than this README,
+such as deployment, troubleshooting, and samples.
+It's community documentation, not affiliated with SixtyFPS GmbH.
+
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
