@@ -332,20 +332,18 @@ test("ignores a late capture of an earlier preview of the same file", async () =
     assert.equal(content[0].type, "text");
 });
 
-test("returns pending when startup is unconfirmed, then accepts a late view", async () => {
+test("returns a fallback when no view starts, then accepts a late view", async () => {
     const previewId = await startPreview({ source: "export component B {}" });
-    const start = Date.now();
-    const { content, structuredContent } = await callTool("get_preview_screenshot", {});
-    assert.match(content[0].text, /pending \(waiting\).*again/);
-    assert.equal(structuredContent.previewId, previewId);
-    assert.equal(structuredContent.status, "pending");
-    assert.equal(structuredContent.stage, "waiting");
-    assert.ok(Date.now() - start < 400);
+    const result = await callTool("get_preview_screenshot", {});
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes("slint-viewer --screenshot"));
+    assert.ok(!result.content[0].text.includes("again"));
+    const again = await callTool("get_preview_screenshot", {});
+    assert.equal(again.isError, true);
 
-    const retry = callTool("get_preview_screenshot", {});
     await callTool("publish_preview_capture", { previewId, started: true });
     await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
-    assert.equal((await retry).structuredContent.status, "ready");
+    assert.equal((await callTool("get_preview_screenshot", {})).structuredContent.status, "ready");
 });
 
 test("reports the current stage and timings while rendering remains pending", async () => {
@@ -369,24 +367,6 @@ test("reports the current stage and timings while rendering remains pending", as
     const timeout = await callTool("get_preview_screenshot", {});
     assert.equal(timeout.structuredContent.status, "timeout");
     assert.equal(timeout.structuredContent.stage, "compiling");
-});
-
-test("stops requesting retries when no view starts before the overall deadline", async () => {
-    const previewId = await startPreview({ source: "export component A {}" });
-    let result;
-    for (let attempt = 0; attempt < 6; attempt++) {
-        result = await callTool("get_preview_screenshot", {});
-        if (result.structuredContent.status !== "pending") break;
-    }
-    assert.equal(result.structuredContent.status, "timeout");
-    assert.equal(result.structuredContent.previewId, previewId);
-    assert.equal(result.structuredContent.stage, "waiting");
-    assert.match(result.content[0].text, /Stop retrying automatically/);
-    const again = await callTool("get_preview_screenshot", {});
-    assert.equal(again.structuredContent.status, "timeout");
-
-    await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
-    assert.equal((await callTool("get_preview_screenshot", {})).structuredContent.status, "ready");
 });
 
 test("tells a waiting call that a newer preview replaced it", async () => {

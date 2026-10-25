@@ -202,11 +202,12 @@
       return slint;
     });
     // wasm-pack publishes the interpreter's package.json next to it.
-    const runtime = fetch(new URL("package.json", INTERPRETER_URL))
+    const current = { tag, slint, panicked, panic, runtime: `Slint (${CHANNEL})` };
+    fetch(new URL("package.json", INTERPRETER_URL))
       .then((response) => response.json())
-      .then(({ version }) => `Slint ${version} (${CHANNEL})`)
-      .catch(() => `Slint (${CHANNEL})`);
-    interpreter = { tag, slint, panicked, panic, runtime };
+      .then(({ version }) => { current.runtime = `Slint ${version} (${CHANNEL})`; })
+      .catch(() => {});
+    interpreter = current;
     return interpreter;
   }
 
@@ -319,7 +320,6 @@
   }
 
   let instance = null;
-  let runtime = null;
   async function render({ source, path, style }, previewId) {
     let url = "main.slint";
     let loadImport = null;
@@ -362,7 +362,6 @@
       reportToModel(`The Slint preview couldn't load the interpreter: ${e}`);
       return;
     }
-    runtime = await current.runtime;
     showStatus("Compiling…");
     publish({ previewId, stage: "compiling" }).catch(() => {});
     const { component, diagnostics } = await untilPanic(
@@ -382,7 +381,7 @@
     const problems = diagnostics.filter((d) => d.level <= 1);
     if (problems.length) {
       reportToModel(
-        `The Slint preview, with ${runtime}, reported:\n` +
+        `The Slint preview, with ${current.runtime}, reported:\n` +
           problems.map((d) => `${location(d)}: ${LEVELS[d.level]}: ${d.message}`).join("\n"),
       );
     }
@@ -456,7 +455,7 @@
       }
     }
     const capture = error ? { error } : captureCanvas();
-    return publish({ previewId: await previewId, runtime: runtime ?? undefined, ...capture });
+    return publish({ previewId: await previewId, runtime: interpreter?.runtime, ...capture });
   }
 
   function reportToModel(text) {
@@ -490,7 +489,11 @@
             showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
           })
           .then(() => publishCapture(previewId))
-          .catch((e) => showStatus(`Couldn't capture the preview: ${e}`, "error"));
+          .catch(async (e) => {
+            const error = `Couldn't capture the preview: ${e}`;
+            showStatus(error, "error");
+            await publish({ previewId: await previewId, error }).catch(() => {});
+          });
         break;
       }
       case "ui/notifications/tool-result":

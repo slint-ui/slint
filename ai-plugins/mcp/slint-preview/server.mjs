@@ -157,7 +157,6 @@ const tools = [
 // The latest preview_slint call, whether its view has started, its capture once the view
 // publishes it, and the get_preview_screenshot calls waiting for any of these to change.
 let latestPreview = null;
-
 function notify(preview) {
     for (const listener of preview.listeners.splice(0)) listener();
 }
@@ -229,7 +228,7 @@ const toolCalls = {
         if (!preview) {
             return textResult("Call preview_slint first.", true);
         }
-        const viewDeadline = Date.now() + VIEW_START_TIMEOUT_MS;
+        const viewDeadline = preview.requestedAt + VIEW_START_TIMEOUT_MS;
         const captureDeadline = Date.now() + SCREENSHOT_TIMEOUT_MS;
         const overallDeadline = preview.requestedAt + PREVIEW_TIMEOUT_MS;
         while (!preview.capture && preview === latestPreview) {
@@ -247,6 +246,9 @@ const toolCalls = {
             return textResult(
                 `A newer preview_slint call replaced preview ${id}. Call get_preview_screenshot again.`,
             );
+        }
+        if (!capture && !preview.viewStarted) {
+            return textResult("The preview view did not start. Use slint-viewer --screenshot instead.", true);
         }
         const structuredContent = {
             status: capture
