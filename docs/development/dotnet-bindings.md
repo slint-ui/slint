@@ -256,9 +256,11 @@ Done:
   - translations, bundled and through an `ITranslator`
   - the model adapters, in C# in `Slint/ModelAdapters.cs`
   - C# names for exported aliases of components; structs and enums keep only their own name
-- **9.** `csharp` test blocks in `tests/cases`, starting with the cases that have Python blocks,
-  see [Test Driver](#test-driver).
-  More cases can get blocks over time, such as the ones with input or animations.
+- **9.** `csharp` test blocks in `tests/cases`, see [Test Driver](#test-driver).
+  The 18 cases with Python blocks and `callbacks/handler` have one.
+  They use `Slint.Testing` for clicks, keys, and mocked time.
+  Writing them found that generated records ignored struct field defaults,
+  and that numbers converted to integers by rounding, and threw on overflow.
 - **11.** On Windows, a clear exception in `Create` and `Run` for a thread that isn't in a single-threaded apartment,
   instead of a winit panic, see [Threading and macOS](#threading-and-macos).
   Turning off drag and drop in winit would make such threads work, but lose file drops,
@@ -274,6 +276,9 @@ Next:
 - **10.** A `.NET` tab in `live-preview.mdx` and the other pages of the documentation website, once the bindings are released.
 - **12.** Project directories in `<SlintFile>` and generated code, to compile with the settings and the edition of a `slint-project.json`.
   A `.slint` path compiles without a project file, and so without an edition, which keeps the behavior from before editions.
+- **13.** More `csharp` blocks, for the cases that test input, animations, and models,
+  ported from their `rust` or `js` blocks.
+  Cases with pinch gestures or flickable physics first need those helpers in `Slint.Testing`.
 
 ## Live Reload
 
