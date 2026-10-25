@@ -1187,7 +1187,7 @@ pub trait Surface {
 
     /// Renders a snapshot of the window on the GPU, with `render_callback` drawing the scene.
     /// Unlike a snapshot rendered on the CPU, it includes the textures the surface imports,
-    /// such as the ones of [`Self::import_wgpu_texture`].
+    /// such as imported WGPU textures.
     /// Returns `None` if the surface doesn't render on the GPU.
     fn render_snapshot(
         &self,
