@@ -8,31 +8,7 @@ Slint for .NET is a preview: its APIs may still change.
 
 ## What's New
 
-### 1.19.0-preview.4
-
-- Update to the latest Slint, including Slint editions.
-- When a live reload removes a property or callback that your code sets, the application prints a warning and keeps running.
-  See [What Needs a Restart](#what-needs-a-restart).
-- On Windows, `Create`, `CreateLive`, and `Run` throw an `InvalidOperationException` on a thread without `[STAThread]`,
-  instead of failing later in the windowing system.
-
-### 1.19.0-preview.3
-
-- Use the [`Window`](#window) API to show, hide, move, resize, and maximize windows.
-- Pass `Brush`, colors, and typed positions and sizes to properties.
-- Translate your UI with [translations](#translations).
-- Filter, sort, map, and reverse [models](#models) with model adapters.
-- Use `Keys`, `StyledText`, `DataTransfer`, and component aliases.
-- Pass include and library paths to the generated code with `SlintIncludePaths` and `<SlintLibraryPath>`.
-
-### 1.19.0-preview.2
-
-- See your changes to `.slint` files without restarting, with [hot reload](#hot-reload).
-
-### 1.19.0-preview.1
-
-- The first preview: generate C# from `.slint` files, set and read properties, handle callbacks,
-  and use models, timers, and async code.
+See [What's New](https://github.com/yurkinh/slint/blob/dotnet_bindings/api/dotnet/WHATS_NEW.md) for the changes in each preview.
 
 ## Prerequisites
 
