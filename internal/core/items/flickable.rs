@@ -680,6 +680,7 @@ impl FlickableDataInner {
         mut delta: LogicalVector,
         position: LogicalPoint,
         phase: TouchPhase,
+        window_adapter: &Rc<dyn WindowAdapter>,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
@@ -755,6 +756,16 @@ impl FlickableDataInner {
                     flicked =
                         self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
                     self.capture_events = Some(CaptureEvents::WheelMove);
+                } else if window_adapter.window().0.reduced_motion() {
+                    // Mousewheel case with no phase, and the user asked for less motion:
+                    // land on the new position right away instead of easing towards it.
+                    let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+                    let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
+                    let new_pos = ensure_in_bound(flick, current_pos + delta, &geo, false, false);
+                    content_x.set(new_pos.x_length());
+                    content_y.set(new_pos.y_length());
+                    flicked = new_pos != current_pos;
+                    self.last_scroll_event = Some((crate::animations::current_tick(), position));
                 } else {
                     // Mousewheel case with no phase
                     // Add a short animation that covers the delta for smooth scrolling
@@ -817,7 +828,12 @@ impl FlickableDataInner {
                 let moved =
                     self.capture_events.is_some_and(|capture| capture == CaptureEvents::WheelMove);
                 if moved {
-                    self.animate(flick, flick_rc, crate::animations::current_tick());
+                    self.animate(
+                        flick,
+                        window_adapter,
+                        flick_rc,
+                        crate::animations::current_tick(),
+                    );
                 }
                 self.capture_events = None;
                 if !moved {
@@ -1028,7 +1044,13 @@ impl FlickableDataInner {
     }
 
     /// `release_time` is when the pointer was released, on the clock of the tracked samples.
-    fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc, release_time: Instant) {
+    fn animate(
+        &mut self,
+        flick: Pin<&Flickable>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        flick_rc: &ItemRc,
+        release_time: Instant,
+    ) {
         if self.capture_events.is_some() {
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
             let (inside_bounds_x, inside_bounds_y) = inside_bounds(
@@ -1036,8 +1058,12 @@ impl FlickableDataInner {
                 LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
                 &geo,
             );
-            let estimated_velocity =
-                self.velocity_rb.estimate_velocity(release_time).map(|v| v.velocity);
+            // Without a release velocity the content doesn't fling.
+            let estimated_velocity = if window_adapter.window().0.reduced_motion() {
+                None
+            } else {
+                self.velocity_rb.estimate_velocity(release_time).map(|v| v.velocity)
+            };
 
             // The release simulation generic over the Dimension
             let release_simulation = |dimension: Dimension,
@@ -1386,7 +1412,7 @@ impl FlickableData {
                             MouseEvent::Released { event_time: Some(time), .. } => *time,
                             _ => crate::animations::current_tick(),
                         };
-                        inner.animate(flick, flick_rc, release_time);
+                        inner.animate(flick, window_adapter, flick_rc, release_time);
                         inner.capture_events = None;
                         InputEventResult::EventAccepted
                     } else if c == CaptureEvents::MouseStart {
@@ -1464,7 +1490,7 @@ impl FlickableData {
             }
             MouseEvent::Wheel { delta_x, delta_y, position, phase } => {
                 let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                inner.process_wheel_event(flick, delta, *position, *phase, flick_rc)
+                inner.process_wheel_event(flick, delta, *position, *phase, window_adapter, flick_rc)
             }
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
