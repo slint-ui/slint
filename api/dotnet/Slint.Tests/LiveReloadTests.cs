@@ -120,4 +120,20 @@ public sealed class LiveReloadTests
         app.Count = 4;
         Assert.AreEqual(4, app.Count);
     });
+
+    [TestMethod]
+    public void ReloadThatRemovesASetMemberKeepsRunning() => SlintThread.Run(() =>
+    {
+        var path = NewFile(Source("first"));
+        using var app = ComponentInstance.CreateLive(path, "App");
+        app.SetProperty("value", 5);
+        app.SetCallback("clicked", _ => "handled");
+
+        Assert.IsTrue(
+            RunUntilReloaded(app, () => File.WriteAllText(path, "export component App inherits Window { out property <string> label: \"second\"; }"), TimeSpan.FromSeconds(20)),
+            "the component didn't reload");
+
+        Assert.AreEqual("second", app.GetProperty("label"));
+        Assert.ThrowsExactly<SlintException>(() => app.GetProperty("value"));
+    });
 }

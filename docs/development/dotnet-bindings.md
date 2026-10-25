@@ -134,6 +134,8 @@ A case whose generated code doesn't compile is dropped from the runner and fails
 The driver builds `slint-dotnet` with the `testing` feature,
 which uses the test fonts and reports Windows as the operating system, like the interpreter driver.
 It passes the include and library paths and the bundled translations of a case like the other drivers do.
+Like them, it sets `SLINT_EDITION` to the edition of this Slint, for the compiler and for the runner,
+since layout fixes such as #407 only apply from edition 1.19.
 
 ## Packages
 
@@ -247,6 +249,8 @@ Next:
     instead of letting winit panic, see [Threading and macOS](#threading-and-macos) (done).
     Turning off drag and drop in winit would make such threads work, but lose file drops,
     and Slint doesn't expose that option.
+12. Project directories in `<SlintFile>` and generated code, to compile with the settings and the edition of a `slint-project.json`.
+    A `.slint` path compiles without a project file, and so without an edition, which keeps the behavior from before editions.
 
 ## Live Reload
 
@@ -266,8 +270,8 @@ behind the `live-preview` feature, which is on by default:
 - The instance handle is `DotnetInstance` in `api/dotnet/native/instance.rs`:
   `Static` for a component from `ComponentDefinition.Create`, `Live` for a reloading one.
   Every `slint_dotnet_component_instance_*` export works on both, so the C# API is the same.
-- `LiveReloadingComponent` panics when it sets a member that doesn't exist,
-  so the `Live` setters first set the member on the current instance, which fails instead, and then record it.
+- The `Live` setters use the `try_` setters of `LiveReloadingComponent`, which record a member only if it exists.
+  Its error hook prints a warning for a recorded member that a reload removed, where the default hook panics.
 - `Run` doesn't keep the instance borrowed during the event loop, since a reload replaces it.
 - The reload hook calls a `LiveEvents` object, which raises `ComponentInstance.Reloaded`.
   It doesn't reference the instance, so the hook doesn't keep the instance alive.
@@ -278,9 +282,7 @@ Without the feature in the native library, generated code warns and creates comp
 because changing an option such as `-p:SlintLivePreview=true` changes no other input.
 In live mode, the `.slint` files get `Watch="false"`, so that `dotnet watch` doesn't restart the application for them.
 
-Renaming a member that code sets still ends the application at the next reload, as in Rust and C++.
-A check of the generated API after each reload would come too late:
-`LiveReloadingComponent` sets the recorded members before the reload hook runs.
+Renaming a member that code sets only warns at the next reload; calls to the old member throw until a rebuild.
 
 `LiveReloadTests` changes files in the test output directory, not in the system temporary directory:
 that one can be behind a symbolic link, such as `/var` on macOS, and the file watcher doesn't resolve links.

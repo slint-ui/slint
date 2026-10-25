@@ -33,7 +33,7 @@ public sealed unsafe class ComponentInstance : IDisposable
     /// <remarks>
     /// Use it during development only.
     /// A file with errors keeps the previous version.
-    /// If a property or callback that you set no longer exists after a change, the application terminates.
+    /// If a property or callback that you set no longer exists after a change, the reload prints a warning.
     /// </remarks>
     /// <exception cref="InvalidOperationException">On Windows, the thread isn't in a single-threaded apartment, which winit needs.</exception>
     public static ComponentInstance CreateLive(

@@ -29,23 +29,22 @@ impl DotnetInstance {
         }
     }
 
-    // A live component remembers what it sets, to set it again after a reload. It panics for a
-    // member that doesn't exist, so each setter first sets the member on the instance, which fails instead.
+    // A live component remembers what it sets, to set it again after a reload.
 
     fn set_property(&self, global: Option<&str>, name: &str, value: &Value) -> Result<(), String> {
-        let set = |instance: &ComponentInstance| match global {
-            Some(global) => instance.set_global_property(global, name, value.clone()),
-            None => instance.set_property(name, value.clone()),
+        let value = value.clone();
+        let result = match self {
+            Self::Static(instance) => match global {
+                Some(global) => instance.set_global_property(global, name, value),
+                None => instance.set_property(name, value),
+            },
+            #[cfg(feature = "live-preview")]
+            Self::Live(live) => match global {
+                Some(global) => live.borrow().try_set_global_property(global, name, value),
+                None => live.borrow().try_set_property(name, value),
+            },
         };
-        self.with(set).map_err(|e| e.to_string())?;
-        #[cfg(feature = "live-preview")]
-        if let Self::Live(live) = self {
-            match global {
-                Some(global) => live.borrow().set_global_property(global, name, value.clone()),
-                None => live.borrow().set_property(name, value.clone()),
-            }
-        }
-        Ok(())
+        result.map_err(|e| e.to_string())
     }
 
     fn set_callback(
@@ -56,24 +55,20 @@ impl DotnetInstance {
     ) -> Result<(), String> {
         let handler: std::rc::Rc<dyn Fn(&[Value]) -> Value> =
             std::rc::Rc::new(move |args: &[Value]| callback.call(args));
-        let first = handler.clone();
-        let set = |instance: &ComponentInstance| match global {
-            Some(global) => instance
-                .set_global_callback(global, name, move |args| first(args))
-                .map_err(|e| e.to_string()),
-            None => instance.set_callback(name, move |args| first(args)).map_err(|e| e.to_string()),
+        let result = match self {
+            Self::Static(instance) => match global {
+                Some(global) => {
+                    instance.set_global_callback(global, name, move |args| handler(args))
+                }
+                None => instance.set_callback(name, move |args| handler(args)),
+            },
+            #[cfg(feature = "live-preview")]
+            Self::Live(live) => match global {
+                Some(global) => live.borrow().try_set_global_callback(global, name, handler),
+                None => live.borrow().try_set_callback(name, handler),
+            },
         };
-        self.with(set)?;
-        #[cfg(feature = "live-preview")]
-        if let Self::Live(live) = self {
-            match global {
-                Some(global) => live.borrow().set_global_callback(global, name, handler),
-                None => live.borrow().set_callback(name, handler),
-            }
-        }
-        #[cfg(not(feature = "live-preview"))]
-        drop(handler);
-        Ok(())
+        result.map_err(|e| e.to_string())
     }
 
     fn run(&self) -> Result<(), String> {
@@ -324,9 +319,11 @@ pub unsafe extern "C" fn slint_dotnet_live_component_new(
                 }
                 compiler
             };
-            LiveReloadingComponent::new(compiler_factory, path, Some(component))
-                .map(|live| into_raw(DotnetInstance::Live(live)))
-                .map_err(|e| e.to_string())
+            let live = LiveReloadingComponent::new(compiler_factory, path, Some(component))
+                .map_err(|e| e.to_string())?;
+            // A reload that removed a member the application sets warns, instead of ending the application.
+            live.borrow_mut().set_error_hook(|error| eprintln!("Slint: live reload: {error}"));
+            Ok(into_raw(DotnetInstance::Live(live)))
         }
         #[cfg(not(feature = "live-preview"))]
         {

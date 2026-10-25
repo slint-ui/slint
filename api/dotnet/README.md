@@ -243,7 +243,8 @@ both without a restart and without losing the state of the application.
 ### What Needs a Restart
 
 - Renaming or removing a property, callback, or function that your C# code uses.
-  The generated classes still have the old members, and the application ends at the next reload.
+  The reload prints a warning for each member it can't set again,
+  and the generated classes still have the old members, which throw `SlintException` until you rebuild.
 - A C# change that .NET Hot Reload can't apply, such as a new method signature or a new type.
   `dotnet watch` offers to restart the application.
 - Changes to the project file, such as turning `SlintLivePreview` on or off.
