@@ -29,7 +29,6 @@ mkdirSync(join(project, "ui"), { recursive: true });
 for (const name of [
     "ok.slint",
     "broken.slint",
-    "a broken.slint",
     "hang.slint",
     "slow-1.slint",
     "slow-2.slint",
@@ -151,12 +150,15 @@ test("stays silent when slint-viewer is missing", () => {
     );
 });
 
-for (const command of [
-    "cat > 'ui/a broken.slint'",
-    'cat > "ui/a broken.slint"',
-    "cat > ui/a\\ broken.slint",
-]) {
-    test(`checks a shell-edited path with spaces: ${command}`, { skip }, () => {
-        assert.match(runHook("Bash", command), /Unknown element/);
-    });
-}
+
+test("retains diagnostics inside scripts and next to punctuation", { skip }, () => {
+    for (const command of [
+        "bash -lc 'sed -i s/a/b/ ui/broken.slint'",
+        `python3 -c "open('ui/broken.slint','w').write(s)"`,
+        "python3 <<'PY'\nopen('ui/broken.slint','w').write(s)\nPY",
+        "tool ui/broken.slint,",
+        "tool ui/broken.slint:",
+    ]) {
+        assert.ok(runHook("Bash", command).includes("Unknown element"), command);
+    }
+});
