@@ -2397,6 +2397,15 @@ fn build(l: &mut Loader) {
         out property <int> anchor-position-byte-offset;
         /// `TextInput` sets this to `true` when it's focused. Only then it receives <Link type="KeyEvent"/>s.
         out property <bool> has-focus;
+        /// When true, the `TextInput` makes itself the focused element when clicked.
+        ///
+        /// This property has no effect if the `enabled` property is set to false.
+        in property <bool> focus-on-click: true;
+        /// When true, the `TextInput` accepts focus as part of the tab focus traversal.
+        /// Set it to false on a read-only `TextInput` that shows selectable text, so that Tab skips it.
+        ///
+        /// This property has no effect if the `enabled` property is set to false.
+        in property <bool> focus-on-tab-navigation: true;
         /// Invoked when the enter key is pressed.
         callback accepted;
         /// Invoked when the text has changed because the user modified it.

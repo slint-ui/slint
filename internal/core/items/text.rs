@@ -782,6 +782,8 @@ pub struct TextInput {
     pub cursor_visible: Property<bool>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
+    pub focus_on_click: Property<bool>,
+    pub focus_on_tab_navigation: Property<bool>,
     pub accepted: Callback<VoidArg>,
     pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
@@ -1233,9 +1235,18 @@ impl Item for TextInput {
         self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
-            FocusEvent::FocusIn(_reason) => {
+            FocusEvent::FocusIn(reason) => {
                 if !self.enabled() {
                     return FocusEventResult::FocusIgnored;
+                }
+                match reason {
+                    FocusReason::TabNavigation if !self.focus_on_tab_navigation() => {
+                        return FocusEventResult::FocusIgnored;
+                    }
+                    FocusReason::PointerClick if !self.focus_on_click() => {
+                        return FocusEventResult::FocusIgnored;
+                    }
+                    _ => (),
                 }
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
@@ -1248,8 +1259,7 @@ impl Item for TextInput {
                         ));
                     }
 
-                    if cfg!(not(target_vendor = "apple")) && *_reason == FocusReason::TabNavigation
-                    {
+                    if cfg!(not(target_vendor = "apple")) && *reason == FocusReason::TabNavigation {
                         self.select_all(window_adapter, self_rc);
                     }
                 }
@@ -2276,7 +2286,8 @@ impl TextInput {
         window_adapter.renderer().text_input_byte_offset_for_position(self, self_rc, pos)
     }
 
-    /// When pressing the mouse (or releasing the finger, on android) we should take the focus if we don't have it already.
+    /// When pressing the mouse (or releasing the finger, on android) we should take the focus if we don't have it already,
+    /// unless `focus-on-click` is false.
     /// Setting the focus will show the virtual keyboard, otherwise we should make sure that the keyboard is shown if it was hidden by the user
     fn ensure_focus_and_ime(
         self: Pin<&Self>,
@@ -2284,11 +2295,13 @@ impl TextInput {
         self_rc: &ItemRc,
     ) {
         if !self.has_focus() {
-            WindowInner::from_pub(window_adapter.window()).set_focus_item(
-                self_rc,
-                true,
-                FocusReason::PointerClick,
-            );
+            if self.focus_on_click() {
+                WindowInner::from_pub(window_adapter.window()).set_focus_item(
+                    self_rc,
+                    true,
+                    FocusReason::PointerClick,
+                );
+            }
         } else if !self.read_only()
             && let Some(w) = window_adapter.internal(crate::InternalToken)
         {
