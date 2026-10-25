@@ -114,5 +114,8 @@ objc2 = { version = "0.6.0", features = ["disable-encoding-assertions"] }
 [build-dependencies]
 cfg_aliases = { workspace = true }
 
+[dev-dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
+
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
