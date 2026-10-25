@@ -145,8 +145,6 @@ macro_rules! for_each_enums {
 
             /// The kind of the standard menu item. Sets predefined shortcuts and titles of the standard menu items.
             enum StandardMenuItemKind {
-                /// Not used
-                Empty,
                 /// Copy selection to the clipboard (Ctrl/Cmd+c)
                 Copy,
                 /// Cut selection to the clipboard (Ctrl/Cmd+x)
@@ -159,7 +157,7 @@ macro_rules! for_each_enums {
                 Undo,
                 /// Redo last action (Ctrl/Cmd+Shift+z)
                 Redo,
-                /// Quit the application (Alt+F4/Cmd+q)
+                /// Quit the application (Ctrl/Cmd+q)
                 Quit,
             }
 
