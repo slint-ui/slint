@@ -321,7 +321,7 @@ def _load_file(
     * `translation_domain`: The domain to use for looking up run-time translations in the catalog. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
 
-    If the path is a directory, Slint will load the project file (`slint-project.json`) inside the given directory.
+    If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
     The project file provides the settings that are not given here.
     It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     A `.slint` file path does not load a project file.
@@ -402,7 +402,7 @@ def load_file(
     * `translation_domain`: The domain to use for looking up run-time translations in the catalog. This must match the
        translation domain used when extracting translations with `slint-tr-extractor`.
 
-    If the path is a directory, Slint will load the project file (`slint-project.json`) inside the given directory.
+    If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
     The project file provides the settings that are not given here.
     It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     A `.slint` file path does not load a project file.
