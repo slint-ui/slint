@@ -78,6 +78,10 @@ fn main() {
     slint_build::compile(".").unwrap();
 }
 ```
+
+Settings on <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration">`CompilerConfiguration`</LangRefLink> win over the project file.
+Cargo rebuilds your crate when the project file changes.
+The `slint!` macro doesn't load a project file.
 </TabItem>
 <TabItem label="C++" icon="seti:cpp">
 ```cmake
@@ -85,16 +89,29 @@ slint_target_sources(my_application .)
 ```
 
 The generated header is named after the main file, so you still `#include "main.h"`.
+CMake rebuilds your target when the project file changes.
+CMake passes the `SLINT_STYLE` variable to the compiler as `--style`.
+For more details, see <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>.
+
+The interpreter also reads the project file when you load a project directory at run time.
 </TabItem>
 <TabItem label="NodeJS" icon="node">
 ```javascript
+import * as slint from "slint-ui";
+
 let ui = slint.loadFile(".");
 ```
+
+The options you pass to <LangRefLink lang="nodejs" relpath="api/functions/loadFile/">`loadFile`</LangRefLink> win over the project file.
 </TabItem>
 <TabItem label="Python" icon="seti:python">
 ```python
+import slint
+
 ui = slint.load_file(".")
 ```
+
+The arguments you pass to `slint.load_file` win over the project file.
 </TabItem>
 </Tabs>
 
@@ -103,57 +120,6 @@ The `slint-compiler` command line tool accepts directories, too:
 ```bash
 slint-compiler . -o main.h
 ```
-
-## Language-Specific Behavior
-
-<Tabs syncKey="dev-language">
-<TabItem label="Rust" icon="seti:rust">
-To use a project file, pass its directory to `slint-build`.
-Settings on <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration">`CompilerConfiguration`</LangRefLink> win over the project file.
-Cargo rebuilds your crate when the selected project file changes.
-
-```rust
-// build.rs
-fn main() {
-    slint_build::compile("ui").unwrap();
-}
-```
-
-The `slint!` macro doesn't load a project file.
-</TabItem>
-<TabItem label="C++" icon="seti:cpp">
-To use a project file, pass its directory to <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>.
-CMake rebuilds your target when the selected project file changes.
-
-```cmake
-slint_target_sources(my_application ui)
-```
-
-The interpreter also reads the project file when you load a project directory at run time.
-
-CMake passes the `SLINT_STYLE` variable to the compiler as `--style`.
-</TabItem>
-<TabItem label="NodeJS" icon="node">
-To use a project file, pass its directory to <LangRefLink lang="nodejs" relpath="api/functions/loadFile/">`loadFile`</LangRefLink>.
-The options you pass win over the project file.
-
-```javascript
-import * as slint from "slint-ui";
-
-let ui = slint.loadFile("ui");
-```
-</TabItem>
-<TabItem label="Python" icon="seti:python">
-To use a project file, pass its directory to `slint.load_file`.
-The arguments you pass win over the project file.
-
-```python
-import slint
-
-ui = slint.load_file("ui")
-```
-</TabItem>
-</Tabs>
 
 ## Editor Support
 
