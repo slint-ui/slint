@@ -491,7 +491,11 @@
             showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
           })
           .then(() => publishCapture(previewId))
-          .catch((e) => showStatus(`Couldn't capture the preview: ${e}`, "error"));
+          .catch(async (e) => {
+            const error = `Couldn't capture the preview: ${e}`;
+            showStatus(error, "error");
+            await publish({ previewId: await previewId, error }).catch(() => {});
+          });
         break;
       }
       case "ui/notifications/tool-result":

@@ -106,3 +106,13 @@ test("renders when version metadata fails", { timeout: 3000 }, async () => {
     await view.preview();
     assert.equal((await view.captured).png, "cGl4ZWxz");
 });
+
+
+test("publishes a terminal error when canvas capture fails", { timeout: 3000 }, async () => {
+    const view = startView({ captureError: "canvas unavailable" });
+    await view.preview();
+    const capture = await view.captured;
+    assert.equal(capture.previewId, "test-preview");
+    assert.match(capture.error, /Couldn't capture.*canvas unavailable/);
+    assert.equal(capture.png, undefined);
+});
