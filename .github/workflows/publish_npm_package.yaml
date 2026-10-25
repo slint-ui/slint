@@ -21,7 +21,6 @@ on:
         - cron: "0 5 * * *"
 
 permissions:
-    id-token: write  # Required for OIDC
     contents: read
 
 env:
@@ -168,13 +167,19 @@ jobs:
     build_and_publish_npm_package:
         runs-on: ubuntu-22.04
         needs: [determine_version, build_binaries]
+        permissions:
+            id-token: write  # Required for OIDC
+            contents: read
         env:
             PKG_VERSION: ${{ needs.determine_version.outputs.PKG_VERSION }}
             RELEASE_INPUT: ${{ github.event.inputs.release }}
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
+            # No cache, as what it restores would run next to the OIDC token.
             - uses: ./.github/actions/setup-rust
+              with:
+                  cache: false
             - uses: pnpm/action-setup@v6.1.0
             # Setup .npmrc file to publish to npm
             - uses: actions/setup-node@v7
