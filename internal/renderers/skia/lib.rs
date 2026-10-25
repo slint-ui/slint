@@ -160,6 +160,47 @@ pub(crate) fn gradient_colors<'a>(
     )
 }
 
+/// Draws with `render` into a render target that `gr_context` allocates and reads it back,
+/// for [`Surface::render_snapshot`].
+#[cfg(skia_backend_wgpu)]
+pub(crate) fn render_snapshot_on_gpu(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    size: PhysicalWindowSize,
+    render: &mut dyn FnMut(&skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+    let target_info = image_info(
+        (size.width as i32, size.height as i32),
+        skia_safe::ColorType::RGBA8888,
+        skia_safe::AlphaType::Premul,
+    );
+    let mut target = skia_safe::gpu::surfaces::render_target(
+        gr_context,
+        skia_safe::gpu::Budgeted::No,
+        &target_info,
+        None,
+        skia_safe::gpu::SurfaceOrigin::TopLeft,
+        None,
+        false,
+        None,
+    )
+    .ok_or_else(|| PlatformError::from("Failed to create a Skia GPU surface for the snapshot"))?;
+
+    render(target.canvas(), gr_context);
+
+    let mut pixels =
+        SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(size.width, size.height);
+    // `Rgba8Pixel` is straight alpha, so Skia unpremultiplies while reading back.
+    if !target.read_pixels(
+        &target_info.with_alpha_type(skia_safe::AlphaType::Unpremul),
+        pixels.make_mut_bytes(),
+        size.width as usize * 4,
+        (0, 0),
+    ) {
+        return Err("Failed to read the snapshot back from the GPU".into());
+    }
+    Ok(pixels)
+}
+
 #[cfg(skia_backend_wgpu)]
 fn default_wgpu_surface_factory(
     context: &SkiaSharedContext,
@@ -686,6 +727,7 @@ impl SkiaRenderer {
                     back_buffer_age,
                     Some(surface.as_ref()),
                     window,
+                    true,
                 )
             },
             &self.pre_present_callback,
@@ -701,6 +743,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
+        invoke_rendering_notifier: bool,
     ) -> Option<DirtyRegion> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
@@ -715,13 +758,15 @@ impl SkiaRenderer {
                     back_buffer_age,
                     surface,
                     window,
+                    invoke_rendering_notifier,
                     components,
                     post_render,
                 )
             })
             .unwrap_or_default();
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
+        if invoke_rendering_notifier
+            && let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
             && let Some(surface) = surface
         {
             surface
@@ -738,6 +783,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
+        invoke_rendering_notifier: bool,
         components: &[(ItemTreeWeak, LogicalPoint)],
         post_render: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Option<DirtyRegion> {
@@ -856,7 +902,9 @@ impl SkiaRenderer {
                 }
             }
 
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            if invoke_rendering_notifier
+                && let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
+            {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
@@ -995,13 +1043,32 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         }
     }
 
-    /// Returns an image buffer with the contents of the window, obtained by re-rendering the scene into a CPU-side surface.
+    /// Returns an image buffer with the contents of the window, obtained by re-rendering the scene,
+    /// on the GPU if the surface supports it, otherwise into a CPU-side surface.
     fn take_snapshot(
         &self,
     ) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
         let size = window_adapter.window().size();
+
+        if let Some(surface) = self.surface.borrow().as_deref()
+            && let Some(snapshot) = surface.render_snapshot(size, &mut |canvas, gr_context| {
+                self.render_to_canvas(
+                    canvas,
+                    0.,
+                    (0., 0.),
+                    Some(gr_context),
+                    0,
+                    Some(surface),
+                    window,
+                    false,
+                );
+            })
+        {
+            return snapshot;
+        }
+
         let (width, height) = (size.width, size.height);
         let mut target_buffer =
             SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
@@ -1018,7 +1085,16 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         )
         .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
 
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window);
+        self.render_to_canvas(
+            surface_borrow.canvas(),
+            0.,
+            (0.0, 0.0),
+            None,
+            0,
+            None,
+            window,
+            false,
+        );
 
         Ok(target_buffer)
     }
@@ -1106,6 +1182,18 @@ pub trait Surface {
         _canvas: &skia_safe::Canvas,
         _texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
+        None
+    }
+
+    /// Renders a snapshot of the window on the GPU, with `render_callback` drawing the scene.
+    /// Unlike a snapshot rendered on the CPU, it includes the textures the surface imports,
+    /// such as the ones of [`Self::import_wgpu_texture`].
+    /// Returns `None` if the surface doesn't render on the GPU.
+    fn render_snapshot(
+        &self,
+        _size: PhysicalWindowSize,
+        _render_callback: &mut dyn FnMut(&skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+    ) -> Option<Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError>> {
         None
     }
 

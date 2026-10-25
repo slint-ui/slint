@@ -140,6 +140,7 @@ impl SkiaWGPU29Renderer {
             0,
             Some(&*surface),
             window,
+            true,
         );
 
         surface.backend.release_surface(gr_context, &mut skia_surface);
@@ -236,6 +237,7 @@ impl SkiaWGPU30RendererExt for SkiaWGPU30Renderer {
             0,
             Some(&*surface),
             window,
+            true,
         );
 
         surface.backend.release_surface(gr_context, &mut skia_surface);
