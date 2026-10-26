@@ -65,6 +65,12 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "SpinBox";
     }
 
+    public pure function is-progress-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "ProgressIndicator"
+                || InspectorContext.element-information.type-name == "Spinner");
+    }
+
     public pure function is-resizable-selection() -> bool {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
     }

@@ -2746,6 +2746,52 @@ mod tests {
     }
 
     #[test]
+    fn progress_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("ProgressIndicator", true),
+            ("Spinner", true),
+            ("Slider", false),
+            ("Rectangle", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            for label in ["Indeterminate", "Progress value"] {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn checked_switch_reads_source_when_runtime_value_is_unresolved() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
