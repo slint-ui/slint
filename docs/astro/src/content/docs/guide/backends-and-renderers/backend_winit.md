@@ -1,8 +1,10 @@
 ---
+
 title: Winit Backend
 description: Winit Backend
 next: false
 ---
+
 <!-- cSpell: ignore libx libxcursor libxkbcommon -->
 
 The Winit backend uses the [winit](https://docs.rs/winit/latest/winit/) library to interact with the
@@ -15,7 +17,7 @@ The Winit backend supports different renderers. They can be explicitly selected 
 `SLINT_BACKEND` environment variable.
 
 | Renderer name  | Supported/Required Graphics APIs                  | `SLINT_BACKEND` value to select renderer |
-|----------------|---------------------------------------------------|------------------------------------------|
+| -------------- | ------------------------------------------------- | ---------------------------------------- |
 | FemtoVG        | OpenGL                                            | `winit-femtovg`                          |
 | FemtoVG (WGPU) | Metal, Direct3D, Vulkan with (http://wgpu.rs)     | `winit-femtovg-wgpu`                     |
 | Skia           | OpenGL, Metal, Direct3D, Software-rendering       | `winit-skia`                             |
@@ -32,7 +34,7 @@ If that fails, it will fall back to the FemtoVG renderer, and if that also fails
 The Winit backend reads and interprets the following environment variables:
 
 | Name               | Accepted Values | Description                                                        |
-|--------------------|-----------------|--------------------------------------------------------------------|
+| ------------------ | --------------- | ------------------------------------------------------------------ |
 | `SLINT_FULLSCREEN` | any value       | If this variable is set, every window is shown in fullscreen mode. |
 
 ## Linux Dependencies
