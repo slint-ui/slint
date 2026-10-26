@@ -338,7 +338,7 @@ async fn lsp_main(
         tokio::select! {
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
-                    Some(event) => trigger_editor_file_watcher(&mut session, event).await?,
+                    Some(event) => trigger_editor_file_watcher(&mut session, event).await,
                     None => break Err("File watcher channel closed".into()),
                 }
             }
@@ -469,14 +469,15 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
 async fn trigger_editor_file_watcher(
     session: &mut editor_preview::EditorSession,
     WatchEvent { path, kind }: WatchEvent,
-) -> Result<()> {
+) {
     let Ok(url) = Url::from_file_path(&path) else {
         tracing::debug!("Ignoring file watcher event for non-file path: {}", path.display());
-        return Ok(());
+        return;
     };
 
-    session.trigger_file_watcher(url, kind).await?;
-    Ok(())
+    if let Err(error) = session.trigger_file_watcher(url, kind).await {
+        tracing::warn!("Failed to process file watcher event for {}: {error}", path.display());
+    }
 }
 
 fn sync_file_watcher_if_needed(
@@ -932,8 +933,7 @@ mod tests {
                     path: root.join(changed_file),
                     kind: i_slint_live_preview::file_watcher::FileChangeKind::Changed,
                 },
-            ))
-            .unwrap();
+            ));
             assert!(session.pending_recompile.contains(&url));
             assert!(
                 session
@@ -953,6 +953,35 @@ mod tests {
                 expected,
                 "watcher event for {changed_file}"
             );
+        }
+    }
+
+    #[test]
+    fn file_watcher_read_failure_does_not_stop_later_events() {
+        use i_slint_live_preview::file_watcher::FileChangeKind;
+        for kind in [FileChangeKind::Created, FileChangeKind::Changed] {
+            let directory = tempfile::tempdir().unwrap();
+            let root = directory.path().canonicalize().unwrap();
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main {}").unwrap();
+            let path = root.join("slint-project.json");
+            let url = Url::from_file_path(&path).unwrap();
+            let contents = r#"{"slint-edition":"1.19","main":"main.slint"}"#;
+            let (mut session, messages) = session_with_recording_previews();
+            spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
+            std::fs::write(&path, contents).unwrap();
+            std::fs::remove_file(&path).unwrap();
+            spin_on::spin_on(trigger_editor_file_watcher(
+                &mut session,
+                WatchEvent { path: path.clone(), kind },
+            ));
+            clear_messages(&messages);
+            std::fs::write(&path, contents).unwrap();
+            spin_on::spin_on(trigger_editor_file_watcher(&mut session, WatchEvent { path, kind }));
+            assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
+                matches!(message, LspToPreviewMessage::SetContents { url: received, contents: received_contents }
+                    if received.url() == &url && received_contents == contents.as_bytes())
+            }));
         }
     }
 
@@ -999,7 +1028,7 @@ mod tests {
                     .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
                     .unwrap();
                 if event.path == path && event.kind == expected_kind {
-                    spin_on::spin_on(trigger_editor_file_watcher(&mut session, event)).unwrap();
+                    spin_on::spin_on(trigger_editor_file_watcher(&mut session, event));
                     break;
                 }
             }
