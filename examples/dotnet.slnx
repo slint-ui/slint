@@ -29,4 +29,5 @@
   <Project Path="maps/dotnet/Maps.csproj" />
   <Project Path="dotnet-viewer/DotnetViewer.csproj" />
   <Project Path="../demos/launcher/dotnet/Launcher.csproj" />
+  <Project Path="../demos/weather-demo/dotnet/WeatherDemo.csproj" />
 </Solution>
