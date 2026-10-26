@@ -754,6 +754,8 @@ mod tests {
 
     #[test]
     fn edits_preserve_surrounding_source() {
+        // cspell:ignore metad deditor
+
         let settings =
             r#"{"canvas-presets":[{"width":720,"height":1280},{"width":1920,"height":1080}]}"#;
         let fixtures = [
