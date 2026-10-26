@@ -157,6 +157,7 @@ const tools = [
                 height: { type: "integer" },
                 runtime: { type: "string" },
                 error: { type: "string" },
+                errorKind: { type: "string", enum: ["interpreter_crash"] },
             },
             required: ["previewId"],
         },
@@ -287,6 +288,7 @@ const toolCalls = {
             stage: preview.stage,
             elapsedMs: Date.now() - preview.requestedAt,
             timings: preview.timings,
+            ...(capture?.errorKind && { errorKind: capture.errorKind }),
         };
         if (!capture) {
             return {
@@ -343,7 +345,12 @@ const toolCalls = {
                           height: args.height,
                           runtime,
                       }
-                    : { error: String(args.error ?? "unknown error"), runtime };
+                    : {
+                          error: String(args.error ?? "unknown error"),
+                          runtime,
+                          errorKind: args.errorKind === "interpreter_crash"
+                              ? args.errorKind : undefined,
+                      };
             preview.stage = preview.capture.error ? "error" : "ready";
         }
         preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;
