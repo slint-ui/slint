@@ -25,10 +25,19 @@ If the edition is newer than your version of Slint, Slint refuses to compile you
 ```
 
 When you compile or load `.slint` files, the edition comes from the project file.
+The Rust `slint!` macro doesn't load a project file.
+Set its edition with an attribute at the start of the macro body:
+
+```rust
+slint::slint! {
+    #[slint_edition = "1.19"]
+    export component App inherits Window { }
+}
+```
 
 :::note
-Without a project file, Slint applies none of the behavior changes that depend on the edition.
-To opt in, add a project file that sets `slint-edition`.
+Without a project file or `#[slint_edition]`, Slint applies none of the behavior changes that depend on the edition.
+To opt in, set `slint-edition` in a project file, or `#[slint_edition]` in the `slint!` macro.
 :::
 
 SlintPad and the previews in this documentation use the edition of their own release.
