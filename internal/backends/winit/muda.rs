@@ -551,6 +551,11 @@ impl MudaAdapter {
         #[cfg(target_os = "macos")]
         self.app_menu_entries.clear();
         self.map_next_id = 0;
+
+        // The next rebuild starts from an empty tree, so the native menu must be empty too
+        if let Some(menu) = self.menu.as_ref() {
+            while menu.remove_at(0).is_some() {}
+        }
     }
 
     pub fn invoke(&self, menubar: &vtable::VRc<MenuVTable>, generation: u64, entry_id: usize) {
@@ -1099,5 +1104,38 @@ mod tests {
         ];
         assert!(take_role_entries(&mut nodes).is_empty());
         assert_eq!(outline(&nodes), ["File[Open]", "Empty"]);
+    }
+
+    // On macOS, muda only creates menus on the main thread, which tests don't run on.
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn rebuild_after_reset_replaces_native_items() {
+        let tree = vec![menu("File", vec![item("Open", MenuItemRole::None)]), menu("Edit", vec![])];
+        let rebuild = |adapter: &mut MudaAdapter| {
+            update_menu_branch(
+                &mut adapter.map,
+                adapter.generation,
+                MenuRef::Menu(adapter.menu.as_ref().unwrap()),
+                &adapter.menu_tree,
+                &tree,
+                "42",
+                MudaType::Menubar,
+                0,
+            );
+            adapter.menu_tree = tree.clone();
+        };
+
+        let mut adapter = adapter("deck-a");
+        adapter.menu = Some(muda::Menu::new());
+        rebuild(&mut adapter);
+        adapter.reset_entries();
+        rebuild(&mut adapter);
+
+        let items = adapter.menu.as_ref().unwrap().items();
+        assert_eq!(items.len(), tree.len());
+        for item in &items {
+            let (_, generation, _, _) = parse_menu_item_id(item.id()).unwrap();
+            assert_eq!(generation, adapter.generation);
+        }
     }
 }
