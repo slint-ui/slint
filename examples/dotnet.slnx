@@ -13,4 +13,8 @@
   <Project Path="system-tray/dotnet/SystemTray.csproj" />
   <Project Path="../demos/energy-monitor/dotnet/EnergyMonitor.csproj" />
   <Project Path="slide_puzzle/dotnet/SlidePuzzle.csproj" />
+  <Project Path="7guis/dotnet/Booker/Booker.csproj" />
+  <Project Path="7guis/dotnet/Crud/Crud.csproj" />
+  <Project Path="7guis/dotnet/CircleDraw/CircleDraw.csproj" />
+  <Project Path="7guis/dotnet/Cells/Cells.csproj" />
 </Solution>
