@@ -534,6 +534,8 @@ fn draw_straight_box_shadow_line(
 }
 
 const MAX_BANDS: usize = 16;
+/// Bounds the offsets in [`Band::sum`]: with weights summing to at most 2^15, the sums fit in i32.
+const MAX_BAND_OFFSET: Fixed<i32, 8> = Fixed((1 << 16) - 1);
 
 /// Neighboring slices of a shape on one line, approximated as a single rectangle.
 #[derive(Clone, Copy, Default)]
@@ -544,8 +546,8 @@ struct Band {
     weight: i32,
     /// The first slice's edges, which later slices must stay close to.
     first: (Fixed<i32, 8>, Fixed<i32, 8>),
-    /// The slices' edges, weighted.
-    sum: (i64, i64),
+    /// The slices' offsets from `first`, weighted.
+    sum: (i32, i32),
     slices: u32,
 }
 
@@ -601,6 +603,7 @@ fn shape_bands(
     let slice_height =
         (sigma / 4).max(Fixed((curved_length.0 + curved_budget - 3) / (curved_budget - 2)));
 
+    let merge_distance = sigma.min(MAX_BAND_OFFSET);
     let max_bands = bands.len();
     let mut band_count: usize = 0;
     let mut edge = window_top;
@@ -621,32 +624,39 @@ fn shape_bands(
             if weight == 0 {
                 continue;
             }
-            let x0 = left
-                + corner_inset(radius.top_left, middle - top)
-                    .max(corner_inset(radius.bottom_left, bottom - middle));
-            let x1 = right
-                - corner_inset(radius.top_right, middle - top)
-                    .max(corner_inset(radius.bottom_right, bottom - middle));
-            let close = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a - b).0.abs() <= sigma.0;
+            // Each inset takes a square root, and opposite corners usually share a radius.
+            let top_left = corner_inset(radius.top_left, middle - top);
+            let bottom_left = corner_inset(radius.bottom_left, bottom - middle);
+            let top_right = if radius.top_right == radius.top_left {
+                top_left
+            } else {
+                corner_inset(radius.top_right, middle - top)
+            };
+            let bottom_right = if radius.bottom_right == radius.bottom_left {
+                bottom_left
+            } else {
+                corner_inset(radius.bottom_right, bottom - middle)
+            };
+            let x0 = left + top_left.max(bottom_left);
+            let x1 = right - top_right.max(bottom_right);
+            let close = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a - b).0.abs() <= merge_distance.0;
             match band_count.checked_sub(1).map(|last| &mut bands[last]) {
                 Some(last)
                     if band_count == max_bands
                         || (close(last.first.0, x0) && close(last.first.1, x1)) =>
                 {
+                    // A slice merged into a full list can be further away.
+                    let max = MAX_BAND_OFFSET.0;
+                    let offset =
+                        |x: Fixed<i32, 8>, first: Fixed<i32, 8>| (x - first).0.clamp(-max, max);
                     last.weight += weight;
-                    last.sum.0 += weight as i64 * x0.0 as i64;
-                    last.sum.1 += weight as i64 * x1.0 as i64;
+                    last.sum.0 += weight * offset(x0, last.first.0);
+                    last.sum.1 += weight * offset(x1, last.first.1);
                     last.slices += 1;
                 }
                 _ => {
-                    bands[band_count] = Band {
-                        x0,
-                        x1,
-                        weight,
-                        first: (x0, x1),
-                        sum: (weight as i64 * x0.0 as i64, weight as i64 * x1.0 as i64),
-                        slices: 1,
-                    };
+                    bands[band_count] =
+                        Band { x0, x1, weight, first: (x0, x1), sum: (0, 0), slices: 1 };
                     band_count += 1;
                 }
             }
@@ -654,8 +664,9 @@ fn shape_bands(
     }
     for band in &mut bands[..band_count] {
         if band.slices > 1 {
-            band.x0 = Fixed((band.sum.0 / band.weight as i64) as i32);
-            band.x1 = Fixed((band.sum.1 / band.weight as i64) as i32);
+            // Flooring makes this the floored mean of the edges, whatever `first` is.
+            band.x0 = band.first.0 + Fixed(band.sum.0.div_euclid(band.weight));
+            band.x1 = band.first.1 + Fixed(band.sum.1.div_euclid(band.weight));
         }
         // Both are at most 2^15, so the product fits.
         band.weight = (band.weight * shape_weight) >> 15;
@@ -1284,6 +1295,39 @@ fn drop_shadow_of_huge_shape_matches_a_smaller_one() {
     let huge_blur =
         render_drop_shadow(screen_size, &options(3e7, 3e7, 3e7), euclid::point2(-1e7, -1e7));
     assert!(huge_blur.iter().any(|p| p.alpha > 0));
+}
+
+#[test]
+fn drop_shadow_with_large_blur_matches_the_exact_blur() {
+    let screen_size = PhysicalSize::new(40, 40);
+    let (size, blur) = (600., 1000.);
+    let options = with_opaque_source(BoxShadowOptions {
+        width: euclid::Length::new(size),
+        height: euclid::Length::new(size),
+        color: Color::from_rgb_u8(255, 255, 255),
+        blur: euclid::Length::new(blur),
+        ..Default::default()
+    });
+    // Centered on the screen.
+    let start = 20. - size / 2.;
+    let data = render_drop_shadow(screen_size, &options, euclid::point2(start, start));
+    let sigma = sampled_sigma(&options) as f64;
+    let phi = |t: f64| {
+        let q = gaussian_q(t.abs().min(4.));
+        if t >= 0. { 1. - q } else { q }
+    };
+    let coverage = |p: usize| {
+        let center = p as f64 + 0.5;
+        phi((center - start as f64) / sigma) - phi((center - start as f64 - size as f64) / sigma)
+    };
+    for (i, pixel) in data.iter().enumerate() {
+        let expected = coverage(i % 40) * coverage(i / 40) * 255.;
+        assert!(
+            (pixel.alpha as f64 - expected).abs() <= 1.5,
+            "pixel {i}: {} vs {expected}",
+            pixel.alpha
+        );
+    }
 }
 
 /// The options of an inset shadow in an element of `size` and `radius`.
