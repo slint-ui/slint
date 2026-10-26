@@ -21,7 +21,12 @@ assert.equal(
 );
 const testScript = importParts.join("importInterpreter()");
 
-function startView({ fetch, captureError, compile } = {}) {
+function startView({
+    fetch,
+    captureError,
+    compile,
+    callTool = () => ({}),
+} = {}) {
     const captures = [];
     let onMessage;
     let resolveCapture;
@@ -58,12 +63,18 @@ function startView({ fetch, captureError, compile } = {}) {
         },
     });
     const elements = new Map(
-        ["status", "preview", "diagnostics", "stage"].map((id) => [
-            id,
-            element(),
-        ]),
+        [
+            "status",
+            "preview",
+            "diagnostics",
+            "stage",
+            "crash",
+            "crash-details",
+            "retry",
+        ].map((id) => [id, element()]),
     );
     elements.get("preview").hidden = true;
+    elements.get("crash").hidden = true;
     const window = {
         matchMedia: () => ({ matches: false, dispatchEvent() {} }),
         addEventListener(_type, listener) {
@@ -88,7 +99,10 @@ function startView({ fetch, captureError, compile } = {}) {
                             data: {
                                 jsonrpc: "2.0",
                                 id: message.id,
-                                result: {},
+                                result:
+                                    message.method === "tools/call"
+                                        ? callTool(message.params)
+                                        : {},
                             },
                         }),
                     );
@@ -159,6 +173,8 @@ function startView({ fetch, captureError, compile } = {}) {
         captured,
         captures,
         reported,
+        element: (id) => elements.get(id),
+        retry: () => elements.get("retry").onclick(),
         panic() {
             context.console.error(
                 "panicked at test.rs:1:1:\ntest panic\nhttps://example.com/interpreter.js#instance-1:1:1",
@@ -219,6 +235,7 @@ test("publishes a panic while compilation is pending", {
     assert.ok(capture.error.includes("test panic"));
     assert.equal(capture.previewId, "test-preview");
     assert.equal(capture.runtime, "Slint 1.19.0 (snapshot)");
+    assert.equal(capture.errorKind, "interpreter_crash");
 });
 
 test("publishes a panic after a successful screenshot", {
@@ -244,6 +261,56 @@ test("renders when version metadata fails", { timeout: 3000 }, async () => {
     });
     await view.preview();
     assert.equal((await view.captured).png, "cGl4ZWxz");
+});
+
+test("retry restarts a crashed preview with a new ID and hides the crash panel", {
+    timeout: 3000,
+}, async () => {
+    const calls = [];
+    const view = startView({
+        callTool({ name, arguments: args }) {
+            if (name === "preview_slint") {
+                calls.push(args);
+                return { structuredContent: { previewId: "retry-preview" } };
+            }
+            return {};
+        },
+    });
+    await view.preview();
+    await view.captured;
+    view.panic();
+    assert.equal(view.element("crash").hidden, false);
+    assert.ok(view.element("crash-details").textContent.includes("test panic"));
+    assert.equal(view.element("status").textContent, "");
+    await view.retry();
+    assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
+        { source: "export component Preview {}" },
+    ]);
+    assert.equal(view.captures.at(-1).previewId, "retry-preview");
+    assert.equal(view.captures.at(-1).png, "cGl4ZWxz");
+    assert.equal(view.element("crash").hidden, true);
+    assert.equal(view.element("retry").disabled, false);
+});
+
+test("a failed retry leaves the crash panel available", {
+    timeout: 3000,
+}, async () => {
+    const view = startView({
+        callTool: ({ name }) =>
+            name === "preview_slint"
+                ? {
+                      isError: true,
+                      content: [{ type: "text", text: "connection lost" }],
+                  }
+                : {},
+    });
+    await view.preview();
+    await view.captured;
+    view.panic();
+    await view.retry();
+    assert.equal(view.element("crash").hidden, false);
+    assert.ok(view.element("status").textContent.includes("connection lost"));
+    assert.equal(view.element("retry").disabled, false);
 });
 
 test("publishes a terminal error when canvas capture fails", {

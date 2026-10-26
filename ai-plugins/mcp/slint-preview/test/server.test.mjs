@@ -335,6 +335,7 @@ test("a crash replaces a screenshot and cannot be overwritten by a late capture"
     await callTool("publish_preview_capture", {
         previewId,
         error: "The Slint interpreter crashed",
+        errorKind: "interpreter_crash",
     });
     for (const update of [{ stage: "capturing" }, { png: "iVBORw0K" }]) {
         await callTool("publish_preview_capture", { previewId, ...update });
@@ -342,6 +343,7 @@ test("a crash replaces a screenshot and cannot be overwritten by a late capture"
         assert.equal(result.isError, true);
         assert.equal(result.structuredContent.status, "error");
         assert.equal(result.structuredContent.stage, "error");
+        assert.equal(result.structuredContent.errorKind, "interpreter_crash");
         assert.ok(
             result.content[0].text.includes("The Slint interpreter crashed"),
         );

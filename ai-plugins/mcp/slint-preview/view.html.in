@@ -40,10 +40,22 @@
   #diagnostics li { white-space: pre-wrap; }
   .error { color: var(--error); }
   .warning { color: var(--warning); }
+  #crash { margin: 12px; padding: 16px; border: 1px solid var(--error); border-radius: 8px; }
+  #crash p { margin: 8px 0 12px; color: var(--muted); }
+  #crash button { font: inherit; color: var(--text); background: transparent; border: 1px solid var(--muted); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  #crash details { margin-top: 12px; }
+  #crash summary { cursor: pointer; }
+  #crash pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <div id="status">Waiting for Slint source…</div>
+<section id="crash" hidden role="alert" aria-labelledby="crash-title">
+  <strong id="crash-title">The preview crashed</strong>
+  <p>Retry starts a fresh interpreter. Your source files are unchanged.</p>
+  <button id="retry" type="button">Retry preview</button>
+  <details><summary>Technical details</summary><pre id="crash-details"></pre></details>
+</section>
 <div id="stage"><canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas></div>
 <ul id="diagnostics"></ul>
 <script type="module">
@@ -56,6 +68,10 @@
   const pristineCanvas = canvas.cloneNode();
   const diagnosticsEl = document.getElementById("diagnostics");
   const stage = document.getElementById("stage");
+  const crashEl = document.getElementById("crash");
+  const crashDetailsEl = document.getElementById("crash-details");
+  const retryButton = document.getElementById("retry");
+  let previewArgs = null;
 
   let nextId = 1;
   const pending = new Map();
@@ -243,13 +259,18 @@
     canvas.replaceWith(freshCanvas);
     canvas = freshCanvas;
     const error = `The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`;
-    showStatus(error, "error");
-    publish({ previewId, runtime, error }).catch(() => {});
+    showStatus("");
+    diagnosticsEl.replaceChildren();
+    crashDetailsEl.textContent = `${runtime}\n${message}`;
+    crashEl.hidden = false;
+    publish({ previewId, runtime, error, errorKind: "interpreter_crash" }).catch(() => {});
     reportToModel(
-      `The Slint interpreter crashed with ${runtime}, which is a bug in Slint. Change the source to work around it. ` +
-        "The next preview_slint call starts a fresh interpreter. " +
-        "Offer the user to report it at https://github.com/slint-ui/slint/issues with this message, " +
-        `the Slint version, and the smallest .slint source that reproduces it.\n${message}`,
+      `The Slint interpreter crashed with ${runtime}. The application source may be valid. ` +
+        "Tell the user briefly, then use preview_slint to start a fresh interpreter. " +
+        "Retry once if useful, or try a targeted preview workaround supported by the diagnostic. Preserve the requested UI and behavior. " +
+        "Stop repeating input that causes the same crash. Verify recovery with get_preview_screenshot. " +
+        "If recovery fails, explain the limitation and offer a bug report at https://github.com/slint-ui/slint/issues " +
+        `with the runtime version, this diagnostic, and a minimal reproducer.\n${message}`,
     );
   }
 
@@ -410,8 +431,11 @@
   // Each preview_slint result names its preview, and each tool input renders the next one.
   const previewIds = [];
   const previewIdWaiters = [];
+  function resultPreviewId(result) {
+    return result?._meta?.["slint/previewId"] ?? result?.structuredContent?.previewId ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+  }
   function receivePreviewId(result) {
-    const id = result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+    const id = resultPreviewId(result);
     if (!id) return;
     const waiter = previewIdWaiters.shift();
     waiter ? waiter(id) : previewIds.push(id);
@@ -429,6 +453,7 @@
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function failureText() {
+    if (!crashEl.hidden) return `The Slint interpreter crashed.\n${crashDetailsEl.textContent}`;
     if (statusEl.className === "error") return statusEl.textContent;
     if (!canvas.hidden) return null;
     return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
@@ -466,6 +491,44 @@
     request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
   }
 
+  function preview(args, previewId) {
+    previewArgs = args;
+    crashEl.hidden = true;
+    return Promise.resolve(previewId).then(async (id) => {
+      await publish({ previewId: id, started: true });
+      await render(args, id);
+    })
+      .catch((e) => {
+        if (e instanceof Panic) return;
+        if (e instanceof WebAssembly.RuntimeError) {
+          handlePanic(String(e));
+          return;
+        }
+        showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
+      })
+      .then(() => publishCapture(previewId))
+      .catch(async (e) => {
+        const error = `Couldn't capture the preview: ${e}`;
+        showStatus(error, "error");
+        await publish({ previewId: await previewId, error }).catch(() => {});
+      });
+  }
+
+  retryButton.onclick = async () => {
+    retryButton.disabled = true;
+    showStatus("Restarting preview…");
+    try {
+      const result = await request("tools/call", { name: "preview_slint", arguments: previewArgs });
+      const id = resultPreviewId(result);
+      if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
+      await preview(previewArgs, id);
+    } catch (e) {
+      showStatus(`Couldn't restart the preview: ${e}`, "error");
+    } finally {
+      retryButton.disabled = false;
+    }
+  };
+
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent) return;
     const message = event.data;
@@ -479,25 +542,7 @@
     switch (message.method) {
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
-        const previewId = nextPreviewId();
-        previewId.then(async (id) => {
-          await publish({ previewId: id, started: true });
-          await render(args, id);
-        })
-          .catch((e) => {
-            if (e instanceof Panic) return;
-            if (e instanceof WebAssembly.RuntimeError) {
-              handlePanic(String(e));
-              return;
-            }
-            showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
-          })
-          .then(() => publishCapture(previewId))
-          .catch(async (e) => {
-            const error = `Couldn't capture the preview: ${e}`;
-            showStatus(error, "error");
-            await publish({ previewId: await previewId, error }).catch(() => {});
-          });
+        preview(args, nextPreviewId());
         break;
       }
       case "ui/notifications/tool-result":

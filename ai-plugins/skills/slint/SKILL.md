@@ -29,6 +29,11 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    The `preview_slint` response only acknowledges the request; it does not confirm a successful render.
    Wait for `get_preview_screenshot` to return `ready`, following its retry instructions for `pending`.
    Report errors and interpreter crashes to the user before continuing.
+   After a crash, keep the diagnostic; a new `preview_slint` call starts a fresh interpreter.
+   Retry once if the failure may be transient, or try a small preview workaround supported by the diagnostic.
+   Preserve the requested UI and behavior; do not change valid application code just to hide a plugin failure.
+   Stop repeating an input that causes the same crash, and verify recovery with `get_preview_screenshot`.
+   If recovery fails, explain the limitation and offer a bug report with the runtime version, diagnostic, and minimal reproducer.
    A native render does not verify the plugin preview or resolve a plugin crash.
    Use `slint-viewer --screenshot` if the host lacks MCP Apps support.
 4. Share the render when the host supports it: inline the screenshot in chat
