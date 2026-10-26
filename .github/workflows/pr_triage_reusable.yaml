@@ -34,7 +34,32 @@ env:
     }
 
 jobs:
+  # Before Claude runs, so that a PR it fails on isn't picked again every
+  # hour. Remove the label to triage the PR again.
+  mark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Mark the PR as attempted
+        uses: actions/github-script@v9
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+        with:
+          script: |
+            const name = 'triage:attempted';
+            await github.rest.issues.createLabel({
+              ...context.repo, name, color: 'ededed', description: 'The PR triage bot ran on this PR',
+            }).catch(error => {
+              // 422: the label exists already.
+              if (error.status !== 422) throw error;
+            });
+            await github.rest.issues.addLabels({ ...context.repo, issue_number: Number(process.env.PR_NUMBER), labels: [name] });
+
   classify:
+    needs: mark
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Read-only on purpose. Claude reads text written by the PR author, so it
@@ -91,7 +116,7 @@ jobs:
             { print }
           ' > .triage/pr.diff
 
-      - uses: anthropics/claude-code-action@v1
+      - uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
         id: claude
         if: steps.token.outputs.ok == 'true'
         with:
@@ -168,6 +193,12 @@ jobs:
         with:
           script: |
             const result = JSON.parse(process.env.RESULT);
+            // Claude's reads stay in the checkout, but a leaked token must
+            // still never reach a public comment.
+            const texts = [result.complexity_reason, result.review, ...result.comments.flatMap(c => [c.path, c.body])];
+            if (texts.some(t => /sk-ant-|gh[opsu]_[A-Za-z0-9]{20}|[A-Za-z0-9+\/_=-]{100,}/.test(t))) {
+              throw new Error('The triage output looks like it contains a token, not posting it');
+            }
             const issue_number = Number(process.env.PR_NUMBER);
             const logins = JSON.parse(process.env.MAINTAINER_LOGINS);
 
@@ -245,7 +276,7 @@ jobs:
               const comment = { path: c.path, line: c.line, side: 'RIGHT', body: noMentions(c.body) };
               (upToDate && diffLines.get(c.path)?.has(c.line) ? inline : leftover).push(comment);
             }
-            const asList = comments => comments.length > 0 ? ['', ...comments.map(c => `- \`${c.path}:${c.line}\`: ${c.body}`)] : [];
+            const asList = comments => comments.length > 0 ? ['', ...comments.map(c => `- \`${noMentions(c.path)}:${c.line}\`: ${c.body}`)] : [];
             const footer = ['', '<sub>Automated triage and review. Change the labels and assignees if they\'re wrong.</sub>'];
 
             try {

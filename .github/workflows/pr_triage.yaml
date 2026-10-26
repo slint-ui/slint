@@ -66,8 +66,10 @@ jobs:
             for (const pr of prs) {
               if (numbers.length >= Number(process.env.MAX_PRS_PER_RUN)) break;
               // A PR that already has an area or complexity label was triaged
-              // by a human, or by an earlier run.
-              const triaged = pr.labels.some(l => l.name.startsWith('a:') || l.name.startsWith('complexity:'));
+              // by a human, or by an earlier run. A manual run retries a PR
+              // that an earlier run failed on.
+              const triaged = pr.labels.some(l =>
+                l.name.startsWith('a:') || l.name.startsWith('complexity:') || (!manual && l.name === 'triage:attempted'));
               if (pr.draft || pr.state !== 'open' || pr.user.type === 'Bot' || triaged) {
                 if (manual) core.notice(`Skipping #${pr.number}: draft=${pr.draft} state=${pr.state} bot=${pr.user.type === 'Bot'} triaged=${triaged}`);
                 continue;
