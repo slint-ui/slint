@@ -5,4 +5,7 @@
   <Project Path="memory/dotnet/Memory.csproj" />
   <Project Path="todo/dotnet/Todo.csproj" />
   <Project Path="../demos/printerdemo/dotnet/PrinterDemo.csproj" />
+  <Project Path="carousel/dotnet/Carousel.csproj" />
+  <Project Path="virtual_keyboard/dotnet/VirtualKeyboard.csproj" />
+  <Project Path="../demos/home-automation/dotnet/HomeAutomation.csproj" />
 </Solution>

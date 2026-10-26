@@ -15,6 +15,7 @@ It has three different building blocks:
    `TextInput`. In Rust, call `slint::Window::dispatch_event(slint::platform::WindowEvent::KeyPressed{...})` to dispatch
    the event; in C++ call `slint::Window::dispatch_key_press_event(...)`. Subsequently, the you should dispatch a key
    release event using the same family of functions.
+   In C#, call `Window.DispatchEvent(new WindowEvent.KeyPressed(...))`, then `WindowEvent.KeyReleased`.
 
 ## Example
 
@@ -68,6 +69,18 @@ int main()
     main_window->run();
 }
 
+```
+
+### C# Application Code
+
+```csharp
+using var app = MainWindow.Create();
+app.VirtualKeyboardHandler.OnKeyPressed(key =>
+{
+    app.Window.DispatchEvent(new WindowEvent.KeyPressed(key));
+    app.Window.DispatchEvent(new WindowEvent.KeyReleased(key));
+});
+app.Run();
 ```
 
 ![Screenshot of Virtual Keyboard Example on macOS](https://user-images.githubusercontent.com/6715107/231668373-23faedf8-b42a-401d-b3a2-845d5e61252b.png "Virtual Keyboard")
