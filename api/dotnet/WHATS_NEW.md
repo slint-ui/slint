@@ -5,6 +5,8 @@
 - `.slint` code can add and remove rows of a `ListModel`, with `push`, `insert`, and `remove` of an array.
   Override `InsertRow` and `RemoveRow` to support them in your own `Model<T>`.
 - A global exported under more names gets a class for each, like a component, such as `MyGlobal` and `GlobalAlias` for `export { MyGlobal as GlobalAlias }`.
+- On Windows, a `<SlintFile>` outside the project directory, such as `../ui/app.slint`, loads from the output directory.
+  Before, the application failed at startup because it looked for the file outside the output directory.
 
 ## 1.19.0-preview.6
 

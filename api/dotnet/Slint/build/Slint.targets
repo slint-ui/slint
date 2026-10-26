@@ -45,7 +45,8 @@
 
   <ItemGroup>
     <None Remove="@(SlintFile)" />
-    <None Include="@(SlintFile)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
+    <!-- A full path, since on Windows AssignTargetPath keeps a relative path with '../' as the target path, outside the output directory. -->
+    <None Include="@(SlintFile->'%(FullPath)')" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
     <!-- The components reload a changed file themselves, so dotnet watch mustn't restart the application for it. -->
     <None Update="@(SlintFile)" Watch="false" Condition="'$(SlintLivePreview)' == 'true'" />
     <None Update="**/*.slint;**/slint-project.json" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '@(SlintProject)' != ''" />
@@ -67,7 +68,7 @@
       <_SlintGeneratedDir>$(IntermediateOutputPath)slint/</_SlintGeneratedDir>
     </PropertyGroup>
     <!-- The same path in the output directory that the copy of the None item gets. -->
-    <AssignTargetPath Files="@(SlintFile)" RootFolder="$(MSBuildProjectDirectory)">
+    <AssignTargetPath Files="@(SlintFile->'%(FullPath)')" RootFolder="$(MSBuildProjectDirectory)">
       <Output TaskParameter="AssignedFiles" ItemName="_SlintAssigned" />
     </AssignTargetPath>
     <ItemGroup>
