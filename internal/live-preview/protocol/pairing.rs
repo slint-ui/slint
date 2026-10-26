@@ -327,7 +327,7 @@ pub const PROMPT_RATE_LIMIT: Duration = Duration::from_secs(30);
 #[cfg(feature = "remote")]
 pub mod generate {
     use super::CODE_DIGITS;
-    use rand::Rng as _;
+    use rand::RngExt as _;
 
     /// A fresh pairing code, zero-padded to [`CODE_DIGITS`] digits.
     pub fn code() -> String {

@@ -128,7 +128,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = { version = "0.2" }
 # `svgz` was unconditional until resvg 0.48 gated it behind a feature. Slint accepts
 # compressed SVGs (`.svgz`), so keep it enabled or usvg rejects them at parse time.
-resvg = { version = "0.48.1", default-features = false, features = ["text", "raster-images", "svgz"] }
+resvg = { version = "0.49.0", default-features = false, features = ["text", "raster-images", "svgz"] }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
