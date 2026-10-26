@@ -164,7 +164,7 @@ wgpu-30 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 
-taffy = { version = "0.10", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
+taffy = { version = "0.15", default-features = false, features = ["flexbox", "taffy_tree", "alloc"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.8.0", optional = true, features = ["gettext-system"] }
