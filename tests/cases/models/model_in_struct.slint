@@ -45,4 +45,25 @@ instance.bar = { foos: model };
 assert.equal(changes(), before + 1);
 assert.equal(instance.bar.foos, model);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+int Changes()
+{
+    Testing.MockElapsedTime(1);
+    return instance.BarChanges;
+}
+
+// A struct with the model that the property already holds isn't a change.
+var before = Changes();
+instance.Bar = instance.Bar;
+Assert.AreEqual(before, Changes());
+
+var model = new ListModel<Foo>([new Foo { Ok = false }]);
+instance.Bar = new Bar { Foos = model };
+Assert.AreEqual(before + 1, Changes());
+instance.Bar = new Bar { Foos = model };
+Assert.AreEqual(before + 1, Changes());
+Assert.AreSame(model, instance.Bar.Foos);
+```
 */
