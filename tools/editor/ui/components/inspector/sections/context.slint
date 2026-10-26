@@ -22,7 +22,7 @@ export global InspectorContext {
     }
 
     public pure function has-orientation-selection() -> bool {
-        return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider");
+        return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider" || InspectorContext.element-information.type-name == "TabWidget");
     }
 
     public pure function is-rectangle-selection() -> bool {
