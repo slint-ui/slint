@@ -288,6 +288,16 @@ Done:
 - **12.** Project directories, with `<SlintProject>`, see [MSBuild](#msbuild).
   They compile and load with the edition and the settings of their `slint-project.json`.
   A `.slint` path still compiles without a project file, and so without an edition.
+- **15.** C# ports of the examples and demos, see [Samples](#samples): 30 projects in `examples/dotnet.slnx`.
+  - Ports of the samples with Python or JavaScript logic, such as `todo`, `printerdemo`, `dnd-kanban`, and `slide_puzzle`.
+  - Ports of the samples with logic only in Rust, such as `7guis`, `todo-mvc`, `gallery`, and `usecases`.
+  - `imagefilter`, `plotter`, and `maps`, whose images come from pixels and downloads, with filters and a 3D plot in plain C#.
+  - `weather-demo`, a `launcher` of the C# ports, and `examples/dotnet-viewer` for the samples without logic.
+  - The ports needed `Window.DispatchEvent`, `DataTransfer.UserData`, `FilterModel` and `SortModel` with `SourceRow` and `Reset`,
+    `Keys.ToParts`, the `Image` functions for pixels and data, and tray icon components without `Window` and `Run`.
+  - Not ported: the samples for embedded platforms, GPU textures, and native media,
+    such as `mcu-*`, `uefi-demo`, `opengl_*`, `wgpu_texture`, `bevy`, `vtk`, `ffmpeg`, `gstreamer-player`, and `servo`; see items 17 and 18.
+  - The stock quote service of `async-io` no longer answers in any language, so the C# version reports the error.
 - **11.** On Windows, a clear exception in `Create` and `Run` for a thread that isn't in a single-threaded apartment,
   instead of a winit panic, see [Threading and macOS](#threading-and-macos).
   Turning off drag and drop in winit would make such threads work, but lose file drops,
@@ -309,24 +319,12 @@ Next:
   squash the branch, with the official `Slint` package IDs and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
-- **15.** Port the examples and demos to C#, see [Samples](#samples), in phases:
-  - Phase 0, done: the conventions, `examples/dotnet.slnx` in CI,
-    and tray icon components without `Window` and `Run`, for `system-tray`.
-  - Phase 1, done: the ports of samples with Python or JavaScript logic to follow:
-    `todo`, `printerdemo`, `carousel`, `virtual_keyboard`, `home-automation`, `dnd-kanban`,
-    `async-io`, `energy-monitor`, `slide_puzzle`, and `system-tray`.
-    They needed `Window.DispatchEvent`, for `virtual_keyboard`, and `DataTransfer.UserData`, for `dnd-kanban`.
-    The stock quote service of `async-io` no longer answers in any language, so the C# version reports the error.
-  - Phase 2, done: the samples with logic only in Rust:
-    `7guis`, `todo-mvc`, `gallery`, `usecases`, `runtime_key_bindings`, `analogclock`, `speedometer`, and `food-processor`.
-    They needed `FilterModel.SourceRow` and `Reset`, for the CRUD of `7guis`, and `Keys.ToParts`, for `runtime_key_bindings`.
-  - Phase 3, done: `Image.FromRgba8`, `FromRgb8`, `LoadFromData`, and `ToRgba8`, like `ImageData` in Node.js,
-    and the ports of `imagefilter`, `plotter`, and `maps`.
-    The filters and the 3D plot are plain C#, without a library.
-  - Phase 4, done: `weather-demo`, `launcher`, which starts the C# ports instead of installed binaries,
-    and `examples/dotnet-viewer`, which shows the examples without logic, such as `layouts`, `dial`, and `fancy-switches`.
-  - Not planned: samples for embedded platforms, GPU textures and rendering notifiers, and native media,
-    such as `mcu-*`, `uefi-demo`, `opengl_*`, `wgpu_texture`, `bevy`, `vtk`, `ffmpeg`, `gstreamer-player`, and `servo`.
+- **16.** Start each sample port in CI for a few seconds with the testing backend, as a smoke test.
+  CI only builds them so far, and their logic has no tests beyond the parser of `7guis/Cells`.
+- **17.** Platforms beyond the desktop: packages for Android and iOS, and a test of the `linuxkms` backend on embedded Linux.
+  The packages ship the native library for macOS, Linux, and Windows only.
+- **18.** Rendering notifiers and textures from OpenGL or WGPU, which the samples `opengl_texture`, `opengl_underlay`,
+  `wgpu_texture`, and `bevy` need, so that C# can draw into a scene or show a texture of its own.
 
 ## Live Reload
 
