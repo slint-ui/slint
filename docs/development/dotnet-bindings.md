@@ -302,6 +302,12 @@ Done:
   instead of a winit panic, see [Threading and macOS](#threading-and-macos).
   Turning off drag and drop in winit would make such threads work, but lose file drops,
   and Slint doesn't expose that option.
+- **13.** More `csharp` blocks, ported from the `rust` or `js` blocks of the cases for models, focus, callbacks,
+  globals, animations, and timers: 112 cases have one.
+  Writing them found that `.slint` code couldn't add or remove rows of a C# model,
+  and that a global exported under more names got a class for only one of them.
+  Cases with pinch gestures or flickable physics have no block,
+  since `Slint.Testing` has no helpers for those.
 
 Next:
 
@@ -312,9 +318,6 @@ Next:
   extends the README with deployment, troubleshooting, and samples.
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
-- **13.** More `csharp` blocks, for the cases that test input, animations, and models,
-  ported from their `rust` or `js` blocks.
-  Cases with pinch gestures or flickable physics first need those helpers in `Slint.Testing`.
 - **14.** The upstream pull request, once the maintainers agree in #3550:
   squash the branch, with the official `Slint` package IDs and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
