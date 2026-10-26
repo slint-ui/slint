@@ -57,6 +57,9 @@ impl TestingClient {
 
         let request = request.ok_or_else(|| "Empty request".to_string())?;
 
+        i_slint_core::with_existing_context(|context| context.update_timers_and_animations())
+            .map_err(|error| error.to_string())?;
+
         Ok(match request {
             Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(&self.state)),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
@@ -384,4 +387,113 @@ fn convert_window_event(
             i_slint_core::platform::WindowEvent::WindowActiveChanged(active)
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn testing_client(window: &slint::Window) -> (TestingClient, proto::Handle, proto::Handle) {
+        let state = Rc::new(IntrospectionState::new());
+        state.add_window(&i_slint_core::window::WindowInner::from_pub(window).window_adapter());
+        let (window, root) = state
+            .windows
+            .borrow()
+            .iter()
+            .next()
+            .map(|(index, tracked)| {
+                (
+                    introspection::index_to_handle(index),
+                    introspection::index_to_handle(tracked.root_element_handle),
+                )
+            })
+            .unwrap();
+        (
+            TestingClient {
+                state,
+                message_loop_future: Default::default(),
+                server_addr: String::new(),
+            },
+            window,
+            root,
+        )
+    }
+
+    #[test]
+    fn requests_observe_expired_timers_and_change_handlers() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                in-out property <int> input;
+                out property <int> observed;
+                changed input => { observed = input; }
+                accessible-role: region;
+                accessible-label: "value " + observed;
+            }
+        }
+        let app = App::new().unwrap();
+        let (client, _, root) = testing_client(app.window());
+        let future_timer_fired = Rc::new(std::cell::Cell::new(false));
+        let fired = future_timer_fired.clone();
+        slint::Timer::single_shot(std::time::Duration::from_secs(60), move || fired.set(true));
+
+        for value in [42, 84] {
+            app.set_input(value - 1);
+            let weak = app.as_weak();
+            slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                weak.unwrap().set_input(value);
+            });
+            let response = futures_lite::future::block_on(client.handle_request(Some(
+                proto::request_to_aut::Msg::RequestElementProperties(
+                    proto::RequestElementProperties { element_handle: Some(root) },
+                ),
+            )))
+            .unwrap();
+            let proto::aut_response::Msg::ElementProperties(properties) = response else {
+                panic!("expected element properties");
+            };
+            assert_eq!(properties.accessible_label, format!("value {value}"));
+            assert!(!future_timer_fired.get());
+        }
+    }
+
+    #[test]
+    fn input_requests_use_focus_restored_by_expired_timers() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                out property <int> recipient;
+                public function focus-initial() { initial.focus(); }
+                public function focus-next() { next.focus(); }
+                initial := FocusScope {
+                    key-pressed(event) => { root.recipient = 1; return accept; }
+                }
+                next := FocusScope {
+                    key-pressed(event) => { root.recipient = 2; return accept; }
+                }
+            }
+        }
+        let app = App::new().unwrap();
+        app.show().unwrap();
+        app.invoke_focus_initial();
+        let (client, window, _) = testing_client(app.window());
+        let weak = app.as_weak();
+        slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+            weak.unwrap().invoke_focus_next()
+        });
+        futures_lite::future::block_on(client.handle_request(Some(
+            proto::request_to_aut::Msg::RequestDispatchWindowEvent(
+                proto::RequestDispatchWindowEvent {
+                    window_handle: Some(window),
+                    event: Some(proto::WindowEvent {
+                        event: Some(proto::window_event::Event::KeyPressed(
+                            proto::KeyPressedEvent { text: "a".into() },
+                        )),
+                    }),
+                },
+            ),
+        )))
+        .unwrap();
+        assert_eq!(app.get_recipient(), 2);
+    }
 }
