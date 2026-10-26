@@ -12,4 +12,5 @@
   <Project Path="async-io/dotnet/AsyncIo.csproj" />
   <Project Path="system-tray/dotnet/SystemTray.csproj" />
   <Project Path="../demos/energy-monitor/dotnet/EnergyMonitor.csproj" />
+  <Project Path="slide_puzzle/dotnet/SlidePuzzle.csproj" />
 </Solution>
