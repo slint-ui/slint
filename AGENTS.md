@@ -1,6 +1,7 @@
 # Repository Instructions
 
 - Follow [the writing style guide](docs/internal/writing-style-guide.md) for new comments, documentation, Markdown, and commit messages.
+- Before writing a commit message, read `scripts/commit-template.txt`: `git commit -m` skips it.
 - The default branch is `master`.
   During review, add follow-up commits; squash or rebase when review is complete.
 - For new API, look at how other toolkits solve the problem.
