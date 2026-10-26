@@ -29,6 +29,7 @@ export global Project {
     in-out property <string> canvas-presets-error;
     callback update-canvas-preset(int, string, string) -> bool;
     callback add-canvas-preset() -> bool;
+    callback delete-canvas-preset(int) -> bool;
     callback select-canvas-preset(int);
 
     callback create-new-project() -> bool;

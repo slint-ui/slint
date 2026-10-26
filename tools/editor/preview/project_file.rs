@@ -254,6 +254,20 @@ pub(super) fn setup(editor: &ui::EditorUi) {
             presets
         }))
     });
+    project.on_delete_canvas_preset(|index| {
+        let proposal = current_presets().and_then(|mut presets| {
+            let index = usize::try_from(index)
+                .ok()
+                .filter(|index| *index < presets.len())
+                .ok_or("Canvas preset no longer exists")?;
+            if presets.len() == 1 {
+                return Err("The last canvas preset cannot be deleted".into());
+            }
+            presets.remove(index);
+            Ok(presets)
+        });
+        submit_proposal(proposal)
+    });
     project.on_select_canvas_preset(select);
 }
 
@@ -672,6 +686,23 @@ mod tests {
         assert!(!crate::preview::PREVIEW_STATE.with_borrow(|state| state.workspace_edit_sent));
         assert!(submit_proposal(Ok(default_presets())));
         assert!(crate::preview::PREVIEW_STATE.with_borrow(|state| state.workspace_edit_sent));
+    }
+
+    #[test]
+    fn deleting_presets_rejects_stale_indices_and_keeps_one_preset() {
+        let directory = tempfile::tempdir().unwrap();
+        let editor = project_editor(directory.path());
+        let project = editor.global::<ui::Project>();
+        assert!(project.invoke_add_canvas_preset());
+        for index in [-1, 2] {
+            assert!(!project.invoke_delete_canvas_preset(index));
+            assert_eq!(project.get_canvas_presets().row_count(), 2);
+        }
+        assert!(project.invoke_delete_canvas_preset(0));
+        assert_eq!(project.get_canvas_presets().row_count(), 1);
+        assert!(!project.invoke_delete_canvas_preset(0));
+        assert_eq!(project.get_canvas_presets().row_count(), 1);
+        assert!(!directory.path().join("slint-project.json").exists());
     }
 
     #[test]

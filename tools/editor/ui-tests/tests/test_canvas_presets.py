@@ -15,6 +15,7 @@ from ui_driver import (
     press_key,
     press_keys,
     press_shortcut,
+    query,
     screenshot,
 )
 
@@ -169,6 +170,11 @@ def test_canvas_preset_inspector_edits_and_selection_are_persistent(
         )
         assert project_file.read_bytes() == project_bytes()
         screenshot(window).save(tmp_path / "canvas-presets-inspector.png")
+        element(
+            window, "Delete canvas preset 3", role=slint_testing.AccessibleRole.Button
+        ).single_click(slint_testing.PointerEventButton.Left)
+        presets.pop()
+        wait_for_project_file(project_file, project_bytes())
         assert source.read_bytes() == original
     with launch_editor(editor_binary, editor_environment, source) as editor:
         window = first_window(editor)
@@ -248,6 +254,17 @@ def test_canvas_preset_inspector_without_project_file_stays_in_memory(
                 role=slint_testing.AccessibleRole.TextInput,
             )
         ).to_have_value("390")
+        element(
+            window, "Delete canvas preset 2", role=slint_testing.AccessibleRole.Button
+        ).single_click(slint_testing.PointerEventButton.Left)
+        expect.poll(lambda: artboard.size.width).to_equal(480)
+        expect(
+            query(
+                window,
+                "Delete canvas preset 1",
+                role=slint_testing.AccessibleRole.Button,
+            )
+        ).to_be_hidden()
         assert source.read_bytes() == original
         assert not (tmp_path / "slint-project.json").exists()
 

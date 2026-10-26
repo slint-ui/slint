@@ -3,7 +3,7 @@
 
 import { Project, ProjectFileState } from "../../project.slint";
 import { Style, Metrics, Typography, Colors } from "../../style.slint";
-import { InspectorSection, InspectorValueField, InspectorSegment } from "index.slint";
+import { InspectorSection, InspectorValueField, InspectorSegment, InspectorIconButton } from "index.slint";
 
 export component CanvasPresetsSection inherits InspectorSection {
     title: @tr("Canvas presets");
@@ -52,6 +52,18 @@ export component CanvasPresetsSection inherits InspectorSection {
                 prefix: "H";
                 value: "\{preset.height / 1px}";
                 accepted(text) => { return Project.update-canvas-preset(index, "\{preset.width / 1px}", text); }
+            }
+            if Project.canvas-presets.length > 1: InspectorIconButton {
+                label: @tr("Delete canvas preset {}", index + 1);
+                Image {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 16px;
+                    height: 16px;
+                    source: @image-url("../../assets/lucide/trash.svg");
+                    colorize: Colors.muted;
+                }
+                clicked => { Project.delete-canvas-preset(index); }
             }
         }
 
