@@ -47,6 +47,9 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 30
         # Read-only: Claude only reads, and the last step posts its answer.
+        # Commit messages and logs carry outside text, so its reads stay in the
+        # checkout: an unscoped Read also reaches /proc/self/environ, which
+        # holds the Claude token.
         permissions:
             actions: read
             contents: read
@@ -116,7 +119,7 @@ jobs:
                   claude_args: |
                       --model claude-opus-5-5
                       --max-turns 40
-                      --allowedTools "Read,Grep,Glob"
+                      --allowedTools "Read(./**),Grep(./**),Glob(./**)"
                       --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"
                       --json-schema '{"type":"object","additionalProperties":false,"required":["category","summary"],"properties":{"category":{"type":"string","enum":["regression","flaky","infrastructure","unclear"]},"summary":{"type":"string","maxLength":1500}}}'
                   prompt: |
@@ -137,7 +140,8 @@ jobs:
                         - `flaky`: a test that fails intermittently, unrelated to the recent changes.
                         - `infrastructure`: the runner, the network, a download, a cache, or an external service failed.
                         - `unclear`: none of the above fits with confidence.
-                      - `summary`: Markdown for a chat message, at most about ten lines.
+                      - `summary`: plain text for a chat message, at most about ten lines.
+                        It's shown in a code block, so don't use Markdown.
                         Name the failing jobs, quote the key error line, and give the likely cause.
                         For a regression, name the suspect commit by its short hash and author.
                         Suggest a fix if one is obvious.
@@ -151,7 +155,12 @@ jobs:
                   RUN_URL: ${{ github.event.workflow_run.html_url }}
                   TRIAGE_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
-                  # The summary comes from the model, so keep it from mentioning anyone.
-                  jq -n --argjson result "$RESULT" --arg run "$RUN_URL" --arg triage "$TRIAGE_URL" \
-                      '{text: ":mag: [Triage](\($triage)) of [the failure](\($run)): **\($result.category)**\n\($result.summary | gsub("@"; "@\u200b"))"}' \
+                  # The summary comes from the model, so it goes in a code block that
+                  # it can't close: Mattermost loads images and previews links in
+                  # rendered Markdown without a click. Mentions are defused as well.
+                  jq -n --argjson result "$RESULT" --arg run "$RUN_URL" --arg triage "$TRIAGE_URL" '
+                      if ($result.category | IN("regression", "flaky", "infrastructure", "unclear")) | not
+                      then error("Unexpected category") else . end
+                      | ($result.summary | gsub("`"; "\u2018") | gsub("~"; "\u223c") | gsub("@"; "@\u200b")) as $summary
+                      | {text: ":mag: [Triage](\($triage)) of [the failure](\($run)): **\($result.category)**\n```\n\($summary)\n```"}' \
                       | curl --fail --silent --show-error --retry 3 --json @- "$WEBHOOK_URL"
