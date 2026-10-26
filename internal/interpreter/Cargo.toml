@@ -171,13 +171,12 @@ internal-json = ["dep:serde_json"]
 
 # (internal) Show the images and fonts that the compiler pre-renders for the software renderer,
 # with `EmbedResourcesKind::EmbedTextures` or `SLINT_EMBED_TEXTURES`.
-# Only the software renderer draws the images of a single color, which stay alpha maps.
 # NOTE: this is not a semver compatible feature
 internal-embed-textures = [
   "i-slint-compiler/renderer-software",
-  "i-slint-core/image-pixel-format-alpha-map",
+  "i-slint-core/image-owned-textures",
   "dep:i-slint-renderer-software",
-  "i-slint-renderer-software/image-pixel-format-alpha-map",
+  "i-slint-renderer-software/image-owned-textures",
 ]
 
 

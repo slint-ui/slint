@@ -1415,6 +1415,12 @@ impl WinitWindowAdapter {
                 let have_focus =
                     if cfg!(target_os = "macos") { winit_window.has_focus() } else { *have_focus };
                 self.activation_changed(have_focus)?;
+                #[cfg(target_os = "windows")]
+                if have_focus {
+                    WindowInner::from_pub(self.window())
+                        .context()
+                        .set_motion_preference(crate::windows_settings::motion_preference());
+                }
             }
 
             WinitWindowEvent::KeyboardInput { event, is_synthetic, .. } => {
@@ -2268,6 +2274,11 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     #[cfg(muda)]
     fn supports_native_menu_bar(&self) -> bool {
+        !crate::muda::is_disabled()
+    }
+
+    #[cfg(all(muda, target_os = "macos"))]
+    fn supports_application_menu_roles(&self) -> bool {
         !crate::muda::is_disabled()
     }
 

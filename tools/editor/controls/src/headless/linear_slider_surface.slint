@@ -5,26 +5,21 @@ import { SliderSurface } from "slider_base.slint";
 
 export component LinearSliderSurface {
     implement SliderSurface <=> self;
+
     in property <bool> enabled;
     in property <float> position;
     in property <bool> focused;
     in property <bool> pressed;
     in property <Orientation> orientation;
     in property <bool> inverted;
+    in property <length> handle-width;
+    in property <length> handle-height;
+    in property <length> track-thickness;
+
     out property <float> visual-position: root.linear-reversed ? 1 - root.position : root.position;
-    callback started();
-    callback seek(position: float);
-    callback finished();
-    callback canceled();
-    in property <length> handle-width: 20px;
-    in property <length> handle-height: 20px;
-    in property <length> track-thickness: 4px;
     out property <bool> hovered: root.enabled && pointer.has-hover
         && pointer.mouse-x >= 0px && pointer.mouse-x < root.width
         && pointer.mouse-y >= 0px && pointer.mouse-y < root.height;
-
-    slot track;
-    slot handle;
 
     private property <bool> linear-vertical: root.orientation == Orientation.vertical;
     private property <bool> linear-reversed: root.linear-vertical != root.inverted;
@@ -34,10 +29,13 @@ export component LinearSliderSurface {
     private property <length> grab-offset;
     private property <length> last-coordinate;
 
-    min-width: root.handle-width;
-    min-height: root.handle-height;
-    horizontal-stretch: root.linear-vertical ? 0 : 1;
-    vertical-stretch: root.linear-vertical ? 1 : 0;
+    slot track;
+    slot handle;
+
+    callback started();
+    callback seek(position: float);
+    callback finished();
+    callback canceled();
 
     function update-pointer() {
         if !root.pressed || !root.enabled || root.travel <= 0px { return; }
@@ -46,6 +44,11 @@ export component LinearSliderSurface {
         let visual = clamp((coordinate - root.grab-offset - root.inset) / root.travel, 0, 1);
         root.seek(root.linear-reversed ? 1 - visual : visual);
     }
+
+    min-width: root.handle-width;
+    min-height: root.handle-height;
+    horizontal-stretch: root.linear-vertical ? 0 : 1;
+    vertical-stretch: root.linear-vertical ? 1 : 0;
 
     pointer := TouchArea {
         enabled: root.enabled;

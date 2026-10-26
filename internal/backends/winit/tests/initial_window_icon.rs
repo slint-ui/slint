@@ -11,6 +11,7 @@ fn main() {
     use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, MapState};
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;

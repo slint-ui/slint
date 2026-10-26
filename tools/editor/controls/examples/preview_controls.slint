@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, Slider, ComboBox, LineEdit } from "../src/basic.slint";
+
+export component PreviewButton inherits Button {
+    in property <int> size-index: 1;
+    private property <int> index: clamp(root.size-index, 0, 2);
+    min-height: [24px, 32px, 40px][root.index];
+    horizontal-padding: [8px, 12px, 16px][root.index];
+    vertical-padding: [4px, 6px, 8px][root.index];
+    font-size: [12px, 14px, 16px][root.index];
+    icon-size: [16px, 20px, 24px][root.index];
+    spacing: [4px, 6px, 8px][root.index];
+}
+
+export component PreviewCheckBox inherits CheckBox {
+    in property <int> size-index: 1;
+    private property <int> index: clamp(root.size-index, 0, 2);
+    min-height: [24px, 32px, 40px][root.index];
+    indicator-size: [16px, 20px, 24px][root.index];
+    checkmark-padding: [2px, 3px, 4px][root.index];
+    checkmark-width: [1.5px, 2px, 2.5px][root.index];
+    horizontal-padding: [4px, 6px, 8px][root.index];
+    vertical-padding: [4px, 6px, 8px][root.index];
+    font-size: [12px, 14px, 16px][root.index];
+    spacing: root.text == "" ? 0px : [4px, 6px, 8px][root.index];
+}
+
+export component PreviewSwitch inherits Switch {
+    in property <int> size-index: 1;
+    private property <int> index: clamp(root.size-index, 0, 2);
+    min-height: [24px, 32px, 40px][root.index];
+    track-width: [32px, 40px, 48px][root.index];
+    track-height: [18px, 22px, 26px][root.index];
+    thumb-size: [12px, 16px, 20px][root.index];
+    horizontal-padding: [4px, 6px, 8px][root.index];
+    vertical-padding: [3px, 5px, 7px][root.index];
+    font-size: [12px, 14px, 16px][root.index];
+    spacing: root.text == "" ? 0px : [4px, 6px, 8px][root.index];
+}
+
+export component PreviewSlider inherits Slider {
+    in property <int> size-index: 1;
+    private property <int> index: clamp(root.size-index, 0, 2);
+    preferred-length: [160px, 200px, 240px][root.index];
+    min-thickness: [24px, 32px, 40px][root.index];
+    handle-width: [16px, 20px, 24px][root.index];
+    handle-height: [16px, 20px, 24px][root.index];
+    track-thickness: [3px, 4px, 6px][root.index];
+}
+
+export component PreviewComboBox inherits ComboBox {
+    in property <int> size-index: 1;
+    private property <int> index: clamp(root.size-index, 0, 2);
+    min-height: [24px, 32px, 40px][root.index];
+    min-width: [96px, 120px, 144px][root.index];
+    preferred-width: [160px, 200px, 240px][root.index];
+    horizontal-padding: [8px, 12px, 16px][root.index];
+    vertical-padding: [4px, 6px, 8px][root.index];
+    item-vertical-padding: [4px, 6px, 8px][root.index];
+    font-size: [12px, 14px, 16px][root.index];
+    indicator-width: [12px, 16px, 20px][root.index];
+    spacing: [4px, 6px, 8px][root.index];
+    min-item-height: [24px, 32px, 40px][root.index];
+    popup-padding: [4px, 4px, 6px][root.index];
+    item-horizontal-padding: [8px, 12px, 16px][root.index];
+}
+
+export component PreviewLineEdit inherits LineEdit {
+    in property <int> size-index: 1;
+    private property <int> index: clamp(root.size-index, 0, 2);
+    min-height: [26px, 34px, 42px][root.index];
+    min-width: [120px, 160px, 200px][root.index];
+    horizontal-padding: [8px, 12px, 16px][root.index];
+    vertical-padding: [4px, 6px, 8px][root.index];
+    font-size: [12px, 14px, 16px][root.index];
+    spacing: [4px, 8px, 12px][root.index];
+}

@@ -31,6 +31,7 @@ impl Platform for TestPlatform {
 }
 
 slint::slint! {
+    #[slint_edition = "1.19"]
     export component Animated inherits Window {
         in property <bool> animate: true;
         in property <bool> big;

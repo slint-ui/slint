@@ -224,6 +224,8 @@ macro_rules! for_each_builtin_structs {
                 is_separator: bool,
                 /// The shortcut keys
                 shortcut: Keys,
+                /// The platform role of the menu entry
+                role: MenuItemRole,
             }
 
             /// A structure representing the four edges of an axis-aligned rectangle

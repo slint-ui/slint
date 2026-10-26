@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 slint::slint! {
+    #[slint_edition = "1.19"]
     export { MainWindow, ExampleTray } from "system-tray.slint";
 }
 

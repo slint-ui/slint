@@ -1242,6 +1242,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             export component App inherits Window {
                 in property <int> count: 3;
                 probe := VerticalLayout {
@@ -1285,6 +1286,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             export component App inherits Window {
                 width: 100px;
                 height: 100px;
@@ -1358,6 +1360,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             export component App inherits Window {
                 width: 100px;
                 height: 100px;
@@ -1457,6 +1460,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             export component App inherits Window {
                 width: 100px;
                 height: 100px;

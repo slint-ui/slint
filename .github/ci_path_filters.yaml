@@ -65,7 +65,7 @@ integration: &integration
  - '.github/workflows/build_and_test_reusable.yaml'
  - 'api/rs/**'
  - 'internal/compiler/generator/rust*{,/**}'
- - 'internal/renderers/{anyrender,skia,software}/**'
+ - 'internal/renderers/{anyrender,femtovg,skia,software}/**'
  - 'internal/backends/winit/**'
 
 # Everything the root-workspace `cargo test` covers: all of internal/ (also
@@ -101,8 +101,9 @@ docs_build:
  - 'helper_crates/**'
  - 'tools/lsp/**'
  - 'tests/doctests/**'
- # The doctests compile the slint snippets in the skill files
- - 'skills/**'
+ # The doctests compile the slint snippets in every Markdown file of the repository
+ - '**/*.md'
+ - '**/*.mdx'
  - *js_config
  - *ci_config
 

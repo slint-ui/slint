@@ -63,6 +63,10 @@ export component SideBar inherits Rectangle {
     width: max(180px, vb.preferred-width);
     forward-focus: fs;
 
+    public function select(index: int) {
+        root.current-item = index;
+    }
+
     Rectangle {
         background: Palette.background.darker(0.2);
     }

@@ -190,6 +190,10 @@ pub struct CompilerConfiguration {
     /// An invalid `SLINT_EDITION`, which the compilation reports as an error.
     invalid_edition_env: Option<String>,
 
+    /// Where `edition` is set, such as in a project file. A warning about the edition points
+    /// there, and there is no such warning without it.
+    pub edition_location: Option<diagnostics::SourceLocation>,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
@@ -244,11 +248,6 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
-    /// Whether an `if`/`for` child counts toward the size of a non-layout parent (#407).
-    pub fn repeated_children_constrain_parent(&self) -> bool {
-        self.edition.is_some_and(|version| version >= project_file::SlintEdition::V1_19)
-    }
-
     /// The absolute path of the directory the translations are bundled from, if any.
     pub fn absolute_bundled_translations_path(&self) -> Option<String> {
         #[cfg(feature = "bundle-translations")]
@@ -360,6 +359,7 @@ impl CompilerConfiguration {
             enable_experimental,
             edition,
             invalid_edition_env,
+            edition_location: None,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -417,6 +417,12 @@ fn prepare_for_compile(
     // Not a panic, which would crash the LSP.
     if let Some(message) = &compiler_config.invalid_edition_env {
         diagnostics.push_error_with_span(message.clone(), Default::default());
+    }
+    if let Some(location) = &compiler_config.edition_location
+        && let Some(warning) =
+            compiler_config.edition.and_then(|e| e.behavior_change_warning("slint-edition"))
+    {
+        diagnostics.push_warning_with_span(warning, location.clone());
     }
     #[cfg(feature = "slint-sc")]
     {

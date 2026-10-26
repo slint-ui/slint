@@ -67,6 +67,10 @@ fn main() -> Result<()> {
     select_backend(headless)?;
 
     let editor_ui = preview::ui::create_ui()?;
+    editor_ui.on_quit_requested(|| {
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = slint::quit_event_loop();
+    });
 
     // The updater needs to stay in scope for as long as the window is up.
     #[cfg(target_os = "macos")]
@@ -334,7 +338,7 @@ async fn lsp_main(
         tokio::select! {
             watcher_event = file_watcher_rx.recv() => {
                 match watcher_event {
-                    Some(event) => trigger_editor_file_watcher(&mut session, event).await?,
+                    Some(event) => trigger_editor_file_watcher(&mut session, event).await,
                     None => break Err("File watcher channel closed".into()),
                 }
             }
@@ -397,9 +401,12 @@ async fn lsp_main(
             }
         }
 
-        if let Err(error) =
-            sync_file_watcher_if_needed(&mut file_watcher, &session, &mut watch_paths_revision)
-        {
+        if let Err(error) = sync_file_watcher_if_needed(
+            &mut file_watcher,
+            &session,
+            &project_root,
+            &mut watch_paths_revision,
+        ) {
             tracing::warn!("Failed to watch project: {error}");
         }
     }
@@ -462,19 +469,21 @@ fn new_editor_session(to_previews: Vec<Rc<LspToPreviews>>) -> editor_preview::Ed
 async fn trigger_editor_file_watcher(
     session: &mut editor_preview::EditorSession,
     WatchEvent { path, kind }: WatchEvent,
-) -> Result<()> {
+) {
     let Ok(url) = Url::from_file_path(&path) else {
         tracing::debug!("Ignoring file watcher event for non-file path: {}", path.display());
-        return Ok(());
+        return;
     };
 
-    session.trigger_file_watcher(url, kind).await?;
-    Ok(())
+    if let Err(error) = session.trigger_file_watcher(url, kind).await {
+        tracing::warn!("Failed to process file watcher event for {}: {error}", path.display());
+    }
 }
 
 fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
     session: &editor_preview::EditorSession,
+    project_root: &Path,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
     let current_revision = session.document_cache.revision();
@@ -507,7 +516,9 @@ fn sync_file_watcher_if_needed(
                     .as_ref()
                     .and_then(|component| SourcePath::from_url(&component.url).into_native_path())
             }))
-            .chain(session.active_project_file_paths().map(Path::to_path_buf)),
+            .chain(session.active_project_file_paths().map(Path::to_path_buf))
+            // Missing and deleted project files aren't active, but their creation must be observed.
+            .chain(std::iter::once(project_root.join(i_slint_compiler::project_file::FILE_NAME))),
     )?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
@@ -598,10 +609,17 @@ async fn handle_preview_message(
                 &LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 },
             );
         }
+        HighlightInRunPreview { url, offset } if preview_index == PRIMARY_PREVIEW_INDEX => {
+            session.send_to_preview(
+                RUN_PREVIEW_INDEX,
+                &LspToPreviewMessage::HighlightFromEditor { url: url.clone(), offset: *offset },
+            );
+        }
 
         Diagnostics { .. }
         | ShowDocument { .. }
         | ClearHighlight
+        | HighlightInRunPreview { .. }
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
@@ -646,7 +664,7 @@ async fn activate_project(
     }
     while watcher_events.try_recv().is_ok() {}
     open_preview(session, PRIMARY_PREVIEW_INDEX, component).await;
-    if let Err(error) = sync_file_watcher_if_needed(watcher, session, &mut None) {
+    if let Err(error) = sync_file_watcher_if_needed(watcher, session, project_root, &mut None) {
         tracing::warn!("Failed to watch project: {error}");
     }
 }
@@ -730,29 +748,49 @@ async fn handle_workspace_edit(
     let urls = editor_preview::editing::text_edit::EditIterator::new(edit)
         .map(|(document, _)| document.uri)
         .collect::<std::collections::HashSet<_>>();
+    let mut sources = std::collections::HashMap::new();
     for url in &urls {
-        if session
-            .document_cache
-            .get_document(url)
-            .and_then(|document| document.node.as_ref())
-            .is_none()
-            && let Err(error) = session.reload_document(url.clone()).await
-        {
-            tracing::error!(%url, %error, "Failed to load a workspace edit document");
-            return false;
-        }
+        let path = SourcePath::from_url(url);
+        let source_file =
+            if path.as_native_path().is_some_and(i_slint_compiler::project_file::is_project_file) {
+                match path.read_to_string() {
+                    Ok(contents) => std::sync::Arc::new(
+                        i_slint_compiler::diagnostics::SourceFileInner::new(path, contents),
+                    ),
+                    Err(error) => {
+                        tracing::error!(%url, %error, "Failed to load a workspace edit document");
+                        return false;
+                    }
+                }
+            } else {
+                if session
+                    .document_cache
+                    .get_document(url)
+                    .and_then(|document| document.node.as_ref())
+                    .is_none()
+                    && let Err(error) = session.reload_document(url.clone()).await
+                {
+                    tracing::error!(%url, %error, "Failed to load a workspace edit document");
+                    return false;
+                }
+                let Some(source_file) = session
+                    .document_cache
+                    .get_document(url)
+                    .and_then(|document| document.node.as_ref())
+                    .map(|node| node.source_file.clone())
+                else {
+                    tracing::warn!(%url, "Cannot apply a workspace edit with an unloaded document");
+                    return false;
+                };
+                source_file
+            };
+        sources.insert(url.clone(), source_file);
     }
-    if urls.iter().any(|url| {
-        session
-            .document_cache
-            .get_document(url)
-            .and_then(|document| document.node.as_ref())
-            .is_none()
-    }) {
-        tracing::warn!(?urls, "Cannot apply a workspace edit with unloaded documents");
-        return false;
-    }
-    match editor_preview::editing::text_edit::apply_workspace_edit(&session.document_cache, edit) {
+    match editor_preview::editing::text_edit::apply_workspace_edit_with_source(
+        edit,
+        session.document_cache.format,
+        |url| sources.get(url).cloned(),
+    ) {
         Ok(edited_texts) => {
             let mut applied = true;
             for editor_preview::editing::text_edit::EditedText { url, contents } in edited_texts {
@@ -895,8 +933,7 @@ mod tests {
                     path: root.join(changed_file),
                     kind: i_slint_live_preview::file_watcher::FileChangeKind::Changed,
                 },
-            ))
-            .unwrap();
+            ));
             assert!(session.pending_recompile.contains(&url));
             assert!(
                 session
@@ -917,6 +954,137 @@ mod tests {
                 "watcher event for {changed_file}"
             );
         }
+    }
+
+    #[test]
+    fn file_watcher_read_failure_does_not_stop_later_events() {
+        use i_slint_live_preview::file_watcher::FileChangeKind;
+        for kind in [FileChangeKind::Created, FileChangeKind::Changed] {
+            let directory = tempfile::tempdir().unwrap();
+            let root = directory.path().canonicalize().unwrap();
+            let main = root.join("main.slint");
+            std::fs::write(&main, "export component Main {}").unwrap();
+            let path = root.join("slint-project.json");
+            let url = Url::from_file_path(&path).unwrap();
+            let contents = r#"{"slint-edition":"1.19","main":"main.slint"}"#;
+            let (mut session, messages) = session_with_recording_previews();
+            spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
+            std::fs::write(&path, contents).unwrap();
+            std::fs::remove_file(&path).unwrap();
+            spin_on::spin_on(trigger_editor_file_watcher(
+                &mut session,
+                WatchEvent { path: path.clone(), kind },
+            ));
+            clear_messages(&messages);
+            std::fs::write(&path, contents).unwrap();
+            spin_on::spin_on(trigger_editor_file_watcher(&mut session, WatchEvent { path, kind }));
+            assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
+                matches!(message, LspToPreviewMessage::SetContents { url: received, contents: received_contents }
+                    if received.url() == &url && received_contents == contents.as_bytes())
+            }));
+        }
+    }
+
+    #[test]
+    fn canvas_project_file_creation_and_recreation_reach_the_preview() {
+        use i_slint_live_preview::file_watcher::FileChangeKind;
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let main = root.join("main.slint");
+        std::fs::write(&main, "export component Main {}").unwrap();
+        let path = root.join("slint-project.json");
+        let url = Url::from_file_path(&path).unwrap();
+        let (mut session, messages) = session_with_recording_previews();
+        spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let mut watcher = FileWatcher::start(
+            move |event| {
+                let _ = sender.send(event);
+            },
+            |_| {},
+        )
+        .unwrap();
+        sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
+        for contents in [
+            Some(r#"{"slint-edition":"1.19","metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
+            None,
+            Some("{"),
+            Some(r#"{"slint-edition":"1.19","main":"main.slint"}"#),
+        ] {
+            clear_messages(&messages);
+            while receiver.try_recv().is_ok() {}
+            let expected_kind = if contents.is_some() {
+                if path.exists() { FileChangeKind::Changed } else { FileChangeKind::Created }
+            } else {
+                FileChangeKind::Deleted
+            };
+            match contents {
+                Some(contents) => std::fs::write(&path, contents).unwrap(),
+                None => std::fs::remove_file(&path).unwrap(),
+            }
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            loop {
+                let event = receiver
+                    .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
+                    .unwrap();
+                if event.path == path && event.kind == expected_kind {
+                    spin_on::spin_on(trigger_editor_file_watcher(&mut session, event));
+                    break;
+                }
+            }
+            let messages = messages[PRIMARY_PREVIEW_INDEX].borrow();
+            assert!(
+                messages.iter().any(|message| match (contents, message) {
+                    (
+                        Some(expected),
+                        LspToPreviewMessage::SetContents { url: received, contents },
+                    ) => received.url() == &url && contents == expected.as_bytes(),
+                    (None, LspToPreviewMessage::ForgetFile { url: received }) => received == &url,
+                    _ => false,
+                }),
+                "{messages:?}"
+            );
+            sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
+        }
+    }
+
+    #[test]
+    fn project_workspace_edits_apply_without_a_syntax_tree_and_ignore_versions() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("slint-project.json");
+        let original = r#"{"slint-edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
+        std::fs::write(&path, original).unwrap();
+        let url = Url::from_file_path(&path).unwrap();
+        let (mut session, _) = session_with_recording_previews();
+        for (version, width) in [(Some(10), 720), (Some(1), 1920)] {
+            let source = std::fs::read_to_string(&path).unwrap();
+            let offset = source.find("100").or_else(|| source.find("720")).unwrap();
+            let edit = editor_preview::editing::create_workspace_edit(
+                url.clone(),
+                version,
+                vec![lsp_types::TextEdit {
+                    range: lsp_types::Range::new(
+                        lsp_types::Position::new(0, offset as u32),
+                        lsp_types::Position::new(0, offset as u32 + 3),
+                    ),
+                    new_text: width.to_string(),
+                }],
+            );
+            assert!(spin_on::spin_on(handle_workspace_edit(&mut session, None, &edit)));
+            assert!(session.document_cache.get_document(&url).is_none());
+            assert_eq!(
+                std::fs::read_to_string(&path).unwrap(),
+                original.replace("100,", &format!("{width},"))
+            );
+        }
+        std::fs::remove_file(&path).unwrap();
+        let edit = editor_preview::editing::create_workspace_edit(
+            url,
+            None,
+            vec![lsp_types::TextEdit { range: lsp_types::Range::default(), new_text: "{}".into() }],
+        );
+        assert!(!spin_on::spin_on(handle_workspace_edit(&mut session, None, &edit)));
+        assert!(!path.exists());
     }
 
     #[test]
@@ -1072,6 +1240,7 @@ mod tests {
         let missing_root = old_project.path().join("missing");
         let project = Project {
             root: missing_root.clone(),
+            selected_canvas_preset: 0,
             preview: PreviewComponent {
                 url: Url::from_file_path(missing_root.join("main.slint")).unwrap(),
                 component: Some("Missing".into()),
@@ -1268,6 +1437,33 @@ mod tests {
                 assert!(matches!(
                     run_messages.as_slice(),
                     [LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 }]
+                ));
+            } else {
+                assert!(run_messages.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn hover_highlight_only_reaches_the_run_preview_from_the_primary_preview() {
+        let url = editor_preview::test::test_file_name("hover.slint").to_url().unwrap();
+        for preview_index in [PRIMARY_PREVIEW_INDEX, RUN_PREVIEW_INDEX] {
+            let (mut session, messages) = session_with_recording_previews();
+            let project = tempfile::tempdir().unwrap();
+
+            spin_on::spin_on(handle_preview_message(
+                PreviewToLspMessage::HighlightInRunPreview { url: Some(url.clone()), offset: 42 },
+                preview_index,
+                &mut session,
+                project.path(),
+            ));
+
+            assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+            let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
+            if preview_index == PRIMARY_PREVIEW_INDEX {
+                assert!(matches!(
+                    run_messages.as_slice(),
+                    [LspToPreviewMessage::HighlightFromEditor { url: Some(u), offset: 42 }] if *u == url
                 ));
             } else {
                 assert!(run_messages.is_empty());

@@ -330,6 +330,17 @@ fn project_file_include_paths_are_used() {
 }
 
 #[test]
+fn an_old_project_file_edition_warns() {
+    let project =
+        project_with_shared_component(r#"{ "slint-edition": "1.18", "main": "main.slint" }"#);
+    let main = project.path().join("main.slint");
+    std::fs::write(&main, "export component App { }\n").unwrap();
+    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    assert!(stderr.contains("'slint-edition' 1.18 misses"), "stderr was:\n{stderr}");
+}
+
+#[test]
 fn project_file_library_paths_are_used() {
     let project = project_with_shared_component(
         r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,

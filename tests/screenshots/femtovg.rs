@@ -4,7 +4,7 @@
 //! Offscreen screenshot tests for FemtoVG's shared item renderer.
 //!
 //! They run with the other screenshot tests when the `femtovg` feature is enabled, and pass without
-//! rendering on a machine without a WGPU adapter.
+//! rendering on a machine without a WGPU adapter, unless `SLINT_TEST_REQUIRE_WGPU` is set.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -89,6 +89,7 @@ struct SharedWgpu {
     device: wgpu::Device,
     queue: wgpu::Queue,
     is_warp: bool,
+    is_llvmpipe: bool,
 }
 
 fn shared_wgpu() -> Option<&'static SharedWgpu> {
@@ -118,15 +119,20 @@ fn shared_wgpu() -> Option<&'static SharedWgpu> {
             None => "FemtoVG screenshot tests: skipped, no WGPU adapter\n".into(),
         };
         let _ = std::io::Write::write_all(&mut std::io::stderr(), report.as_bytes());
+        if adapter.is_none() && std::env::var_os("SLINT_TEST_REQUIRE_WGPU").is_some() {
+            panic!("SLINT_TEST_REQUIRE_WGPU is set, but there is no WGPU adapter");
+        }
         let adapter = adapter?;
         let info = adapter.get_info();
         // WARP, the D3D12 software adapter, reports Microsoft's PCI vendor ID.
         let is_warp = info.vendor == 0x1414 && info.device_type == wgpu::DeviceType::Cpu;
+        // llvmpipe, Mesa's Vulkan software adapter, reports VK_VENDOR_ID_MESA.
+        let is_llvmpipe = info.vendor == 0x10005 && info.device_type == wgpu::DeviceType::Cpu;
         let (device, queue) =
             crate::testing::poll_once(adapter.request_device(&wgpu::DeviceDescriptor::default()))
                 .expect("device request is ready")
                 .ok()?;
-        Some(SharedWgpu { instance, device, queue, is_warp })
+        Some(SharedWgpu { instance, device, queue, is_warp, is_llvmpipe })
     })
     .as_ref()
 }
@@ -144,9 +150,10 @@ fn init_femtovg() -> Option<&'static SharedWgpu> {
 
 /// The lowest `base_threshold` for a FemtoVG case.
 ///
-/// GPU rasterizers round anti-aliasing and gradient interpolation differently: WARP, the D3D12
-/// software adapter on Windows CI, puts channels up to 2 levels off references made with Metal.
-const MIN_BASE_THRESHOLD: f32 = 4.;
+/// GPU rasterizers round anti-aliasing and gradient interpolation differently: WARP and llvmpipe,
+/// the software adapters on Windows and Linux CI, put channels up to 4 levels off references made
+/// with Metal.
+const MIN_BASE_THRESHOLD: f32 = 4.5;
 
 pub struct TestCase {
     pub absolute_path: std::path::PathBuf,
@@ -155,13 +162,14 @@ pub struct TestCase {
     pub size: PhysicalSize,
     pub scale_factor: f32,
     pub skip_warp: bool,
+    pub skip_llvmpipe: bool,
 }
 
 pub fn run_test(testcase: TestCase) -> Result<(), Box<dyn std::error::Error>> {
     let Some(wgpu) = init_femtovg() else {
         return Ok(());
     };
-    if testcase.skip_warp && wgpu.is_warp {
+    if (testcase.skip_warp && wgpu.is_warp) || (testcase.skip_llvmpipe && wgpu.is_llvmpipe) {
         return Ok(());
     }
     let source = std::fs::read_to_string(&testcase.absolute_path)?;

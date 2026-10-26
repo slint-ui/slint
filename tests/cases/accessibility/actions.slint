@@ -20,6 +20,17 @@ component Button {
     }
 }
 
+component Icon {
+    Rectangle { }
+}
+
+component Toolbar {
+    Icon {
+        accessible-role: checkbox;
+        accessible-label: "Nested";
+    }
+}
+
 export component TestCase {
     Rectangle {
         x: 100px;
@@ -32,6 +43,9 @@ export component TestCase {
             height: 76px;
         }
     }
+
+    Toolbar { }
+    Toolbar { }
 
     public function call() {
         btn.accessible-action-set-value(45);
@@ -53,6 +67,10 @@ instance.invoke_call();
 assert_eq!(button.accessible_value().unwrap(), "45");
 button.set_accessible_value("78");
 assert_eq!(button.accessible_value().unwrap(), "78");
+
+let nested = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Nested").collect::<Vec<_>>();
+assert_eq!(nested.len(), 2);
+assert!(nested.iter().all(|e| e.accessible_role() == Some(slint_testing::AccessibleRole::Checkbox)));
 ```
 
 ```cpp
@@ -71,5 +89,11 @@ instance.invoke_call();
 assert_eq(button.accessible_value().value(), "45");
 button.set_accessible_value("78");
 assert_eq(button.accessible_value().value(), "78");
+
+auto nested = slint::testing::ElementHandle::find_by_accessible_label(handle, "Nested");
+assert_eq(nested.size(), 2);
+for (const auto &e : nested) {
+    assert(e.accessible_role() == slint::language::AccessibleRole::Checkbox);
+}
 ```
 */

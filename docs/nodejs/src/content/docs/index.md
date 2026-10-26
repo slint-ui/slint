@@ -1,4 +1,5 @@
 ---
+
 title: Slint for Node.js (Beta)
 description: Use Slint from Node.js, Deno, or Bun — install slint-ui, load .slint files, and run native UI windows.
 ---
@@ -32,17 +33,14 @@ pnpm -C api/node run build
 ## Prerequisites
 
 To use Slint with Node.js, ensure the following programs are installed:
-
-  * **[Node.js](https://nodejs.org/download/release/)** (v22.18 or newer)
-  * **[npm](https://www.npmjs.com/)**
+- **[Node.js](https://nodejs.org/download/release/)** (v22.18 or newer)
+- **[npm](https://www.npmjs.com/)**
 
 To use Slint with Deno, ensure the following programs are installed:
-
-  * **[Deno](https://docs.deno.com/runtime/manual)**
+- **[Deno](https://docs.deno.com/runtime/manual)**
 
 To use Slint with Bun, ensure the following programs are installed:
-
-  * **[Bun](https://bun.sh/docs/installation)**
+- **[Bun](https://bun.sh/docs/installation)**
 
 ### Building from Source
 
@@ -77,7 +75,6 @@ export component Demo inherits Window {
 ```
 
 This file declares the user interface.
-
 4. Create a new file called `index.mjs` with the following contents:
 
 ```js
@@ -89,12 +86,11 @@ await demo.run();
 ```
 
 This is your main JavaScript entry point:
-
-* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. If you prefer you can
+- Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module. If you prefer you can
   also import it as [CommonJS](https://nodejs.org/api/modules.html#modules-commonjs-modules) module.
-* Invoke `loadFile()` to compile and load the `.slint` file.
-* Instantiate the `Demo` component declared in `main.slint`.
-* Run it by showing it on the screen and reacting to user input.
+- Invoke `loadFile()` to compile and load the `.slint` file.
+- Instantiate the `Demo` component declared in `main.slint`.
+- Run it by showing it on the screen and reacting to user input.
 
 5. Run the example with `node index.mjs`
 
@@ -124,15 +120,14 @@ export component Demo inherits Window {
 ```
 
 This file declares the user interface.
-
 2. Create a new file called `deno.json` (a [Deno Import Map](https://docs.deno.com/runtime/manual/basics/import_maps))
-   with the following contents:
+with the following contents:
 
 ```json
 {
-  "imports": {
-    "slint-ui": "npm:slint-ui"
-  }
+    "imports": {
+        "slint-ui": "npm:slint-ui"
+    }
 }
 ```
 
@@ -147,12 +142,11 @@ await demo.run();
 ```
 
 This is your main JavaScript entry point:
-
-* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module through Deno's
+- Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module through Deno's
   NPM compatibility layer.
-* Invoke `loadFile()` to compile and load the `.slint` file.
-* Instantiate the `Demo` component declared in `main.slint`.
-* Run it by showing it on the screen and reacting to user input.
+- Invoke `loadFile()` to compile and load the `.slint` file.
+- Instantiate the `Demo` component declared in `main.slint`.
+- Run it by showing it on the screen and reacting to user input.
 
 1. Run the example with `deno run --allow-read --allow-ffi --allow-sys index.ts`
 
@@ -183,7 +177,6 @@ export component Demo inherits Window {
 ```
 
 This file declares the user interface.
-
 4. Clear the content of `index.ts` and add the following code:
 
 ```ts
@@ -195,11 +188,10 @@ await demo.run();
 ```
 
 This is your main TypeScript entry point:
-
-* Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module.
-* Invoke `loadFile()` to compile and load the `.slint` file.
-* Instantiate the `Demo` component declared in `main.slint`.
-* Run it by showing it on the screen and reacting to user input.
+- Import the Slint API as an [ECMAScript module](https://nodejs.org/api/esm.html#modules-ecmascript-modules) module.
+- Invoke `loadFile()` to compile and load the `.slint` file.
+- Instantiate the `Demo` component declared in `main.slint`.
+- Run it by showing it on the screen and reacting to user input.
 
 5. Run the example with `bun run index.ts`
 
@@ -222,7 +214,9 @@ import { MainWindow } from "./ui/main.slint";
 
 let component = new MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
 
@@ -271,7 +265,9 @@ import * as slint from "slint-ui";
 let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
 
@@ -309,7 +305,9 @@ Instantiate it:
 ```js
 let component = new MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
 
@@ -364,7 +362,9 @@ let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // connect to a callback
-component.clicked = function() { console.log("hello"); };
+component.clicked = function () {
+    console.log("hello");
+};
 // emit a callback
 component.clicked();
 ```
@@ -373,26 +373,26 @@ component.clicked();
 
 The types used for properties in .slint design markup each translate to specific types in JavaScript. The following table summarizes the entire mapping:
 
-| `.slint` Type | JavaScript Type | Notes |
-| --- | --- | --- |
-| `int` | `Number` | |
-| `bool` | `Boolean` | |
-| `float` | `Number` | |
-| `string` | `String` | |
-| `color` | `Brush` | Reading returns a `Brush`, whose `color` is an `RgbaColor`. Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
-| `brush` | `Brush` | Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
-| `keys` | `Keys` | |
-| `image` | `ImageData` | |
-| `styled-text` | `StyledText` | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances. |
-| `data-transfer` | `DataTransfer` | Data associated with a drag-drop transfer. |
-| `length` | `Number` | |
-| `physical_length` | `Number` | |
-| `duration` | `Number` | The number of milliseconds |
-| `angle` | `Number` | The angle in degrees |
-| `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
-| structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
-| array | `Model` | |
-| `Point` | `{ x: number; y: number }` | A two-dimensional point with `x` and `y` coordinates. |
+| `.slint` Type        | JavaScript Type            | Notes                                                                                                                                              |
+| -------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `int`                | `Number`                   |                                                                                                                                                    |
+| `bool`               | `Boolean`                  |                                                                                                                                                    |
+| `float`              | `Number`                   |                                                                                                                                                    |
+| `string`             | `String`                   |                                                                                                                                                    |
+| `color`              | `Brush`                    | Reading returns a `Brush`, whose `color` is an `RgbaColor`. Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`. |
+| `brush`              | `Brush`                    | Assign a `Brush`, an `RgbaColor`, or a color string such as `"#ff000080"` or `"blue"`.                                                             |
+| `keys`               | `Keys`                     |                                                                                                                                                    |
+| `image`              | `ImageData`                |                                                                                                                                                    |
+| `styled-text`        | `StyledText`               | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances.               |
+| `data-transfer`      | `DataTransfer`             | Data associated with a drag-drop transfer.                                                                                                         |
+| `length`             | `Number`                   |                                                                                                                                                    |
+| `physical_length`    | `Number`                   |                                                                                                                                                    |
+| `duration`           | `Number`                   | The number of milliseconds                                                                                                                         |
+| `angle`              | `Number`                   | The angle in degrees                                                                                                                               |
+| `relative-font-size` | `Number`                   | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`.                               |
+| structure            | `Object`                   | Structures are mapped to JavaScript objects where each structure field is a property.                                                              |
+| array                | `Model`                    |                                                                                                                                                    |
+| `Point`              | `{ x: number; y: number }` | A two-dimensional point with `x` and `y` coordinates.                                                                                              |
 
 ### Arrays and Models
 
@@ -432,7 +432,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
@@ -468,7 +467,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
@@ -544,13 +542,13 @@ and call it from a script:
 
 ```json
 {
-  "devDependencies": {
-    "slint-compiler": "^1.19.0"
-  },
-  "scripts": {
-    "generate": "slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts",
-    "start": "npm run generate && node --import slint-ui/register app.mjs"
-  }
+    "devDependencies": {
+        "slint-compiler": "^1.19.0"
+    },
+    "scripts": {
+        "generate": "slint-compiler -f typescript ui/main.slint -o ui/main.slint.d.ts",
+        "start": "npm run generate && node --import slint-ui/register app.mjs"
+    }
 }
 ```
 
@@ -566,13 +564,13 @@ also map `slint-ui` with `paths`, or TypeScript silently types every component a
 
 ```json
 {
-  "compilerOptions": {
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "paths": {
-      "slint-ui": ["./node_modules/slint-ui"]
+    "compilerOptions": {
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "paths": {
+            "slint-ui": ["./node_modules/slint-ui"]
+        }
     }
-  }
 }
 ```
 

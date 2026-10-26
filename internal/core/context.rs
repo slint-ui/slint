@@ -26,6 +26,16 @@ crate::thread_local! {
         = const { core::cell::OnceCell::new() }
 }
 
+/// Whether the user asked the operating system for less motion, as reported by the backend.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum MotionPreference {
+    /// No preference expressed: animations play as designed.
+    #[default]
+    NoPreference,
+    /// The user asked for less motion: animations go straight to their target.
+    Reduced,
+}
+
 /// The part of a `SlintContext` that every context created with
 /// [`SlintContext::new_sharing_platform`] has in common:
 /// the platform, and what the windowing system reports for the whole process.
@@ -42,6 +52,9 @@ pub(crate) struct PlatformContext {
     accent_color: Property<Color>,
     #[pin]
     platform_default_font_size: Property<Option<LogicalLength>>,
+    /// Process-wide reduced-motion setting, as reported by the backend.
+    #[pin]
+    motion_preference: Property<MotionPreference>,
     modifiers: Cell<InternalKeyboardModifierState>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: RefCell<Option<crate::SharedString>>,
@@ -65,6 +78,10 @@ impl PlatformContext {
             platform_default_font_size: Property::new_named(
                 None,
                 "PlatformContext::platform_default_font_size",
+            ),
+            motion_preference: Property::new_named(
+                MotionPreference::default(),
+                "PlatformContext::motion_preference",
             ),
             modifiers: Cell::new(Default::default()),
             #[cfg(all(unix, not(target_os = "macos")))]
@@ -423,6 +440,14 @@ impl SlintContext {
     /// backends that track the system setting; `Property::set` short-circuits no-op writes.
     pub fn set_platform_default_font_size(&self, size: Option<LogicalLength>) {
         self.platform_context().project_ref().platform_default_font_size.set(size);
+    }
+
+    pub fn motion_preference(&self) -> MotionPreference {
+        self.platform_context().project_ref().motion_preference.get()
+    }
+
+    pub fn set_motion_preference(&self, preference: MotionPreference) {
+        self.platform_context().project_ref().motion_preference.set(preference);
     }
 
     #[doc(hidden)]

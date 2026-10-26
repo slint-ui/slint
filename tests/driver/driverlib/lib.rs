@@ -246,6 +246,25 @@ fn test_extract_ignores() {
     assert_eq!(r, ["cpp", "rust", "nodejs"]);
 }
 
+pub fn extract_slint_edition(source: &str) -> Option<&str> {
+    static RX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"//slint-edition:\s*(\S+)\s*\n").unwrap());
+    RX.captures(source).map(|mat| mat.get(1).unwrap().as_str())
+}
+
+/// Parses the edition that `extract_slint_edition` finds.
+/// Generic because this crate doesn't depend on the compiler, which defines `SlintEdition`.
+pub fn parse_slint_edition<T: std::str::FromStr>(source: &str) -> Result<Option<T>, T::Err> {
+    extract_slint_edition(source).map(str::parse).transpose()
+}
+
+#[test]
+fn test_extract_slint_edition() {
+    assert!(extract_slint_edition("something").is_none());
+    assert_eq!(extract_slint_edition("//slint-edition: 1.18\nBlah {}\n"), Some("1.18"));
+    assert_eq!(extract_slint_edition("//slint-edition: 1.18\r\nBlah {}\r\n"), Some("1.18"));
+}
+
 pub fn extract_cpp_namespace(source: &str) -> Option<String> {
     static RX: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"//cpp-namespace:\s*(.+)\s*\n").unwrap());

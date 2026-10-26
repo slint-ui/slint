@@ -132,10 +132,7 @@ impl JsWindow {
     /// Sets the logical size of the window on the screen,
     #[napi(setter)]
     pub fn set_logical_size(&self, size: SlintSize) {
-        self.inner.window().set_size(LogicalSize::from_physical(
-            PhysicalSize { width: size.width.floor() as u32, height: size.height.floor() as u32 },
-            self.inner.window().scale_factor(),
-        ));
+        self.inner.window().set_size(LogicalSize::new(size.width as f32, size.height as f32));
     }
 
     /// Returns the physical size of the window on the screen,

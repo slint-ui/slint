@@ -9,6 +9,7 @@ fn test_layout_kind() {
     i_slint_backend_testing::init_integration_test_with_system_time();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             hl := HorizontalLayout {
                 Rectangle {}
@@ -43,6 +44,7 @@ fn test_layout_kind() {
 
     // Nested layouts: inner layout reports its own kind
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component Nested inherits Window {
             outer := VerticalLayout {
                 inner := HorizontalLayout {
@@ -78,6 +80,7 @@ fn test_layout_kind() {
 
     // HorizontalBox / VerticalBox (styled widget variants)
     slint::slint! {
+        #[slint_edition = "1.19"]
         import { HorizontalBox, VerticalBox } from "std-widgets.slint";
         export component Boxes inherits Window {
             hb := HorizontalBox {

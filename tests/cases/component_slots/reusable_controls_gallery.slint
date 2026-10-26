@@ -17,11 +17,66 @@ use slint_testing::AccessibleRole;
 let instance = TestCase::new().unwrap();
 instance.show().unwrap();
 assert!(instance.get_test());
+let content_scroll = slint_testing::ElementHandle::find_by_element_id(&instance, "ControlsDemo::content-scroll")
+    .next().unwrap();
 let find = |label: &str, role: AccessibleRole| {
-    slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
-        .find(|element| element.accessible_role() == Some(role))
-        .unwrap_or_else(|| panic!("Missing {role:?} with label {label:?}"))
+    let query = || slint_testing::ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|element| element.accessible_role() == Some(role));
+    if let Some(element) = query() { return element; }
+    content_scroll.scroll(0., 10_000.);
+    for _ in 0..24 {
+        slint::platform::update_timers_and_animations();
+        if let Some(element) = query() { return element; }
+        content_scroll.scroll(0., -content_scroll.size().height / 2.);
+    }
+    panic!("Missing {role:?} with label {label:?}")
 };
+let select_size = |label: &str| {
+    find("Control size", AccessibleRole::Combobox).mock_single_click(PointerEventButton::Left);
+    find(label, AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
+    slint::platform::update_timers_and_animations();
+    assert_eq!(find("Control size", AccessibleRole::Combobox).accessible_value().as_deref(), Some(label));
+};
+assert_eq!(find("Control size", AccessibleRole::Combobox).accessible_value().as_deref(), Some("Medium"));
+select_size("Small");
+let small_height = find("Primary", AccessibleRole::Button).size().height;
+select_size("Large");
+for label in ["Primary", "Danger", "Secondary", "Invisible"] {
+    assert!(find(label, AccessibleRole::Button).size().height > small_height);
+}
+select_size("Medium");
+
+for label in ["Primary", "Danger", "Secondary", "Invisible"] {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(true));
+    assert_eq!(button.accessible_checkable(), Some(false));
+    assert_eq!(button.accessible_checked(), Some(false));
+}
+for label in ["Checkable", "Checked", "Inactive", "Button content alignment"] {
+    assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().is_none());
+}
+find("Disable preview controls", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Activations: 0").next().is_some());
+for label in ["Primary", "Danger", "Secondary", "Invisible"] {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(false));
+    button.invoke_accessible_default_action();
+}
+assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Activations: 0").next().is_some());
+find("ComboBox", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+slint::platform::update_timers_and_animations();
+assert_eq!(find("Image fit", AccessibleRole::Combobox).accessible_enabled(), Some(true));
+for label in ["Control size", "Disable preview controls"] {
+    assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().is_none());
+}
+find("Button", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+slint::platform::update_timers_and_animations();
+assert_eq!(find("Control size", AccessibleRole::Combobox).accessible_value().as_deref(), Some("Medium"));
+assert_eq!(find("Primary", AccessibleRole::Button).accessible_enabled(), Some(true));
+assert_eq!(find("Disable preview controls", AccessibleRole::Checkbox).accessible_checked(), Some(false));
+find("Primary", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
+assert!(slint_testing::ElementHandle::find_by_accessible_label(&instance, "Activations: 1").next().is_some());
+
 find("ComboBox", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
 slint::platform::update_timers_and_animations();
 assert_eq!(instance.get_page(), 1);
@@ -87,6 +142,18 @@ assert_eq!(custom_switch.accessible_checked(), Some(true));
 find("LineEdit", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
 slint::platform::update_timers_and_animations();
 assert_eq!(instance.get_page(), 5);
+let field_size = find("LineEdit preview size", AccessibleRole::Combobox);
+field_size.mock_single_click(PointerEventButton::Left);
+find("Small", AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
+let small_field_height = find("Name", AccessibleRole::TextInput).size().height;
+find("LineEdit preview size", AccessibleRole::Combobox).mock_single_click(PointerEventButton::Left);
+find("Large", AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
+assert!(find("Name", AccessibleRole::TextInput).size().height > small_field_height);
+find("Disable LineEdit previews", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+assert_eq!(find("Name", AccessibleRole::TextInput).accessible_enabled(), Some(false));
+find("Disable LineEdit previews", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+find("LineEdit preview size", AccessibleRole::Combobox).mock_single_click(PointerEventButton::Left);
+find("Medium", AccessibleRole::ListItem).mock_single_click(PointerEventButton::Left);
 let field = find("Name", AccessibleRole::TextInput);
 field.set_accessible_value("Slint");
 assert_eq!(field.accessible_value().as_deref(), Some("Slint"));
@@ -96,14 +163,11 @@ assert_eq!(headless_field.accessible_value().as_deref(), Some("Headless"));
 let decorated_field = find("File name", AccessibleRole::TextInput);
 decorated_field.set_accessible_value("component");
 assert_eq!(decorated_field.accessible_value().as_deref(), Some("component"));
-for (field, placeholder_id) in [
-    (&field, "LineEdit::placeholder-label"),
-    (&decorated_field, "LineEditExamples::placeholder-label"),
-] {
+for field in [&field, &decorated_field] {
     field.set_accessible_value("");
     slint::platform::update_timers_and_animations();
     let viewport = field.query_descendants().match_id("LineEditBase::viewport").find_first().unwrap();
-    let placeholder = field.query_descendants().match_id(placeholder_id).find_first().unwrap();
+    let placeholder = field.query_descendants().match_id("LineEdit::placeholder-label").find_first().unwrap();
     assert!((placeholder.absolute_position().x - viewport.absolute_position().x).abs() < 0.01);
     assert!((placeholder.size().width - viewport.size().width).abs() < 0.01);
     assert!(viewport.absolute_position().x >= field.absolute_position().x + 12. - 0.01);
@@ -113,5 +177,35 @@ for (field, placeholder_id) in [
 find("Button", AccessibleRole::Button).mock_single_click(PointerEventButton::Left);
 assert_eq!(instance.get_page(), 0);
 assert!(instance.get_test());
+
+let examples = ["Default button", "Adjusted button", "Application Save", "Application Publish", "Slot button"];
+content_scroll.scroll(0., -10_000.);
+slint::platform::update_timers_and_animations();
+for label in examples {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(true));
+    assert!(button.absolute_position().y >= content_scroll.absolute_position().y);
+    assert!(button.absolute_position().y + button.size().height
+        <= content_scroll.absolute_position().y + content_scroll.size().height);
+    button.mock_single_click(PointerEventButton::Left);
+}
+let slot_button = find("Slot button", AccessibleRole::Button);
+let outline = || slot_button.query_descendants().match_id("SlotButton::focus-outline").find_first();
+for _ in 0..32 {
+    if outline().is_some() { break; }
+    slint_testing::send_keyboard_char(&instance, slint::platform::Key::Tab.into(), true);
+    slint_testing::send_keyboard_char(&instance, slint::platform::Key::Tab.into(), false);
+}
+assert!(outline().is_some());
+slint_testing::send_keyboard_char(&instance, slint::platform::Key::Space.into(), true);
+slint_testing::send_keyboard_char(&instance, slint::platform::Key::Space.into(), false);
+find("Activations: 6", AccessibleRole::Text);
+find("Disable preview controls", AccessibleRole::Checkbox).mock_single_click(PointerEventButton::Left);
+for label in examples {
+    let button = find(label, AccessibleRole::Button);
+    assert_eq!(button.accessible_enabled(), Some(false));
+    button.invoke_accessible_default_action();
+}
+find("Activations: 6", AccessibleRole::Text);
 ```
 */
