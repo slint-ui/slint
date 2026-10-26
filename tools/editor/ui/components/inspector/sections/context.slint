@@ -93,6 +93,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "LineEdit";
     }
 
+    public pure function is-standard-button-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StandardButton";
+    }
+
     public pure function is-enable-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "Button"
