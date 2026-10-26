@@ -159,9 +159,7 @@ fn process_case(
     }
     let module_line = format!("#[path=\"{module_name}.rs\"] pub mod r#{module_name};");
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
-    let ignored = if testcase.is_ignored("rust") {
-        "#[ignore = \"testcase ignored for rust\"]"
-    } else if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
+    let ignored = if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
         "#[ignore = \"translation bundle not working with the macro\"]"
     } else if live_preview && testcase.is_ignored("js") {
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
@@ -185,6 +183,15 @@ fn process_case(
     )?);
 
     output.write_all(b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n")?;
+
+    if testcase.is_ignored("rust") {
+        writeln!(
+            output,
+            "{test_attribute} #[ignore = \"testcase ignored for rust\"] fn ignored_for_rust() {{}}"
+        )?;
+        output.flush()?;
+        return Ok(module_line);
+    }
 
     #[cfg(not(feature = "build-time"))]
     if !generate_macro(&source, &mut output, testcase, test_attribute)? {
