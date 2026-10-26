@@ -77,6 +77,7 @@ mod edition_1_19 {
     }
 }
 
+#[allow(deprecated)]
 mod no_edition {
     slint::slint! {
         export component Test inherits Window {

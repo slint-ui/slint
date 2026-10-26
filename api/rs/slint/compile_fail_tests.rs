@@ -94,6 +94,17 @@ slint::slint!{ #[slint_edition = "1.18"] export component Hello inherits Window 
 #[cfg(doctest)]
 const OUTDATED_EDITION: () = ();
 
+/**
+Test that a macro without `#[slint_edition]` gets a warning.
+
+```compile_fail
+#![deny(deprecated)]
+slint::slint!{ export component Hello inherits Window { } }
+```
+*/
+#[cfg(doctest)]
+const MISSING_EDITION: () = ();
+
 #[cfg(doctest)]
 #[doc = include_str!("README.md")]
 const CHECK_README_EXAMPLES: () = ();
