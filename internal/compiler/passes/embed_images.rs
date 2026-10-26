@@ -353,8 +353,8 @@ fn generate_texture(
     }
     if top == image.height() {
         return Texture {
-            size: IntSize::default(),
-            original_size: IntSize::default(),
+            size: IntSize::new(image.width(), image.height()),
+            original_size,
             data: vec![0, 0, 0, 0],
             textures: vec![StaticTexture {
                 rect: IntRect::new((0, 0).into(), (1, 1).into()),
