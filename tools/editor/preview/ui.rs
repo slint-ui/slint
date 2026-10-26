@@ -3031,6 +3031,67 @@ mod tests {
     }
 
     #[test]
+    fn scrollbar_policy_combos_follow_selected_element_properties() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 200.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let api_weak = <super::Api as slint::Global<'_, super::EditorUi>>::as_weak(&api);
+        api.on_has_property(move |name| {
+            api_weak
+                .upgrade()
+                .is_some_and(|api| super::source_property_value_data(&api, name).is_some())
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, property, expected) in [
+            ("ScrollView", "horizontal-scrollbar-policy", true),
+            ("MyListView", "horizontal-scrollbar-policy", true),
+            ("Flickable", "viewport-width", false),
+            ("Rectangle", "background", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            api.set_properties(
+                std::rc::Rc::new(VecModel::from(vec![super::PropertyGroup {
+                    group_name: type_name.into(),
+                    properties: std::rc::Rc::new(VecModel::from(vec![create_test_property(
+                        property, "",
+                    )]))
+                    .into(),
+                }]))
+                .into(),
+            );
+            slint::platform::update_timers_and_animations();
+            for label in ["Horizontal Scroll Bar Policy", "Vertical Scroll Bar Policy"] {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn closing_canvas_picker_restores_history_shortcuts_without_inspector_field() {
         use slint::platform::{Key, WindowEvent};
 

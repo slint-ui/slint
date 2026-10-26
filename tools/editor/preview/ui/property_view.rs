@@ -20,6 +20,7 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
     use slint::ComponentHandle as _;
     let api_weak = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(api);
     let selection_api_weak = api_weak.clone();
+    let has_property_api_weak = api_weak.clone();
     let editor_weak = editor.as_weak();
     let selected_item = selected_item_cache(move || {
         let editor = editor_weak.upgrade()?;
@@ -38,6 +39,11 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
             .upgrade()
             .and_then(|api| ui::source_property_value_data(&api, property_name))
             .unwrap_or(fallback)
+    });
+    api.on_has_property(move |property_name| {
+        has_property_api_weak
+            .upgrade()
+            .is_some_and(|api| ui::source_property_value_data(&api, property_name).is_some())
     });
     api.on_runtime_property_value_data(move |property_name, fallback| {
         let runtime = selected_item

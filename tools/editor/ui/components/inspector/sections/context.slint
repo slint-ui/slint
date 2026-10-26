@@ -71,6 +71,10 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "Spinner");
     }
 
+    public pure function has-scrollbar-policy-selection() -> bool {
+        return InspectorContext.has-backend-rect() && Api.has-property("horizontal-scrollbar-policy");
+    }
+
     public pure function is-resizable-selection() -> bool {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
     }

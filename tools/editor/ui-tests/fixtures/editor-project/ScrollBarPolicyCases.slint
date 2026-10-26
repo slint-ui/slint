@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView, ScrollView } from "std-widgets.slint";
+
+export component ScrollBarPolicyCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    default-scroll-view := ScrollView {
+        x: 32px;
+        y: 32px;
+        width: 200px;
+        height: 160px;
+    }
+
+    always-on-list-view := ListView {
+        x: 32px;
+        y: 224px;
+        width: 200px;
+        height: 160px;
+        horizontal-scrollbar-policy: always-on;
+        vertical-scrollbar-policy: always-off;
+    }
+}
