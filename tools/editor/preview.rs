@@ -3852,8 +3852,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
         let url = Url::from_file_path(&path).unwrap();
-        let original =
-            r#"{"main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        let original = r#"{"slint-edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
         std::fs::write(&path, original).unwrap();
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
         let messages = Rc::new(RefCell::new(Vec::new()));

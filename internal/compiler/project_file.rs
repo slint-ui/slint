@@ -307,6 +307,9 @@ impl ProjectFile {
         let current = SlintEdition::current();
         let missing =
             || format!("'slint-edition' is missing: add \"slint-edition\": \"{current}\"").into();
+        if source.iter().all(u8::is_ascii_whitespace) {
+            return Err(missing());
+        }
         // Before the strict parse, which rejects the settings that a newer Slint added.
         #[derive(Deserialize)]
         #[serde(rename_all = "kebab-case")]
@@ -671,7 +674,8 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{
-        FILE_NAME, ProjectFile, SlintEdition, is_project_file, resolve_input, resolve_relative_path,
+        FILE_NAME, Overrides, ProjectFile, ProjectFileData, SlintEdition, is_project_file,
+        resolve_input, resolve_relative_path,
     };
     use crate::{generator::OutputFormat, source_path::SourcePath};
     use std::{
@@ -941,7 +945,7 @@ mod tests {
 
     #[test]
     fn the_edition_is_required() {
-        let cases = ["{}", "{\n}"];
+        let cases = ["", "{}", "{\n}", "  \t \n", "// nothing set yet\n/* not even this */\n"];
 
         for case in cases {
             let error = load_project_file(case).unwrap_err().to_string();
@@ -958,6 +962,115 @@ mod tests {
         for source in ["", "  \t \n", r#"{ "metadata": { this is not json! } }"#] {
             assert!(load_project_file(source).is_err(), "{source}");
         }
+    }
+
+    #[test]
+    fn a_minimal_project_file_is_valid() {
+        let parsed = load_project_file(r#"{ "slint-edition": "1.19" }"#).unwrap();
+        assert_eq!(parsed.slint_edition(), SlintEdition::V1_19);
+        assert_eq!(parsed.library_paths(), None);
+        assert_eq!(parsed.include_paths(), None);
+        assert_eq!(parsed.enable_experimental_features(), None);
+    }
+
+    #[test]
+    fn an_older_edition_is_valid() {
+        let parsed = load_project_file(r#"{ "slint-edition": "1.10" }"#).unwrap();
+        assert_eq!(parsed.slint_edition(), SlintEdition { major: 1, minor: 10 });
+    }
+
+    #[test]
+    fn a_newer_edition_is_rejected() {
+        let current = SlintEdition::current();
+        let newer = SlintEdition { minor: current.minor + 1, ..current };
+        let error = load_project_file(&format!(r#"{{ "slint-edition": "{newer}" }}"#)).unwrap_err();
+        let expected = format!(
+            r#"'slint-edition' is {newer}, newer than this Slint {current}: upgrade Slint, or set "slint-edition": "{current}""#
+        );
+        assert!(error.to_string().contains(&expected), "{error}");
+    }
+
+    #[test]
+    fn a_newer_edition_is_reported_before_an_unknown_setting() {
+        let current = SlintEdition::current();
+        let newer = SlintEdition { minor: current.minor + 1, ..current };
+        let error =
+            load_project_file(&format!(r#"{{ "slint-edition": "{newer}", "new-setting": 1 }}"#))
+                .unwrap_err();
+        assert!(error.to_string().contains("upgrade Slint"), "{error}");
+    }
+
+    #[test]
+    fn a_malformed_edition_is_rejected() {
+        for value in [r#""1.19.0""#, r#""1""#, r#""1.x""#, r#""1.019""#, r#""""#, "1.19", "119"] {
+            let error = load_project_file(&format!(r#"{{ "slint-edition": {value} }}"#))
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("such as"), "{value}: {error}");
+            assert!(error.contains("line 1"), "{value}: {error}");
+        }
+    }
+
+    #[test]
+    fn the_project_file_edition_wins_over_slint_edition() {
+        with_project_file_contents(r#"{ "slint-edition": "1.19" }"#, |path| {
+            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
+            config.edition = Some(SlintEdition { major: 1, minor: 10 });
+            ProjectFile::load(path).unwrap().apply_to(&mut config);
+            assert_eq!(config.edition, Some(SlintEdition::V1_19));
+        });
+    }
+
+    #[test]
+    fn editions_compare_by_number() {
+        let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
+        assert!(parse("1.9") < parse("1.10"));
+        assert!(parse("1.19") < parse("2.0"));
+        assert_eq!(parse("1.0").to_string(), "1.0");
+    }
+
+    #[test]
+    fn an_edition_before_the_latest_behavior_change_gets_a_warning() {
+        let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
+        let warning = parse("1.18").behavior_change_warning().unwrap();
+        assert!(
+            warning
+                .contains("'slint-edition' 1.18 misses the language behavior changes up to 1.19")
+        );
+        assert_eq!(SlintEdition::current().behavior_change_warning(), None);
+    }
+
+    #[test]
+    fn an_edition_override_has_no_warning_location() {
+        with_project_file_contents(r#"{ "slint-edition": "1.18" }"#, |path| {
+            let project = ProjectFile::load(path).unwrap();
+            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
+            Overrides::default().apply(Some(&project), &mut config);
+            assert!(config.edition_location.is_some());
+
+            let overrides = Overrides {
+                project: ProjectFileData {
+                    slint_edition: Some(SlintEdition::V1_19),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
+            overrides.apply(Some(&project), &mut config);
+            assert_eq!(config.edition, Some(SlintEdition::V1_19));
+            assert!(config.edition_location.is_none());
+        });
+    }
+
+    #[test]
+    fn the_edition_selects_the_behavior() {
+        let config = |source: &str| {
+            with_project_file_contents(source, |path| {
+                ProjectFile::load(path).unwrap().into_compiler_configuration(OutputFormat::Llr)
+            })
+        };
+        assert!(config(r#"{ "slint-edition": "1.19" }"#).repeated_children_constrain_parent());
+        assert!(!config(r#"{ "slint-edition": "1.18" }"#).repeated_children_constrain_parent());
     }
 
     #[test]

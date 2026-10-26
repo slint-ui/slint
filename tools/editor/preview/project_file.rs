@@ -477,7 +477,7 @@ mod tests {
 
     fn contents(widths: &[i32]) -> String {
         format!(
-            "{{\"metadata\":{{\"visual-editor\":{}}}}}",
+            "{{\"slint-edition\":\"1.19\",\"metadata\":{{\"visual-editor\":{}}}}}",
             serde_json::to_string(&VisualEditorSettings {
                 canvas_presets: widths
                     .iter()
@@ -525,7 +525,7 @@ mod tests {
         crate::preview::PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
         crate::preview::set_contents(
             &i_slint_live_preview::protocol::VersionedUrl::new(url.clone(), None),
-            r#"{"metadata":{"visual-editor":null}}"#.into(),
+            r#"{"slint-edition":"1.19","metadata":{"visual-editor":null}}"#.into(),
         );
         assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Available);
         assert!(!project.get_canvas_presets_error().is_empty());
@@ -542,9 +542,9 @@ mod tests {
         assert!(!path.exists());
         assert!(!submit_proposal(Ok(vec![CanvasPreset { width: 0, height: 1 }])));
         let other = tempfile::tempdir().unwrap();
-        crate::preview::reset_project_state(
+        crate::preview::reset_project_state(Some(
             lsp_types::Url::from_directory_path(other.path()).unwrap(),
-        );
+        ));
         assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Missing);
         assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 390.);
     }
@@ -579,7 +579,9 @@ mod tests {
         }
         let serialized =
             crate::preview::PREVIEW_STATE.with_borrow(|state| state.settings.serialize());
-        crate::preview::reset_project_state(lsp_types::Url::from_directory_path(&root).unwrap());
+        crate::preview::reset_project_state(Some(
+            lsp_types::Url::from_directory_path(&root).unwrap(),
+        ));
         crate::preview::set_user_settings(
             crate::preview::settings::SETTINGS_FILE.into(),
             serialized,
@@ -627,9 +629,9 @@ mod tests {
         publish_presets(&project, default_presets());
         let defaults = project.get_canvas_presets();
         let other = tempfile::tempdir().unwrap();
-        crate::preview::reset_project_state(
+        crate::preview::reset_project_state(Some(
             lsp_types::Url::from_directory_path(other.path()).unwrap(),
-        );
+        ));
         assert_ne!(project.get_canvas_presets(), defaults);
         assert_eq!(project.get_canvas_presets().row_data(0).unwrap().width, 390.);
     }

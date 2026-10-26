@@ -977,10 +977,10 @@ mod tests {
         .unwrap();
         sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
         for contents in [
-            Some(r#"{"metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
+            Some(r#"{"slint-edition":"1.19","metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
             None,
             Some("{"),
-            Some(r#"{"main":"main.slint"}"#),
+            Some(r#"{"slint-edition":"1.19","main":"main.slint"}"#),
         ] {
             clear_messages(&messages);
             while receiver.try_recv().is_ok() {}
@@ -1023,7 +1023,7 @@ mod tests {
     fn project_workspace_edits_apply_without_a_syntax_tree_and_ignore_versions() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
-        let original = r#"{"main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
+        let original = r#"{"slint-edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
         std::fs::write(&path, original).unwrap();
         let url = Url::from_file_path(&path).unwrap();
         let (mut session, _) = session_with_recording_previews();

@@ -3127,7 +3127,8 @@ mod tests {
             open_document(&mut session, &document).unwrap();
             assert!(session.active_project_file_paths().next().is_none());
             let path = directory.path().join(FILE_NAME);
-            std::fs::write(&path, r#"{"include-paths":["created"]}"#).unwrap();
+            std::fs::write(&path, r#"{"slint-edition":"1.19","include-paths":["created"]}"#)
+                .unwrap();
             spin_on::spin_on(
                 session.trigger_file_watcher(Url::from_file_path(&path).unwrap(), change),
             )
