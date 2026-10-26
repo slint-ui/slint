@@ -167,8 +167,6 @@ fn process_case(
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
     } else if live_preview && testcase.is_ignored("live-preview") {
         "#[ignore = \"testcase ignored in live-preview mode\"]"
-    } else if live_preview && source.contains("#3464") {
-        "#[ignore = \"issue #3464 not fixed with the interpreter\"]"
     } else if live_preview && module_name.contains("write_to_model") {
         "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
     } else {
