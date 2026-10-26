@@ -89,6 +89,15 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     assert.equal(screenshot._meta, undefined);
 });
 
+test("all tools declare their annotations", async () => {
+    const { result } = await request("tools/list");
+    for (const tool of result.tools) {
+        for (const hint of ["readOnlyHint", "destructiveHint", "openWorldHint"]) {
+            assert.equal(typeof tool.annotations?.[hint], "boolean", `${tool.name}: ${hint}`);
+        }
+    }
+});
+
 function assertServesInterpreter(content, url, hosts) {
     assert.equal(content.mimeType, "text/html;profile=mcp-app");
     assert.doesNotMatch(content.text, /__[A-Z_]+__/);
