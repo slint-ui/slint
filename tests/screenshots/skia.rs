@@ -240,10 +240,13 @@ impl i_slint_renderer_skia::Surface for DirtySurface {
             &i_slint_renderer_skia::skia_safe::Canvas,
             Option<&mut i_slint_renderer_skia::skia_safe::gpu::DirectContext>,
             u8,
-        ) -> Option<i_slint_core::partial_renderer::DirtyRegion>,
+        ) -> Result<
+            Option<i_slint_core::partial_renderer::DirtyRegion>,
+            PlatformError,
+        >,
         _pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<i_slint_core::renderer::DrawOutcome, PlatformError> {
-        render_callback(self.0.borrow_mut().canvas(), None, 0);
+        render_callback(self.0.borrow_mut().canvas(), None, 0)?;
         Ok(i_slint_core::renderer::DrawOutcome::Success)
     }
 
