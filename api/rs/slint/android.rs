@@ -26,6 +26,7 @@
 //!
 //!     // ... rest of your code ...
 //!     slint::slint!{
+//!         #[slint_edition = "1.19"]
 //!         export component MainWindow inherits Window {
 //!             Text { text: "Hello World"; }
 //!         }

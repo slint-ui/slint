@@ -55,6 +55,7 @@ fn text_input_cursor_rect_does_not_recurse_into_font_context() {
     let window = common::setup(WIDTH as u32, HEIGHT as u32);
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component TestCase inherits Window {
             width: 200px;
             height: 32px;
