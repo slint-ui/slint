@@ -16,6 +16,11 @@ fn main() -> std::io::Result<()> {
     println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", primary_font.display());
     println!("cargo:rustc-env=SLINT_FONT_PATH={}", fonts_dir.display());
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!(
+        "cargo:rustc-env=SLINT_EDITION={}.{}",
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR")
+    );
 
     let mut generated_file = BufWriter::new(std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
@@ -166,6 +171,7 @@ fn generate_source(
     compiler_config.include_paths = include_paths;
     compiler_config.embed_resources = embed_resources;
     compiler_config.enable_experimental = true;
+    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
     compiler_config.style = Some("fluent".to_string());
     compiler_config.const_scale_factor = scale_factor.into();
     let (root_component, diag, loader) =
@@ -199,6 +205,7 @@ struct ScreenshotMarkers {
     skip_clipping: bool,
     skip_line_by_line: bool,
     skip_warp: bool,
+    skip_llvmpipe: bool,
 }
 
 #[cfg(any(feature = "software", feature = "femtovg"))]
@@ -232,6 +239,7 @@ fn parse_markers(source: &str, testcase: &test_driver_lib::TestCase) -> Screensh
         skip_clipping: source.contains("SKIP_CLIPPING"),
         skip_line_by_line: source.contains("SKIP_LINE_BY_LINE"),
         skip_warp: source.contains("SKIP_WARP"),
+        skip_llvmpipe: source.contains("SKIP_LLVMPIPE"),
     }
 }
 
@@ -371,6 +379,7 @@ fn gen_femtovg(generated_file: &mut impl Write) -> Result<(), std::io::Error> {
         let markers = parse_markers(&source, &testcase);
         let base_threshold = markers.base_threshold;
         let skip_warp = markers.skip_warp;
+        let skip_llvmpipe = markers.skip_llvmpipe;
         let scale_factor = markers.scale_factor.unwrap_or(1.);
         let (size_w, size_h) = markers.size;
 
@@ -396,6 +405,7 @@ fn femtovg_{identifier}() -> Result<(), Box<dyn std::error::Error>> {{
         size: i_slint_core::api::PhysicalSize::new({size_w}, {size_h}),
         scale_factor: {scale_factor}f32,
         skip_warp: {skip_warp},
+        skip_llvmpipe: {skip_llvmpipe},
     }})
 }}"##,
         )?;

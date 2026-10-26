@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    MenuBar {
+        Menu {
+            MenuItem {
+                role: quit;
+            }
+        }
+    }
+
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                role: about;
+//                    >    <error{'role' is only supported on a 'MenuItem' in a 'MenuBar'}
+            }
+        }
+    }
+}

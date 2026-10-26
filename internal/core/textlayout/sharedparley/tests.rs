@@ -311,3 +311,33 @@ fn test_max_lines_caps_height() {
     );
     assert_eq!(limited.height, first_line_bottom);
 }
+
+#[test]
+fn test_control_glyphs() {
+    // Fonts have no glyph for a tab, which rendered as a missing-glyph box (#10177)
+    let cases: [(&str, &[bool]); 3] = [
+        ("ab", &[]),
+        ("ab\tc\u{7}", &[false, false, true, false, true]),
+        // A right-to-left paragraph is laid out in reverse.
+        ("\u{5d0}\t\u{5d1}\u{5d2}", &[false, false, true, false]),
+    ];
+    for (text, expected) in cases {
+        let layout = layout_text(text);
+        let paragraph = &layout.paragraphs[0];
+        let line = paragraph.layout.lines().next().unwrap();
+        assert_eq!(paragraph.control_glyphs(&line), expected, "{text:?}");
+    }
+
+    let layout = layout_text("ab\tc\u{7}");
+    let paragraph = &layout.paragraphs[0];
+    let line = paragraph.layout.lines().next().unwrap();
+    let missing_glyphs = line
+        .items()
+        .filter_map(|item| match item {
+            parley::PositionedLayoutItem::GlyphRun(run) => Some(run),
+            _ => None,
+        })
+        .flat_map(|run| run.glyphs().map(|glyph| glyph.id == 0).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    assert_eq!(missing_glyphs, paragraph.control_glyphs(&line));
+}

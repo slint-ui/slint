@@ -3,6 +3,7 @@
 
 export component PressInteraction {
     in property <bool> enabled: true;
+    in property <MouseCursor> mouse-cursor: MouseCursor.pointer;
     in property <bool> focus-on-click;
     in property <bool> focus-on-tab-navigation: true;
 
@@ -31,7 +32,7 @@ export component PressInteraction {
 
     pointer := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: MouseCursor.pointer;
+        mouse-cursor: root.mouse-cursor;
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.pointer-canceled = false;

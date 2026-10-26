@@ -4,6 +4,8 @@
 import { Style, PaintStyle, Metrics, Colors, Motion, Typography, WelcomeBrandStyle, ButtonStyle, RecentProjectRowStyle, WelcomeShellStyle } from "style.slint";
 import { Project } from "project.slint";
 
+import { FloatingSurface } from "components/floating-surface.slint";
+
 component BrandMark inherits Rectangle {
     in property <WelcomeBrandStyle> style: Style.welcome-brand;
     in-out property <length> mark-size: 90px;
@@ -38,21 +40,15 @@ component BrandMark inherits Rectangle {
     }
 }
 
-component ActionIcon inherits Rectangle {
+component ActionIcon inherits Image {
     in property <color> icon-color: Style.welcome-shell.muted;
     in property <bool> folder: false;
-
     width: Metrics.icon-large;
     height: Metrics.icon-large;
-
-    Image {
-        width: Metrics.icon-large;
-        height: Metrics.icon-large;
-        source: root.folder
-            ? @image-url("assets/primer-folder-open.svg")
-            : @image-url("assets/primer-plus-circle.svg");
-        colorize: root.icon-color;
-    }
+    source: root.folder
+        ? @image-url("assets/primer-folder-open.svg")
+        : @image-url("assets/primer-plus-circle.svg");
+    colorize: root.icon-color;
 }
 
 component WelcomeAction inherits Rectangle {
@@ -198,7 +194,7 @@ export component StartupWizard inherits Rectangle {
 
     background: root.style.stage;
 
-    Rectangle {
+    FloatingSurface {
         x: root.shell-left;
         y: root.shell-top;
         width: root.shell-width;
@@ -207,10 +203,6 @@ export component StartupWizard inherits Rectangle {
         border-width: Metrics.border-width;
         border-color: root.style.border;
         background: root.style.background;
-        clip: true;
-        drop-shadow-blur: root.style.shadow.blur;
-        drop-shadow-offset-y: root.style.shadow.offset-y;
-        drop-shadow-color: root.style.shadow.color;
         animate width, height, x, y { duration: Motion.layout; easing: ease-out-quad; }
 
         Rectangle {

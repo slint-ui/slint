@@ -2271,6 +2271,11 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         !crate::muda::is_disabled()
     }
 
+    #[cfg(all(muda, target_os = "macos"))]
+    fn supports_application_menu_roles(&self) -> bool {
+        !crate::muda::is_disabled()
+    }
+
     #[cfg(muda)]
     fn setup_menubar(&self, menubar: vtable::VRc<MenuVTable>) {
         self.menubar_weak.replace(Some(vtable::VRc::downgrade(&menubar)));

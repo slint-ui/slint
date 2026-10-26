@@ -1545,6 +1545,30 @@ impl QRawFont {
             return self->isValid();
         }}
     }
+
+    /// Whether the font has variation axes (an `fvar` table): a variable font.
+    pub fn is_variable(&self) -> bool {
+        cpp! { unsafe [ self as "const QRawFont*"] -> bool as "bool" {
+            return !self->fontTable("fvar").isEmpty();
+        }}
+    }
+
+    /// The weight of the face Qt loaded, on the 100–900 scale.
+    #[cfg(test)]
+    pub fn weight(&self) -> i32 {
+        cpp! { unsafe [ self as "const QRawFont*"] -> i32 as "int" {
+            return self->weight();
+        }}
+    }
+
+    /// The style name of the face Qt loaded ("Regular", "Thin", …).
+    #[cfg(test)]
+    pub fn style_name(&self) -> String {
+        let name = cpp! { unsafe [ self as "const QRawFont*"] -> qttypes::QString as "QString" {
+            return self->styleName();
+        }};
+        name.to_string()
+    }
 }
 
 /// Register font data with QFontDatabase and return the registration id.
@@ -1604,6 +1628,9 @@ fn raw_font_with_variations(
 pub struct FontCache {
     /// Fonts are indexed by unique blob id (atomically incremented in fontique) and the font collection index.
     fonts: HashMap<(HashedBlob, u32), Option<QRawFont>>,
+    /// Variable fonts at their default instance, which Qt gives only through the font database
+    /// (see [`Self::default_instance`]). Same key as `fonts`.
+    default_instances: HashMap<(HashedBlob, u32), Option<QRawFont>>,
     /// Font registration ids for QFontDatabase, keyed by blob.
     /// Used for variable font support via QFont (Qt 6.7+).
     registrations: HashMap<HashedBlob, (i32, String)>,
@@ -1619,6 +1646,35 @@ impl FontCache {
                 if raw_font.is_valid() { Some(raw_font) } else { None }
             })
             .clone()
+    }
+
+    /// The font as Qt loads it from its bytes or, for a variable font, its default instance.
+    ///
+    /// `QRawFont::loadFromData` is the wrong way to get a variable font at its defaults: since
+    /// Qt 6.7, `QFreeTypeFontDatabase::fontEngine(const QByteArray &, …)` calls
+    /// `QFontEngineFT::create(…, int instanceIndex = 0)`, and `QFreetypeFace::getFace` treats
+    /// any instance index of 0 or more as a named instance to select
+    /// (`FT_Set_Named_Instance(face, instanceIndex + 1)`). The raw font is thus the font's
+    /// *first* named instance, which for a family listed from thin to black is the thinnest
+    /// weight. A font registered with `QFontDatabase` and resolved through `QFont` has no such
+    /// index and comes out at its default instance, so that is the route for variable fonts;
+    /// `raw_font_with_variations` with no axes does exactly that.
+    fn default_instance(&mut self, font: &parley::FontData, pixel_size: f32) -> Option<QRawFont> {
+        let key = (font.data.clone().into(), font.index);
+        if let Some(cached) = self.default_instances.get(&key) {
+            return cached.clone();
+        }
+        let instance = match self.font(font) {
+            Some(raw_font) if raw_font.is_variable() => self
+                .ensure_registered(font)
+                .map(|family| raw_font_with_variations(&family, pixel_size, &[], &[]))
+                .filter(QRawFont::is_valid)
+                // Qt before 6.7 has no named instances: the raw font is already the default.
+                .or(Some(raw_font)),
+            static_or_none => static_or_none,
+        };
+        self.default_instances.insert(key, instance.clone());
+        instance
     }
 
     /// Get or create a QFontDatabase registration for the given font data.
@@ -1648,7 +1704,7 @@ impl FontCache {
     ) -> Option<QRawFont> {
         let variation_settings = synthesis.variation_settings();
         if variation_settings.is_empty() {
-            return self.font(font);
+            return self.default_instance(font, pixel_size);
         }
         let family = self.ensure_registered(font)?;
         let (tags, values): (Vec<u32>, Vec<f32>) = variation_settings
@@ -2393,6 +2449,12 @@ impl WindowAdapter for QtWindow {
         if visible {
             let widget_ptr = self.widget_ptr();
             cpp! {unsafe [widget_ptr as "QWidget*"] {
+                // Workaround QWidget::show() bounding the size hint to 2/3 of the screen.
+                if (widget_ptr->isWindow() && !widget_ptr->testAttribute(Qt::WA_Resized)) {
+                    if (auto size = widget_ptr->sizeHint(); size.isValid()) {
+                        widget_ptr->resize(size.boundedTo(widget_ptr->screen()->availableSize()));
+                    }
+                }
                 widget_ptr->show();
             }};
             let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
@@ -3097,5 +3159,47 @@ pub(crate) mod ffi {
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Inter, Slint's embedded fallback font, is a variable font whose named instances run
+    /// from Thin to Black. Loaded straight from its bytes, Qt 6.7 and later select the first
+    /// named instance: `QFreeTypeFontDatabase::fontEngine(const QByteArray &, …)` calls
+    /// `QFontEngineFT::create(…, int instanceIndex = 0)`, and `QFreetypeFace::getFace`
+    /// treats any index of 0 or more as a named instance (`FT_Set_Named_Instance(face,
+    /// instanceIndex + 1)`). The cache must hand out the font's default instance instead.
+    #[test]
+    fn variable_font_without_variations_is_its_default_instance() {
+        // QApplication, for the font database.
+        let _backend = crate::Backend::new();
+        let data: &'static [u8] =
+            include_bytes!("../../common/sharedfontique/Inter-VariableFont.ttf");
+        let font = parley::FontData::new(fontique::Blob::new(std::sync::Arc::new(data)), 0);
+
+        // What Qt makes of the bytes on their own: the control this test is built on.
+        let mut raw = QRawFont::default();
+        raw.load_from_data(data, 16.0);
+        assert!(raw.is_valid());
+        assert!(raw.is_variable(), "the embedded font is not variable; pick another");
+        eprintln!("QRawFont::loadFromData: {} {}", raw.style_name(), raw.weight());
+
+        let got = FONT_CACHE
+            .with(|cache| {
+                cache.borrow_mut().font_with_variations(
+                    &font,
+                    16.0,
+                    &fontique::Synthesis::default(),
+                )
+            })
+            .expect("the embedded font loads");
+        assert_eq!(
+            (got.style_name().as_str(), got.weight()),
+            ("Regular", 400),
+            "a variable font with no variations must be its default instance"
+        );
     }
 }

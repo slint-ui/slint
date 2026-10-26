@@ -399,6 +399,7 @@ lipo
 Literata
 Llff
 llms
+llvmpipe
 Lmaterial
 LOADADDR
 LOWORD
@@ -422,6 +423,7 @@ MCUX
 mdbook
 memsize
 menuconfig
+menuitemrole
 Meteo
 millihertz
 mimxrt

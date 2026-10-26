@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// Proving the wgpu types in `femtovg::shared_wgpu`'s static are `Sync` exceeds the default limit.
+#![recursion_limit = "256"]
+
 #[cfg(test)]
 pub mod testing;
 

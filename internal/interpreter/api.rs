@@ -722,7 +722,10 @@ impl ComponentCompiler {
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a `slint-project.json`, its `main` is compiled with its settings.
+    /// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+    /// The project file provides the settings that were not set on this compiler.
+    /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+    /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
     ///
     /// This function is `async` but in practice, this is only asynchronous if
@@ -737,6 +740,7 @@ impl ComponentCompiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
             project_file_loader: None,
+            project_root: None,
             resource_loader: None,
         };
         let r = compiler.build_from_path(path).await;
@@ -769,6 +773,7 @@ impl ComponentCompiler {
             config: self.config.clone(),
             overrides: self.overrides.clone(),
             project_file_loader: None,
+            project_root: None,
             resource_loader: None,
         };
         let r = compiler.build_from_source(source_code, path).await;
@@ -798,6 +803,7 @@ pub struct Compiler {
     config: i_slint_compiler::CompilerConfiguration,
     overrides: i_slint_compiler::project_file::Overrides,
     project_file_loader: Option<i_slint_compiler::OpenImportCallback>,
+    project_root: Option<SourcePath>,
     resource_loader: Option<crate::component::ResourceLoader>,
 }
 
@@ -810,6 +816,7 @@ impl Default for Compiler {
             config,
             overrides: Default::default(),
             project_file_loader: None,
+            project_root: None,
             resource_loader: None,
         }
     }
@@ -829,6 +836,12 @@ impl Compiler {
         _: i_slint_core::InternalToken,
     ) {
         self.project_file_loader = Some(file_loader);
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_project_root(&mut self, root: Option<SourcePath>, _: i_slint_core::InternalToken) {
+        self.project_root = root;
     }
 
     #[doc(hidden)]
@@ -981,22 +994,23 @@ impl Compiler {
     /// [`CompilationResult::component()`].
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a `slint-project.json`, its `main` is compiled with its settings.
-    /// A project file without an `main` produces an error.
+    /// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+    /// The project file provides the settings that were not set on this compiler.
+    /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
+    /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
-    ///
-    /// A `slint-project.json` in the directory of `path`, or in a directory above it,
-    /// provides the settings that were not set on this compiler.
     ///
     /// This function is `async` but in practice, this is only asynchronous if
     /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_path<P: AsRef<Path>>(&self, path: P) -> CompilationResult {
+        let input_path = i_slint_compiler::source_path::clean_path(path.as_ref());
         self.build(
             None,
-            SourcePath::File(i_slint_compiler::source_path::clean_path(path.as_ref())),
+            SourcePath::File(input_path),
             AnimationMode::Running,
+            self.project_root.clone(),
         )
         .await
     }
@@ -1004,7 +1018,7 @@ impl Compiler {
     /// Compile some .slint code
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
-    /// paths while importing. The search for a `slint-project.json` starts there too.
+    /// paths while importing. No project file is loaded.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, can be retrieved
     /// after the call using [`CompilationResult::diagnostics()`].
@@ -1014,33 +1028,42 @@ impl Compiler {
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(&self, source_code: String, path: PathBuf) -> CompilationResult {
-        self.build(Some(source_code), SourcePath::new(path), AnimationMode::Running).await
+        self.build(
+            Some(source_code),
+            SourcePath::new(path),
+            AnimationMode::Running,
+            self.project_root.clone(),
+        )
+        .await
     }
 
     /// [`Self::build_from_source`] for a file that may only be reachable by URL.
+    ///
+    /// Without `source_code`, the file at `path` is read through the project file loader
+    /// (see `set_project_file_loader`), or directly without one.
     ///
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
     #[cfg(any(feature = "internal", feature = "internal-highlight"))]
     pub async fn build_from_source_path(
         &self,
-        source_code: String,
+        source_code: Option<String>,
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(Some(source_code), path, AnimationMode::Running).await
+        self.build(source_code, path, AnimationMode::Running, self.project_root.clone()).await
     }
 
-    /// Compile Slint code without timers or animations.
+    /// [`Self::build_from_source_path`] without timers or animations.
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub async fn build_static_from_source(
         &self,
-        source_code: String,
+        source_code: Option<String>,
         path: SourcePath,
         _: i_slint_core::InternalToken,
     ) -> CompilationResult {
-        self.build(Some(source_code), path, AnimationMode::Static).await
+        self.build(source_code, path, AnimationMode::Static, self.project_root.clone()).await
     }
 
     async fn build(
@@ -1048,20 +1071,12 @@ impl Compiler {
         source_code: Option<String>,
         input: SourcePath,
         animation_mode: AnimationMode,
+        project_root: Option<SourcePath>,
     ) -> CompilationResult {
         let attempted_paths = Rc::new(std::cell::RefCell::new(Vec::new()));
         let file_loader = {
             let attempted_paths = attempted_paths.clone();
             let fallback = self.project_file_loader.clone();
-            let supplied_manifest = source_code
-                .as_ref()
-                .filter(|_| input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME))
-                .map(|source| {
-                    (
-                        i_slint_compiler::project_file::normalize_project_file_path(input.clone()),
-                        source.clone(),
-                    )
-                });
             let record_missing_paths = self.project_file_loader.is_some();
             Rc::new(
                 move |path: SourcePath| -> core::pin::Pin<
@@ -1070,12 +1085,6 @@ impl Compiler {
                     if record_missing_paths || path.exists() {
                         attempted_paths.borrow_mut().push(path.clone());
                     }
-                    if let Some((manifest, source)) = &supplied_manifest
-                        && path == *manifest
-                    {
-                        let source = source.clone();
-                        return Box::pin(async move { Some(Ok(source)) });
-                    }
                     match &fallback {
                         Some(fallback) => fallback(path),
                         None => Box::pin(async { None }),
@@ -1083,33 +1092,46 @@ impl Compiler {
                 },
             ) as i_slint_compiler::OpenImportCallback
         };
-        let resolves_project = input.as_native_path().is_some()
-            || self.project_file_loader.is_some()
-            || (input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME)
-                && source_code.is_some());
-        let resolved = if resolves_project {
-            i_slint_compiler::project_file::resolve_input_with_file_loader(
-                input.clone(),
+        let resolved = if input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME) {
+            Err(i_slint_compiler::project_file::project_file_input_error(&input))
+        } else if let Some(root) = project_root {
+            i_slint_compiler::project_file::load_from_root_with_file_loader(
+                root,
                 Some(&file_loader),
             )
             .await
+            .map(|project_file| i_slint_compiler::project_file::ResolvedInput {
+                source: input.clone(),
+                project_file,
+            })
+        } else if source_code.is_none() {
+            match input.as_native_path() {
+                Some(path) => i_slint_compiler::project_file::resolve_input(path).map(
+                    |(source, project_file)| i_slint_compiler::project_file::ResolvedInput {
+                        source: SourcePath::new(source),
+                        project_file,
+                    },
+                ),
+                None => Ok(i_slint_compiler::project_file::ResolvedInput {
+                    source: input.clone(),
+                    project_file: None,
+                }),
+            }
         } else {
-            Ok(Some(i_slint_compiler::project_file::ResolvedInput {
+            Ok(i_slint_compiler::project_file::ResolvedInput {
                 source: input.clone(),
                 project_file: None,
-            }))
+            })
         };
         #[cfg_attr(not(feature = "internal"), allow(unused_mut))]
         let mut result = match resolved {
             Err(message) => {
                 compilation_error(message, &input, i_slint_compiler::diagnostics::Span::new(0, 0))
             }
-            Ok(None) => compilation_error(
-                std::format!("{input} has no 'main' to compile"),
-                &input,
-                i_slint_compiler::diagnostics::Span::new(0, 0),
-            ),
-            Ok(Some(resolved)) => {
+            Ok(resolved) => {
+                if let Some(project_file) = &resolved.project_file {
+                    attempted_paths.borrow_mut().push(project_file.source_path().clone());
+                }
                 let source = if resolved.source == input { source_code } else { None };
                 let source = match source {
                     Some(source) => Ok(source),
@@ -2677,7 +2699,7 @@ fn compile(code: &str) -> (ComponentInstance, SourcePath) {
     let path = SourcePath::new("/tmp/test.slint");
 
     let compile_result = spin_on::spin_on(compiler.build_from_source_path(
-        code.to_string(),
+        Some(code.to_string()),
         path.clone(),
         i_slint_core::InternalToken,
     ));
@@ -3021,13 +3043,13 @@ mod project_file_tests {
     fn compile(root: &Path, source: &str) -> super::CompilationResult {
         let main = root.join("main.slint");
         std::fs::write(&main, source).unwrap();
-        spin_on::spin_on(Compiler::default().build_from_path(&main))
+        spin_on::spin_on(Compiler::default().build_from_path(root))
     }
 
     #[test]
     #[allow(deprecated)]
     fn missing_source_files_have_no_line_or_column() {
-        with_project("{}", |root| {
+        with_project(r#"{"slint-edition":"1.19"}"#, |root| {
             let source = root.join("missing.slint");
             let result = spin_on::spin_on(Compiler::default().build_from_path(&source));
             assert!(result.has_errors());
@@ -3054,13 +3076,13 @@ mod project_file_tests {
         let source = source.into();
         if static_compilation {
             spin_on::spin_on(compiler.build_static_from_source(
-                source,
+                Some(source),
                 path,
                 i_slint_core::InternalToken,
             ))
         } else {
             spin_on::spin_on(compiler.build_from_source_path(
-                source,
+                Some(source),
                 path,
                 i_slint_core::InternalToken,
             ))
@@ -3075,7 +3097,7 @@ mod project_file_tests {
         let source =
             r#"import { Shared } from "lib.slint"; export component Main inherits Shared {}"#;
         std::fs::write(&main, source).unwrap();
-        std::fs::write(directory.path().join(FILE_NAME), "{}").unwrap();
+        std::fs::write(directory.path().join(FILE_NAME), r#"{"slint-edition":"1.19"}"#).unwrap();
         for remote in [false, true] {
             let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
             let loader_calls = calls.clone();
@@ -3092,7 +3114,7 @@ mod project_file_tests {
             });
             let result = if remote {
                 spin_on::spin_on(compiler.build_from_source_path(
-                    source.into(),
+                    Some(source.into()),
                     super::SourcePath::new("https://example.invalid/ui/main.slint"),
                     i_slint_core::InternalToken,
                 ))
@@ -3109,18 +3131,16 @@ mod project_file_tests {
 
     #[cfg(feature = "internal")]
     #[test]
-    fn path_compilation_reads_manifest_and_entry_through_the_loader() {
+    fn directory_compilation_reads_its_entry_through_the_loader() {
         let directory = tempfile::TempDir::new().unwrap();
         let manifest = directory.path().join(FILE_NAME);
         let entry = directory.path().join("main.slint");
-        let loader_manifest = manifest.clone();
+        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
         let loader_entry = entry.clone();
         let mut compiler = Compiler::default();
         compiler.set_project_file_loader(
             std::rc::Rc::new(move |path| {
-                let contents = if path.as_native_path() == Some(loader_manifest.as_path()) {
-                    Ok(r#"{"main":"main.slint"}"#.into())
-                } else if path.as_native_path() == Some(loader_entry.as_path()) {
+                let contents = if path.as_native_path() == Some(loader_entry.as_path()) {
                     Ok("export component Main inherits Window {}".into())
                 } else {
                     Err(std::io::ErrorKind::NotFound.into())
@@ -3129,13 +3149,11 @@ mod project_file_tests {
             }),
             i_slint_core::InternalToken,
         );
-        for input in [&manifest, &entry] {
-            let result = spin_on::spin_on(compiler.build_from_path(input));
-            assert!(!result.has_errors(), "{result:?}");
-            assert!(result.component("Main").is_some());
-            for dependency in [&manifest, &entry] {
-                assert!(result.watch_paths.contains(&super::SourcePath::new(dependency)));
-            }
+        let result = spin_on::spin_on(compiler.build_from_path(directory.path()));
+        assert!(!result.has_errors(), "{result:?}");
+        assert!(result.component("Main").is_some());
+        for dependency in [&manifest, &entry] {
+            assert!(result.watch_paths.contains(&super::SourcePath::new(dependency)));
         }
     }
 
@@ -3152,12 +3170,13 @@ mod project_file_tests {
                 let manifest = path.parent().join(FILE_NAME).unwrap();
                 let current_experimental = std::rc::Rc::new(std::cell::RefCell::new(false));
                 let mut compiler = Compiler::default();
+                compiler.set_project_root(Some(path.parent()), i_slint_core::InternalToken);
                 let loader_experimental = current_experimental.clone();
                 let loader_manifest = manifest.clone();
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
                     let contents = if path == loader_manifest {
                         Ok(format!(
-                            r#"{{"enable-experimental-features":{}}}"#,
+                            r#"{{"slint-edition":"1.19","enable-experimental-features":{}}}"#,
                             loader_experimental.borrow()
                         ))
                     } else {
@@ -3215,6 +3234,7 @@ mod project_file_tests {
         for invalid in [false, true] {
             for static_compilation in [false, true] {
                 let mut compiler = Compiler::default();
+                compiler.set_project_root(Some(path.parent()), i_slint_core::InternalToken);
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |_| {
                     Box::pin(async move {
                         Some(if invalid {
@@ -3239,16 +3259,13 @@ mod project_file_tests {
         let main = directory.path().join("main.slint");
         let compiler = Compiler::default();
         let source = "export component Main inherits Window {}";
-        for contents in [None, Some("{}"), Some("{")] {
+        for contents in [None, Some(r#"{"slint-edition":"1.19"}"#), Some("{")] {
             if let Some(contents) = contents {
                 std::fs::write(&manifest, contents).unwrap();
             }
             let result = spin_on::spin_on(compiler.build_from_source(source.into(), main.clone()));
-            let expected_paths = if contents.is_some() {
-                vec![super::SourcePath::new(&main), super::SourcePath::new(&manifest)]
-            } else {
-                vec![super::SourcePath::new(&main)]
-            };
+            assert!(!result.has_errors(), "{result:?}");
+            let expected_paths = vec![super::SourcePath::new(&main)];
             let native_paths = result
                 .watch_paths
                 .iter()
@@ -3261,186 +3278,145 @@ mod project_file_tests {
         }
     }
 
-    #[cfg(feature = "internal")]
-    #[test]
-    fn an_internal_loader_can_supply_a_rust_manifest_entry() {
-        let manifest = super::SourcePath::new("https://example.invalid/slint-project.json");
-        let entry = manifest.parent().join("main.rs").unwrap();
-        for has_macro in [false, true] {
-            let mut compiler = Compiler::default();
-            let loader_entry = entry.clone();
-            compiler.set_project_file_loader(
-                std::rc::Rc::new(move |path| {
-                    let contents = if path == loader_entry {
-                        Ok(if has_macro {
-                            "slint::slint! { export component Main inherits Window {} }"
-                        } else {
-                            "fn main() {}"
-                        }
-                        .into())
-                    } else {
-                        Err(std::io::ErrorKind::NotFound.into())
-                    };
-                    Box::pin(async move { Some(contents) })
-                }),
-                i_slint_core::InternalToken,
-            );
-            let result = spin_on::spin_on(compiler.build_from_source_path(
-                r#"{"main":"main.rs"}"#.into(),
-                manifest.clone(),
-                i_slint_core::InternalToken,
-            ));
-            assert_eq!(result.has_errors(), !has_macro, "{result:?}");
-            assert_eq!(result.component("Main").is_some(), has_macro);
-            if !has_macro {
-                assert!(
-                    result
-                        .diagnostics()
-                        .any(|diagnostic| diagnostic.message().contains("No `slint!` macro"))
-                );
-            }
-            assert!(result.watch_paths.contains(&entry));
-        }
-    }
-
-    #[cfg(feature = "internal")]
-    #[test]
-    fn a_foreign_manifest_entry_without_an_internal_loader_reports_the_entry_path() {
-        let manifest = super::SourcePath::new("https://example.invalid/slint-project.json");
-        let entry = manifest.parent().join("main.slint").unwrap();
-        let result = spin_on::spin_on(Compiler::default().build_from_source_path(
-            r#"{"main":"main.slint"}"#.into(),
-            manifest,
-            i_slint_core::InternalToken,
-        ));
-        assert!(result.has_errors());
-        assert!(result.diagnostics().any(
-            |diagnostic| diagnostic.source_url().as_deref() == Some(entry.to_string().as_str())
-        ));
-    }
-
     #[cfg(windows)]
     #[test]
-    fn a_windows_root_relative_manifest_uses_supplied_contents() {
+    fn a_windows_root_relative_manifest_source_is_an_error() {
         let result = spin_on::spin_on(
             Compiler::default()
                 .build_from_source("{}".into(), r"\project\slint-project.json".into()),
         );
         assert!(result.has_errors(), "{result:?}");
-        assert!(
+        assert_eq!(
             result
                 .diagnostics()
-                .any(|diagnostic| diagnostic.message().contains("has no 'main' to compile"))
+                .map(|diagnostic| diagnostic.message().to_string())
+                .collect::<Vec<_>>(),
+            [format!(
+                "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
+                Path::new(r"\project\slint-project.json").parent().unwrap().display()
+            )]
         );
         assert_eq!(result.components().count(), 0);
     }
 
     #[test]
-    fn a_relative_manifest_input_uses_supplied_contents() {
+    fn a_relative_manifest_source_is_an_error() {
         let current_directory = std::env::current_dir().unwrap();
         let directory = tempfile::tempdir_in(&current_directory).unwrap();
         let manifest = directory.path().join(FILE_NAME);
         std::fs::write(&manifest, "{").unwrap();
-        let relative_manifest = manifest.strip_prefix(current_directory).unwrap().to_path_buf();
+        let relative_manifest = manifest.strip_prefix(&current_directory).unwrap().to_path_buf();
         let result =
             spin_on::spin_on(Compiler::default().build_from_source("{}".into(), relative_manifest));
         assert!(result.has_errors(), "{result:?}");
-        assert!(
+        assert_eq!(
             result
                 .diagnostics()
-                .any(|diagnostic| diagnostic.message().contains("has no 'main' to compile"))
+                .map(|diagnostic| diagnostic.message().to_string())
+                .collect::<Vec<_>>(),
+            [format!(
+                "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
+                manifest.strip_prefix(&current_directory).unwrap().parent().unwrap().display()
+            )]
         );
         assert_eq!(result.components().count(), 0);
     }
 
     #[cfg(feature = "internal")]
     #[test]
-    fn source_compilers_resolve_manifest_entries_and_reject_missing_entries() {
+    fn internal_source_compilers_load_only_the_explicit_root() {
         use super::SourcePath;
-        let directory = tempfile::TempDir::new().unwrap();
-        std::fs::write(directory.path().join(FILE_NAME), r#"{"style":"wrong-disk-style"}"#)
-            .unwrap();
-        for manifest in [
-            SourcePath::new(directory.path().join(FILE_NAME)),
-            SourcePath::new("https://example.invalid/ui/slint-project.json"),
+        let source = "export component Main inherits Window {}";
+        for root in [
+            SourcePath::new("/virtual/project"),
+            SourcePath::new("https://example.invalid/project/"),
         ] {
-            let entry = manifest.parent().join("main.slint").unwrap();
-            for has_entry in [false, true] {
+            let main = root.join("ui/main.slint").unwrap();
+            let manifest = root.join(FILE_NAME).unwrap();
+            for manifest_contents in
+                [r#"{"slint-edition":"1.19"}"#, r#"{"slint-edition":"1.19","main":"other.slint"}"#]
+            {
                 for static_compilation in [false, true] {
-                    let mut compiler = Compiler::default();
+                    let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+                    let loader_requested = requested.clone();
                     let loader_manifest = manifest.clone();
-                    let loader_entry = entry.clone();
-                    compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
-                        let contents = if path == loader_manifest {
-                            Ok(r#"{"main":"wrong.slint","style":"no-such-style"}"#.into())
-                        } else if path == loader_entry {
-                            Ok("export component Entry inherits Window {}".into())
-                        } else {
-                            Err(std::io::ErrorKind::NotFound.into())
-                        };
-                        Box::pin(async move { Some(contents) })
-                    }));
-                    let source =
-                        if has_entry { r#"{"main":"main.slint"}"# } else { "{}" }.to_string();
-                    let result = if static_compilation {
-                        spin_on::spin_on(compiler.build_static_from_source(
-                            source,
-                            manifest.clone(),
-                            i_slint_core::InternalToken,
-                        ))
-                    } else if let Some(path) = manifest.as_native_path() {
-                        spin_on::spin_on(compiler.build_from_source(source, path.to_path_buf()))
-                    } else {
-                        spin_on::spin_on(compiler.build_from_source_path(
-                            source,
-                            manifest.clone(),
-                            i_slint_core::InternalToken,
-                        ))
-                    };
-                    assert_eq!(result.has_errors(), !has_entry, "{result:?}");
-                    if !has_entry {
-                        let diagnostics = result.diagnostics().collect::<Vec<_>>();
-                        assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
-                        assert_eq!(
-                            diagnostics[0].message(),
-                            format!("{manifest} has no 'main' to compile")
-                        );
-                        assert_eq!(
-                            diagnostics[0].source_url(),
-                            manifest.to_url().map(String::from)
-                        );
-                        assert_eq!(diagnostics[0].line_column(), (1, 1));
-                    }
-                    assert_eq!(result.component("Entry").is_some(), has_entry);
-                    assert_eq!(result.components().count(), usize::from(has_entry));
+                    let mut compiler = Compiler::default();
+                    compiler.set_project_root(Some(root.clone()), i_slint_core::InternalToken);
+                    compiler.set_project_file_loader(
+                        std::rc::Rc::new(move |path| {
+                            loader_requested.borrow_mut().push(path.clone());
+                            let contents = if path == loader_manifest {
+                                Ok(manifest_contents.into())
+                            } else {
+                                Ok("{".into())
+                            };
+                            Box::pin(async move { Some(contents) })
+                        }),
+                        i_slint_core::InternalToken,
+                    );
+                    let result =
+                        compile_source(&compiler, main.clone(), static_compilation, source);
+                    assert!(!result.has_errors(), "{result:?}");
+                    assert!(result.component("Main").is_some());
                     assert!(result.watch_paths.contains(&manifest));
-                    if has_entry {
-                        assert!(result.watch_paths.contains(&entry));
-                    }
+                    assert_eq!(*requested.borrow(), vec![manifest.clone()]);
                 }
             }
         }
     }
 
+    #[cfg(feature = "internal")]
+    #[test]
+    fn explicit_root_switch_and_clear_replace_project_settings() {
+        let source = "export component Main inherits Window { ComponentContainer {} }";
+        let main = super::SourcePath::new("https://example.invalid/ui/main.slint");
+        let disabled_root = super::SourcePath::new("https://example.invalid/disabled/");
+        let enabled_root = super::SourcePath::new("https://example.invalid/enabled/");
+        let enabled_manifest = enabled_root.join(FILE_NAME).unwrap();
+        let mut compiler = Compiler::default();
+        compiler.set_project_file_loader(
+            std::rc::Rc::new(move |path| {
+                let contents = if path == enabled_manifest {
+                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into())
+                } else {
+                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":false}"#.into())
+                };
+                Box::pin(async move { Some(contents) })
+            }),
+            i_slint_core::InternalToken,
+        );
+        for (root, has_errors) in
+            [(Some(disabled_root), true), (Some(enabled_root), false), (None, true)]
+        {
+            compiler.set_project_root(root, i_slint_core::InternalToken);
+            let result = compile_source(&compiler, main.clone(), false, source);
+            assert_eq!(result.has_errors(), has_errors, "{result:?}");
+        }
+    }
+
     #[test]
     fn the_project_file_include_paths_are_used() {
-        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
-            let include = root.join("include");
-            std::fs::create_dir_all(&include).unwrap();
-            std::fs::write(include.join("shared.slint"), "export component Shared { }").unwrap();
+        with_project(
+            r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            |root| {
+                let include = root.join("include");
+                std::fs::create_dir_all(&include).unwrap();
+                std::fs::write(include.join("shared.slint"), "export component Shared { }")
+                    .unwrap();
 
-            let result = compile(
-                root,
-                r#"import { Shared } from "shared.slint";
+                let result = compile(
+                    root,
+                    r#"import { Shared } from "shared.slint";
                    export component Main inherits Window { Shared { } }"#,
-            );
-            assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
-        });
+                );
+                assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+            },
+        );
     }
 
     #[test]
     fn explicit_empty_include_paths_win_for_both_interpreter_compilers() {
-        with_project(r#"{"include-paths":["include"]}"#, |root| {
+        with_project(r#"{"slint-edition":"1.19","include-paths":["include"]}"#, |root| {
             let include = root.join("include");
             std::fs::create_dir_all(&include).unwrap();
             std::fs::write(include.join("shared.slint"), "export component Shared {}").unwrap();
@@ -3478,7 +3454,7 @@ mod project_file_tests {
     #[cfg(feature = "internal")]
     #[test]
     fn explicit_empty_include_paths_apply_to_source_path_compilation() {
-        with_project("{}", |root| {
+        with_project(r#"{ "slint-edition": "1.19" }"#, |root| {
             let include_directory = root.join("include");
             std::fs::create_dir(&include_directory).unwrap();
             std::fs::write(include_directory.join("shared.slint"), "export component Shared {}")
@@ -3496,13 +3472,13 @@ mod project_file_tests {
                     compiler.set_include_paths(Vec::new());
                     let result = if static_compilation {
                         spin_on::spin_on(compiler.build_static_from_source(
-                            source.into(),
+                            Some(source.into()),
                             path.clone(),
                             i_slint_core::InternalToken,
                         ))
                     } else {
                         spin_on::spin_on(compiler.build_from_source_path(
-                            source.into(),
+                            Some(source.into()),
                             path.clone(),
                             i_slint_core::InternalToken,
                         ))
@@ -3535,40 +3511,41 @@ mod project_file_tests {
     // The C++ interpreter API goes through the deprecated ComponentCompiler.
     #[test]
     fn the_deprecated_compiler_reads_the_project_file() {
-        with_project(r#"{ "include-paths": ["include"] }"#, |root| {
-            std::fs::create_dir(root.join("include")).unwrap();
-            std::fs::write(root.join("include/shared.slint"), "export component Shared {}")
-                .unwrap();
-            let main = root.join("main.slint");
-            std::fs::write(&main, r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#).unwrap();
+        with_project(
+            r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            |root| {
+                std::fs::create_dir(root.join("include")).unwrap();
+                std::fs::write(root.join("include/shared.slint"), "export component Shared {}")
+                    .unwrap();
+                let main = root.join("main.slint");
+                std::fs::write(&main, r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#).unwrap();
 
-            #[allow(deprecated)]
-            let mut compiler = super::ComponentCompiler::new();
-            #[allow(deprecated)]
-            let definition = spin_on::spin_on(compiler.build_from_path(&main));
-            assert!(definition.is_some());
-        });
+                #[allow(deprecated)]
+                let mut compiler = super::ComponentCompiler::new();
+                #[allow(deprecated)]
+                let definition = spin_on::spin_on(compiler.build_from_path(root));
+                assert!(definition.is_some());
+            },
+        );
     }
 
     #[test]
-    fn a_project_file_path_compiles_its_main_file() {
-        with_project(r#"{ "main": "ui/main.slint" }"#, |root| {
+    fn a_project_directory_compiles_its_main_file() {
+        with_project(r#"{ "slint-edition": "1.19", "main": "ui/main.slint" }"#, |root| {
             std::fs::create_dir_all(root.join("ui")).unwrap();
             std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
-            let result =
-                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+            let result = spin_on::spin_on(Compiler::default().build_from_path(root));
             assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
             assert!(result.component_names().any(|name| name == "Main"));
         });
     }
 
     #[test]
-    fn a_project_file_path_without_an_entry_is_an_error() {
-        with_project("{}", |root| {
-            let result =
-                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+    fn a_project_directory_without_an_entry_is_an_error() {
+        with_project(r#"{"slint-edition":"1.19"}"#, |root| {
+            let result = spin_on::spin_on(Compiler::default().build_from_path(root));
             assert!(result.has_errors());
             assert!(
                 result
@@ -3580,15 +3557,36 @@ mod project_file_tests {
     }
 
     #[test]
-    fn the_deprecated_compiler_compiles_the_main_file_of_a_project_file() {
-        with_project(r#"{ "main": "main.slint" }"#, |root| {
+    fn a_project_file_path_is_an_error() {
+        with_project(r#"{"slint-edition": "1.19", "main":"main.slint"}"#, |root| {
+            std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
+                .unwrap();
+            let result =
+                spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
+            assert!(result.has_errors());
+            assert_eq!(
+                result
+                    .diagnostics()
+                    .map(|diagnostic| diagnostic.message().to_string())
+                    .collect::<Vec<_>>(),
+                [format!(
+                    "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
+                    root.display()
+                )]
+            );
+        });
+    }
+
+    #[test]
+    fn the_deprecated_compiler_compiles_the_main_file_of_a_project_directory() {
+        with_project(r#"{ "slint-edition": "1.19", "main": "main.slint" }"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
             #[allow(deprecated)]
             let mut compiler = super::ComponentCompiler::new();
             #[allow(deprecated)]
-            let definition = spin_on::spin_on(compiler.build_from_path(root.join(FILE_NAME)));
+            let definition = spin_on::spin_on(compiler.build_from_path(root));
             assert_eq!(
                 definition.map(|definition| definition.name().to_string()),
                 Some("Main".into())
@@ -3600,7 +3598,42 @@ mod project_file_tests {
     fn no_project_file_keeps_the_defaults() {
         let directory = tempfile::TempDir::new().unwrap();
         let root = std::fs::canonicalize(directory.path()).unwrap();
-        let result = compile(&root, "export component Main inherits Window { }");
+        let main = root.join("main.slint");
+        std::fs::write(&main, "export component Main inherits Window { }").unwrap();
+        let result = spin_on::spin_on(Compiler::default().build_from_path(&main));
         assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn relative_directory_inputs_compile() {
+        if std::env::var_os("SLINT_INTERPRETER_PROJECT_ROOT_TEST").is_some() {
+            for input in [".", "ui/.."] {
+                let result = spin_on::spin_on(Compiler::default().build_from_path(input));
+                assert!(!result.has_errors(), "{result:?}");
+                assert!(result.component("Main").is_some());
+            }
+            return;
+        }
+
+        let project_directory = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(project_directory.path().join("ui")).unwrap();
+        std::fs::write(
+            project_directory.path().join(FILE_NAME),
+            r#"{"slint-edition":"1.19","main":"main.slint"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            project_directory.path().join("main.slint"),
+            "export component Main inherits Window { }",
+        )
+        .unwrap();
+
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .current_dir(project_directory.path())
+            .env("SLINT_INTERPRETER_PROJECT_ROOT_TEST", "1")
+            .args(["--exact", "api::project_file_tests::relative_directory_inputs_compile"])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
     }
 }

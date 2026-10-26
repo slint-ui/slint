@@ -145,6 +145,10 @@ export default defineSlintDocsConfig({
                                                 label: "Reactivity vs React.js",
                                                 slug: "guide/language/concepts/reactivity-vs-react",
                                             },
+                                            {
+                                                label: "Editions",
+                                                slug: "guide/language/concepts/editions",
+                                            },
                                         ],
                                     },
                                     {
@@ -313,12 +317,12 @@ export default defineSlintDocsConfig({
                                                   slug: "guide/experimental/shadowable",
                                               },
                                               {
-                                                  label: "Custom Mouse Cursor",
-                                                  slug: "guide/experimental/custom-mouse-cursor",
+                                                  label: "Testable Properties",
+                                                  slug: "guide/experimental/testable",
                                               },
                                               {
-                                                  label: "Repeated Child Constraints",
-                                                  slug: "guide/experimental/repeated-child-constraints",
+                                                  label: "Custom Mouse Cursor",
+                                                  slug: "guide/experimental/custom-mouse-cursor",
                                               },
                                           ],
                                       },

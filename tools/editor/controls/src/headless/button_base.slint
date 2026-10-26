@@ -8,6 +8,7 @@ export component ButtonBase {
     implement ButtonInterface <=> self;
 
     in property <bool> enabled: true;
+    in property <MouseCursor> mouse-cursor: MouseCursor.pointer;
     in property <string> text;
     in property <bool> checkable;
     in property <image> icon;
@@ -50,6 +51,7 @@ export component ButtonBase {
         width: root.width;
         height: root.height;
         enabled: root.enabled;
+        mouse-cursor: root.mouse-cursor;
         focus-on-click: root.focus-on-click;
         focus-on-tab-navigation: root.focus-on-tab-navigation;
         activated => { root.activate(); }

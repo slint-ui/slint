@@ -308,16 +308,9 @@ impl i_slint_core::item_tree::ItemTree for Instance {
     }
 
     fn accessible_role(self: Pin<&Self>, item_index: u32) -> AccessibleRole {
-        let Some((owner, local_idx)) = resolve_accessible_item(self.get_ref(), item_index) else {
-            return AccessibleRole::default();
-        };
-        let cu = owner.compilation_unit.clone();
-        let sc = &cu.sub_components[owner.sub_component_idx];
-        let Some(expr) = sc.accessible_prop.get(&(local_idx, "Role".to_string())) else {
-            return AccessibleRole::default();
-        };
-        let mut ctx = crate::eval::EvalContext::new(owner);
-        crate::eval::eval_expression(&mut ctx, &expr.borrow()).try_into().unwrap_or_default()
+        eval_accessible_prop(self.get_ref(), item_index, "Role", Vec::new())
+            .and_then(|role| role.try_into().ok())
+            .unwrap_or_default()
     }
 
     fn accessible_string_property(
@@ -326,33 +319,19 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         what: AccessibleStringProperty,
         result: &mut SharedString,
     ) -> bool {
-        let what_str = accessible_string_property_name(what);
-        for (owner, local_idx) in resolve_accessible_candidates(self.get_ref(), item_index) {
-            let cu = owner.compilation_unit.clone();
-            let sc = &cu.sub_components[owner.sub_component_idx];
-            if let Some(expr) = sc.accessible_prop.get(&(local_idx, what_str.clone())) {
-                let mut ctx = crate::eval::EvalContext::new(owner);
-                if let Value::String(s) = crate::eval::eval_expression(&mut ctx, &expr.borrow()) {
-                    *result = s;
-                    return true;
-                }
-            }
-        }
-        false
+        let what = accessible_string_property_name(what);
+        let Some(Value::String(s)) =
+            eval_accessible_prop(self.get_ref(), item_index, &what, Vec::new())
+        else {
+            return false;
+        };
+        *result = s;
+        true
     }
 
     fn accessibility_action(self: Pin<&Self>, item_index: u32, action: &AccessibilityAction) {
         let what = format!("Action{}", accessibility_action_name(action));
-        for (owner, local_idx) in resolve_accessible_candidates(self.get_ref(), item_index) {
-            let cu = owner.compilation_unit.clone();
-            let sc = &cu.sub_components[owner.sub_component_idx];
-            if let Some(expr) = sc.accessible_prop.get(&(local_idx, what.clone())) {
-                let args = accessibility_action_args(action);
-                let mut ctx = crate::eval::EvalContext::with_arguments(owner, args);
-                crate::eval::eval_expression(&mut ctx, &expr.borrow());
-                return;
-            }
-        }
+        eval_accessible_prop(self.get_ref(), item_index, &what, accessibility_action_args(action));
     }
 
     fn supported_accessibility_actions(
@@ -360,13 +339,14 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         item_index: u32,
     ) -> SupportedAccessibilityAction {
         let mut actions = SupportedAccessibilityAction::default();
-        for (owner, local_idx) in resolve_accessible_candidates(self.get_ref(), item_index) {
-            let cu = owner.compilation_unit.clone();
-            let sc = &cu.sub_components[owner.sub_component_idx];
-            for (idx, key) in sc.accessible_prop.keys() {
-                if *idx == local_idx
-                    && let Some(action_name) = key.strip_prefix("Action")
-                {
+        for (owner, local_idx) in sub_component_levels(self.get_ref(), item_index) {
+            let sc = &owner.compilation_unit.sub_components[owner.sub_component_idx];
+            let item_props = sc
+                .accessible_prop
+                .range((local_idx, String::new())..)
+                .take_while(|((idx, _), _)| *idx == local_idx);
+            for ((_, key), _) in item_props {
+                if let Some(action_name) = key.strip_prefix("Action") {
                     actions |= SupportedAccessibilityAction::from_name(action_name)
                         .unwrap_or_else(|| panic!("Not an accessible action: {action_name:?}"));
                 }
@@ -385,45 +365,77 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         if !cu.has_debug_info {
             return false;
         }
-        let Some(entry) = this.item_table.get(item_index as usize).and_then(Option::as_ref) else {
-            return true;
-        };
-        // The compiler stores `element_infos` per sub-component, keyed by
-        // the element's tree index *within that sub-component*. Walk the
-        // sub_component_path from the root, translating the flat index
-        // into each sub-component's local tree space.
-        //
         // A native item's info lives on the leaf sub-component; a
         // component-instance declaration's (`Switch { }`) lives on the
         // *parent* of the leaf, keyed by the instance's `index_in_tree`.
-        // Check each level before descending — first match wins.
-        let mut owner_sc_idx = this.root_sub_component.sub_component_idx;
-        let mut local_idx = item_index;
-        for &sub_step in entry.0.iter() {
-            let owner_sc = &cu.sub_components[owner_sc_idx];
-            if let Some(info) = owner_sc.element_infos.get(&local_idx) {
+        // The first match wins.
+        for (owner, local_idx) in sub_component_levels(this, item_index) {
+            if let Some(info) =
+                cu.sub_components[owner.sub_component_idx].element_infos.get(&local_idx)
+            {
                 *result = info.as_str().into();
-                return true;
+                break;
             }
-            let nested = &owner_sc.sub_components[sub_step];
-            // Translate `local_idx` into `nested`'s tree.
-            if local_idx == nested.index_in_tree {
-                local_idx = 0;
-            } else if nested.index_of_first_child_in_tree > 0 {
-                local_idx = local_idx + 1 - nested.index_of_first_child_in_tree;
-            }
-            owner_sc_idx = nested.ty;
-        }
-        let owner_sc = &cu.sub_components[owner_sc_idx];
-        let item_local_idx = owner_sc.items[entry.1].index_in_tree;
-        if let Some(infos) = owner_sc.element_infos.get(&item_local_idx) {
-            *result = infos.as_str().into();
         }
         true
     }
 
     fn slint_context(self: Pin<&Self>, result: &mut Option<SlintContext>) {
         *result = Some(self.get_ref().globals.context.clone());
+    }
+
+    fn element_testable_properties(
+        self: Pin<&Self>,
+        item_index: u32,
+        result: &mut SharedString,
+    ) -> bool {
+        let this = self.get_ref();
+        let cu = this.root_sub_component.compilation_unit.clone();
+        if !cu.has_debug_info {
+            return false;
+        }
+        if let Some((owner, local_idx)) = resolve_element_properties_owner(this, item_index) {
+            let sc = &cu.sub_components[owner.sub_component_idx];
+            if let Some(props) = sc.testable_properties.get(&local_idx) {
+                let mut encoded = String::new();
+                for p in props {
+                    use std::fmt::Write;
+                    writeln!(encoded, "{}:{}", p.name, p.ty).unwrap();
+                }
+                *result = encoded.as_str().into();
+            }
+        }
+        true
+    }
+
+    fn element_testable_property_value(
+        self: Pin<&Self>,
+        item_index: u32,
+        property_name: Slice<u8>,
+        result: &mut SharedString,
+    ) -> bool {
+        let this = self.get_ref();
+        let cu = this.root_sub_component.compilation_unit.clone();
+        if !cu.has_debug_info {
+            return false;
+        }
+        let Ok(name) = core::str::from_utf8(property_name.as_slice()) else {
+            return false;
+        };
+        let Some((owner, local_idx)) = resolve_element_properties_owner(this, item_index) else {
+            return false;
+        };
+        let sc = &cu.sub_components[owner.sub_component_idx];
+        let Some(prop) = sc
+            .testable_properties
+            .get(&local_idx)
+            .and_then(|props| props.iter().find(|p| p.name == name))
+        else {
+            return false;
+        };
+        let ctx = crate::eval::EvalContext::new(owner);
+        let value = crate::eval::load_property(&ctx, &prop.prop);
+        format_element_testable_property_value(&value, &prop.ty, result)
     }
 
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {
@@ -449,53 +461,122 @@ impl i_slint_core::item_tree::ItemTree for Instance {
     }
 }
 
-/// Resolve a flat tree index to (owning sub-component, local index_in_tree)
-/// for accessibility lookups.
-fn resolve_accessible_item(
+/// Resolve a flat tree index to the sub-component instance whose `testable_properties`
+/// table has an entry for it, plus the local key.
+/// Walks like `item_element_infos`; first match wins.
+fn resolve_element_properties_owner(
     instance: &Instance,
     item_index: u32,
 ) -> Option<(Pin<Rc<crate::instance::SubComponentInstance>>, u32)> {
-    let entry = instance.item_table.get(item_index as usize).and_then(Option::as_ref)?;
-    let mut owner = instance.root_sub_component.clone();
-    for &sub_idx in entry.0.iter() {
-        let next = owner.sub_components[sub_idx].clone();
-        owner = next;
-    }
-    let cu = &owner.compilation_unit;
-    let sc = &cu.sub_components[owner.sub_component_idx];
-    let local_idx = sc.items[entry.1].index_in_tree;
-    Some((owner, local_idx))
+    sub_component_levels(instance, item_index).find(|(owner, local_idx)| {
+        owner.compilation_unit.sub_components[owner.sub_component_idx]
+            .testable_properties
+            .contains_key(local_idx)
+    })
 }
 
-/// Returns the candidates to look up an accessible property for a given
-/// flat tree index. The first candidate is the wrapping sub-component
-/// reference at the root level (if applicable); the second is the
-/// deepest item itself, so an outer-element query wins over the inner
-/// sub-component root's own accessible properties.
-fn resolve_accessible_candidates(
+/// Encode `value` per [`i_slint_core::debug_info`],
+/// dispatching on the declared type exactly like the generated code does,
+/// so both runtimes produce the same string.
+fn format_element_testable_property_value(
+    value: &crate::Value,
+    ty: &i_slint_compiler::langtype::Type,
+    result: &mut SharedString,
+) -> bool {
+    use i_slint_compiler::langtype::Type;
+    use i_slint_core::debug_info;
+    match ty {
+        Type::Bool => {
+            let crate::Value::Bool(b) = value else { return false };
+            *result = debug_info::format_bool(*b);
+        }
+        Type::Int32 => {
+            let crate::Value::Number(n) = value else { return false };
+            *result = debug_info::format_integer(*n as i32 as i64);
+        }
+        Type::Duration => {
+            let crate::Value::Number(n) = value else { return false };
+            *result = debug_info::format_integer(*n as i64);
+        }
+        Type::Float32
+        | Type::Angle
+        | Type::Percent
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Rem => {
+            let crate::Value::Number(n) = value else { return false };
+            *result = debug_info::format_float(*n as f32);
+        }
+        Type::String => {
+            let crate::Value::String(s) = value else { return false };
+            *result = s.clone();
+        }
+        Type::Color | Type::Brush => {
+            let crate::Value::Brush(b) = value else { return false };
+            let Some(formatted) = debug_info::format_brush(b) else { return false };
+            *result = formatted;
+        }
+        Type::Enumeration(_) => {
+            let crate::Value::EnumerationValue(_, v) = value else { return false };
+            *result = v.replace('_', "-").as_str().into();
+        }
+        _ => return false,
+    }
+    true
+}
+
+/// The sub-components from the root down to the item at the flat tree index `item_index`,
+/// each with the index of the item in that sub-component's tree,
+/// which is what the compiler keys its per-item tables with.
+fn sub_component_levels(
     instance: &Instance,
     item_index: u32,
-) -> Vec<(Pin<Rc<crate::instance::SubComponentInstance>>, u32)> {
-    let mut out = Vec::new();
-    let Some(entry) = instance.item_table.get(item_index as usize).and_then(Option::as_ref) else {
-        return out;
-    };
-    // First candidate: a wrapping sub-component reference at the root.
-    // Its accessible_prop entry is keyed by the root-local flat index.
-    if !entry.0.is_empty() {
-        out.push((instance.root_sub_component.clone(), item_index));
-    }
-    // Second candidate: the deepest item itself.
-    let mut owner = instance.root_sub_component.clone();
-    for &sub_idx in entry.0.iter() {
-        let next = owner.sub_components[sub_idx].clone();
-        owner = next;
-    }
-    let cu = &owner.compilation_unit;
-    let sc = &cu.sub_components[owner.sub_component_idx];
-    let local_idx = sc.items[entry.1].index_in_tree;
-    out.push((owner, local_idx));
-    out
+) -> impl Iterator<Item = (Pin<Rc<crate::instance::SubComponentInstance>>, u32)> + '_ {
+    let entry = instance.item_table.get(item_index as usize).and_then(Option::as_ref);
+    let mut path = entry.map_or(&[][..], |(path, _)| &path[..]).iter();
+    let mut next = entry.map(|_| (instance.root_sub_component.clone(), item_index));
+    std::iter::from_fn(move || {
+        let (owner, local_idx) = next.take()?;
+        let sc = &owner.compilation_unit.sub_components[owner.sub_component_idx];
+        let Some(&sub_idx) = path.next() else {
+            let leaf_idx = sc.items[entry?.1].index_in_tree;
+            return Some((owner, leaf_idx));
+        };
+        let nested = &sc.sub_components[sub_idx];
+        let nested_idx = if local_idx == nested.index_in_tree {
+            0
+        } else if nested.index_of_first_child_in_tree > 0 {
+            local_idx + 1 - nested.index_of_first_child_in_tree
+        } else {
+            local_idx
+        };
+        next = Some((owner.sub_components[sub_idx].clone(), nested_idx));
+        Some((owner, local_idx))
+    })
+}
+
+/// Evaluates the accessible property `key` of the item at `item_index`.
+/// The outermost sub-component that sets it wins, as the generated code forwards
+/// to a sub-component only for the properties not set where it's used.
+fn eval_accessible_prop(
+    instance: &Instance,
+    item_index: u32,
+    key: &str,
+    args: Vec<Value>,
+) -> Option<Value> {
+    let mut key = (0, key.to_string());
+    let (owner, local_idx) =
+        sub_component_levels(instance, item_index).find(|(owner, local_idx)| {
+            key.0 = *local_idx;
+            owner.compilation_unit.sub_components[owner.sub_component_idx]
+                .accessible_prop
+                .contains_key(&key)
+        })?;
+    key.0 = local_idx;
+    let cu = owner.compilation_unit.clone();
+    let expr = &cu.sub_components[owner.sub_component_idx].accessible_prop[&key];
+    let mut ctx = crate::eval::EvalContext::with_arguments(owner, args);
+    Some(crate::eval::eval_expression(&mut ctx, &expr.borrow()))
 }
 
 /// The `accessible_prop` map key for a string property — the same

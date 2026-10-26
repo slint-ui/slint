@@ -52,6 +52,28 @@ test("Window show / hide", () => {
     expect(window.visible).toBe(false);
 });
 
+test("Window logicalSize setter honors the scale factor", () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `
+    export component App inherits Window {
+        out property <length> win-width: self.width;
+        out property <length> win-height: self.height;
+    }`,
+        "",
+    );
+    expect(definition.App).not.toBeNull();
+
+    const instance = definition.App!.create();
+    expect(instance).not.toBeNull();
+
+    const window = instance!.window() as Window;
+    window.dispatchEvent({ type: "scale-factor-changed", scaleFactor: 2 });
+    window.logicalSize = { width: 200.5, height: 100 };
+    expect(instance.getProperty("win-width")).toBe(200.5);
+    expect(instance.getProperty("win-height")).toBe(100);
+});
+
 test("Window dispatch pointer event", () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(

@@ -862,6 +862,10 @@ pub struct PropertyDeclaration {
     pub shadowed_name: Option<SmolStr>,
     /// Declared `@shadowable`, so an inheriting component may shadow it.
     pub shadowable: bool,
+    /// Declared `@testable`: the property is guaranteed to appear in the testable-property
+    /// introspection channel (see [`crate::llr::TestableProperty`]), regardless of its
+    /// visibility or whether the document reads it.
+    pub testable: bool,
     /// The name the declaration had on the element it was moved from, when the
     /// move_declarations pass hoisted it onto the root element from another
     /// element of the component, under a name of its own making. What the
@@ -910,6 +914,15 @@ fn shadowable_attribute(
     diag: &mut BuildDiagnostics,
 ) -> bool {
     node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
+}
+
+/// The `@testable` attribute (an experimental feature), if the declaration has one.
+fn testable_attribute(
+    node: Option<syntax_nodes::TestableAttribute>,
+    tr: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> Option<syntax_nodes::TestableAttribute> {
+    node.filter(|node| !reject_experimental_feature(diag, tr, "@testable", node))
 }
 
 /// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
@@ -1256,6 +1269,12 @@ pub struct Element {
     /// Members that shadow an inherited one, mapping the source name to the mangled key in
     /// `property_declarations`.
     pub shadowing_members: BTreeMap<SmolStr, SmolStr>,
+
+    /// For each declaration the move_declarations pass hoisted off this element:
+    /// the name as declared in the source, and the root-element key it lives under now.
+    /// Debug info uses it to attribute a component's properties back to the declaring
+    /// element (see `SubComponent::testable_properties` in the LLR).
+    pub moved_property_declarations: Vec<(SmolStr, SmolStr)>,
 
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,

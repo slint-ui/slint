@@ -37,6 +37,7 @@ ELEMENT_ROWS = {
     "Rectangle": "inspect-rectangle",
     "Text": "inspect-text",
     "Image": "inspect-image",
+    "StyledText": "inspect-styled-text",
     "Button": "inspect-button",
     "CheckBox": "inspect-checkbox",
 }
@@ -424,11 +425,13 @@ def test_literal_color_field_separates_rgb_and_opacity(
         rgb.invoke_accessible_default_action()
         rgb_focused = screenshot(window)
         assert rgb_focused.getpixel(left_edge) != rendered.getpixel(left_edge)
-        assert rgb_focused.getpixel(divider) != rendered.getpixel(divider)
+        assert rgb_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
+        assert rgb_focused.getpixel(divider) == rendered.getpixel(divider)
 
         opacity.invoke_accessible_default_action()
         opacity_focused = screenshot(window)
-        assert opacity_focused.getpixel(divider) != rendered.getpixel(divider)
+        assert opacity_focused.getpixel(left_edge) != rendered.getpixel(left_edge)
+        assert opacity_focused.getpixel(divider) == rendered.getpixel(divider)
         assert opacity_focused.getpixel(right_edge) != rendered.getpixel(right_edge)
 
 
@@ -546,7 +549,7 @@ def test_color_field_opacity_writes_exact_source(
         )
         suffixes = (
             opacity_field.query_descendants()
-            .match_id("InspectorTextFieldBase::fixed-suffix")
+            .match_id("EditorInput::fixed-suffix")
             .find_all()
         )
         assert len(suffixes) == 1
@@ -1337,6 +1340,45 @@ def test_invalid_text_content_does_not_change_source(
             slint_testing.AccessibleRole.TextInput,
         )
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
+
+
+@pytest.mark.parametrize(
+    ("label", "property_name", "initial", "value"),
+    [
+        ("Horizontal Alignment", "horizontal-alignment", "start", "end"),
+        ("Vertical Alignment", "vertical-alignment", "top", "bottom"),
+    ],
+    ids=("horizontal", "vertical"),
+)
+def test_styled_text_alignment_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    label: str,
+    property_name: str,
+    initial: str,
+    value: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "StyledText")
+        wait_for_field(
+            window, FIELDS["width"], "152", slint_testing.AccessibleRole.TextInput
+        )
+        inspector_field(window, "Text content", slint_testing.AccessibleRole.TextInput)
+        edit_field(window, label, value, slint_testing.AccessibleRole.Combobox)
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                f"        {property_name}: {initial};".encode(),
+                f"        {property_name}: {value};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
 
 
 def test_styled_text_content_writes_exact_source(

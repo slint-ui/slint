@@ -221,7 +221,12 @@ pub async fn run_passes(
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
-        default_geometry::default_geometry(component, diag, &symbol_counters);
+        default_geometry::default_geometry(
+            component,
+            diag,
+            &symbol_counters,
+            type_loader.compiler_config.repeated_children_constrain_parent(),
+        );
         crate::layout::mark_repeated_cells_child_of_layout(component);
         lower_layout::optimize_single_cell_layouts(component);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
@@ -307,7 +312,7 @@ pub async fn run_passes(
         deduplicate_property_read::deduplicate_property_read(component);
     });
 
-    remove_unused_properties::remove_unused_properties(doc);
+    remove_unused_properties::remove_unused_properties(doc, type_loader.compiler_config.debug_info);
 
     // With debug hooks enabled, every synthetic hook must by now either have been upgraded
     // (by a pass computing the property's value or by inlining merging the definition's

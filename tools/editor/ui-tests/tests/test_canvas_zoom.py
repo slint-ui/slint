@@ -490,5 +490,5 @@ def test_navigation_keeps_gradient_picker_open(
         moved_again = center(control(window, "Gradient start"))
         assert moved_again.x == pytest.approx(point.x + 12)
         assert moved_again.y == pytest.approx(point.y + 16)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()

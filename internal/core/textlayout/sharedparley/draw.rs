@@ -105,6 +105,28 @@ pub(super) fn visible_x_range(item_renderer: &impl GlyphRenderer) -> Range<Physi
 }
 
 impl TextParagraph {
+    /// Returns whether each glyph of `line` belongs to a control character, in the order its
+    /// glyph runs yield them, or an empty vector when the line has no control character.
+    /// Fonts have no glyph for control characters, so drawing them shows the missing-glyph box.
+    pub(super) fn control_glyphs(
+        &self,
+        line: &parley::layout::Line<'_, Brush>,
+    ) -> alloc::vec::Vec<bool> {
+        let text_range = line.text_range();
+        let first = self.control_characters.partition_point(|&index| index < text_range.start);
+        if self.control_characters.get(first).is_none_or(|&index| index >= text_range.end) {
+            return alloc::vec::Vec::new();
+        }
+        line.runs()
+            .flat_map(|run| run.visual_clusters())
+            .flat_map(|cluster| {
+                let is_control =
+                    self.control_characters.binary_search(&cluster.text_range().start).is_ok();
+                cluster.glyphs().map(move |_| is_control)
+            })
+            .collect()
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draw<R: GlyphRenderer>(
         &self,
@@ -191,9 +213,22 @@ impl TextParagraph {
             // Padded for ink overhanging the advance, like the vertical filtering of lines.
             let padded_x_range = visible_x_range
                 .map(|x_range| (x_range.start - line_height)..(x_range.end + line_height));
+            let control_glyphs = self.control_glyphs(&line);
+            let mut glyph_index = 0;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
+                        let run_control_glyphs: &[bool] = if control_glyphs.is_empty() {
+                            &[]
+                        } else {
+                            let start = glyph_index;
+                            glyph_index += glyph_run.glyphs().count();
+                            &control_glyphs[start..glyph_index]
+                        };
+                        let mut run_control_glyphs = run_control_glyphs.iter();
+                        let mut is_printable = move |_: &parley::layout::Glyph| {
+                            run_control_glyphs.next() != Some(&true)
+                        };
                         let mut glyph_x_range = None;
                         if let Some(x_range) = &padded_x_range {
                             let run_start = PhysicalLength::new(glyph_run.offset());
@@ -220,7 +255,7 @@ impl TextParagraph {
                                 default_stroke_brush,
                                 para_y,
                                 glyph_x_range,
-                                &mut truncated_glyphs.into_iter(),
+                                &mut truncated_glyphs.filter(&mut is_printable),
                                 selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
                             );
@@ -233,7 +268,7 @@ impl TextParagraph {
                                 default_stroke_brush,
                                 para_y,
                                 glyph_x_range,
-                                &mut glyph_run.positioned_glyphs(),
+                                &mut glyph_run.positioned_glyphs().filter(&mut is_printable),
                                 selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
                             );

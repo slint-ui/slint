@@ -162,7 +162,7 @@ fn compile_motion_test(code: &str, static_preview: bool) -> crate::ComponentInst
         use i_slint_core::InternalToken;
 
         spin_on::spin_on(compiler.build_static_from_source(
-            code.into(),
+            Some(code.into()),
             SourcePath::new("test.slint"),
             InternalToken,
         ))

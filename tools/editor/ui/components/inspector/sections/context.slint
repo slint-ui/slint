@@ -54,7 +54,7 @@ export global InspectorContext {
     }
 
     public pure function is-checkbox-selection() -> bool {
-        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "CheckBox";
+        return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "CheckBox";
     }
 
     public pure function is-slider-selection() -> bool {
@@ -76,6 +76,16 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "TextEdit"
                 || InspectorContext.element-information.type-name == "RadioButton"
                 || InspectorContext.element-information.type-name == "TextInput");
+    }
+
+    public pure function is-title-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "GroupBox"
+                || InspectorContext.element-information.type-name == "RadioGroup");
+    }
+
+    public pure function is-lineedit-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "LineEdit";
     }
 
     public pure function is-enable-selection() -> bool {

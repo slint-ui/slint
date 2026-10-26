@@ -281,9 +281,21 @@ pub(super) fn create_text_paragraphs(
                 .map(|s| s.range.clone())
                 .collect();
 
+            let control_characters = text
+                .char_indices()
+                .filter_map(|(index, c)| c.is_control().then_some(index))
+                .collect();
+
             let layout = layout_builder.build(font_context, text, formatting, Some(link_color));
 
-            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges }
+            TextParagraph {
+                range,
+                y: PhysicalLength::default(),
+                layout,
+                links,
+                code_ranges,
+                control_characters,
+            }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
@@ -390,4 +402,6 @@ pub(super) struct TextParagraph {
     /// translucent rounded background by `draw` for visual parity with common markdown
     /// renderers.
     pub(super) code_ranges: std::vec::Vec<Range<usize>>,
+    /// Ascending byte offsets of the control characters in the paragraph's text.
+    pub(super) control_characters: std::vec::Vec<usize>,
 }

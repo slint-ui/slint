@@ -99,6 +99,7 @@ pub struct PreviewSession {
     dependencies: RefCell<HashSet<Url>>,
     /// Taken for the duration of a compilation, which is how a second one is refused.
     compiler: RefCell<Option<slint_interpreter::Compiler>>,
+    project_root: RefCell<Option<SourcePath>>,
     configuration: RefCell<Option<PreviewConfig>>,
     to_editor: Rc<dyn PreviewToLsp>,
 }
@@ -137,6 +138,7 @@ impl PreviewSession {
             file_cache: Default::default(),
             dependencies: Default::default(),
             compiler: Default::default(),
+            project_root: Default::default(),
             configuration: Default::default(),
             to_editor,
         });
@@ -170,6 +172,7 @@ impl PreviewSession {
                         PreviewSessionCommand::Reset(reset_complete) => {
                             self.file_cache.borrow_mut().clear();
                             self.dependencies.borrow_mut().clear();
+                            self.project_root.borrow_mut().take();
                             debounce_deadline = None;
                             reset_complete.send(()).ok();
                         }
@@ -271,7 +274,13 @@ impl PreviewSession {
             LspToPreviewMessage::RemoteConnectionState { .. } => {
                 tracing::warn!("Ignoring unexpected RemoteConnectionState over WebSocket");
             }
-            LspToPreviewMessage::OpenProject { .. } => {}
+            LspToPreviewMessage::OpenProject { root } => {
+                let root = root.as_ref().map(SourcePath::from_url);
+                if *self.project_root.borrow() != root {
+                    self.project_root.replace(root);
+                    *debounce_deadline = Some(tokio::time::Instant::now() + REBUILD_DEBOUNCE);
+                }
+            }
             LspToPreviewMessage::PairingHello { .. }
             | LspToPreviewMessage::PairingResponse { .. } => {
                 tracing::warn!("Ignoring pairing message on an established session");
@@ -422,15 +431,13 @@ impl PreviewSession {
         };
         // A dropped compilation must not take the compiler with it: a session without one
         // refuses every build that follows.
+        let mut compiler = compiler;
+        compiler.set_project_root(self.project_root.borrow().clone(), InternalToken);
         let compiler = scopeguard::guard(compiler, |compiler| self.restore_compiler(compiler));
         let source_code = String::from_utf8_lossy(&file.contents).into_owned();
-        let resolved_source = crate::protocol::preview_source_path(&path, &source_code).await;
-        let diagnostic_url = resolved_source
-            .as_ref()
-            .and_then(SourcePath::to_url)
-            .unwrap_or_else(|| component.url.clone());
+        let diagnostic_url = component.url.clone();
         let compilation_result =
-            compiler.build_from_source_path(source_code, path, InternalToken).await;
+            compiler.build_from_source_path(Some(source_code), path, InternalToken).await;
         drop(compiler);
         // Set even on errors so edits to imported files still trigger a rebuild.
         *self.dependencies.borrow_mut() = compilation_result
@@ -697,7 +704,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_manifest_target_keeps_its_entry_separate_and_reports_a_missing_entry() {
+    async fn explicit_root_uses_only_its_cached_project_file() {
         i_slint_backend_testing::init_no_event_loop();
         tokio::task::LocalSet::new()
             .run_until(async {
@@ -706,62 +713,35 @@ mod tests {
                     file_cache: Default::default(),
                     dependencies: Default::default(),
                     compiler: Default::default(),
+                    project_root: Default::default(),
                     configuration: Default::default(),
-                    to_editor: capture.clone(),
+                    to_editor: capture,
                 });
                 session.restore_compiler(session.create_compiler());
                 let directory = tempfile::tempdir().unwrap();
-                let manifest =
-                    Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
-                let entry = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-                for (url, source) in [
-                    (manifest.clone(), r#"{"main":"main.slint"}"#),
-                    (
-                        entry.clone(),
-                        "export component Main inherits Window { out property <int> marker: 91; }",
-                    ),
+                let root = Url::from_directory_path(directory.path()).unwrap();
+                let manifest_path = directory.path().join("slint-project.json");
+                std::fs::write(&manifest_path, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#).unwrap();
+                let manifest = Url::from_file_path(&manifest_path).unwrap();
+                let nested_manifest =
+                    Url::from_file_path(directory.path().join("ui/slint-project.json")).unwrap();
+                let source = Url::from_file_path(directory.path().join("ui/main.slint")).unwrap();
+                let target = PreviewComponent { url: source.clone(), component: None };
+                for (url, contents) in [
+                    (source, "export component Main inherits Window { ComponentContainer {} }"),
+                    (nested_manifest, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#),
                 ] {
                     session.process_message(
                         LspToPreviewMessage::SetContents {
                             url: VersionedUrl::new(url, None),
-                            contents: source.into(),
+                            contents: contents.into(),
                         },
                         &|_| {},
                         &mut None,
                     );
                 }
-                let target = PreviewComponent { url: manifest.clone(), component: None };
-                let PreviewCompilation::Ready(compiled) = session.compile_component(&target).await
-                else {
-                    panic!("manifest entry did not compile")
-                };
-                assert!(compiled.component_definition().is_some());
-                assert_eq!(target.url, manifest);
-                let mut instance = None;
-                let mut inspector = None;
-                show_component(
-                    &session,
-                    &target,
-                    &mut instance,
-                    &mut inspector,
-                    None,
-                    &mut Vec::new(),
-                )
-                .await
-                .unwrap();
-                assert!(instance.is_some());
-            session.process_message(LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(target.url.join("main.slint").unwrap(), None),
-                contents: "export component Broken inherits Missing {}".into(),
-            }, &|_| {}, &mut None);
-            assert!(matches!(session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
-            assert!(capture.0.borrow().iter().any(|message| matches!(message, PreviewToLspMessage::Diagnostics { uri, diagnostics, .. } if uri.path().ends_with("/main.slint") && !diagnostics.is_empty())));
-
                 session.process_message(
-                    LspToPreviewMessage::SetContents {
-                        url: VersionedUrl::new(manifest, None),
-                        contents: "{}".into(),
-                    },
+                    LspToPreviewMessage::OpenProject { root: Some(root.clone()) },
                     &|_| {},
                     &mut None,
                 );
@@ -769,27 +749,54 @@ mod tests {
                     session.compile_component(&target).await,
                     PreviewCompilation::CompilationError { .. }
                 ));
-                show_component(
-                    &session,
-                    &target,
-                    &mut instance,
-                    &mut inspector,
-                    None,
-                    &mut Vec::new(),
-                )
-                .await
-                .unwrap();
-                assert!(instance.is_some());
-
-                assert!(inspector.is_some());
-                assert!(capture.0.borrow().iter().any(|message| matches!(message, PreviewToLspMessage::Diagnostics { uri, diagnostics, .. } if uri == &target.url && diagnostics.iter().any(|diagnostic| diagnostic.message.contains("has no 'main' to compile")))));
-                assert!(
-                    !capture
-                        .0
-                        .borrow()
-                        .iter()
-                        .any(|message| matches!(message, PreviewToLspMessage::RequestState { .. }))
+                assert!(session.dependencies.borrow().contains(&manifest));
+                for contents in
+                    [r#"{"slint-edition":"1.19","main":"other.slint","enable-experimental-features":true}"#, r#"{"slint-edition":"1.19"}"#, "{"]
+                {
+                    session.process_message(
+                        LspToPreviewMessage::SetContents {
+                            url: VersionedUrl::new(manifest.clone(), None),
+                            contents: contents.into(),
+                        },
+                        &|_| {},
+                        &mut None,
+                    );
+                    let compiled = session.compile_component(&target).await;
+                    assert_eq!(
+                        matches!(compiled, PreviewCompilation::Ready(_)),
+                        contents.contains("enable-experimental-features"),
+                    );
+                }
+                session.process_message(
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(manifest, None),
+                        contents: r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into(),
+                    },
+                    &|_| {},
+                    &mut None,
                 );
+                assert!(matches!(
+                    session.compile_component(&target).await,
+                    PreviewCompilation::Ready(_)
+                ));
+                session.process_message(
+                    LspToPreviewMessage::OpenProject { root: None },
+                    &|_| {},
+                    &mut None,
+                );
+                assert!(matches!(
+                    session.compile_component(&target).await,
+                    PreviewCompilation::CompilationError { .. }
+                ));
+                session.process_message(
+                    LspToPreviewMessage::OpenProject { root: Some(root) },
+                    &|_| {},
+                    &mut None,
+                );
+                assert!(matches!(
+                    session.compile_component(&target).await,
+                    PreviewCompilation::Ready(_)
+                ));
             })
             .await;
     }
@@ -801,6 +808,7 @@ mod tests {
             file_cache: Default::default(),
             dependencies: Default::default(),
             compiler: Default::default(),
+            project_root: Default::default(),
             configuration: Default::default(),
             to_editor: capture.clone(),
         });
@@ -814,8 +822,8 @@ mod tests {
         assert!(session.dependencies.borrow().contains(&url));
         assert!(capture.0.borrow().is_empty());
         for (contents, rebuild) in [
-            (Some("{}"), true),
-            (Some("{}"), true),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"slint-edition":"1.19"}"#), true),
             (Some("{broken"), true),
             (None, true),
             (None, true),

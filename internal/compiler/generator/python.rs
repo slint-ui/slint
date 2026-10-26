@@ -38,7 +38,8 @@ pub fn ident(ident: &str) -> SmolStr {
     if ident.contains('-') {
         new_ident = ident.replace_smolstr("-", "_");
     }
-    if is_python_keyword(new_ident.as_str()) {
+    // `self` isn't a keyword, but it's the instance parameter of methods
+    if is_python_keyword(new_ident.as_str()) || new_ident == "self" {
         new_ident = format_smolstr!("{}_", new_ident);
     }
     new_ident
@@ -592,15 +593,14 @@ pub fn generate(
         struct_or_enum.generate_aliases(&mut file);
     }
 
-    let main_file = match &compiler_config.input_project_file {
-        Some(project_file) => std::path::absolute(project_file).unwrap(),
+    let input_path = match &compiler_config.input_project_directory {
+        Some(project_directory) => std::fs::canonicalize(project_directory)?,
         None => std::path::absolute(
             doc.node
                 .as_ref()
                 .and_then(|node| node.source_file.path().as_native_path())
                 .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?,
-        )
-        .unwrap(),
+        )?,
     };
 
     let destination_path = destination_path.and_then(|maybe_relative_destination_path| {
@@ -609,14 +609,10 @@ pub fn generate(
             .and_then(|p| p.parent().map(std::path::PathBuf::from))
     });
 
-    let relative_path_from_destination_to_main_file =
-        destination_path.and_then(|destination_path| {
-            pathdiff::diff_paths(main_file.parent().unwrap(), destination_path)
-        });
+    let relative_input_path = destination_path
+        .and_then(|destination_path| pathdiff::diff_paths(&input_path, destination_path));
 
-    if let Some(relative_path_from_destination_to_main_file) =
-        relative_path_from_destination_to_main_file
-    {
+    if let Some(relative_input_path) = relative_input_path {
         use base64::engine::Engine;
         use std::io::Write;
 
@@ -629,7 +625,7 @@ pub fn generate(
         file.imports.push(SmolStr::new_static("os"));
         file.trailing_code.push(format_smolstr!(
             "globals().update(vars(slint._load_file_checked(path=os.path.join(os.path.dirname(__file__), r'{}'), expected_api_base64_compressed=r'{}', generated_file=__file__)))",
-            relative_path_from_destination_to_main_file.join(main_file.file_name().unwrap()).to_string_lossy(),
+            relative_input_path.to_string_lossy(),
             base64_api_str
         ));
     }

@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! The compiler picks up `slint-project.json` next to the compiled `.slint` file,
-//! and the command line still wins over it.
+//! A project directory loads `slint-project.json` from that directory, and the command line wins over it.
 
 // These drive the compiler through its C++ output. The Slint SC subset builds
 // without that format, and rejects the arguments a project file could set anyway.
@@ -60,56 +59,64 @@ const PLAIN: &str = "export component Main inherits Window { }";
 
 #[test]
 fn include_paths_come_from_the_project_file() {
-    let project = Project::new(Some(r#"{ "include-paths": ["include"] }"#));
+    let project = Project::new(Some(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+    ));
     project.write("include/shared.slint", "export component Shared { }");
-    let main = project.write("main.slint", IMPORTS_SHARED);
+    project.write("main.slint", IMPORTS_SHARED);
 
-    let output = project.compile(&main, &[]);
+    let output = project.compile(&project.root, &[]);
     assert!(output.status.success(), "{}", stderr(&output));
 }
 
 #[test]
 fn an_include_path_argument_wins_over_the_project_file() {
-    let project = Project::new(Some(r#"{ "include-paths": ["unusable"] }"#));
+    let project = Project::new(Some(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["unusable"] }"#,
+    ));
     project.write("other/shared.slint", "export component Shared { }");
-    let main = project.write("main.slint", IMPORTS_SHARED);
+    project.write("main.slint", IMPORTS_SHARED);
 
     let include_path = project.root.join("other");
-    let output = project.compile(&main, &["-I", include_path.to_str().unwrap()]);
+    let output = project.compile(&project.root, &["-I", include_path.to_str().unwrap()]);
     assert!(output.status.success(), "{}", stderr(&output));
 }
 
 #[test]
 fn library_paths_come_from_the_project_file() {
-    let project = Project::new(Some(r#"{ "library-paths": {"widgets": "widgets.slint"} }"#));
+    let project = Project::new(Some(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint"} }"#,
+    ));
     project.write("widgets.slint", "export component Widget { }");
-    let main = project.write(
+    project.write(
         "main.slint",
         r#"import { Widget } from "@widgets";
            export component Main inherits Window { Widget { } }"#,
     );
 
-    let output = project.compile(&main, &[]);
+    let output = project.compile(&project.root, &[]);
     assert!(output.status.success(), "{}", stderr(&output));
 }
 
 #[test]
 fn an_unreadable_project_file_is_reported() {
     let project = Project::new(Some("{"));
-    let main = project.write("main.slint", PLAIN);
+    project.write("main.slint", PLAIN);
 
-    let output = project.compile(&main, &[]);
+    let output = project.compile(&project.root, &[]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains("slint-project.json"), "{}", stderr(&output));
 }
 
 #[test]
 fn the_project_file_is_a_dependency_in_the_depfile() {
-    let project = Project::new(Some(r#"{ "include-paths": ["include"] }"#));
-    let main = project.write("main.slint", PLAIN);
+    let project = Project::new(Some(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+    ));
+    project.write("main.slint", PLAIN);
     let depfile = project.root.join("generated.d");
 
-    let output = project.compile(&main, &["--depfile", depfile.to_str().unwrap()]);
+    let output = project.compile(&project.root, &["--depfile", depfile.to_str().unwrap()]);
     assert!(output.status.success(), "{}", stderr(&output));
 
     let dependencies = std::fs::read_to_string(&depfile).unwrap();
@@ -131,15 +138,37 @@ fn compiling_without_a_project_file_works() {
 }
 
 #[test]
-fn a_project_file_argument_compiles_its_main_file() {
-    let project =
-        Project::new(Some(r#"{ "main": "ui/main.slint", "include-paths": ["include"] }"#));
+fn an_invalid_slint_edition_variable_is_reported() {
+    let project = Project::new(None);
+    let main = project.write("main.slint", PLAIN);
+    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
+        .env("SLINT_EDITION", "999.0")
+        .arg("-f")
+        .arg("cpp")
+        .arg("-o")
+        .arg(project.root.join("generated.h"))
+        .arg(&main)
+        .output()
+        .unwrap();
+    assert!(!output.status.success(), "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("SLINT_EDITION is 999.0, newer than this Slint"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_project_directory_compiles_its_main_file() {
+    let project = Project::new(Some(
+        r#"{ "slint-edition": "1.19", "main": "ui/main.slint", "include-paths": ["include"] }"#,
+    ));
     project.write("include/shared.slint", "export component Shared { }");
     let main = project.write("ui/main.slint", IMPORTS_SHARED);
     let depfile = project.root.join("generated.d");
 
     let project_file = project.root.join("slint-project.json");
-    let output = project.compile(&project_file, &["--depfile", depfile.to_str().unwrap()]);
+    let output = project.compile(&project.root, &["--depfile", depfile.to_str().unwrap()]);
     assert!(output.status.success(), "{}", stderr(&output));
 
     let dependencies = std::fs::read_to_string(&depfile).unwrap();
@@ -153,30 +182,106 @@ fn a_project_file_argument_compiles_its_main_file() {
 }
 
 #[test]
-fn a_project_file_argument_without_a_main_file_is_reported() {
-    let project = Project::new(Some("{}"));
+fn a_project_directory_without_a_main_file_is_reported() {
+    let project = Project::new(Some(r#"{"slint-edition":"1.19"}"#));
 
-    let output = project.compile(&project.root.join("slint-project.json"), &[]);
+    let output = project.compile(&project.root, &[]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains("'main'"), "{}", stderr(&output));
 }
 
+#[test]
+fn a_project_file_argument_is_reported() {
+    let project = Project::new(Some(r#"{"slint-edition":"1.19","main":"main.slint"}"#));
+    project.write("main.slint", PLAIN);
+
+    let argument_sets: &[&[&str]] = &[
+        &[],
+        #[cfg(feature = "slint-sc")]
+        &["--slint-sc"],
+    ];
+    for arguments in argument_sets {
+        let output = project.compile(&project.root.join("slint-project.json"), &arguments);
+        assert!(!output.status.success());
+        assert_eq!(
+            stderr(&output).trim(),
+            format!(
+                "A `slint-project.json` cannot be compiled directly; pass its directory instead ({})",
+                project.root.display()
+            )
+        );
+    }
+}
+
+#[test]
+fn a_slint_file_does_not_load_an_adjacent_project_file() {
+    let project = Project::new(Some("{"));
+    let main = project.write("main.slint", PLAIN);
+
+    let output = project.compile(&main, &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+}
+
 #[cfg(feature = "python")]
 #[test]
-fn generated_python_loads_the_project_file_it_was_generated_from() {
-    let project = Project::new(Some(r#"{ "main": "ui/main.slint" }"#));
+fn generated_python_loads_the_project_directory_it_was_generated_from() {
+    let project = Project::new(Some(r#"{ "slint-edition": "1.19", "main": "ui/main.slint" }"#));
     project.write("ui/main.slint", PLAIN);
     let generated = project.root.join("app_window.py");
     std::fs::write(&generated, "").unwrap();
 
+    for (input, current_directory) in [
+        (project.root.clone(), project.root.clone()),
+        (PathBuf::from("."), project.root.clone()),
+        (PathBuf::from("ui/.."), project.root.clone()),
+        (PathBuf::from(".."), project.root.join("ui")),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
+            .current_dir(current_directory)
+            .args(["-f", "python", "-o"])
+            .arg(&generated)
+            .arg(input)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{}", stderr(&output));
+
+        let code = std::fs::read_to_string(&generated).unwrap();
+        assert!(code.contains("path=os.path.join(os.path.dirname(__file__), r'')"), "{code}");
+    }
+}
+
+#[test]
+fn an_edition_before_a_behavior_change_warns() {
+    let project = Project::new(Some(r#"{ "slint-edition": "1.18", "main": "main.slint" }"#));
+    project.write("main.slint", PLAIN);
+
+    let output = project.compile(&project.root, &[]);
+    let message = stderr(&output);
+    assert!(output.status.success(), "{message}");
+    let warning = "'slint-edition' 1.18 misses the language behavior changes up to 1.19";
+    assert_eq!(message.matches(warning).count(), 1, "{message}");
+    assert!(message.contains("slint-project.json"), "{message}");
+
+    let project = Project::new(Some(r#"{ "slint-edition": "1.19", "main": "main.slint" }"#));
+    project.write("main.slint", PLAIN);
+    let output = project.compile(&project.root, &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+}
+
+#[test]
+fn the_slint_edition_variable_does_not_warn() {
+    let project = Project::new(None);
+    let main = project.write("main.slint", PLAIN);
     let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
-        .args(["-f", "python", "-o"])
-        .arg(&generated)
-        .arg(project.root.join("slint-project.json"))
+        .env("SLINT_EDITION", "1.18")
+        .arg("-f")
+        .arg("cpp")
+        .arg("-o")
+        .arg(project.root.join("generated.h"))
+        .arg(&main)
         .output()
         .unwrap();
     assert!(output.status.success(), "{}", stderr(&output));
-
-    let code = std::fs::read_to_string(&generated).unwrap();
-    assert!(code.contains("r'slint-project.json'"), "{code}");
+    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
 }

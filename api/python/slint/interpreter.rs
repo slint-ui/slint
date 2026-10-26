@@ -187,7 +187,7 @@ impl CompilationResult {
                     let struct_instance = self.type_collection.struct_to_py(
                         slint_interpreter::Struct::from_iter(s.fields.keys().map(|name| {
                             (
-                                ident(&name).into(),
+                                name.to_string(),
                                 slint_interpreter::default_value_for_struct_field(s, name),
                             )
                         })),

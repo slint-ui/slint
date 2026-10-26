@@ -617,21 +617,23 @@ impl SpringboardTask {
             );
             *mapping.lock().unwrap() = identities;
             let mut endpoints = vec![ui::PreviewEndpoint {
+                id: "local".into(),
                 name: "Local".into(),
                 kind: ui::PreviewEndpointKind::Local,
-                addresses: ModelRc::default(),
-                port: 0,
-                unavailable_reason: "".into(),
+                saved: true,
+                ..Default::default()
             }];
             endpoints.extend(viewers.into_iter().map(|viewer| ui::PreviewEndpoint {
+                id: viewer.fullname.into(),
                 name: viewer.name.into(),
                 kind: ui::PreviewEndpointKind::Remote,
-                addresses: ModelRc::new(slint::VecModel::from(
-                    viewer.addresses.into_iter().map(Into::into).collect::<Vec<_>>(),
-                )),
-                port: i32::from(viewer.port),
+                address: format!("{}:{}", viewer.addresses.join(", "), viewer.port).into(),
                 unavailable_reason: viewer.unavailable_reason.into(),
+                saved: true,
+                nearby: true,
+                ..Default::default()
             }));
+            global.set_saved_count(endpoints.len() as i32);
             global.set_endpoints(ModelRc::new(slint::VecModel::from(endpoints)));
             global.set_selected_endpoint_index(selected);
             global.set_state(state);
@@ -1138,13 +1140,14 @@ mod tests {
             let directory = tempfile::tempdir().unwrap();
             let source = lsp_types::Url::from_file_path(directory.path().join("main.slint")).unwrap();
             let manifest = lsp_types::Url::from_file_path(directory.path().join("slint-project.json")).unwrap();
+            controller.send(&LspToPreviewMessage::OpenProject { root: Some(manifest.join(".").unwrap()) });
             let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
             controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window { ComponentContainer {} }".into() });
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"enable-experimental-features":true}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into() });
             controller.send(&LspToPreviewMessage::ShowPreview(target.clone()));
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ShowPreview { .. })).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)));
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"enable-experimental-features":false}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","enable-experimental-features":false}"#.into() });
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
             for (enable_experimental, succeeds) in [(Some(true), true), (None, false)] {

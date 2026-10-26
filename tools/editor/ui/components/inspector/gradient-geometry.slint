@@ -5,7 +5,6 @@ import { Style, Metrics, Colors, Typography, InspectorStyle } from "../../style.
 import { FillData, BrushKind } from "../../api.slint";
 
 import { InspectorComboBox } from "combo-box.slint";
-import { InspectorRotationKnob } from "rotation-knob.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
 export component InspectorGradientGeometry inherits Rectangle {
@@ -18,14 +17,7 @@ export component InspectorGradientGeometry inherits Rectangle {
     callback center-mode-selected(bool) -> bool;
     callback radius-mode-selected(bool) -> bool;
     private property <FillData> draft;
-    private property <FillData> gesture-value;
     height: layout.preferred-height;
-
-    function set-angle(angle: float) -> bool {
-        root.draft = root.value;
-        root.draft.angle = angle;
-        return root.preview(root.draft);
-    }
 
     layout := VerticalLayout {
         spacing: Metrics.space-regular;
@@ -42,32 +34,6 @@ export component InspectorGradientGeometry inherits Rectangle {
                 ];
                 accepted(text) => {
                     return root.type-selected(text == "Linear" ? BrushKind.linear : text == "Radial" ? BrushKind.radial : BrushKind.conic);
-                }
-            }
-            if root.value.kind != BrushKind.radial && !root.canvas-active: InspectorRotationKnob {
-                accessible-name: @tr("Gradient angle");
-                value: root.value.angle;
-                commit-key: root.session-key;
-                started => {
-                    root.gesture-value = root.value;
-                }
-                preview(angle) => {
-                    return root.set-angle(angle);
-                }
-                accepted(angle) => {
-                    return root.set-angle(angle);
-                }
-                canceled => {
-                    root.preview(root.gesture-value);
-                }
-            }
-            if root.value.kind != BrushKind.radial && !root.canvas-active: InspectorTextFieldBase {
-                accessible-name: @tr("Gradient angle degrees");
-                width: root.style.gradient-value-width;
-                value: root.value.angle.to-fixed(1);
-                commit-key: root.session-key;
-                accepted(text) => {
-                    return text.is-float() && root.set-angle(text.to-float());
                 }
             }
         }

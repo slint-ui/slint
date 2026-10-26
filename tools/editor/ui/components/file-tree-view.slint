@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, TreeStyle } from "../style.slint";
+import { EditorInput } from "editor-input.slint";
 import { FileTreeIcons } from "file-tree-icons.slint";
 import { Icons } from "icons.slint";
 
@@ -39,16 +40,18 @@ component FileTreeRow inherits Rectangle {
     callback rename-finished();
     callback rename-submitted();
 
-    init => {
+    function focus-if-current() {
         if root.keyboard-current && !root.editing {
             row-focus.focus();
         }
     }
 
+    init => {
+        focus-if-current();
+    }
+
     changed keyboard-current => {
-        if root.keyboard-current && !root.editing {
-            row-focus.focus();
-        }
+        focus-if-current();
     }
 
     height: root.style.row.height + (rename-error == "" ? 0px : root.style.row.height);
@@ -204,46 +207,36 @@ component FileTreeRow inherits Rectangle {
             }
         }
 
-        if root.editing: Rectangle {
+        if root.editing: input := EditorInput {
             x: root.style.row.padding-inline
                 + root.gutter-segments * root.style.row.toggle-width
                 + root.style.row.hit-size
                 + root.style.row.icon-size
                 + root.style.row.gap;
-            y: Metrics.space-tight;
+            y: (root.style.row.height - Style.field.height) / 2;
             width: root.width + root.rename-right-extension - self.x;
-            height: root.style.row.height - 2 * Metrics.space-tight;
-            border-width: Metrics.border-width;
-            border-color: root.rename-error == "" ? root.style.rename.border : root.error-color;
-            background: root.style.rename.background;
-
-            input := TextInput {
-                x: Metrics.border-width;
-                width: parent.width - 2 * Metrics.border-width;
-                height: parent.height;
-                text <=> root.rename-name;
-                color: root.style.row.foreground;
-                font-size: root.style.row.font-size;
-                vertical-alignment: center;
-                accessible-label: @tr("Rename {}", root.node.label);
-                init => {
-                    self.focus();
-                    self.set-selection-offsets(0, root.node.rename-selection-end);
+            value: root.rename-name;
+            live-edit: true;
+            select-all-on-focus: false;
+            accessible-name: @tr("Rename {}", root.node.label);
+            border-color: root.rename-error == "" ? self.paint.border : root.error-color;
+            init => {
+                self.focus-input();
+                self.select-range(0, root.node.rename-selection-end);
+            }
+            accepted(value) => { root.rename-name = value; return true; }
+            focus-lost => { if root.editing { root.rename-submitted(); } }
+            keyboard(event) => {
+                if event.text == Key.Return {
+                    root.rename-submitted();
+                    return accept;
                 }
-                accepted => { root.rename-submitted(); }
-                changed has-focus => {
-                    if root.editing && !self.has-focus {
-                        root.rename-submitted();
-                    }
+                if event.text == Key.Escape {
+                    root.rename-finished();
+                    row-focus.focus();
+                    return accept;
                 }
-                key-pressed(event) => {
-                    if event.text == Key.Escape {
-                        root.rename-finished();
-                        row-focus.focus();
-                        return accept;
-                    }
-                    return reject;
-                }
+                return reject;
             }
         }
     }

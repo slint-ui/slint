@@ -65,7 +65,7 @@ integration: &integration
  - '.github/workflows/build_and_test_reusable.yaml'
  - 'api/rs/**'
  - 'internal/compiler/generator/rust*{,/**}'
- - 'internal/renderers/{anyrender,skia,software}/**'
+ - 'internal/renderers/{anyrender,femtovg,skia,software}/**'
  - 'internal/backends/winit/**'
 
 # Everything the root-workspace `cargo test` covers: all of internal/ (also
@@ -145,6 +145,14 @@ cpp_cmake_config:
  - 'api/cpp/{CMakeLists.txt,Cargo.toml}'
  - 'api/cpp/cmake/**'
  - 'cmake/**'
+
+# What the C++ test driver's live-preview mode exercises beyond its normal mode.
+live_preview_cpp:
+ - 'internal/live-preview/**'
+ - 'internal/interpreter/**'
+ - 'api/cpp/**'
+ - 'internal/compiler/generator/cpp*{,/**}'
+ - *ci_config
 
 android_backend:
  - 'internal/backends/android-activity/**'

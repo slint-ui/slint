@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { FloatingSurface } from "../../ui/components/floating-surface.slint";
 import { Gallery } from "../state.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Colors, Style, Typography, Metrics } from "../../ui/style.slint";
@@ -169,13 +170,8 @@ export component GalleryFoundations inherits Rectangle {
                 }
             }
             SectionTitle { label: "FLOATING SHADOW"; }
-            Rectangle {
+            FloatingSurface {
                 width: 160px; height: 72px;
-                background: Colors.surface;
-                border-radius: Metrics.radius-large;
-                drop-shadow-blur: Style.fill-picker.shadow.blur;
-                drop-shadow-offset-y: Style.fill-picker.shadow.offset-y;
-                drop-shadow-color: Style.fill-picker.shadow.color;
                 BodyLabel { text: "Picker panel"; horizontal-alignment: center; vertical-alignment: center; }
             }
             SectionTitle { label: "ELEMENT ICONS"; }
