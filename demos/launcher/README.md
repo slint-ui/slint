@@ -11,3 +11,13 @@ only shows the ones that are installed. The launcher's own directory is
 searched, too: in a development build the workspace's demos and examples land
 in the same cargo target directory, so `cargo run --manifest-path demos/launcher/Cargo.toml`
 shows the ones that were built.
+
+## C#
+
+The C# version, in [`dotnet/Program.cs`](./dotnet/Program.cs), launches the C# ports of the demos and examples instead.
+It lists the ones that are built in the same configuration as the launcher, and starts them with `dotnet`.
+
+```sh
+dotnet build examples/dotnet.slnx
+dotnet run --project demos/launcher/dotnet
+```

@@ -28,4 +28,5 @@
   <Project Path="plotter/dotnet/Plotter.csproj" />
   <Project Path="maps/dotnet/Maps.csproj" />
   <Project Path="dotnet-viewer/DotnetViewer.csproj" />
+  <Project Path="../demos/launcher/dotnet/Launcher.csproj" />
 </Solution>
