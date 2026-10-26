@@ -101,9 +101,7 @@ docs_build:
  - 'helper_crates/**'
  - 'tools/lsp/**'
  - 'tests/doctests/**'
- # The doctests compile the slint snippets in the skill files
- - 'skills/**'
- # ... and in every Markdown file of the repository
+ # The doctests compile the slint snippets in every Markdown file of the repository
  - '**/*.md'
  - '**/*.mdx'
  - *js_config
