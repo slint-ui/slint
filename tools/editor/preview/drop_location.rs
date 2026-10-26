@@ -1445,7 +1445,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
                 .collect::<Vec<_>>();
             if project_file {
                 edits.push(text_edit::EditedText {
-                    url: SourcePath::new("/test/slint-project.json").to_url().unwrap(),
+                    url: test::test_file_name("slint-project.json").to_url().unwrap(),
                     contents: r#"{"include-paths":["changed"]}"#.into(),
                 });
             }
