@@ -310,9 +310,11 @@ Next:
 - **15.** Port the examples and demos to C#, see [Samples](#samples), in phases:
   - Phase 0, done: the conventions, `examples/dotnet.slnx` in CI,
     and tray icon components without `Window` and `Run`, for `system-tray`.
-  - Phase 1, the ports of samples with Python or JavaScript logic to follow:
+  - Phase 1, done: the ports of samples with Python or JavaScript logic to follow:
     `todo`, `printerdemo`, `carousel`, `virtual_keyboard`, `home-automation`, `dnd-kanban`,
     `async-io`, `energy-monitor`, `slide_puzzle`, and `system-tray`.
+    They needed `Window.DispatchEvent`, for `virtual_keyboard`, and `DataTransfer.UserData`, for `dnd-kanban`.
+    The stock quote service of `async-io` no longer answers in any language, so the C# version reports the error.
   - Phase 2, the samples with logic only in Rust:
     `7guis`, `todo-mvc`, `gallery`, `usecases`, `runtime_key_bindings`, `analogclock`, `speedometer`, and `food-processor`.
   - Phase 3, after an `Image` from pixels or encoded bytes, like `ImageData` in Node.js:
