@@ -323,8 +323,8 @@ Next:
   - Phase 3, done: `Image.FromRgba8`, `FromRgb8`, `LoadFromData`, and `ToRgba8`, like `ImageData` in Node.js,
     and the ports of `imagefilter`, `plotter`, and `maps`.
     The filters and the 3D plot are plain C#, without a library.
-  - Phase 4, optional: `weather-demo`, `launcher`, and a C# viewer for the examples without logic,
-    such as `layouts`, `dial`, and `fancy-switches`.
+  - Phase 4, done: `weather-demo`, `launcher`, which starts the C# ports instead of installed binaries,
+    and `examples/dotnet-viewer`, which shows the examples without logic, such as `layouts`, `dial`, and `fancy-switches`.
   - Not planned: samples for embedded platforms, GPU textures and rendering notifiers, and native media,
     such as `mcu-*`, `uefi-demo`, `opengl_*`, `wgpu_texture`, `bevy`, `vtk`, `ffmpeg`, `gstreamer-player`, and `servo`.
 
