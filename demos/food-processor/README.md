@@ -3,9 +3,9 @@
 A fictional touch screen user interface for a food processor, designed for a 512×300 display.
 Browse recipes, look at their ingredients and preparation steps, and start a cooking timer.
 
-| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- |
-| [`demo.slint`](./ui/demo.slint) | [`lib.rs`](./rust/lib.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/food-processor/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/food-processor/ui/demo.slint) |
+| `.slint` Design | Rust Source | C# Source | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- | --- |
+| [`demo.slint`](./ui/demo.slint) | [`lib.rs`](./rust/lib.rs) | [`Program.cs`](./dotnet/Program.cs) | [Online simulation](https://slint.dev/snapshots/master/demos/food-processor/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/food-processor/ui/demo.slint) |
 
 ## Running
 
