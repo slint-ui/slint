@@ -798,8 +798,7 @@ fn generate_shared_globals(
                     #(#from_library_global_names : self.#from_library_global_names.clone(),)*
                     window_adapter: window_adapter.into(),
                     context: self.context.clone(),
-                    // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
-                    root_item_tree_weak: ::core::default::Default::default(),
+                    root_item_tree_weak: self.root_item_tree_weak.clone(),
                     #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
                 })
             }
