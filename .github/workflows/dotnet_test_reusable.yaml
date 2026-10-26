@@ -49,5 +49,7 @@ jobs:
               run: dotnet build examples/dotnet.slnx
             - name: Check the formatting of the examples
               run: dotnet format examples/dotnet.slnx --verify-no-changes
+            - name: Start the examples
+              run: dotnet run examples/dotnet-smoke-test.cs -- examples/dotnet.slnx
             - name: Run the .NET test driver
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-dotnet

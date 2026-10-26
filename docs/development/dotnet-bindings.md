@@ -248,6 +248,10 @@ A C# port of an example or demo lives in its `dotnet/` directory, like `examples
 - `<SlintFile>` or `<SlintProject>` points at the shared `.slint` files of the sample, which stay where they are.
 - `Main` is explicit and has `[STAThread]`, see [Threading and macOS](#threading-and-macos).
 - `examples/dotnet.slnx` lists every port, and CI builds it and checks its formatting on macOS, Linux, and Windows.
+- CI then starts each port with the testing backend, through `examples/dotnet-smoke-test.cs`,
+  and fails if one exits within 5 seconds.
+  Run it locally after a build with `dotnet run examples/dotnet-smoke-test.cs -- examples/dotnet.slnx`.
+  A port that needs arguments gets them from the table in the script.
 - `tests/cases/7guis` links to `examples/7guis`, and the test drivers run every `.slint` file under it,
   so the 7GUIs ports set `SlintCopyToOutput` to false, which keeps copies out of `bin`.
 - The README of the sample gets a C# column or section next to the other languages.
@@ -288,7 +292,7 @@ Done:
 - **12.** Project directories, with `<SlintProject>`, see [MSBuild](#msbuild).
   They compile and load with the edition and the settings of their `slint-project.json`.
   A `.slint` path still compiles without a project file, and so without an edition.
-- **15.** C# ports of the examples and demos, see [Samples](#samples): 30 projects in `examples/dotnet.slnx`.
+- **15.** C# ports of the examples and demos, see [Samples](#samples): 28 projects in `examples/dotnet.slnx`.
   - Ports of the samples with Python or JavaScript logic, such as `todo`, `printerdemo`, `dnd-kanban`, and `slide_puzzle`.
   - Ports of the samples with logic only in Rust, such as `7guis`, `todo-mvc`, `gallery`, and `usecases`.
   - `imagefilter`, `plotter`, and `maps`, whose images come from pixels and downloads, with filters and a 3D plot in plain C#.
@@ -308,6 +312,9 @@ Done:
   and that a global exported under more names got a class for only one of them.
   Cases with pinch gestures or flickable physics have no block,
   since `Slint.Testing` has no helpers for those.
+- **16.** A smoke test of the sample ports in CI, see [Samples](#samples).
+  It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
+  It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
 
 Next:
 
@@ -322,8 +329,6 @@ Next:
   squash the branch, with the official `Slint` package IDs and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
-- **16.** Start each sample port in CI for a few seconds with the testing backend, as a smoke test.
-  CI only builds them so far, and their logic has no tests beyond the parser of `7guis/Cells`.
 - **17.** Platforms beyond the desktop: packages for Android and iOS, and a test of the `linuxkms` backend on embedded Linux.
   The packages ship the native library for macOS, Linux, and Windows only.
 - **18.** Rendering notifiers and textures from OpenGL or WGPU, which the samples `opengl_texture`, `opengl_underlay`,
