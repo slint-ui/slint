@@ -46,7 +46,7 @@ pub struct SlintEdition {
 
 impl SlintEdition {
     pub const V1_19: Self = Self { major: 1, minor: 19 };
-    /// The newest edition that a behavior check of `CompilerConfiguration` depends on.
+    /// The newest edition that a compiler behavior check depends on.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
 
     /// The warning for an edition that misses a newer behavior change.
@@ -1060,17 +1060,6 @@ mod tests {
             assert_eq!(config.edition, Some(SlintEdition::V1_19));
             assert!(config.edition_location.is_none());
         });
-    }
-
-    #[test]
-    fn the_edition_selects_the_behavior() {
-        let config = |source: &str| {
-            with_project_file_contents(source, |path| {
-                ProjectFile::load(path).unwrap().into_compiler_configuration(OutputFormat::Llr)
-            })
-        };
-        assert!(config(r#"{ "slint-edition": "1.19" }"#).repeated_children_constrain_parent());
-        assert!(!config(r#"{ "slint-edition": "1.18" }"#).repeated_children_constrain_parent());
     }
 
     #[test]
