@@ -10,8 +10,9 @@ use crate::langtype::{StructName, Type};
 use crate::llr::debug_info::ItemDebugInfo;
 
 use super::{
-    Animation, CompilationUnit, EvaluationContext, Expression, LocalMemberIndex,
-    LocalMemberReference, MemberReference, ParentScope, RadialGradientShape, SubComponentIdx,
+    Animation, CompilationUnit, EvaluationContext, Expression, GradientColorSpace,
+    LocalMemberIndex, LocalMemberReference, MemberReference, ParentScope, RadialGradientShape,
+    SubComponentIdx,
 };
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
@@ -588,13 +589,25 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
             ),
             Expression::EasingCurve(x) => write!(f, "{x:?}"),
             Expression::MouseCursor(x) => write!(f, "{x:?}"),
-            Expression::LinearGradient { angle, stops } => write!(
-                f,
-                "@linear-gradient({}, {})",
-                e(angle),
-                stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
-            ),
-            Expression::RadialGradient { center, shape, stops } => {
+            Expression::LinearGradient { angle, color_space, stops } => {
+                let color_space_str = if *color_space != GradientColorSpace::Srgb {
+                    format!("in {color_space} ")
+                } else {
+                    Default::default()
+                };
+                write!(
+                    f,
+                    "@linear-gradient({color_space_str}{}, {})",
+                    e(angle),
+                    stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
+                )
+            }
+            Expression::RadialGradient { center, shape, color_space, stops } => {
+                let color_space_str = if *color_space != GradientColorSpace::Srgb {
+                    format!("in {color_space} ")
+                } else {
+                    Default::default()
+                };
                 let center_str = center
                     .as_ref()
                     .map(|(cx, cy)| format!(" at {} {}", e(cx), e(cy)))
@@ -615,18 +628,23 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 };
                 write!(
                     f,
-                    "@radial-gradient({shape_str}{center_str}, {})",
+                    "@radial-gradient({color_space_str}{shape_str}{center_str}, {})",
                     stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
                 )
             }
-            Expression::ConicGradient { from_angle, center, stops } => {
+            Expression::ConicGradient { from_angle, center, color_space, stops } => {
+                let color_space_str = if *color_space != GradientColorSpace::Srgb {
+                    format!("in {color_space} ")
+                } else {
+                    Default::default()
+                };
                 let center_str = center
                     .as_ref()
                     .map(|(cx, cy)| format!(" at {} {}", e(cx), e(cy)))
                     .unwrap_or_default();
                 write!(
                     f,
-                    "@conic-gradient(from {}{center_str}, {})",
+                    "@conic-gradient({color_space_str}from {}{center_str}, {})",
                     e(from_angle),
                     stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
                 )
