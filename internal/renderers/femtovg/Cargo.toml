@@ -35,7 +35,7 @@ const-field-offset = { version = "0.2.1", path = "../../../helper_crates/const-f
 
 lyon_path = { workspace = true }
 pin-weak = "1"
-femtovg = { version = "0.27", default-features = false, features = ["swash"] }
+femtovg = { version = "0.28", default-features = false, features = ["swash"] }
 imgref = { version = "1.6.1" }
 rgb = { version = "0.8.27" }
 
