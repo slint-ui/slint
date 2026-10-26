@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore sigaction kdgkbmode kdskbmode nocapture
+// cSpell: ignore KDGETMODE sigaction kdgetmode kdgkbmode kdsetmode kdskbmode nocapture
 
 use super::*;
 use std::os::unix::process::ExitStatusExt;
@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 // Set SLINT_TEST_CONSOLE=/dev/tty1 only in a disposable VM with tty1 active.
 static HANDLED: AtomicBool = AtomicBool::new(false);
+
+nix::ioctl_read_bad!(kdgetmode, 0x4B3B, i32);
 
 extern "C" fn application_handler(_: i32) {
     HANDLED.store(true, Ordering::Relaxed);
@@ -30,34 +32,33 @@ fn set_handler(signal: i32, handler: usize) {
     }
 }
 
-fn keyboard() -> ConsoleKeyboard {
+fn console() -> Console {
     if std::env::var_os("SLINT_TEST_CONSOLE").is_some() {
-        return ConsoleKeyboard::acquire().unwrap().expect("a virtual console is required");
+        request_graphics_mode();
+        return Console::acquire(true).unwrap().expect("a virtual console is required");
     }
 
     // Host tests exercise process-wide signal ownership without touching a virtual console.
-    let mut keyboard = ConsoleKeyboard {
-        tty: open_tty("/dev/null").unwrap(),
-        original_mode: 0,
-        handlers: [None; 3],
-        owns_console: true,
-    };
+    let mut console =
+        Console { tty: open_tty("/dev/null").unwrap(), handlers: [None; 3], owns_console: true };
     let handle_signals = std::env::var_os("SLINT_KMS_NO_SIGNAL_HANDLER").is_none();
     let _lock = ConsoleLock::new().unwrap();
     assert_eq!(TTY_FD.load(Ordering::Relaxed), -1);
-    TTY_FD.store(keyboard.tty.as_raw_fd(), Ordering::Relaxed);
-    ORIGINAL_MODE.store(0, Ordering::Relaxed);
+    TTY_FD.store(console.tty.as_raw_fd(), Ordering::Relaxed);
+    KEYBOARD_MODE.store(0, Ordering::Relaxed);
     if handle_signals {
-        keyboard.install_handlers().unwrap();
+        console.install_handlers().unwrap();
     }
-    keyboard
+    console
 }
 
-fn assert_disabled(keyboard: &ConsoleKeyboard) {
+fn assert_prepared(console: &Console) {
     if std::env::var_os("SLINT_TEST_CONSOLE").is_some() {
         let mut mode = 0;
-        unsafe { kdgkbmode(keyboard.tty.as_raw_fd(), &mut mode).unwrap() };
+        unsafe { kdgkbmode(console.tty.as_raw_fd(), &mut mode).unwrap() };
         assert_eq!(mode, K_OFF);
+        unsafe { kdgetmode(console.tty.as_raw_fd(), &mut mode).unwrap() };
+        assert_eq!(mode, KD_GRAPHICS);
     }
 }
 
@@ -88,8 +89,8 @@ fn signal_child() {
             assert_eq!(libc::pthread_sigmask(libc::SIG_BLOCK, &blocked, std::ptr::null_mut()), 0);
         }
     }
-    let keyboard = keyboard();
-    assert_disabled(&keyboard);
+    let console = console();
+    assert_prepared(&console);
     match scenario.as_str() {
         "signal" => {
             unsafe { libc::raise(signal) };
@@ -102,7 +103,7 @@ fn signal_child() {
         "blocked_signal" => {
             let lock = ConsoleLock::new().unwrap();
             unsafe { libc::raise(signal) };
-            assert_disabled(&keyboard);
+            assert_prepared(&console);
             drop(lock);
             panic!("pending signal didn't terminate");
         }
@@ -129,26 +130,26 @@ fn signal_child() {
             let handler = action(signal).sa_sigaction;
             unsafe { libc::raise(signal) };
             assert_eq!(HANDLED.load(Ordering::Relaxed), scenario == "handled");
-            assert_disabled(&keyboard);
-            drop(keyboard);
+            assert_prepared(&console);
+            drop(console);
             assert_eq!(action(signal).sa_sigaction, handler);
         }
         "opt_out" => {
             for signal in SIGNALS {
                 assert_eq!(action(signal).sa_sigaction, libc::SIG_DFL);
             }
-            drop(keyboard);
+            drop(console);
         }
         "replacement" => {
             set_handler(signal, application_handler as *const () as usize);
-            drop(keyboard);
+            drop(console);
             unsafe { libc::raise(signal) };
             assert!(HANDLED.load(Ordering::Relaxed));
         }
         "unwind" => {
             assert!(
                 std::panic::catch_unwind(move || {
-                    let _keyboard = keyboard;
+                    let _console = console;
                     panic!("unwind out of event loop");
                 })
                 .is_err()
@@ -156,32 +157,32 @@ fn signal_child() {
         }
         "caught_panic" => {
             assert!(std::panic::catch_unwind(|| panic!("caught in callback")).is_err());
-            assert_disabled(&keyboard);
-            drop(keyboard);
+            assert_prepared(&console);
+            drop(console);
         }
         "worker_panic" => {
             assert!(std::thread::spawn(|| panic!("worker panic")).join().is_err());
-            assert_disabled(&keyboard);
-            drop(keyboard);
+            assert_prepared(&console);
+            drop(console);
         }
         "after_drop" => {
-            drop(keyboard);
+            drop(console);
             assert_eq!(action(signal).sa_sigaction, libc::SIG_DFL);
             unsafe { libc::raise(signal) };
             panic!("default disposition wasn't restored");
         }
         "normal" => {
-            drop(keyboard);
+            drop(console);
             for signal in SIGNALS {
                 assert_eq!(action(signal).sa_sigaction, libc::SIG_DFL);
             }
             let restored = action(signal);
             assert_ne!(restored.sa_flags & libc::SA_RESTART, 0);
             assert_eq!(unsafe { libc::sigismember(&restored.sa_mask, libc::SIGUSR1) }, 1);
-            drop(self::keyboard());
+            drop(self::console());
         }
         "mask" => {
-            drop(keyboard);
+            drop(console);
             let mut mask = unsafe { std::mem::zeroed() };
             unsafe {
                 assert_eq!(libc::pthread_sigmask(libc::SIG_BLOCK, std::ptr::null(), &mut mask), 0);
@@ -199,12 +200,22 @@ fn signal_child() {
 fn signal_lifecycle() {
     let console = std::env::var_os("SLINT_TEST_CONSOLE")
         .map(|path| open_tty(path.to_str().unwrap()).unwrap());
-    let original_mode = console.as_ref().map(|tty| {
-        let mut mode = 0;
-        unsafe { kdgkbmode(tty.as_raw_fd(), &mut mode).unwrap() };
-        assert_ne!(mode, K_OFF);
-        mode
-    });
+    let current_mode = |tty: &File| {
+        let (mut keyboard, mut display) = (0, 0);
+        unsafe { kdgkbmode(tty.as_raw_fd(), &mut keyboard).unwrap() };
+        unsafe { kdgetmode(tty.as_raw_fd(), &mut display).unwrap() };
+        (keyboard, display)
+    };
+    let original_mode = console.as_ref().map(current_mode);
+    if let Some((keyboard, display)) = original_mode {
+        assert_ne!(keyboard, K_OFF);
+        assert_ne!(display, KD_GRAPHICS);
+    }
+    let restore_mode = |tty: &File| {
+        let (keyboard, display) = original_mode.unwrap();
+        unsafe { kdskbmode(tty.as_raw_fd(), keyboard).unwrap() };
+        unsafe { kdsetmode(tty.as_raw_fd(), display).unwrap() };
+    };
     for scenario in [
         "normal",
         "unwind",
@@ -238,7 +249,7 @@ fn signal_lifecycle() {
                     child.kill().unwrap();
                     let output = child.wait_with_output().unwrap();
                     if let Some(tty) = &console {
-                        unsafe { kdskbmode(tty.as_raw_fd(), original_mode.unwrap()).unwrap() };
+                        restore_mode(tty);
                     }
                     panic!("{scenario}/{signal} timed out: {output:?}");
                 }
@@ -246,10 +257,9 @@ fn signal_lifecycle() {
             }
             let output = child.wait_with_output().unwrap();
             if let Some(tty) = &console {
-                let mut mode = 0;
-                unsafe { kdgkbmode(tty.as_raw_fd(), &mut mode).unwrap() };
+                let mode = current_mode(tty);
                 // Restore even on failure, so the VM's console remains usable for diagnosis.
-                unsafe { kdskbmode(tty.as_raw_fd(), original_mode.unwrap()).unwrap() };
+                restore_mode(tty);
                 assert_eq!(Some(mode), original_mode, "{scenario}/{signal}");
             }
             let expected_signal = matches!(

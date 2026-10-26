@@ -100,25 +100,29 @@ The configure output reports which of the two libraries the build ends up with.
 ### Device Access With libseat
 
 libseat manages access to the GPU and input devices through a seat manager such as logind or seatd.
-It also manages the virtual console's keyboard mode.
+It also manages the virtual console's keyboard and display modes.
 
 Without libseat, run the application as a user with access to the input and DRM/KMS device files, typically root.
 When libinput is enabled, Slint disables the active virtual console's keyboard while the event loop runs.
 This prevents keystrokes, including passwords, from also reaching the shell on that console.
-Slint flushes queued console input and restores the previous keyboard mode when the event loop exits, including during panic unwinding.
-Caught panics and panics in other threads don't restore the keyboard while the event loop is still running.
+When your application renders to a legacy framebuffer device, such as `/dev/fb0`, Slint also switches the console to graphics mode while the event loop runs.
+Graphics mode stops the text console from drawing over your user interface.
+When the event loop exits, including during panic unwinding, Slint restores the console.
+It flushes queued console input, restores the previous keyboard mode, and switches back to text mode.
+Caught panics and panics in other threads don't restore the console while the event loop is still running.
 If disabling the keyboard fails, Slint warns and continues; keystrokes may still reach the console.
 
-Slint also restores the keyboard before terminating on `SIGINT`, `SIGTERM`, or `SIGHUP`.
+Slint also restores the console before terminating on `SIGINT`, `SIGTERM`, or `SIGHUP`.
 The process still terminates by the original signal.
 Signals already handled or ignored by the application keep their existing behavior.
 Install application handlers before starting the event loop.
 Set `SLINT_KMS_NO_SIGNAL_HANDLER=1` before launching the application to disable Slint's signal handlers.
-The application then owns restoration on signals; normal event-loop cleanup still restores the keyboard.
+The application then owns restoration on signals; normal event-loop cleanup still restores the console.
 
-`SIGKILL` and aborting panics can't restore the keyboard through this cleanup.
+`SIGKILL` and aborting panics can't restore the console through this cleanup.
 If the keyboard stays disabled, run `sudo kbd_mode -f -u -C /dev/tty1` from SSH or another console.
 Replace `/dev/tty1` with the affected console; `-u` selects Unicode mode.
+A console left in graphics mode doesn't show text and ignores switches to other consoles; restart the device to recover.
 
 ### Input Events With libinput
 
