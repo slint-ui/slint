@@ -44,11 +44,12 @@ def test_canvas_presets_follow_project_file_changes(
             project_file.write_text(
                 json.dumps(
                     {
+                        "slint-edition": "1.19",
                         "metadata": {
                             "visual-editor": {
                                 "canvas-presets": [{"width": width, "height": height}]
                             }
-                        }
+                        },
                     }
                 )
             )
@@ -97,7 +98,7 @@ def test_canvas_preset_inspector_edits_and_selection_are_persistent(
 ) -> None:
     source, original = canvas_source(tmp_path)
     project_file = tmp_path / "slint-project.json"
-    prefix = b'{\r\n  "main": "Main.slint", // keep\r\n  "metadata": {"other-tool": [1,2], "visual-editor" /*keep*/: '
+    prefix = b'{\r\n  "slint-edition": "1.19",\r\n  "main": "Main.slint", // keep\r\n  "metadata": {"other-tool": [1,2], "visual-editor" /*keep*/: '
     suffix = b', /*keep*/ "another-tool": {"x":true}}\r\n}\r\n'
     presets = [{"width": 480, "height": 320}, {"width": 600, "height": 400}]
 
@@ -269,11 +270,12 @@ def test_canvas_preset_inspector_switches_projects(
         project_file.write_text(
             json.dumps(
                 {
+                    "slint-edition": "1.19",
                     "metadata": {
                         "visual-editor": {
                             "canvas-presets": [{"width": width, "height": 320}]
                         }
-                    }
+                    },
                 }
             )
         )
@@ -295,7 +297,7 @@ def test_canvas_preset_inspector_switches_projects(
         enter_preset_dimension(window, "Canvas preset 1 width", "999")
         wait_for_project_file(
             projects[0][1],
-            b'{"metadata": {"visual-editor": {"canvas-presets":[{"width":999,"height":320}]}}}',
+            b'{"slint-edition": "1.19", "metadata": {"visual-editor": {"canvas-presets":[{"width":999,"height":320}]}}}',
         )
         element(window, "File").single_click(slint_testing.PointerEventButton.Left)
         element(window, "Open Recent").single_click(
