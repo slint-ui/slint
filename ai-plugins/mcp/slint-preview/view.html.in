@@ -246,6 +246,8 @@
     interpreter.panic(new Panic(message));
     interpreter = null;
     instance = null;
+    pendingImages.clear();
+    retryButton.disabled = false;
     // The dead module keeps its listeners on the old canvas and media queries.
     darkQueryLists.length = 0;
     resolutionQueryLists.length = 0;

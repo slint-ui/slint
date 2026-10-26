@@ -239,12 +239,14 @@ test("retry replaces a late crash with a new preview and clears the panel", {
     });
     await view.preview();
     await view.captured;
+    view.element("retry").disabled = true;
     view.panic();
     const failure = view.captures.at(-1);
     assert.ok(failure.error.includes("test panic"));
     assert.equal(failure.png, undefined);
     assert.equal(failure.runtime, "Slint 1.19.0 (snapshot)");
     assert.equal(view.element("crash").hidden, false);
+    assert.equal(view.element("retry").disabled, false);
     assert.ok(view.element("crash-details").textContent.includes("test panic"));
     assert.equal(view.element("status").textContent, "");
     await view.retry();
