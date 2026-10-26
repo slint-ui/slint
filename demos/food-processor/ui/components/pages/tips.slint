@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Recipe } from "../../recipe-adapter.slint";
 import { Styles } from "../../styles.slint";
 
 component TipCard inherits Rectangle {
@@ -10,12 +11,12 @@ component TipCard inherits Rectangle {
     in property <color> text-color;
 
     background: root.bg-color;
-    border-radius: 7px;
-    border-width: 1px;
+    border-radius: 14px;
+    border-width: 2px;
 
     VerticalLayout {
-        padding: 8px;
-        spacing: 5px;
+        padding: 16px;
+        spacing: 10px;
         alignment: start;
 
         Text {
@@ -37,8 +38,9 @@ component TipCard inherits Rectangle {
 }
 
 export component TipsPage inherits VerticalLayout {
-    spacing: 10px;
-    padding: 20px;
+    in property <Recipe> recipe;
+    spacing: 20px;
+    padding: 40px;
     alignment: start;
 
     Text {
@@ -49,30 +51,14 @@ export component TipsPage inherits VerticalLayout {
     }
 
     VerticalLayout {
-        spacing: 10px;
+        spacing: 20px;
 
-        TipCard {
-            title: "Perfect Consistency";
-            description: "Use frozen fruit for a thicker texture. Add liquid gradually to control consistency.";
-            bg-color: #fef9e7;
-            text-color: #8b6914;
-            border-color: #feeca3;
-        }
-
-        TipCard {
-            title: "Topping Ideas";
-            description: "Try granola, chia seeds, sliced almonds, fresh berries, or a drizzle of nut butter.";
-            bg-color: #deeafd;
-            text-color: #1b34af;
-            border-color: #bedbff;
-        }
-
-        TipCard {
-            title: "Make Ahead";
-            description: "Pre-portion ingredients in freezer bags for quick morning prep.";
-            bg-color: #e2fbe8;
-            text-color: #326b3d;
-            border-color: #c9f7e4;
+        for tip[index] in root.recipe.tips: TipCard {
+            title: tip.title;
+            description: tip.description;
+            bg-color: index == 0 ? #fef9e7 : index == 1 ? #deeafd : #e2fbe8;
+            text-color: index == 0 ? #8b6914 : index == 1 ? #1b34af : #326b3d;
+            border-color: index == 0 ? #feeca3 : index == 1 ? #bedbff : #c9f7e4;
         }
     }
 }

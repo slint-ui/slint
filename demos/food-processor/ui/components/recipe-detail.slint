@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { ScrollView } from "std-widgets.slint";
 import { Recipe } from "../recipe-adapter.slint";
 import { Header } from "header.slint";
 import { Styles } from "../styles.slint";
@@ -26,10 +27,10 @@ export component RecipeDetail inherits Rectangle {
     header := Header {
         x: 0px;
         y: 0px;
-        height: 35px;
+        height: 70px;
         TouchArea {
             x: 0px;
-            width: 100px;
+            width: 200px;
             height: 100%;
             clicked => {
                 root.back-clicked();
@@ -38,11 +39,11 @@ export component RecipeDetail inherits Rectangle {
 
         back-button := HorizontalLayout {
             x: Styles.side-margin;
-            spacing: 4px;
+            spacing: 8px;
             height: self.preferred-height;
             Image {
                 source: @image-url("../images/back.svg");
-                width: 10px;
+                width: 20px;
             }
 
             Text {
@@ -57,27 +58,35 @@ export component RecipeDetail inherits Rectangle {
 
     details := Rectangle {
         width: root.width - (Styles.side-margin * 2);
-        height: root.height - header.height - tabs.height - (15px * 2);
+        height: root.height - header.height - tabs.height - (30px * 2);
         x: Styles.side-margin;
-        y: header.height + 15px;
+        y: header.height + 30px;
 
         if active-tab == 0: overview-page := OverviewPage {
             recipe: root.recipe;
         }
 
-        if active-tab == 1: ingredients-page := IngredientsPage {
-            recipe: root.recipe;
+        if active-tab != 0: ScrollView {
+            content-width: self.visible-width;
+            horizontal-scrollbar-policy: always-off;
+            mouse-drag-pan-enabled: true;
 
-            portions-changed(portions) => {
-                root.portions-changed(portions);
+            VerticalLayout {
+                if active-tab == 1: IngredientsPage {
+                    recipe: root.recipe;
+                    portions-changed(portions) => { root.portions-changed(portions); }
+                }
+                if active-tab == 2: PreparationPage {
+                    recipe: root.recipe;
+                }
+                if active-tab == 3: TipsPage {
+                    recipe: root.recipe;
+                }
+                if active-tab == 4: MoreInfoPage {
+                    recipe: root.recipe;
+                }
             }
         }
-
-        if active-tab == 2: preparation-page := PreparationPage {}
-
-        if active-tab == 3: tips-page := TipsPage {}
-
-        if active-tab == 4: more-info-page := MoreInfoPage {}
     }
 
     tabs := TabBar {

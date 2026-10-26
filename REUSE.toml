@@ -218,7 +218,6 @@ path = [
   "demos/printerdemo/ui/images/mcu/sub-action-button.jpg",
   "demos/printerdemo/ui/images/mcu/switch-active.png",
   "demos/food-processor/ui/images/back.svg",
-  "demos/food-processor/ui/images/bubble.jpg",
   "demos/food-processor/ui/images/close.svg",
   "demos/food-processor/ui/images/duration.jpg",
   "demos/food-processor/ui/images/play.svg",
@@ -414,60 +413,88 @@ SPDX-FileCopyrightText = "Copyright © Spyrosoft Solutions GmbH <office@spyro-so
 SPDX-License-Identifier = "CC-BY-4.0"
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/1.jpg", "demos/food-processor/ui/images/detail/1.jpg"]
+path = "demos/food-processor/ui/images/photos/1.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/wnjV1AswsgM (Twice-Cooked Pork)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/2.jpg", "demos/food-processor/ui/images/detail/2.jpg"]
+path = "demos/food-processor/ui/images/photos/2.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/GCifViDTdq4 (Slint Burger)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/3.jpg", "demos/food-processor/ui/images/detail/3.jpg"]
+path = "demos/food-processor/ui/images/photos/3.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/oBpxQ3-vJfA (Fruit Tea)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/4.jpg", "demos/food-processor/ui/images/detail/4.jpg"]
+path = "demos/food-processor/ui/images/photos/4.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/GXFZjf6B2Hc (Linguine with Prawns)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/5.jpg", "demos/food-processor/ui/images/detail/5.jpg"]
+path = "demos/food-processor/ui/images/photos/5.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/VdetvhJ_muE (Mothers Orange Juice; the original depicts iced tea)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/6.jpg", "demos/food-processor/ui/images/detail/6.jpg"]
+path = "demos/food-processor/ui/images/photos/6.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/QWloaDwiquE (Choc Chip Cookies)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/7.jpg", "demos/food-processor/ui/images/detail/7.jpg"]
+path = "demos/food-processor/ui/images/photos/7.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/5gTixp6KwtI (Berry Porridge)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/8.jpg", "demos/food-processor/ui/images/detail/8.jpg"]
+path = "demos/food-processor/ui/images/photos/8.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/joCw_0lcR7E (Pancit Palabok)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/photos/9.jpg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/NnIWIPdxbPg (Rainbow Veggie Bowl)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/photos/10.jpg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/pNuCNvigfkc (Pork Belly Ramen)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/photos/11.jpg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/sFDZXxTX2-c (Crispy Fries)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/photos/12.jpg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/tGpBPnc3ZoA (Eggs Florentine)."
 
 [[annotations]]
 path = [

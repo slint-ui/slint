@@ -10,30 +10,29 @@ import { Styles } from "../styles.slint";
 export component RecipesGrid {
     in property <[Recipe]> recipes;
     in property <int> columns: 4;
-    property <length> card-size: 109px;
+    property <length> card-size: 218px;
     in property <length> spacing: (root.width - (Styles.side-margin * 2) - (card-size * columns)) / (columns - 1);
 
     callback item-clicked(int);
-    callback recipe-clicked(Recipe);
 
     ScrollView {
         x: 0px;
         y: header.height;
         width: root.width;
         height: root.height - header.height;
-        // viewport-height: gl.preferred-height + 30px;
-        // enabled: false;
-        vertical-scrollbar-policy: always-off;
-        mouse-drag-pan-enabled: false;
+        content-width: self.visible-width;
+        content-height: gl.preferred-height + 40px;
+        horizontal-scrollbar-policy: always-off;
+        mouse-drag-pan-enabled: true;
 
         gl := GridLayout {
             x: Styles.side-margin;
-            y: 8px;
+            y: 16px;
             spacing: root.spacing;
-            for i[index] in recipes: RecipeCard {
-                photo: root.recipes[index].photo-grid;
-                title: root.recipes[index].title;
-                time: root.recipes[index].total-time + " Min.";
+            for recipe[index] in root.recipes: RecipeCard {
+                photo: recipe.photo;
+                title: recipe.title;
+                time: recipe.total-time + " Min.";
                 col: (index.mod(columns));
                 row: (index / columns);
                 recipe-clicked => {
@@ -51,13 +50,14 @@ export component RecipesGrid {
             vl := VerticalLayout {
                 x: Styles.side-margin;
                 alignment: start;
-                spacing: 2px;
+                spacing: 4px;
                 Text {
                     color: #171717;
-                    font-size: 12px;
+                    font-size: 24px;
                     text: "Recipes";
                     font-weight: FontWeight.semi-bold;
                 }
+
                 Text {
                     color: #737373;
                     font-size: Styles.small-font-size;
@@ -66,15 +66,5 @@ export component RecipesGrid {
                 }
             }
         }
-    }
-
-    footer := Rectangle {
-        visible: false; // Only needed if the grid is scrollable.
-        x: 0px;
-        y: root.height - self.height;
-        // -10px to stop the gradient overlapping the scroll thumb
-        width: parent.width - 10px;
-        height: 10px;
-        background: @linear-gradient(0deg, #f8f9fa 30%, #f8f9fa00 100%);
     }
 }

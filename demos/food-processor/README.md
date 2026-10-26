@@ -1,7 +1,10 @@
 # Food Processor Demo
 
-A fictional touch screen user interface for a food processor, designed for a 512×300 display.
-Browse recipes, look at their ingredients and preparation steps, and start a cooking timer.
+<!-- cspell:ignore Eiliv Aceron -->
+
+A fictional touch screen user interface for a food processor, designed for a 1024×600 display.
+Browse twelve recipes in a vertically scrolling grid, look at their ingredients and preparation steps, and start a cooking timer.
+The photographs are by Eiliv Aceron on Unsplash; [REUSE.toml](../../REUSE.toml) records each source and license.
 
 | `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- |

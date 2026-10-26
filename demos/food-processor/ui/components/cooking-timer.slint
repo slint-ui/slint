@@ -15,30 +15,30 @@ export component CookingTimer {
     callback clicked <=> ta.clicked;
     callback close <=> close-ta.clicked;
 
-    ta := TouchArea {}
+    ta := TouchArea { }
 
     content := HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 10px;
+        padding-left: 20px;
+        padding-right: 20px;
+        spacing: 20px;
         alignment: center;
 
         clock-icon := Rectangle {
-            width: 20px;
-            height: 20px;
+            width: 40px;
+            height: 40px;
             cross-axis-self-alignment: center;
             border-radius: self.height / 2;
             background: #4285f4;
 
             Image {
-                width: 10px;
+                width: 20px;
                 source: @image-url("../images/time.svg");
                 colorize: white;
             }
         }
 
         VerticalLayout {
-            spacing: 2px;
+            spacing: 4px;
             horizontal-stretch: 1;
             alignment: center;
 
@@ -61,7 +61,7 @@ export component CookingTimer {
 
         Rectangle {
             height: parent.height;
-            width: 50px;
+            width: 100px;
 
             Text {
                 text: {
@@ -78,26 +78,25 @@ export component CookingTimer {
             Text {
                 text: "|";
                 font-size: Styles.small-font-size;
-                x: close-button.x - 5px;
+                x: close-button.x - 10px;
             }
 
             close-button := Rectangle {
                 x: parent.width - self.width;
-                width: 15px;
-                height: 15px;
+                width: 30px;
+                height: 30px;
 
                 close-ta := TouchArea {
-                    width: 40px;
-                    height: 40px;
+                    width: 80px;
+                    height: 80px;
                 }
 
                 Image {
                     source: @image-url("../images/close.svg");
-                    width: 7px;
+                    width: 14px;
                     colorize: white;
                 }
             }
         }
     }
 }
-

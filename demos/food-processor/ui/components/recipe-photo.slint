@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component RecipePhoto inherits Rectangle {
+    in property <image> photo;
+
+    border-radius: 16px;
+    background: white;
+    clip: true;
+    drop-shadow-blur: 16px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: #00000020;
+
+    Image {
+        width: 100%;
+        height: 100%;
+        source: root.photo;
+        image-fit: cover;
+    }
+
+    @children
+}

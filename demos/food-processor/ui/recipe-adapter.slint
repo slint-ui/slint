@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cspell:ignore Pancit Palabok
+// cspell:ignore Pancit Palabok choy
 
 export struct Ingredient {
     image: image,
@@ -12,20 +12,50 @@ export struct Ingredient {
     substitute: string
 }
 
+export struct RecipeTip {
+    title: string,
+    description: string,
+}
+
 export struct Recipe {
-    photo-grid: image,
-    photo-detail: image,
+    photo: image,
     title: string,
     rating: string,
     reviews: int,
     prep-time: string,
     total-time: int,
     portions: int,
-    ingredients: [Ingredient]
+    ingredients: [Ingredient],
+    description: string,
+    steps: [string],
+    tips: [RecipeTip],
+    serving-notes: string,
 }
 
-export global CommonIngredients {
-    out property <[Ingredient]> default-ingredients: [
+export global RecipeDefaults {
+    out property <string> description: "Start your day with this vibrant and nutritious berry smoothie bowl. Packed with antioxidants, vitamins, and natural sweetness, this recipe is perfect for a quick breakfast or post-workout snack. The creamy texture comes from frozen berries blended to perfection.";
+    out property <[string]> steps: [
+        "Add frozen berries, banana, yogurt, and almond milk to your food processor.",
+        "Blend on high speed until smooth and creamy, about 1-2 minutes.",
+        "Pour into bowls and add your favorite toppings like granola, fresh berries, or coconut flakes.",
+        "Serve immediately and enjoy your nutritious smoothie bowl!",
+    ];
+    out property <[RecipeTip]> tips: [
+        {
+            title: "Perfect Consistency",
+            description: "Use frozen fruit for a thicker texture. Add liquid gradually to control consistency."
+        },
+        {
+            title: "Topping Ideas",
+            description: "Try granola, chia seeds, sliced almonds, fresh berries, or a drizzle of nut butter."
+        },
+        {
+            title: "Make Ahead",
+            description: "Pre-portion ingredients in freezer bags for quick morning prep."
+        },
+    ];
+
+    out property <[Ingredient]> ingredients: [
         {
             image: @image-url("images/ingredients/oil.png"),
             name: "light sesame oil",
@@ -72,92 +102,278 @@ export global CommonIngredients {
 export global RecipesAdapter {
     in-out property <[Recipe]> recipes: [
         {
-            photo-grid: @image-url("images/grid/1.jpg"),
-            photo-detail: @image-url("images/detail/1.jpg"),
+            photo: @image-url("images/photos/1.jpg"),
             title: "Twice-Cooked Pork",
             rating: "4.9",
             reviews: 1247,
             prep-time: "5 Min.",
             total-time: 10,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
         },
         {
-            photo-grid: @image-url("images/grid/2.jpg"),
-            photo-detail: @image-url("images/detail/2.jpg"),
+            photo: @image-url("images/photos/2.jpg"),
             title: "Slint Burger",
             rating: "5",
             reviews: 2156,
             prep-time: "5 Min.",
             total-time: 10,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
         },
         {
-            photo-grid: @image-url("images/grid/3.jpg"),
-            photo-detail: @image-url("images/detail/3.jpg"),
+            photo: @image-url("images/photos/3.jpg"),
             title: "Fruit Tea",
             rating: "4.9",
             reviews: 1834,
             prep-time: "5 Min.",
             total-time: 10,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
         },
         {
-            photo-grid: @image-url("images/grid/4.jpg"),
-            photo-detail: @image-url("images/detail/4.jpg"),
+            photo: @image-url("images/photos/4.jpg"),
             title: "Linguine with Prawns",
             rating: "4.7",
             reviews: 892,
             prep-time: "15 Min.",
             total-time: 30,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
         },
         {
-            photo-grid: @image-url("images/grid/5.jpg"),
-            photo-detail: @image-url("images/detail/5.jpg"),
+            photo: @image-url("images/photos/5.jpg"),
             title: "Mothers Orange Juice",
             rating: "4.8",
             reviews: 1523,
             prep-time: "10 Min.",
             total-time: 45,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
         },
         {
-            photo-grid: @image-url("images/grid/6.jpg"),
-            photo-detail: @image-url("images/detail/6.jpg"),
+            photo: @image-url("images/photos/6.jpg"),
             title: "Choc Chip Cookies",
             rating: "4.9",
             reviews: 2341,
             prep-time: "10 Min.",
             total-time: 20,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
         },
         {
-            photo-grid: @image-url("images/grid/7.jpg"),
-            photo-detail: @image-url("images/detail/7.jpg"),
+            photo: @image-url("images/photos/7.jpg"),
             title: "Berry Porridge",
             rating: "4.7",
             reviews: 678,
             prep-time: "5 Min.",
             total-time: 15,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
         },
         {
-            photo-grid: @image-url("images/grid/8.jpg"),
-            photo-detail: @image-url("images/detail/8.jpg"),
+            photo: @image-url("images/photos/8.jpg"),
             title: "Pancit Palabok,",
             rating: "4.8",
             reviews: 1456,
             prep-time: "5 Min.",
             total-time: 10,
             portions: 3,
-            ingredients: CommonIngredients.default-ingredients
+            ingredients: RecipeDefaults.ingredients,
+            description: RecipeDefaults.description,
+            steps: RecipeDefaults.steps,
+            tips: RecipeDefaults.tips,
+            serving-notes: "Sample recipe content for the food processor demo.",
+        },
+        {
+            photo: @image-url("images/photos/9.jpg"),
+            title: "Rainbow Veggie Bowl",
+            prep-time: "15 Min.",
+            total-time: 25,
+            portions: 3,
+            description: "A colorful bowl of rice, crisp vegetables, mango, and avocado. A sesame-lime dressing brings everything together.",
+            ingredients: [
+                { name: "brown rice", description: "cooked", amount: 450, unit: "g" },
+                { name: "cucumber and carrots", description: "thinly sliced", amount: 300, unit: "g" },
+                { name: "mango", description: "peeled and diced", amount: 1, unit: "" },
+                { name: "avocado", description: "sliced", amount: 1, unit: "" },
+                { name: "edamame", description: "cooked and shelled", amount: 150, unit: "g" },
+                { name: "sesame oil", description: "for the dressing", amount: 2, unit: "tbsp" },
+                {
+                    name: "lime juice and soy sauce",
+                    description: "1 tablespoon of each",
+                    amount: 2,
+                    unit: "tbsp"
+                }
+            ],
+            steps: [
+                "Cook the rice according to the package instructions. Let it cool slightly while you prepare the vegetables.",
+                "Use the slicing disc to slice the cucumber and carrots. Dice the mango and slice the avocado by hand.",
+                "Whisk sesame oil, lime juice, and soy sauce in the processor bowl until combined.",
+                "Divide rice between three bowls. Arrange vegetables, mango, avocado, and edamame on top, then drizzle with dressing."
+            ],
+            tips: [
+                {
+                    title: "Keep It Crisp",
+                    description: "Dry the sliced vegetables before adding them to the bowls."
+                },
+                {
+                    title: "Mix It Up",
+                    description: "Swap mango for pineapple, or use quinoa instead of rice."
+                },
+                {
+                    title: "Pack for Later",
+                    description: "Keep the dressing and avocado separate until you are ready to serve."
+                }
+            ],
+            serving-notes: "Makes three lunch bowls. Serve at room temperature, with extra lime and toasted sesame seeds. Contains soy and sesame."
+        },
+        {
+            photo: @image-url("images/photos/10.jpg"),
+            title: "Pork Belly Ramen",
+            prep-time: "15 Min.",
+            total-time: 35,
+            portions: 3,
+            description: "Springy noodles in a savory mushroom broth, topped with crisp pork belly, greens, and soft eggs. A warming bowl with plenty of texture.",
+            ingredients: [
+                { name: "ramen noodles", description: "dried", amount: 240, unit: "g" },
+                { name: "pork belly", description: "cooked, sliced", amount: 300, unit: "g" },
+                { name: "mushrooms and bok choy", description: "sliced", amount: 300, unit: "g" },
+                { name: "eggs", description: "for the topping", amount: 3, unit: "" },
+                { name: "chicken stock", description: "for the broth", amount: 1200, unit: "ml" },
+                { name: "garlic and ginger", description: "peeled", amount: 30, unit: "g" },
+                {
+                    name: "soy sauce and sesame oil",
+                    description: "2 tablespoons soy, 1 tablespoon oil",
+                    amount: 3,
+                    unit: "tbsp"
+                }
+            ],
+            steps: [
+                "Pulse garlic and ginger in the processor. Gently fry in sesame oil for 2 minutes, then add stock and soy sauce. Simmer for 15 minutes.",
+                "Boil the eggs for 7 minutes, cool in cold water, and peel. Crisp the cooked pork belly in a frying pan until heated through.",
+                "Add mushrooms to the broth and simmer for 5 minutes. Add bok choy for the final 2 minutes. Cook noodles separately and drain.",
+                "Divide noodles and broth between three bowls. Top with pork, greens, and halved eggs. Serve immediately."
+            ],
+            tips: [
+                {
+                    title: "Clear Broth",
+                    description: "Simmer the broth gently rather than boiling it hard."
+                },
+                {
+                    title: "Noodles Last",
+                    description: "Cook noodles just before serving so they keep their bite."
+                },
+                {
+                    title: "Extra Depth",
+                    description: "Add a spoonful of miso to the hot broth after taking it off the heat."
+                }
+            ],
+            serving-notes: "Makes three generous bowls. Serve with sliced scallions and chili oil. Contains wheat, soy, sesame, and eggs."
+        },
+        {
+            photo: @image-url("images/photos/11.jpg"),
+            title: "Crispy Fries",
+            prep-time: "15 Min.",
+            total-time: 50,
+            portions: 3,
+            description: "Golden oven fries with a creamy garlic dip. A quick soak and a hot baking tray give these potato wedges their crisp edges.",
+            ingredients: [
+                { name: "potatoes", description: "scrubbed and cut into fries", amount: 900, unit: "g" },
+                { name: "olive oil", description: "for roasting", amount: 3, unit: "tbsp" },
+                { name: "smoked paprika", description: "for seasoning", amount: 1, unit: "tsp" },
+                { name: "fine salt", description: "plus more to taste", amount: 1, unit: "tsp" },
+                { name: "Greek yogurt", description: "for the dip", amount: 150, unit: "g" },
+                { name: "garlic", description: "small clove, peeled", amount: 1, unit: "" },
+                { name: "lemon juice", description: "for the dip", amount: 1, unit: "tbsp" }
+            ],
+            steps: [
+                "Heat the oven to 220 C with a large baking tray inside. Cut potatoes into even fries and soak in cold water for 10 minutes.",
+                "Drain the potatoes and dry thoroughly. Toss with olive oil, paprika, and salt.",
+                "Spread on the hot tray in a single layer. Roast for 30-35 minutes, turning halfway, until golden and crisp.",
+                "Pulse garlic in the processor, then blend with yogurt and lemon juice. Serve the fries hot with the dip alongside."
+            ],
+            tips: [
+                {
+                    title: "Dry Thoroughly",
+                    description: "Remove surface moisture with a clean towel before adding oil."
+                },
+                {
+                    title: "Give Them Space",
+                    description: "Use two trays if needed. Crowded potatoes steam instead of crisping."
+                },
+                {
+                    title: "Season at the End",
+                    description: "Taste a fry after roasting and add a little more salt if needed."
+                }
+            ],
+            serving-notes: "Serves three as a side dish. Serve straight from the oven. The garlic yogurt dip contains milk."
+        },
+        {
+            photo: @image-url("images/photos/12.jpg"),
+            title: "Eggs Florentine",
+            prep-time: "15 Min.",
+            total-time: 30,
+            portions: 3,
+            description: "Poached eggs on toasted muffins with wilted spinach, asparagus, and a silky lemon sauce. A relaxed brunch with a bright, buttery finish.",
+            ingredients: [
+                { name: "English muffins", description: "split", amount: 3, unit: "" },
+                { name: "eggs", description: "for poaching", amount: 6, unit: "" },
+                { name: "spinach", description: "washed", amount: 180, unit: "g" },
+                { name: "asparagus", description: "woody ends trimmed", amount: 300, unit: "g" },
+                { name: "butter", description: "melted, for the sauce", amount: 120, unit: "g" },
+                { name: "egg yolks", description: "for the sauce", amount: 3, unit: "" },
+                { name: "lemon juice", description: "plus extra to taste", amount: 1, unit: "tbsp" }
+            ],
+            steps: [
+                "Steam the asparagus until tender, about 4-5 minutes. Wilt the spinach in a pan and squeeze out excess liquid. Toast the muffin halves.",
+                "Whisk yolks and lemon juice in a heatproof bowl over gently simmering water. Slowly whisk in warm melted butter until thick and smooth.",
+                "Bring a pan of water to a gentle simmer. Poach the eggs in batches for 3-4 minutes, then lift out with a slotted spoon.",
+                "Top each muffin half with spinach and a poached egg. Spoon over the lemon sauce and serve with asparagus."
+            ],
+            tips: [
+                {
+                    title: "Smooth Sauce",
+                    description: "Keep the bowl above the water and use gentle heat while whisking."
+                },
+                {
+                    title: "Drain Well",
+                    description: "Drain spinach and poached eggs so the muffins stay crisp."
+                },
+                {
+                    title: "Serve Together",
+                    description: "Prepare the vegetables first, then make the sauce and eggs just before serving."
+                }
+            ],
+            serving-notes: "Makes three brunch portions, with two muffin halves each. Finish with black pepper and chopped chives. Contains wheat, eggs, and milk."
         }
     ];
 
