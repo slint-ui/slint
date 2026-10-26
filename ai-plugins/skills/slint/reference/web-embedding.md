@@ -45,8 +45,9 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
   The sixth argument of `compile_from_string_with_style`, such as `"1.18"`, selects another one.
   Pass `undefined` for the fifth, the resource loader, to reach it.
 - Images don't go through that callback.
-  With a URL as the base, such as `https://…`, relative `@image-url` paths resolve to URLs that `<img>` elements load.
-  With a file path as the base, or with an absolute `@image-url` path, the image doesn't load.
+  With a URL as the base, such as `https://…`, `@image-url` paths resolve to URLs that `<img>` elements load.
+  A path from the root, such as `/img/logo.png`, resolves on the host of the base URL.
+  With a file path as the base, the image doesn't load.
 
 ## Pitfalls
 
