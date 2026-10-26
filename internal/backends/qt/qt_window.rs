@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore frameless qbrush qdrag qimage qpointf qreal qvariant qwidgetsize svgz Nesw qsize qstring
+// cSpell: ignore CBDT frameless qbrush qdrag qimage qpointf qreal qvariant qwidgetsize sbix svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
