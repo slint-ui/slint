@@ -38,9 +38,6 @@ export component CheckBox inherits CheckBoxBase {
     horizontal-padding: 6px;
     vertical-padding: 6px;
 
-    min-height: max(32px, layout.min-height);
-    preferred-height: max(root.min-height, layout.preferred-height);
-
     states [
         disabled when !root.enabled: {
             state-style: root.selected-styles.disabled;
@@ -53,7 +50,7 @@ export component CheckBox inherits CheckBoxBase {
         }
     ]
 
-    content << layout := HorizontalLayout {
+    content << HorizontalLayout {
         padding-left: root.left-padding;
         padding-right: root.right-padding;
         padding-top: root.top-padding;
@@ -61,7 +58,7 @@ export component CheckBox inherits CheckBoxBase {
         spacing: root.spacing;
         cross-axis-alignment: center;
 
-        Rectangle {
+        indicator := Rectangle {
             width: root.indicator-size;
             height: root.indicator-size;
             vertical-stretch: 0;

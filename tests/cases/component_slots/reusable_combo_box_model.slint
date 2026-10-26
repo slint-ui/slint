@@ -57,6 +57,17 @@ export component TestCase inherits Window {
         horizontal-padding: 40px;
         font-size: 36px;
     }
+    ComboBox {
+        accessible-label: "Compact selection";
+        x: 440px;
+        y: 200px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        font-size: 10px;
+        horizontal-padding: 0px;
+        vertical-padding: 0px;
+        spacing: 0px;
+    }
 }
 
 /*
@@ -69,6 +80,9 @@ let wide = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Pr
 let arrow = wide.query_descendants().match_type_name("Path").find_first().unwrap();
 assert!(arrow.absolute_position().x + arrow.size().width <= wide.absolute_position().x + wide.size().width - 40. + 0.1,
     "The ComboBox preferred size clips its configured indicator");
+let compact = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Compact selection").next().unwrap();
+assert!(compact.size().width >= 16. && compact.size().width < 120.);
+assert!(compact.size().height > 0. && compact.size().height < 32.);
 let model = std::rc::Rc::new(VecModel::from(vec!["Duplicate".into(), "Other".into(), "Duplicate".into()]));
 // https://github.com/slint-ui/slint/issues/7632
 instance.set_model(model.clone().into());

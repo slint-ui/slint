@@ -53,7 +53,7 @@ Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.s
 
 Public function: `activate()` toggles `checked` when checkable, then emits `clicked()` when enabled.
 ButtonBase slots: `background`, `content`.
-Button supplies both visuals; use ButtonBase to replace them.
+Button supplies default visuals for both slots; callers can replace them with `<<`.
 ButtonBase defaults both stretch factors to zero; set either factor to one to fill available layout space.
 
 ### Styled Inputs
@@ -70,7 +70,7 @@ Button includes the shared styled inputs above.
 | `horizontal-padding`, `vertical-padding` | `length` | `12px`, `6px` |
 | `border-width`, `border-radius` | `length` | `1px`, `4px` |
 
-Default minimum size: `32px` in each dimension, growing to fit the content and padding.
+Minimum size follows the text, icon, spacing, and padding.
 Missing icons and empty text don't create spacing gaps.
 Icons retain their original colors unless `colorize-icon` is true, including while disabled.
 When tinting is enabled, `icon-color` applies while enabled; disabled icons use the style's disabled foreground color.
@@ -107,7 +107,7 @@ CheckBox includes the shared styled inputs above.
 | `indicator-border-width`, `indicator-radius` | `length` | `1px`, `4px` |
 | `checkmark-padding`, `checkmark-width` | `length` | `3px`, `2px` |
 
-Default minimum height: `32px`, growing to fit the indicator, label, and padding.
+Minimum size follows the indicator, label, and padding.
 The styled control places its indicator beside the label, centered vertically.
 `checked-color` overrides the indicator fill only while enabled and checked.
 
@@ -138,7 +138,7 @@ Switch includes the shared styled inputs above.
 | `thumb-padding` | `length` | `3px` |
 | `thumb-size` | `length` | `max(0px, track-height - 2 * thumb-padding)` |
 
-Default minimum height: `32px`, growing to fit the track, label, and padding.
+Minimum size follows the track, label, and padding.
 The styled control places its track beside the label, centered vertically.
 The thumb's rendered size is bounded by the track's inner dimensions.
 `checked-color` overrides the track fill only while enabled and checked.
@@ -257,8 +257,7 @@ ComboBox includes the shared styled inputs above.
 | `selected-item-font-weight` | `int` | `600` |
 | `item-height` | `length` | Larger of `min-item-height` and normal/selected font height plus twice `item-vertical-padding` |
 
-Default minimum size: at least `120px` wide and `32px` high, growing to contain the label, indicator, and padding.
-Preferred width: the greater of `200px` and the minimum width.
+Minimum and preferred sizes follow the label, indicator, spacing, and padding.
 Field fonts also apply to popup rows.
 Field padding and direct field colors don't change popup row padding or colors.
 An explicit `item-height` replaces automatic row sizing.
@@ -334,7 +333,7 @@ LineEdit includes the shared styled inputs above.
 
 Default minimum size is at least `160px` wide and `34px` high, growing to accommodate the native input and slots.
 LineEdit exposes `leading` and `trailing` slots; its background and placeholder visuals are supplied internally.
-Derived components must declare and forward these slots to expose them to their callers.
+Derived components inherit these slots automatically.
 Selection color overrides apply while enabled; disabled fields use style selection colors.
 Read-only fields retain enabled style colors.
 

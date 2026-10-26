@@ -16,6 +16,7 @@ export component TestCase inherits Window {
     in-out property <length> gallery-width: 800px;
     in-out property <int> preview-size: 1;
     in-out property <string> preferred-label;
+    in-out property <bool> application-minimum;
 
     out property <bool> test: choice.width > 20px && toggle.width > 40px;
     out property <bool> preferred-sizes-fit: choice-frame.height >= preferred-choice.min-height
@@ -23,6 +24,13 @@ export component TestCase inherits Window {
 
     width: 1100px;
     height: 2400px;
+
+    states [
+        application-minimum when root.application-minimum: {
+            choice.min-height: 40px;
+            toggle.min-height: 40px;
+        }
+    ]
 
     HorizontalLayout {
         x: 20px;
@@ -108,14 +116,17 @@ let assert_fits = |control: &ElementHandle| {
     let position = control.absolute_position();
     let size = control.size();
     let label = control.query_descendants().match_type_name("Text").find_first().unwrap();
-    let indicator = control.query_descendants().match_type_name("Rectangle").find_first().unwrap();
+    let indicator = control.query_descendants().match_id("CheckBox::indicator").find_first()
+        .or_else(|| control.query_descendants().match_id("Switch::track").find_first()).unwrap();
     for child in [label, indicator] {
         let child_position = child.absolute_position();
         let child_size = child.size();
         assert!(child_position.x >= position.x + 7. - 0.1);
         assert!(child_position.x + child_size.width <= position.x + size.width - 9. + 0.1,
             "{:?} overflows horizontally", control.accessible_label());
-        assert!(child_position.y >= position.y + instance.get_top_padding() - 0.1);
+        assert!(child_position.y >= position.y + instance.get_top_padding() - 0.1,
+            "{:?}: child at {:?} size {:?}, control {:?} size {:?}, padding {}",
+            control.accessible_label(), child_position, child_size, position, size, instance.get_top_padding());
         assert!(child_position.y + child_size.height <= position.y + size.height - instance.get_bottom_padding() + 0.1,
             "{:?} overflows vertically", control.accessible_label());
     }
@@ -126,29 +137,50 @@ for width in [800., 220., 80.] {
         instance.set_text_size(font);
         instance.set_indicator_height(indicator);
         instance.set_track_height(track);
-        for height in [80., 32.] {
-            instance.set_available_height(height);
-            slint::platform::update_timers_and_animations();
-            for label in ["Sized checkbox", "Sized switch"] {
-                let control = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
-                assert_fits(&control);
-            }
+        instance.set_available_height(80.);
+        slint::platform::update_timers_and_animations();
+        let labels = ["Sized checkbox", "Sized switch"];
+        let sizes = labels.map(|label| {
+            let control = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+            assert_fits(&control);
+            control.size()
+        });
+
+        // Fixed-height rows may compress controls. Restoring space must restore their layout.
+        instance.set_available_height(32.);
+        slint::platform::update_timers_and_animations();
+        instance.set_available_height(80.);
+        slint::platform::update_timers_and_animations();
+        for (label, size) in labels.into_iter().zip(sizes) {
+            let control = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+            assert_fits(&control);
+            assert_eq!(control.size(), size, "{label} changed size after restoring the row height");
         }
     }
 }
 
-instance.set_available_height(1.);
+instance.set_available_height(22.);
 instance.set_text_size(14.);
 instance.set_indicator_height(20.);
 instance.set_track_height(22.);
 instance.set_top_padding(0.);
 instance.set_bottom_padding(0.);
 slint::platform::update_timers_and_animations();
-for label in ["Sized checkbox", "Sized switch"] {
+for (label, indicator_height) in [("Sized checkbox", 20.), ("Sized switch", 22.)] {
     let control = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
-    assert!(control.size().height >= 32., "{label} lost its minimum height with compact padding");
+    assert!(control.size().height >= indicator_height);
+    assert!(control.size().height < 32., "{label} retains an extra minimum height");
     assert_fits(&control);
 }
+
+instance.set_application_minimum(true);
+slint::platform::update_timers_and_animations();
+for label in ["Sized checkbox", "Sized switch"] {
+    let control = ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+    assert!(control.size().height >= 40.);
+    assert_fits(&control);
+}
+instance.set_application_minimum(false);
 
 for width in [800., 500., 420.] {
     instance.set_gallery_width(width);
@@ -178,9 +210,14 @@ for text in ["", "A", "First line\nSecond line"] {
         instance.set_text_size(font);
         slint::platform::update_timers_and_animations();
         assert!(instance.get_preferred_sizes_fit(), "preferred dimensions must contain the toggle minimum");
-        for label in ["Preferred checkbox", "Preferred switch"] {
+        for (label, indicator_height) in [("Preferred checkbox", 20.), ("Preferred switch", 22.)] {
             let control = slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
-            assert!(control.size().height >= 32.);
+            if text.is_empty() {
+                assert_eq!(control.size().height, indicator_height);
+            } else {
+                let label = control.query_descendants().match_type_name("Text").find_first().unwrap();
+                assert!(control.size().height >= indicator_height.max(label.size().height) - 0.1);
+            }
         }
     }
 }

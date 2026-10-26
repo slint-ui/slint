@@ -142,7 +142,7 @@ choice := CheckBoxBase {
 }
 ```
 
-Basic controls fill their visual slots, except LineEdit's `leading` and `trailing`; use the corresponding headless base to replace other visuals.
+Replace default visuals in inherited untyped slots with `<<`.
 Use the `content` slot to arrange custom visuals in ButtonBase, CheckBoxBase, and SwitchBase.
 The [API reference](API.md) lists each base's slots and required geometry inputs.
 

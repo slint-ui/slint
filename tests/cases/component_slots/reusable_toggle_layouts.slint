@@ -100,7 +100,7 @@ for label in ["Checkbox label below", "Switch label below"] {
 assert_eq!(instance.get_toggles(), 6);
 
 let multiline = find("Multiline switch");
-let track = multiline.query_descendants().match_type_name("Rectangle").find_first().unwrap();
+let track = multiline.query_descendants().match_id("Switch::track").find_first().unwrap();
 let text = multiline.query_descendants().match_type_name("Text").find_first().unwrap();
 assert!(text.size().height > track.size().height);
 assert!((track.absolute_position().y + track.size().height / 2.

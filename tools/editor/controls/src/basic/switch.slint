@@ -42,9 +42,6 @@ export component Switch inherits SwitchBase {
     horizontal-padding: 6px;
     vertical-padding: 5px;
 
-    min-height: max(32px, layout.min-height);
-    preferred-height: max(root.min-height, layout.preferred-height);
-
     states [
         disabled when !root.enabled: {
             state-style: root.selected-styles.disabled;
@@ -57,7 +54,7 @@ export component Switch inherits SwitchBase {
         }
     ]
 
-    content << layout := HorizontalLayout {
+    content << HorizontalLayout {
         padding-left: root.left-padding;
         padding-right: root.right-padding;
         padding-top: root.top-padding;
@@ -65,7 +62,7 @@ export component Switch inherits SwitchBase {
         spacing: root.spacing;
         cross-axis-alignment: center;
 
-        Rectangle {
+        track := Rectangle {
             width: root.track-width;
             height: root.track-height;
             vertical-stretch: 0;

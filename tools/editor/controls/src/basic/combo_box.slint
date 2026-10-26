@@ -26,6 +26,8 @@ component ComboBoxRowSizing inherits Text {
             selected.font-metrics.ascent - selected.font-metrics.descent)
         + 2 * root.item-vertical-padding);
 
+    x: 0px;
+    y: 0px;
     width: 0px;
     height: 0px;
     visible: false;
@@ -208,10 +210,16 @@ export component ComboBox inherits ComboBoxBase {
     item-height: row-metrics.row-height;
 
     horizontal-stretch: 1;
-    min-width: max(120px, content-layout.min-width + root.indicator-width + root.spacing
-        + root.left-padding + root.right-padding);
-    min-height: max(32px, content-layout.min-height + root.top-padding + root.bottom-padding);
-    preferred-width: max(200px, root.min-width);
+
+    row-metrics := ComboBoxRowSizing {
+        min-item-height: root.min-item-height;
+        item-vertical-padding: root.item-vertical-padding;
+        selected-item-font-weight: root.selected-item-font-weight;
+        font-family: root.font-family;
+        font-size: root.font-size;
+        font-weight: root.font-weight;
+        font-italic: root.font-italic;
+    }
 
     states [
         disabled when !root.enabled: {
@@ -229,16 +237,6 @@ export component ComboBox inherits ComboBoxBase {
         border-color: root.state-style.border-color;
         border-width: root.border-width;
         border-radius: root.border-radius;
-        row-metrics := ComboBoxRowSizing {
-            min-item-height: root.min-item-height;
-            item-vertical-padding: root.item-vertical-padding;
-            selected-item-font-weight: root.selected-item-font-weight;
-            font-family: root.font-family;
-            font-size: root.font-size;
-            font-weight: root.font-weight;
-            font-italic: root.font-italic;
-        }
-
         focus-outline := FocusOutline {
             active: root.enabled && (root.has-focus || root.expanded);
             outline-color: root.style.focus-color;
@@ -250,18 +248,16 @@ export component ComboBox inherits ComboBoxBase {
         }
     }
 
-    content << content-layout := HorizontalLayout {
-        Text {
-            horizontal-stretch: 1;
-            text: root.display-text;
-            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
-            font-size: root.font-size;
-            font-weight: root.font-weight;
-            font-family: root.font-family;
-            font-italic: root.font-italic;
-            vertical-alignment: center;
-            overflow: elide;
-        }
+    content << Text {
+        horizontal-stretch: 1;
+        text: root.display-text;
+        color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+        font-size: root.font-size;
+        font-weight: root.font-weight;
+        font-family: root.font-family;
+        font-italic: root.font-italic;
+        vertical-alignment: center;
+        overflow: elide;
     }
 
     indicator << Path {

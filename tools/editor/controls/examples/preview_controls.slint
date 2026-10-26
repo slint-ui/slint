@@ -68,10 +68,6 @@ export component PreviewComboBox inherits ComboBox {
 }
 
 export component PreviewLineEdit inherits LineEdit {
-    slot leading;
-    slot trailing;
-    leading << leading;
-    trailing << trailing;
     in property <int> size-index: 1;
     private property <int> index: clamp(root.size-index, 0, 2);
     min-height: [26px, 34px, 42px][root.index];

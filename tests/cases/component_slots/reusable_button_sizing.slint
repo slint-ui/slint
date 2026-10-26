@@ -11,13 +11,21 @@ export component TestCase inherits Window {
     in-out property <image> button-icon;
     in-out property <int> preview-size: 1;
     in-out property <string> preferred-label;
+    in-out property <bool> application-minimum;
 
-    out property <bool> test: subject.width > 32px && subject.height >= 32px;
+    out property <bool> test: subject.width > subject.left-padding + subject.right-padding
+        && subject.height >= subject.top-padding + subject.bottom-padding;
     out property <bool> preferred-size-fits: preferred-frame.width >= preferred.min-width
         && preferred-frame.height >= preferred.min-height;
 
     width: 1400px;
     height: 1400px;
+
+    states [
+        application-minimum when root.application-minimum: {
+            preferred.min-height: 40px;
+        }
+    ]
 
     HorizontalLayout {
         x: 20px;
@@ -148,7 +156,14 @@ for text in ["", "A", "First line\nSecond line"] {
         // https://github.com/slint-ui/slint/issues/6265
         assert!(instance.get_preferred_size_fits(), "preferred dimensions must contain the button minimum");
         let button = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred button").next().unwrap();
-        assert!(button.size().width >= 32. && button.size().height >= 32.);
+        if text.is_empty() {
+            assert_eq!(button.size().width, 24.);
+            assert_eq!(button.size().height, 12.);
+        } else {
+            let label = button.query_descendants().match_type_name("Text").find_first().unwrap();
+            assert!(button.size().width >= label.size().width + 24. - 0.1);
+            assert!(button.size().height >= label.size().height + 12. - 0.1);
+        }
     }
 }
 instance.set_preferred_label("".into());
@@ -158,8 +173,13 @@ for size in [12., 64.] {
     slint::platform::update_timers_and_animations();
     assert!(instance.get_preferred_size_fits());
     let button = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred button").next().unwrap();
-    assert!(button.size().width >= size + 24.);
-    assert!(button.size().height >= size + 12.);
+    assert_eq!(button.size().width, size + 24.);
+    assert_eq!(button.size().height, size + 12.);
 }
+instance.set_icon_size(12.);
+instance.set_application_minimum(true);
+slint::platform::update_timers_and_animations();
+let button = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred button").next().unwrap();
+assert!(button.size().height >= 40.);
 ```
 */
