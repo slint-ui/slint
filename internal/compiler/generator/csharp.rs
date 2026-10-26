@@ -24,10 +24,11 @@ use crate::object_tree::Document;
 pub struct Config {
     /// The namespace of the generated types; none puts them in the global namespace.
     pub namespace: Option<String>,
-    /// The path of the `.slint` file at run time, relative to the application directory.
-    /// Defaults to the file name of the main file.
+    /// The path of the input at run time, relative to the application directory:
+    /// the `.slint` file, or the project directory, whose project file then applies at run time too.
+    /// Defaults to the name of the input.
     pub runtime_path: Option<String>,
-    /// Load the main file from its absolute source path instead, and reload components when it changes.
+    /// Load the input from its absolute source path instead, and reload components when it changes.
     pub live_preview: bool,
 }
 
@@ -566,7 +567,10 @@ pub fn generate(
         .ok_or_else(|| std::io::Error::other("Cannot determine path of the main file"))?;
     let file_name =
         main_file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let runtime_path = config.runtime_path.clone().unwrap_or_else(|| file_name.clone());
+    let input = compiler_config.input_project_directory.as_deref().unwrap_or(main_file);
+    let runtime_path = config.runtime_path.clone().unwrap_or_else(|| {
+        input.file_name().map_or_else(|| ".".into(), |n| n.to_string_lossy().into_owned())
+    });
 
     let mut types = String::new();
     let mut registrations = String::new();
@@ -732,7 +736,7 @@ pub fn generate(
     );
     let style = compiler_config.style.as_deref().map_or("null".into(), string_literal);
     let path = if config.live_preview {
-        let source = std::path::absolute(main_file).unwrap_or_else(|_| main_file.to_owned());
+        let source = std::path::absolute(input).unwrap_or_else(|_| input.to_owned());
         string_literal(&source.to_string_lossy())
     } else {
         format!(

@@ -129,6 +129,15 @@ The generator passes them to `GeneratedApi.Load` and `CreateLive` as absolute pa
 `SlintCompilerPath` defaults to `target/debug/slint-compiler` in the repository, then to `slint-compiler` on `PATH`.
 A package reference imports the targets automatically; with a project reference, import `Slint/build/Slint.targets`.
 
+`<SlintProject Include="ui" />` compiles a project directory, the way `slint_build::compile(".")` does in Rust.
+The generator gets the directory, and the generated code loads it at run time,
+so the interpreter reads `slint-project.json` there too, with its edition, main file, and paths.
+A target copies the project file and the `.slint` files under the directory, since wildcards can't expand per item outside a target.
+A project gets no `-I` and `-L` from `SlintIncludePaths` and `<SlintLibraryPath>`,
+because paths from the command line replace the ones of the project file.
+The generation touches its outputs, since `slint-compiler` leaves an unchanged output as it is,
+which would keep the target out of date.
+
 ### Test Driver
 
 `tests/driver/dotnet` builds the generated code of all cases into one runner,
@@ -263,6 +272,9 @@ Done:
   They use `Slint.Testing` for clicks, keys, and mocked time.
   Writing them found that generated records ignored struct field defaults,
   and that numbers converted to integers by rounding, and threw on overflow.
+- **12.** Project directories, with `<SlintProject>`, see [MSBuild](#msbuild).
+  They compile and load with the edition and the settings of their `slint-project.json`.
+  A `.slint` path still compiles without a project file, and so without an edition.
 - **11.** On Windows, a clear exception in `Create` and `Run` for a thread that isn't in a single-threaded apartment,
   instead of a winit panic, see [Threading and macOS](#threading-and-macos).
   Turning off drag and drop in winit would make such threads work, but lose file drops,
@@ -277,8 +289,6 @@ Next:
   extends the README with deployment, troubleshooting, and samples.
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
-- **12.** Project directories in `<SlintFile>` and generated code, to compile with the settings and the edition of a `slint-project.json`.
-  A `.slint` path compiles without a project file, and so without an edition, which keeps the behavior from before editions.
 - **13.** More `csharp` blocks, for the cases that test input, animations, and models,
   ported from their `rust` or `js` blocks.
   Cases with pinch gestures or flickable physics first need those helpers in `Slint.Testing`.

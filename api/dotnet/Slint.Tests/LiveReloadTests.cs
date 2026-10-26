@@ -92,6 +92,21 @@ public sealed class LiveReloadTests
     });
 
     [TestMethod]
+    public void ProjectDirectoriesReload() => SlintThread.Run(() =>
+    {
+        var path = NewFile(Source("first"));
+        var dir = Path.GetDirectoryName(path)!;
+        File.WriteAllText(Path.Combine(dir, "slint-project.json"), """{ "slint-edition": "1.19", "main": "app.slint" }""");
+        using var app = ComponentInstance.CreateLive(dir, "App");
+        Assert.AreEqual("first", app.GetProperty("label"));
+
+        Assert.IsTrue(
+            RunUntilReloaded(app, () => File.WriteAllText(path, Source("second")), TimeSpan.FromSeconds(20)),
+            "the component didn't reload");
+        Assert.AreEqual("second", app.GetProperty("label"));
+    });
+
+    [TestMethod]
     public void CreateLiveReportsErrors() => SlintThread.Run(() =>
     {
         var path = NewFile(Source("first"));

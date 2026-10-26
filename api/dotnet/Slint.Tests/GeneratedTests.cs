@@ -128,4 +128,20 @@ public sealed class GeneratedTests
         app.Anchor = new LogicalPosition(5, 6);
         Assert.AreEqual(new LogicalPosition(5, 6), app.Anchor);
     });
+
+    [TestMethod]
+    public void ProjectsCompileWithTheirProjectFile() => SlintThread.Run(() =>
+    {
+        using var app = ProjectApp.Create();
+        Assert.AreEqual("shared", app.BadgeText);
+        Assert.AreEqual(10f, app.RepeatedMinWidth);
+
+        // The main file alone compiles without the edition of the project file.
+        using var compiler = new Compiler { IncludePaths = [Path.Combine(AppContext.BaseDirectory, "ui/project/shared")] };
+        using var result = compiler.BuildFromPath(Path.Combine(AppContext.BaseDirectory, "ui/project/main.slint"));
+        Assert.IsFalse(result.HasErrors, string.Join("\n", result.Diagnostics));
+        using var definition = result.Component("ProjectApp")!;
+        using var plain = definition.Create();
+        Assert.AreEqual(0.0, plain.GetProperty("repeated-min-width"));
+    });
 }

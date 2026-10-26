@@ -163,13 +163,14 @@ struct Cli {
     #[arg(long = "csharp-namespace", name = "C# namespace")]
     csharp_namespace: Option<String>,
 
-    /// Set the path that the generated C# code loads the main .slint file from at run time,
-    /// relative to the application directory. Defaults to the file name of the main file.
+    /// Set the path that the generated C# code loads the input from at run time,
+    /// relative to the application directory: the .slint file, or the project directory.
+    /// Defaults to the name of the input.
     #[cfg(feature = "csharp")]
     #[arg(long = "csharp-runtime-path", name = "runtime path")]
     csharp_runtime_path: Option<String>,
 
-    /// Make the generated C# code load the main .slint file from its source path,
+    /// Make the generated C# code load the input from its source path,
     /// and reload components when it or a file it imports changes. For development only.
     #[cfg(feature = "csharp")]
     #[arg(long = "csharp-live-preview")]

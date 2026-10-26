@@ -135,6 +135,16 @@ Set these properties to change the generated code:
 - `SlintCopyToOutput`: `false` to load the `.slint` files from the project directory instead of copying them.
 - `SlintIncludePaths`: directories that imports search, separated by semicolons.
 
+To use a [project file](https://snapshots.slint.dev/master/docs/slint/guide/tooling/project-file/), add its directory instead of a file:
+
+```xml
+<SlintProject Include="ui" />
+```
+
+The build generates the classes of the project's main file, and copies the project file and the `.slint` files under the directory.
+The application then compiles with the edition and the paths of `ui/slint-project.json`, at build and at run time.
+`SlintIncludePaths` and `<SlintLibraryPath>` don't apply to a project, since its project file has its own paths.
+
 For imports from a library, such as `import { Button } from "@mylib/button.slint"`, add a library path:
 
 ```xml

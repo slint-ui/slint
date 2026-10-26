@@ -6,6 +6,8 @@
 
     <SlintFile Include="ui/app.slint" />                   generates ui/app.slint.g.cs
     <SlintFile Include="ui/widgets.slint" Generate="false" />   only copies an imported file
+    <SlintProject Include="ui" />                          generates the main file of ui/slint-project.json,
+                                                           and copies the project file and the .slint files under ui
 
   A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
 
@@ -14,13 +16,14 @@
                         then to the repository build, then to slint-compiler on PATH
     SlintNamespace      the namespace of the generated code; defaults to RootNamespace
     SlintStyle          the widget style, such as fluent
-    SlintIncludePaths   directories that imports search, separated by semicolons; relative to the project
+    SlintIncludePaths   directories that imports search, separated by semicolons; relative to the project;
+                        for SlintFile items only, since a SlintProject has the paths of its project file
     SlintTranslationDomain              the gettext domain of the @tr() strings
     SlintBundledTranslations            a directory with <language>/LC_MESSAGES/<domain>.po files to bundle,
                                         relative to the project; select one with Translations.SelectBundledTranslation
     SlintNoDefaultTranslationContext    true gives @tr() strings without a context none, instead of the component name
 
-  Library paths, for imports such as "@mylib/widgets.slint", relative to the project:
+  Library paths, for imports such as "@mylib/widgets.slint", relative to the project; for SlintFile items only:
     <SlintLibraryPath Include="mylib" Path="../mylib/" />
     SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
                         a file that refers to images outside the project
@@ -45,9 +48,20 @@
     <None Include="@(SlintFile)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
     <!-- The components reload a changed file themselves, so dotnet watch mustn't restart the application for it. -->
     <None Update="@(SlintFile)" Watch="false" Condition="'$(SlintLivePreview)' == 'true'" />
+    <None Update="**/*.slint;**/slint-project.json" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '@(SlintProject)' != ''" />
   </ItemGroup>
 
-  <Target Name="_SlintPrepare">
+  <!-- Wildcards can't expand per item outside a target. -->
+  <Target Name="_SlintProjectFiles" BeforeTargets="AssignTargetPaths" Condition="'@(SlintProject)' != ''">
+    <ItemGroup>
+      <_SlintProjectSource Include="%(SlintProject.FullPath)/**/*.slint;%(SlintProject.FullPath)/slint-project.json"
+                           Exclude="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseOutputPath)'))**;$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)'))**" />
+      <None Remove="@(_SlintProjectSource)" />
+      <None Include="@(_SlintProjectSource)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_SlintPrepare" DependsOnTargets="_SlintProjectFiles">
     <PropertyGroup>
       <!-- Set here, since IntermediateOutputPath isn't known yet where a project imports this file. -->
       <_SlintGeneratedDir>$(IntermediateOutputPath)slint/</_SlintGeneratedDir>
@@ -63,6 +77,23 @@
         <RuntimePath Condition="'$(SlintCopyToOutput)' == 'false'">%(_SlintAssigned.FullPath)</RuntimePath>
         <LiveOption Condition="'%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
+    </ItemGroup>
+    <ItemGroup Condition="'@(SlintProject)' != ''">
+      <_SlintProjectDir Include="@(SlintProject)">
+        <TargetPath>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</TargetPath>
+      </_SlintProjectDir>
+      <_SlintProjectDir Condition="'%(_SlintProjectDir.TargetPath)' == ''">
+        <TargetPath>.</TargetPath>
+      </_SlintProjectDir>
+      <_SlintGenerate Include="@(_SlintProjectDir->'%(FullPath)')">
+        <IsProject>true</IsProject>
+        <GeneratedFile>$(_SlintGeneratedDir)%(_SlintProjectDir.TargetPath)/slint-project.g.cs</GeneratedFile>
+        <RuntimePath>%(_SlintProjectDir.TargetPath)</RuntimePath>
+        <RuntimePath Condition="'$(SlintCopyToOutput)' == 'false'">%(_SlintProjectDir.FullPath)</RuntimePath>
+        <LiveOption Condition="'%(_SlintProjectDir.LivePreview)' == 'true' or ('%(_SlintProjectDir.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
+      </_SlintGenerate>
+    </ItemGroup>
+    <ItemGroup>
       <_SlintCompilerInput Include="$(SlintCompilerPath)" Condition="Exists('$(SlintCompilerPath)')" />
       <_SlintIncludePath Include="$(SlintIncludePaths)" />
     </ItemGroup>
@@ -70,26 +101,35 @@
       <_SlintOptions />
       <_SlintOptions Condition="'$(SlintNamespace)' != ''">$(_SlintOptions) --csharp-namespace &quot;$(SlintNamespace)&quot;</_SlintOptions>
       <_SlintOptions Condition="'$(SlintStyle)' != ''">$(_SlintOptions) --style &quot;$(SlintStyle)&quot;</_SlintOptions>
-      <_SlintOptions Condition="'@(_SlintIncludePath)' != ''">$(_SlintOptions) @(_SlintIncludePath->'-I &quot;%(FullPath)&quot;', ' ')</_SlintOptions>
       <_SlintOptions Condition="'$(SlintTranslationDomain)' != ''">$(_SlintOptions) --translation-domain &quot;$(SlintTranslationDomain)&quot;</_SlintOptions>
       <_SlintOptions Condition="'$(SlintBundledTranslations)' != ''">$(_SlintOptions) --bundle-translations &quot;$([System.IO.Path]::GetFullPath('$(SlintBundledTranslations)', '$(MSBuildProjectDirectory)'))&quot;</_SlintOptions>
       <_SlintOptions Condition="'$(SlintNoDefaultTranslationContext)' == 'true'">$(_SlintOptions) --no-default-translation-context</_SlintOptions>
-      <_SlintOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintOptions>
+      <!-- A project file sets its own paths, and paths on the command line would replace them. -->
+      <_SlintPathOptions />
+      <_SlintPathOptions Condition="'@(_SlintIncludePath)' != ''">$(_SlintPathOptions) @(_SlintIncludePath->'-I &quot;%(FullPath)&quot;', ' ')</_SlintPathOptions>
+      <_SlintPathOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintPathOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintPathOptions>
       <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
     </PropertyGroup>
+    <ItemGroup>
+      <_SlintGenerate Condition="'%(_SlintGenerate.IsProject)' != 'true'">
+        <PathOptions>$(_SlintPathOptions)</PathOptions>
+      </_SlintGenerate>
+    </ItemGroup>
     <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->
     <MakeDir Directories="$(_SlintGeneratedDir)" />
-    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
   </Target>
 
   <Target Name="SlintGenerate"
           DependsOnTargets="_SlintPrepare"
-          Inputs="@(SlintFile);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
+          Inputs="@(SlintFile);@(_SlintProjectSource);@(_SlintCompilerInput);$(MSBuildAllProjects);$(_SlintOptionsFile)"
           Outputs="@(_SlintGenerate->'%(GeneratedFile)')">
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
     <!-- NuGet doesn't keep the executable bit of files in packages. -->
     <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
-    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.LiveOption)" />
+    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)" />
+    <!-- slint-compiler leaves an output that didn't change as it is, which would keep it older than the inputs. -->
+    <Touch Files="@(_SlintGenerate->'%(GeneratedFile)')" />
   </Target>
 
   <Target Name="_SlintAddGenerated" BeforeTargets="CoreCompile;BeforeCompile" DependsOnTargets="SlintGenerate">

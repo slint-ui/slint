@@ -1,5 +1,11 @@
 # What's New in Slint for .NET
 
+## Unreleased
+
+- Use a `slint-project.json` with `<SlintProject Include="ui" />`.
+  Your application then compiles with the project's edition and paths.
+- Changing a `.slint` file no longer makes every later build generate the C# code again.
+
 ## 1.19.0-preview.4
 
 - Generated records start with the default values that a struct declares for its fields.

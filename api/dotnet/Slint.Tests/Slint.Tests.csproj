@@ -22,6 +22,7 @@
     <SlintFile Include="ui/live.slint" LivePreview="true" />
     <SlintFile Include="ui/import-paths.slint" />
     <SlintFile Include="ui/translated.slint" />
+    <SlintProject Include="ui/project" />
     <SlintLibraryPath Include="tags" Path="ui/lib/" />
   </ItemGroup>
   <PropertyGroup>
