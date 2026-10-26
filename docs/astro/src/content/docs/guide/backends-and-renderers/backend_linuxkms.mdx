@@ -2,7 +2,7 @@
 title: LinuxKMS Backend
 description: LinuxKMS Backend
 ---
-{/* cSpell: ignore linuxkms libinput libseat libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm DMABUF logind CRTC */}
+{/* cSpell: ignore linuxkms libinput libseat chvt libudev libgbm libxkbcommon xkbcommon noseat keymap xkeyboard udevadm DMABUF logind CRTC */}
 
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
@@ -120,9 +120,11 @@ Set `SLINT_KMS_NO_SIGNAL_HANDLER=1` before launching the application to disable 
 The application then owns restoration on signals; normal event-loop cleanup still restores the console.
 
 `SIGKILL` and aborting panics can't restore the console through this cleanup.
-If the keyboard stays disabled, run `sudo kbd_mode -f -u -C /dev/tty1` from SSH or another console.
+If your application renders to a legacy framebuffer device, switch to a different console from SSH to recover.
+For example, if `/dev/tty1` is affected, run `sudo chvt 2`.
+The switch resets the affected console to text mode and re-enables its keyboard.
+Otherwise, if the keyboard stays disabled, run `sudo kbd_mode -f -u -C /dev/tty1` from SSH or another console.
 Replace `/dev/tty1` with the affected console; `-u` selects Unicode mode.
-A console left in graphics mode doesn't show text and ignores switches to other consoles; restart the device to recover.
 
 ### Input Events With libinput
 
