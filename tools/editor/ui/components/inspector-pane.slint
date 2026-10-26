@@ -8,7 +8,7 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
     InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
-    InspectorOrientationSection, InspectorRangeSection,
+    InspectorOrientationSection, InspectorRangeSection, InspectorStandardButtonKindSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
@@ -91,6 +91,10 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-checkbox-selection(): InspectorCheckedSection { }
 
                 if InspectorContext.is-lineedit-selection(): InspectorInputTypeSection {
+                    popup-bottom: root.popup-bottom;
+                }
+
+                if InspectorContext.is-standard-button-selection(): InspectorStandardButtonKindSection {
                     popup-bottom: root.popup-bottom;
                 }
 
