@@ -397,7 +397,8 @@ pub struct BoxShadowCommand {
 impl BoxShadowCommand {
     // Together with an i16 geometry, these keep every edge within 2^29 / 256 px,
     // so the arithmetic of `draw_box_shadow_line` stays within i32.
-    const MAX_SIGMA: Fixed<i32, 8> = Fixed(1 << 23);
+    // Below 256 px, σ also keeps the weighted offsets of `Band::sum` within i32.
+    const MAX_SIGMA: Fixed<i32, 8> = Fixed((1 << 16) - 1);
     const MAX_RADIUS: Fixed<i32, 8> = Fixed(1 << 28);
 
     /// A shadow of standard deviation `sigma` for `shapes`, each a rectangle, its corner radii,
@@ -541,8 +542,8 @@ struct Band {
     weight: i32,
     /// The first slice's edges, which later slices must stay close to.
     first: (Fixed<i32, 8>, Fixed<i32, 8>),
-    /// The slices' edges, weighted.
-    sum: (i64, i64),
+    /// The slices' offsets from `first`, weighted.
+    sum: (i32, i32),
     slices: u32,
 }
 
@@ -618,32 +619,39 @@ fn shape_bands(
             if weight == 0 {
                 continue;
             }
-            let x0 = left
-                + corner_inset(radius.top_left, middle - top)
-                    .max(corner_inset(radius.bottom_left, bottom - middle));
-            let x1 = right
-                - corner_inset(radius.top_right, middle - top)
-                    .max(corner_inset(radius.bottom_right, bottom - middle));
+            // Each inset takes a square root, and opposite corners usually share a radius.
+            let top_left = corner_inset(radius.top_left, middle - top);
+            let bottom_left = corner_inset(radius.bottom_left, bottom - middle);
+            let top_right = if radius.top_right == radius.top_left {
+                top_left
+            } else {
+                corner_inset(radius.top_right, middle - top)
+            };
+            let bottom_right = if radius.bottom_right == radius.bottom_left {
+                bottom_left
+            } else {
+                corner_inset(radius.bottom_right, bottom - middle)
+            };
+            let x0 = left + top_left.max(bottom_left);
+            let x1 = right - top_right.max(bottom_right);
             let close = |a: Fixed<i32, 8>, b: Fixed<i32, 8>| (a - b).0.abs() <= sigma.0;
             match band_count.checked_sub(1).map(|last| &mut bands[last]) {
                 Some(last)
                     if band_count == max_bands
                         || (close(last.first.0, x0) && close(last.first.1, x1)) =>
                 {
+                    // A slice merged into a full list can be further than σ away.
+                    let max = BoxShadowCommand::MAX_SIGMA.0;
+                    let offset =
+                        |x: Fixed<i32, 8>, first: Fixed<i32, 8>| (x - first).0.clamp(-max, max);
                     last.weight += weight;
-                    last.sum.0 += weight as i64 * x0.0 as i64;
-                    last.sum.1 += weight as i64 * x1.0 as i64;
+                    last.sum.0 += weight * offset(x0, last.first.0);
+                    last.sum.1 += weight * offset(x1, last.first.1);
                     last.slices += 1;
                 }
                 _ => {
-                    bands[band_count] = Band {
-                        x0,
-                        x1,
-                        weight,
-                        first: (x0, x1),
-                        sum: (weight as i64 * x0.0 as i64, weight as i64 * x1.0 as i64),
-                        slices: 1,
-                    };
+                    bands[band_count] =
+                        Band { x0, x1, weight, first: (x0, x1), sum: (0, 0), slices: 1 };
                     band_count += 1;
                 }
             }
@@ -651,8 +659,9 @@ fn shape_bands(
     }
     for band in &mut bands[..band_count] {
         if band.slices > 1 {
-            band.x0 = Fixed((band.sum.0 / band.weight as i64) as i32);
-            band.x1 = Fixed((band.sum.1 / band.weight as i64) as i32);
+            // Rounded down, like the mean of the absolute edges was, which are rarely negative.
+            band.x0 = band.first.0 + Fixed(band.sum.0.div_euclid(band.weight));
+            band.x1 = band.first.1 + Fixed(band.sum.1.div_euclid(band.weight));
         }
         // Both are at most 2^15, so the product fits.
         band.weight = (band.weight * shape_weight) >> 15;
