@@ -1321,6 +1321,9 @@ pub struct Element {
     /// read where the height is settled by the source: see
     /// `Element::height_is_literal` and `Element::effective_layout_info_prop`.
     pub layout_info_h_at_own_height: Option<NamedReference>,
+    /// The property holding the layout info the item itself reports, without the element's
+    /// constraints. `(horizontal, vertical)`
+    pub implicit_layout_info_prop: (Option<NamedReference>, Option<NamedReference>),
     /// Whether the effective `height` binding, on the element or a base, is a
     /// length literal that is not a percentage. Such a height can be read while
     /// computing the element's own horizontal layout info without closing a
@@ -3766,6 +3769,11 @@ fn visit_all_named_references_in_element_dyn(
         vis(nr);
     }
     elem.borrow_mut().layout_info_h_at_own_height = at_own_height;
+    let mut implicit_layout_info = std::mem::take(&mut elem.borrow_mut().implicit_layout_info_prop);
+    for nr in [&mut implicit_layout_info.0, &mut implicit_layout_info.1].into_iter().flatten() {
+        vis(nr);
+    }
+    elem.borrow_mut().implicit_layout_info_prop = implicit_layout_info;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
         if let Some(l) = d.layout.as_mut() {

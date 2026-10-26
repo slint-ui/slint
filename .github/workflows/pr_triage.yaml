@@ -81,6 +81,8 @@ jobs:
     timeout-minutes: 15
     # Read-only on purpose. Claude reads text written by the PR author, so it
     # gets no way to write; the apply job validates and applies its answer.
+    # Its reads stay in the checkout: an unscoped Read also reaches
+    # /proc/self/environ, which holds the Claude token.
     permissions:
       contents: read
       pull-requests: read
@@ -133,7 +135,7 @@ jobs:
           claude_args: |
             --model claude-opus-5-5
             --max-turns 20
-            --allowedTools "Read,Grep,Glob"
+            --allowedTools "Read(./**),Grep(./**),Glob(./**)"
             --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"
             --json-schema '{"type":"object","additionalProperties":false,"required":["areas","api","breaking_change","complexity","complexity_reason"],"properties":{"areas":{"type":"array","items":{"type":"string"},"maxItems":2},"api":{"type":"boolean"},"breaking_change":{"type":"boolean"},"complexity":{"type":"string","enum":["trivial","moderate","high"]},"complexity_reason":{"type":"string","maxLength":300}}}'
           prompt: |
@@ -189,8 +191,11 @@ jobs:
             const byName = new Map(repoLabels.map(l => [l.name, l]));
 
             const areas = [...new Set(result.areas)].filter(name => name.startsWith('a:') && byName.has(name));
-            const complexityLabel = `complexity:${result.complexity}`;
             const complexityColors = { trivial: 'c2e0c6', moderate: 'fbca04', high: 'd93f0b' };
+            if (!Object.hasOwn(complexityColors, result.complexity)) {
+              throw new Error(`Unexpected complexity: ${result.complexity}`);
+            }
+            const complexityLabel = `complexity:${result.complexity}`;
             if (!byName.has(complexityLabel)) {
               await github.rest.issues.createLabel({
                 ...context.repo,

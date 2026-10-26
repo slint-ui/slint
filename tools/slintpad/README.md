@@ -56,6 +56,10 @@ The `preview.html` page contains only the preview and the code must be given via
 
 -   `?gz=` Like `?snippet=` but compressed with gzip and base64 encoded.
 
+-   `?edition=` query argument, followed by the [edition](https://snapshots.slint.dev/master/docs/slint/guide/language/concepts/editions/) to use, such as `1.18`.
+    Without it, SlintPad uses the edition of its own release.
+    Links from "Share" always include it, so that they keep their behavior in later releases.
+
 -   `?lib=lib_name=<url>` query argument, followed by the name of the library and the URL to load it from.
 
     Example: The to use the `@material` library:

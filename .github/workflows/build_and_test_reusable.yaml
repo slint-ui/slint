@@ -112,9 +112,10 @@ jobs:
                 # sudo docker image prune --all --force
                 df -h
             - uses: actions/checkout@v7
+            # mesa-vulkan-drivers provides llvmpipe, the WGPU adapter for the FemtoVG screenshot tests.
             - uses: ./.github/actions/install-linux-dependencies
               with:
-                  extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+                  extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good mesa-vulkan-drivers
             - uses: ./.github/actions/install-skia-dependencies
             - uses: TheMrMilchmann/setup-msvc-dev@v4
               if: runner.os == 'Windows'
@@ -176,6 +177,7 @@ jobs:
               run: "cargo test --locked --verbose --all-features --workspace --timings --manifest-path tests/Cargo.toml ${{ inputs.extra_args }} ${{ !inputs.test_rust_driver && '--exclude test-driver-rust' || '' }} --exclude doctests --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude test-driver-dotnet --exclude test-driver-typescript -- --skip=qt"
               env:
                   SLINT_CREATE_SCREENSHOTS: 1
+                  SLINT_TEST_REQUIRE_WGPU: 1
               shell: bash
             - name: Run integration tests (qt)
               if: runner.os != 'Windows' && inputs.run_qt && inputs.test_integration

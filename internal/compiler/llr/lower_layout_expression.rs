@@ -1828,12 +1828,7 @@ fn own_layout_info_h(elem: &ElementRc) -> Option<crate::expression_tree::Express
     }
 
     // Builtins and component instances (looked up via the base component).
-    crate::layout::implicit_layout_info_call(
-        elem,
-        Orientation::Horizontal,
-        crate::layout::BuiltinFilter::All,
-        None,
-    )
+    crate::layout::existing_implicit_layout_info(elem, Orientation::Horizontal, None)
 }
 
 /// The vertical layout info of a component's root that isn't in a layout.
@@ -2101,13 +2096,7 @@ pub fn get_layout_info(
         llr_Expression::PropertyReference(ctx.map_property_reference(layout_info_prop))
     } else {
         super::lower_expression::lower_expression(
-            &crate::layout::implicit_layout_info_call(
-                elem,
-                orientation,
-                crate::layout::BuiltinFilter::All,
-                constraint,
-            )
-            .unwrap(),
+            &crate::layout::existing_implicit_layout_info(elem, orientation, constraint).unwrap(),
             ctx,
         )
     };
@@ -2132,13 +2121,7 @@ pub fn get_fixed_size_root_layout_info(
 ) -> Option<llr_Expression> {
     let size = fixed_size_property(constraints, orientation)?;
     let own_info = super::lower_expression::lower_expression(
-        &crate::layout::implicit_layout_info_call(
-            elem,
-            orientation,
-            crate::layout::BuiltinFilter::All,
-            None,
-        )
-        .unwrap(),
+        &crate::layout::existing_implicit_layout_info(elem, orientation, None).unwrap(),
         ctx,
     );
     Some(override_layout_info(own_info, ctx, constraints, orientation, Some(size)))

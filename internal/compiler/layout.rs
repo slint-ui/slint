@@ -878,26 +878,8 @@ impl FlexboxLayout {
     }
 }
 
-/// Whether the builtin has no intrinsic size (Rectangle, Empty, TouchArea, etc.):
-/// its layout info is the static default, never height-for-width.
-pub(crate) fn has_no_intrinsic_size(base: &ElementType) -> bool {
-    let ElementType::Builtin(b) = base else { return false };
-    matches!(
-        b.name.as_str(),
-        "Rectangle"
-            | "Empty"
-            | "TouchArea"
-            | "FocusScope"
-            | "Opacity"
-            | "Layer"
-            | "BoxShadow"
-            | "BackdropBlur"
-            | "Clip"
-    )
-}
-
 /// Controls whether `implicit_layout_info_call` returns layout info for builtins
-/// that don't have an intrinsic size (Rectangle, Empty, TouchArea, etc.).
+/// that don't have an intrinsic size.
 #[derive(Clone, Copy, PartialEq)]
 pub enum BuiltinFilter {
     /// Return layout info for all builtins (existing behavior).
@@ -969,38 +951,32 @@ pub fn implicit_layout_info_call(
                     }
                 }
             }
-            base @ ElementType::Builtin(_) if has_no_intrinsic_size(base) => {
-                if filter == BuiltinFilter::SkipNonImplicit {
-                    return None;
-                }
-                // hard-code the value for rectangle because many rectangle end up optimized away and we
-                // don't want to depend on the element.
-                Some(Expression::Struct {
-                    ty: crate::typeregister::layout_info_type(),
-                    values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
-                        .iter()
-                        .map(|(s, v)| {
-                            (SmolStr::new_static(s), Expression::NumberLiteral(*v as _, Unit::Px))
-                        })
-                        .chain(
-                            [("min_percent", 0.), ("max_percent", 100.), ("stretch", 1.)]
-                                .iter()
-                                .map(|(s, v)| {
-                                    (
-                                        SmolStr::new_static(s),
-                                        Expression::NumberLiteral(*v, Unit::None),
-                                    )
-                                }),
-                        )
-                        .collect(),
-                })
-            }
             ElementType::Builtin(base_type)
                 if filter == BuiltinFilter::SkipNonImplicit
                     && base_type.default_size_binding
                         != crate::element_type::DefaultSizeBinding::ImplicitSize =>
             {
                 None
+            }
+            ElementType::Builtin(base_type)
+                if let Some(stretch) = base_type.constant_layout_info_stretch =>
+            {
+                Some(Expression::Struct {
+                    ty: crate::typeregister::layout_info_type(),
+                    values: [
+                        ("min", 0., Unit::Px),
+                        ("max", f32::MAX as f64, Unit::Px),
+                        ("preferred", 0., Unit::Px),
+                        ("min_percent", 0., Unit::None),
+                        ("max_percent", 100., Unit::None),
+                        ("stretch", stretch, Unit::None),
+                    ]
+                    .into_iter()
+                    .map(|(s, v, unit)| {
+                        (SmolStr::new_static(s), Expression::NumberLiteral(v, unit))
+                    })
+                    .collect(),
+                })
             }
             _ => Some(Expression::FunctionCall {
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),
@@ -1046,6 +1022,83 @@ pub fn static_native_stretch(elem: &ElementRc) -> Option<Expression> {
         .builtin_type()
         .filter(|b| matches!(b.name.as_str(), "Text" | "StyledText" | "TextInput" | "Image"))
         .map(|_| Expression::NumberLiteral(0., Unit::None))
+}
+
+/// The property holding the layout info `elem` reports itself, if one was created.
+/// It may be the property of the root of a base component, which is the same item.
+pub fn implicit_layout_info_prop(
+    elem: &ElementRc,
+    orientation: Orientation,
+) -> Option<NamedReference> {
+    let own_prop = |elem: &Element| match orientation {
+        Orientation::Horizontal => elem.implicit_layout_info_prop.0.clone(),
+        Orientation::Vertical => elem.implicit_layout_info_prop.1.clone(),
+    };
+    if let Some(prop) = own_prop(&elem.borrow()) {
+        return Some(prop);
+    }
+    let mut base = elem.borrow().base_type.clone();
+    while let ElementType::Component(c) = base {
+        let root = c.root_element.borrow();
+        if let Some(prop) = own_prop(&root) {
+            return Some(NamedReference::new(elem, prop.name().clone()));
+        }
+        base = root.base_type.clone();
+    }
+    None
+}
+
+/// The implicit layout info of `elem`, shared with its other readers when an earlier pass
+/// created [`implicit_layout_info_prop`], otherwise computed in place.
+/// It never creates that property: unlike [`implicit_layout_info`], it is for a single reader.
+pub fn existing_implicit_layout_info(
+    elem: &ElementRc,
+    orientation: Orientation,
+    constraint: Option<Expression>,
+) -> Option<Expression> {
+    if constraint.is_none()
+        && let Some(prop) = implicit_layout_info_prop(elem, orientation)
+    {
+        return Some(Expression::PropertyReference(prop));
+    }
+    implicit_layout_info_call(elem, orientation, BuiltinFilter::All, constraint)
+}
+
+/// Like [`implicit_layout_info_call`] without a constraint, but a call to the item is read from
+/// [`implicit_layout_info_prop`], created on first use, so that its readers share one call.
+pub fn implicit_layout_info(
+    elem: &ElementRc,
+    orientation: Orientation,
+    filter: BuiltinFilter,
+) -> Option<Expression> {
+    let call = implicit_layout_info_call(elem, orientation, filter, None)?;
+    let calls_item = matches!(
+        call,
+        Expression::FunctionCall {
+            function: Callable::Builtin(BuiltinFunction::ImplicitLayoutInfo(_)),
+            ..
+        }
+    );
+    if !calls_item || elem.borrow().repeated.is_some() {
+        return Some(call);
+    }
+    let prop = implicit_layout_info_prop(elem, orientation).unwrap_or_else(|| {
+        let name = match orientation {
+            Orientation::Horizontal => "implicit-layoutinfo-h",
+            Orientation::Vertical => "implicit-layoutinfo-v",
+        };
+        let prop = create_new_prop(elem, SmolStr::new_static(name), call.ty());
+        let mut elem = elem.borrow_mut();
+        let mut binding = BindingExpression::new_with_span(call, elem.to_source_location());
+        binding.priority = i32::MAX;
+        elem.set_binding(prop.name().clone(), binding);
+        match orientation {
+            Orientation::Horizontal => elem.implicit_layout_info_prop.0 = Some(prop.clone()),
+            Orientation::Vertical => elem.implicit_layout_info_prop.1 = Some(prop.clone()),
+        }
+        prop
+    });
+    Some(Expression::PropertyReference(prop))
 }
 
 /// Create a new property based on the name. (it might get a different name if that property exist)

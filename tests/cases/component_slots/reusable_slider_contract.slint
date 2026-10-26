@@ -35,7 +35,7 @@ export component TestCase inherits Window {
 
     headless-host := RangeHost {
         control << headless := SliderBase {
-            surface << LinearSliderSurface { }
+            surface << LinearSliderSurface { handle-width: 20px; handle-height: 20px; track-thickness: 4px; }
         }
     }
 
@@ -46,6 +46,7 @@ export component TestCase inherits Window {
         headless.emit-released();
     }
     out property <bool> test: styled-host.value == 50 && headless-host.value == 50
+        && styled.position == 0.5 && headless.position == 0.5
         && styled-host.changes == 1 && styled-host.last-change == 50
         && styled-host.releases == 1 && styled-host.last-release == 50
         && headless-host.changes == 1 && headless-host.last-change == 50

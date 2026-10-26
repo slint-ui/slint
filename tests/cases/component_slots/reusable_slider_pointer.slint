@@ -3,6 +3,7 @@
 
 import {
     Slider,
+    SliderStyles,
     BasicTheme,
 } from "../../../tools/editor/controls/src/basic.slint";
 export { BasicTheme }
@@ -11,10 +12,9 @@ import {
     LinearSliderSurface,
 } from "../../../tools/editor/controls/src/headless.slint";
 component CustomSlider inherits Slider {
-    track-color: #123456;
-    fill-color: #abcdef;
+    style: SliderStyles.standard;
+    fill-color: #654321;
     handle-color: #654321;
-    handle-radius: 0px;
 }
 
 export component TestCase inherits Window {
@@ -24,6 +24,8 @@ export component TestCase inherits Window {
     in-out property <bool> enabled: true;
     in-out property <bool> vertical;
     in-out property <bool> inverted;
+    in-out property <length> handle-width <=> slider.handle-width;
+    in-out property <length> handle-height <=> slider.handle-height;
     in-out property <brush> custom-color: #fedcba;
     out property <int> changes;
     out property <int> releases;
@@ -32,9 +34,10 @@ export component TestCase inherits Window {
     out property <brush> handle-color: slider.handle-color;
     out property <brush> fill-color: slider.fill-color;
     out property <brush> track-color: slider.track-color;
-    out property <bool> focus-border-correct: slider.has-focus && slider.handle-border-color == BasicTheme.focus;
-    out property <bool> test: custom.track-color == #123456 && custom.fill-color == #abcdef
-        && custom.handle-color == #654321 && bound-surface.handle-color == root.custom-color;
+    out property <bool> focused: slider.has-focus;
+    out property <bool> test: custom.style.rest.track-color == SliderStyles.standard.rest.track-color
+        && custom.fill-color == #654321 && custom.handle-color == #654321
+        && custom.style.disabled == SliderStyles.standard.disabled && bound-surface.handle-color == root.custom-color;
     public function focus-other() { other.focus(); }
     slider := Slider {
         accessible-label: "Pointer slider";
@@ -67,6 +70,9 @@ export component TestCase inherits Window {
         height: 40px;
         enabled: root.enabled;
         surface << bound-surface := LinearSliderSurface {
+            handle-width: 20px;
+            handle-height: 20px;
+            track-thickness: 4px;
             in property <brush> handle-color: root.custom-color;
             handle << Rectangle {
                 background: bound-surface.handle-color;
@@ -103,7 +109,12 @@ assert_eq!(instance.get_value(), 75.);
 assert_eq!(instance.get_changes(), 1);
 assert_eq!(instance.get_releases(), 1);
 assert_eq!(instance.get_last_released(), 75.);
-assert!(instance.get_focus_border_correct());
+assert!(instance.get_focused());
+let slider_element = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Pointer slider").next().unwrap();
+let outline = || slider_element.query_descendants().match_id("Slider::focus-outline").find_first();
+let ring = outline().expect("Focused slider has no outline");
+assert_eq!(ring.size().width, 28.);
+assert_eq!(ring.size().height, 28.);
 assert_eq!(instance.get_handle_color(), palette.get_accent_hover());
 press(point(185., 40.));
 assert!(instance.get_pressed());
@@ -140,6 +151,7 @@ instance.set_enabled(false);
 slint::platform::update_timers_and_animations();
 assert!(!instance.get_pressed());
 assert_eq!(instance.get_handle_color(), palette.get_disabled_foreground());
+assert!(outline().is_none());
 assert_eq!(instance.get_fill_color(), palette.get_disabled_foreground());
 assert_eq!(instance.get_track_color(), palette.get_disabled_background());
 assert!(instance.get_test());
@@ -150,18 +162,25 @@ assert_eq!(instance.get_value(), 60.);
 assert_eq!(instance.get_changes(), before);
 assert_eq!(instance.get_releases(), releases_before);
 
-for vertical in [false, true] {
-    instance.set_vertical(vertical);
-    for inverted in [false, true] {
-        instance.set_inverted(inverted);
-        instance.set_value(50.);
-        let (low, high) = if vertical { (point(40., 30.), point(40., 230.)) }
-            else { (point(30., 40.), point(230., 40.)) };
-        let reversed = vertical != inverted;
-        click(low.x, low.y);
-        assert_eq!(instance.get_value(), if reversed { 100. } else { 0. });
-        click(high.x, high.y);
-        assert_eq!(instance.get_value(), if reversed { 0. } else { 100. });
+for (width, height) in [(20., 20.), (32., 24.), (44., 30.)] {
+    instance.set_handle_width(width);
+    instance.set_handle_height(height);
+    for vertical in [false, true] {
+        instance.set_vertical(vertical);
+        for inverted in [false, true] {
+            instance.set_inverted(inverted);
+            instance.set_value(50.);
+            let (low, high) = if vertical { (point(40., 30.), point(40., 230.)) }
+                else { (point(30., 40.), point(230., 40.)) };
+            let reversed = vertical != inverted;
+            click(low.x, low.y);
+            assert_eq!(instance.get_value(), if reversed { 100. } else { 0. });
+            click(high.x, high.y);
+            assert_eq!(instance.get_value(), if reversed { 0. } else { 100. });
+            let ring = outline().unwrap();
+            assert_eq!(ring.size().width, width + 8.);
+            assert_eq!(ring.size().height, height + 8.);
+        }
     }
 }
 for position in [point(320., 40.), point(320., 100.)] {
@@ -178,6 +197,7 @@ for position in [point(320., 40.), point(320., 100.)] {
 }
 instance.invoke_focus_other();
 move_to(outside);
-assert!(!instance.get_focus_border_correct());
+assert!(!instance.get_focused());
+assert!(outline().is_none());
 ```
 */

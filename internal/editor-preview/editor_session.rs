@@ -414,6 +414,16 @@ impl EditorSession {
                     &mut warn,
                 );
                 keep_first(&mut edition, project_edition, &source, "slint-edition", &mut warn);
+                if let Some(warning) = project.slint_edition().behavior_change_warning() {
+                    let mut edition_diagnostics = BuildDiagnostics::default();
+                    edition_diagnostics.push_warning_with_span(warning, project.edition_location());
+                    diagnostics.extend(edition_diagnostics.iter().map(|d| {
+                        i_slint_live_preview::protocol::to_lsp_diagnostic(
+                            d,
+                            self.document_cache.format,
+                        )
+                    }));
+                }
             }
             project_diagnostics.push((
                 url.clone(),
@@ -2604,6 +2614,25 @@ mod tests {
     }
 
     #[test]
+    fn a_configured_edition_applies_without_a_project_file() {
+        let edition = i_slint_compiler::project_file::SlintEdition { major: 1, minor: 18 };
+        let mut session = session();
+        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                project: ProjectFileData { slint_edition: Some(edition), ..Default::default() },
+                ..Default::default()
+            },
+            ..Default::default()
+        }))
+        .unwrap();
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.edition,
+            Some(edition)
+        );
+        assert_eq!(session.preview_config.overrides.project.slint_edition, Some(edition));
+    }
+
+    #[test]
     fn the_edition_reaches_the_preview_and_a_conflict_is_reported() {
         let temp = TempDir::new().unwrap();
         let outer = temp.path().join(FILE_NAME);
@@ -2628,8 +2657,12 @@ mod tests {
         );
         let inner_url = Url::from_file_path(&inner).unwrap();
         let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &inner_url).unwrap();
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
         assert!(warnings[0].message.contains("slint-edition '1.18'"), "{warnings:?}");
+        assert!(warnings[1].message.contains("'slint-edition' 1.18 misses"), "{warnings:?}");
+        let outer_url = Url::from_file_path(&outer).unwrap();
+        let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &outer_url).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
     }
 
     #[test]

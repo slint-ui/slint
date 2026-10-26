@@ -34,6 +34,9 @@ on:
           required: false
           description: "Build the Node.js and Python API documentation"
 
+env:
+    CARGO_PROFILE_DEV_DEBUG: 0
+
 jobs:
     # Job 1: Build Rust and C++ documentation
     rust-cpp-docs:

@@ -6,7 +6,7 @@ import { BasicTheme } from "../src/basic.slint";
 export component ExampleSection inherits Rectangle {
     in property <string> title;
     in property <string> description;
-    background: white;
+    background: BasicTheme.background;
     border-color: BasicTheme.border.with-alpha(0.4);
     border-width: 1px;
     border-radius: 8px;

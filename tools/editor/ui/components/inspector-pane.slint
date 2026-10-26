@@ -8,7 +8,7 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
     InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
-    InspectorOrientationSection,
+    InspectorOrientationSection, InspectorRangeSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
@@ -96,6 +96,8 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
+                if InspectorContext.is-slider-selection() || InspectorContext.is-spinbox-selection(): InspectorRangeSection { }
+
                 if InspectorContext.has-orientation-selection(): InspectorOrientationSection {
                     popup-bottom: root.popup-bottom;
                 }
@@ -119,8 +121,9 @@ export component InspectorPane inherits Rectangle {
                     field-width: root.field-width;
                     popup-bottom: root.popup-bottom;
                 }
-                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection(): InspectorTextAlignmentSection {
+                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() || InspectorContext.is-lineedit-selection(): InspectorTextAlignmentSection {
                     popup-bottom: root.popup-bottom;
+                    show-vertical: !InspectorContext.is-lineedit-selection();
                 }
                 if InspectorContext.is-text-selection(): InspectorTextWrapSection {
                     popup-bottom: root.popup-bottom;

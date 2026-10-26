@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct SliderStateStyle {
+    track-color: brush,
+    fill-color: brush,
+    handle-color: brush,
+    handle-border-color: brush,
+}
+
+export struct SliderStyle {
+    rest: SliderStateStyle,
+    hover: SliderStateStyle,
+    pressed: SliderStateStyle,
+    disabled: SliderStateStyle,
+    focus-color: brush,
+}

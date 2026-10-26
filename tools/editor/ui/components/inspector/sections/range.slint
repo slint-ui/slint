@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api } from "../../../api.slint";
+import { InspectorEditableField, InspectorPropertyRow, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorRangeSection inherits InspectorSection {
+    title: @tr("Range");
+
+    InspectorPropertyRow {
+        label: @tr("Value");
+
+        InspectorEditableField {
+            accessible-name: @tr("Range value");
+            value: Api.source-property-value("value", Api.source-property-value("minimum", "0"));
+            commit-key: InspectorContext.field-key("value");
+            accepted(text) => {
+                return text != "" && InspectorContext.commit-code("value", text);
+            }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Minimum");
+
+        InspectorEditableField {
+            accessible-name: @tr("Range minimum");
+            value: Api.source-property-value("minimum", "0");
+            commit-key: InspectorContext.field-key("minimum");
+            accepted(text) => {
+                return text != "" && InspectorContext.commit-code("minimum", text);
+            }
+        }
+    }
+
+    InspectorPropertyRow {
+        label: @tr("Maximum");
+
+        InspectorEditableField {
+            accessible-name: @tr("Range maximum");
+            value: Api.source-property-value("maximum", "100");
+            commit-key: InspectorContext.field-key("maximum");
+            accepted(text) => {
+                return text != "" && InspectorContext.commit-code("maximum", text);
+            }
+        }
+    }
+}

@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct SwitchStateStyle {
+    track-color: brush,
+    thumb-color: brush,
+    foreground-color: brush,
+    track-border-color: brush,
+}
+
+export struct SwitchStateStyles {
+    rest: SwitchStateStyle,
+    hover: SwitchStateStyle,
+    pressed: SwitchStateStyle,
+    disabled: SwitchStateStyle,
+}
+
+export struct SwitchStyle {
+    unchecked: SwitchStateStyles,
+    checked: SwitchStateStyles,
+    focus-color: brush,
+}

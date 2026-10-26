@@ -251,7 +251,7 @@
     "simple-git": "4.0.2",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "9.0.1",
-    "vscode-languageserver-types": "3.18.4"
+    "vscode-languageserver-types": "3.18.5"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

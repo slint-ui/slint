@@ -749,11 +749,8 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
-    publish_crates_io:
+    verify_crates_io:
         runs-on: ubuntu-22.04
-        permissions:
-            id-token: write # required for crates.io trusted publishing
-            contents: read
         env:
             CARGO_PROFILE_DEV_DEBUG: 0
         steps:
@@ -767,9 +764,22 @@ jobs:
             - uses: ./.github/actions/setup-rust
             - name: Package and verify all crates (dry run)
               run: ./scripts/publish.sh --dry-run
-            # The trusted-publishing token only lives 30 minutes, less than the
-            # verification above takes. Mint it afterwards and upload the
-            # already-verified packages with --no-verify.
+
+    # Uploads the packages that verify_crates_io checked, with --no-verify, as
+    # the trusted-publishing token only lives 30 minutes. The jobs that hold
+    # publishing credentials restore no cache: what they restore runs next to
+    # the credentials.
+    publish_crates_io:
+        needs: [verify_crates_io]
+        runs-on: ubuntu-22.04
+        permissions:
+            id-token: write # required for crates.io trusted publishing
+            contents: read
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  cache: false
             - name: Authenticate with crates.io
               id: auth
               uses: rust-lang/crates-io-auth-action@v1
@@ -801,10 +811,12 @@ jobs:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: gh workflow run publish_npm_package.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f private=false -f release=true
 
-    android:
+    # Builds with a throwaway key, as cargo-apk2 signs every release APK. The
+    # android job signs again with the real key.
+    android_build:
         env:
-            CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
-            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+            CARGO_APK_RELEASE_KEYSTORE: ${{ github.workspace }}/throwaway.keystore
+            CARGO_APK_RELEASE_KEYSTORE_PASSWORD: throwaway
             # cargo-apk2 does not honor the repository's relative `build.target-dir`.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         runs-on: ubuntu-latest
@@ -831,10 +843,10 @@ jobs:
               with:
                   target: aarch64-linux-android
 
-            - name: dump keystore
+            - name: Create the throwaway keystore
               run: |
-                  mkdir -p /home/runner/.android
-                  echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
+                  keytool -genkeypair -keystore $CARGO_APK_RELEASE_KEYSTORE -storepass throwaway -keypass throwaway \
+                      -alias throwaway -keyalg RSA -keysize 2048 -validity 1 -dname CN=throwaway
 
             - name: Build energy-monitor example
               run: cargo apk2 build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
@@ -850,11 +862,50 @@ jobs:
             # Play Store accepts only AABs for new submissions; the per-ABI
             # APKs are for GitHub releases and F-Droid.
             - name: Build slint-viewer AAB and per-ABI APKs
-              env:
-                  ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
-                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
               run: tools/viewer/android/build-aab.sh
+
+            # Flatten into one directory so the artifact holds bare files.
+            - name: Collect Android artifacts
+              if: always()
+              run: |
+                  mkdir -p android-unsigned
+                  cp -a target/release/apk/*.apk android-unsigned/ || true
+                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-* android-unsigned/ || true
+                  cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-unsigned/ || true
+            - uses: actions/upload-artifact@v7
+              if: always()
+              with:
+                  name: android-unsigned
+                  path: android-unsigned/
+
+    # No checkout or cache, as anything they put on the runner would run next
+    # to the signing key.
+    android:
+        needs: [android_build]
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                  name: android-unsigned
+                  path: android-demos
+            # --alignment-preserved keeps the APK bytes F-Droid rebuilds and
+            # compares against.
+            - name: Sign
+              env:
+                  KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+                  KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+              run: |
+                  keystore=$RUNNER_TEMP/release.keystore
+                  echo "$KEYSTORE_BASE64" | base64 --decode > $keystore
+                  apksigner=$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/apksigner
+                  for apk in android-demos/*.apk; do
+                      $apksigner sign --alignment-preserved --ks $keystore --ks-pass env:KEYSTORE_PASSWORD \
+                          --ks-key-alias "$KEYSTORE_ALIAS" $apk
+                  done
+                  "$JAVA_HOME/bin/jarsigner" -keystore $keystore -storepass:env KEYSTORE_PASSWORD \
+                      android-demos/slint-viewer.aab "$KEYSTORE_ALIAS"
+                  rm $keystore
             # A full-nightly goes to internal testing; a release goes to
             # production as a draft that a human publishes, so an accidental
             # `release` run never reaches users.
@@ -864,21 +915,10 @@ jobs:
               with:
                   serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
                   packageName: dev.slint.viewer
-                  releaseFiles: tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab
+                  releaseFiles: android-demos/slint-viewer.aab
                   track: ${{ github.event.inputs.mode == 'release' && 'production' || 'internal' }}
                   status: ${{ github.event.inputs.mode == 'release' && 'draft' || 'completed' }}
-
-            # Flatten into one directory so the artifact holds bare files.
-            - name: Collect Android artifacts
-              if: always()
-              run: |
-                  mkdir -p android-demos
-                  cp -a target/release/apk/*.apk android-demos/ || true
-                  cp -a tools/viewer/android/app/build/outputs/apk/release/slint-viewer-* android-demos/ || true
-                  cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
-            - name: "upload APK artifact"
-              if: always()
-              uses: actions/upload-artifact@v7
+            - uses: actions/upload-artifact@v7
               with:
                   name: android-demos
                   path: android-demos/
