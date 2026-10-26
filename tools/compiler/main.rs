@@ -7,6 +7,7 @@
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::generator::OutputFormat;
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::*;
 use itertools::Itertools;
 use std::io::Cursor;
@@ -155,51 +156,44 @@ struct Cli {
     cpp_files: Vec<std::path::PathBuf>,
 }
 
-/// Resolves a project directory to its main file and settings.
-fn resolve_project_file(args: &mut Cli) -> Option<i_slint_compiler::project_file::ProjectFile> {
+/// Parses the file to compile, the main file of a project directory given as input,
+/// and returns the project file that applies to it and the files it was found and read from.
+fn parse_input(
+    args: &Cli,
+    diag: &mut BuildDiagnostics,
+) -> (
+    Option<parser::SyntaxNode>,
+    Option<i_slint_compiler::project_file::ProjectFile>,
+    Vec<std::path::PathBuf>,
+) {
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
-    if args.slint_sc {
-        if i_slint_compiler::project_file::is_project_file(&args.path) {
-            eprintln!(
-                "{}",
-                i_slint_compiler::project_file::project_file_input_error(
-                    &i_slint_compiler::source_path::SourcePath::File(args.path.clone())
-                )
-            );
-            std::process::exit(1);
-        }
-        if args.path.is_dir() {
-            eprintln!("--slint-sc can't compile a project directory, pass its main file instead");
-            std::process::exit(1);
-        }
-        return None;
+    if args.slint_sc && args.path.is_dir() {
+        eprintln!("--slint-sc can't compile a project directory, pass its main file instead");
+        std::process::exit(1);
     }
 
-    // Reading from stdin gives no directory to search from.
-    if args.path == std::path::Path::new("-") {
-        return None;
-    }
-
-    match i_slint_compiler::project_file::resolve_input(&args.path) {
-        Ok((path, project_file)) => {
-            args.path = path;
-            project_file
-        }
-        Err(message) => {
-            eprintln!("{message}");
-            std::process::exit(1);
-        }
-    }
+    let (input, input_files) = spin_on::spin_on(i_slint_compiler::project_file::load_input(
+        &SourcePath::File(args.path.clone()),
+        None,
+        None,
+        None,
+        diag,
+    ));
+    let Some(input) = input else { return (None, None, Vec::new()) };
+    (
+        Some(parser::parse(input.source_code, Some(input.source), diag)),
+        input.project_file,
+        input_files.into_iter().filter_map(SourcePath::into_native_path).collect(),
+    )
 }
 
 fn main() -> std::io::Result<()> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
-    let mut args = Cli::parse();
+    let args = Cli::parse();
     let input_project_directory = args.path.is_dir().then(|| args.path.clone());
-    let project_file = resolve_project_file(&mut args);
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_file(&args.path, &mut diag);
+    let (syntax_node, project_file, input_files) = parse_input(&args, &mut diag);
     //println!("{:#?}", syntax_node);
     if diag.has_errors() {
         diag.print();
@@ -383,9 +377,9 @@ fn main() -> std::io::Result<()> {
 
     if let Some(depfile) = args.depfile {
         let mut cursor = Cursor::new(Vec::new());
-        write!(cursor, "{}: {}", args.output.display(), args.path.display())?;
-        if let Some(project_file) = &project_file {
-            write!(cursor, " {}", project_file.source_path())?;
+        write!(cursor, "{}:", args.output.display())?;
+        for x in &input_files {
+            write!(cursor, " {}", x.display())?;
         }
         for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
             if x.is_absolute() {
