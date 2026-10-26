@@ -3,13 +3,13 @@
 Import styled controls, styles, and theme types from `src/basic.slint`.
 Import behavior components and slot surfaces from `src/headless.slint` when supplying your own visuals.
 These controls require experimental Slint features for interfaces and typed slots.
-Example import paths below are relative to `tools/editor/controls/examples/`.
+Example import paths below are relative to this directory.
 See the [API reference](API.md) for each control's inputs, outputs, callbacks, functions, slots, and style fields.
 
 ## Get Started
 
 ```slint
-import { Button, ButtonStyles } from "../src/basic.slint";
+import { Button, ButtonStyles } from "src/basic.slint";
 
 export component App inherits Window {
     Button {
@@ -37,7 +37,7 @@ Controls use `BasicPalettes.light` by default.
 Select a palette through one `BasicThemeProvider` inside the root window:
 
 ```slint
-import { BasicPalettes, BasicThemeProvider, Button } from "../src/basic.slint";
+import { BasicPalettes, BasicThemeProvider, Button } from "src/basic.slint";
 
 export component App inherits Window {
     in-out property <bool> dark-mode;
@@ -78,13 +78,17 @@ See [Style Struct Fields](API.md#style-struct-fields) for the states and colors 
 Set dimensions, padding, fonts, borders, and focus geometry directly:
 
 ```slint
-Button {
-    text: "Save";
-    min-height: 28px;
-    font-size: 13px;
-    horizontal-padding: 12px;
-    left-padding: 20px;
-    border-radius: 0px;
+import { Button } from "src/basic.slint";
+
+export component App inherits Window {
+    Button {
+        text: "Save";
+        min-height: 28px;
+        font-size: 13px;
+        horizontal-padding: 12px;
+        left-padding: 20px;
+        border-radius: 0px;
+    }
 }
 ```
 
@@ -97,7 +101,7 @@ See the [API reference](API.md) for each control's geometry inputs and defaults.
 Use an application component to share defaults across instances without changing other controls:
 
 ```slint
-import { CheckBox } from "../src/basic.slint";
+import { CheckBox } from "src/basic.slint";
 
 component AppCheckBox inherits CheckBox {
     checked-color: #0f766e;
@@ -122,22 +126,24 @@ Individual instances can override these defaults.
 Headless controls supply state, input handling, and accessibility while slot content supplies the visuals:
 
 ```slint
-import { CheckBoxBase } from "../src/headless.slint";
+import { CheckBoxBase } from "src/headless.slint";
 
-choice := CheckBoxBase {
-    text: "Show guides";
-    spacing: 8px;
-    content << HorizontalLayout {
-        spacing: choice.spacing;
-        cross-axis-alignment: center;
-        Rectangle {
-            width: 18px;
-            height: 18px;
-            background: choice.checked ? #2563eb : transparent;
-            border-color: #2563eb;
-            border-width: 1px;
+export component App inherits Window {
+    choice := CheckBoxBase {
+        text: "Show guides";
+        spacing: 8px;
+        content << HorizontalLayout {
+            spacing: choice.spacing;
+            cross-axis-alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                background: choice.checked ? #2563eb : transparent;
+                border-color: #2563eb;
+                border-width: 1px;
+            }
+            Text { text: choice.text; }
         }
-        Text { text: choice.text; }
     }
 }
 ```
@@ -149,13 +155,15 @@ The [API reference](API.md) lists each base's slots and required geometry inputs
 For content around a styled text field, fill LineEdit's `leading` and `trailing` slots:
 
 ```slint
-import { LineEdit } from "../src/basic.slint";
+import { LineEdit } from "src/basic.slint";
 
-LineEdit {
-    accessible-label: "File name";
-    placeholder-text: "my-component";
-    leading << Text { text: "File:"; }
-    trailing << Text { text: ".slint"; }
+export component App inherits Window {
+    LineEdit {
+        accessible-label: "File name";
+        placeholder-text: "my-component";
+        leading << Text { text: "File:"; }
+        trailing << Text { text: ".slint"; }
+    }
 }
 ```
 
