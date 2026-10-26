@@ -267,7 +267,7 @@ fn extract_path(literal: proc_macro::Literal) -> std::path::PathBuf {
 fn extract_compiler_config(
     mut stream: proc_macro::token_stream::IntoIter,
     compiler_config: &mut CompilerConfiguration,
-) -> impl Iterator<Item = TokenTree> {
+) -> Result<impl Iterator<Item = TokenTree>, TokenStream> {
     let mut remaining_stream;
     loop {
         remaining_stream = stream.clone();
@@ -327,13 +327,45 @@ fn extract_compiler_config(
                             _ => break,
                         }
                     }
+                    Some(TokenTree::Ident(edition_ident))
+                        if edition_ident.to_string() == "slint_edition" =>
+                    {
+                        match (attr_stream.next(), attr_stream.next()) {
+                            (
+                                Some(TokenTree::Punct(equal_punct)),
+                                Some(TokenTree::Literal(value)),
+                            ) if equal_punct.as_char() == '=' => {
+                                compiler_config.edition = Some(parse_edition(&value)?);
+                            }
+                            _ => break,
+                        }
+                    }
                     _ => break,
                 }
             }
             _ => break,
         }
     }
-    remaining_stream
+    Ok(remaining_stream)
+}
+
+fn parse_edition(value: &proc_macro::Literal) -> Result<project_file::SlintEdition, TokenStream> {
+    let current = project_file::SlintEdition::current();
+    let text = value.to_string();
+    let edition = text
+        .strip_prefix('"')
+        .and_then(|text| text.strip_suffix('"'))
+        .ok_or_else(|| format!("'slint_edition' takes a string, such as \"{current}\""))
+        .and_then(str::parse);
+    let message = match edition {
+        Ok(edition) if edition > current => format!(
+            "'slint_edition' is {edition}, newer than this Slint {current}: upgrade Slint, or set '#[slint_edition = \"{current}\"]'"
+        ),
+        Ok(edition) => return Ok(edition),
+        Err(message) => message,
+    };
+    let span = proc_macro2::Span::from(value.span());
+    Err(quote::quote_spanned!(span => compile_error!{ #message }).into())
 }
 
 /// The external files whose changes should invalidate this expansion: the loaded
@@ -357,6 +389,22 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// When Rust 1.88 or later is used, the paths for loading images with `@image-url` and importing `.slint` files
 /// are relative to the `.rs` file that contains the macro.
 /// For compatibility with older rust version, the files are also searched in the manifest directory that contains `Cargo.toml`.
+///
+/// ### Edition
+///
+/// Set the
+#[doc = concat!("[edition](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/guide/language/concepts/editions/)")]
+/// with an attribute at the start of the macro body:
+///
+/// ```rust,ignore
+/// slint::slint! {
+///     #[slint_edition = "1.19"]
+///     export component App inherits Window { }
+/// }
+/// ```
+///
+/// Without it, the macro applies none of the behavior changes that depend on the edition.
+/// The editor and the live preview don't read the attribute.
 ///
 /// ### Limitations
 ///
@@ -384,7 +432,10 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
-    let token_iter = extract_compiler_config(token_iter, &mut compiler_config);
+    let token_iter = match extract_compiler_config(token_iter, &mut compiler_config) {
+        Ok(token_iter) => token_iter,
+        Err(error) => return error,
+    };
 
     let mut tokens = Vec::new();
     fill_token_vec(token_iter, &mut tokens);
