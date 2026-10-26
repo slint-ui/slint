@@ -155,6 +155,9 @@
     "Menu": {
         "href": "reference/window/contextmenuarea/#menu"
     },
+    "MenuItemRole": {
+        "href": "reference/property-types/builtin-enums/#menuitemrole"
+    },
     "Modules": {
         "href": "reference/language/imports/"
     },

@@ -180,10 +180,10 @@ export component EditorUi inherits Window {
                 enabled: !Api.startup-wizard-visible;
                 activated => { Project.close-project(); }
             }
-            // The macOS application menu already provides Quit.
-            if Platform.os != OperatingSystemType.macos: MenuSeparator { }
-            if Platform.os != OperatingSystemType.macos: MenuItem {
+            MenuSeparator { }
+            MenuItem {
                 title: @tr("Quit");
+                role: quit;
                 shortcut: @keys(Control + "q");
                 activated => { root.quit-requested(); }
             }
