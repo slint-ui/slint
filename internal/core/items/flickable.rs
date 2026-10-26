@@ -292,6 +292,10 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    pub(crate) fn reduced_motion(self_rc: &ItemRc) -> bool {
+        self_rc.slint_context().motion_preference() == crate::MotionPreference::Reduced
+    }
+
     pub fn scroll_to(
         self: Pin<&Self>,
         self_rc: &ItemRc,
@@ -828,12 +832,7 @@ impl FlickableDataInner {
                 let moved =
                     self.capture_events.is_some_and(|capture| capture == CaptureEvents::WheelMove);
                 if moved {
-                    self.animate(
-                        flick,
-                        window_adapter,
-                        flick_rc,
-                        crate::animations::current_tick(),
-                    );
+                    self.animate(flick, flick_rc, crate::animations::current_tick());
                 }
                 self.capture_events = None;
                 if !moved {
@@ -1030,6 +1029,15 @@ impl FlickableDataInner {
         dimension: Dimension,
         geo: &LogicalRect,
     ) {
+        if Flickable::reduced_motion(flick_rc) {
+            let current = LogicalPoint::from_lengths(flick.content_x(), flick.content_y());
+            let in_bounds = ensure_in_bound(flick, current, geo, false, false);
+            flick.content(dimension).set(match dimension {
+                Dimension::X => in_bounds.x_length(),
+                Dimension::Y => in_bounds.y_length(),
+            });
+            return;
+        }
         let simulation = Self::spring_back(flick, flick_rc, dimension, geo, 0.);
         let running = self.running_animation.get_or_insert_with(|| RunningSimulation {
             weak: flick_rc.downgrade(),
@@ -1044,26 +1052,20 @@ impl FlickableDataInner {
     }
 
     /// `release_time` is when the pointer was released, on the clock of the tracked samples.
-    fn animate(
-        &mut self,
-        flick: Pin<&Flickable>,
-        window_adapter: &Rc<dyn WindowAdapter>,
-        flick_rc: &ItemRc,
-        release_time: Instant,
-    ) {
-        if self.capture_events.is_some() {
+    fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc, release_time: Instant) {
+        if self.capture_events.is_some() && Flickable::reduced_motion(flick_rc) {
+            let released_at = LogicalPoint::from_lengths(flick.content_x(), flick.content_y());
+            let target = self.scroll_to(flick, flick_rc, -released_at, ScrollBehavior::Instant);
+            self.pending_flicked |= target != released_at.to_vector();
+        } else if self.capture_events.is_some() {
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
             let (inside_bounds_x, inside_bounds_y) = inside_bounds(
                 flick,
                 LogicalPoint::new(flick.content_x().get(), flick.content_y().get()),
                 &geo,
             );
-            // Without a release velocity the content doesn't fling.
-            let estimated_velocity = if window_adapter.window().0.reduced_motion() {
-                None
-            } else {
-                self.velocity_rb.estimate_velocity(release_time).map(|v| v.velocity)
-            };
+            let estimated_velocity =
+                self.velocity_rb.estimate_velocity(release_time).map(|v| v.velocity);
 
             // The release simulation generic over the Dimension
             let release_simulation = |dimension: Dimension,
@@ -1151,7 +1153,7 @@ impl FlickableDataInner {
     ) -> LogicalVector {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
         let target = ensure_in_bound(flick, -position, &geo, false, false);
-        if scroll_behavior == ScrollBehavior::Instant {
+        if scroll_behavior == ScrollBehavior::Instant || Flickable::reduced_motion(flick_rc) {
             self.running_animation = None;
 
             flick.content_x.set(target.x_length());
@@ -1412,7 +1414,7 @@ impl FlickableData {
                             MouseEvent::Released { event_time: Some(time), .. } => *time,
                             _ => crate::animations::current_tick(),
                         };
-                        inner.animate(flick, window_adapter, flick_rc, release_time);
+                        inner.animate(flick, flick_rc, release_time);
                         inner.capture_events = None;
                         InputEventResult::EventAccepted
                     } else if c == CaptureEvents::MouseStart {

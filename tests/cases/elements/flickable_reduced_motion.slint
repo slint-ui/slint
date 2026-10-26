@@ -15,11 +15,17 @@ export component TestCase inherits Window {
         width: parent.width - 20phx;
         height: parent.height - 20phx;
         content_width: 2100phx;
-        content_height: 2100phx;
+        content_height: root.content_height;
 
         flicked => { root.flicked += 1; }
     }
 
+    callback flickable-scroll-to(length, length, ScrollBehavior);
+    flickable-scroll-to(x, y, scroll_behavior) => {
+        f.scroll-to({ x: x, y: y }, scroll_behavior);
+    }
+
+    in-out property <length> content_height: 2100phx;
     out property <length> offset_x: -f.content_x;
     out property <length> offset_y: -f.content_y;
     in-out property <int> flicked;
@@ -85,6 +91,64 @@ assert_eq!(instance.get_offset_y(), 50.);
 slint_testing::mock_elapsed_time(2000);
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```rust
+// A smooth `scroll-to` lands at once.
+use slint::language::ScrollBehavior;
+use slint_testing::MotionPreference;
+let instance = TestCase::new().unwrap();
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+instance.invoke_flickable_scroll_to(300., 400., ScrollBehavior::Smooth);
+assert_eq!(instance.get_offset_x(), 300.);
+assert_eq!(instance.get_offset_y(), 400.);
+slint_testing::mock_elapsed_time(2000);
+assert_eq!(instance.get_offset_x(), 300.);
+assert_eq!(instance.get_offset_y(), 400.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```rust
+// Releasing the pointer beyond the edge sets the content back at once instead of springing.
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint_testing::{AutoBool, MotionPreference};
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(100.0, 100.0), button: PointerEventButton::Left });
+for y in [120.0, 140.0, 160.0, 180.0, 200.0] {
+    slint_testing::mock_elapsed_time(10);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, y) });
+}
+assert!(instance.get_offset_y() < 0., "the drag pulls the content past its edge: {}", instance.get_offset_y());
+instance.set_flicked(0);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 200.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_offset_y(), 0.);
+assert_eq!(instance.get_flicked(), 1);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```rust
+// Content that ends up beyond its limits without user interaction is set back at once.
+use slint_testing::{AutoBool, MotionPreference};
+let instance = TestCase::new().unwrap();
+let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::f")
+    .next()
+    .unwrap();
+slint_testing::set_flickable_physics(&flickable, AutoBool::On, AutoBool::Off);
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+instance.invoke_flickable_scroll_to(0., 1500., slint::language::ScrollBehavior::Instant);
+assert_eq!(instance.get_offset_y(), 1500.);
+instance.set_content_height(1000.);
+// The change handler runs after the time advanced.
+slint_testing::mock_elapsed_time(16);
+assert_eq!(instance.get_offset_y(), 1000. - 480.);
 slint_testing::set_motion_preference(MotionPreference::NoPreference);
 ```
 */
