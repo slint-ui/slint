@@ -3,7 +3,7 @@
 
 use i_slint_core::graphics::{
     Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, OpaqueImageVTable, SharedImageBuffer,
-    cache as core_cache,
+    SharedPixelBuffer, cache as core_cache,
 };
 use i_slint_core::items::ImageFit;
 use i_slint_core::lengths::{LogicalSize, ScaleFactor};
@@ -11,6 +11,21 @@ use i_slint_core::lengths::{LogicalSize, ScaleFactor};
 struct SkiaCachedImage {
     image: skia_safe::Image,
     cache_key: ImageCacheKey,
+}
+
+struct PixelBytes<Pixel>(SharedPixelBuffer<Pixel>);
+
+impl<Pixel: Clone + bytemuck::Pod> AsRef<[u8]> for PixelBytes<Pixel> {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}
+
+/// Wraps the pixels in Skia data that shares the buffer instead of copying it.
+fn shared_pixel_data<Pixel: Clone + bytemuck::Pod + Send + Sync>(
+    pixels: &SharedPixelBuffer<Pixel>,
+) -> skia_safe::Data {
+    skia_safe::Data::new_with_owner(PixelBytes(pixels.clone()))
 }
 
 i_slint_core::OpaqueImageVTable_static! {
@@ -77,7 +92,7 @@ pub(crate) fn as_skia_image(
 
             skia_safe::images::raster_from_data(
                 &image_info,
-                skia_safe::Data::new_copy(pixels.as_bytes()),
+                shared_pixel_data(&pixels),
                 pixels.width() as usize * 4,
             )
         }
@@ -139,7 +154,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
                 .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
                 .collect::<Vec<u8>>();
             (
-                skia_safe::Data::new_copy(&rgba),
+                skia_safe::Data::new_with_owner(rgba),
                 pixels.width() as usize * 4,
                 pixels.size(),
                 skia_safe::ColorType::RGBA8888,
@@ -147,14 +162,14 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
             )
         }
         SharedImageBuffer::RGBA8(pixels) => (
-            skia_safe::Data::new_copy(pixels.as_bytes()),
+            shared_pixel_data(pixels),
             pixels.width() as usize * 4,
             pixels.size(),
             skia_safe::ColorType::RGBA8888,
             opaque_or(pixels.as_bytes(), skia_safe::AlphaType::Unpremul),
         ),
         SharedImageBuffer::RGBA8Premultiplied(pixels) => (
-            skia_safe::Data::new_copy(pixels.as_bytes()),
+            shared_pixel_data(pixels),
             pixels.width() as usize * 4,
             pixels.size(),
             skia_safe::ColorType::RGBA8888,
@@ -162,7 +177,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
         ),
         #[cfg(feature = "image-pixel-format-rgb565")]
         SharedImageBuffer::RGB565(pixels) => (
-            skia_safe::Data::new_copy(pixels.as_bytes()),
+            shared_pixel_data(pixels),
             pixels.width() as usize * 2,
             pixels.size(),
             skia_safe::ColorType::RGB565,
@@ -170,7 +185,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
         ),
         #[cfg(feature = "image-pixel-format-gray8")]
         SharedImageBuffer::Gray8(pixels) => (
-            skia_safe::Data::new_copy(pixels.as_bytes()),
+            shared_pixel_data(pixels),
             pixels.width() as usize,
             pixels.size(),
             skia_safe::ColorType::Gray8,

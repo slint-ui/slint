@@ -860,8 +860,10 @@ impl SkiaRenderer {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                if let Some(ctx) = gr_context.as_mut() {
-                    ctx.flush(None);
+                if let Some(ctx) = gr_context.as_mut()
+                    && let Err(err) = ctx.flush(None)
+                {
+                    i_slint_core::debug_log!("Skia: {err}");
                 }
 
                 if let Some(surface) = surface {
@@ -904,8 +906,10 @@ impl SkiaRenderer {
             }
         }
 
-        if let Some(ctx) = gr_context.as_mut() {
-            ctx.flush(None);
+        if let Some(ctx) = gr_context.as_mut()
+            && let Err(err) = ctx.flush(None)
+        {
+            i_slint_core::debug_log!("Skia: {err}");
         }
 
         dirty_region

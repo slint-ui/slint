@@ -124,11 +124,13 @@ pub fn release_vulkan_surface(
     queue_family_index: u32,
 ) {
     let state = skia_safe::gpu::vk::mutable_texture_states::new_vulkan(layout, queue_family_index);
-    gr_context.flush_surface_with_texture_state(
+    if let Err(err) = gr_context.flush_surface_with_texture_state(
         skia_surface,
         &skia_safe::gpu::FlushInfo::default(),
         Some(&state),
-    );
+    ) {
+        i_slint_core::debug_log!("Skia: {err}");
+    }
 }
 
 /// Extension names as `String`, for [`vk::BackendContextBuilder::with_extensions`]. Vulkan
