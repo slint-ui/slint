@@ -2753,26 +2753,6 @@ pub fn context_for_root(root: &ItemTreeRc) -> crate::SlintContext {
         .expect("an item tree exists, so there is a current context")
 }
 
-/// Runtime entry point for `BuiltinFunction::ReducedMotion`, which `lower_animation` ANDs
-/// into each animation's `enabled` field. Returns whether the component's
-/// [`crate::SlintContext`], see [`context_for_root`], reports
-/// [`crate::MotionPreference::Reduced`]; `false` once the component is gone.
-/// Without the `std` feature it is always `false`, so the check costs nothing on microcontrollers.
-#[inline]
-pub fn reduced_motion(root: &ItemTreeWeak) -> bool {
-    #[cfg(feature = "std")]
-    {
-        root.upgrade().is_some_and(|root| {
-            context_for_root(&root).motion_preference() == crate::MotionPreference::Reduced
-        })
-    }
-    #[cfg(not(feature = "std"))]
-    {
-        let _ = root;
-        false
-    }
-}
-
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
 #[cfg(feature = "ffi")]

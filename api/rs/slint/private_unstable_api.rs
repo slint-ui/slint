@@ -193,7 +193,7 @@ pub mod re_exports {
     pub use i_slint_core::timers::{Timer, TimerMode};
     pub use i_slint_core::translations::TranslationsBundled;
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, reduced_motion,
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind,
     };
     pub use i_slint_core::{Color, Coord, SharedString, SharedVector, format};
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
