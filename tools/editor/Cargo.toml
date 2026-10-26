@@ -41,6 +41,7 @@ i-slint-editor-preview = { workspace = true, features = ["preview-engine", "prev
 i-slint-live-preview = { workspace = true, features = ["protocol", "file-watcher"] }
 
 by_address = { workspace = true }
+cfg-if = "1"
 clap = { workspace = true }
 clru = { workspace = true }
 crossbeam-channel = "0.5"
@@ -86,6 +87,7 @@ windows-core = "0.62.2"
 windows-collections = "0.3.2"
 windows-future = "0.3.2"
 raw-window-handle = "0.6"
+dunce = "1.0.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5.14.0", default-features = false, features = ["async-io", "blocking-api"] }

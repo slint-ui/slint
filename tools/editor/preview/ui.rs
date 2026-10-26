@@ -300,6 +300,12 @@ pub fn initialize_editor(
         let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
         file_tree::choose_image_file(source_uri.as_str(), window)
     });
+    let editor_weak = editor_ui.as_weak();
+    api.on_open_file_manager(move |path| {
+        if let Some(editor) = editor_weak.upgrade() {
+            file_tree::open_file_manager(std::path::Path::new(path.as_str()), editor.window());
+        }
+    });
 
     api.on_get_property_value(get_property_value);
     api.on_get_property_value_table(get_property_value_table);
