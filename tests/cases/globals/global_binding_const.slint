@@ -48,4 +48,9 @@ assert.equal(instance.value3, 82);
 assert(instance.test);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(82, instance.Value3);
+Assert.IsTrue(instance.Test);
+```
 */

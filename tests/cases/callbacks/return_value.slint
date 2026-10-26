@@ -63,4 +63,15 @@ assert.equal(instance.test_prop2, "hello=44");
 
 assert.equal(instance.test_func2("xxx", 1), "xxx=3");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+instance.OnTestFunc(a => instance.SomeValue * a);
+Assert.AreEqual(4 + 16, instance.TestProp);
+Assert.AreEqual("hello=50", instance.TestProp2);
+instance.SomeValue = 2;
+Assert.AreEqual(4 + 4, instance.TestProp);
+Assert.AreEqual("hello=44", instance.TestProp2);
+Assert.AreEqual("xxx=3", instance.InvokeTestFunc2("xxx", 1));
+```
 */
