@@ -207,6 +207,8 @@ SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-d
 
 The FemtoVG screenshot tests render offscreen through WGPU and run with the `femtovg` feature, which CI enables through `--all-features`.
 They need a WGPU adapter but no window or display server, and pass without rendering when there's no adapter.
+Set `SLINT_TEST_REQUIRE_WGPU` to make them fail instead, as CI does.
+On Linux, CI uses llvmpipe from the `mesa-vulkan-drivers` package.
 Every case runs unless it has a `//ignore: femtovg` marker.
 
 ```sh
@@ -215,7 +217,8 @@ cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots --no-defa
 
 The generator honors `SIZE`, `SLINT_SCALE_FACTOR`, `BASE_THRESHOLD`, and `//ignore: femtovg` markers.
 `SKIP_WARP` skips a case on WARP, the D3D12 software adapter on Windows CI.
-Every case accepts a color difference of at least 4, since GPU drivers round differently.
+`SKIP_LLVMPIPE` skips a case on llvmpipe, Mesa's Vulkan software adapter on Linux CI.
+Every case accepts a color difference of at least 4.5, since GPU drivers round differently.
 Ignored cases run when the command includes `-- --ignored`.
 
 References live under `tests/screenshots/references/femtovg/`.

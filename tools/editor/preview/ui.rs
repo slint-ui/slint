@@ -182,6 +182,7 @@ pub fn initialize_editor(
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
     hover.on_element_at(super::element_selection::hovered_element_at);
+    hover.on_hovered_changed(super::hovered_element_changed);
     api.on_selection_stack_at(super::element_selection::selection_stack_at);
     api.on_filter_sort_selection_stack(super::element_selection::filter_sort_selection_stack);
     api.on_find_selected_selection_stack_frame(|stack| {
@@ -2715,6 +2716,91 @@ mod tests {
     }
 
     #[test]
+    fn checked_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [("CheckBox", true), ("Button", false), ("Rectangle", false)] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Checked"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn checked_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "CheckBox".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, false),
+            (Some(false), None, false),
+            (Some(true), None, true),
+            (Some(false), Some(true), true),
+            (Some(true), Some(false), false),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "checked" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "checked" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Checked"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
     fn inline_text_preserves_input_before_the_first_timer_tick() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
@@ -2767,6 +2853,47 @@ mod tests {
             .window()
             .dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Return.into() });
         assert_eq!(*committed.borrow(), "Undo me");
+    }
+
+    #[test]
+    fn input_type_combo_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in
+            [("LineEdit", true), ("TextEdit", false), ("TextInput", false), ("Text", false)]
+        {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Input Type"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
     }
 
     #[test]
