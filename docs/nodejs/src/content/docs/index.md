@@ -121,7 +121,7 @@ export component Demo inherits Window {
 
 This file declares the user interface.
 2. Create a new file called `deno.json` (a [Deno Import Map](https://docs.deno.com/runtime/manual/basics/import_maps))
-   with the following contents:
+with the following contents:
 
 ```json
 {
