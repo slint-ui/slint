@@ -11,4 +11,5 @@
   <Project Path="dnd-kanban/dotnet/DndKanban.csproj" />
   <Project Path="async-io/dotnet/AsyncIo.csproj" />
   <Project Path="system-tray/dotnet/SystemTray.csproj" />
+  <Project Path="../demos/energy-monitor/dotnet/EnergyMonitor.csproj" />
 </Solution>
