@@ -888,7 +888,6 @@ fn build(l: &mut Loader) {
         ///     image-rendering: pixelated;
         /// }
         /// ```
-        /// \default smooth
         in property <ImageRendering> image-rendering;
 
         @deprecated in property <angle> rotation-angle <=> transform-rotation;
@@ -896,14 +895,11 @@ fn build(l: &mut Loader) {
 
     item! { ClippedImage: ImageItem {
         /// The horizontal alignment of the image within the element.
-        /// \default center
         in property <ImageHorizontalAlignment> horizontal-alignment;
         /// The vertical alignment of the image within the element.
-        /// \default center
         in property <ImageVerticalAlignment> vertical-alignment;
         //! ## Image Tiling
         /// How the image is tiled horizontally.
-        /// \default none
         in property <ImageTiling> horizontal-tiling;
         /// ```slint imageAlt="image horizontal tiling repeat example" width="400" height="400"
         /// Image {
@@ -949,7 +945,6 @@ fn build(l: &mut Loader) {
         ///     horizontal-tiling: round;
         /// }
         /// ```
-        /// \default none
         in property <ImageTiling> vertical-tiling;
         // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
         // in property <ImageTiling> tiling;
@@ -2417,7 +2412,6 @@ fn build(l: &mut Loader) {
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
         /// The way the text input wraps. Only makes sense when `single-line` is false.
-        /// \default no-wrap
         in property <TextWrap> wrap;
         /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
         /// \default 0
@@ -2438,7 +2432,6 @@ fn build(l: &mut Loader) {
         /// \default provided at run-time by the selected widget style
         in property <length> text-cursor-width: computed; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
         ///  Use this to configure `TextInput` for editing special input, such as password fields.
-        /// \default text
         in property <InputType> input-type;
         /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
         /// The input method may take these hints into account, but might also ignore them.
@@ -3231,17 +3224,14 @@ fn build(l: &mut Loader) {
         /// The color for filling the shape of the path.
         in property <brush> fill;
         /// The fill rule to use for the path.
-        /// \default nonzero
         in property <FillRule> fill-rule;
         /// The color for drawing the outline of the path.
         in property <brush> stroke;
         /// The width of the outline.
         in property <length> stroke-width;
         /// The appearance of the ends of the path's outline.
-        /// \default butt
         in property <LineCap> stroke-line-cap;
         /// The appearance of the joins between segments of stroked paths.
-        /// \default miter
         in property <LineJoin> stroke-line-join;
         /// The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
         /// When the limit is exceeded, the join is rendered as a bevel instead.
@@ -3485,7 +3475,6 @@ fn build(l: &mut Loader) {
 
             @constexpr in property <bool> close-on-click;
             /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
-            /// \default close-on-click
 
             @constexpr in property <PopupClosePolicy> close-policy;
             /// Use this read-only property to style the element that opened the popup, for example
