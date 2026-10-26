@@ -26,7 +26,7 @@ If the edition is newer than your version of Slint, Slint refuses to compile you
 
 When you compile or load `.slint` files, the edition comes from the project file.
 The Rust `slint!` macro doesn't load a project file.
-Set its edition with an attribute at the start of the macro body:
+Set its edition with an attribute at the start of the macro body, or the macro warns:
 
 ```rust
 slint::slint! {

@@ -55,10 +55,18 @@ impl SlintEdition {
         let newer = Self::LATEST_BEHAVIOR_CHANGE;
         (self < newer).then(|| {
             format!(
-                "'{setting}' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at https://slint.dev/releases/{}/docs/slint/guide/language/concepts/editions/#behavior-changes",
-                env!("CARGO_PKG_VERSION")
+                "'{setting}' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at {}",
+                Self::behavior_changes_url()
             )
         })
+    }
+
+    /// The documentation of the behavior changes that depend on the edition.
+    pub fn behavior_changes_url() -> String {
+        format!(
+            "https://slint.dev/releases/{}/docs/slint/guide/language/concepts/editions/#behavior-changes",
+            env!("CARGO_PKG_VERSION")
+        )
     }
 
     /// Parses an edition that this Slint supports: one that isn't newer than [`Self::current()`].

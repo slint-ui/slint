@@ -349,7 +349,21 @@ fn extract_compiler_config(
             _ => break,
         }
     }
+    if compiler_config.edition.is_none() {
+        let span =
+            remaining_stream.clone().next().map_or_else(proc_macro::Span::call_site, |t| t.span());
+        edition_warning = missing_edition_warning(span);
+    }
     Ok((remaining_stream, edition_warning))
+}
+
+fn missing_edition_warning(span: proc_macro::Span) -> TokenStream {
+    let newer = project_file::SlintEdition::LATEST_BEHAVIOR_CHANGE;
+    let message = format!(
+        "'slint!' without '#[slint_edition]' misses the behavior changes up to {newer}: add '#[slint_edition = \"{newer}\"]' after reviewing {}",
+        project_file::SlintEdition::behavior_changes_url()
+    );
+    diagnostics::macro_warning(span.into(), &message)
 }
 
 fn behavior_change_warning(
@@ -416,7 +430,7 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// }
 /// ```
 ///
-/// Without it, the macro applies none of the behavior changes that depend on the edition.
+/// Without it, the macro applies none of the behavior changes that depend on the edition, and warns.
 /// The editor and the live preview don't read the attribute.
 ///
 /// ### Limitations
