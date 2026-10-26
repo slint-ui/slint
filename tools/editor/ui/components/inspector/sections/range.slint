@@ -12,7 +12,7 @@ export component InspectorRangeSection inherits InspectorSection {
         label: @tr("Value");
 
         InspectorEditableField {
-            accessible-name: @tr("Slider value");
+            accessible-name: @tr("Range value");
             value: Api.source-property-value("value", Api.source-property-value("minimum", "0"));
             commit-key: InspectorContext.field-key("value");
             accepted(text) => {
@@ -25,7 +25,7 @@ export component InspectorRangeSection inherits InspectorSection {
         label: @tr("Minimum");
 
         InspectorEditableField {
-            accessible-name: @tr("Slider minimum");
+            accessible-name: @tr("Range minimum");
             value: Api.source-property-value("minimum", "0");
             commit-key: InspectorContext.field-key("minimum");
             accepted(text) => {
@@ -38,7 +38,7 @@ export component InspectorRangeSection inherits InspectorSection {
         label: @tr("Maximum");
 
         InspectorEditableField {
-            accessible-name: @tr("Slider maximum");
+            accessible-name: @tr("Range maximum");
             value: Api.source-property-value("maximum", "100");
             commit-key: InspectorContext.field-key("maximum");
             accepted(text) => {

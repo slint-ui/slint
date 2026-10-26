@@ -17,71 +17,78 @@ from ui_driver import (
     select_outline_row,
 )
 
-SLIDER_SOURCE = "SliderCases.slint"
 FIELDS = {
-    "value": "Slider value",
-    "minimum": "Slider minimum",
-    "maximum": "Slider maximum",
+    "value": "Range value",
+    "minimum": "Range minimum",
+    "maximum": "Range maximum",
 }
+WIDGETS = pytest.mark.parametrize("widget", ("Slider", "SpinBox"))
 
 
-def select_slider(window: slint_testing.Window, row: str) -> None:
-    select_outline_row(window, row)
-    element(window, "Selected Slider", role=slint_testing.AccessibleRole.Region)
+def source_name(widget: str) -> str:
+    return f"{widget}Cases.slint"
 
 
+def select_widget(window: slint_testing.Window, widget: str, row: str) -> None:
+    select_outline_row(window, f"{row}-{widget.lower()}")
+    element(window, f"Selected {widget}", role=slint_testing.AccessibleRole.Region)
+
+
+@WIDGETS
 @pytest.mark.parametrize(
     ("row", "values"),
     [
-        ("default-slider", {"value": "0", "minimum": "0", "maximum": "100"}),
-        ("ranged-slider", {"value": "20", "minimum": "10", "maximum": "50"}),
+        ("default", {"value": "0", "minimum": "0", "maximum": "100"}),
+        ("ranged", {"value": "20", "minimum": "10", "maximum": "50"}),
     ],
     ids=("default", "ranged"),
 )
-def test_slider_range_fields_show_source_values(
+def test_range_fields_show_source_values(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    widget: str,
     row: str,
     values: dict[str, str],
 ) -> None:
-    source_file = fixture_project / SLIDER_SOURCE
+    source_file = fixture_project / source_name(widget)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        select_slider(window, row)
+        select_widget(window, widget, row)
         for name, value in values.items():
             wait_for_field(
                 window, FIELDS[name], value, slint_testing.AccessibleRole.TextInput
             )
 
 
+@WIDGETS
 @pytest.mark.parametrize(
     ("row", "name", "value", "old", "new"),
     [
         (
-            "default-slider",
+            "default",
             "value",
             "42",
             b"        y: 32px;\n        width: 200px;\n",
             b"        y: 32px;\n        value: 42;\n        width: 200px;\n",
         ),
         (
-            "ranged-slider",
+            "ranged",
             "value",
             "30",
             b"        value: 20;",
             b"        value: 30;",
         ),
         (
-            "ranged-slider",
+            "ranged",
             "minimum",
             "5",
             b"        minimum: 10;",
             b"        minimum: 5;",
         ),
         (
-            "ranged-slider",
+            "ranged",
             "maximum",
             "80",
             b"        maximum: 50;",
@@ -90,17 +97,19 @@ def test_slider_range_fields_show_source_values(
     ],
     ids=("add-value", "value", "minimum", "maximum"),
 )
-def test_slider_range_field_writes_exact_source(
+def test_range_field_writes_exact_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    widget: str,
     row: str,
     name: str,
     value: str,
     old: bytes,
     new: bytes,
 ) -> None:
-    source_file = fixture_project / SLIDER_SOURCE
+    source = source_name(widget)
+    source_file = fixture_project / source
     baseline = source_file.read_bytes()
     expected = replace_once(baseline, old, new)
     snapshot = SourceSnapshot.capture(fixture_project)
@@ -108,36 +117,38 @@ def test_slider_range_field_writes_exact_source(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         wait_for_source(source_file, baseline)
         window = first_window(editor)
-        select_slider(window, row)
+        select_widget(window, widget, row)
         edit_field(window, FIELDS[name], value, slint_testing.AccessibleRole.TextInput)
-        snapshot.wait_for_applied(expected, relative_path=SLIDER_SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=source)
         wait_for_field(
             window, FIELDS[name], value, slint_testing.AccessibleRole.TextInput
         )
         press_shortcut(window, keys.Control, "z")
-        snapshot.wait_for_applied(baseline, relative_path=SLIDER_SOURCE)
+        snapshot.wait_for_applied(baseline, relative_path=source)
         press_shortcut(window, keys.Control, keys.Shift, "z")
-        snapshot.wait_for_applied(expected, relative_path=SLIDER_SOURCE)
+        snapshot.wait_for_applied(expected, relative_path=source)
 
 
-def test_invalid_slider_value_does_not_change_source(
+@WIDGETS
+def test_invalid_range_value_does_not_change_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
+    widget: str,
 ) -> None:
-    source_file = fixture_project / SLIDER_SOURCE
+    source_file = fixture_project / source_name(widget)
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         window = first_window(editor)
-        select_slider(window, "ranged-slider")
+        select_widget(window, widget, "ranged")
         edit_field(
             window,
-            "Slider value",
+            FIELDS["value"],
             "unknown_identifier",
             slint_testing.AccessibleRole.TextInput,
         )
         snapshot.assert_unchanged()
         wait_for_field(
-            window, "Slider value", "20", slint_testing.AccessibleRole.TextInput
+            window, FIELDS["value"], "20", slint_testing.AccessibleRole.TextInput
         )
