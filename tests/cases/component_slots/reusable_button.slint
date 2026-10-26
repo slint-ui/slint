@@ -2,12 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Button } from "../../../tools/editor/controls/src/basic.slint";
-import {
-    ButtonBase,
-} from "../../../tools/editor/controls/src/headless.slint";
-import {
-    ButtonInterface,
-} from "std-widget-interfaces.slint";
+import { ButtonBase } from "../../../tools/editor/controls/src/headless.slint";
+import { ButtonInterface } from "std-widget-interfaces.slint";
 
 component CustomButton inherits ButtonBase {
     slot forwarded-background;
@@ -22,10 +18,14 @@ component CustomButton inherits ButtonBase {
 }
 
 component ButtonHost {
+    in property <string> text;
     slot <ButtonInterface> action;
     callback activated();
+    out property <bool> has-focus: action.has-focus;
+    out property <bool> pressed: action.pressed;
     action {
         enabled: true;
+        text: root.text;
         clicked => { root.activated(); }
     }
 }
@@ -34,7 +34,6 @@ export component TestCase inherits Window {
     width: 540px;
     height: 340px;
     in-out property <int> basic-clicks;
-    in-out property <int> basic-toggles;
     in-out property <string> basic-events;
     in-out property <int> template-clicks;
     in-out property <int> custom-clicks;
@@ -44,20 +43,19 @@ export component TestCase inherits Window {
     in-out property <int> headless-contract-clicks;
     in-out property <int> disabled-clicks;
     in-out property <bool> basic-enabled <=> basic.enabled;
-    in-out property <bool> basic-checked <=> basic.checked;
     out property <bool> basic-pressed: basic.pressed;
     out property <bool> basic-hovered: basic.hovered;
     out property <bool> basic-focused: basic.has-focus;
+    out property <bool> contract-focused: contract-host.has-focus;
+    out property <bool> contract-hovered: contract-button.hovered;
+    out property <bool> contract-pressed: contract-host.pressed;
     private property <int> probe-clicks;
-    private property <int> probe-toggles;
-    private property <int> disabled-toggles;
-    in-out property <int> template-toggles;
-    out property <bool> test: probe.checked && root.probe-clicks == 1 && root.probe-toggles == 1
-        && !disabled.checked && root.disabled-clicks == 0 && root.disabled-toggles == 0
-        && headless-action.checked && root.headless-contract-clicks == 1;
+    out property <bool> test: root.probe-clicks == 1 && root.disabled-clicks == 0
+        && root.headless-contract-clicks == 1 && headless-action.text == "Headless contract";
 
     public function focus-basic() { basic.focus(); }
     public function focus-other() { other-focus.focus(); }
+    public function focus-contract() { contract-button.focus(); }
     init => { probe.activate(); disabled.activate(); headless-action.activate(); }
 
     basic := Button {
@@ -66,11 +64,6 @@ export component TestCase inherits Window {
         width: 160px;
         height: 44px;
         text: "Basic";
-        checkable: true;
-        toggled(checked) => {
-            root.basic-toggles += 1;
-            root.basic-events += checked ? "toggled:true;" : "toggled:false;";
-        }
         clicked => {
             root.basic-clicks += 1;
             root.basic-events += "clicked;";
@@ -105,7 +98,6 @@ export component TestCase inherits Window {
             vertical-alignment: center;
         }
         clicked => { root.template-clicks += 1; }
-        toggled(checked) => { root.template-toggles += 1; }
     }
 
     disabled := Button {
@@ -115,9 +107,7 @@ export component TestCase inherits Window {
         height: 44px;
         text: "Disabled";
         enabled: false;
-        checkable: true;
         clicked => { root.disabled-clicks += 1; }
-        toggled(checked) => { root.disabled-toggles += 1; }
     }
 
     outer := ButtonBase {
@@ -149,26 +139,23 @@ export component TestCase inherits Window {
         height: 30px;
     }
 
-    ButtonHost {
+    contract-host := ButtonHost {
         x: 220px;
         y: 200px;
         width: 160px;
         height: 44px;
-        action << Button {
-            text: "Contract";
-        }
+        text: "Contract";
+        action << contract-button := Button { }
         activated => { root.contract-clicks += 1; }
     }
 
-    ButtonHost {
+    headless-host := ButtonHost {
         x: 440px;
         y: 270px;
         width: 80px;
         height: 44px;
-        action << headless-action := ButtonBase {
-            text: "Headless contract";
-            checkable: true;
-        }
+        text: "Headless contract";
+        action << headless-action := ButtonBase { }
         activated => { root.headless-contract-clicks += 1; }
     }
 
@@ -178,9 +165,7 @@ export component TestCase inherits Window {
         width: 160px;
         height: 44px;
         text: "Activation probe";
-        checkable: true;
         clicked => { root.probe-clicks += 1; }
-        toggled(checked) => { root.probe-toggles += 1; }
     }
 }
 
@@ -211,21 +196,11 @@ assert_eq!(instance.get_basic_clicks(), 0);
 key(Key::Space, false);
 assert!(!instance.get_basic_pressed());
 assert_eq!(instance.get_basic_clicks(), 1);
-assert!(instance.get_basic_checked());
-assert_eq!(instance.get_basic_toggles(), 1);
-assert_eq!(instance.get_basic_events(), "toggled:true;clicked;");
+assert_eq!(instance.get_basic_events(), "clicked;");
 key(Key::Return, true);
 key(Key::Return, false);
 assert_eq!(instance.get_basic_clicks(), 2);
-assert!(!instance.get_basic_checked());
-assert_eq!(instance.get_basic_toggles(), 2);
-assert_eq!(instance.get_basic_events(), "toggled:true;clicked;toggled:false;clicked;");
-instance.set_basic_checked(true);
-slint::platform::update_timers_and_animations();
-instance.set_basic_checked(false);
-slint::platform::update_timers_and_animations();
-assert_eq!(instance.get_basic_toggles(), 2);
-assert_eq!(instance.get_basic_clicks(), 2);
+assert_eq!(instance.get_basic_events(), "clicked;clicked;");
 
 key(Key::Space, true);
 key(Key::Escape, true);
@@ -253,14 +228,13 @@ assert_eq!(instance.get_basic_clicks(), 2);
 instance.set_basic_enabled(true);
 basic.invoke_accessible_default_action();
 assert_eq!(instance.get_basic_clicks(), 3);
-assert_eq!(basic.accessible_checked(), Some(true));
-assert_eq!(basic.accessible_checkable(), Some(true));
+assert_eq!(basic.accessible_checked(), Some(false));
+assert_eq!(basic.accessible_checkable(), Some(false));
 
 instance.invoke_focus_other();
 click(&basic);
 assert_eq!(instance.get_basic_clicks(), 4);
 assert!(!instance.get_basic_focused());
-assert!(!instance.get_basic_checked());
 let origin = basic.absolute_position();
 let size = basic.size();
 let inside = slint::LogicalPosition::new(origin.x + size.width / 2., origin.y + size.height / 2.);
@@ -281,7 +255,6 @@ instance.set_basic_enabled(true);
 assert!(!instance.get_basic_pressed());
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: inside, button: PointerEventButton::Left });
 assert_eq!(instance.get_basic_clicks(), 4);
-assert_eq!(instance.get_basic_toggles(), 4);
 
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: inside, button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: outside });
@@ -291,8 +264,6 @@ assert!(instance.get_basic_pressed());
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: inside, button: PointerEventButton::Left });
 assert!(!instance.get_basic_pressed());
 assert_eq!(instance.get_basic_clicks(), 5);
-assert_eq!(instance.get_basic_toggles(), 5);
-assert!(instance.get_basic_checked());
 
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: inside, button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerExited);
@@ -300,15 +271,23 @@ assert!(!instance.get_basic_pressed());
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: inside });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: inside, button: PointerEventButton::Left });
 assert_eq!(instance.get_basic_clicks(), 5);
-assert_eq!(instance.get_basic_toggles(), 5);
 
 click(&find("Template"));
 assert_eq!(instance.get_template_clicks(), 1);
-assert_eq!(instance.get_template_toggles(), 0);
 click(&find("Replaced default"));
 assert_eq!(instance.get_custom_clicks(), 1);
 click(&find("Contract"));
 assert_eq!(instance.get_contract_clicks(), 1);
+assert!(instance.get_contract_hovered());
+assert!(!instance.get_contract_pressed());
+instance.invoke_focus_contract();
+assert!(instance.get_contract_focused());
+key(Key::Space, true);
+assert!(instance.get_contract_pressed());
+assert_eq!(instance.get_contract_clicks(), 1);
+key(Key::Space, false);
+assert!(!instance.get_contract_pressed());
+assert_eq!(instance.get_contract_clicks(), 2);
 
 click(&find("Inner"));
 assert_eq!(instance.get_inner_clicks(), 1);

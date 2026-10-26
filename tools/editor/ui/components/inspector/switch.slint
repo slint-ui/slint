@@ -8,10 +8,10 @@ import { Diagnostics } from "../../diagnostics.slint";
 
 export component InspectorSwitch inherits SwitchBase {
     enabled: Diagnostics.preview-editable;
-    indicator-width: Metrics.control-medium;
-    indicator-height: Metrics.icon-medium;
-    spacing: 0px;
-    indicator << Rectangle {
+    width: Metrics.control-medium;
+    height: Metrics.icon-medium;
+
+    content << Rectangle {
         opacity: Diagnostics.preview-status-visible ? Metrics.disabled-opacity : 1;
         background: Style.inspector-slider.track;
         border-color: root.hovered || root.pressed
