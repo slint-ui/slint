@@ -1172,6 +1172,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// use slint::winit_030::{WinitWindowAccessor, winit};
     ///
     /// slint::slint!{
+    ///     #[slint_edition = "1.19"]
     ///     import { VerticalBox, Button } from "std-widgets.slint";
     ///     export component HelloWorld inherits Window {
     ///         callback clicked;
@@ -1450,6 +1451,7 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 #[cfg(test)]
 mod testui {
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             Text { text: "Ok"; }
         }

@@ -6,11 +6,13 @@ use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "sw-renderer")]
 slint::slint! {
+    #[slint_edition = "1.19"]
     export { MainWindow } from "../demo.slint";
 }
 
 #[cfg(not(feature = "sw-renderer"))]
 slint::slint! {
+    #[slint_edition = "1.19"]
     export { MainWindow } from "../demo.slint";
 }
 

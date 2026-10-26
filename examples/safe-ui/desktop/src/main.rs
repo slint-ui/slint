@@ -13,6 +13,7 @@ use std::thread::Thread;
 use platform::{DesktopPlatform, HEIGHT, Input, WIDTH};
 
 slint::slint! {
+    #[slint_edition = "1.19"]
     export component SimWindow inherits Window {
         in property <image> image <=> screen.source;
         preferred-width: 320px;
