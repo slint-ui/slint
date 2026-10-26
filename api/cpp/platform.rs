@@ -398,6 +398,8 @@ mod software_renderer {
         pub tiling_scale_y: f32,
         pub tiling_gap_x: u32,
         pub tiling_gap_y: u32,
+
+        pub smooth: bool,
     }
     #[cfg(feature = "experimental")]
     impl From<&i_slint_renderer_software::DrawTextureArgs> for DrawTextureArgs {
@@ -423,6 +425,7 @@ mod software_renderer {
                 tiling_scale_y: from.tiling.as_ref().map(|t| t.scale_y).unwrap_or_default(),
                 tiling_gap_x: from.tiling.as_ref().map(|t| t.gap_x).unwrap_or_default(),
                 tiling_gap_y: from.tiling.as_ref().map(|t| t.gap_y).unwrap_or_default(),
+                smooth: from.smooth,
             }
         }
     }
