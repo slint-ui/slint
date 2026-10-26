@@ -57,7 +57,7 @@ export global RecipeDefaults {
 
     out property <[Ingredient]> ingredients: [
         {
-            image: @image-url("images/ingredients/oil.png"),
+            image: @image-url("images/ingredients/oil.svg"),
             name: "light sesame oil",
             description: "",
             amount: 10,
@@ -65,7 +65,7 @@ export global RecipeDefaults {
             substitute: "groundnut oil"
         },
         {
-            image: @image-url("images/ingredients/onion.png"),
+            image: @image-url("images/ingredients/onion.svg"),
             name: "onions",
             description: "quartered",
             amount: 50,
@@ -73,7 +73,7 @@ export global RecipeDefaults {
             substitute: ""
         },
         {
-            image: @image-url("images/ingredients/carrots.png"),
+            image: @image-url("images/ingredients/carrots.svg"),
             name: "carrots",
             description: "cut in large pieces (4 cm)",
             amount: 75,
@@ -81,7 +81,7 @@ export global RecipeDefaults {
             substitute: ""
         },
         {
-            image: @image-url("images/ingredients/bacon.png"),
+            image: @image-url("images/ingredients/bacon.svg"),
             name: "bacon cubes",
             description: "",
             amount: 75,
@@ -89,7 +89,7 @@ export global RecipeDefaults {
             substitute: ""
         },
         {
-            image: @image-url("images/ingredients/soy.png"),
+            image: @image-url("images/ingredients/soy.svg"),
             name: "soy sauce",
             description: "",
             amount: 15,
@@ -221,13 +221,50 @@ export global RecipesAdapter {
             portions: 3,
             description: "A colorful bowl of rice, crisp vegetables, mango, and avocado. A sesame-lime dressing brings everything together.",
             ingredients: [
-                { name: "brown rice", description: "cooked", amount: 450, unit: "g" },
-                { name: "cucumber and carrots", description: "thinly sliced", amount: 300, unit: "g" },
-                { name: "mango", description: "peeled and diced", amount: 1, unit: "" },
-                { name: "avocado", description: "sliced", amount: 1, unit: "" },
-                { name: "edamame", description: "cooked and shelled", amount: 150, unit: "g" },
-                { name: "sesame oil", description: "for the dressing", amount: 2, unit: "tbsp" },
                 {
+                    image: @image-url("images/ingredients/rice.svg"),
+                    name: "brown rice",
+                    description: "cooked",
+                    amount: 450,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/cucumber.svg"),
+                    name: "cucumber and carrots",
+                    description: "thinly sliced",
+                    amount: 300,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/mango.svg"),
+                    name: "mango",
+                    description: "peeled and diced",
+                    amount: 1,
+                    unit: ""
+                },
+                {
+                    image: @image-url("images/ingredients/avocado.svg"),
+                    name: "avocado",
+                    description: "sliced",
+                    amount: 1,
+                    unit: ""
+                },
+                {
+                    image: @image-url("images/ingredients/beans.svg"),
+                    name: "edamame",
+                    description: "cooked and shelled",
+                    amount: 150,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/oil.svg"),
+                    name: "sesame oil",
+                    description: "for the dressing",
+                    amount: 2,
+                    unit: "tbsp"
+                },
+                {
+                    image: @image-url("images/ingredients/lime.svg"),
                     name: "lime juice and soy sauce",
                     description: "1 tablespoon of each",
                     amount: 2,
@@ -264,13 +301,50 @@ export global RecipesAdapter {
             portions: 3,
             description: "Springy noodles in a savory mushroom broth, topped with crisp pork belly, greens, and soft eggs. A warming bowl with plenty of texture.",
             ingredients: [
-                { name: "ramen noodles", description: "dried", amount: 240, unit: "g" },
-                { name: "pork belly", description: "cooked, sliced", amount: 300, unit: "g" },
-                { name: "mushrooms and bok choy", description: "sliced", amount: 300, unit: "g" },
-                { name: "eggs", description: "for the topping", amount: 3, unit: "" },
-                { name: "chicken stock", description: "for the broth", amount: 1200, unit: "ml" },
-                { name: "garlic and ginger", description: "peeled", amount: 30, unit: "g" },
                 {
+                    image: @image-url("images/ingredients/noodles.svg"),
+                    name: "ramen noodles",
+                    description: "dried",
+                    amount: 240,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/pork.svg"),
+                    name: "pork belly",
+                    description: "cooked, sliced",
+                    amount: 300,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/mushrooms.svg"),
+                    name: "mushrooms and bok choy",
+                    description: "sliced",
+                    amount: 300,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/egg.svg"),
+                    name: "eggs",
+                    description: "for the topping",
+                    amount: 3,
+                    unit: ""
+                },
+                {
+                    image: @image-url("images/ingredients/stock.svg"),
+                    name: "chicken stock",
+                    description: "for the broth",
+                    amount: 1200,
+                    unit: "ml"
+                },
+                {
+                    image: @image-url("images/ingredients/garlic.svg"),
+                    name: "garlic and ginger",
+                    description: "peeled",
+                    amount: 30,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/soy.svg"),
                     name: "soy sauce and sesame oil",
                     description: "2 tablespoons soy, 1 tablespoon oil",
                     amount: 3,
@@ -307,13 +381,55 @@ export global RecipesAdapter {
             portions: 3,
             description: "Golden oven fries with a creamy garlic dip. A quick soak and a hot baking tray give these potato wedges their crisp edges.",
             ingredients: [
-                { name: "potatoes", description: "scrubbed and cut into fries", amount: 900, unit: "g" },
-                { name: "olive oil", description: "for roasting", amount: 3, unit: "tbsp" },
-                { name: "smoked paprika", description: "for seasoning", amount: 1, unit: "tsp" },
-                { name: "fine salt", description: "plus more to taste", amount: 1, unit: "tsp" },
-                { name: "Greek yogurt", description: "for the dip", amount: 150, unit: "g" },
-                { name: "garlic", description: "small clove, peeled", amount: 1, unit: "" },
-                { name: "lemon juice", description: "for the dip", amount: 1, unit: "tbsp" }
+                {
+                    image: @image-url("images/ingredients/potato.svg"),
+                    name: "potatoes",
+                    description: "scrubbed and cut into fries",
+                    amount: 900,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/olive-oil.svg"),
+                    name: "olive oil",
+                    description: "for roasting",
+                    amount: 3,
+                    unit: "tbsp"
+                },
+                {
+                    image: @image-url("images/ingredients/paprika.svg"),
+                    name: "smoked paprika",
+                    description: "for seasoning",
+                    amount: 1,
+                    unit: "tsp"
+                },
+                {
+                    image: @image-url("images/ingredients/salt.svg"),
+                    name: "fine salt",
+                    description: "plus more to taste",
+                    amount: 1,
+                    unit: "tsp"
+                },
+                {
+                    image: @image-url("images/ingredients/yogurt.svg"),
+                    name: "Greek yogurt",
+                    description: "for the dip",
+                    amount: 150,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/garlic.svg"),
+                    name: "garlic",
+                    description: "small clove, peeled",
+                    amount: 1,
+                    unit: ""
+                },
+                {
+                    image: @image-url("images/ingredients/lemon.svg"),
+                    name: "lemon juice",
+                    description: "for the dip",
+                    amount: 1,
+                    unit: "tbsp"
+                }
             ],
             steps: [
                 "Heat the oven to 220 C with a large baking tray inside. Cut potatoes into even fries and soak in cold water for 10 minutes.",
@@ -345,13 +461,55 @@ export global RecipesAdapter {
             portions: 3,
             description: "Poached eggs on toasted muffins with wilted spinach, asparagus, and a silky lemon sauce. A relaxed brunch with a bright, buttery finish.",
             ingredients: [
-                { name: "English muffins", description: "split", amount: 3, unit: "" },
-                { name: "eggs", description: "for poaching", amount: 6, unit: "" },
-                { name: "spinach", description: "washed", amount: 180, unit: "g" },
-                { name: "asparagus", description: "woody ends trimmed", amount: 300, unit: "g" },
-                { name: "butter", description: "melted, for the sauce", amount: 120, unit: "g" },
-                { name: "egg yolks", description: "for the sauce", amount: 3, unit: "" },
-                { name: "lemon juice", description: "plus extra to taste", amount: 1, unit: "tbsp" }
+                {
+                    image: @image-url("images/ingredients/muffin.svg"),
+                    name: "English muffins",
+                    description: "split",
+                    amount: 3,
+                    unit: ""
+                },
+                {
+                    image: @image-url("images/ingredients/egg.svg"),
+                    name: "eggs",
+                    description: "for poaching",
+                    amount: 6,
+                    unit: ""
+                },
+                {
+                    image: @image-url("images/ingredients/spinach.svg"),
+                    name: "spinach",
+                    description: "washed",
+                    amount: 180,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/asparagus.svg"),
+                    name: "asparagus",
+                    description: "woody ends trimmed",
+                    amount: 300,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/butter.svg"),
+                    name: "butter",
+                    description: "melted, for the sauce",
+                    amount: 120,
+                    unit: "g"
+                },
+                {
+                    image: @image-url("images/ingredients/egg.svg"),
+                    name: "egg yolks",
+                    description: "for the sauce",
+                    amount: 3,
+                    unit: ""
+                },
+                {
+                    image: @image-url("images/ingredients/lemon.svg"),
+                    name: "lemon juice",
+                    description: "plus extra to taste",
+                    amount: 1,
+                    unit: "tbsp"
+                }
             ],
             steps: [
                 "Steam the asparagus until tender, about 4-5 minutes. Wilt the spinach in a pan and squeeze out excess liquid. Toast the muffin halves.",
