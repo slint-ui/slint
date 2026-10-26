@@ -5217,10 +5217,6 @@ fn compile_builtin_function_call(
                 #context.color_scheme(Some(&_root))
             })
         })(),
-        BuiltinFunction::ReducedMotion => (|| {
-            let global_access = &ctx.generator_state.global_access;
-            quote!(sp::reduced_motion(&#global_access.root_item_tree_weak))
-        })(),
         BuiltinFunction::SupportsNativeMenuBar => (|| {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar())
