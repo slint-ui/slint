@@ -11,7 +11,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use futures::FutureExt;
 use futures::future::OptionFuture;
 use ringbuf::HeapRb;
-use ringbuf::ring_buffer::{RbRef, RbWrite};
+use ringbuf::traits::{Consumer, Observer, Producer, Split};
 use std::future::Future;
 
 use super::ControlCommand;
@@ -132,10 +132,7 @@ trait FFMpegToCPalSampleForwarder {
     ) -> Pin<Box<dyn Future<Output = ()> + '_>>;
 }
 
-impl<T: Pod, R: RbRef> FFMpegToCPalSampleForwarder for ringbuf::Producer<T, R>
-where
-    <R as RbRef>::Rb: RbWrite<T>,
-{
+impl<T: Pod> FFMpegToCPalSampleForwarder for ringbuf::HeapProd<T> {
     fn forward(
         &mut self,
         audio_frame: ffmpeg_next::frame::Audio,
@@ -148,7 +145,7 @@ where
             let cpal_sample_data: &[T] =
                 bytemuck::cast_slice(&audio_frame.data(0)[..expected_bytes]);
 
-            while self.free_len() < cpal_sample_data.len() {
+            while self.vacant_len() < cpal_sample_data.len() {
                 smol::Timer::after(std::time::Duration::from_millis(16)).await;
             }
 
@@ -180,7 +177,7 @@ impl FFmpegToCPalForwarder {
 
         let cpal_stream = device
             .build_output_stream(
-                &config.config(),
+                config.config(),
                 move |data, _| {
                     let filled = sample_consumer.pop_slice(data);
                     data[filled..].fill(T::EQUILIBRIUM);
@@ -200,7 +197,7 @@ impl FFmpegToCPalForwarder {
             packet_decoder.rate(),
             output_format,
             output_channel_layout,
-            config.sample_rate().0,
+            config.sample_rate(),
         )
         .unwrap();
 
