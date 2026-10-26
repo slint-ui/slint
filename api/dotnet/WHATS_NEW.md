@@ -1,10 +1,11 @@
 # What's New in Slint for .NET
 
-## Unreleased
+## 1.19.0-preview.5
 
 - Use a `slint-project.json` with `<SlintProject Include="ui" />`.
   Your application then compiles with the project's edition and paths.
 - Changing a `.slint` file no longer makes every later build generate the C# code again.
+- The README links to the [Slint for .NET documentation](https://yurkinh.github.io/slint/).
 
 ## 1.19.0-preview.4
 
