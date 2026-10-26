@@ -660,11 +660,17 @@ pub fn generate(
             string_literal(&component.name),
             expected_api(&component.public_properties)
         );
+        let is_window = component.top_level_type == llr::TopLevelComponentType::Window;
         let _ = writeln!(types, "    public void Show() => Instance.Show();");
         let _ = writeln!(types, "    public void Hide() => Instance.Hide();");
-        let _ = writeln!(types, "    public void Run() => Instance.Run();");
+        if is_window {
+            let _ = writeln!(types, "    public void Run() => Instance.Run();");
+        }
         let _ = writeln!(types, "    public void Dispose() => Instance.Dispose();");
-        let _ = writeln!(types, "    public global::Slint.Window Window => Instance.Window;\n");
+        if is_window {
+            let _ = writeln!(types, "    public global::Slint.Window Window => Instance.Window;");
+        }
+        let _ = writeln!(types);
         for global in &globals {
             let class = ident(&global.name);
             let member = members.claim(class.clone());

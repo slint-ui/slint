@@ -100,6 +100,14 @@ pub unsafe extern "C" fn slint_dotnet_component_instance_hide(instance: &DotnetI
     guard_bool(|| instance.with(|i| i.hide()).map_err(|e| e.to_string()))
 }
 
+/// False for a component that inherits `SystemTrayIcon`, which has no window.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_component_instance_is_window(
+    instance: &DotnetInstance,
+) -> bool {
+    guard(false, || Ok(instance.with(|i| i.definition().is_window())))
+}
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_component_instance_run(instance: &DotnetInstance) -> bool {
     guard_bool(|| instance.run())

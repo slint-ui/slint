@@ -90,7 +90,10 @@ public sealed unsafe class ComponentInstance : IDisposable
     public static bool LiveReloadAvailable => EventLoop.BuildFeatures.Contains("live-preview");
 
     /// <summary>The window of the component.</summary>
-    public Window Window => field ??= new Window(_handle);
+    /// <exception cref="InvalidOperationException">The component inherits <c>SystemTrayIcon</c>, which has no window.</exception>
+    public Window Window => field ??= NativeMethods.slint_dotnet_component_instance_is_window(_handle)
+        ? new Window(_handle)
+        : throw new InvalidOperationException("The component inherits SystemTrayIcon, which has no window.");
 
     /// <summary>Whether the instance comes from <see cref="CreateLive"/>.</summary>
     public bool IsLive => _live != null;

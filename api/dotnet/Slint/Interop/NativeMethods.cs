@@ -297,6 +297,10 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_component_instance_is_window(ComponentInstanceHandle instance);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_component_instance_run(ComponentInstanceHandle instance);
 
     [LibraryImport(Library)]

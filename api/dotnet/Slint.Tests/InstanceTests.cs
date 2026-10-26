@@ -239,4 +239,17 @@ public sealed class InstanceTests
         Assert.AreEqual(-2, global::Slint.Generated.Conversion.FromSlint<int>(-2.7));
         Assert.AreEqual((byte)255, global::Slint.Generated.Conversion.FromSlint<byte>(300.0));
     }
+
+    [TestMethod]
+    public void TrayIconsHaveNoWindow() => SlintThread.Run(() =>
+    {
+        using var compiler = new Compiler();
+        using var result = compiler.BuildFromSource("export component Tray inherits SystemTrayIcon { }", "tray.slint");
+        Assert.IsFalse(result.HasErrors, string.Join("\n", result.Diagnostics));
+        using var definition = result.Component("Tray")!;
+        using var tray = definition.Create();
+        tray.Show();
+        tray.Hide();
+        Assert.ThrowsExactly<InvalidOperationException>(() => tray.Window);
+    });
 }
