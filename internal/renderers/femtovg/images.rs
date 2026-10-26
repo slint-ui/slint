@@ -99,7 +99,14 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
             "internal error: this can only fail if the filtered image was zero width or height",
         );
 
-        self.canvas.borrow_mut().filter_image(filtered_image.id, filter, self.id);
+        let mut canvas = self.canvas.borrow_mut();
+        // filter_image() clamps a Gaussian blur to the sigma of one shader pass (8); a chain runs
+        // larger blurs at a downsampled size instead. If the chain can't run (e.g. its scratch
+        // images don't fit the transient budget), the clamped single pass is better than nothing.
+        if canvas.filter_image_chain(filtered_image.id, &[filter], self.id).is_err() {
+            canvas.filter_image(filtered_image.id, filter, self.id);
+        }
+        drop(canvas);
 
         filtered_image
     }
