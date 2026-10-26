@@ -248,6 +248,8 @@ Done:
   Until the Slint project publishes them, a fork publishes community packages under its own IDs,
   such as `yurkinh.slint.net` and `yurkinh.slint.net.Compiler`.
   `api/dotnet/WHATS_NEW.md` lists what each preview added.
+- **7.** The proposal to upstream the bindings, in [discussion #3550](https://github.com/slint-ui/slint/discussions/3550).
+  The pull request itself is item 14.
 - **8.** API gaps compared to Python and Node.js:
   - a `Window` API, for size, position, scale factor, and close requests
   - typed `brush`, gradients, `LogicalPosition`, and `LogicalSize`
@@ -268,11 +270,6 @@ Done:
 
 Next:
 
-- **7.** Upstreaming: agree on it with the Slint maintainers, then squash the branch into a pull request,
-  with the official `Slint` package IDs and a `ChangeLog:` trailer.
-  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
-  A draft pull request can collect design feedback early.
-  The README links to `WHATS_NEW.md` on the fork, which the pull request points at `slint-ui/slint` instead.
 - **10.** A C# tab in the pages of the documentation website that have a Python tab, and in `live-preview.mdx`,
   once the bindings are part of a Slint release.
   The tutorial needs its C# code next to the other languages in `docs/astro/src/content/code/`.
@@ -285,6 +282,10 @@ Next:
 - **13.** More `csharp` blocks, for the cases that test input, animations, and models,
   ported from their `rust` or `js` blocks.
   Cases with pinch gestures or flickable physics first need those helpers in `Slint.Testing`.
+- **14.** The upstream pull request, once the maintainers agree in #3550:
+  squash the branch, with the official `Slint` package IDs and a `ChangeLog:` trailer.
+  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
+  The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
 
 ## Live Reload
 
