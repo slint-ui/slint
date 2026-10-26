@@ -248,6 +248,8 @@ A C# port of an example or demo lives in its `dotnet/` directory, like `examples
 - `<SlintFile>` or `<SlintProject>` points at the shared `.slint` files of the sample, which stay where they are.
 - `Main` is explicit and has `[STAThread]`, see [Threading and macOS](#threading-and-macos).
 - `examples/dotnet.slnx` lists every port, and CI builds it and checks its formatting on macOS, Linux, and Windows.
+- `tests/cases/7guis` links to `examples/7guis`, and the test drivers run every `.slint` file under it,
+  so the 7GUIs ports set `SlintCopyToOutput` to false, which keeps copies out of `bin`.
 - The README of the sample gets a C# column or section next to the other languages.
 
 ## Roadmap
@@ -318,8 +320,9 @@ Next:
   - Phase 2, done: the samples with logic only in Rust:
     `7guis`, `todo-mvc`, `gallery`, `usecases`, `runtime_key_bindings`, `analogclock`, `speedometer`, and `food-processor`.
     They needed `FilterModel.SourceRow` and `Reset`, for the CRUD of `7guis`, and `Keys.ToParts`, for `runtime_key_bindings`.
-  - Phase 3, after an `Image` from pixels or encoded bytes, like `ImageData` in Node.js:
-    `imagefilter`, `plotter`, and `maps`.
+  - Phase 3, done: `Image.FromRgba8`, `FromRgb8`, `LoadFromData`, and `ToRgba8`, like `ImageData` in Node.js,
+    and the ports of `imagefilter`, `plotter`, and `maps`.
+    The filters and the 3D plot are plain C#, without a library.
   - Phase 4, optional: `weather-demo`, `launcher`, and a C# viewer for the examples without logic,
     such as `layouts`, `dial`, and `fancy-switches`.
   - Not planned: samples for embedded platforms, GPU textures and rendering notifiers, and native media,
