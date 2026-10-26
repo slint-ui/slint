@@ -3,4 +3,6 @@
 <!-- The C# examples and demos, which CI builds together. -->
 <Solution>
   <Project Path="memory/dotnet/Memory.csproj" />
+  <Project Path="todo/dotnet/Todo.csproj" />
+  <Project Path="../demos/printerdemo/dotnet/PrinterDemo.csproj" />
 </Solution>
