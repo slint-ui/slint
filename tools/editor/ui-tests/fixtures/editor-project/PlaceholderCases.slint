@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit, TextEdit } from "std-widgets.slint";
+
+export component PlaceholderCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    hinted-line-edit := LineEdit {
+        x: 32px;
+        y: 32px;
+        width: 240px;
+        placeholder-text: "Name";
+    }
+
+    plain-text-edit := TextEdit {
+        x: 32px;
+        y: 96px;
+        width: 240px;
+        height: 120px;
+        placeholder-text: "dsfqsdfqsdfqsdf";
+    }
+}
