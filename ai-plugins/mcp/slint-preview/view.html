@@ -258,6 +258,7 @@
     return `${FILE_SCHEME}//${(posix.startsWith("/") ? posix : `/${posix}`).split("/").map(encodeURIComponent).join("/")}`;
   }
   function fromFileUrl(url) {
+    if (!url.startsWith(FILE_SCHEME)) return url;
     const path = decodeURIComponent(new URL(url).pathname);
     return /^\/[A-Za-z]:\//.test(path) ? path.slice(1) : path;
   }
@@ -336,9 +337,15 @@
       }
       url = toFileUrl(path);
       // The interpreter reports only a string rejection as the import error.
-      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
+      loadImport = async (file) => {
+        try {
+          return await readSlintFile(fromFileUrl(file));
+        } catch (e) {
+          throw String(e.message ?? e);
+        }
+      };
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
-      loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
+      loadResource = async (file) => (await readBinaryFile(fromFileUrl(file))).bytes;
     }
     const posixPath = path?.replaceAll("\\", "/");
     const baseDir = posixPath ? posixPath.slice(0, posixPath.lastIndexOf("/") + 1) : "";

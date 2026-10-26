@@ -21,7 +21,12 @@ assert.equal(
 );
 const testScript = importParts.join("importInterpreter()");
 
-function startView({ fetch, captureError, compile } = {}) {
+function startView({
+    fetch,
+    captureError,
+    compile,
+    callTool = () => ({}),
+} = {}) {
     let onMessage;
     let resolveCapture;
     const captured = new Promise((resolve) => {
@@ -83,7 +88,10 @@ function startView({ fetch, captureError, compile } = {}) {
                             data: {
                                 jsonrpc: "2.0",
                                 id: message.id,
-                                result: {},
+                                result:
+                                    message.method === "tools/call"
+                                        ? callTool(message.params)
+                                        : {},
                             },
                         }),
                     );
@@ -137,6 +145,7 @@ function startView({ fetch, captureError, compile } = {}) {
         },
         console,
         URL,
+        atob,
         WebAssembly,
         Event,
         setTimeout,
@@ -153,7 +162,7 @@ function startView({ fetch, captureError, compile } = {}) {
     return {
         captured,
         reported,
-        async preview() {
+        async preview(args = { source: "export component Preview {}" }) {
             await ready;
             onMessage({
                 source: window.parent,
@@ -161,7 +170,7 @@ function startView({ fetch, captureError, compile } = {}) {
                     jsonrpc: "2.0",
                     method: "ui/notifications/tool-input",
                     params: {
-                        arguments: { source: "export component Preview {}" },
+                        arguments: args,
                     },
                 },
             });
@@ -244,4 +253,103 @@ test("diagnostics use version metadata that arrives during compilation", {
         ),
     );
     assert.equal((await view.captured).runtime, "Slint 1.19.0 (snapshot)");
+});
+
+test("file callbacks accept native paths and preview URLs", {
+    timeout: 3000,
+}, async () => {
+    const imports = [
+        ["/tmp/my demo/helper.slint", "/tmp/my demo/helper.slint"],
+        ["C:\\demo\\helper.slint", "C:\\demo\\helper.slint"],
+        [
+            "slint-file:///tmp/my%20demo/helper.slint",
+            "/tmp/my demo/helper.slint",
+        ],
+        ["slint-file:///C:/demo/helper.slint", "C:/demo/helper.slint"],
+    ];
+    const textPaths = [];
+    const binaryPaths = [];
+    const view = startView({
+        callTool({ name, arguments: args }) {
+            if (name === "read_slint_file") {
+                textPaths.push(args.path);
+                return { content: [{ type: "text", text: "loaded source" }] };
+            }
+            if (name === "read_binary_file") {
+                binaryPaths.push(args.path);
+                return {
+                    content: [
+                        { type: "resource", resource: { blob: "Zm9udA==" } },
+                    ],
+                };
+            }
+            return {};
+        },
+        compile: async (_source, _base, loadImport, loadResource) => {
+            for (const [path] of imports) {
+                assert.equal(await loadImport(path), "loaded source");
+            }
+            for (const path of [
+                "/tmp/my font.ttf",
+                "slint-file:///tmp/my%20font.ttf",
+            ]) {
+                assert.deepEqual(
+                    Array.from(await loadResource(path)),
+                    [102, 111, 110, 116],
+                );
+            }
+            return {
+                component: { create: async () => ({ show: async () => {} }) },
+                diagnostics: [],
+            };
+        },
+    });
+    await view.preview({ path: "/tmp/main.slint" });
+    const capture = await view.captured;
+    assert.equal(capture.error, undefined, capture.error);
+    assert.equal(capture.png, "cGl4ZWxz");
+    assert.deepEqual(textPaths, [
+        "/tmp/main.slint",
+        ...imports.map(([, path]) => path),
+    ]);
+    assert.deepEqual(binaryPaths, ["/tmp/my font.ttf", "/tmp/my font.ttf"]);
+});
+
+test("file callback failures reject promises instead of throwing synchronously", {
+    timeout: 3000,
+}, async () => {
+    const view = startView({
+        callTool({ name, arguments: args }) {
+            if (name === "read_slint_file" && args.path === "/tmp/main.slint") {
+                return { content: [{ type: "text", text: "source" }] };
+            }
+            return {
+                isError: true,
+                content: [{ type: "text", text: "missing file" }],
+            };
+        },
+        compile: async (_source, _base, loadImport, loadResource) => {
+            for (const loader of [loadImport, loadResource]) {
+                let promise;
+                assert.doesNotThrow(() => {
+                    promise = loader("slint-file://[");
+                });
+                await assert.rejects(promise, (error) =>
+                    String(error).includes("Invalid URL"),
+                );
+            }
+            await assert.rejects(
+                loadImport("/tmp/missing.slint"),
+                (error) => error === "missing file",
+            );
+            return {
+                component: { create: async () => ({ show: async () => {} }) },
+                diagnostics: [],
+            };
+        },
+    });
+    await view.preview({ path: "/tmp/main.slint" });
+    const capture = await view.captured;
+    assert.equal(capture.error, undefined, capture.error);
+    assert.equal(capture.png, "cGl4ZWxz");
 });
