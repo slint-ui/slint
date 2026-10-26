@@ -165,6 +165,13 @@ export global Hover {
     out property <[SelectionRectangle]> geometry: tree-source-uri != ""
         ? Api.highlight-positions(tree-source-uri, tree-offset) : element.geometry;
     pure callback element-at(x: length, y: length, enter-component: bool) -> HoveredElement;
+    /// Called with an empty `source-uri` when nothing is hovered anymore.
+    callback hovered-changed(source-uri: string, offset: int);
+
+    private property <{ source-uri: string, offset: int }> hovered: tree-source-uri != ""
+        ? { source-uri: tree-source-uri, offset: tree-offset }
+        : element.valid ? { source-uri: element.source-uri, offset: element.element-offset } : { source-uri: "", offset: -1 };
+    changed hovered => { root.hovered-changed(self.hovered.source-uri, self.hovered.offset); }
 }
 
 /// A `Selection`

@@ -106,10 +106,6 @@ pub fn initialize(
     editor_ui.on_inspector_pane_reset(reset_pane(PaneSize::InspectorWidth));
     editor_ui.on_elements_pane_reset(reset_pane(PaneSize::ElementsHeight));
     editor_ui.on_outline_pane_reset(reset_pane(PaneSize::OutlineHeight));
-    editor_ui.on_quit_requested(|| {
-        #[cfg(not(target_arch = "wasm32"))]
-        let _ = slint::quit_event_loop();
-    });
 
     to_lsp
         .send_telemetry(&mut [(
@@ -2367,6 +2363,19 @@ fn notify_restored_selection() {
     if let Some(url) = path {
         lsp.ask_editor_to_show_document(url, lsp_types::Range::new(position, position), false).ok();
     }
+}
+
+/// Highlights the hovered element in the run preview, or the selected one once nothing is hovered.
+fn hovered_element_changed(source_uri: SharedString, offset: i32) {
+    let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone());
+    let Some(lsp) = lsp else { return };
+    let (url, offset) = if source_uri.is_empty() {
+        selected_element()
+            .map_or((None, 0), |selection| (selection.path.to_url(), selection.offset.into()))
+    } else {
+        (Url::parse(&source_uri).ok(), u32::try_from(offset).unwrap_or_default())
+    };
+    lsp.send(&PreviewToLspMessage::HighlightInRunPreview { url, offset }).ok();
 }
 
 pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior) {
