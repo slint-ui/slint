@@ -3,6 +3,7 @@
 
 // ROTATION_THRESHOLD=442  - a rotated hard stop can land one pixel off, which swaps its two colors there
 // SKIP_WARP  - WARP, the D3D12 software adapter on Windows CI, renders this case up to 19.2 off
+// SKIP_LLVMPIPE  - llvmpipe, Mesa's Vulkan software adapter on Linux CI, renders it up to 19.2 off too
 
 export component TestCase inherits Window {
     width: 64px;

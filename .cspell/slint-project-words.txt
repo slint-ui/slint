@@ -399,6 +399,7 @@ lipo
 Literata
 Llff
 llms
+llvmpipe
 Lmaterial
 LOADADDR
 LOWORD
