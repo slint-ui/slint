@@ -24,4 +24,5 @@
   <Project Path="../demos/analogclock/dotnet/AnalogClock.csproj" />
   <Project Path="speedometer/dotnet/Speedometer.csproj" />
   <Project Path="../demos/food-processor/dotnet/FoodProcessor.csproj" />
+  <Project Path="imagefilter/dotnet/ImageFilter.csproj" />
 </Solution>
