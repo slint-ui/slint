@@ -1187,7 +1187,7 @@ mod test_apply_reversed_edit {
 
 #[test]
 fn raw_source_edits_can_be_applied_reversed_and_redone() {
-    let path = SourcePath::new("/test/slint-project.json");
+    let path = crate::test::test_file_name("slint-project.json");
     let url = path.to_url().unwrap();
     for original in [
         "{\r\n  \"main\": \"🦊.slint\", /* keep */ \"metadata\": {\"visual-editor\":{\"old\":\"🦊\"}}\r\n}",

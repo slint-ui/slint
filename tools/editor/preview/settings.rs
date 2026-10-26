@@ -65,12 +65,12 @@ impl VisualEditorSettings {
     pub(crate) fn selected_canvas_preset(&self, root: &Path) -> i32 {
         self.recent_projects
             .iter()
-            .find(|recent| recent.root == root)
+            .find(|recent| recent.has_root(root))
             .map_or(0, |project| project.selected_canvas_preset.max(0))
     }
 
     pub(crate) fn set_selected_canvas_preset(&mut self, root: &Path, index: i32) -> bool {
-        let Some(project) = self.recent_projects.iter_mut().find(|recent| recent.root == root)
+        let Some(project) = self.recent_projects.iter_mut().find(|recent| recent.has_root(root))
         else {
             return false;
         };
@@ -141,6 +141,13 @@ impl Project {
         let root =
             project_root.unwrap_or(path.parent().ok_or("Project input has no parent directory")?);
         Self::from_root(root, &path, component)
+    }
+
+    fn has_root(&self, root: &Path) -> bool {
+        self.root == root
+            || Url::from_directory_path(root)
+                .ok()
+                .is_some_and(|url| Url::from_directory_path(&self.root).ok().as_ref() == Some(&url))
     }
 
     pub(crate) fn from_root(
@@ -378,6 +385,24 @@ mod tests {
         );
         assert!(settings.clear_recent_projects());
         assert_eq!(settings.selected_canvas_preset(root), 0);
+    }
+
+    #[test]
+    fn canvas_selection_accepts_url_normalized_project_roots() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("main.slint");
+        std::fs::write(&path, "export component Main {}").unwrap();
+        let project = Project::from_root(directory.path(), &path, None).unwrap();
+        let canonical_root = project.root.clone();
+        let normalized_root =
+            Url::from_directory_path(&canonical_root).unwrap().to_file_path().unwrap();
+        let mut settings = VisualEditorSettings::default();
+        settings.add_recent_project(project);
+        assert!(settings.set_selected_canvas_preset(&normalized_root, 1));
+        for root in [&canonical_root, &normalized_root] {
+            assert_eq!(settings.selected_canvas_preset(root), 1);
+        }
+        assert!(!settings.set_selected_canvas_preset(&normalized_root, 1));
     }
 
     #[test]

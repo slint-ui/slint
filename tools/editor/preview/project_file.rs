@@ -472,7 +472,7 @@ pub(super) fn workspace_edit_finished(edit: &lsp_types::WorkspaceEdit, applied: 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use i_slint_compiler::{diagnostics::SourceFileInner, source_path::SourcePath};
+    use i_slint_compiler::diagnostics::SourceFileInner;
 
     fn project_editor(root: &std::path::Path) -> ui::EditorUi {
         let editor = crate::preview::tests::availability_test_editor();
@@ -883,7 +883,7 @@ mod tests {
                 }
                 for format in [ByteFormat::Utf8, ByteFormat::Utf16] {
                     let source_file = std::sync::Arc::new(SourceFileInner::new(
-                        SourcePath::new("/test/slint-project.json"),
+                        i_slint_editor_preview::test::test_file_name("slint-project.json"),
                         source.clone(),
                     ));
                     let edit =
@@ -958,7 +958,7 @@ mod tests {
             r#"{"metadata":{"visual-editor":{},"visual-editor":{}}}"#,
         ] {
             let source_file = std::sync::Arc::new(SourceFileInner::new(
-                SourcePath::new("/test/slint-project.json"),
+                i_slint_editor_preview::test::test_file_name("slint-project.json"),
                 source.into(),
             ));
             assert!(
@@ -967,7 +967,7 @@ mod tests {
             );
         }
         let source_file = std::sync::Arc::new(SourceFileInner::new(
-            SourcePath::new("/test/slint-project.json"),
+            i_slint_editor_preview::test::test_file_name("slint-project.json"),
             "{}".into(),
         ));
         for preset in
