@@ -1,0 +1,6 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- The C# examples and demos, which CI builds together. -->
+<Solution>
+  <Project Path="memory/dotnet/Memory.csproj" />
+</Solution>

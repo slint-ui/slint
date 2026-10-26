@@ -45,7 +45,9 @@ jobs:
             - name: Run the .NET tests
               working-directory: api/dotnet
               run: dotnet test --project Slint.Tests
-            - name: Build the example
-              run: dotnet build examples/memory/dotnet
+            - name: Build the examples
+              run: dotnet build examples/dotnet.slnx
+            - name: Check the formatting of the examples
+              run: dotnet format examples/dotnet.slnx --verify-no-changes
             - name: Run the .NET test driver
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-dotnet

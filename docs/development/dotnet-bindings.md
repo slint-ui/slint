@@ -239,6 +239,17 @@ At run time, `SLINT_DOTNET_NATIVE_LIBRARY` overrides the library path.
 and the workflows install exactly that version.
 The day a new SDK appears in the release list, its download can still fail, which broke every .NET job once.
 
+## Samples
+
+A C# port of an example or demo lives in its `dotnet/` directory, like `examples/memory/dotnet`:
+
+- The project references `api/dotnet/Slint/Slint.csproj` and imports `Slint.targets`,
+  with a comment on the `PackageReference` to use outside the repository.
+- `<SlintFile>` or `<SlintProject>` points at the shared `.slint` files of the sample, which stay where they are.
+- `Main` is explicit and has `[STAThread]`, see [Threading and macOS](#threading-and-macos).
+- `examples/dotnet.slnx` lists every port, and CI builds it and checks its formatting on macOS, Linux, and Windows.
+- The README of the sample gets a C# column or section next to the other languages.
+
 ## Roadmap
 
 The numbers stay stable, so that commits and discussions can refer to them.
@@ -296,6 +307,20 @@ Next:
   squash the branch, with the official `Slint` package IDs and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
+- **15.** Port the examples and demos to C#, see [Samples](#samples), in phases:
+  - Phase 0, done: the conventions, `examples/dotnet.slnx` in CI,
+    and tray icon components without `Window` and `Run`, for `system-tray`.
+  - Phase 1, the ports of samples with Python or JavaScript logic to follow:
+    `todo`, `printerdemo`, `carousel`, `virtual_keyboard`, `home-automation`, `dnd-kanban`,
+    `async-io`, `energy-monitor`, `slide_puzzle`, and `system-tray`.
+  - Phase 2, the samples with logic only in Rust:
+    `7guis`, `todo-mvc`, `gallery`, `usecases`, `runtime_key_bindings`, `analogclock`, `speedometer`, and `food-processor`.
+  - Phase 3, after an `Image` from pixels or encoded bytes, like `ImageData` in Node.js:
+    `imagefilter`, `plotter`, and `maps`.
+  - Phase 4, optional: `weather-demo`, `launcher`, and a C# viewer for the examples without logic,
+    such as `layouts`, `dial`, and `fancy-switches`.
+  - Not planned: samples for embedded platforms, GPU textures and rendering notifiers, and native media,
+    such as `mcu-*`, `uefi-demo`, `opengl_*`, `wgpu_texture`, `bevy`, `vtk`, `ffmpeg`, `gstreamer-player`, and `servo`.
 
 ## Live Reload
 
