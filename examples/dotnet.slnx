@@ -9,4 +9,5 @@
   <Project Path="virtual_keyboard/dotnet/VirtualKeyboard.csproj" />
   <Project Path="../demos/home-automation/dotnet/HomeAutomation.csproj" />
   <Project Path="dnd-kanban/dotnet/DndKanban.csproj" />
+  <Project Path="async-io/dotnet/AsyncIo.csproj" />
 </Solution>
