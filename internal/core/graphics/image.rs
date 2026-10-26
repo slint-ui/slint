@@ -7,11 +7,14 @@ This module contains image decoding and caching related types for the run-time l
 */
 
 use crate::lengths::{LogicalSize, PhysicalPx, ScaleFactor};
+#[allow(unused)]
 use crate::slice::Slice;
 #[allow(unused)]
 use crate::{SharedString, SharedVector};
 
-use super::{IntRect, IntSize};
+#[cfg(feature = "image-owned-textures")]
+use super::OwnedStorage;
+use super::{IntRect, IntSize, StaticStorage};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -294,17 +297,6 @@ fn map_pixels<Source: Clone, Dest: Clone + From<Source>>(
     }
 }
 
-/// A pixel of an alpha map of `color`, with its alpha premultiplied.
-fn premultiplied_alpha_map_pixel(alpha: u8, color: crate::graphics::RgbaColor<u8>) -> Rgba8Pixel {
-    let a = alpha as u32 * color.alpha as u32;
-    Rgba8Pixel {
-        r: (color.red as u32 * a / (255 * 255)) as u8,
-        g: (color.green as u32 * a / (255 * 255)) as u8,
-        b: (color.blue as u32 * a / (255 * 255)) as u8,
-        a: (a / 255) as u8,
-    }
-}
-
 /// SharedImageBuffer is a container for images that are stored in CPU accessible memory.
 ///
 /// The SharedImageBuffer's variants represent the different common formats for encoding
@@ -338,13 +330,6 @@ pub enum SharedImageBuffer {
     /// This variant is only available with the `image-pixel-format-gray8` feature.
     #[cfg(feature = "image-pixel-format-gray8")]
     Gray8(SharedPixelBuffer<Gray8Pixel>),
-    /// This variant holds an alpha map: each pixel is the opacity of `color`, encoded as
-    /// unsigned byte.
-    ///
-    /// This variant is only available with the internal `image-pixel-format-alpha-map` feature.
-    #[doc(hidden)]
-    #[cfg(feature = "image-pixel-format-alpha-map")]
-    AlphaMap { alpha: SharedPixelBuffer<u8>, color: crate::Color },
 }
 
 impl SharedImageBuffer {
@@ -371,8 +356,6 @@ impl SharedImageBuffer {
             Self::RGB565(buffer) => buffer.size(),
             #[cfg(feature = "image-pixel-format-gray8")]
             Self::Gray8(buffer) => buffer.size(),
-            #[cfg(feature = "image-pixel-format-alpha-map")]
-            Self::AlphaMap { alpha, .. } => alpha.size(),
         }
     }
 }
@@ -397,87 +380,68 @@ impl PartialEq for SharedImageBuffer {
             Self::Gray8(lhs_buffer) => {
                 matches!(other, Self::Gray8(rhs_buffer) if lhs_buffer.data.as_ptr().eq(&rhs_buffer.data.as_ptr()))
             }
-            #[cfg(feature = "image-pixel-format-alpha-map")]
-            Self::AlphaMap { alpha: lhs_alpha, color: lhs_color } => {
-                matches!(other, Self::AlphaMap { alpha: rhs_alpha, color: rhs_color } if lhs_alpha.data.as_ptr().eq(&rhs_alpha.data.as_ptr()) && lhs_color == rhs_color)
+        }
+    }
+}
+
+pub use i_slint_common::pre_rendered::{StaticTexture, TexturePixelFormat};
+
+/// cbindgen:ignore
+pub type StaticTextures<S = StaticStorage> = i_slint_common::pre_rendered::StaticTextures<S>;
+
+/// The pixels of the image that `textures` cover, in a buffer of `size`.
+fn textures_to_buffer(size: IntSize, data: &[u8], textures: &[StaticTexture]) -> SharedImageBuffer {
+    fn fill<const N: usize>(
+        target: &mut [Rgba8Pixel],
+        source: &[u8],
+        pixel: impl Fn(&[u8; N]) -> Rgba8Pixel,
+    ) {
+        for (target, p) in target.iter_mut().zip(source.as_chunks::<N>().0) {
+            *target = pixel(p);
+        }
+    }
+    let mut buffer = SharedPixelBuffer::<Rgba8Pixel>::new(size.width, size.height);
+    let stride = buffer.width() as usize;
+    let slice = buffer.make_mut_slice();
+    for t in textures {
+        let rect = t.rect.to_usize();
+        for y in 0..rect.height() {
+            let slice = &mut slice[(rect.min_y() + y) * stride..][rect.x_range()];
+            let source = &data[t.index + y * rect.width() * t.format.bpp()..];
+            match t.format {
+                TexturePixelFormat::Rgb => {
+                    fill(slice, source, |p: &[u8; 3]| Rgba8Pixel::new(p[0], p[1], p[2], 255))
+                }
+                TexturePixelFormat::RgbaPremultiplied => {
+                    fill(slice, source, |p: &[u8; 4]| Rgba8Pixel::new(p[0], p[1], p[2], p[3]))
+                }
+                TexturePixelFormat::Rgba => fill(slice, source, |p: &[u8; 4]| {
+                    let pm = |c: u8| (c as u16 * p[3] as u16 / 255) as u8;
+                    Rgba8Pixel::new(pm(p[0]), pm(p[1]), pm(p[2]), p[3])
+                }),
+                TexturePixelFormat::AlphaMap => {
+                    let [a, r, g, b] = t.color.to_be_bytes().map(u32::from);
+                    fill(slice, source, |p: &[u8; 1]| {
+                        let a = p[0] as u32 * a;
+                        let pm = |c: u32| (c * a / (255 * 255)) as u8;
+                        Rgba8Pixel::new(pm(r), pm(g), pm(b), (a / 255) as u8)
+                    })
+                }
+                #[cfg(feature = "image-pixel-format-gray8")]
+                TexturePixelFormat::Gray8 => {
+                    fill(slice, source, |p: &[u8; 1]| Gray8Pixel(p[0]).into())
+                }
+                TexturePixelFormat::SignedDistanceField => {
+                    todo!("converting from a signed distance field to an image")
+                }
+                #[cfg(feature = "image-pixel-format-rgb565")]
+                TexturePixelFormat::Rgb565 => {
+                    fill(slice, source, |p: &[u8; 2]| Rgb565Pixel(u16::from_ne_bytes(*p)).into())
+                }
             }
         }
     }
-}
-
-#[repr(u8)]
-#[derive(Clone, PartialEq, Debug, Copy)]
-/// The pixel format used for textures.
-pub enum TexturePixelFormat {
-    /// red, green, blue. 24bits.
-    Rgb,
-    /// Red, green, blue, alpha. 32bits.
-    Rgba,
-    /// Red, green, blue, alpha. 32bits. The color are premultiplied by alpha
-    RgbaPremultiplied,
-    /// Alpha map. 8bits. Each pixel is an alpha value. The color is specified separately.
-    AlphaMap,
-    /// Distance field. 8bit interpreted as i8.
-    /// The range is such that i8::MIN corresponds to 3 pixels outside of the shape,
-    /// and i8::MAX corresponds to 3 pixels inside the shape.
-    /// The array must be width * height +1 bytes long. (the extra bit is read but never used)
-    SignedDistanceField,
-    /// Grayscale. 8bits. Each pixel is a luminance value rendered as (v, v, v, 255).
-    ///
-    /// This variant is only available with the `image-pixel-format-gray8` feature.
-    #[cfg(feature = "image-pixel-format-gray8")]
-    Gray8,
-    /// 16 bits per pixel: 5 red bits, 6 green bits, and 5 blue bits, in native byte order.
-    ///
-    /// This variant is only available with the `image-pixel-format-rgb565` feature.
-    #[cfg(feature = "image-pixel-format-rgb565")]
-    Rgb565,
-}
-
-impl TexturePixelFormat {
-    /// The number of bytes in a pixel
-    pub fn bpp(self) -> usize {
-        match self {
-            TexturePixelFormat::Rgb => 3,
-            TexturePixelFormat::Rgba => 4,
-            TexturePixelFormat::RgbaPremultiplied => 4,
-            TexturePixelFormat::AlphaMap => 1,
-            TexturePixelFormat::SignedDistanceField => 1,
-            #[cfg(feature = "image-pixel-format-gray8")]
-            TexturePixelFormat::Gray8 => 1,
-            #[cfg(feature = "image-pixel-format-rgb565")]
-            TexturePixelFormat::Rgb565 => 2,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Clone, PartialEq, Debug)]
-/// Some raw pixel data which is typically stored in the binary
-pub struct StaticTexture {
-    /// The position and size of the texture within the image
-    pub rect: IntRect,
-    /// The pixel format of this texture
-    pub format: TexturePixelFormat,
-    /// The color, for the alpha map ones
-    pub color: crate::Color,
-    /// index in the data array
-    pub index: usize,
-}
-
-/// A texture is stored in read-only memory and may be composed of sub-textures.
-#[repr(C)]
-#[derive(Clone, PartialEq, Debug)]
-pub struct StaticTextures {
-    /// The total size of the image (this might not be the size of the full image
-    /// as some transparent part are not part of any texture)
-    pub size: IntSize,
-    /// The size of the image before the compiler applied any scaling
-    pub original_size: IntSize,
-    /// The pixel data referenced by the textures
-    pub data: Slice<'static, u8>,
-    /// The list of textures
-    pub textures: Slice<'static, StaticTexture>,
+    SharedImageBuffer::RGBA8Premultiplied(buffer)
 }
 
 /// A struct that provides a path as a string as well as the last modification
@@ -544,6 +508,8 @@ impl ImageCacheKey {
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(..) => return None,
             ImageInner::AnimatedImage(animated) => vtable::VRc::borrow(animated).cache_key(),
+            #[cfg(feature = "image-owned-textures")]
+            ImageInner::OwnedTextures(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
     }
@@ -623,7 +589,6 @@ pub enum ImageInner {
     } = 1,
     #[cfg(feature = "svg")]
     Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>) = 2,
-    StaticTextures(&'static StaticTextures) = 3,
     #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>) = 4,
     BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
@@ -633,6 +598,9 @@ pub enum ImageInner {
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     WGPUTexture(vtable::VRc<OpaqueImageVTable, WGPUTexture>) = 8,
     AnimatedImage(vtable::VRc<OpaqueImageVTable, AnimatedImage>) = 9,
+    #[cfg(feature = "image-owned-textures")]
+    OwnedTextures(alloc::rc::Rc<StaticTextures<OwnedStorage>>) = 10,
+    StaticTextures(&'static StaticTextures<StaticStorage>) = 11,
 }
 
 #[cfg(any(
@@ -716,75 +684,11 @@ impl ImageInner {
                 }
             },
             ImageInner::StaticTextures(ts) => {
-                let mut buffer =
-                    SharedPixelBuffer::<Rgba8Pixel>::new(ts.size.width, ts.size.height);
-                let stride = buffer.width() as usize;
-                let slice = buffer.make_mut_slice();
-                for t in ts.textures.iter() {
-                    let rect = t.rect.to_usize();
-                    for y in 0..rect.height() {
-                        let slice = &mut slice[(rect.min_y() + y) * stride..][rect.x_range()];
-                        let source = &ts.data[t.index + y * rect.width() * t.format.bpp()..];
-                        match t.format {
-                            TexturePixelFormat::Rgb => {
-                                let mut iter = source
-                                    .as_chunks::<3>()
-                                    .0
-                                    .iter()
-                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: 255 });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::RgbaPremultiplied => {
-                                let mut iter = source
-                                    .as_chunks::<4>()
-                                    .0
-                                    .iter()
-                                    .map(|p| Rgba8Pixel { r: p[0], g: p[1], b: p[2], a: p[3] });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::Rgba => {
-                                let mut iter = source.as_chunks::<4>().0.iter().map(|p| {
-                                    let a = p[3];
-                                    Rgba8Pixel {
-                                        r: (p[0] as u16 * a as u16 / 255) as u8,
-                                        g: (p[1] as u16 * a as u16 / 255) as u8,
-                                        b: (p[2] as u16 * a as u16 / 255) as u8,
-                                        a,
-                                    }
-                                });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::AlphaMap => {
-                                let col = t.color.to_argb_u8();
-                                let mut iter =
-                                    source.iter().map(|p| premultiplied_alpha_map_pixel(*p, col));
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            #[cfg(feature = "image-pixel-format-gray8")]
-                            TexturePixelFormat::Gray8 => {
-                                let mut iter = source.iter().map(|v| Rgba8Pixel {
-                                    r: *v,
-                                    g: *v,
-                                    b: *v,
-                                    a: 255,
-                                });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                            TexturePixelFormat::SignedDistanceField => {
-                                todo!("converting from a signed distance field to an image")
-                            }
-                            #[cfg(feature = "image-pixel-format-rgb565")]
-                            TexturePixelFormat::Rgb565 => {
-                                let mut iter = source.as_chunks::<2>().0.iter().map(|chunk| {
-                                    let p = Rgb565Pixel(u16::from_ne_bytes(*chunk));
-                                    Rgba8Pixel { r: p.red(), g: p.green(), b: p.blue(), a: 255 }
-                                });
-                                slice.fill_with(|| iter.next().unwrap());
-                            }
-                        };
-                    }
-                }
-                Some(SharedImageBuffer::RGBA8Premultiplied(buffer))
+                Some(textures_to_buffer(ts.size, &ts.data, &ts.textures))
+            }
+            #[cfg(feature = "image-owned-textures")]
+            ImageInner::OwnedTextures(textures) => {
+                Some(textures_to_buffer(textures.size, &textures.data, &textures.textures))
             }
             ImageInner::NineSlice(nine) => nine.0.render_to_buffer(None),
             ImageInner::AnimatedImage(animated) => Some(animated.first_frame_buffer().clone()),
@@ -809,6 +713,8 @@ impl ImageInner {
             ImageInner::None => Default::default(),
             ImageInner::EmbeddedImage { buffer, .. } => buffer.size(),
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
+            #[cfg(feature = "image-owned-textures")]
+            ImageInner::OwnedTextures(textures) => textures.original_size,
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.size(),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
@@ -963,7 +869,9 @@ impl PartialEq for ImageInner {
             ) => l_cache_key == r_cache_key && l_buffer == r_buffer,
             #[cfg(feature = "svg")]
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
-            (Self::StaticTextures(l0), Self::StaticTextures(r0)) => l0 == r0,
+            (Self::StaticTextures(l0), Self::StaticTextures(r0)) => core::ptr::eq(*l0, *r0),
+            #[cfg(feature = "image-owned-textures")]
+            (Self::OwnedTextures(l0), Self::OwnedTextures(r0)) => alloc::rc::Rc::ptr_eq(l0, r0),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
@@ -1187,8 +1095,6 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => Some(map_pixels(buffer)),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => Some(map_pixels(buffer)),
-            #[cfg(feature = "image-pixel-format-alpha-map")]
-            SharedImageBuffer::AlphaMap { .. } => None,
         })
     }
 
@@ -1219,19 +1125,6 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
-            #[cfg(feature = "image-pixel-format-alpha-map")]
-            SharedImageBuffer::AlphaMap { alpha, color } => {
-                let col = color.to_argb_u8();
-                let data = alpha
-                    .data
-                    .iter()
-                    .map(|a| {
-                        let a = (*a as u16 * col.alpha as u16 / 255) as u8;
-                        Rgba8Pixel::new(col.red, col.green, col.blue, a)
-                    })
-                    .collect();
-                SharedPixelBuffer { width: alpha.width, height: alpha.height, data }
-            }
         })
     }
 
@@ -1256,13 +1149,6 @@ impl Image {
             SharedImageBuffer::RGB565(buffer) => map_pixels(buffer),
             #[cfg(feature = "image-pixel-format-gray8")]
             SharedImageBuffer::Gray8(buffer) => map_pixels(buffer),
-            #[cfg(feature = "image-pixel-format-alpha-map")]
-            SharedImageBuffer::AlphaMap { alpha, color } => {
-                let col = color.to_argb_u8();
-                let data =
-                    alpha.data.iter().map(|a| premultiplied_alpha_map_pixel(*a, col)).collect();
-                SharedPixelBuffer { width: alpha.width, height: alpha.height, data }
-            }
         })
     }
 
@@ -2164,7 +2050,7 @@ pub(crate) mod ffi {
 
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_from_embedded_textures(
-        textures: &'static StaticTextures,
+        textures: &'static StaticTextures<StaticStorage>,
         image: *mut Image,
     ) {
         unsafe { core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures))) };

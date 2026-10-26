@@ -1141,22 +1141,10 @@ fn embed_resource(
         }
         #[cfg(feature = "renderer-software")]
         crate::embedded_resources::EmbeddedResourcesKind::TextureData(
-            crate::embedded_resources::Texture {
-                data,
-                format,
-                rect,
-                total_size: crate::embedded_resources::Size { width, height },
-                original_size:
-                    crate::embedded_resources::Size { width: unscaled_width, height: unscaled_height },
-            },
+            crate::embedded_resources::Texture { data, textures, size, original_size },
         ) => {
-            let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
-            let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format
-            {
-                format!("slint::Color::from_rgb_uint8({r}, {g}, {b})")
-            } else {
-                "slint::Color{}".to_string()
-            };
+            let (width, height) = (size.width, size.height);
+            let (unscaled_width, unscaled_height) = (original_size.width, original_size.height);
             let count = data.len();
             let data = data.iter().map(ToString::to_string).join(", ");
             let data_name = format_smolstr!("slint_embedded_resource_{}_data", resource_id);
@@ -1167,31 +1155,40 @@ fn embed_resource(
                 init: Some(format!("{{ {data} }}")),
                 ..Default::default()
             }));
+            let texture_count = textures.len();
+            let textures = textures
+                .iter()
+                .map(|i_slint_common::pre_rendered::StaticTexture { rect, format, color, index }| {
+                    let (r_x, r_y, r_w, r_h) =
+                        (rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
+                    format!(
+                        "{{
+                            .rect = {{ {r_x}, {r_y}, {r_w}, {r_h} }},
+                            .format = slint::cbindgen_private::types::TexturePixelFormat::{format:?},
+                            .color = {color},
+                            .index = {index},
+                            }}"
+                    )
+                })
+                .join(", ");
             let texture_name = format_smolstr!("slint_embedded_resource_{}_texture", resource_id);
             declarations.push(Declaration::Var(Var {
                 ty: "const slint::cbindgen_private::types::StaticTexture".into(),
                 name: texture_name.clone(),
-                array_size: None,
-                init: Some(format!(
-                    "{{
-                            .rect = {{ {r_x}, {r_y}, {r_w}, {r_h} }},
-                            .format = slint::cbindgen_private::types::TexturePixelFormat::{format},
-                            .color = {color},
-                            .index = 0,
-                            }}"
-                )),
+                array_size: Some(texture_count),
+                init: Some(format!("{{ {textures} }}")),
                 ..Default::default()
             }));
             let init = format!(
-                "slint::cbindgen_private::types::StaticTextures {{
+                "slint::cbindgen_private::types::StaticTextures<slint::cbindgen_private::StaticStorage> {{
                         .size = {{ {width}, {height} }},
                         .original_size = {{ {unscaled_width}, {unscaled_height} }},
                         .data = slint::private_api::make_slice({data_name} , {count} ),
-                        .textures = slint::private_api::make_slice(&{texture_name}, 1)
+                        .textures = slint::private_api::make_slice({texture_name}, {texture_count})
                     }}"
             );
             declarations.push(Declaration::Var(Var {
-                ty: "const slint::cbindgen_private::types::StaticTextures".into(),
+                ty: "const slint::cbindgen_private::types::StaticTextures<slint::cbindgen_private::StaticStorage>".into(),
                 name: format_smolstr!("slint_embedded_resource_{}", resource_id),
                 array_size: None,
                 init: Some(init),

@@ -57,16 +57,15 @@ svg = ["dep:resvg", "i-slint-common/svg-text"]
 # Store an image's pixels in the RGB565 format.
 # Disabled by default so that applications that don't need it don't pay
 # for the extra rendering code.
-image-pixel-format-rgb565 = []
+image-pixel-format-rgb565 = ["i-slint-common/image-pixel-format-rgb565"]
 
 # Store an image's pixels as a single 8 bit grayscale channel.
 # Disabled by default so that applications that don't
 # need it don't pay for the extra conversion code.
-image-pixel-format-gray8 = []
+image-pixel-format-gray8 = ["i-slint-common/image-pixel-format-gray8"]
 
-# (internal) Store an image's pixels as an alpha map: a single 8 bit alpha channel for one color.
-# The interpreter uses it for the alpha maps that the compiler pre-renders.
-image-pixel-format-alpha-map = []
+# (internal) Keep the textures that the interpreter receives as the compiler made them.
+image-owned-textures = []
 
 box-shadow-cache = []
 

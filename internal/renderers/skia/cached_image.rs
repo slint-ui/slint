@@ -81,7 +81,6 @@ pub(crate) fn as_skia_image(
                 pixels.width() as usize * 4,
             )
         }
-        ImageInner::StaticTextures(_) => todo!(),
         ImageInner::BackendStorage(x) => {
             vtable::VRc::borrow(x).downcast::<SkiaCachedImage>().map(|x| x.image.clone())
         }
@@ -110,8 +109,9 @@ pub(crate) fn as_skia_image(
         ImageInner::WGPUTexture(any_wgpu_texture) => {
             surface.and_then(|surface| surface.import_wgpu_texture(canvas, any_wgpu_texture))
         }
-        #[allow(unreachable_patterns)]
-        _ => None,
+        _ => image_inner
+            .render_to_buffer(None)
+            .and_then(|buffer| image_buffer_to_skia_image(&buffer)),
     }
 }
 
