@@ -591,4 +591,16 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_testing_send_key_combo(ComponentInstanceHandle instance, Utf8Str* keys, nuint count);
+
+    [LibraryImport(Library)]
+    public static partial int slint_dotnet_window_dispatch_event(
+        ComponentInstanceHandle instance,
+        int kind,
+        float x,
+        float y,
+        float a,
+        float b,
+        int button,
+        [MarshalAs(UnmanagedType.U1)] bool active,
+        Utf8Str text);
 }

@@ -168,6 +168,12 @@ app.Window.OnCloseRequested(() =>
 
 It has the position and size in logical and physical pixels, the scale factor,
 `IsFullscreen`, `IsMaximized`, and `IsMinimized`, and `Show`, `Hide`, and `RequestRedraw`.
+`DispatchEvent` sends input to the window as if it came from the windowing system, such as for a virtual keyboard:
+
+```csharp
+app.Window.DispatchEvent(new WindowEvent.KeyPressed("a"));
+app.Window.DispatchEvent(new WindowEvent.KeyReleased("a"));
+```
 
 ## Models
 

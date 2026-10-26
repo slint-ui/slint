@@ -1,5 +1,10 @@
 # What's New in Slint for .NET
 
+## Unreleased
+
+- Send key, pointer, and other events to a window with `Window.DispatchEvent`.
+- A component that inherits `SystemTrayIcon` has `Show` and `Hide`, but no `Run` or `Window`, since it has no window.
+
 ## 1.19.0-preview.5
 
 - Use a `slint-project.json` with `<SlintProject Include="ui" />`.

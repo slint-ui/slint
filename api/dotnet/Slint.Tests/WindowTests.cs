@@ -109,4 +109,42 @@ public sealed class WindowTests
         Assert.AreSame(app.Instance.Window, app.Window);
         Assert.IsGreaterThan(0f, app.Window.ScaleFactor);
     });
+
+    [TestMethod]
+    public void DispatchesKeyEventsToTheFocus() => SlintThread.Run(() =>
+    {
+        using var app = ModelTests.Create("""
+            export component App inherits Window {
+                forward-focus: input;
+                in-out property <string> text <=> input.text;
+                input := TextInput { }
+            }
+            """);
+        var window = app.Window;
+        Assert.AreEqual(WindowEventDispatchResult.Accepted, window.DispatchEvent(new WindowEvent.KeyPressed("a")));
+        window.DispatchEvent(new WindowEvent.KeyReleased("a"));
+        Assert.AreEqual("a", app.GetProperty("text"));
+    });
+
+    [TestMethod]
+    public void DispatchesPointerAndResizeEvents() => SlintThread.Run(() =>
+    {
+        using var app = ModelTests.Create("""
+            export component App inherits Window {
+                width: 100px;
+                height: 100px;
+                in-out property <int> clicks;
+                TouchArea { clicked => { clicks += 1; } }
+            }
+            """);
+        var window = app.Window;
+        window.DispatchEvent(new WindowEvent.PointerPressed(new LogicalPosition(50, 50), PointerEventButton.Left));
+        window.DispatchEvent(new WindowEvent.PointerReleased(new LogicalPosition(50, 50), PointerEventButton.Left));
+        Assert.AreEqual(1.0, app.GetProperty("clicks"));
+
+        Assert.AreEqual(
+            WindowEventDispatchResult.Rejected,
+            window.DispatchEvent(new WindowEvent.KeyPressed("a")),
+            "no element has the focus");
+    });
 }

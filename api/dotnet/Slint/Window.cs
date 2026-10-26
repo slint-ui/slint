@@ -132,6 +132,34 @@ public sealed unsafe class Window
         Checked(h => NativeMethods.slint_dotnet_window_on_close_requested(h, &CloseTrampoline, userData, &ActionTrampoline.Release));
     }
 
+    /// <summary>Sends <paramref name="windowEvent"/> to the window, as if it came from the windowing system.</summary>
+    public WindowEventDispatchResult DispatchEvent(WindowEvent windowEvent)
+    {
+        ArgumentNullException.ThrowIfNull(windowEvent);
+        // The arguments of slint_dotnet_window_dispatch_event in api/dotnet/native/window.rs.
+        (int Kind, LogicalPosition Xy, float A, float B, PointerEventButton Button, bool Active, string Text) args = windowEvent switch
+        {
+            WindowEvent.PointerPressed e => (0, e.Position, 0, 0, e.Button, false, ""),
+            WindowEvent.PointerReleased e => (1, e.Position, 0, 0, e.Button, false, ""),
+            WindowEvent.PointerMoved e => (2, e.Position, 0, 0, default, false, ""),
+            WindowEvent.PointerScrolled e => (3, e.Position, e.DeltaX, e.DeltaY, default, false, ""),
+            WindowEvent.PointerExited => (4, default, 0, 0, default, false, ""),
+            WindowEvent.KeyPressed e => (5, default, 0, 0, default, false, e.Text),
+            WindowEvent.KeyPressRepeated e => (6, default, 0, 0, default, false, e.Text),
+            WindowEvent.KeyReleased e => (7, default, 0, 0, default, false, e.Text),
+            WindowEvent.ScaleFactorChanged e => (8, default, e.ScaleFactor, 0, default, false, ""),
+            WindowEvent.Resized e => (9, new LogicalPosition(e.Size.Width, e.Size.Height), 0, 0, default, false, ""),
+            WindowEvent.CloseRequested => (10, default, 0, 0, default, false, ""),
+            WindowEvent.WindowActiveChanged e => (11, default, 0, 0, default, e.Active, ""),
+            _ => throw new ArgumentException($"Unknown window event {windowEvent}", nameof(windowEvent)),
+        };
+        using var text = new PinnedUtf8(args.Text);
+        var result = NativeMethods.slint_dotnet_window_dispatch_event(
+            _instance, args.Kind, args.Xy.X, args.Xy.Y, args.A, args.B, (int)args.Button, args.Active, text.Str);
+        NativeError.Check(result >= 0);
+        return (WindowEventDispatchResult)result;
+    }
+
     /// <summary>Sends the window a close request, like the window manager does; for tests.</summary>
     internal void DispatchCloseRequested() => Checked(NativeMethods.slint_dotnet_window_dispatch_close_requested);
 
