@@ -68,7 +68,6 @@
   const crashEl = document.getElementById("crash");
   const crashDetailsEl = document.getElementById("crash-details");
   const retryButton = document.getElementById("retry");
-  let previewArgs = null;
 
   let nextId = 1;
   const pending = new Map();
@@ -486,44 +485,6 @@
     request("ui/update-model-context", { content: [{ type: "text", text, annotations: { audience: ["assistant"] } }] }).catch(() => {});
   }
 
-  function preview(args, previewId) {
-    previewArgs = args;
-    crashEl.hidden = true;
-    return Promise.resolve(previewId).then(async (id) => {
-      await publish({ previewId: id, started: true });
-      await render(args, id);
-    })
-      .catch((e) => {
-        if (e instanceof Panic) return;
-        if (e instanceof WebAssembly.RuntimeError) {
-          handlePanic(String(e));
-          return;
-        }
-        showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
-      })
-      .then(() => publishCapture(previewId))
-      .catch(async (e) => {
-        const error = `Couldn't capture the preview: ${e}`;
-        showStatus(error, "error");
-        await publish({ previewId: await previewId, error }).catch(() => {});
-      });
-  }
-
-  retryButton.onclick = async () => {
-    retryButton.disabled = true;
-    showStatus("Restarting preview…");
-    try {
-      const result = await request("tools/call", { name: "preview_slint", arguments: previewArgs });
-      const id = resultPreviewId(result);
-      if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
-      await preview(previewArgs, id);
-    } catch (e) {
-      showStatus(`Couldn't restart the preview: ${e}`, "error");
-    } finally {
-      retryButton.disabled = false;
-    }
-  };
-
   window.addEventListener("message", (event) => {
     if (event.source !== window.parent) return;
     const message = event.data;
@@ -537,7 +498,40 @@
     switch (message.method) {
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
-        preview(args, nextPreviewId());
+        const startPreview = (previewId) => previewId.then(async (id) => {
+          crashEl.hidden = true;
+          await publish({ previewId: id, started: true });
+          await render(args, id);
+        })
+          .catch((e) => {
+            if (e instanceof Panic) return;
+            if (e instanceof WebAssembly.RuntimeError) {
+              handlePanic(String(e));
+              return;
+            }
+            showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
+          })
+          .then(() => publishCapture(previewId))
+          .catch(async (e) => {
+            const error = `Couldn't capture the preview: ${e}`;
+            showStatus(error, "error");
+            await publish({ previewId: await previewId, error }).catch(() => {});
+          });
+        startPreview(nextPreviewId());
+        retryButton.onclick = async () => {
+          retryButton.disabled = true;
+          showStatus("Restarting preview…");
+          try {
+            const result = await request("tools/call", { name: "preview_slint", arguments: args });
+            const id = resultPreviewId(result);
+            if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
+            await startPreview(Promise.resolve(id));
+          } catch (e) {
+            showStatus(`Couldn't restart the preview: ${e}`, "error");
+          } finally {
+            retryButton.disabled = false;
+          }
+        };
         break;
       }
       case "ui/notifications/tool-result":

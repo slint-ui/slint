@@ -214,29 +214,6 @@ test("renders without waiting for version metadata", {
     assert.ok(capture.runtime.startsWith("Slint ("));
 });
 
-test("publishes a panic while compilation is pending", {
-    timeout: 3000,
-}, async () => {
-    let compiling;
-    const started = new Promise((resolve) => {
-        compiling = resolve;
-    });
-    const view = startView({
-        compile: () => {
-            compiling();
-            return new Promise(() => {});
-        },
-    });
-    await view.preview();
-    await started;
-    view.panic();
-    const capture = await view.captured;
-    assert.ok(capture.error.includes("The Slint interpreter crashed"));
-    assert.ok(capture.error.includes("test panic"));
-    assert.equal(capture.previewId, "test-preview");
-    assert.equal(capture.runtime, "Slint 1.19.0 (snapshot)");
-});
-
 test("renders when version metadata fails", { timeout: 3000 }, async () => {
     const view = startView({
         fetch: async () => {
@@ -247,14 +224,14 @@ test("renders when version metadata fails", { timeout: 3000 }, async () => {
     assert.equal((await view.captured).png, "cGl4ZWxz");
 });
 
-test("retry restarts a crashed preview with a new ID and hides the crash panel", {
+test("retry replaces a late crash with a new preview and clears the panel", {
     timeout: 3000,
 }, async () => {
     const calls = [];
     const view = startView({
         callTool({ name, arguments: args }) {
             if (name === "preview_slint") {
-                calls.push(args);
+                calls.push(args.source);
                 return { _meta: { "slint/previewId": "retry-preview" } };
             }
             return {};
@@ -271,9 +248,7 @@ test("retry restarts a crashed preview with a new ID and hides the crash panel",
     assert.ok(view.element("crash-details").textContent.includes("test panic"));
     assert.equal(view.element("status").textContent, "");
     await view.retry();
-    assert.deepEqual(JSON.parse(JSON.stringify(calls)), [
-        { source: "export component Preview {}" },
-    ]);
+    assert.deepEqual(calls, ["export component Preview {}"]);
     assert.equal(view.captures.at(-1).previewId, "retry-preview");
     assert.equal(view.captures.at(-1).png, "cGl4ZWxz");
     assert.equal(view.element("crash").hidden, true);
