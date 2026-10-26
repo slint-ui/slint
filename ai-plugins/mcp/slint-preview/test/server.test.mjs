@@ -159,13 +159,19 @@ test("lists the view resource", async () => {
     );
 });
 
-test("answers a call with text only", async () => {
+test("requires verification of a requested preview", async () => {
     const { result } = await request("tools/call", {
         name: "preview_slint",
         arguments: { source: "export component Main {}" },
     });
     assert.equal(result.content[0].type, "text");
-    assert.equal(result.structuredContent, undefined);
+    assert.equal(result.structuredContent.status, "pending");
+    assert.equal(
+        result.structuredContent.previewId,
+        result._meta["slint/previewId"],
+    );
+    assert.ok(result.content[1].text.includes("get_preview_screenshot"));
+    assert.ok(result.content[1].text.includes("not a successful render"));
 });
 
 test("takes either an absolute path or source", async () => {
@@ -314,9 +320,33 @@ test("reports why a preview has no screenshot", async () => {
         previewId,
         error: "main.slint:1:23: error: Unknown property colour",
     });
-    const { content, structuredContent } = await callTool("get_preview_screenshot", {});
+    const { content, structuredContent, isError } = await callTool(
+        "get_preview_screenshot",
+        {},
+    );
     assert.match(content[0].text, /Unknown property colour/);
     assert.equal(structuredContent.status, "error");
+    assert.equal(isError, true);
+});
+
+test("a crash replaces a screenshot and cannot be overwritten by a late capture", async () => {
+    const previewId = await startPreview({ source: "export component A {}" });
+    await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
+    await callTool("publish_preview_capture", {
+        previewId,
+        error: "The Slint interpreter crashed",
+    });
+    for (const update of [{ stage: "capturing" }, { png: "iVBORw0K" }]) {
+        await callTool("publish_preview_capture", { previewId, ...update });
+        const result = await callTool("get_preview_screenshot", {});
+        assert.equal(result.isError, true);
+        assert.equal(result.structuredContent.status, "error");
+        assert.equal(result.structuredContent.stage, "error");
+        assert.ok(
+            result.content[0].text.includes("The Slint interpreter crashed"),
+        );
+        assert.ok(result.content.every((block) => block.type !== "image"));
+    }
 });
 
 test("ignores a late capture of an earlier preview of the same file", async () => {

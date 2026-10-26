@@ -22,6 +22,7 @@ assert.equal(
 const testScript = importParts.join("importInterpreter()");
 
 function startView({ fetch, captureError, compile } = {}) {
+    const captures = [];
     let onMessage;
     let resolveCapture;
     const captured = new Promise((resolve) => {
@@ -47,6 +48,7 @@ function startView({ fetch, captureError, compile } = {}) {
         cloneNode() {
             return element();
         },
+        replaceWith() {},
         replaceChildren(...children) {
             this.children = children;
         },
@@ -71,7 +73,10 @@ function startView({ fetch, captureError, compile } = {}) {
             postMessage(message) {
                 if (message.method === "tools/call") {
                     const args = message.params.arguments;
-                    if (args.png || args.error) resolveCapture(args);
+                    if (args.png || args.error) {
+                        captures.push(args);
+                        resolveCapture(args);
+                    }
                 }
                 if (message.method === "ui/update-model-context") {
                     resolveReport(message.params.content[0].text);
@@ -135,7 +140,7 @@ function startView({ fetch, captureError, compile } = {}) {
         ResizeObserver: class {
             observe() {}
         },
-        console,
+        console: { error() {} },
         URL,
         WebAssembly,
         Event,
@@ -152,7 +157,13 @@ function startView({ fetch, captureError, compile } = {}) {
     const ready = runInNewContext(`(async () => {${testScript}})()`, context);
     return {
         captured,
+        captures,
         reported,
+        panic() {
+            context.console.error(
+                "panicked at test.rs:1:1:\ntest panic\nhttps://example.com/interpreter.js#instance-1:1:1",
+            );
+        },
         async preview() {
             await ready;
             onMessage({
@@ -185,6 +196,44 @@ test("renders without waiting for version metadata", {
     const capture = await view.captured;
     assert.equal(capture.png, "cGl4ZWxz");
     assert.ok(capture.runtime.startsWith("Slint ("));
+});
+
+test("publishes a panic while compilation is pending", {
+    timeout: 3000,
+}, async () => {
+    let compiling;
+    const started = new Promise((resolve) => {
+        compiling = resolve;
+    });
+    const view = startView({
+        compile: () => {
+            compiling();
+            return new Promise(() => {});
+        },
+    });
+    await view.preview();
+    await started;
+    view.panic();
+    const capture = await view.captured;
+    assert.ok(capture.error.includes("The Slint interpreter crashed"));
+    assert.ok(capture.error.includes("test panic"));
+    assert.equal(capture.previewId, "test-preview");
+    assert.equal(capture.runtime, "Slint 1.19.0 (snapshot)");
+});
+
+test("publishes a panic after a successful screenshot", {
+    timeout: 3000,
+}, async () => {
+    const view = startView();
+    await view.preview();
+    assert.equal((await view.captured).png, "cGl4ZWxz");
+    view.panic();
+    assert.ok((await view.reported).includes("test panic"));
+    const capture = view.captures.at(-1);
+    assert.ok(capture.error?.includes("The Slint interpreter crashed"));
+    assert.equal(capture.png, undefined);
+    assert.equal(capture.previewId, "test-preview");
+    assert.equal(capture.runtime, "Slint 1.19.0 (snapshot)");
 });
 
 test("renders when version metadata fails", { timeout: 3000 }, async () => {

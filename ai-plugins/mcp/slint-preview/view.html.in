@@ -230,6 +230,7 @@
 
   function handlePanic(message) {
     if (!interpreter) return;
+    const { previewId, runtime } = interpreter;
     interpreter.panic(new Panic(message));
     interpreter = null;
     instance = null;
@@ -241,9 +242,11 @@
     const freshCanvas = pristineCanvas.cloneNode();
     canvas.replaceWith(freshCanvas);
     canvas = freshCanvas;
-    showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
+    const error = `The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`;
+    showStatus(error, "error");
+    publish({ previewId, runtime, error }).catch(() => {});
     reportToModel(
-      "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
+      `The Slint interpreter crashed with ${runtime}, which is a bug in Slint. Change the source to work around it. ` +
         "The next preview_slint call starts a fresh interpreter. " +
         "Offer the user to report it at https://github.com/slint-ui/slint/issues with this message, " +
         `the Slint version, and the smallest .slint source that reproduces it.\n${message}`,
@@ -352,6 +355,7 @@
     showStatus("Loading the Slint interpreter…");
     publish({ previewId, stage: "loading" }).catch(() => {});
     const current = loadInterpreter();
+    current.previewId = previewId;
     let slint;
     try {
       slint = await untilPanic(current, current.slint);
