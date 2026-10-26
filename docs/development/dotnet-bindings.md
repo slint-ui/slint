@@ -315,8 +315,9 @@ Next:
     `async-io`, `energy-monitor`, `slide_puzzle`, and `system-tray`.
     They needed `Window.DispatchEvent`, for `virtual_keyboard`, and `DataTransfer.UserData`, for `dnd-kanban`.
     The stock quote service of `async-io` no longer answers in any language, so the C# version reports the error.
-  - Phase 2, the samples with logic only in Rust:
+  - Phase 2, done: the samples with logic only in Rust:
     `7guis`, `todo-mvc`, `gallery`, `usecases`, `runtime_key_bindings`, `analogclock`, `speedometer`, and `food-processor`.
+    They needed `FilterModel.SourceRow` and `Reset`, for the CRUD of `7guis`, and `Keys.ToParts`, for `runtime_key_bindings`.
   - Phase 3, after an `Image` from pixels or encoded bytes, like `ImageData` in Node.js:
     `imagefilter`, `plotter`, and `maps`.
   - Phase 4, optional: `weather-demo`, `launcher`, and a C# viewer for the examples without logic,
