@@ -76,4 +76,16 @@ instance.cond1 = false;
 slintlib.private_api.send_mouse_click(instance, 5., 5.);
 assert.equal(instance.top_level, 92);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(42, instance.TopLevel);
+instance.Cond1 = true;
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(92, instance.TopLevel);
+instance.Cond1 = false;
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(92, instance.TopLevel);
+```
 */

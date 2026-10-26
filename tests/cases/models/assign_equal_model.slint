@@ -88,4 +88,28 @@ instance.foo = first;
 instance.foo = new Rows(first.modelNotify, [20]);
 assert.equal(instance.first, 20);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.InvokeDo());
+
+// Assigning the model that a property already holds isn't a change.
+int Changes()
+{
+    Testing.MockElapsedTime(1);
+    return instance.FooChanges;
+}
+var before = Changes();
+instance.Foo = instance.Foo;
+instance.Bar = instance.Foo;
+Assert.AreEqual(before, Changes());
+
+var model = new ListModel<int>([4, 5]);
+instance.Foo = model;
+Assert.AreEqual(before + 1, Changes());
+instance.Foo = model;
+Assert.AreEqual(before + 1, Changes());
+Assert.AreSame(model, instance.Foo);
+Assert.AreEqual(4, instance.First);
+```
 */

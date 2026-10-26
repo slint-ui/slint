@@ -177,4 +177,31 @@ assert.equal(instance.Glob.value_after, "");
 ```
 
 
+```csharp
+// The clicked item removes itself from the model, by a click and by the keyboard.
+foreach (var activate in new Action<TestCase>[]
+{
+    instance => Testing.SendMouseClick(instance.Instance, 150, 150),
+    instance =>
+    {
+        foreach (var key in new[] { "\t", "\t", " ", " ", "\t" })
+        {
+            Testing.SendKeyboardStringSequence(instance.Instance, key);
+        }
+    },
+})
+{
+    using var instance = TestCase.Create();
+    var model = new ListModel<string>(["hello", "world"]);
+    instance.Glob.Model = model;
+    instance.Glob.OnClicked(value =>
+    {
+        Assert.AreEqual("world", value);
+        model.RemoveAt(1);
+    });
+    activate(instance);
+    Assert.AreEqual("world", instance.Glob.Value);
+    Assert.AreEqual("", instance.Glob.ValueAfter);
+}
+```
 */
