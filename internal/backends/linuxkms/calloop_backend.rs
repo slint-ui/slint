@@ -26,8 +26,8 @@ use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 ))]
 mod input;
 
-#[cfg(all(feature = "libinput", not(feature = "libseat")))]
-mod console;
+#[cfg(not(feature = "libseat"))]
+pub(crate) mod console;
 
 #[derive(Clone)]
 struct Proxy {
@@ -337,11 +337,8 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     fn run_event_loop(&self) -> Result<(), PlatformError> {
-        #[cfg(all(feature = "libinput", not(feature = "libseat")))]
-        let _console_keyboard = console::ConsoleKeyboard::acquire().unwrap_or_else(|e| {
-            eprintln!("Warning: Could not switch off the console keyboard: {e}");
-            None
-        });
+        #[cfg(not(feature = "libseat"))]
+        let mut console = console::LazyConsole::new(cfg!(feature = "libinput"));
 
         let mut event_loop: EventLoop<LoopData> =
             EventLoop::try_new().map_err(|e| format!("Error creating event loop: {}", e))?;
@@ -406,6 +403,9 @@ impl i_slint_core::platform::Platform for Backend {
                 for callback in callbacks_to_invoke_per_iteration.take().into_iter() {
                     callback();
                 }
+
+                #[cfg(not(feature = "libseat"))]
+                console.update();
 
                 if let Some(adapter) = self.window.borrow().as_ref() {
                     adapter.clone().render_if_needed()?;

@@ -1,11 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore mmap fbnum vinfo screeninfo errno fbioget vscreeninfo xres yres mmio finfo fscreeninfo GETSTATE KDGETMODE KDSETMODE xoffset yoffset bitfield nonstd pixclock vmode smem xpanstep ypanstep ywrapstep
+// cSpell:ignore mmap fbnum vinfo screeninfo errno fbioget vscreeninfo xres yres mmio finfo fscreeninfo xoffset yoffset bitfield nonstd pixclock vmode smem xpanstep ypanstep ywrapstep
 
 use std::cell::{Cell, RefCell};
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
@@ -21,8 +19,6 @@ pub struct LinuxFBDisplay {
     presenter: Arc<crate::display::noop_presenter::NoopPresenter>,
     first_frame: Cell<bool>,
     format: drm::buffer::DrmFourcc,
-    tty_fd: Option<std::fs::File>,
-    original_tty_mode: Option<i32>,
 }
 
 impl LinuxFBDisplay {
@@ -163,16 +159,10 @@ impl LinuxFBDisplay {
                 .map_err(|err| format!("Error mapping framebuffer: {err}"))?
         };
 
-        // Try to hide cursor by setting graphics mode on tty
-        let (tty_fd, original_tty_mode) = match Self::setup_graphics_mode() {
-            Ok((tty, mode)) => (tty, Some(mode)),
-            Err(e) => {
-                eprintln!("Warning: Could not set graphics mode: {}", e);
-                (None, None)
-            }
-        };
-
         let back_buffer = RefCell::new(vec![0u8; back_buffer_size_bytes].into_boxed_slice());
+
+        #[cfg(not(feature = "libseat"))]
+        crate::calloop_backend::console::request_graphics_mode();
 
         Ok(Arc::new(Self {
             fb: RefCell::new(fb),
@@ -184,72 +174,7 @@ impl LinuxFBDisplay {
             presenter: crate::display::noop_presenter::NoopPresenter::new(),
             first_frame: Cell::new(true),
             format,
-            tty_fd,
-            original_tty_mode,
         }))
-    }
-
-    fn setup_graphics_mode() -> Result<(Option<std::fs::File>, i32), String> {
-        // Open control FD for VT query
-        let control = OpenOptions::new()
-            .read(true)
-            .open("/dev/console")
-            .map_err(|e| format!("Could not open /dev/console: {e}"))?;
-        let ctl_fd = control.as_raw_fd();
-
-        // Query active VT
-        let state = unsafe {
-            let mut state: vt_stat = std::mem::zeroed();
-            vt_getstate(ctl_fd, &mut state as *mut _)
-                .map_err(|errno| format!("VT_GETSTATE ioctl failed: {errno}"))?;
-            state
-        };
-
-        let tty_path = format!("/dev/tty{}", state.v_active);
-
-        // Open VT device
-        let mut tty = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&tty_path)
-            .map_err(|e| format!("Could not open {}: {e}", tty_path))?;
-
-        // Save old mode
-        let old_mode = unsafe {
-            let mut old_mode: u32 = 0;
-            kdgetmode(tty.as_raw_fd(), &mut old_mode as *mut _)
-                .map_err(|errno| format!("KDGETMODE ioctl failed: {errno}"))?;
-            old_mode as i32
-        };
-
-        // Switch to graphics mode
-
-        unsafe {
-            kdsetmode(tty.as_raw_fd(), KD_GRAPHICS)
-                .map_err(|errno| format!("KDSETMODE KD_GRAPHICS ioctl failed: {errno}"))?;
-        }
-
-        // Hide cursor fallback
-        let _ = tty.write_all(b"\x1b[?25l");
-        let _ = tty.flush();
-
-        Ok((Some(tty), old_mode))
-    }
-
-    fn restore_original_mode(&self) {
-        if let Some(ref tty) = self.tty_fd {
-            use std::os::fd::AsRawFd;
-
-            if let Some(mode) = self.original_tty_mode {
-                unsafe {
-                    let _ = kdsetmode(tty.as_raw_fd(), mode);
-                }
-            }
-
-            let mut tty_write = tty;
-            let _ = tty_write.write_all(b"\x1b[?25h"); // Show cursor
-            let _ = tty_write.flush();
-        }
     }
 
     fn copy_to_framebuffer(&self) {
@@ -273,12 +198,6 @@ impl LinuxFBDisplay {
                 fb_row.copy_from_slice(back_row);
             }
         }
-    }
-}
-
-impl Drop for LinuxFBDisplay {
-    fn drop(&mut self) {
-        self.restore_original_mode();
     }
 }
 
@@ -315,24 +234,6 @@ impl super::SoftwareBufferDisplay for LinuxFBDisplay {
         self.presenter.clone()
     }
 }
-
-const KD_GRAPHICS: i32 = 0x01;
-const VT_GETSTATE: u32 = 0x5603;
-const KDGETMODE: u32 = 0x4B3B;
-const KDSETMODE: u32 = 0x4B3A;
-
-#[repr(C)]
-#[derive(Debug)]
-#[allow(non_camel_case_types)]
-struct vt_stat {
-    v_active: u16,
-    v_signal: u16,
-    v_state: u16,
-}
-
-nix::ioctl_read_bad!(kdgetmode, KDGETMODE, u32);
-nix::ioctl_write_int_bad!(kdsetmode, KDSETMODE);
-nix::ioctl_read_bad!(vt_getstate, VT_GETSTATE, vt_stat);
 
 const FBIOGET_VSCREENINFO: u32 = 0x4600;
 
