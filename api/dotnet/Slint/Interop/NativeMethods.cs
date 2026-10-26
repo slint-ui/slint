@@ -603,4 +603,12 @@ internal static unsafe partial class NativeMethods
         int button,
         [MarshalAs(UnmanagedType.U1)] bool active,
         Utf8Str text);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_data_transfer_set_user_data(
+        ValueHandle value, nint handle, delegate* unmanaged<nint, void> release);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_data_transfer_user_data(ValueHandle value);
 }

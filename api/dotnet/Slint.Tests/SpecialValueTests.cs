@@ -67,4 +67,21 @@ public sealed class SpecialValueTests
         using var app = GeneratedAlias.Create();
         Assert.AreEqual(42, app.Count);
     });
+
+    [TestMethod]
+    public void DataTransferCarriesUserData() => SlintThread.Run(() =>
+    {
+        using var app = ModelTests.Create("export component App { in-out property <data-transfer> data; }");
+        var payload = new List<string> { "card" };
+        using var data = new DataTransfer();
+        Assert.IsNull(data.UserData);
+        data.UserData = payload;
+        Assert.IsFalse(data.IsEmpty);
+
+        app.SetProperty("data", data);
+        using var back = (DataTransfer)app.GetProperty("data")!;
+        Assert.AreSame(payload, back.UserData);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => data.UserData = null);
+    });
 }

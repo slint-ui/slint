@@ -3,6 +3,9 @@
 
 //! The `keys`, `styled-text`, and `data-transfer` values.
 
+use std::ffi::c_void;
+use std::rc::Rc;
+
 use i_slint_core::data_transfer::DataTransfer;
 use i_slint_core::input::Keys;
 use i_slint_core::styled_text::StyledText;
@@ -126,5 +129,43 @@ pub unsafe extern "C" fn slint_dotnet_data_transfer_state(value: &Value) -> i32 
         Ok(i32::from(data.has_plain_text())
             | i32::from(data.has_image()) << 1
             | i32::from(data.is_empty()) << 2)
+    })
+}
+
+/// A .NET object attached to a `DataTransfer`; dropping the last copy releases its `GCHandle`.
+struct ManagedUserData {
+    handle: *mut c_void,
+    release: unsafe extern "C" fn(*mut c_void),
+}
+
+impl Drop for ManagedUserData {
+    fn drop(&mut self) {
+        unsafe { (self.release)(self.handle) }
+    }
+}
+
+/// Takes ownership of `handle`, also on failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_data_transfer_set_user_data(
+    value: &mut Value,
+    handle: *mut c_void,
+    release: unsafe extern "C" fn(*mut c_void),
+) -> bool {
+    let user_data = Rc::new(ManagedUserData { handle, release });
+    guard_bool(|| {
+        data_transfer_mut(value)?.set_user_data(user_data);
+        Ok(())
+    })
+}
+
+/// Returns the `GCHandle` of the user data, which stays owned by the data transfer,
+/// or null if there's none from .NET.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_data_transfer_user_data(value: &Value) -> *mut c_void {
+    guard(std::ptr::null_mut(), || {
+        Ok(data_transfer(value)?
+            .user_data()
+            .and_then(|data| data.downcast::<ManagedUserData>().ok())
+            .map_or(std::ptr::null_mut(), |data| data.handle))
     })
 }
