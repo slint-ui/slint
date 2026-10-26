@@ -3644,6 +3644,7 @@ dependencies = [
  "read-fonts",
  "scoped-tls-hkt",
  "skia-safe",
+ "slint",
  "softbuffer",
  "spin_on",
  "unicode-segmentation",

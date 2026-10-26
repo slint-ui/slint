@@ -507,6 +507,23 @@ impl crate::Surface for WGPUSurface {
         self.backend.import_texture(canvas, texture)
     }
 
+    fn render_snapshot(
+        &self,
+        size: PhysicalWindowSize,
+        render_callback: &mut dyn FnMut(&skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+    ) -> Option<
+        Result<
+            i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+            PlatformError,
+        >,
+    > {
+        let gr_context = &mut self.gr_context.borrow_mut();
+        Some(crate::render_snapshot_on_gpu(gr_context, size, &mut |canvas, gr_context| {
+            render_callback(canvas, gr_context);
+            self.flush_and_submit(gr_context);
+        }))
+    }
+
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
         // `Opaque` discards the scene's alpha; pick a translucent mode if offered.
         // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
