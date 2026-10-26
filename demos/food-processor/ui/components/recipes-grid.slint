@@ -10,8 +10,7 @@ import { Styles } from "../styles.slint";
 export component RecipesGrid {
     in property <[Recipe]> recipes;
     in property <int> columns: 4;
-    property <length> card-size: 218px;
-    in property <length> spacing: (root.width - (Styles.side-margin * 2) - (card-size * columns)) / (columns - 1);
+    in property <length> spacing: (root.width - (Styles.side-margin * 2) - (Styles.recipe-card-size * columns)) / (columns - 1);
 
     callback item-clicked(int);
 
@@ -21,13 +20,13 @@ export component RecipesGrid {
         width: root.width;
         height: root.height - header.height;
         content-width: self.visible-width;
-        content-height: gl.preferred-height + 40px;
+        content-height: gl.preferred-height + Styles.side-margin;
         horizontal-scrollbar-policy: always-off;
         mouse-drag-pan-enabled: true;
 
         gl := GridLayout {
             x: Styles.side-margin;
-            y: 16px;
+            y: Styles.spacing-lg;
             spacing: root.spacing;
             for recipe[index] in root.recipes: RecipeCard {
                 photo: recipe.photo;
@@ -50,10 +49,10 @@ export component RecipesGrid {
             vl := VerticalLayout {
                 x: Styles.side-margin;
                 alignment: start;
-                spacing: 4px;
+                spacing: Styles.spacing-xs;
                 Text {
                     color: #171717;
-                    font-size: 24px;
+                    font-size: Styles.heading-font-size;
                     text: "Recipes";
                     font-weight: FontWeight.semi-bold;
                 }

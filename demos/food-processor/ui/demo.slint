@@ -11,8 +11,8 @@ import { Styles } from "styles.slint";
 import "../../../internal/common/sharedfontique/Inter-VariableFont.ttf";
 
 export component MainWindow inherits Window {
-    width: 1024px;
-    height: 600px;
+    width: Styles.window-width;
+    height: Styles.window-height;
     background: black;
 
     default-font-family: "Inter";
@@ -41,7 +41,7 @@ export component MainWindow inherits Window {
 
     Rectangle {
         background: #f8f9fa;
-        border-radius: 28px;
+        border-radius: Styles.window-border-radius;
         clip: true;
 
         grid := RecipesGrid {
@@ -72,11 +72,11 @@ export component MainWindow inherits Window {
         }
 
         if (is-cooking || show-start-button): button-container := Rectangle {
-            y: 10px;
-            width: show-start-button ? 300px : cooking-timer.preferred-width;
-            height: show-start-button ? 60px : 68px;
+            y: Styles.control-padding;
+            width: show-start-button ? Styles.start-button-width : cooking-timer.preferred-width;
+            height: show-start-button ? Styles.start-button-height : Styles.cooking-timer-height;
             background: show-start-button ? Styles.slint-blue : #2a2a2a;
-            border-radius: show-start-button ? 16px : 68px / 2;
+            border-radius: show-start-button ? Styles.large-border-radius : Styles.cooking-timer-height / 2;
 
             animate width, height, border-radius, background { duration: 0.2s; }
 

@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Styles } from "../styles.slint";
 import { RecipePhoto } from "recipe-photo.slint";
 
 export component RecipeCard inherits Rectangle {
-    width: 218px;
-    height: 218px;
+    width: Styles.recipe-card-size;
+    height: self.width;
 
     in property <image> photo;
     in property <string> title: "Recipe Name";
@@ -23,11 +24,11 @@ export component RecipeCard inherits Rectangle {
         }
 
         Text {
-            x: 12px;
+            x: Styles.spacing-md;
             y: parent.height - self.height - 18px;
-            width: parent.width - 24px;
+            width: parent.width - 2 * Styles.spacing-md;
             text: root.title;
-            font-size: 16px;
+            font-size: Styles.small-font-size;
             font-weight: FontWeight.bold;
             color: white;
             overflow: elide;
@@ -36,33 +37,33 @@ export component RecipeCard inherits Rectangle {
         }
 
         Rectangle {
-            x: parent.width - self.width - 12px;
-            y: 12px;
+            x: parent.width - self.width - Styles.spacing-md;
+            y: Styles.spacing-md;
             width: max(80px, badge-content.preferred-width);
-            height: 28px;
-            border-radius: 8px;
+            height: Styles.compact-row-height;
+            border-radius: Styles.small-border-radius;
             background: white;
-            drop-shadow-blur: 8px;
-            drop-shadow-offset-y: 2px;
+            drop-shadow-blur: Styles.small-shadow-blur;
+            drop-shadow-offset-y: Styles.small-shadow-offset;
             drop-shadow-color: #00000030;
 
             badge-content := HorizontalLayout {
-                padding-left: 10px;
-                padding-right: 10px;
-                spacing: 6px;
+                padding-left: Styles.control-padding;
+                padding-right: Styles.control-padding;
+                spacing: Styles.spacing-md / 2;
                 alignment: center;
                 cross-axis-alignment: center;
 
                 Image {
-                    width: 12px;
-                    height: 12px;
+                    width: Styles.small-icon-size;
+                    height: self.width;
                     source: @image-url("../images/time.svg");
                 }
 
                 Text {
                     text: root.time;
                     color: #171717;
-                    font-size: 12px;
+                    font-size: Styles.caption-font-size;
                     font-weight: FontWeight.bold;
                     vertical-alignment: center;
                 }

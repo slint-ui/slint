@@ -14,9 +14,9 @@ export component OverviewPage inherits HorizontalLayout {
     spacing: Styles.side-margin;
 
     RecipePhoto {
-        width: 456px;
-        height: 340px;
-        border-radius: 24px;
+        width: Styles.recipe-photo-width;
+        height: Styles.recipe-photo-height;
+        border-radius: Styles.photo-border-radius;
         horizontal-stretch: 0;
         vertical-stretch: 0;
         photo: root.recipe.photo;
@@ -28,7 +28,7 @@ export component OverviewPage inherits HorizontalLayout {
         padding-bottom: Styles.side-margin / 2;
         title := Text {
             wrap: word-wrap;
-            font-size: 36px;
+            font-size: Styles.title-font-size;
             font-weight: FontWeight.semi-bold;
             color: #171717;
             text: recipe.title;
@@ -36,22 +36,22 @@ export component OverviewPage inherits HorizontalLayout {
 
         rating := HorizontalLayout {
             visible: root.recipe.rating != "";
-            height: 28px;
-            spacing: 12px;
+            height: Styles.compact-row-height;
+            spacing: Styles.spacing-md;
             alignment: start;
             Rectangle {
                 width: stars.preferred-width;
                 stars := HorizontalLayout {
                     for i[index] in recipe.rating.to-float().ceil(): Image {
                         source: @image-url("../../images/star.jpg");
-                        width: 20px;
+                        width: Styles.regular-icon-size;
                     }
                 }
             }
 
             Text {
                 text: recipe.rating;
-                font-size: 24px;
+                font-size: Styles.heading-font-size;
                 font-weight: FontWeight.bold;
                 color: #171717;
             }
@@ -91,24 +91,24 @@ export component OverviewPage inherits HorizontalLayout {
 
         about := Rectangle {
             background: white;
-            border-radius: 16px;
-            border-width: 2px;
+            border-radius: Styles.large-border-radius;
+            border-width: Styles.outline-width;
             border-color: #E5E5E5;
 
             VerticalLayout {
-                spacing: 20px;
-                padding: 20px;
+                spacing: Styles.spacing-xl;
+                padding: Styles.spacing-xl;
 
                 Text {
                     text: "About This Recipe";
-                    font-size: 18px;
+                    font-size: Styles.medium-font-size;
                     font-weight: FontWeight.bold;
                     color: #171717;
                 }
 
                 Text {
                     text: root.recipe.description;
-                    font-size: 16px;
+                    font-size: Styles.small-font-size;
                     color: #525252;
                     font-weight: FontWeight.normal;
                     wrap: word-wrap;

@@ -1,12 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Styles } from "../styles.slint";
+
 export component Bubble inherits Rectangle {
     width: 140px;
     height: 84px;
-    border-radius: 14px;
+    border-radius: Styles.medium-border-radius;
     background: #fafafa;
-    border-width: 1px;
+    border-width: Styles.border-width;
     border-color: #e5e5e5;
 
     in property <string> title;
@@ -14,22 +16,22 @@ export component Bubble inherits Rectangle {
     in property <image> icon: @image-url("../images/prep.jpg");
 
     Rectangle {
-        x: 16px;
+        x: Styles.spacing-lg;
         width: vl.preferred-width;
         height: vl.preferred-height;
         vl := VerticalLayout {
-            spacing: 4px;
+            spacing: Styles.spacing-xs;
             info := HorizontalLayout {
                 alignment: start;
-                spacing: 8px;
+                spacing: Styles.spacing-sm;
                 Image {
-                    width: 16px;
+                    width: Styles.medium-icon-size;
                     source: root.icon;
                 }
 
                 Text {
                     text: root.title;
-                    font-size: 12px;
+                    font-size: Styles.caption-font-size;
                     font-weight: FontWeight.medium;
                     color: #737373;
                 }
@@ -37,7 +39,7 @@ export component Bubble inherits Rectangle {
 
             Text {
                 text: root.time;
-                font-size: 18px;
+                font-size: Styles.medium-font-size;
                 font-weight: FontWeight.bold;
                 color: #171717;
             }

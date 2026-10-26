@@ -8,7 +8,7 @@ component TabButton inherits Rectangle {
 
     callback clicked();
 
-    height: 64px;
+    height: Styles.tab-height;
     width: text.preferred-width;
     background: active ? #EFF6FF : #f8f9fa;
 
@@ -20,14 +20,14 @@ component TabButton inherits Rectangle {
 
     if active: Rectangle {
         y: 0px;
-        height: 4px;
+        height: Styles.spacing-xs;
         background: #237AF3;
     }
 
     text := VerticalLayout {
         alignment: center;
-        padding-left: 40px;
-        padding-right: 40px;
+        padding-left: Styles.side-margin;
+        padding-right: Styles.side-margin;
 
         Text {
             text: root.text;

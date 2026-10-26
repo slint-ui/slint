@@ -18,27 +18,27 @@ export component CookingTimer {
     ta := TouchArea { }
 
     content := HorizontalLayout {
-        padding-left: 20px;
-        padding-right: 20px;
-        spacing: 20px;
+        padding-left: Styles.spacing-xl;
+        padding-right: Styles.spacing-xl;
+        spacing: Styles.spacing-xl;
         alignment: center;
 
         clock-icon := Rectangle {
-            width: 40px;
-            height: 40px;
+            width: Styles.large-icon-size;
+            height: self.width;
             cross-axis-self-alignment: center;
             border-radius: self.height / 2;
             background: #4285f4;
 
             Image {
-                width: 20px;
+                width: Styles.regular-icon-size;
                 source: @image-url("../images/time.svg");
                 colorize: white;
             }
         }
 
         VerticalLayout {
-            spacing: 4px;
+            spacing: Styles.spacing-xs;
             horizontal-stretch: 1;
             alignment: center;
 
@@ -78,17 +78,17 @@ export component CookingTimer {
             Text {
                 text: "|";
                 font-size: Styles.small-font-size;
-                x: close-button.x - 10px;
+                x: close-button.x - Styles.control-padding;
             }
 
             close-button := Rectangle {
                 x: parent.width - self.width;
-                width: 30px;
-                height: 30px;
+                width: Styles.action-icon-size;
+                height: self.width;
 
                 close-ta := TouchArea {
                     width: 80px;
-                    height: 80px;
+                    height: self.width;
                 }
 
                 Image {

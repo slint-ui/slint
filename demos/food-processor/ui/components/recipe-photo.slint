@@ -1,14 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Styles } from "../styles.slint";
+
 export component RecipePhoto inherits Rectangle {
     in property <image> photo;
 
-    border-radius: 16px;
+    border-radius: Styles.large-border-radius;
     background: white;
     clip: true;
-    drop-shadow-blur: 16px;
-    drop-shadow-offset-y: 8px;
+    drop-shadow-blur: Styles.shadow-blur;
+    drop-shadow-offset-y: Styles.shadow-offset;
     drop-shadow-color: #00000020;
 
     Image {
