@@ -191,7 +191,10 @@ impl WGPUSurface {
     /// Transitions any imported wgpu textures to sampling state and flushes
     /// the Skia graphics context. Must be called after rendering to ensure
     /// Skia's GPU work is submitted.
-    pub(crate) fn flush_and_submit(&self, gr_context: &mut skia_safe::gpu::DirectContext) {
+    pub(crate) fn flush_and_submit(
+        &self,
+        gr_context: &mut skia_safe::gpu::DirectContext,
+    ) -> Result<(), PlatformError> {
         let textures_to_transition = self.textures_to_transition_for_sampling.take();
         if !textures_to_transition.is_empty() {
             let mut encoder =
@@ -209,7 +212,11 @@ impl WGPUSurface {
             self.wgpu.queue.submit(Some(encoder.finish()));
         }
 
-        gr_context.submit(None);
+        if gr_context.submit(None) {
+            Ok(())
+        } else {
+            Err("Skia renderer: submitting the rendering to the GPU failed".into())
+        }
     }
 }
 
@@ -372,9 +379,9 @@ impl crate::Surface for WGPUSurface {
             let gr_context = &mut self.gr_context.borrow_mut();
             // This is brute force, but for the lack of access to the fences this seems to work: Avoid any pending work so that
             // IDXGISwapChain::ResizeBuffers doesn't complain that the surface is still in use.
-            if let Err(err) = gr_context.flush_submit_and_sync_cpu() {
-                i_slint_core::debug_log!("Skia: {err}");
-            }
+            gr_context
+                .flush_submit_and_sync_cpu()
+                .map_err(|err| format!("Skia renderer: {err}"))?;
         }
 
         surface_config.width = size.width;
@@ -392,7 +399,7 @@ impl crate::Surface for WGPUSurface {
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
             u8,
-        ) -> Option<DirtyRegion>,
+        ) -> Result<Option<DirtyRegion>, PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<DrawOutcome, PlatformError> {
         let (Some(surface), Some(surface_config)) = (&self.surface, &*self.surface_config.borrow())
@@ -458,11 +465,11 @@ impl crate::Surface for WGPUSurface {
         let mut skia_surface = skia_surface
             .ok_or_else(|| PlatformError::from("Failed to create Skia surface from WGPU"))?;
 
-        callback(skia_surface.canvas(), Some(gr_context), 0);
+        callback(skia_surface.canvas(), Some(gr_context), 0)?;
 
-        self.backend.release_swapchain_surface(gr_context, &mut skia_surface);
+        self.backend.release_swapchain_surface(gr_context, &mut skia_surface)?;
 
-        self.flush_and_submit(gr_context);
+        self.flush_and_submit(gr_context)?;
 
         // Skia drew via the raw queue behind wgpu's back, and `Queue::present` skips its own
         // transition when the tracker already says PRESENT, so nothing would order the
@@ -709,13 +716,13 @@ impl Backend {
         &self,
         _gr_context: &mut skia_safe::gpu::DirectContext,
         _skia_surface: &mut skia_safe::Surface,
-    ) {
+    ) -> Result<(), PlatformError> {
         match self {
             // Metal and D3D12 have no image layout for Skia to hand back.
             #[cfg(target_vendor = "apple")]
-            Self::Metal => {}
+            Self::Metal => Ok(()),
             #[cfg(target_family = "windows")]
-            Self::Dx12 => {}
+            Self::Dx12 => Ok(()),
             #[cfg(skia_wgpu_vulkan)]
             Self::Vulkan { queue_family_index } => vulkan::release_vulkan_surface(
                 _gr_context,
@@ -732,13 +739,13 @@ impl Backend {
         &self,
         _gr_context: &mut skia_safe::gpu::DirectContext,
         _skia_surface: &mut skia_safe::Surface,
-    ) {
+    ) -> Result<(), PlatformError> {
         match self {
             // Metal and D3D12 have no image layout for Skia to hand back.
             #[cfg(target_vendor = "apple")]
-            Self::Metal => {}
+            Self::Metal => Ok(()),
             #[cfg(target_family = "windows")]
-            Self::Dx12 => {}
+            Self::Dx12 => Ok(()),
             #[cfg(skia_wgpu_vulkan)]
             Self::Vulkan { queue_family_index } => vulkan::release_vulkan_surface(
                 _gr_context,

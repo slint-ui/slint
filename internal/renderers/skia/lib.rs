@@ -701,7 +701,7 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-    ) -> Option<DirtyRegion> {
+    ) -> Result<Option<DirtyRegion>, PlatformError> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
 
@@ -719,7 +719,7 @@ impl SkiaRenderer {
                     post_render,
                 )
             })
-            .unwrap_or_default();
+            .unwrap_or(Ok(None));
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
             && let Some(surface) = surface
@@ -740,7 +740,7 @@ impl SkiaRenderer {
         window: &i_slint_core::api::Window,
         components: &[(ItemTreeWeak, LogicalPoint)],
         post_render: &dyn Fn(&mut dyn ItemRenderer),
-    ) -> Option<DirtyRegion> {
+    ) -> Result<Option<DirtyRegion>, PlatformError> {
         let window_inner = WindowInner::from_pub(window);
         let window_adapter = window_inner.window_adapter();
 
@@ -860,10 +860,8 @@ impl SkiaRenderer {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                if let Some(ctx) = gr_context.as_mut()
-                    && let Err(err) = ctx.flush(None)
-                {
-                    i_slint_core::debug_log!("Skia: {err}");
+                if let Some(ctx) = gr_context.as_mut() {
+                    ctx.flush(None).map_err(|err| format!("Skia renderer: {err}"))?;
                 }
 
                 if let Some(surface) = surface {
@@ -906,13 +904,11 @@ impl SkiaRenderer {
             }
         }
 
-        if let Some(ctx) = gr_context.as_mut()
-            && let Err(err) = ctx.flush(None)
-        {
-            i_slint_core::debug_log!("Skia: {err}");
+        if let Some(ctx) = gr_context.as_mut() {
+            ctx.flush(None).map_err(|err| format!("Skia renderer: {err}"))?;
         }
 
-        dirty_region
+        Ok(dirty_region)
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -1022,7 +1018,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         )
         .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
 
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window);
+        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window)?;
 
         Ok(target_buffer)
     }
@@ -1082,7 +1078,7 @@ pub trait Surface {
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
             u8,
-        ) -> Option<DirtyRegion>,
+        ) -> Result<Option<DirtyRegion>, PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.
