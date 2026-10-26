@@ -474,6 +474,13 @@ fn write_slint_property(
     {
         default_value = d;
     }
+    if default_value.is_empty()
+        && matches!(info.default_value, BuiltinPropertyDefault::None)
+        && info.property_visibility != PropertyVisibility::Output
+        && let Type::Enumeration(enumeration) = &info.ty
+    {
+        default_value = enumeration.values[enumeration.default_value].to_string();
+    }
 
     let (type_attr, is_enum, is_struct) = if types.enums.contains(&type_name) {
         ("enum", true, false)

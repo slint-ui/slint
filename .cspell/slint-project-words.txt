@@ -423,6 +423,7 @@ MCUX
 mdbook
 memsize
 menuconfig
+menuitemrole
 Meteo
 millihertz
 mimxrt
