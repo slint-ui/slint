@@ -1,13 +1,14 @@
 # Slint Documentation
 
-
 ## Prerequisites
+
 - Rust
 - Node.js
 - pnpm
 
 
 ## 🚀 Project Structure
+
 The documentation site is built with [Astro Starlight](https://starlight.astro.build/) and reuses its
 project structure.
 
@@ -55,6 +56,7 @@ pnpm run build
 This will build the site and place it in `dist/`.
 
 ## Live edit the docs
+
 To run the live hot reloading dev server run in the astro directory:
 
 ```bash
