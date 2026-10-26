@@ -49,12 +49,13 @@ impl SlintEdition {
     /// The newest edition that a compiler behavior check depends on.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
 
-    /// The warning for an edition that misses a newer behavior change.
-    pub fn behavior_change_warning(self) -> Option<String> {
+    /// The warning for an edition that misses a newer behavior change, where `setting` is
+    /// the name of the setting that selected the edition.
+    pub fn behavior_change_warning(self, setting: &str) -> Option<String> {
         let newer = Self::LATEST_BEHAVIOR_CHANGE;
         (self < newer).then(|| {
             format!(
-                "'slint-edition' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at https://slint.dev/releases/{}/docs/slint/guide/language/concepts/editions/#behavior-changes",
+                "'{setting}' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at https://slint.dev/releases/{}/docs/slint/guide/language/concepts/editions/#behavior-changes",
                 env!("CARGO_PKG_VERSION")
             )
         })
@@ -1032,12 +1033,12 @@ mod tests {
     #[test]
     fn an_edition_before_the_latest_behavior_change_gets_a_warning() {
         let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
-        let warning = parse("1.18").behavior_change_warning().unwrap();
+        let warning = parse("1.18").behavior_change_warning("slint-edition").unwrap();
         assert!(
             warning
                 .contains("'slint-edition' 1.18 misses the language behavior changes up to 1.19")
         );
-        assert_eq!(SlintEdition::current().behavior_change_warning(), None);
+        assert_eq!(SlintEdition::current().behavior_change_warning("slint-edition"), None);
     }
 
     #[test]

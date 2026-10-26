@@ -416,7 +416,9 @@ impl EditorSession {
                     &mut warn,
                 );
                 keep_first(&mut edition, project_edition, &source, "slint-edition", &mut warn);
-                if let Some(warning) = project.slint_edition().behavior_change_warning() {
+                if let Some(warning) =
+                    project.slint_edition().behavior_change_warning("slint-edition")
+                {
                     let mut edition_diagnostics = BuildDiagnostics::default();
                     edition_diagnostics.push_warning_with_span(warning, project.edition_location());
                     diagnostics.extend(edition_diagnostics.iter().map(|d| {

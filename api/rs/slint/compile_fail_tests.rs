@@ -76,6 +76,24 @@ slint::slint!{ #[slint_edition = "999.0"] export component Hello { } }
 #[cfg(doctest)]
 const INVALID_EDITION: () = ();
 
+/**
+Test that an edition missing behavior changes gets a warning.
+
+This works:
+```
+#![deny(deprecated)]
+slint::slint!{ #[slint_edition = "1.19"] export component Hello inherits Window { } }
+```
+
+But not an older edition:
+```compile_fail
+#![deny(deprecated)]
+slint::slint!{ #[slint_edition = "1.18"] export component Hello inherits Window { } }
+```
+*/
+#[cfg(doctest)]
+const OUTDATED_EDITION: () = ();
+
 #[cfg(doctest)]
 #[doc = include_str!("README.md")]
 const CHECK_README_EXAMPLES: () = ();
