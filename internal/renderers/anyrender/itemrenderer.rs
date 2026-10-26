@@ -1423,10 +1423,13 @@ fn load_image(
             image_cache,
             texture_importer,
         ),
-        // Remaining variants hold live GPU resources. Borrowed GL textures
-        // can't be drawn.
+        // The interpreter's owned textures convert to pixels. The other remaining variants
+        // hold live GPU resources. Borrowed GL textures can't be drawn.
         #[allow(unreachable_patterns)]
-        _ => texture_importer?.import_texture(&image, None),
+        _ => match image_inner.render_to_buffer(None) {
+            Some(buffer) => image_buffer_to_peniko_image(&buffer).map(std::rc::Rc::new),
+            None => texture_importer?.import_texture(&image, None),
+        },
     }
 }
 
