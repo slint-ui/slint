@@ -215,6 +215,7 @@
     "Pipfile",
     "pixmap",
     "prestart",
+    "premultiplies",
     "printerdemo",
     "pycache",
     "pythonw",
@@ -251,6 +252,7 @@
     "tableview",
     "tabwidget",
     "testcase",
+    "texel",
     "textedit",
     "threadsafe", // asyncio loop.call_soon_threadsafe()
     "tmpfs",
