@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-# cSpell: ignore jniLibs ffile CXXFLAGS
+# cSpell: ignore jniLibs ffile CXXFLAGS Swatinem
 #
 # Produce what gradle needs that isn't checked in: the launcher icons and the
 # slint-viewer native libraries under app/src/main/jniLibs.
@@ -48,6 +48,11 @@ DEFAULT_CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 export CARGO_HOME="$REPO_ROOT/target/cargo-home"
 mkdir -p "$DEFAULT_CARGO_HOME/registry/cache" "$CARGO_HOME/registry"
 ln -sfn "$DEFAULT_CARGO_HOME/registry/cache" "$CARGO_HOME/registry/cache"
+# Workaround: Swatinem/rust-cache, since v2.9.2, deletes the files under the
+# target directory but keeps its subdirectories. skia-bindings takes a
+# non-empty skia/ in its sources as downloaded, so start from freshly
+# extracted sources. Remove this once rust-cache is fixed.
+rm -rf "$CARGO_HOME/registry/src"
 
 # Keep the checkout and toolchain locations out of the binaries.
 export RUSTFLAGS="${RUSTFLAGS:-} \
