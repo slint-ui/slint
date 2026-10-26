@@ -537,14 +537,12 @@ async fn handle_preview_message(
                 session.send_files_to_preview(preview_index, files, &[project_root.to_path_buf()]);
             }
             for name in settings {
-                if let Some(contents) =
-                    i_slint_editor_preview::settings_store::load(TOOL_NAME, name)
-                {
-                    session.send_to_preview(
-                        preview_index,
-                        &LspToPreviewMessage::SetUserSettings { name: name.clone(), contents },
-                    );
-                }
+                let contents = i_slint_editor_preview::settings_store::load(TOOL_NAME, name)
+                    .unwrap_or_default();
+                session.send_to_preview(
+                    preview_index,
+                    &LspToPreviewMessage::SetUserSettings { name: name.clone(), contents },
+                );
             }
         }
         RequestPreview { component } => {
@@ -1158,6 +1156,24 @@ mod tests {
         }));
         assert!(session.primary_preview().to_show.is_none());
         assert_eq!(session.preview(1).unwrap().to_show, Some(component));
+    }
+
+    #[test]
+    fn missing_preview_settings_are_answered() {
+        let (mut session, messages) = session_with_recording_previews();
+        let project = tempfile::tempdir().unwrap();
+        let name = format!("{}.json", project.path().file_name().unwrap().to_str().unwrap());
+        spin_on::spin_on(handle_preview_message(
+            PreviewToLspMessage::RequestState { files: Vec::new(), settings: vec![name.clone()] },
+            RUN_PREVIEW_INDEX,
+            &mut session,
+            project.path(),
+        ));
+        assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
+        assert!(messages[RUN_PREVIEW_INDEX].borrow().iter().any(|message| matches!(
+            message, LspToPreviewMessage::SetUserSettings { name: actual, contents }
+                if actual == &name && contents.is_empty()
+        )));
     }
 
     #[test]

@@ -29,6 +29,8 @@ use remote::{DiscoveredViewer, Discovery, DiscoveryEvent};
 use remote_connection::{ConnectionEvent, RemoteConnection};
 use settings::{NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
+const RESTORE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
 #[derive(Clone)]
 pub struct LocalPreviewConfig {
     pub executable: PathBuf,
@@ -83,6 +85,7 @@ struct SpringboardTask {
     /// Any selection clears it, so a viewer that failed or was passed over by
     /// the user isn't selected again when discovery re-advertises it.
     last_selected: Option<NamedEndpointIdentity>,
+    restore_deadline: Option<tokio::time::Instant>,
     credentials: HashMap<String, PairingCredentials>,
     #[cfg(test)]
     discovery_receiver: Option<mdns_sd::Receiver<mdns_sd::ServiceEvent>>,
@@ -132,6 +135,7 @@ impl Springboard {
             advertised: HashSet::new(),
             selected: None,
             last_selected: None,
+            restore_deadline: None,
             credentials: HashMap::new(),
             #[cfg(test)]
             discovery_receiver: None,
@@ -184,7 +188,14 @@ impl LspToPreview for Springboard {
 impl SpringboardTask {
     async fn run(mut self, mut actions: mpsc::UnboundedReceiver<SpringboardAction>) {
         loop {
+            let restore_timeout = async {
+                match self.restore_deadline {
+                    Some(deadline) => tokio::time::sleep_until(deadline).await,
+                    None => std::future::pending().await,
+                }
+            };
             tokio::select! {
+                _ = restore_timeout => self.select_endpoint(EndpointIdentity::Local),
                 action = actions.recv() => match action {
                     Some(action) => action(&mut self),
                     None => break,
@@ -205,8 +216,12 @@ impl SpringboardTask {
                         Ok(event) => self.handle_discovery(event),
                         Err(error) => {
                             self.discovery = None;
-                            self.error = format!("Viewer discovery stopped: {error}");
-                            self.update_ui();
+                            if self.restore_deadline.is_some() {
+                                self.select_endpoint(EndpointIdentity::Local);
+                            } else {
+                                self.error = format!("Viewer discovery stopped: {error}");
+                                self.update_ui();
+                            }
                         }
                     }
                 }
@@ -220,6 +235,7 @@ impl SpringboardTask {
             return;
         }
         self.state = ui::SpringboardState::Idle;
+        self.restore_deadline = Some(tokio::time::Instant::now() + RESTORE_TIMEOUT);
         self.request_last_selected();
         #[cfg(test)]
         if let Some(receiver) = &self.discovery_receiver {
@@ -229,7 +245,10 @@ impl SpringboardTask {
         }
         match Discovery::start() {
             Ok(discovery) => self.discovery = Some(discovery),
-            Err(error) => self.error = format!("Cannot discover viewers: {error}"),
+            Err(error) => {
+                tracing::warn!("Cannot discover viewers: {error}");
+                self.select_endpoint(EndpointIdentity::Local);
+            }
         }
         self.update_ui();
     }
@@ -296,10 +315,13 @@ impl SpringboardTask {
     }
 
     fn select_endpoint(&mut self, identity: EndpointIdentity) {
-        if self.state == ui::SpringboardState::Stopped
-            || (self.selected.as_ref() == Some(&identity)
-                && self.connection_state != ui::ConnectionState::Failed)
+        if self.state == ui::SpringboardState::Stopped {
+            return;
+        }
+        if self.selected.as_ref() == Some(&identity)
+            && self.connection_state != ui::ConnectionState::Failed
         {
+            self.restore_deadline = None;
             return;
         }
         // A remote endpoint is only selectable once discovery reported a usable
@@ -326,6 +348,7 @@ impl SpringboardTask {
             }
         };
         self.preview = None;
+        self.restore_deadline = None;
         self.selected = Some(identity.clone());
         self.store_last_selected(named);
         self.error.clear();
@@ -354,8 +377,7 @@ impl SpringboardTask {
                     self.state = ui::SpringboardState::EndpointSelected;
                 }
                 Err(error) => {
-                    self.selected = None;
-                    self.state = ui::SpringboardState::Idle;
+                    self.close();
                     self.error = format!("Failed to launch Local preview: {error}");
                 }
             }
@@ -367,6 +389,7 @@ impl SpringboardTask {
     fn handle_connection(&mut self, event: ConnectionEvent) {
         match event {
             ConnectionEvent::Pairing { prompt, answer } => {
+                self.restore_deadline = None;
                 let Some(Endpoint::Remote { pairing_answer, .. }) = &mut self.preview else {
                     return;
                 };
@@ -403,6 +426,7 @@ impl SpringboardTask {
                 return;
             }
             ConnectionEvent::Connected => {
+                self.restore_deadline = None;
                 self.connection_state = ui::ConnectionState::Connected;
                 if let Some(Endpoint::Remote { pairing_answer, .. }) = &mut self.preview {
                     *pairing_answer = None;
@@ -439,16 +463,19 @@ impl SpringboardTask {
     }
 
     fn fail_endpoint(&mut self, error: String) {
+        if self.restore_deadline.is_some() {
+            tracing::warn!("Cannot restore viewer: {error}");
+            self.select_endpoint(EndpointIdentity::Local);
+            return;
+        }
         self.preview = None;
-        self.error = error;
         if matches!(self.selected, Some(EndpointIdentity::Remote(_))) {
             self.connection_state = ui::ConnectionState::Failed;
             self.mark_unadvertised_selected();
         } else {
-            self.selected = None;
-            self.state = ui::SpringboardState::Idle;
-            self.connection_state = ui::ConnectionState::None;
+            self.close();
         }
+        self.error = error;
         self.update_ui();
     }
 
@@ -488,6 +515,7 @@ impl SpringboardTask {
         self.advertised.clear();
         self.selected = None;
         self.last_selected = None;
+        self.restore_deadline = None;
         self.state = ui::SpringboardState::Stopped;
         self.connection_state = ui::ConnectionState::None;
         self.update_ui();
@@ -507,36 +535,34 @@ impl SpringboardTask {
     /// The display name travels with the identity, see [`NamedEndpointIdentity`].
     fn store_last_selected(&mut self, last_selected: NamedEndpointIdentity) {
         self.last_selected = None;
-        let settings = SpringboardSettings::new(Some(last_selected));
+        let settings = SpringboardSettings::new(last_selected);
         let _ = self.to_editor.send(PreviewToLspMessage::UpdateUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
             contents: settings.serialize(),
         });
     }
 
-    /// Preselect the endpoint the last session connected to, so the user does
-    /// not have to click it again.
-    ///
-    /// A no-op until both facts are known: the stored selection, and that the
-    /// endpoint is usable. `Local` is always usable; a remote viewer only once a
-    /// discovery report carried a usable address, which is the same condition
-    /// that makes its row clickable (`unavailable_reason` is what disables it).
-    /// Callers are the two places where one of those facts can arrive last:
-    /// the settings branch of [`Self::send`], and [`Self::handle_discovery`].
-    ///
-    /// Fires at most once per run, see `last_selected`.
     fn apply_last_selected(&mut self) {
         let Some(last_selected) = &self.last_selected else { return };
-        let available = match last_selected {
-            NamedEndpointIdentity::Local => true,
-            NamedEndpointIdentity::Remote { fullname, .. } => self.viewers.iter().any(|viewer| {
-                &viewer.fullname == fullname
-                    && viewer.unavailable_reason.is_empty()
-                    && !viewer.addresses.is_empty()
-            }),
+        let endpoint = match last_selected {
+            NamedEndpointIdentity::Local => EndpointIdentity::Local,
+            NamedEndpointIdentity::Remote { fullname, .. } => {
+                let Some(viewer) = self.viewers.iter().find(|viewer| &viewer.fullname == fullname)
+                else {
+                    return;
+                };
+                if viewer.unavailable_reason.is_empty() {
+                    EndpointIdentity::Remote(fullname.clone())
+                } else {
+                    EndpointIdentity::Local
+                }
+            }
         };
-        if available && let Some(last_selected) = self.last_selected.take() {
-            self.select_endpoint(last_selected.into());
+        let deadline = self.restore_deadline;
+        let remote = matches!(endpoint, EndpointIdentity::Remote(_));
+        self.select_endpoint(endpoint);
+        if remote {
+            self.restore_deadline = deadline;
         }
     }
 
@@ -550,10 +576,12 @@ impl SpringboardTask {
         {
             // A reply that arrives after the user already selected, or after the
             // run ended, must not take the selection back.
-            if self.state == ui::SpringboardState::Idle
-                && let Some(settings) = SpringboardSettings::deserialize(contents)
-            {
-                self.last_selected = settings.last_selected;
+            if self.state == ui::SpringboardState::Idle && self.restore_deadline.is_some() {
+                self.last_selected = Some(
+                    SpringboardSettings::deserialize(contents)
+                        .and_then(|settings| settings.last_selected)
+                        .unwrap_or(NamedEndpointIdentity::Local),
+                );
                 self.apply_last_selected();
                 self.update_ui();
             }
@@ -698,10 +726,15 @@ mod tests {
 
     /// The springboard stores the new selection through the editor, which owns
     /// the filesystem.
-    async fn assert_user_setting_set(receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>) {
+    async fn assert_user_setting_set(
+        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+    ) -> NamedEndpointIdentity {
         match receive(receiver).await {
-            PreviewToLspMessage::UpdateUserSettings { name, .. }
-                if name == SPRINGBOARD_SETTINGS_FILE => {}
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == SPRINGBOARD_SETTINGS_FILE =>
+            {
+                SpringboardSettings::deserialize(&contents).unwrap().last_selected.unwrap()
+            }
             other => panic!("Expected the user settings to be stored, got {other:?}"),
         }
     }
@@ -876,13 +909,12 @@ mod tests {
                 assert_user_setting_request(&mut receiver).await;
                 select(&controller, 0);
                 assert_user_setting_set(&mut receiver).await;
-                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
                 assert!(
                     inspect(&controller, |task| !task.error.is_empty() && task.preview.is_none())
                         .await
                 );
                 controller.send(&LspToPreviewMessage::ShowPreview(component()));
-                controller.start();
                 assert!(
                     inspect(&controller, |task| task.preview.is_none() && !task.error.is_empty())
                         .await
@@ -893,6 +925,8 @@ mod tests {
                         task.local_preview.executable = std::env::current_exe().unwrap();
                     }))
                     .unwrap();
+                controller.start();
+                assert_user_setting_request(&mut receiver).await;
                 select(&controller, 0);
                 assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
@@ -912,14 +946,16 @@ mod tests {
             assert_user_setting_set(&mut receiver).await;
             started(&mut receiver).await;
             assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::SendShowMessage { message } if message.typ == lsp_types::MessageType::ERROR));
-            assert!(inspect(&controller, |task| task.state == ui::SpringboardState::Idle
-                && task.discovery.is_some() && !task.error.is_empty()).await);
+            assert!(inspect(&controller, |task| task.state == ui::SpringboardState::Stopped
+                && task.discovery.is_none() && !task.error.is_empty()).await);
             controller.send(&LspToPreviewMessage::ShowPreview(component()));
-            assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
+            assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
             assert!(inspect(&controller, |task| !task.error.is_empty() && task.preview.is_none()).await);
             controller.task_sender.send(Box::new(|task| {
                 task.local_preview.arguments = fixture_config("echo_child").1;
             })).unwrap();
+            controller.start();
+            assert_user_setting_request(&mut receiver).await;
             select(&controller, 0);
             assert_user_setting_set(&mut receiver).await;
             started(&mut receiver).await;
@@ -1798,28 +1834,249 @@ mod tests {
     fn reply_last_selection(controller: &Springboard, last_selected: NamedEndpointIdentity) {
         controller.send(&LspToPreviewMessage::SetUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
-            contents: SpringboardSettings::new(Some(last_selected)).serialize(),
+            contents: SpringboardSettings::new(last_selected).serialize(),
         });
     }
 
+    async fn assert_local_started(
+        controller: &Springboard,
+        upstream: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+    ) {
+        assert_eq!(assert_user_setting_set(upstream).await, NamedEndpointIdentity::Local);
+        started(upstream).await;
+        assert!(
+            inspect(controller, |task| {
+                task.selected == Some(EndpointIdentity::Local)
+                    && task.state == ui::SpringboardState::EndpointSelected
+                    && task.last_selected.is_none()
+                    && task.restore_deadline.is_none()
+            })
+            .await
+        );
+    }
+
     #[tokio::test]
-    async fn a_remembered_local_is_started() {
+    async fn settings_restore_or_repair_local_selection() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                for contents in [
+                    "",
+                    "{",
+                    "{}",
+                    r#"{"version":1}"#,
+                    r#"{"version":1,"last_selected":null}"#,
+                    r#"{"version":1,"last_selected":"unknown"}"#,
+                    r#"{"version":1,"last_selected":"local"}"#,
+                ] {
+                    let (controller, mut upstream, _discovery) = controller("echo_child");
+                    controller.start();
+                    assert_user_setting_request(&mut upstream).await;
+                    controller.send(&LspToPreviewMessage::SetUserSettings {
+                        name: SPRINGBOARD_SETTINGS_FILE.into(),
+                        contents: contents.into(),
+                    });
+                    assert_local_started(&controller, &mut upstream).await;
+                    controller.shutdown().await;
+                }
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn unanswered_or_stale_selection_falls_back_and_ignores_late_replies() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                for remembered_remote in [false, true] {
+                    tokio::time::pause();
+                    let (controller, mut upstream, _discovery) = controller("echo_child");
+                    controller.start();
+                    assert_user_setting_request(&mut upstream).await;
+                    if remembered_remote {
+                        reply_last_selection(
+                            &controller,
+                            NamedEndpointIdentity::Remote {
+                                fullname: "missing".into(),
+                                name: "Missing viewer".into(),
+                            },
+                        );
+                    }
+                    assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
+                    tokio::time::advance(RESTORE_TIMEOUT).await;
+                    tokio::time::resume();
+                    assert_local_started(&controller, &mut upstream).await;
+                    reply_last_selection(
+                        &controller,
+                        NamedEndpointIdentity::Remote {
+                            fullname: "late".into(),
+                            name: "Late viewer".into(),
+                        },
+                    );
+                    assert!(
+                        inspect(&controller, |task| task.selected == Some(EndpointIdentity::Local))
+                            .await
+                    );
+                    controller.shutdown().await;
+                }
+            })
+            .await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn stopping_cancels_selection_fallback() {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (controller, mut upstream, _discovery) = controller("echo_child");
                 controller.start();
                 assert_user_setting_request(&mut upstream).await;
-                reply_last_selection(&controller, NamedEndpointIdentity::Local);
-                assert_user_setting_set(&mut upstream).await;
-                started(&mut upstream).await;
+                controller.shutdown().await;
+                tokio::time::advance(RESTORE_TIMEOUT).await;
+                controller.send(&LspToPreviewMessage::SetUserSettings {
+                    name: SPRINGBOARD_SETTINGS_FILE.into(),
+                    contents: String::new(),
+                });
                 assert!(
-                    inspect(&controller, |task| {
-                        task.selected == Some(EndpointIdentity::Local)
-                            && task.state == ui::SpringboardState::EndpointSelected
-                    })
+                    inspect(&controller, |task| task.state == ui::SpringboardState::Stopped
+                        && task.restore_deadline.is_none()
+                        && task.preview.is_none())
                     .await
                 );
-                controller.close();
+                assert!(upstream.try_recv().is_err());
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn discovery_failure_falls_back_to_local() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, discovered) = controller("echo_child");
+                controller.start();
+                assert_user_setting_request(&mut upstream).await;
+                reply_last_selection(
+                    &controller,
+                    NamedEndpointIdentity::Remote {
+                        fullname: "missing".into(),
+                        name: "Missing viewer".into(),
+                    },
+                );
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
+                drop(discovered);
+                assert_local_started(&controller, &mut upstream).await;
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn unavailable_remembered_viewer_falls_back_to_local() {
+        use mdns_sd::IntoTxtProperties as _;
+
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                for incompatible in [false, true] {
+                    let (controller, mut upstream, discovered) = controller("echo_child");
+                    controller.start();
+                    assert_user_setting_request(&mut upstream).await;
+                    let mut service = remote::tests::service("Unavailable", 1);
+                    let fullname = service.fullname.clone();
+                    if incompatible {
+                        service.txt_properties =
+                            [("protocols", "unsupported")].as_slice().into_txt_properties();
+                    } else {
+                        service.addresses.clear();
+                    }
+                    discover(&controller, &discovered, service).await;
+                    reply_last_selection(
+                        &controller,
+                        NamedEndpointIdentity::Remote { fullname, name: "Unavailable".into() },
+                    );
+                    assert_local_started(&controller, &mut upstream).await;
+                    controller.shutdown().await;
+                }
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn remembered_connection_failure_falls_back_to_local() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+                let port = listener.local_addr().unwrap().port();
+                drop(listener);
+                let (controller, mut upstream, discovered) = controller("echo_child");
+                controller.start();
+                assert_user_setting_request(&mut upstream).await;
+                let fullname =
+                    discover(&controller, &discovered, remote::tests::service("Offline", port))
+                        .await;
+                reply_last_selection(
+                    &controller,
+                    NamedEndpointIdentity::Remote { fullname, name: "Offline".into() },
+                );
+                assert_user_setting_set(&mut upstream).await;
+                assert_local_started(&controller, &mut upstream).await;
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn restoring_a_silent_viewer_falls_back_unless_the_user_selects_it() {
+        use crate::remote_authentication::tests::raw_peer;
+
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                for explicit_selection in [false, true] {
+                    let (accepted, connection_accepted) = oneshot::channel();
+                    let (finish, finished) = oneshot::channel();
+                    let (port, peer) = raw_peer(move |socket| async move {
+                        accepted.send(()).unwrap();
+                        finished.await.unwrap();
+                        drop(socket);
+                    })
+                    .await;
+                    let (controller, mut upstream, discovered) = controller("echo_child");
+                    controller.start();
+                    assert_user_setting_request(&mut upstream).await;
+                    let fullname =
+                        discover(&controller, &discovered, remote::tests::service("Silent", port))
+                            .await;
+                    reply_last_selection(
+                        &controller,
+                        NamedEndpointIdentity::Remote {
+                            fullname: fullname.clone(),
+                            name: "Silent".into(),
+                        },
+                    );
+                    assert_user_setting_set(&mut upstream).await;
+                    tokio::time::timeout(Duration::from_secs(5), connection_accepted)
+                        .await
+                        .unwrap()
+                        .unwrap();
+                    if explicit_selection {
+                        select(&controller, 1);
+                        assert!(inspect(&controller, |task| task.restore_deadline.is_none()).await);
+                    }
+                    tokio::time::pause();
+                    tokio::time::advance(RESTORE_TIMEOUT).await;
+                    tokio::time::resume();
+                    if explicit_selection {
+                        assert!(
+                            inspect(&controller, move |task| {
+                                task.selected == Some(EndpointIdentity::Remote(fullname))
+                                    && task.preview.is_some()
+                            })
+                            .await
+                        );
+                        assert!(upstream.try_recv().is_err());
+                    } else {
+                        assert_local_started(&controller, &mut upstream).await;
+                    }
+                    controller.shutdown().await;
+                    finish.send(()).unwrap();
+                    peer.await.unwrap();
+                }
             })
             .await;
     }
@@ -1877,6 +2134,17 @@ mod tests {
                             == ui::ConnectionState::UnpairedConfirmationRequired
                 })
                 .await;
+                tokio::time::pause();
+                tokio::time::advance(RESTORE_TIMEOUT).await;
+                tokio::time::resume();
+                assert!(
+                    inspect(&controller, |task| {
+                        task.restore_deadline.is_none()
+                            && task.connection_state
+                                == ui::ConnectionState::UnpairedConfirmationRequired
+                    })
+                    .await
+                );
                 accept_plaintext(&controller).await;
                 initial_request(&mut upstream).await;
                 controller.close();
