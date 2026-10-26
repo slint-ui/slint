@@ -120,6 +120,77 @@ pub unsafe extern "C" fn slint_dotnet_value_new_image_from_path(path: Utf8Str) -
     })
 }
 
+/// `pixels` has `width * height` pixels of 4 bytes, RGBA, or with `alpha` false 3 bytes, RGB.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_value_new_image_from_pixels(
+    pixels: *const u8,
+    len: usize,
+    width: u32,
+    height: u32,
+    alpha: bool,
+) -> *mut Value {
+    use i_slint_core::graphics::{Rgb8Pixel, Rgba8Pixel, SharedPixelBuffer};
+    guard(std::ptr::null_mut(), || {
+        let bytes_per_pixel = if alpha { 4 } else { 3 };
+        if len != width as usize * height as usize * bytes_per_pixel {
+            return Err(format!(
+                "{len} bytes don't make {width}×{height} pixels of {bytes_per_pixel} bytes"
+            ));
+        }
+        let pixels =
+            if len == 0 { &[][..] } else { unsafe { std::slice::from_raw_parts(pixels, len) } };
+        let image = if alpha {
+            Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                pixels, width, height,
+            ))
+        } else {
+            Image::from_rgb8(SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+                pixels, width, height,
+            ))
+        };
+        Ok(into_raw(Value::Image(image)))
+    })
+}
+
+/// Decodes `data`, such as a PNG, JPEG, or SVG file; an empty `format` guesses it from the data.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_value_new_image_from_data(
+    data: *const u8,
+    len: usize,
+    format: Utf8Str,
+) -> *mut Value {
+    guard(std::ptr::null_mut(), || {
+        let data =
+            if len == 0 { &[][..] } else { unsafe { std::slice::from_raw_parts(data, len) } };
+        let format = unsafe { format.as_str() }?;
+        Image::load_from_data(data, (!format.is_empty()).then_some(format))
+            .map(|image| into_raw(Value::Image(image)))
+            .map_err(|_| "Failed to decode the image".to_string())
+    })
+}
+
+/// Copies the pixels of an image as RGBA into `out`, which has `width * height * 4` bytes.
+/// Fails for an image without pixels in memory, such as one that the GPU renders.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_value_image_to_rgba8(
+    value: &Value,
+    out: *mut u8,
+    len: usize,
+) -> bool {
+    guard_bool(|| {
+        let Value::Image(image) = value else { return Err("value isn't an image".into()) };
+        let buffer = image.to_rgba8().ok_or("the image has no pixels to read")?;
+        let bytes = buffer.as_bytes();
+        if bytes.len() != len {
+            return Err(format!("the image has {} bytes of pixels, not {len}", bytes.len()));
+        }
+        if len > 0 {
+            unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), out, len) };
+        }
+        Ok(())
+    })
+}
+
 /// Returns no string if `value` isn't an image loaded from a file.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_value_image_path(value: &Value) -> OwnedString {

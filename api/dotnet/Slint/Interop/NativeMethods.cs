@@ -614,4 +614,15 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_keys_to_parts(ValueHandle value);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_image_from_pixels(
+        byte* pixels, nuint len, uint width, uint height, [MarshalAs(UnmanagedType.U1)] bool alpha);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_image_from_data(byte* data, nuint len, Utf8Str format);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_value_image_to_rgba8(ValueHandle value, byte* output, nuint len);
 }

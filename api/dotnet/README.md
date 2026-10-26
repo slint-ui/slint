@@ -120,6 +120,10 @@ The types map as follows:
 
 `Color` and `Brush` have `Brighter`, `Darker`, `Transparentize`, and `WithAlpha`, and `Color` has `Mix`.
 
+Create an `Image` from a file with `Image.Load`, from a file in memory with `Image.LoadFromData`,
+or from pixels that you computed with `Image.FromRgba8` and `Image.FromRgb8`.
+`ToRgba8` returns the pixels.
+
 The build copies the `.slint` files to the output directory, and the generated code loads them at run time.
 Mark files that another `<SlintFile>` imports with `Generate="false"`:
 

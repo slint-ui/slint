@@ -6,6 +6,7 @@
 - Attach an object of your application to a drag with `DataTransfer.UserData`.
 - Map a row of a filtered or sorted view back to its source with `SourceRow`, and apply a changed condition with `Reset`.
 - Save a keyboard shortcut with `Keys.ToParts`, and create it again with `Keys.FromParts`.
+- Create images from pixels with `Image.FromRgba8` and `Image.FromRgb8`, decode image files in memory with `Image.LoadFromData`, and read the pixels with `ToRgba8`.
 - A component that inherits `SystemTrayIcon` has `Show` and `Hide`, but no `Run` or `Window`, since it has no window.
 
 ## 1.19.0-preview.5

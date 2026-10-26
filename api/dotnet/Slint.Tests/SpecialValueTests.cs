@@ -94,4 +94,25 @@ public sealed class SpecialValueTests
         Assert.AreEqual(keys, again);
         CollectionAssert.Contains(parts, "Control");
     });
+
+    [TestMethod]
+    public void ImagesComeFromPixelsAndData() => SlintThread.Run(() =>
+    {
+        byte[] rgba = [255, 0, 0, 255, 0, 0, 255, 128];
+        using var fromRgba = Image.FromRgba8(2, 1, rgba);
+        Assert.AreEqual(2, fromRgba.Width);
+        CollectionAssert.AreEqual(rgba, fromRgba.ToRgba8());
+
+        using var fromRgb = Image.FromRgb8(1, 1, [10, 20, 30]);
+        CollectionAssert.AreEqual(new byte[] { 10, 20, 30, 255 }, fromRgb.ToRgba8());
+
+        var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../examples/memory/icons/at.png"));
+        using var fromFile = Image.Load(path);
+        using var fromData = Image.LoadFromData(File.ReadAllBytes(path), "png");
+        Assert.AreEqual(fromFile.Width, fromData.Width);
+        CollectionAssert.AreEqual(fromFile.ToRgba8(), fromData.ToRgba8());
+
+        Assert.ThrowsExactly<SlintException>(() => Image.FromRgba8(2, 2, rgba));
+        Assert.ThrowsExactly<SlintException>(() => Image.LoadFromData([1, 2, 3]));
+    });
 }

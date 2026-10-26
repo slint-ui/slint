@@ -162,6 +162,51 @@ public sealed unsafe class Image : IDisposable
         return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_image_from_path(pathStr.Str))));
     }
 
+    /// <summary>Decodes an image file in memory, such as a PNG, JPEG, or SVG.</summary>
+    /// <param name="data">The content of the file.</param>
+    /// <param name="format">The lowercase file extension, such as <c>"png"</c>, or <c>null</c> to guess it from the data.</param>
+    /// <exception cref="SlintException">The data isn't an image in a supported format.</exception>
+    public static Image LoadFromData(ReadOnlySpan<byte> data, string? format = null)
+    {
+        using var formatStr = new PinnedUtf8(format ?? "");
+        fixed (byte* ptr = data)
+        {
+            return new Image(new ValueHandle(NativeError.CheckValue(
+                NativeMethods.slint_dotnet_value_new_image_from_data(ptr, (nuint)data.Length, formatStr.Str))));
+        }
+    }
+
+    /// <summary>Creates an image from pixels of 4 bytes each, red, green, blue, and alpha, row by row.</summary>
+    /// <exception cref="SlintException"><paramref name="pixels"/> doesn't have <c>width * height * 4</c> bytes.</exception>
+    public static Image FromRgba8(int width, int height, ReadOnlySpan<byte> pixels) => FromPixels(width, height, pixels, alpha: true);
+
+    /// <summary>Creates an opaque image from pixels of 3 bytes each, red, green, and blue, row by row.</summary>
+    /// <exception cref="SlintException"><paramref name="pixels"/> doesn't have <c>width * height * 3</c> bytes.</exception>
+    public static Image FromRgb8(int width, int height, ReadOnlySpan<byte> pixels) => FromPixels(width, height, pixels, alpha: false);
+
+    private static Image FromPixels(int width, int height, ReadOnlySpan<byte> pixels, bool alpha)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(width);
+        ArgumentOutOfRangeException.ThrowIfNegative(height);
+        fixed (byte* ptr = pixels)
+        {
+            return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_image_from_pixels(
+                ptr, (nuint)pixels.Length, (uint)width, (uint)height, alpha))));
+        }
+    }
+
+    /// <summary>Returns the pixels, 4 bytes each, red, green, blue, and alpha, row by row.</summary>
+    /// <exception cref="SlintException">The image has no pixels in memory, such as an SVG that hasn't been rendered.</exception>
+    public byte[] ToRgba8()
+    {
+        var pixels = new byte[Width * Height * 4];
+        fixed (byte* ptr = pixels)
+        {
+            NativeError.Check(NativeMethods.slint_dotnet_value_image_to_rgba8(Handle, ptr, (nuint)pixels.Length));
+        }
+        return pixels;
+    }
+
     /// <summary>The file the image was loaded from, or <c>null</c>.</summary>
     public string? Path => NativeMethods.slint_dotnet_value_image_path(Handle).Take();
 
