@@ -24,7 +24,13 @@ AnimationDriver
 
 ## Reduced Motion
 
-A backend reports the operating system's reduced-motion setting through `SlintContext::set_motion_preference`, which stores a `MotionPreference` property on the context's `PlatformContext`. The compiler folds `BuiltinFunction::ReducedMotion` into every animation's `enabled` field in `lower_animation` (`internal/compiler/llr/lower_expression.rs`), so generated code, C++ and the interpreter all evaluate `enabled && !reduced_motion()` against the component's own context, like every builtin that takes `&context`. Animation details are computed when an animation starts, so a change of the setting applies to animations that start afterwards. `Flickable` reads the same property through its item's context for its scroll animations.
+A backend reports the operating system's reduced-motion setting through `SlintContext::set_motion_preference`,
+which stores a `MotionPreference` property on the context's `PlatformContext`.
+The compiler folds `BuiltinFunction::ReducedMotion` into every animation's `enabled` field in `lower_animation` (`internal/compiler/llr/lower_expression.rs`).
+Generated code, C++ and the interpreter all evaluate `enabled && !reduced_motion()` against the component's own context,
+like every builtin that takes `&context`.
+Animation details are computed when an animation starts, so a change of the setting applies to animations that start afterwards.
+`Flickable` reads the same property through its item's context for its scroll animations.
 
 Without the `std` feature, `i_slint_core::builtin_functions::reduced_motion` is `false`, so optimized microcontroller builds drop the check.
 
