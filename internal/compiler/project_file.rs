@@ -123,7 +123,7 @@ pub fn is_project_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == FILE_NAME)
 }
 
-pub fn project_file_input_error(input: &SourcePath) -> String {
+fn project_file_input_error(input: &SourcePath) -> String {
     let project_directory = input.parent();
     let project_directory =
         if project_directory.as_native_path().is_some_and(|path| path.as_os_str().is_empty()) {
@@ -159,13 +159,7 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Str
     Ok((entry, Some(project_file)))
 }
 
-#[derive(Clone, Debug)]
-pub struct ResolvedInput {
-    pub source: SourcePath,
-    pub project_file: Option<ProjectFile>,
-}
-
-pub async fn load_from_root_with_file_loader(
+async fn load_from_root_with_file_loader(
     root: SourcePath,
     file_loader: Option<&crate::OpenImportCallback>,
 ) -> Result<Option<ProjectFile>, String> {
@@ -182,6 +176,101 @@ pub async fn load_from_root_with_file_loader(
         }
         Err(error) => Err(format!("Cannot load {path}: {error}")),
     }
+}
+
+/// The root file to compile for an input, see [`load_input()`].
+pub struct Input {
+    pub source: SourcePath,
+    pub source_code: String,
+    pub project_file: Option<ProjectFile>,
+}
+
+/// Finds the root file to compile for `input`, which may be a project directory, and reads it.
+/// `source_code` is the contents of `input`, if the caller has them already.
+/// `project_root` is the directory whose project file applies to `input`.
+/// `file_loader` reads a file before the file system does, such as an editor's unsaved document.
+/// A failure goes to `diagnostics`.
+/// Also returns the files whose change should trigger a new compilation;
+/// without `file_loader`, only those that exist, as a build system can't track the others.
+pub async fn load_input(
+    input: &SourcePath,
+    source_code: Option<String>,
+    project_root: Option<SourcePath>,
+    file_loader: Option<crate::OpenImportCallback>,
+    diagnostics: &mut crate::diagnostics::BuildDiagnostics,
+) -> (Option<Input>, Vec<SourcePath>) {
+    let attempted_paths = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+    let file_loader = {
+        let attempted_paths = attempted_paths.clone();
+        std::rc::Rc::new(
+            move |path: SourcePath| -> core::pin::Pin<
+                Box<dyn Future<Output = Option<std::io::Result<String>>>>,
+            > {
+                if file_loader.is_some() || path.exists() {
+                    attempted_paths.borrow_mut().push(path.clone());
+                }
+                match &file_loader {
+                    Some(file_loader) => file_loader(path),
+                    None => Box::pin(async { None }),
+                }
+            },
+        ) as crate::OpenImportCallback
+    };
+    let resolved = if input.file_name() == Some(FILE_NAME) {
+        Err(project_file_input_error(input))
+    } else if let Some(root) = project_root {
+        load_from_root_with_file_loader(root, Some(&file_loader))
+            .await
+            .map(|project_file| (input.clone(), project_file))
+    } else if let Some(path) = input.as_native_path().filter(|_| source_code.is_none()) {
+        resolve_input(path).map(|(source, project_file)| (SourcePath::new(source), project_file))
+    } else {
+        Ok((input.clone(), None))
+    };
+    let mut error = |message: String, path: &SourcePath, span| {
+        diagnostics.push_error_with_span(
+            message,
+            crate::diagnostics::SourceLocation {
+                source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
+                    path.clone(),
+                )),
+                span,
+            },
+        );
+        attempted_paths.borrow_mut().push(path.clone());
+        None
+    };
+    let loaded = match resolved {
+        Err(message) => error(message, input, crate::diagnostics::Span::new(0, 0)),
+        Ok((source, project_file)) => {
+            if let Some(project_file) = &project_file {
+                attempted_paths.borrow_mut().push(project_file.source_path().clone());
+            }
+            let source_code = if source == *input { source_code } else { None };
+            let source_code = match source_code {
+                Some(source_code) => Ok(source_code),
+                None => match (file_loader(source.clone()).await, source.as_native_path()) {
+                    (Some(source_code), _) => source_code
+                        .map_err(|error| error.to_string())
+                        .and_then(|source_code| match source.extension() {
+                            Some("rs") => crate::lexer::extract_rust_macro(source_code)
+                                .ok_or_else(|| "No `slint!` macro".into()),
+                            _ => Ok(source_code),
+                        }),
+                    (None, Some(path)) => crate::diagnostics::load_from_path(path)
+                        .map_err(|diagnostic| diagnostic.message().to_string()),
+                    (None, None) => source
+                        .read_to_string()
+                        .map_err(|error| format!("Could not load {source}: {error}")),
+                },
+            };
+            match source_code {
+                Err(message) => error(message, &source, Default::default()),
+                Ok(source_code) => Some(Input { source, source_code, project_file }),
+            }
+        }
+    };
+    (loaded, attempted_paths.take())
 }
 
 impl ProjectFile {

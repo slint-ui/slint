@@ -36,10 +36,11 @@ jobs:
       - name: Trigger CI on branches with recent changes
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ inputs.branch }}
         run: |
-          if [ -n "${{ inputs.branch }}" ]; then
-            echo "Triggering full CI for ${{ inputs.branch }}"
-            gh workflow run "CI" --repo ${{ github.repository }} --ref "${{ inputs.branch }}" -f full=true
+          if [ -n "$BRANCH" ]; then
+            echo "Triggering full CI for $BRANCH"
+            gh workflow run "CI" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH" -f full=true
             exit 0
           fi
 

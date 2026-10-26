@@ -41,8 +41,9 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LABELS: ${{ toJson(github.event.issue.labels.*.name) }}
         run: |
-          has_needs_info=$(echo '${{ toJson(github.event.issue.labels.*.name) }}' | jq 'contains(["needs info"])')
+          has_needs_info=$(printf '%s' "$LABELS" | jq 'contains(["needs info"])')
 
           is_author="${{ github.event.comment.user.login == github.event.issue.user.login }}"
 
