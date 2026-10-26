@@ -379,8 +379,11 @@ macro_rules! include_modules {
 #[i_slint_core_macros::slint_doc]
 /// Initialize translations when using the `gettext` feature.
 ///
-/// Call this in your main function with the path where translations are located.
+/// Call this at the start of your main function, before starting other threads,
+/// with the path where translations are located.
 /// This macro internally calls the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+/// It also sets the C library's `LC_MESSAGES` locale from the environment,
+/// which isn't thread-safe.
 ///
 /// The first argument of the macro must be an expression that implements `Into<std::path::PathBuf>`.
 /// It specifies the directory in which gettext should search for translations.
