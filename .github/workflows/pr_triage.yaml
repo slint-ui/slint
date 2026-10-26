@@ -51,6 +51,12 @@ jobs:
                   ...context.repo, state: 'open', sort: 'created', direction: 'desc', per_page: 100,
                 });
 
+            // Replies to review comments count as reviews by the author.
+            async function reviewedByOthers(pr) {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, { ...context.repo, pull_number: pr.number, per_page: 100 });
+              return reviews.some(review => review.user?.login !== pr.user.login);
+            }
+
             // Whether someone can push to the repository. Their PRs get a
             // review from the team anyway, so only triage the others.
             const writers = new Map();
@@ -74,6 +80,9 @@ jobs:
                 if (manual) core.notice(`Skipping #${pr.number}: draft=${pr.draft} state=${pr.state} bot=${pr.user.type === 'Bot'} triaged=${triaged}`);
                 continue;
               }
+              // Someone already looks after a PR that has a review.
+              if (!manual && await reviewedByOthers(pr)) continue;
+
               // A manual run triages the PR it was asked for, whoever wrote it.
               if (!manual && await hasWriteAccess(pr.user.login)) continue;
               numbers.push(pr.number);
