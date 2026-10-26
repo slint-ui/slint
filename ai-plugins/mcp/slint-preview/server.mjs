@@ -99,6 +99,7 @@ const tools = [
         name: "read_slint_file",
         title: "Read Slint File",
         description: "Read a .slint file for the preview.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -110,6 +111,7 @@ const tools = [
         name: "read_binary_file",
         title: "Read Binary File",
         description: "Read an image or font file that the preview uses.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -127,12 +129,14 @@ const tools = [
             "If pending, call again to keep waiting for the same preview. Stop retrying on timeout. " +
             "Check it before you judge how the UI looks.",
         inputSchema: { type: "object", properties: {} },
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     {
         name: "publish_preview_capture",
         title: "Publish Slint Preview Capture",
         description:
             "Report preview startup and progress, or hand the server the preview's PNG capture or why there is none.",
+        annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
         inputSchema: {
             type: "object",
             properties: {
