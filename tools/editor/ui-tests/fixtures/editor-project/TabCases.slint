@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+
+export component TabCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    empty-tabs := TabWidget {
+        x: 32px;
+        y: 32px;
+        width: 280px;
+        height: 200px;
+    }
+
+    tabs := TabWidget {
+        x: 32px;
+        y: 256px;
+        width: 280px;
+        height: 200px;
+        first-tab := Tab {
+            title: "Tab 1";
+        }
+    }
+}
