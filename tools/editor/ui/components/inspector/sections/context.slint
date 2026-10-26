@@ -85,7 +85,8 @@ export global InspectorContext {
     public pure function is-title-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "GroupBox"
-                || InspectorContext.element-information.type-name == "RadioGroup");
+                || InspectorContext.element-information.type-name == "RadioGroup"
+                || InspectorContext.element-information.type-name == "Tab");
     }
 
     public pure function is-lineedit-selection() -> bool {
