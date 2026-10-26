@@ -122,6 +122,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_image.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_data_transfer.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_color.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
 
@@ -333,7 +334,8 @@ fn builtin_functions(path: &Path) -> anyhow::Result<()> {
     )?;
     writeln!(
         out,
-        "namespace slint::cbindgen_private {{ struct FontMetrics; struct ItemRc; extern \"C\" {{"
+        "namespace slint::cbindgen_private {{ struct FontMetrics; struct ItemRc; \
+         struct SystemColorSchemes; extern \"C\" {{"
     )?;
     macro_rules! print_builtin_functions {
         ($(

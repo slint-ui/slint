@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// With `use_system_colors`, the Material palette takes the system scheme when the platform
+// reports one, and keeps `schemes` otherwise.
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//library_path(material): ../../../ui-libraries/material/src/material.slint
+
+import { MaterialPalette } from "@material";
+import { Palette } from "std-widgets.slint";
+
+export { MaterialPalette }
+
+export component TestCase inherits Window {
+    out property <color> primary: MaterialPalette.primary;
+    out property <color> shadow: MaterialPalette.shadow;
+    public function set-dark() {
+        Palette.color-scheme = ColorScheme.dark;
+    }
+    // Every role, so a swapped role in the mapping fails.
+    out property <bool> light-roles-match:
+        MaterialPalette.primary == Platform.system-color-schemes.light.primary &&
+        MaterialPalette.surface_tint == Platform.system-color-schemes.light.surface-tint &&
+        MaterialPalette.on_primary == Platform.system-color-schemes.light.on-primary &&
+        MaterialPalette.primary_container == Platform.system-color-schemes.light.primary-container &&
+        MaterialPalette.on_primary_container == Platform.system-color-schemes.light.on-primary-container &&
+        MaterialPalette.secondary == Platform.system-color-schemes.light.secondary &&
+        MaterialPalette.on_secondary == Platform.system-color-schemes.light.on-secondary &&
+        MaterialPalette.secondary_container == Platform.system-color-schemes.light.secondary-container &&
+        MaterialPalette.on_secondary_container == Platform.system-color-schemes.light.on-secondary-container &&
+        MaterialPalette.tertiary == Platform.system-color-schemes.light.tertiary &&
+        MaterialPalette.on_tertiary == Platform.system-color-schemes.light.on-tertiary &&
+        MaterialPalette.tertiary_container == Platform.system-color-schemes.light.tertiary-container &&
+        MaterialPalette.on_tertiary_container == Platform.system-color-schemes.light.on-tertiary-container &&
+        MaterialPalette.error == Platform.system-color-schemes.light.error &&
+        MaterialPalette.on_error == Platform.system-color-schemes.light.on-error &&
+        MaterialPalette.error_container == Platform.system-color-schemes.light.error-container &&
+        MaterialPalette.on_error_container == Platform.system-color-schemes.light.on-error-container &&
+        MaterialPalette.background == Platform.system-color-schemes.light.background &&
+        MaterialPalette.on_background == Platform.system-color-schemes.light.on-background &&
+        MaterialPalette.surface == Platform.system-color-schemes.light.surface &&
+        MaterialPalette.on_surface == Platform.system-color-schemes.light.on-surface &&
+        MaterialPalette.surface_variant == Platform.system-color-schemes.light.surface-variant &&
+        MaterialPalette.on_surface_variant == Platform.system-color-schemes.light.on-surface-variant &&
+        MaterialPalette.outline == Platform.system-color-schemes.light.outline &&
+        MaterialPalette.outline_variant == Platform.system-color-schemes.light.outline-variant &&
+        MaterialPalette.inverse_surface == Platform.system-color-schemes.light.inverse-surface &&
+        MaterialPalette.inverse_on_surface == Platform.system-color-schemes.light.inverse-on-surface &&
+        MaterialPalette.inverse_primary == Platform.system-color-schemes.light.inverse-primary &&
+        MaterialPalette.primary_fixed == Platform.system-color-schemes.light.primary-fixed &&
+        MaterialPalette.on_primary_fixed == Platform.system-color-schemes.light.on-primary-fixed &&
+        MaterialPalette.primary_fixed_dim == Platform.system-color-schemes.light.primary-fixed-dim &&
+        MaterialPalette.on_primary_fixed_variant == Platform.system-color-schemes.light.on-primary-fixed-variant &&
+        MaterialPalette.secondary_fixed == Platform.system-color-schemes.light.secondary-fixed &&
+        MaterialPalette.on_secondary_fixed == Platform.system-color-schemes.light.on-secondary-fixed &&
+        MaterialPalette.secondary_fixed_dim == Platform.system-color-schemes.light.secondary-fixed-dim &&
+        MaterialPalette.on_secondary_fixed_variant == Platform.system-color-schemes.light.on-secondary-fixed-variant &&
+        MaterialPalette.tertiary_fixed == Platform.system-color-schemes.light.tertiary-fixed &&
+        MaterialPalette.on_tertiary_fixed == Platform.system-color-schemes.light.on-tertiary-fixed &&
+        MaterialPalette.tertiary_fixed_dim == Platform.system-color-schemes.light.tertiary-fixed-dim &&
+        MaterialPalette.on_tertiary_fixed_variant == Platform.system-color-schemes.light.on-tertiary-fixed-variant &&
+        MaterialPalette.surface_dim == Platform.system-color-schemes.light.surface-dim &&
+        MaterialPalette.surface_bright == Platform.system-color-schemes.light.surface-bright &&
+        MaterialPalette.surface_container_lowest == Platform.system-color-schemes.light.surface-container-lowest &&
+        MaterialPalette.surface_container_low == Platform.system-color-schemes.light.surface-container-low &&
+        MaterialPalette.surface_container == Platform.system-color-schemes.light.surface-container &&
+        MaterialPalette.surface_container_high == Platform.system-color-schemes.light.surface-container-high &&
+        MaterialPalette.surface_container_highest == Platform.system-color-schemes.light.surface-container-highest;
+    out property <bool> test: primary == rgb(68, 94, 145);
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let baseline_light = slint::Color::from_rgb_u8(68, 94, 145);
+assert_eq!(instance.get_primary(), baseline_light);
+
+// No system scheme yet: switching on keeps `schemes`.
+instance.global::<MaterialPalette<'_>>().set_use_system_colors(true);
+assert_eq!(instance.get_primary(), baseline_light);
+
+let mut schemes = i_slint_core::items::SystemColorSchemes::default();
+schemes.light.primary = slint::Color::from_rgb_u8(0x41, 0x5f, 0x91);
+schemes.dark.primary = slint::Color::from_rgb_u8(0xaa, 0xc7, 0xff);
+slint_testing::set_system_color_schemes(schemes.clone());
+assert_eq!(instance.get_primary(), slint::Color::from_rgb_u8(0x41, 0x5f, 0x91));
+
+// A distinct color for every role of the light scheme.
+let mut distinct = schemes.clone();
+let mut blue = 0;
+for role in [&mut distinct.light.primary, &mut distinct.light.surface_tint, &mut distinct.light.on_primary, &mut distinct.light.primary_container, &mut distinct.light.on_primary_container, &mut distinct.light.secondary, &mut distinct.light.on_secondary, &mut distinct.light.secondary_container, &mut distinct.light.on_secondary_container, &mut distinct.light.tertiary, &mut distinct.light.on_tertiary, &mut distinct.light.tertiary_container, &mut distinct.light.on_tertiary_container, &mut distinct.light.error, &mut distinct.light.on_error, &mut distinct.light.error_container, &mut distinct.light.on_error_container, &mut distinct.light.background, &mut distinct.light.on_background, &mut distinct.light.surface, &mut distinct.light.on_surface, &mut distinct.light.surface_variant, &mut distinct.light.on_surface_variant, &mut distinct.light.outline, &mut distinct.light.outline_variant, &mut distinct.light.inverse_surface, &mut distinct.light.inverse_on_surface, &mut distinct.light.inverse_primary, &mut distinct.light.primary_fixed, &mut distinct.light.on_primary_fixed, &mut distinct.light.primary_fixed_dim, &mut distinct.light.on_primary_fixed_variant, &mut distinct.light.secondary_fixed, &mut distinct.light.on_secondary_fixed, &mut distinct.light.secondary_fixed_dim, &mut distinct.light.on_secondary_fixed_variant, &mut distinct.light.tertiary_fixed, &mut distinct.light.on_tertiary_fixed, &mut distinct.light.tertiary_fixed_dim, &mut distinct.light.on_tertiary_fixed_variant, &mut distinct.light.surface_dim, &mut distinct.light.surface_bright, &mut distinct.light.surface_container_lowest, &mut distinct.light.surface_container_low, &mut distinct.light.surface_container, &mut distinct.light.surface_container_high, &mut distinct.light.surface_container_highest] {
+    blue += 1;
+    *role = slint::Color::from_rgb_u8(0x10, 0x20, blue);
+}
+slint_testing::set_system_color_schemes(distinct);
+assert!(instance.get_light_roles_match());
+slint_testing::set_system_color_schemes(schemes.clone());
+// The system doesn't report `shadow`, so it stays the one of `schemes`.
+assert_eq!(instance.get_shadow(), slint::Color::from_rgb_u8(0, 0, 0));
+
+// Switched off: `schemes` again, although the system reports a scheme.
+instance.global::<MaterialPalette<'_>>().set_use_system_colors(false);
+assert_eq!(instance.get_primary(), baseline_light);
+
+instance.global::<MaterialPalette<'_>>().set_use_system_colors(true);
+instance.invoke_set_dark();
+assert_eq!(instance.get_primary(), slint::Color::from_rgb_u8(0xaa, 0xc7, 0xff));
+```
+*/

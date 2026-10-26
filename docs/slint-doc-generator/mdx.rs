@@ -329,6 +329,9 @@ pub fn extract_builtin_structs(
         (Coord) => {
             "length"
         };
+        (Color) => {
+            "color"
+        };
         (Image) => {
             "image"
         };
@@ -358,10 +361,7 @@ pub fn extract_builtin_structs(
                 $(
                     let key = stringify!($field).replace('_', "-");
                     let type_name = map_type!($field_type).to_string();
-                    let mut f_description = String::new();
-                    $(
-                        f_description += &format!("{}", $field_doc);
-                    )*
+                    let f_description = String::new() $(+ $field_doc)*;
                     let default_value =
                         i_slint_common::builtin_struct_field_default_tokens!($($field_default)?)
                             .map(declared_default);

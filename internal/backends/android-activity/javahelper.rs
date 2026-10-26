@@ -17,7 +17,9 @@ use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::item_rendering::HasFont;
-use i_slint_core::items::{CapitalizationMode, ColorScheme, InputType};
+use i_slint_core::items::{
+    CapitalizationMode, ColorScheme, InputType, SystemColorScheme, SystemColorSchemes,
+};
 use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
 use i_slint_core::platform::{Key, WindowAdapter, WindowEvent, WindowEventDispatchResult};
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
@@ -51,6 +53,10 @@ bind_java_type! {
         fn color_scheme {
             name = "color_scheme",
             sig = () -> jint,
+        },
+        fn system_color_schemes {
+            name = "system_color_schemes",
+            sig = () -> jint[],
         },
         fn font_scale {
             name = "font_scale",
@@ -572,6 +578,78 @@ impl JavaHelper {
         })
     }
 
+    /// Returns the system's light and dark Material 3 schemes, or `None` below Android 14.
+    fn system_color_schemes(&self) -> Result<Option<SystemColorSchemes>, jni::errors::Error> {
+        self.with_jni_env(|env, helper| {
+            let array = helper.system_color_schemes(env)?;
+            // Light, then dark, each in the field order of `SystemColorScheme`; empty below Android 14.
+            let mut argb = vec![0; array.len(env)?];
+            array.get_region(env, 0, &mut argb)?;
+            let mut colors = argb.into_iter().map(|c| Color::from_argb_encoded(c as u32));
+            let mut scheme = || {
+                let mut s = SystemColorScheme::default();
+                for field in [
+                    &mut s.primary,
+                    &mut s.surface_tint,
+                    &mut s.on_primary,
+                    &mut s.primary_container,
+                    &mut s.on_primary_container,
+                    &mut s.secondary,
+                    &mut s.on_secondary,
+                    &mut s.secondary_container,
+                    &mut s.on_secondary_container,
+                    &mut s.tertiary,
+                    &mut s.on_tertiary,
+                    &mut s.tertiary_container,
+                    &mut s.on_tertiary_container,
+                    &mut s.error,
+                    &mut s.on_error,
+                    &mut s.error_container,
+                    &mut s.on_error_container,
+                    &mut s.background,
+                    &mut s.on_background,
+                    &mut s.surface,
+                    &mut s.on_surface,
+                    &mut s.surface_variant,
+                    &mut s.on_surface_variant,
+                    &mut s.outline,
+                    &mut s.outline_variant,
+                    &mut s.inverse_surface,
+                    &mut s.inverse_on_surface,
+                    &mut s.inverse_primary,
+                    &mut s.primary_fixed,
+                    &mut s.on_primary_fixed,
+                    &mut s.primary_fixed_dim,
+                    &mut s.on_primary_fixed_variant,
+                    &mut s.secondary_fixed,
+                    &mut s.on_secondary_fixed,
+                    &mut s.secondary_fixed_dim,
+                    &mut s.on_secondary_fixed_variant,
+                    &mut s.tertiary_fixed,
+                    &mut s.on_tertiary_fixed,
+                    &mut s.tertiary_fixed_dim,
+                    &mut s.on_tertiary_fixed_variant,
+                    &mut s.surface_dim,
+                    &mut s.surface_bright,
+                    &mut s.surface_container_lowest,
+                    &mut s.surface_container_low,
+                    &mut s.surface_container,
+                    &mut s.surface_container_high,
+                    &mut s.surface_container_highest,
+                ] {
+                    *field = colors.next()?;
+                }
+                Some(s)
+            };
+            let (light, dark) = (scheme(), scheme());
+            // A length other than two schemes means the Java table and the fields disagree.
+            Ok(light
+                .zip(dark)
+                .filter(|_| colors.next().is_none())
+                .map(|(light, dark)| SystemColorSchemes { light, dark }))
+        })
+    }
+
     /// `night_mode` is a `Configuration.UI_MODE_NIGHT_*` value.
     pub fn set_system_colors(&self, ctx: &i_slint_core::SlintContext, night_mode: i32) {
         ctx.set_color_scheme(match night_mode {
@@ -581,6 +659,9 @@ impl JavaHelper {
         });
         if let Ok(Some(accent)) = self.accent_color() {
             ctx.set_accent_color(accent);
+        }
+        if let Ok(Some(schemes)) = self.system_color_schemes() {
+            ctx.set_system_color_schemes(schemes);
         }
     }
 
