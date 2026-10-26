@@ -41,7 +41,7 @@ export component MainWindow inherits Window {
 
     Rectangle {
         background: #f8f9fa;
-        border-radius: Styles.window-border-radius;
+        border-radius: Styles.border-radius;
         clip: true;
 
         grid := RecipesGrid {
@@ -72,13 +72,13 @@ export component MainWindow inherits Window {
         }
 
         if (is-cooking || show-start-button): button-container := Rectangle {
-            y: Styles.control-padding;
+            y: Styles.spacing-sm;
             width: show-start-button ? Styles.start-button-width : cooking-timer.preferred-width;
-            height: show-start-button ? Styles.start-button-height : Styles.cooking-timer-height;
+            height: show-start-button ? Styles.control-height : Styles.control-height;
             background: show-start-button ? Styles.slint-blue : #2a2a2a;
-            border-radius: show-start-button ? Styles.large-border-radius : Styles.cooking-timer-height / 2;
+            border-radius: Styles.border-radius;
 
-            animate width, height, border-radius, background { duration: 0.2s; }
+            animate width, height, background { duration: 0.2s; }
 
             start-button := StartButton {
                 opacity: root.show-start-button ? 1 : 0;

@@ -7,17 +7,17 @@ export component StartButton {
     callback clicked <=> ta.clicked;
 
     HorizontalLayout {
-        spacing: Styles.spacing-lg;
+        spacing: Styles.spacing-md;
         alignment: center;
 
         Image {
             source: @image-url("../images/play.svg");
             colorize: white;
-            width: Styles.action-icon-size;
+            width: Styles.medium-icon-size;
         }
 
         Text {
-            font-size: Styles.button-font-size;
+            font-size: Styles.regular-font-size;
             font-weight: FontWeight.bold;
             color: white;
             text: "Start Recipe";

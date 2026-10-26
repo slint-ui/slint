@@ -27,7 +27,7 @@ export component RecipeDetail inherits Rectangle {
     header := Header {
         x: 0px;
         y: 0px;
-        height: Styles.detail-header-height;
+        height: Styles.control-height + 2 * Styles.spacing-sm;
         TouchArea {
             x: 0px;
             width: 200px;
@@ -43,7 +43,7 @@ export component RecipeDetail inherits Rectangle {
             height: self.preferred-height;
             Image {
                 source: @image-url("../images/back.svg");
-                width: Styles.regular-icon-size;
+                width: Styles.medium-icon-size;
             }
 
             Text {
@@ -58,9 +58,9 @@ export component RecipeDetail inherits Rectangle {
 
     details := Rectangle {
         width: root.width - (Styles.side-margin * 2);
-        height: root.height - header.height - tabs.height - (Styles.spacing-xxxl * 2);
+        height: root.height - header.height - tabs.height - (Styles.spacing-xl * 2);
         x: Styles.side-margin;
-        y: header.height + Styles.spacing-xxxl;
+        y: header.height + Styles.spacing-xl;
 
         if active-tab == 0: overview-page := OverviewPage {
             recipe: root.recipe;

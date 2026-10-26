@@ -25,7 +25,7 @@ export component RecipeCard inherits Rectangle {
 
         Text {
             x: Styles.spacing-md;
-            y: parent.height - self.height - 18px;
+            y: parent.height - self.height - Styles.spacing-md;
             width: parent.width - 2 * Styles.spacing-md;
             text: root.title;
             font-size: Styles.small-font-size;
@@ -41,16 +41,16 @@ export component RecipeCard inherits Rectangle {
             y: Styles.spacing-md;
             width: max(80px, badge-content.preferred-width);
             height: Styles.compact-row-height;
-            border-radius: Styles.small-border-radius;
+            border-radius: Styles.border-radius;
             background: white;
-            drop-shadow-blur: Styles.small-shadow-blur;
-            drop-shadow-offset-y: Styles.small-shadow-offset;
+            drop-shadow-blur: Styles.shadow-blur;
+            drop-shadow-offset-y: Styles.shadow-offset;
             drop-shadow-color: #00000030;
 
             badge-content := HorizontalLayout {
-                padding-left: Styles.control-padding;
-                padding-right: Styles.control-padding;
-                spacing: Styles.spacing-md / 2;
+                padding-left: Styles.spacing-sm;
+                padding-right: Styles.spacing-sm;
+                spacing: Styles.spacing-sm;
                 alignment: center;
                 cross-axis-alignment: center;
 

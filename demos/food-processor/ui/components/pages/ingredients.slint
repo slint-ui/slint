@@ -10,12 +10,12 @@ component IngredientItem inherits HorizontalLayout {
     alignment: space-between;
 
     HorizontalLayout {
-        spacing: Styles.spacing-xxxl;
-        height: Styles.ingredient-icon-size;
+        spacing: Styles.spacing-xl;
+        height: Styles.large-icon-size;
 
         Image {
             source: root.ingredient.image;
-            width: Styles.ingredient-icon-size;
+            width: Styles.large-icon-size;
         }
 
         ingredient := VerticalLayout {
@@ -63,14 +63,14 @@ export component IngredientsPage inherits VerticalLayout {
     spacing: Styles.side-margin;
     padding-left: Styles.side-margin;
     padding-right: Styles.side-margin;
-    padding-top: Styles.side-margin / 2;
+    padding-top: Styles.spacing-lg;
     alignment: start;
 
     VerticalLayout {
-        spacing: Styles.spacing-xl;
+        spacing: Styles.spacing-lg;
 
         VerticalLayout {
-            padding-bottom: Styles.spacing-xxl;
+            padding-bottom: Styles.spacing-lg;
 
             Text {
                 text: "Ingredients";

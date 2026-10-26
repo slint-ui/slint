@@ -8,13 +8,13 @@ component StepItem inherits HorizontalLayout {
     in property <int> step-number;
     in property <string> step-text;
 
-    spacing: Styles.spacing-xxl;
+    spacing: Styles.spacing-lg;
     alignment: start;
 
     Rectangle {
         width: Styles.large-icon-size;
         height: self.width;
-        border-radius: self.height / 2;
+        border-radius: Styles.border-radius;
         background: Styles.slint-blue;
 
         Text {
@@ -39,19 +39,19 @@ component StepItem inherits HorizontalLayout {
 
 export component PreparationPage inherits VerticalLayout {
     in property <Recipe> recipe;
-    spacing: Styles.spacing-xl;
+    spacing: Styles.spacing-lg;
     padding: Styles.side-margin;
     alignment: start;
 
     Text {
         text: "Step by Step";
-        font-size: Styles.medium-font-size;
+        font-size: Styles.regular-font-size;
         font-weight: FontWeight.semi-bold;
         color: #171717;
     }
 
     VerticalLayout {
-        spacing: Styles.spacing-xl;
+        spacing: Styles.spacing-lg;
 
         for step[index] in root.recipe.steps: StepItem {
             step-number: index + 1;

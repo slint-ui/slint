@@ -16,7 +16,7 @@ export component OverviewPage inherits HorizontalLayout {
     RecipePhoto {
         width: Styles.recipe-photo-width;
         height: Styles.recipe-photo-height;
-        border-radius: Styles.photo-border-radius;
+        border-radius: Styles.border-radius;
         horizontal-stretch: 0;
         vertical-stretch: 0;
         photo: root.recipe.photo;
@@ -24,8 +24,8 @@ export component OverviewPage inherits HorizontalLayout {
 
     VerticalLayout {
         alignment: space-around;
-        padding-top: Styles.side-margin / 2;
-        padding-bottom: Styles.side-margin / 2;
+        padding-top: Styles.spacing-lg;
+        padding-bottom: Styles.spacing-lg;
         title := Text {
             wrap: word-wrap;
             font-size: Styles.title-font-size;
@@ -44,7 +44,7 @@ export component OverviewPage inherits HorizontalLayout {
                 stars := HorizontalLayout {
                     for i[index] in recipe.rating.to-float().ceil(): Image {
                         source: @image-url("../../images/star.jpg");
-                        width: Styles.regular-icon-size;
+                        width: Styles.medium-icon-size;
                     }
                 }
             }
@@ -91,17 +91,17 @@ export component OverviewPage inherits HorizontalLayout {
 
         about := Rectangle {
             background: white;
-            border-radius: Styles.large-border-radius;
+            border-radius: Styles.border-radius;
             border-width: Styles.outline-width;
             border-color: #E5E5E5;
 
             VerticalLayout {
-                spacing: Styles.spacing-xl;
-                padding: Styles.spacing-xl;
+                spacing: Styles.spacing-lg;
+                padding: Styles.spacing-lg;
 
                 Text {
                     text: "About This Recipe";
-                    font-size: Styles.medium-font-size;
+                    font-size: Styles.regular-font-size;
                     font-weight: FontWeight.bold;
                     color: #171717;
                 }

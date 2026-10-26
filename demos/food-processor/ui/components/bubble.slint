@@ -4,9 +4,9 @@
 import { Styles } from "../styles.slint";
 
 export component Bubble inherits Rectangle {
-    width: 140px;
-    height: 84px;
-    border-radius: Styles.medium-border-radius;
+    width: 144px;
+    height: 80px;
+    border-radius: Styles.border-radius;
     background: #fafafa;
     border-width: Styles.border-width;
     border-color: #e5e5e5;
@@ -16,7 +16,7 @@ export component Bubble inherits Rectangle {
     in property <image> icon: @image-url("../images/prep.jpg");
 
     Rectangle {
-        x: Styles.spacing-lg;
+        x: Styles.spacing-md;
         width: vl.preferred-width;
         height: vl.preferred-height;
         vl := VerticalLayout {
@@ -25,7 +25,7 @@ export component Bubble inherits Rectangle {
                 alignment: start;
                 spacing: Styles.spacing-sm;
                 Image {
-                    width: Styles.medium-icon-size;
+                    width: Styles.small-icon-size;
                     source: root.icon;
                 }
 
@@ -39,7 +39,7 @@ export component Bubble inherits Rectangle {
 
             Text {
                 text: root.time;
-                font-size: Styles.medium-font-size;
+                font-size: Styles.regular-font-size;
                 font-weight: FontWeight.bold;
                 color: #171717;
             }

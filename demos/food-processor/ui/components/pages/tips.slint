@@ -11,12 +11,12 @@ component TipCard inherits Rectangle {
     in property <color> text-color;
 
     background: root.bg-color;
-    border-radius: Styles.medium-border-radius;
+    border-radius: Styles.border-radius;
     border-width: Styles.outline-width;
 
     VerticalLayout {
-        padding: Styles.spacing-lg;
-        spacing: Styles.control-padding;
+        padding: Styles.spacing-md;
+        spacing: Styles.spacing-sm;
         alignment: start;
 
         Text {
@@ -39,7 +39,7 @@ component TipCard inherits Rectangle {
 
 export component TipsPage inherits VerticalLayout {
     in property <Recipe> recipe;
-    spacing: Styles.spacing-xl;
+    spacing: Styles.spacing-lg;
     padding: Styles.side-margin;
     alignment: start;
 
@@ -51,7 +51,7 @@ export component TipsPage inherits VerticalLayout {
     }
 
     VerticalLayout {
-        spacing: Styles.spacing-xl;
+        spacing: Styles.spacing-lg;
 
         for tip[index] in root.recipe.tips: TipCard {
             title: tip.title;
