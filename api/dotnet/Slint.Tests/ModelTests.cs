@@ -150,4 +150,40 @@ public sealed class ModelTests
         app.SetProperty("numbers", new List<int> { 1, 2 });
         CollectionAssert.AreEqual(new object[] { 1.0, 2.0 }, ((Model<object?>)app.GetProperty("numbers")!).ToArray());
     });
+
+    private sealed class ReadOnlyNumbers : Model<int>
+    {
+        public override int RowCount => 3;
+
+        public override int RowData(int row) => (row + 1) * 10;
+    }
+
+    [TestMethod]
+    public void SlintCodeAddsAndRemovesRows() => SlintThread.Run(() =>
+    {
+        using var app = Create("""
+            export component App {
+                in-out property <[int]> numbers;
+                public function push(value: int) { numbers.push(value); }
+                public function insert(row: int, value: int) { numbers.insert(row, value); }
+                public function remove(row: int) { numbers.remove(row); }
+            }
+            """);
+        var numbers = new ListModel<int>([1, 2]);
+        app.SetProperty("numbers", numbers);
+        app.Invoke("push", 3);
+        app.Invoke("insert", 0, 0);
+        app.Invoke("remove", 2);
+        CollectionAssert.AreEqual(new[] { 0, 1, 3 }, numbers.ToArray());
+
+        // Rows out of range, and a model that doesn't support the change, leave the model as it is.
+        app.Invoke("remove", 5);
+        app.Invoke("insert", 9, 9);
+        CollectionAssert.AreEqual(new[] { 0, 1, 3 }, numbers.ToArray());
+        var readOnly = new ReadOnlyNumbers();
+        app.SetProperty("numbers", readOnly);
+        app.Invoke("push", 40);
+        app.Invoke("remove", 0);
+        CollectionAssert.AreEqual(new[] { 10, 20, 30 }, readOnly.ToArray());
+    });
 }

@@ -366,7 +366,7 @@ internal static unsafe partial class NativeMethods
     // models.rs
 
     [LibraryImport(Library)]
-    public static partial nint slint_dotnet_model_new(ModelVTable vtable, nint userData, nint* weak);
+    public static partial nint slint_dotnet_model_new(ModelVTable vtable, nint userData, Utf8Str typeName, nint* weak);
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_model_weak_upgrade(ModelWeakHandle weak);

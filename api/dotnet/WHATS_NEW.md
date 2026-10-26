@@ -1,5 +1,10 @@
 # What's New in Slint for .NET
 
+## Unreleased
+
+- `.slint` code can add and remove rows of a `ListModel`, with `push`, `insert`, and `remove` of an array.
+  Override `InsertRow` and `RemoveRow` to support them in your own `Model<T>`.
+
 ## 1.19.0-preview.6
 
 - Send key, pointer, and other events to a window with `Window.DispatchEvent`.

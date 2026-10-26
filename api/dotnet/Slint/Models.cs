@@ -19,6 +19,10 @@ internal interface INativeModel
     nint RowDataForNative(int row);
 
     void SetRowDataFromNative(int row, nint value);
+
+    bool InsertRowFromNative(int row, nint value);
+
+    bool RemoveRowFromNative(int row);
 }
 
 /// <summary>
@@ -44,6 +48,20 @@ public abstract unsafe class Model<T> : IReadOnlyList<T>, INativeModel
     public virtual void SetRowData(int row, T value)
     {
     }
+
+    /// <summary>
+    /// Called when <c>.slint</c> code inserts a row, with <c>push</c> or <c>insert</c> of an array,
+    /// at a <paramref name="row"/> between 0 and <see cref="RowCount"/>.
+    /// Returns whether the model supports it; it doesn't by default.
+    /// </summary>
+    public virtual bool InsertRow(int row, T value) => false;
+
+    /// <summary>
+    /// Called when <c>.slint</c> code removes a row, with <c>remove</c> of an array,
+    /// at a <paramref name="row"/> below <see cref="RowCount"/>.
+    /// Returns whether the model supports it; it doesn't by default.
+    /// </summary>
+    public virtual bool RemoveRow(int row) => false;
 
     /// <inheritdoc/>
     public int Count => RowCount;
@@ -111,12 +129,15 @@ public abstract unsafe class Model<T> : IReadOnlyList<T>, INativeModel
             RowCount = &ModelTrampoline.RowCount,
             RowData = &ModelTrampoline.RowData,
             SetRowData = &ModelTrampoline.SetRowData,
+            InsertRow = &ModelTrampoline.InsertRow,
+            RemoveRow = &ModelTrampoline.RemoveRow,
             DropUserData = &ModelTrampoline.Release,
         };
         // The native model owns this handle and keeps the model alive while Slint uses it.
         var userData = GCHandle.ToIntPtr(GCHandle.Alloc(this));
         nint weak;
-        var value = NativeError.CheckValue(NativeMethods.slint_dotnet_model_new(vtable, userData, &weak));
+        using var typeName = new PinnedUtf8(GetType().Name);
+        var value = NativeError.CheckValue(NativeMethods.slint_dotnet_model_new(vtable, userData, typeName.Str, &weak));
         _weak = new ModelWeakHandle(weak);
         return value;
     }
@@ -128,6 +149,11 @@ public abstract unsafe class Model<T> : IReadOnlyList<T>, INativeModel
 
     void INativeModel.SetRowDataFromNative(int row, nint value) =>
         SetRowData(row, ValueConverter.ConvertTo<T>(ValueConverter.FromNative(value)));
+
+    bool INativeModel.InsertRowFromNative(int row, nint value) =>
+        InsertRow(row, ValueConverter.ConvertTo<T>(ValueConverter.FromNative(value)));
+
+    bool INativeModel.RemoveRowFromNative(int row) => RemoveRow(row);
 }
 
 internal static unsafe class ModelTrampoline
@@ -171,6 +197,35 @@ internal static unsafe class ModelTrampoline
         catch (Exception e)
         {
             NativeError.SetPending(e);
+        }
+    }
+
+    [UnmanagedCallersOnly]
+    public static byte InsertRow(nint userData, nuint row, nint value)
+    {
+        try
+        {
+            return Get(userData).InsertRowFromNative((int)row, value) ? (byte)1 : (byte)0;
+        }
+        catch (Exception e)
+        {
+            NativeError.SetPending(e);
+            // The exception reports the failure, not an unsupported model.
+            return 1;
+        }
+    }
+
+    [UnmanagedCallersOnly]
+    public static byte RemoveRow(nint userData, nuint row)
+    {
+        try
+        {
+            return Get(userData).RemoveRowFromNative((int)row) ? (byte)1 : (byte)0;
+        }
+        catch (Exception e)
+        {
+            NativeError.SetPending(e);
+            return 1;
         }
     }
 
@@ -233,6 +288,20 @@ public class ListModel<T> : Model<T>, IList<T>
         {
             NotifyRowAdded(index, _rows.Count - index);
         }
+    }
+
+    /// <inheritdoc/>
+    public override bool InsertRow(int row, T value)
+    {
+        Insert(row, value);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public override bool RemoveRow(int row)
+    {
+        RemoveAt(row);
+        return true;
     }
 
     /// <inheritdoc/>

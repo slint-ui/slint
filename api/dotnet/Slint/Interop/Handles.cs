@@ -94,6 +94,8 @@ internal unsafe struct ModelVTable
     public delegate* unmanaged<nint, nuint> RowCount;
     public delegate* unmanaged<nint, nuint, nint*, void> RowData;
     public delegate* unmanaged<nint, nuint, nint, void> SetRowData;
+    public delegate* unmanaged<nint, nuint, nint, byte> InsertRow;
+    public delegate* unmanaged<nint, nuint, byte> RemoveRow;
     public delegate* unmanaged<nint, void> DropUserData;
 }
 

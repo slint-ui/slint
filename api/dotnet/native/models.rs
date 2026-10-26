@@ -4,10 +4,10 @@
 use std::ffi::c_void;
 use std::rc::{Rc, Weak};
 
-use i_slint_core::model::{Model, ModelNotify, ModelRc, ModelTracker};
+use i_slint_core::model::{Model, ModelError, ModelNotify, ModelRc, ModelTracker};
 use slint_interpreter::Value;
 
-use crate::{guard, guard_bool, into_raw, release};
+use crate::{Utf8Str, guard, guard_bool, into_raw, release};
 
 /// The functions through which Rust calls a `Slint.Model<T>`.
 /// Each receives the model's `GCHandle` as `user_data`.
@@ -18,6 +18,11 @@ pub struct ModelVTable {
     /// Stores an owned value in `result`, or leaves it null if there's no row `row`.
     row_data: unsafe extern "C" fn(user_data: *mut c_void, row: usize, result: *mut *mut Value),
     set_row_data: unsafe extern "C" fn(user_data: *mut c_void, row: usize, value: *const Value),
+    /// Returns false if the model doesn't support inserting rows.
+    insert_row:
+        unsafe extern "C" fn(user_data: *mut c_void, row: usize, value: *const Value) -> bool,
+    /// Returns false if the model doesn't support removing rows.
+    remove_row: unsafe extern "C" fn(user_data: *mut c_void, row: usize) -> bool,
     drop_user_data: unsafe extern "C" fn(user_data: *mut c_void),
 }
 
@@ -28,6 +33,14 @@ pub struct ManagedModel {
     vtable: ModelVTable,
     user_data: *mut c_void,
     notify: ModelNotify,
+    /// The name of the .NET type, for the error of a modification that it doesn't support.
+    type_name: String,
+}
+
+impl ManagedModel {
+    fn unsupported(&self) -> ModelError {
+        ModelError::unsupported_by_name(self.type_name.clone(), i_slint_core::InternalToken)
+    }
 }
 
 impl Model for ManagedModel {
@@ -45,6 +58,30 @@ impl Model for ManagedModel {
 
     fn set_row_data(&self, row: usize, data: Value) {
         unsafe { (self.vtable.set_row_data)(self.user_data, row, &data) }
+    }
+
+    fn insert_row(&self, row: usize, data: Value) -> Result<(), ModelError> {
+        let row_count = self.row_count();
+        if row > row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+        if unsafe { (self.vtable.insert_row)(self.user_data, row, &data) } {
+            Ok(())
+        } else {
+            Err(self.unsupported())
+        }
+    }
+
+    fn remove_row(&self, row: usize) -> Result<(), ModelError> {
+        let row_count = self.row_count();
+        if row >= row_count {
+            return Err(ModelError::out_of_bounds(row_count));
+        }
+        if unsafe { (self.vtable.remove_row)(self.user_data, row) } {
+            Ok(())
+        } else {
+            Err(self.unsupported())
+        }
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -68,9 +105,11 @@ impl Drop for ManagedModel {
 pub unsafe extern "C" fn slint_dotnet_model_new(
     vtable: ModelVTable,
     user_data: *mut c_void,
+    type_name: Utf8Str,
     weak: &mut *mut Weak<ManagedModel>,
 ) -> *mut Value {
-    let model = Rc::new(ManagedModel { vtable, user_data, notify: Default::default() });
+    let type_name = unsafe { type_name.as_str() }.unwrap_or_default().to_owned();
+    let model = Rc::new(ManagedModel { vtable, user_data, notify: Default::default(), type_name });
     guard(std::ptr::null_mut(), || {
         *weak = into_raw(Rc::downgrade(&model));
         Ok(into_raw(Value::Model(ModelRc::from(model))))
