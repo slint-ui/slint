@@ -138,4 +138,29 @@ assert(r.includes("f:"), "should reach f, got " + r);
 assert(r.includes("g:"), "should reach g, got " + r);
 assert(r.includes("end:"), "should reach end, got " + r);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+void Type(string keys) => Testing.SendKeyboardStringSequence(instance.Instance, keys);
+
+Type("\t");
+Type("x");
+Assert.AreEqual("f:", instance.Result);
+Type("\t");
+Type("x");
+Assert.AreEqual("f:end:", instance.Result);
+
+instance.Result = "";
+Type("\t");
+Type("a");
+instance.Result = "";
+for (var i = 0; i < 3; i++)
+{
+    Type("\t");
+    Type("x");
+}
+StringAssert.Contains(instance.Result, "f:");
+StringAssert.Contains(instance.Result, "g:");
+StringAssert.Contains(instance.Result, "end:");
+```
 */

@@ -111,4 +111,22 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 slintlib.private_api.send_keyboard_string_sequence(instance, "x");
 assert.equal(instance.result, "Or:I1r:1:Or:I2a:Or:I1r:1:");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+void TypeAfterTab()
+{
+    Testing.SendKeyboardStringSequence(instance.Instance, "\t");
+    Testing.SendKeyboardStringSequence(instance.Instance, "x");
+}
+
+Testing.SendKeyboardStringSequence(instance.Instance, "x");
+Assert.AreEqual("", instance.Result);
+TypeAfterTab();
+Assert.AreEqual("Or:I1r:1:", instance.Result);
+TypeAfterTab();
+Assert.AreEqual("Or:I1r:1:Or:I2a:", instance.Result);
+TypeAfterTab();
+Assert.AreEqual("Or:I1r:1:Or:I2a:Or:I1r:1:", instance.Result);
+```
 */

@@ -87,4 +87,16 @@ instance.focus_input2();
 assert(!instance.input1_focused);
 assert(instance.input2_focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.Input1Focused);
+Assert.IsFalse(instance.Input2Focused);
+instance.InvokeFocusInput1();
+Assert.IsTrue(instance.Input1Focused);
+Assert.IsFalse(instance.Input2Focused);
+instance.InvokeFocusInput2();
+Assert.IsFalse(instance.Input1Focused);
+Assert.IsTrue(instance.Input2Focused);
+```
 */
