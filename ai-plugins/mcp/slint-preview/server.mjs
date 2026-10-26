@@ -125,8 +125,7 @@ const tools = [
             "Get a PNG screenshot of the latest preview_slint preview at its full size, with the Slint version it ran on. " +
             "Waits until the preview has rendered, or returns pending with its current stage. " +
             "If pending, call again to keep waiting for the same preview. Stop retrying on timeout. " +
-            "Errors include interpreter crashes. Report them to the user. " +
-            "Check it before confirming the preview works or judging how the UI looks.",
+            "Check it before you judge how the UI looks.",
         inputSchema: { type: "object", properties: {} },
     },
     {
@@ -148,7 +147,6 @@ const tools = [
                 height: { type: "integer" },
                 runtime: { type: "string" },
                 error: { type: "string" },
-                errorKind: { type: "string", enum: ["interpreter_crash"] },
             },
             required: ["previewId"],
         },
@@ -223,13 +221,9 @@ const toolCalls = {
                 },
                 {
                     type: "text",
-                    text: "This is a request acknowledgement, not a successful render. Call get_preview_screenshot and check for errors before confirming the preview works.",
+                    text: "Preview requested; rendering is unverified. Call get_preview_screenshot before confirming success.",
                 },
             ],
-            structuredContent: {
-                status: "pending",
-                previewId: latestPreview.id,
-            },
             _meta: { "slint/previewId": latestPreview.id },
         };
     },
@@ -268,7 +262,6 @@ const toolCalls = {
             stage: preview.stage,
             elapsedMs: Date.now() - preview.requestedAt,
             timings: preview.timings,
-            ...(capture?.errorKind && { errorKind: capture.errorKind }),
         };
         if (!capture) {
             return {
@@ -283,10 +276,7 @@ const toolCalls = {
         const runtime = capture.runtime ? ` with ${capture.runtime}` : "";
         if (capture.error) {
             return {
-                ...textResult(
-                    `Preview ${id}${runtime} has no screenshot: ${capture.error}`,
-                    true,
-                ),
+                ...textResult(`Preview ${id}${runtime} has no screenshot: ${capture.error}`, true),
                 structuredContent,
             };
         }
@@ -325,12 +315,7 @@ const toolCalls = {
                           height: args.height,
                           runtime,
                       }
-                    : {
-                          error: String(args.error ?? "unknown error"),
-                          runtime,
-                          errorKind: args.errorKind === "interpreter_crash"
-                              ? args.errorKind : undefined,
-                      };
+                    : { error: String(args.error ?? "unknown error"), runtime };
             preview.stage = preview.capture.error ? "error" : "ready";
         }
         preview.timings[preview.stage] ??= Date.now() - preview.requestedAt;

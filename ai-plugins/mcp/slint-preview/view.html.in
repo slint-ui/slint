@@ -40,19 +40,16 @@
   #diagnostics li { white-space: pre-wrap; }
   .error { color: var(--error); }
   .warning { color: var(--warning); }
-  #crash { margin: 12px; padding: 16px; border: 1px solid var(--error); border-radius: 8px; }
-  #crash p { margin: 8px 0 12px; color: var(--muted); }
-  #crash button { font: inherit; color: var(--text); background: transparent; border: 1px solid var(--muted); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
-  #crash details { margin-top: 12px; }
-  #crash summary { cursor: pointer; }
+  #crash { margin: 8px; }
+  #crash button { font: inherit; }
   #crash pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <div id="status">Waiting for Slint source…</div>
-<section id="crash" hidden role="alert" aria-labelledby="crash-title">
-  <strong id="crash-title">The preview crashed</strong>
-  <p>Retry starts a fresh interpreter. Your source files are unchanged.</p>
+<section id="crash" hidden role="alert">
+  <strong class="error">The preview crashed</strong>
+  <p>Retry restarts the preview without changing your source files.</p>
   <button id="retry" type="button">Retry preview</button>
   <details><summary>Technical details</summary><pre id="crash-details"></pre></details>
 </section>
@@ -263,14 +260,12 @@
     diagnosticsEl.replaceChildren();
     crashDetailsEl.textContent = `${runtime}\n${message}`;
     crashEl.hidden = false;
-    publish({ previewId, runtime, error, errorKind: "interpreter_crash" }).catch(() => {});
+    publish({ previewId, runtime, error }).catch(() => {});
     reportToModel(
-      `The Slint interpreter crashed with ${runtime}. The application source may be valid. ` +
-        "Tell the user briefly, then use preview_slint to start a fresh interpreter. " +
-        "Retry once if useful, or try a targeted preview workaround supported by the diagnostic. Preserve the requested UI and behavior. " +
-        "Stop repeating input that causes the same crash. Verify recovery with get_preview_screenshot. " +
-        "If recovery fails, explain the limitation and offer a bug report at https://github.com/slint-ui/slint/issues " +
-        `with the runtime version, this diagnostic, and a minimal reproducer.\n${message}`,
+      `The Slint interpreter crashed with ${runtime}. Report the interruption. ` +
+        "Use preview_slint for a fresh interpreter; try one justified retry or preview workaround while preserving the requested UI. " +
+        "Verify recovery with get_preview_screenshot. Stop identical crash loops. " +
+        `If recovery fails, offer a bug report at https://github.com/slint-ui/slint/issues with this diagnostic and a minimal reproducer.\n${message}`,
     );
   }
 
@@ -432,7 +427,7 @@
   const previewIds = [];
   const previewIdWaiters = [];
   function resultPreviewId(result) {
-    return result?._meta?.["slint/previewId"] ?? result?.structuredContent?.previewId ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+    return result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
   }
   function receivePreviewId(result) {
     const id = resultPreviewId(result);

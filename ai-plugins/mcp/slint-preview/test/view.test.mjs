@@ -235,22 +235,6 @@ test("publishes a panic while compilation is pending", {
     assert.ok(capture.error.includes("test panic"));
     assert.equal(capture.previewId, "test-preview");
     assert.equal(capture.runtime, "Slint 1.19.0 (snapshot)");
-    assert.equal(capture.errorKind, "interpreter_crash");
-});
-
-test("publishes a panic after a successful screenshot", {
-    timeout: 3000,
-}, async () => {
-    const view = startView();
-    await view.preview();
-    assert.equal((await view.captured).png, "cGl4ZWxz");
-    view.panic();
-    assert.ok((await view.reported).includes("test panic"));
-    const capture = view.captures.at(-1);
-    assert.ok(capture.error?.includes("The Slint interpreter crashed"));
-    assert.equal(capture.png, undefined);
-    assert.equal(capture.previewId, "test-preview");
-    assert.equal(capture.runtime, "Slint 1.19.0 (snapshot)");
 });
 
 test("renders when version metadata fails", { timeout: 3000 }, async () => {
@@ -271,7 +255,7 @@ test("retry restarts a crashed preview with a new ID and hides the crash panel",
         callTool({ name, arguments: args }) {
             if (name === "preview_slint") {
                 calls.push(args);
-                return { structuredContent: { previewId: "retry-preview" } };
+                return { _meta: { "slint/previewId": "retry-preview" } };
             }
             return {};
         },
@@ -279,6 +263,10 @@ test("retry restarts a crashed preview with a new ID and hides the crash panel",
     await view.preview();
     await view.captured;
     view.panic();
+    const failure = view.captures.at(-1);
+    assert.ok(failure.error.includes("test panic"));
+    assert.equal(failure.png, undefined);
+    assert.equal(failure.runtime, "Slint 1.19.0 (snapshot)");
     assert.equal(view.element("crash").hidden, false);
     assert.ok(view.element("crash-details").textContent.includes("test panic"));
     assert.equal(view.element("status").textContent, "");
