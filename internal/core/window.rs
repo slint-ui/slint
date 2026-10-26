@@ -2695,10 +2695,6 @@ impl WindowInner {
         self.context().xdg_app_id()
     }
 
-    pub(crate) fn reduced_motion(&self) -> bool {
-        self.context().motion_preference() == crate::MotionPreference::Reduced
-    }
-
     /// Returns the upgraded window adapter
     pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
         self.window_adapter_weak.upgrade().unwrap()

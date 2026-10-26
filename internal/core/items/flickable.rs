@@ -684,7 +684,6 @@ impl FlickableDataInner {
         mut delta: LogicalVector,
         position: LogicalPoint,
         phase: TouchPhase,
-        window_adapter: &Rc<dyn WindowAdapter>,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
         let content_x = (Flickable::FIELD_OFFSETS.content_x()).apply_pin(flick);
@@ -760,15 +759,16 @@ impl FlickableDataInner {
                     flicked =
                         self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
                     self.capture_events = Some(CaptureEvents::WheelMove);
-                } else if window_adapter.window().0.reduced_motion() {
-                    // Mousewheel case with no phase, and the user asked for less motion:
-                    // land on the new position right away instead of easing towards it.
-                    let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+                } else if Flickable::reduced_motion(flick_rc) {
+                    // Mousewheel case with no phase, and the user asked for less motion
                     let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
-                    let new_pos = ensure_in_bound(flick, current_pos + delta, &geo, false, false);
-                    content_x.set(new_pos.x_length());
-                    content_y.set(new_pos.y_length());
-                    flicked = new_pos != current_pos;
+                    let target = self.scroll_to(
+                        flick,
+                        flick_rc,
+                        -(current_pos + delta),
+                        ScrollBehavior::Instant,
+                    );
+                    flicked = target != current_pos.to_vector();
                     self.last_scroll_event = Some((crate::animations::current_tick(), position));
                 } else {
                     // Mousewheel case with no phase
@@ -1492,7 +1492,7 @@ impl FlickableData {
             }
             MouseEvent::Wheel { delta_x, delta_y, position, phase } => {
                 let delta = Self::scroll_delta(window_adapter, *delta_x, *delta_y);
-                inner.process_wheel_event(flick, delta, *position, *phase, window_adapter, flick_rc)
+                inner.process_wheel_event(flick, delta, *position, *phase, flick_rc)
             }
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
