@@ -82,4 +82,24 @@ public sealed class ModelAdapterTests
         names.Add("Zoe");
         Assert.AreEqual("Zoe", app.GetProperty("first-name"));
     });
+
+    [TestMethod]
+    public void FilterAndSortMapRowsBackAndRecompute()
+    {
+        var source = new ListModel<string>(["banana", "apple", "cherry"]);
+        var prefix = "a";
+        var filtered = source.Filter(name => name.StartsWith(prefix, StringComparison.Ordinal));
+        Assert.AreEqual(1, filtered.SourceRow(0));
+
+        // A filter that depends on state outside the model shows the change after Reset.
+        prefix = "c";
+        Assert.AreEqual("apple", filtered[0]);
+        filtered.Reset();
+        Assert.AreEqual("cherry", filtered[0]);
+        Assert.AreEqual(2, filtered.SourceRow(0));
+
+        var sorted = source.Sort(string.CompareOrdinal);
+        CollectionAssert.AreEqual(new[] { 1, 0, 2 }, Enumerable.Range(0, sorted.RowCount).Select(sorted.SourceRow).ToArray());
+        Assert.AreSame(source, sorted.Source);
+    }
 }

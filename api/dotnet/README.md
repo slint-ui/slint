@@ -196,6 +196,10 @@ var todos = new ListModel<TodoItem>();
 app.OpenTodos = todos.Filter(todo => !todo.Done).Sort((a, b) => a.Title.CompareTo(b.Title));
 ```
 
+`Filter` and `Sort` return a `FilterModel` and a `SortModel`.
+Their `SourceRow` maps a row of the view to a row of the source,
+and `Reset` applies a condition that changed outside the model, such as a search text.
+
 ## Timers and Async Code
 
 Use `Slint.Timer` to run code after a delay, or repeatedly:
