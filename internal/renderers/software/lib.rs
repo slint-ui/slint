@@ -26,7 +26,7 @@ mod path;
 mod scene;
 
 pub use self::api::*;
-use self::box_shadow::{BoxShadowCommand, process_drop_shadow};
+use self::box_shadow::{BoxShadowCommand, process_drop_shadow, process_inner_shadow};
 use self::fonts::GlyphRenderer;
 use self::scene::*;
 use alloc::rc::Rc;
@@ -1581,11 +1581,13 @@ trait ProcessScene {
         rounded_clips: &[RoundedClip],
         clip: Option<ShapeClip>,
     );
+    /// `clip` is the shadow's own shape, which applies after `rounded_clips`.
     fn process_box_shadow(
         &mut self,
         geometry: PhysicalRect,
         shadow: BoxShadowCommand,
         rounded_clips: &[RoundedClip],
+        clip: Option<ShapeClip>,
     );
     #[cfg(feature = "path")]
     fn process_filled_path(
@@ -1651,6 +1653,29 @@ fn hook_can_draw(rounded_clips: &[RoundedClip], geometry: impl FnOnce() -> Physi
     rounded_clips.is_empty() || shape_clips(rounded_clips, &geometry()).next().is_none()
 }
 
+/// The shape of the rounded rectangle `geom`, drawn in `clipped`.
+fn rounded_shape(
+    geom: &euclid::Rect<f32, PhysicalPx>,
+    radius: BorderRadius<f32, PhysicalPx>,
+    clipped: &euclid::Rect<f32, PhysicalPx>,
+) -> RoundedShape {
+    // Add a small value to make sure that the clip is always positive despite floating point
+    // issues. A clip past `i16::MAX` saturates, which is still larger than any radius or border.
+    const E: f32 = 0.00001;
+    RoundedShape {
+        radius: PhysicalBorderRadius::new(
+            radius.top_left as _,
+            radius.top_right as _,
+            radius.bottom_right as _,
+            radius.bottom_left as _,
+        ),
+        top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
+        bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
+        left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
+        right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
+    }
+}
+
 fn process_rectangle_impl(
     processor: &mut dyn ProcessScene,
     args: &target_pixel_buffer::DrawRectangleArgs,
@@ -1660,23 +1685,14 @@ fn process_rectangle_impl(
 ) {
     let geom = args.geometry();
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
-    let radius = PhysicalBorderRadius {
-        top_left: args.top_left_radius as _,
-        top_right: args.top_right_radius as _,
-        bottom_right: args.bottom_right_radius as _,
-        bottom_left: args.bottom_left_radius as _,
-        _unit: Default::default(),
-    };
-    // Add a small value to make sure that the clip is always positive despite floating point
-    // issues. A clip past `i16::MAX` saturates, which is still larger than any radius or border.
-    const E: f32 = 0.00001;
-    let rounded_shape = RoundedShape {
-        radius,
-        top_clip: PhysicalLength::new((clipped.min_y() - geom.min_y() + E) as _),
-        bottom_clip: PhysicalLength::new((geom.max_y() - clipped.max_y() + E) as _),
-        left_clip: PhysicalLength::new((clipped.min_x() - geom.min_x() + E) as _),
-        right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
-    };
+    let radius = BorderRadius::new(
+        args.top_left_radius,
+        args.top_right_radius,
+        args.bottom_right_radius,
+        args.bottom_left_radius,
+    );
+    let rounded_shape = rounded_shape(&geom, radius, &clipped);
+    let radius = rounded_shape.radius;
 
     let mut border_color =
         PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
@@ -2092,8 +2108,9 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         geometry: PhysicalRect,
         shadow: BoxShadowCommand,
         rounded_clips: &[RoundedClip],
+        clip: Option<ShapeClip>,
     ) {
-        self.draw_clipped(geometry, rounded_clips, None, &shadow);
+        self.draw_clipped(geometry, rounded_clips, clip, &shadow);
     }
 
     #[cfg(feature = "path")]
@@ -2333,6 +2350,7 @@ impl ProcessScene for PrepareScene {
         geometry: PhysicalRect,
         shadow: BoxShadowCommand,
         rounded_clips: &[RoundedClip],
+        clip: Option<ShapeClip>,
     ) {
         if !geometry.is_empty() {
             let box_shadow_index = self.vectors.box_shadows.len() as u16;
@@ -2341,7 +2359,7 @@ impl ProcessScene for PrepareScene {
                 geometry,
                 SceneCommand::BoxShadow { box_shadow_index },
                 rounded_clips,
-                None,
+                clip,
             );
         }
     }
@@ -2483,6 +2501,33 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             geom.size,
         );
         (geom, radius)
+    }
+
+    fn draw_inner_shadow(
+        &mut self,
+        box_shadow: Pin<&i_slint_core::items::BoxShadow>,
+        self_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        if !self.should_draw(&LogicalRect::from(size)) {
+            return;
+        }
+        let Some(options) = BoxShadowOptions::new(self_rc, box_shadow, self.scale_factor) else {
+            return;
+        };
+        let Some(clip) = self.physical_clip() else { return };
+        let color = self.alpha_color(options.color);
+        let mask = self.physical_rounded_rect(size, box_shadow.logical_border_radius());
+        process_inner_shadow(
+            &mut self.processor,
+            &options,
+            self.current_state.offset.cast() * self.scale_factor,
+            mask,
+            color,
+            &clip,
+            &self.rounded_clips,
+            self.rotation,
+        );
     }
 
     /// `None` if the border leaves no rounded corner.
@@ -3444,6 +3489,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         size: LogicalSize,
     ) {
         if box_shadow.inset() {
+            self.draw_inner_shadow(box_shadow, self_rc, size);
             return;
         }
         let offset = LogicalVector::from_lengths(box_shadow.offset_x(), box_shadow.offset_y());
