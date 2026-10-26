@@ -297,6 +297,7 @@ pub struct BackendBuilder {
     #[cfg(target_family = "wasm")]
     spawn_event_loop: bool,
     custom_application_handler: Option<Box<dyn CustomApplicationHandler>>,
+    wheel_line_pixels: f32,
 }
 
 impl BackendBuilder {
@@ -381,6 +382,32 @@ impl BackendBuilder {
         self
     }
 
+    /// Configures how far one line of a mouse wheel scroll moves, in logical pixels.
+    ///
+    /// Most platforms report a mouse wheel's notches as lines; a touchpad reports pixels instead.
+    /// The default is 60 pixels per line.
+    /// Browsers use platform-specific values, such as 120 pixels per notch on Linux.
+    /// They also follow the system's wheel settings, like the number of lines per notch on Windows.
+    ///
+    /// The pixels are the windowing system's logical pixels.
+    /// A line scrolls the same distance on screen when `SLINT_SCALE_FACTOR` overrides the scale factor,
+    /// as touchpad scrolling does.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut backend = i_slint_backend_winit::Backend::builder()
+    ///     .with_wheel_line_pixels(120.)
+    ///     .build()
+    ///     .unwrap();
+    /// slint::platform::set_platform(Box::new(backend));
+    /// ```
+    #[must_use]
+    pub fn with_wheel_line_pixels(mut self, pixels: f32) -> Self {
+        self.wheel_line_pixels = pixels;
+        self
+    }
+
     /// Builds the backend with the parameters configured previously. Set the resulting backend
     /// with `slint::platform::set_platform()`:
     ///
@@ -413,6 +440,7 @@ impl BackendBuilder {
             self.renderer_name,
             self.requested_graphics_api.clone(),
             self.allow_fallback,
+            self.wheel_line_pixels,
         )?);
 
         Ok(Backend {
@@ -464,6 +492,8 @@ pub(crate) struct SharedBackendData {
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
+    /// See [`BackendBuilder::with_wheel_line_pixels`].
+    pub(crate) wheel_line_pixels: f32,
     /// Desktop settings read from the XDG portal (cursor blink, appearance query).
     #[cfg(xdg_desktop_settings)]
     desktop_settings: xdg_desktop_settings::DesktopSettings,
@@ -489,6 +519,7 @@ impl SharedBackendData {
         renderer_name: Option<String>,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
         allow_fallback: bool,
+        wheel_line_pixels: f32,
     ) -> Result<Self, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         use raw_window_handle::HasDisplayHandle;
@@ -572,6 +603,7 @@ impl SharedBackendData {
             event_loop_proxy,
             event_loop_generation: Default::default(),
             is_wayland,
+            wheel_line_pixels,
             #[cfg(xdg_desktop_settings)]
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
@@ -784,6 +816,7 @@ impl Backend {
             #[cfg(target_family = "wasm")]
             spawn_event_loop: false,
             custom_application_handler: None,
+            wheel_line_pixels: 60.,
         }
     }
 }
