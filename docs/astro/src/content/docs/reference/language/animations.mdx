@@ -166,17 +166,21 @@ export component Example inherits Window {
 
 ## Reduced Motion
 
-Slint follows the operating system's reduced-motion setting.
-While it's on, every `animate` block behaves as if `enabled` were `false`: a change sets the property to its target value at once.
-A change of the setting applies to animations that start afterwards; one already running finishes at its own pace.
-A `Flickable` still pans while the pointer is down, since that's the user's own movement, but a mouse wheel step lands at once and releasing the pointer doesn't start a fling.
-Content pulled past an edge snaps back, and a smooth `scroll-to()` or `ensure-row-visible()` scrolls instantly.
-Effects driven by `animation-tick()` aren't animations of a property change and are left as they are.
+When your users turn on reduced motion in their operating system, Slint skips animations:
 
-Currently only the winit backend on Windows reads the setting: "Animation effects" under Settings > Accessibility > Visual effects.
-The backend reads it at startup and again whenever one of the application's windows gains focus.
+- Every `animate` block behaves as if `enabled` were `false`, so a change sets the property to its target value at once.
+- A `Flickable` still pans while the pointer is down, but doesn't fling when the pointer is released.
+- A mouse wheel step, a smooth `scroll-to()`, and a smooth `ensure-row-visible()` scroll at once.
+- Content pulled past an edge snaps back at once.
 
-On microcontrollers, which have no such setting, animations always run as designed.
+A change of the setting applies to animations that start afterwards; an animation that's already running finishes at its own pace.
+Effects that you drive with `animation-tick()` aren't affected.
+
+:::note
+Currently, only the winit backend on Windows reads the setting, from `Animation effects` under `Settings > Accessibility > Visual effects`.
+It reads the setting at startup and again whenever one of your application's windows gains focus.
+On microcontrollers, which have no such setting, animations always run.
+:::
 
 ## Transitions
 
