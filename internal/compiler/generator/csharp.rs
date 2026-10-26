@@ -590,8 +590,15 @@ pub fn generate(
 
     let globals =
         unit.globals.iter().filter(|g| g.exported && g.must_generate()).collect::<Vec<_>>();
-    for global in &globals {
-        let class = ident(&global.name);
+    // A global exported under more names gets a class for each, like a component.
+    let global_classes = globals
+        .iter()
+        .flat_map(|global| {
+            std::iter::once(&global.name).chain(&global.aliases).map(move |name| (*global, name))
+        })
+        .collect::<Vec<_>>();
+    for (global, class_name) in &global_classes {
+        let class = ident(class_name);
         let _ = writeln!(types, "public sealed class {class}\n{{");
         let _ =
             writeln!(types, "    private readonly global::Slint.ComponentInstance _instance;\n");
@@ -671,8 +678,8 @@ pub fn generate(
             let _ = writeln!(types, "    public global::Slint.Window Window => Instance.Window;");
         }
         let _ = writeln!(types);
-        for global in &globals {
-            let class = ident(&global.name);
+        for (_, class_name) in &global_classes {
+            let class = ident(class_name);
             let member = members.claim(class.clone());
             let _ = writeln!(types, "    public {class} {member} => new(Instance);");
         }

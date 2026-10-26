@@ -4,6 +4,7 @@
 
 - `.slint` code can add and remove rows of a `ListModel`, with `push`, `insert`, and `remove` of an array.
   Override `InsertRow` and `RemoveRow` to support them in your own `Model<T>`.
+- A global exported under more names gets a class for each, like a component, such as `MyGlobal` and `GlobalAlias` for `export { MyGlobal as GlobalAlias }`.
 
 ## 1.19.0-preview.6
 
