@@ -125,4 +125,24 @@ assert.equal(instance.binding_dep, 150);
 assert.equal(instance.unset_property, 100);
 
 ```
+
+```csharp
+using var instance = TestCase.Create();
+void Expect(int hello, int bindingDep, int unsetProperty)
+{
+    Assert.AreEqual(hello, instance.Hello);
+    Assert.AreEqual(bindingDep, instance.BindingDep);
+    Assert.AreEqual(unsetProperty, instance.UnsetProperty);
+}
+Expect(40, 100, 0);
+Testing.SendMouseClick(instance.Instance, 5, 5);
+// No time has passed yet.
+Expect(40, 100, 0);
+Testing.MockElapsedTime(600);
+Expect(50, 125, 50);
+Testing.MockElapsedTime(600);
+Expect(60, 150, 100);
+Testing.MockElapsedTime(100);
+Expect(60, 150, 100);
+```
 */

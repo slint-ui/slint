@@ -108,4 +108,24 @@ assert.equal(instance.text1_foo, 0);
 assert.equal(instance.some_prop, 5);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(0, instance.Text1Foo);
+Assert.AreEqual(5, instance.SomeProp);
+instance.ActiveIndex = 1;
+Assert.AreEqual(0, instance.Text1Foo);
+Assert.AreEqual(5, instance.SomeProp);
+Testing.MockElapsedTime(75); // 75% of the animation
+Assert.IsTrue(instance.SomeProp is > 1500 and < 1999, $"{instance.SomeProp}");
+Assert.IsTrue(instance.Text1Foo is > 2000 and < 2999, $"{instance.Text1Foo}");
+Testing.MockElapsedTime(30); // past the end
+Assert.AreEqual(3000, instance.Text1Foo);
+Assert.AreEqual(2000, instance.SomeProp);
+instance.ActiveIndex = 2;
+Assert.AreEqual(3000, instance.Text1Foo);
+Assert.AreEqual(2000, instance.SomeProp);
+Testing.MockElapsedTime(100);
+Assert.AreEqual(0, instance.Text1Foo);
+Assert.AreEqual(5, instance.SomeProp);
+```
 */

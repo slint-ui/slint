@@ -104,4 +104,23 @@ slintlib.private_api.mock_elapsed_time(30);
 assert.equal(instance.text1_foo, 85 + 4);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(85 + 4, instance.Text1Foo);
+Assert.AreEqual(5, instance.SomeProp);
+instance.ActiveIndex = 1;
+Assert.AreEqual(3 + 2 * 4, instance.Text1Foo);
+Assert.AreEqual(5, instance.SomeProp);
+Testing.MockElapsedTime(75); // 75% of the animation
+Assert.IsTrue(instance.SomeProp is > 1500 and < 1999, $"{instance.SomeProp}");
+Testing.MockElapsedTime(30); // past the end
+Assert.AreEqual(2000, instance.SomeProp);
+instance.ActiveIndex = 2;
+Assert.AreEqual(5, instance.SomeProp);
+Assert.AreEqual(3 + 2 * 4, instance.Text1Foo);
+Testing.MockElapsedTime(290);
+Assert.IsTrue(instance.Text1Foo is > 70 and < 87, $"{instance.Text1Foo}");
+Testing.MockElapsedTime(30);
+Assert.AreEqual(85 + 4, instance.Text1Foo);
+```
 */

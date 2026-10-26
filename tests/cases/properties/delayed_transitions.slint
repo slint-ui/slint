@@ -265,4 +265,43 @@ assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+void Expect(int text1Foo, int someProp, int otherProp)
+{
+    Assert.AreEqual(text1Foo, instance.Text1Foo);
+    Assert.AreEqual(someProp, instance.SomeProp);
+    Assert.AreEqual(otherProp, instance.OtherProp);
+}
+
+Expect(85 + 4, 5, 5000);
+instance.ActiveIndex = 1;
+Expect(11, 5, 5000);
+Testing.MockElapsedTime(50); // In delay
+Expect(11, 5, 5000);
+Testing.MockElapsedTime(50); // some: in delay, other: end of delay
+Expect(11, 5, 5000);
+Testing.MockElapsedTime(50); // some: in delay, other: in play for 50 ms
+Assert.AreEqual(5, instance.SomeProp);
+Assert.IsTrue(instance.OtherProp is > 4740 and < 4760, $"{instance.OtherProp} should be about 4750");
+Testing.MockElapsedTime(800); // some: in delay, other: in play for 850 ms
+Assert.IsTrue(instance.OtherProp is > 740 and < 760, $"{instance.OtherProp} should be about 750");
+Testing.MockElapsedTime(160); // some: in delay, other: ended
+Expect(11, 5, 0);
+Testing.MockElapsedTime(3840); // some: in delay, other: ended
+Expect(11, 5, 0);
+Testing.MockElapsedTime(60); // some: in play for 10 ms
+Assert.IsTrue(instance.SomeProp is > 202 and < 207, $"{instance.SomeProp} should be about 204.5");
+Testing.MockElapsedTime(100); // some: ended
+Expect(11, 2000, 0);
+
+instance.ActiveIndex = 2;
+Expect(11, 5, 5000);
+Testing.MockElapsedTime(50); // In delay
+Expect(11, 5, 5000);
+Testing.MockElapsedTime(440);
+Assert.IsTrue(instance.Text1Foo is > 70 and < 87, $"{instance.Text1Foo} should be between 70 and 87");
+Testing.MockElapsedTime(30);
+Expect(85 + 4, 5, 5000);
+```
 */
