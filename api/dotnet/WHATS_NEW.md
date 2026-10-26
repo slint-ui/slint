@@ -1,6 +1,6 @@
 # What's New in Slint for .NET
 
-## Unreleased
+## 1.19.0-preview.6
 
 - Send key, pointer, and other events to a window with `Window.DispatchEvent`.
 - Attach an object of your application to a drag with `DataTransfer.UserData`.
@@ -8,6 +8,8 @@
 - Save a keyboard shortcut with `Keys.ToParts`, and create it again with `Keys.FromParts`.
 - Create images from pixels with `Image.FromRgba8` and `Image.FromRgb8`, decode image files in memory with `Image.LoadFromData`, and read the pixels with `ToRgba8`.
 - A component that inherits `SystemTrayIcon` has `Show` and `Hide`, but no `Run` or `Window`, since it has no window.
+- Find C# versions of 27 examples and demos next to their Rust, C++, Node.js, and Python versions, such as `examples/todo/dotnet`,
+  and show any `.slint` file with `examples/dotnet-viewer`.
 
 ## 1.19.0-preview.5
 
