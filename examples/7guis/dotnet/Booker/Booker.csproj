@@ -6,6 +6,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- tests/cases/7guis links to this example, and the test drivers run every .slint file under it, so none may be copied to bin. -->
+    <SlintCopyToOutput>false</SlintCopyToOutput>
   </PropertyGroup>
   <ItemGroup>
     <SlintFile Include="../../booker.slint" />
