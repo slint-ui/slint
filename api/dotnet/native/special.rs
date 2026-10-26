@@ -11,7 +11,7 @@ use i_slint_core::input::Keys;
 use i_slint_core::styled_text::StyledText;
 use slint_interpreter::Value;
 
-use crate::{OwnedString, Utf8Str, guard, guard_bool, into_raw, utf8_slice};
+use crate::{NameList, OwnedString, Utf8Str, guard, guard_bool, into_raw, utf8_slice};
 
 /// Parses key parts such as `Control`, `Shift?`, and `Z`.
 #[unsafe(no_mangle)]
@@ -23,6 +23,16 @@ pub unsafe extern "C" fn slint_dotnet_value_new_keys(
         let parts = unsafe { utf8_slice(parts, count) }?;
         Keys::from_parts(parts).map(|keys| into_raw(Value::Keys(keys))).map_err(|e| e.to_string())
     })
+}
+
+/// The parts that `slint_dotnet_value_new_keys` takes to create the same `keys` value,
+/// or null for another value.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_keys_to_parts(value: &Value) -> *mut NameList {
+    match value {
+        Value::Keys(keys) => Box::into_raw(NameList::untagged(keys.to_parts().map(str::to_owned))),
+        _ => std::ptr::null_mut(),
+    }
 }
 
 /// The text of a `keys` or `styled-text` value, or no string for another value.

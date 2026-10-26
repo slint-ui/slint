@@ -84,4 +84,14 @@ public sealed class SpecialValueTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => data.UserData = null);
     });
+
+    [TestMethod]
+    public void KeysRoundTripThroughTheirParts() => SlintThread.Run(() =>
+    {
+        using var keys = Keys.FromParts("Control", "Shift?", "Z");
+        var parts = keys.ToParts();
+        using var again = Keys.FromParts(parts);
+        Assert.AreEqual(keys, again);
+        CollectionAssert.Contains(parts, "Control");
+    });
 }

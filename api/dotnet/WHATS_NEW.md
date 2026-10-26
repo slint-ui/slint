@@ -5,6 +5,7 @@
 - Send key, pointer, and other events to a window with `Window.DispatchEvent`.
 - Attach an object of your application to a drag with `DataTransfer.UserData`.
 - Map a row of a filtered or sorted view back to its source with `SourceRow`, and apply a changed condition with `Reset`.
+- Save a keyboard shortcut with `Keys.ToParts`, and create it again with `Keys.FromParts`.
 - A component that inherits `SystemTrayIcon` has `Show` and `Hide`, but no `Run` or `Window`, since it has no window.
 
 ## 1.19.0-preview.5

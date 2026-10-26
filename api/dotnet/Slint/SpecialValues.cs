@@ -61,6 +61,12 @@ public sealed unsafe class Keys : NativeValue
         }
     }
 
+    /// <summary>
+    /// Returns the modifiers and the key, which <see cref="FromParts"/> takes to create an equal shortcut,
+    /// such as to save it in a settings file.
+    /// </summary>
+    public string[] ToParts() => NameList.TakeNames(NativeMethods.slint_dotnet_keys_to_parts(Handle))?.ToArray() ?? [];
+
     /// <inheritdoc/>
     public override string ToString() => NativeMethods.slint_dotnet_value_describe(Handle).Take() ?? "";
 }

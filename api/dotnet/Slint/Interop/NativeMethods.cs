@@ -611,4 +611,7 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_data_transfer_user_data(ValueHandle value);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_keys_to_parts(ValueHandle value);
 }
