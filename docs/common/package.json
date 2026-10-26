@@ -10,7 +10,7 @@
     "test": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
-    "@expressive-code/core": "0.44.2",
+    "@expressive-code/core": "0.44.3",
     "@expressive-code/plugin-line-numbers": "catalog:",
     "rehype-external-links": "catalog:"
   },
