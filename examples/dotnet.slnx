@@ -17,4 +17,5 @@
   <Project Path="7guis/dotnet/Crud/Crud.csproj" />
   <Project Path="7guis/dotnet/CircleDraw/CircleDraw.csproj" />
   <Project Path="7guis/dotnet/Cells/Cells.csproj" />
+  <Project Path="todo-mvc/dotnet/TodoMvc.csproj" />
 </Solution>
