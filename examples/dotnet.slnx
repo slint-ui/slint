@@ -8,4 +8,5 @@
   <Project Path="carousel/dotnet/Carousel.csproj" />
   <Project Path="virtual_keyboard/dotnet/VirtualKeyboard.csproj" />
   <Project Path="../demos/home-automation/dotnet/HomeAutomation.csproj" />
+  <Project Path="dnd-kanban/dotnet/DndKanban.csproj" />
 </Solution>
