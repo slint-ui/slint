@@ -12,10 +12,22 @@ apk=$1
 app=$2
 seconds=${3:-15}
 
+# Waits up to 2 minutes for adb to answer, since an emulator under load drops the connection for a while.
+reconnect() {
+    for _ in $(seq 1 24); do
+        adb wait-for-device shell true 2> /dev/null && return
+        sleep 5
+    done
+    echo "adb doesn't reach the device"
+    exit 1
+}
+
 adb install -r "$apk"
 adb logcat -c
-adb shell monkey -p "$app" -c android.intent.category.LAUNCHER 1 > /dev/null
+activity=$(adb shell cmd package resolve-activity --brief "$app" | tail -n 1 | tr -d '\r')
+adb shell am start -W -n "$activity" > /dev/null
 sleep "$seconds"
+reconnect
 
 # SlintActivity logs an exception of SlintMain under the tag Slint, and the app then ends.
 # Logcat names a crashed process by the last 15 characters of its name, and other processes crash on emulators too.
