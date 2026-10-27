@@ -725,7 +725,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- Element IDs are qualified: 'ComponentName::element-id'. Use get_element_tree to discover them.\n",
                     "- To verify state after an interaction, read the element's testableProperties via get_element_properties instead of diffing screenshots. ",
                     "Only properties declared `@testable` in the .slint source are listed, and only in builds with debug info. ",
-                    "`@testable` is experimental: don't add it to a project that isn't built with `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1`.\n",
+                    "`@testable` is experimental: don't add it to a project that doesn't enable the `testable` experimental feature.\n",
                     "- After clicking or setting values, take a screenshot to verify the visual result.\n",
                     "- For text input: find the TextInput element, then use set_element_value to set its content.\n",
                     "- For buttons: use click_element, or invoke_accessibility_action with 'Default_' for the default action.\n",

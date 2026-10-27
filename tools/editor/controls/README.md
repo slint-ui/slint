@@ -186,7 +186,7 @@ Style definitions live in `src/basic/<control>_style.slint`.
 Run the gallery with the checkout's viewer:
 
 ```powershell
-$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
+$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots"
 .\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
 ```
 

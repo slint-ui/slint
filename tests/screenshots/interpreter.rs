@@ -21,7 +21,7 @@ pub fn load(
     compiler.set_include_paths(include_paths.iter().map(Into::into).collect());
     compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::EmbedTextures);
     let config = compiler.compiler_configuration(InternalToken);
-    config.enable_experimental = true;
+    config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     config.const_scale_factor = Some(scale_factor);
     let result = spin_on::spin_on(compiler.build_from_source(source, path.into()));
     result.print_diagnostics();
