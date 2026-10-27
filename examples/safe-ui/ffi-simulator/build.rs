@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: MIT
 
 fn main() {
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=new-with-existing-window");
 }

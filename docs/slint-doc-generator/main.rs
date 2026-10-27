@@ -166,7 +166,10 @@ fn build_astro(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     cmd!(sh, "pnpm install --frozen-lockfile --ignore-scripts").run()?;
     let mut build_cmd = cmd!(sh, "pnpm run build");
     if cfg.include_experimental {
-        build_cmd = build_cmd.env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+        build_cmd = build_cmd.env(
+            "SLINT_ENABLE_EXPERIMENTAL_FEATURES",
+            i_slint_compiler::ExperimentalFeatures::all().to_string(),
+        );
     }
     build_cmd.run()?;
     Ok(())

@@ -11,6 +11,7 @@ use crate::diagnostics::SourceLocation;
 use crate::expression_types::Unit;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Type {
     /// Correspond to an uninitialized type, or an error
     #[default]
@@ -47,8 +48,14 @@ pub enum Type {
     Brush,
     /// This is usually a model
     Array(Arc<Type>),
-    Struct(Arc<Struct>),
-    Enumeration(Arc<Enumeration>),
+    Struct(
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::structure"))]
+        Arc<Struct>,
+    ),
+    Enumeration(
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::enumeration"))]
+        Arc<Enumeration>,
+    ),
     Keys,
     /// `data-transfer` - a special type that handles reading a value from the system with
     /// some set of available MIME types.
@@ -208,6 +215,12 @@ impl Type {
         false
     }
 
+    /// The experimental feature that must be enabled to use this type
+    pub fn experimental_feature(&self) -> Option<crate::ExperimentalFeature> {
+        matches!(self, Type::ComponentFactory)
+            .then_some(crate::ExperimentalFeature::ComponentContainer)
+    }
+
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
         matches!(
@@ -365,6 +378,7 @@ macro_rules! define_builtin_struct_enum {
         }
     )*) => {
         #[derive(Debug, Clone, PartialEq, Eq, Hash, strum::EnumString, strum::IntoStaticStr)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub enum BuiltinStruct {
             // Generated from for_each_builtin_structs
             $($Name,)*
@@ -455,6 +469,7 @@ impl BuiltinStruct {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Function {
     pub return_type: Type,
     pub args: Vec<Type>,
@@ -485,6 +500,7 @@ impl Display for Function {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StructName {
     /// Anonymous structs
     None,
@@ -492,6 +508,7 @@ pub enum StructName {
     User {
         name: SmolStr,
         /// Where the declaration was written (for the language server).
+        #[cfg_attr(feature = "serde", serde(skip))]
         node: SourceLocation,
         /// The raw text of each `@rust-attr(...)` on the declaration, captured
         /// at build time so the Rust generator does not need the syntax tree.
@@ -548,6 +565,7 @@ impl From<BuiltinStruct> for StructName {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Struct {
     pub fields: BTreeMap<SmolStr, Type>,
     /// Default values for the fields.
@@ -601,6 +619,7 @@ impl Struct {
 /// the lowering for the code generators (`llr::Expression::from_constant`),
 /// and the interpreter's evaluator (`eval_constant_expression` there).
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ConstantExpression {
     StringLiteral(SmolStr),
     /// A number and its unit, in normalized form
@@ -616,6 +635,7 @@ pub enum ConstantExpression {
         op: char,
     },
     Struct {
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::structure"))]
         ty: Arc<Struct>,
         values: BTreeMap<SmolStr, ConstantExpression>,
     },
@@ -664,11 +684,13 @@ pub(crate) fn visit_declared_types(ty: &Type, visitor: &mut impl FnMut(&SmolStr,
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Enumeration {
     pub name: SmolStr,
     pub values: Vec<SmolStr>,
     pub default_value: usize, // index in values
     // For non-builtins enums, this is where the declaration was written.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub node: Option<SourceLocation>,
     /// Whether a built-in enum is re-exported as `slint::language::X`.
     pub public: bool,
@@ -700,6 +722,7 @@ impl Enumeration {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyboardModifiers {
     pub alt: bool,
     pub control: bool,
@@ -708,6 +731,7 @@ pub struct KeyboardModifiers {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Keys {
     pub key: SmolStr,
     pub modifiers: KeyboardModifiers,
@@ -752,8 +776,10 @@ impl std::fmt::Display for Keys {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EnumerationValue {
     pub value: usize, // index in enumeration.values
+    #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::enumeration"))]
     pub enumeration: Arc<Enumeration>,
 }
 

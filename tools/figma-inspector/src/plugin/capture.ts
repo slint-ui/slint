@@ -589,14 +589,26 @@ export async function captureSource(
             ...(properties ? { properties } : {}),
         };
     }
+    const hiddenCaptures = new Set<string>();
     async function visit(
         node: SceneNode,
-        hidden: boolean,
-        suppressed = false,
-        ancestors = "",
-        cacheableContext = true,
-        requiredByAncestor = false,
-        svgContextSafe = true,
+        {
+            hidden = false,
+            suppressed = false,
+            ancestors = "",
+            cacheableContext = true,
+            requiredByAncestor = false,
+            svgContextSafe = true,
+            definitionRoot = false,
+        }: {
+            hidden?: boolean;
+            suppressed?: boolean;
+            ancestors?: string;
+            cacheableContext?: boolean;
+            requiredByAncestor?: boolean;
+            svgContextSafe?: boolean;
+            definitionRoot?: boolean;
+        } = {},
     ): Promise<SourceNode<Bytes>> {
         const raw = node as unknown as Record<string, unknown>;
         const requiredByProperty =
@@ -621,7 +633,10 @@ export async function captureSource(
         )
             await readComponent(node, result);
         const invisible =
-            hidden || ("visible" in node && node.visible === false);
+            hidden ||
+            (!definitionRoot && "visible" in node && node.visible === false);
+        if (invisible) hiddenCaptures.add(node.id);
+        else hiddenCaptures.delete(node.id);
         const captureMaskRaster = async () => {
             let raster: SourceResult<Bytes>;
             try {
@@ -1035,20 +1050,21 @@ export async function captureSource(
                 visibleChildren,
                 concurrency,
                 (child) =>
-                    visit(
-                        child,
-                        invisible,
-                        suppressed ||
+                    visit(child, {
+                        hidden: invisible,
+                        suppressed:
+                            suppressed ||
                             (!includeHidden &&
                                 (result.exports !== undefined ||
                                     maskExport !== undefined)),
-                        childAncestors,
-                        rasterContextSafe,
-                        requiredByProperty,
-                        svgContextSafe &&
+                        ancestors: childAncestors,
+                        cacheableContext: rasterContextSafe,
+                        requiredByAncestor: requiredByProperty,
+                        svgContextSafe:
+                            svgContextSafe &&
                             (contextProperties.effects === undefined ||
                                 hasNoEffects(contextProperties.effects)),
-                    ),
+                    }),
                 cancelled,
             );
         }
@@ -1067,8 +1083,8 @@ export async function captureSource(
         }
         return result;
     }
-    source.root = await visit(root, false);
-    if (scope === "raster") source.root.type = "VECTOR";
+    source.root = await visit(root);
+    if (scope === "raster") source.rasterized = true;
     const definitions: ComponentLibrary<SourceNode<Bytes>>["definitions"] = [];
     const processedVariants = new Map<string, Set<string>>();
     // Visit only variants required by the selected tree. Each visit can
@@ -1114,7 +1130,11 @@ export async function captureSource(
                     `Component reachability failed: missing variant ${variantId} in family ${owner.id}`,
                 );
             }
-            if (!capturedNodes.has(variant.id)) await visit(variant, false);
+            if (
+                !capturedNodes.has(variant.id) ||
+                hiddenCaptures.has(variant.id)
+            )
+                await visit(variant, { definitionRoot: true });
             processed.add(variantId);
         }
     }

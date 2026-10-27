@@ -357,7 +357,7 @@ export component PopupSuppliedForPopup inherits Window {
     fn compile(source: &str) -> Vec<Rc<Component>> {
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Llr);
-        compiler_config.enable_experimental = true;
+        compiler_config.experimental_features = crate::ExperimentalFeature::NamedSlots.into();
         compiler_config.inline_all_elements = true;
         let mut diag = BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
