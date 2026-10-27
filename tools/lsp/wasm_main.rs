@@ -311,8 +311,8 @@ impl SlintServer {
                         .await
                 });
             }
-            M::ClearHighlight => {
-                tracing::debug!("Ignoring ClearHighlight from the preview");
+            M::ClearHighlight | M::HighlightInRunPreview { .. } => {
+                tracing::debug!("Ignoring run preview highlight from the preview");
             }
             M::PreviewTypeChanged { target } => {
                 ctx.session

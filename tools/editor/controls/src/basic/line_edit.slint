@@ -2,62 +2,126 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { LineEditBase } from "../headless.slint";
-import { BasicTheme } from "theme.slint";
+import { LineEditInterface } from "std-widget-interfaces.slint";
+import { LineEditStyle, LineEditStateStyle } from "line_edit_style.slint";
+import { LineEditStyles } from "line_edit_styles.slint";
+import { FocusOutline } from "focus_outline.slint";
 
-export component LineEdit inherits LineEditBase {
-    private property <brush> state-background: BasicTheme.background;
-    private property <brush> state-foreground: BasicTheme.foreground;
-    private property <brush> state-border: BasicTheme.border;
-    in property <brush> background-color: root.state-background;
-    in property <brush> border-color: root.state-border;
-    in property <length> border-width: root.has-focus ? 2px : 1px;
+export component LineEdit {
+    implement LineEditInterface <=> field;
+
+    in property <LineEditStyle> style: LineEditStyles.standard;
+
+    in property <brush> background-color: root.state-style.background-color;
+    in property <brush> foreground-color: root.state-style.foreground-color;
+    in property <color> selection-background-color: root.style.selection-background-color;
+    in property <color> selection-foreground-color: root.style.selection-foreground-color;
+
+    in property <int> font-weight <=> field.font-weight;
+    in-out property <bool> password-revealed <=> field.password-revealed;
+
+    in property <length> horizontal-padding: 12px;
+    in property <length> vertical-padding: 6px;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
+    in property <length> spacing: 8px;
+
+    in property <length> border-width: 1px;
     in property <length> border-radius: 4px;
-    in property <brush> placeholder-color: BasicTheme.disabled-foreground;
 
-    foreground: root.state-foreground;
-    selection-background-color: BasicTheme.accent;
-    selection-foreground-color: BasicTheme.accent-foreground;
-    font-size: 14px;
-    font-weight: 400;
-    content-padding: 6px;
-    content-padding-left: 12px;
-    content-padding-right: 12px;
-    min-width: 160px;
-    min-height: 34px;
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+
+    out property <bool> hovered: field.hovered;
+
+    private property <LineEditStateStyle> state-style: root.style.rest;
+
+    slot leading;
+    slot trailing;
+
+    min-width: max(160px, field.min-width);
+    min-height: max(34px, field.min-height);
+    preferred-width: max(root.min-width, field.preferred-width);
+    preferred-height: max(root.min-height, field.preferred-height);
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: field;
+    accessible-role: text-input;
+    accessible-label: "";
+    accessible-enabled: root.enabled;
+    accessible-value: root.text;
+    accessible-placeholder-text: root.placeholder-text;
+    accessible-read-only: root.read-only;
+    accessible-action-default => { if root.enabled { field.focus(); } }
+    accessible-action-set-value(value) => {
+        if root.enabled && !root.read-only {
+            root.text = value;
+            root.edited(root.text);
+        }
+    }
+    accessible-action-set-selection-offsets(anchor, focus) => { root.set-selection-offsets(anchor, focus); }
 
     states [
         disabled when !root.enabled: {
-            root.state-background: BasicTheme.disabled-background;
-            root.state-foreground: BasicTheme.disabled-foreground;
-        }
-        focused when root.has-focus: {
-            root.state-border: BasicTheme.focus;
+            state-style: root.style.disabled;
         }
         hover when root.hovered: {
-            root.state-border: BasicTheme.foreground;
+            state-style: root.style.hover;
         }
     ]
 
-    background << Rectangle {
-        background: root.background-color;
-        border-color: root.border-color;
-        border-width: root.border-width;
-        border-radius: root.border-radius;
-    }
-
-    placeholder << placeholder-label := Text {
-        x: 0px;
-        y: 0px;
+    field := LineEditBase {
         width: 100%;
         height: 100%;
-        text: root.placeholder-text;
-        color: root.placeholder-color;
-        font-family: root.font-family;
-        font-size: root.font-size;
-        font-weight: root.font-weight;
-        font-italic: root.font-italic;
-        horizontal-alignment: root.horizontal-alignment;
-        vertical-alignment: center;
-        overflow: elide;
+        accessible-role: none;
+        foreground-color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+        font-size: 14px;
+        font-weight: 400;
+        selection-background-color: root.enabled ? root.selection-background-color : root.style.selection-background-color;
+        selection-foreground-color: root.enabled ? root.selection-foreground-color : root.style.selection-foreground-color;
+        left-padding: root.left-padding;
+        right-padding: root.right-padding;
+        top-padding: root.top-padding;
+        bottom-padding: root.bottom-padding;
+        spacing: root.spacing;
+        leading << leading;
+        trailing << trailing;
+        @children
+
+        background << surface := Rectangle {
+            background: root.enabled ? root.background-color : root.state-style.background-color;
+            border-color: root.state-style.border-color;
+            border-width: root.border-width;
+            border-radius: root.border-radius;
+
+            focus-outline := FocusOutline {
+                active: root.enabled && root.has-focus;
+                outline-color: root.style.focus-color;
+                target-width: parent.width;
+                target-height: parent.height;
+                line-width: root.focus-width;
+                offset: root.focus-offset;
+                radius: root.border-radius;
+            }
+        }
+
+        placeholder << placeholder-label := Text {
+            accessible-role: none;
+            x: 0px;
+            y: 0px;
+            width: 100%;
+            height: 100%;
+            text: root.placeholder-text;
+            color: root.state-style.placeholder-color;
+            font-family: root.font-family;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            font-italic: root.font-italic;
+            horizontal-alignment: root.horizontal-alignment;
+            vertical-alignment: center;
+            overflow: elide;
+        }
     }
 }

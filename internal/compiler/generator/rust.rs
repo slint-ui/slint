@@ -42,10 +42,12 @@ struct RustGeneratorContext {
 type EvaluationContext<'a> = llr_EvaluationContext<'a, RustGeneratorContext>;
 
 pub fn ident(ident: &str) -> proc_macro2::Ident {
-    if ident.contains('-') {
-        format_ident!("r#{}", ident.replace('-', "_"))
-    } else {
-        format_ident!("r#{}", ident)
+    match ident {
+        // These keywords can't be raw identifiers
+        "self" | "Self" | "super" | "crate" => format_ident!("{}_", ident),
+        // No keyword contains `_`
+        _ if ident.contains('-') => format_ident!("{}", ident.replace('-', "_")),
+        _ => format_ident!("r#{}", ident),
     }
 }
 
@@ -144,21 +146,6 @@ impl quote::ToTokens for Orientation {
             Orientation::Vertical => {
                 quote!(sp::Orientation::Vertical)
             }
-        };
-        tokens.extend(tks);
-    }
-}
-
-impl quote::ToTokens for crate::embedded_resources::PixelFormat {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        use crate::embedded_resources::PixelFormat::*;
-        let tks = match self {
-            Rgb => quote!(sp::TexturePixelFormat::Rgb),
-            Rgba => quote!(sp::TexturePixelFormat::Rgba),
-            RgbaPremultiplied => {
-                quote!(sp::TexturePixelFormat::RgbaPremultiplied)
-            }
-            AlphaMap(_) => quote!(sp::TexturePixelFormat::AlphaMap),
         };
         tokens.extend(tks);
     }
@@ -526,11 +513,13 @@ fn generate_public_component(
     #[cfg(not(feature = "bundle-translations"))]
     let init_bundle_translations = quote!();
 
-    let experimental = compiler_config.enable_experimental;
+    let new_with_existing_window_enabled = compiler_config
+        .experimental_features
+        .contains(crate::ExperimentalFeature::NewWithExistingWindow);
 
     let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
-            #[cfg(#experimental)]
+            #[cfg(#new_with_existing_window_enabled)]
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_context()?;
                 let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).context().clone())?;
@@ -639,7 +628,7 @@ fn generate_public_component(
                 ::core::result::Result::Ok(Self(inner))
             }
 
-            #[cfg(#experimental)]
+            #[cfg(#new_with_existing_window_enabled)]
             pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
@@ -713,7 +702,9 @@ fn generate_shared_globals(
         .collect::<Vec<_>>();
     let pub_token = if compiler_config.library_name.is_some() { quote!(pub) } else { quote!() };
 
-    let experimental = compiler_config.enable_experimental;
+    let new_with_existing_window_enabled = compiler_config
+        .experimental_features
+        .contains(crate::ExperimentalFeature::NewWithExistingWindow);
 
     let (library_shared_globals_names, library_shared_globals_types): (Vec<_>, Vec<_>) = doc
         .imports
@@ -741,7 +732,7 @@ fn generate_shared_globals(
     // references them on every tree.
     let optional_window_adapter_helpers = needs_window_adapter.then(|| {
         quote!(
-            #[cfg(#experimental)]
+            #[cfg(#new_with_existing_window_enabled)]
             fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
                 let adapter = sp::WindowInner::from_pub(window).window_adapter();
                 let root_rc = self.root_item_tree_weak.upgrade().unwrap();
@@ -796,8 +787,7 @@ fn generate_shared_globals(
                     #(#from_library_global_names : self.#from_library_global_names.clone(),)*
                     window_adapter: window_adapter.into(),
                     context: self.context.clone(),
-                    // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
-                    root_item_tree_weak: ::core::default::Default::default(),
+                    root_item_tree_weak: self.root_item_tree_weak.clone(),
                     #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
                 })
             }
@@ -6111,16 +6101,20 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 }
                 #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
-                    data, format, rect,
-                    total_size: crate::embedded_resources::Size{width, height},
-                    original_size: crate::embedded_resources::Size{width: unscaled_width, height: unscaled_height},
+                    data, textures, size, original_size,
                 }) => {
-                    let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
-                    let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
-                        quote!(sp::Color::from_rgb_u8(#r, #g, #b))
-                    } else {
-                        quote!(sp::Color::from_argb_encoded(0))
-                    };
+                    let (width, height) = (size.width, size.height);
+                    let (unscaled_width, unscaled_height) = (original_size.width, original_size.height);
+                    let textures = textures.iter().map(|i_slint_common::pre_rendered::StaticTexture { rect, format, color, index }| {
+                        let (r_x, r_y, r_w, r_h) = (rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
+                        let format = format_ident!("{format:?}");
+                        quote!(sp::StaticTexture {
+                            rect: sp::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
+                            format: sp::TexturePixelFormat::#format,
+                            color: #color,
+                            index: #index,
+                        })
+                    });
                     let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", resource_id);
                     let data_size = data.len();
                     quote!(
@@ -6132,14 +6126,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                             size: sp::IntSize::new(#width as _, #height as _),
                             original_size: sp::IntSize::new(#unscaled_width as _, #unscaled_height as _),
                             data: sp::Slice::from_slice(&#symbol_data.0),
-                            textures: sp::Slice::from_slice(&[
-                                sp::StaticTexture {
-                                    rect: sp::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
-                                    format: #format,
-                                    color: #color,
-                                    index: 0,
-                                }
-                            ])
+                            textures: sp::Slice::from_slice(&[#(#textures),*])
                         };
                     )
                 },

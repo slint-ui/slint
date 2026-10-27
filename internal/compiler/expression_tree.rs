@@ -41,6 +41,7 @@ fn builtin_function_is_const(
         BuiltinFunction::AnimationTick => false,
         BuiltinFunction::ColorScheme => false,
         BuiltinFunction::AccentColor => false,
+        BuiltinFunction::ReducedMotion => false,
         BuiltinFunction::SupportsNativeMenuBar => false,
         BuiltinFunction::SetupMenuBar => false,
         BuiltinFunction::SetupSystemTrayIcon => false,
@@ -1675,8 +1676,8 @@ pub struct BindingExpression {
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
 
-    /// Whether a state is what created this binding. The value it takes while no state
-    /// applies is then the property's type default.
+    /// Whether a state created this binding. The passes that supply a default then fill in the
+    /// value it takes while no state applies. Only set with edition 1.19 or newer.
     pub from_state: bool,
 
     /// Whether the source wrote this binding, as opposed to a compiler pass making it up.

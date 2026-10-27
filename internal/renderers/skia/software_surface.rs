@@ -186,7 +186,8 @@ impl super::Surface for SoftwareSurface {
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
             u8,
-        ) -> Option<DirtyRegion>,
+        )
+            -> Result<Option<DirtyRegion>, i_slint_core::platform::PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.render_buffer.with_buffer(
@@ -210,7 +211,7 @@ impl super::Surface for SoftwareSurface {
                             "Error wrapping target buffer for rendering into with Skia".to_string()
                         })?;
 
-                let dirty_region = callback(surface_borrow.canvas(), None, age);
+                let dirty_region = callback(surface_borrow.canvas(), None, age)?;
 
                 if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
                     pre_present_callback();

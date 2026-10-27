@@ -20,7 +20,7 @@ export component TestCase inherits Window {
     out property <int> activations;
     out property <int> highlights;
     out property <brush> background-color: combo.background-color;
-    out property <brush> foreground: combo.foreground;
+    out property <brush> foreground-color: combo.foreground-color;
     out property <bool> test: root.current-value == "One" && !root.expanded;
     public function open() { combo.open(); }
     public function choose(index: int) { combo.select(index); }
@@ -31,7 +31,7 @@ export component TestCase inherits Window {
         width: 220px;
         height: 40px;
         accessible-label: "Selection";
-        placeholder: "Choose an option";
+        placeholder-text: "Choose an option";
         model: root.model;
         current-index <=> root.current-index;
         enabled: root.enabled;
@@ -153,7 +153,7 @@ instance.set_enabled(false);
 slint::platform::update_timers_and_animations();
 assert!(!instance.get_expanded());
 assert_eq!(instance.get_background_color(), palette.get_disabled_background());
-assert_eq!(instance.get_foreground(), palette.get_disabled_foreground());
+assert_eq!(instance.get_foreground_color(), palette.get_disabled_foreground());
 let count = instance.get_activations();
 combo.invoke_accessible_expand_action();
 combo.set_accessible_value("Zero");

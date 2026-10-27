@@ -8,16 +8,15 @@ export component TestCase inherits Window {
     width: 640px;
     height: 320px;
     out property <bool> test: button.width == 80px && button.height == 20px
-        && empty.width == 0px && empty.height == 0px;
+        && empty.width == 0px && empty.height == 0px
+        && empty-checkbox.width == 0px && empty-checkbox.height == 0px
+        && empty-switch.width == 0px && empty-switch.height == 0px;
 
     button := ButtonBase {
         x: 20px;
         y: 20px;
         width: self.preferred-width;
         height: self.preferred-height;
-        content-padding: 0px;
-        content-padding-left: 0px;
-        content-padding-right: 0px;
         text: "A deliberately long default label that must not size custom content";
         accessible-label: "Custom button";
         background << Rectangle { background: #123456; }
@@ -29,12 +28,19 @@ export component TestCase inherits Window {
     }
 
     empty := ButtonBase {
-        content-padding: 0px;
-        content-padding-left: 0px;
-        content-padding-right: 0px;
         width: self.preferred-width;
         height: self.preferred-height;
         text: "This default must contribute no size";
+    }
+
+    empty-checkbox := CheckBoxBase {
+        width: self.preferred-width;
+        height: self.preferred-height;
+    }
+
+    empty-switch := SwitchBase {
+        width: self.preferred-width;
+        height: self.preferred-height;
     }
 
     CheckBoxBase {
@@ -45,9 +51,13 @@ export component TestCase inherits Window {
         text: "Default checkbox label";
         accessible-label: "Custom checkbox";
         checked: true;
-        background << Rectangle { background: #234567; }
-        indicator << Rectangle { background: #345678; }
-        content << Text { text: "Choice"; }
+        content << Rectangle {
+            background: #234567;
+            HorizontalLayout {
+                Rectangle { width: 20px; height: 20px; background: #345678; }
+                Text { text: "Choice"; }
+            }
+        }
     }
 
     SwitchBase {
@@ -57,12 +67,18 @@ export component TestCase inherits Window {
         height: 40px;
         text: "Default switch label";
         accessible-label: "Custom switch";
-        background << Rectangle { background: #234567; }
-        indicator << Rectangle { background: #345678; }
-        content << Text { text: "Toggle"; }
+        content << Rectangle {
+            background: #234567;
+            VerticalLayout {
+                Rectangle { width: 40px; height: 22px; background: #345678; }
+                Text { text: "Toggle"; }
+            }
+        }
     }
 
     ComboBoxBase {
+        item-height: 32px;
+        popup-padding: 4px;
         x: 260px;
         y: 80px;
         width: 200px;
@@ -71,7 +87,7 @@ export component TestCase inherits Window {
         model: ["Alpha", "Beta"];
         popup << ComboBoxPopup { }
         background << Rectangle { background: #234567; }
-        indicator << Rectangle { background: #345678; }
+        indicator << Rectangle { width: 16px; height: 100%; background: #345678; }
         content << Text { text: "Selection"; }
     }
 

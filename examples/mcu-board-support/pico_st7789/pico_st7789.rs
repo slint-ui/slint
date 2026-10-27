@@ -231,6 +231,7 @@ impl<
     ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
         let window =
             renderer::MinimalSoftwareWindow::new(renderer::RepaintBufferType::ReusedBuffer);
+        window.set_size(DISPLAY_SIZE);
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -244,8 +245,6 @@ impl<
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let mut last_touch = None;
-
-        self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE);
 
         loop {
             slint::platform::update_timers_and_animations();

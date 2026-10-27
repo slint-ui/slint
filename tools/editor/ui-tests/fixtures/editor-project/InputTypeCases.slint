@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "std-widgets.slint";
+
+export component InputTypeCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    default-line-edit := LineEdit {
+        x: 32px;
+        y: 32px;
+        width: 200px;
+        text: "Default";
+    }
+
+    password-line-edit := LineEdit {
+        x: 32px;
+        y: 96px;
+        width: 200px;
+        text: "Password";
+        input-type: password;
+    }
+}

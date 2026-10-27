@@ -114,6 +114,27 @@ pub(crate) fn try_walk_parent(
     Some(current)
 }
 
+/// Like [`try_walk_parent`], but on sub-component types, so it still answers once the chain died.
+fn static_ancestor(
+    cu: &llr::CompilationUnit,
+    start: llr::SubComponentIdx,
+    level: usize,
+) -> Option<llr::SubComponentIdx> {
+    let mut current = start;
+    for _ in 0..level {
+        current = cu.sub_components.iter_enumerated().find_map(|(idx, sc)| {
+            let mut roots = sc
+                .repeated
+                .iter()
+                .map(|r| r.sub_tree.root)
+                .chain(sc.popup_windows.iter().map(|p| p.item_tree.root))
+                .chain(sc.menu_item_trees.iter().map(|t| t.root));
+            roots.any(|root| root == current).then_some(idx)
+        })?;
+    }
+    Some(current)
+}
+
 /// Walk `parent_level` steps up the parent chain.
 ///
 /// Only for instantiation, where the chain is still alive; evaluation uses [`try_walk_parent`].
@@ -145,12 +166,15 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
                 let current =
                     self.current.as_ref().expect("property_ty needs a sub-component context");
                 // The `Type` values live in the shared `CompilationUnit`, so
-                // resolve the target sub-component index through the runtime
-                // parent chain and borrow from `cu`.
-                let Some(sub) = try_walk_parent(current, *parent_level) else {
+                // resolve the target sub-component index through the parent
+                // chain and borrow from `cu`.
+                let sc_idx = match try_walk_parent(current, *parent_level) {
+                    Some(sub) => Some(sub.sub_component_idx),
+                    None => static_ancestor(cu, current.sub_component_idx, *parent_level),
+                };
+                let Some(mut sc_idx) = sc_idx else {
                     return &Type::Invalid;
                 };
-                let mut sc_idx = sub.sub_component_idx;
                 for i in &local_reference.sub_component_path {
                     sc_idx = cu.sub_components[sc_idx].sub_components[*i].ty;
                 }
@@ -353,7 +377,7 @@ pub fn load_property(ctx: &EvalContext, mr: &MemberReference) -> Value {
         }
         MemberReference::Relative { parent_level, local_reference } => {
             let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
-                return Value::Void;
+                return default_value_for_type(llr::TypeResolutionContext::property_ty(ctx, mr));
             };
             load_local(&instance, &local_reference.reference)
         }

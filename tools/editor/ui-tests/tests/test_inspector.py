@@ -37,6 +37,7 @@ ELEMENT_ROWS = {
     "Rectangle": "inspect-rectangle",
     "Text": "inspect-text",
     "Image": "inspect-image",
+    "StyledText": "inspect-styled-text",
     "Button": "inspect-button",
     "CheckBox": "inspect-checkbox",
 }
@@ -1076,8 +1077,16 @@ def test_each_text_wrap_writes_exact_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
-ORIENTATION_ROWS = {"Slider": "inspect-slider", "RadioGroup": "inspect-radio-group"}
-ORIENTATION_DEFAULTS = {"Slider": "Horizontal", "RadioGroup": "Vertical"}
+ORIENTATION_ROWS = {
+    "Slider": "inspect-slider",
+    "RadioGroup": "inspect-radio-group",
+    "TabWidget": "inspect-tab-widget",
+}
+ORIENTATION_DEFAULTS = {
+    "Slider": "Horizontal",
+    "RadioGroup": "Vertical",
+    "TabWidget": "Horizontal",
+}
 
 
 def with_orientation_widgets(
@@ -1089,7 +1098,7 @@ def with_orientation_widgets(
     source = replace_once(
         baseline,
         b"export component InspectorCases",
-        b'import { RadioGroup, Slider } from "std-widgets.slint";\n\n'
+        b'import { RadioGroup, Slider, TabWidget } from "std-widgets.slint";\n\n'
         b"export component InspectorCases",
     )
     widgets = (
@@ -1102,6 +1111,12 @@ def with_orientation_widgets(
         + bindings["RadioGroup"]
         + b'\n        RadioButton { text: "One"; }'
         b'\n        RadioButton { text: "Two"; }'
+        b"\n    }\n\n"
+        b"    inspect-tab-widget := TabWidget {\n"
+        b"        x: 400px;\n        y: 336px;\n        width: 200px;\n        height: 120px;"
+        + bindings["TabWidget"]
+        + b'\n        Tab { title: "First"; }'
+        b'\n        Tab { title: "Second"; }'
         b"\n    }\n"
     )
     assert source.endswith(b"\n}\n")
@@ -1339,6 +1354,45 @@ def test_invalid_text_content_does_not_change_source(
             slint_testing.AccessibleRole.TextInput,
         )
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
+
+
+@pytest.mark.parametrize(
+    ("label", "property_name", "initial", "value"),
+    [
+        ("Horizontal Alignment", "horizontal-alignment", "start", "end"),
+        ("Vertical Alignment", "vertical-alignment", "top", "bottom"),
+    ],
+    ids=("horizontal", "vertical"),
+)
+def test_styled_text_alignment_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    label: str,
+    property_name: str,
+    initial: str,
+    value: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "StyledText")
+        wait_for_field(
+            window, FIELDS["width"], "152", slint_testing.AccessibleRole.TextInput
+        )
+        inspector_field(window, "Text content", slint_testing.AccessibleRole.TextInput)
+        edit_field(window, label, value, slint_testing.AccessibleRole.Combobox)
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                f"        {property_name}: {initial};".encode(),
+                f"        {property_name}: {value};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
 
 
 def test_styled_text_content_writes_exact_source(

@@ -30,6 +30,7 @@ And in your `main.rs`:
 
 ```rust,no_run
 slint::slint!{
+    #[slint_edition = "1.19"]
     export component HelloWorld {
         Text {
             text: "hello world";

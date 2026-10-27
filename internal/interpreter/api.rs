@@ -1073,109 +1073,43 @@ impl Compiler {
         animation_mode: AnimationMode,
         project_root: Option<SourcePath>,
     ) -> CompilationResult {
-        let attempted_paths = Rc::new(std::cell::RefCell::new(Vec::new()));
-        let file_loader = {
-            let attempted_paths = attempted_paths.clone();
-            let fallback = self.project_file_loader.clone();
-            let record_missing_paths = self.project_file_loader.is_some();
-            Rc::new(
-                move |path: SourcePath| -> core::pin::Pin<
-                    Box<dyn Future<Output = Option<std::io::Result<String>>>>,
-                > {
-                    if record_missing_paths || path.exists() {
-                        attempted_paths.borrow_mut().push(path.clone());
-                    }
-                    match &fallback {
-                        Some(fallback) => fallback(path),
-                        None => Box::pin(async { None }),
-                    }
-                },
-            ) as i_slint_compiler::OpenImportCallback
-        };
-        let resolved = if input.file_name() == Some(i_slint_compiler::project_file::FILE_NAME) {
-            Err(i_slint_compiler::project_file::project_file_input_error(&input))
-        } else if let Some(root) = project_root {
-            i_slint_compiler::project_file::load_from_root_with_file_loader(
-                root,
-                Some(&file_loader),
-            )
-            .await
-            .map(|project_file| i_slint_compiler::project_file::ResolvedInput {
-                source: input.clone(),
-                project_file,
-            })
-        } else if source_code.is_none() {
-            match input.as_native_path() {
-                Some(path) => i_slint_compiler::project_file::resolve_input(path).map(
-                    |(source, project_file)| i_slint_compiler::project_file::ResolvedInput {
-                        source: SourcePath::new(source),
-                        project_file,
-                    },
-                ),
-                None => Ok(i_slint_compiler::project_file::ResolvedInput {
-                    source: input.clone(),
-                    project_file: None,
-                }),
-            }
-        } else {
-            Ok(i_slint_compiler::project_file::ResolvedInput {
-                source: input.clone(),
-                project_file: None,
-            })
-        };
+        let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+        #[cfg_attr(not(feature = "internal"), expect(unused_variables))]
+        let (loaded, attempted_paths) = i_slint_compiler::project_file::load_input(
+            &input,
+            source_code,
+            project_root,
+            self.project_file_loader.clone(),
+            &mut diagnostics,
+        )
+        .await;
         #[cfg_attr(not(feature = "internal"), allow(unused_mut))]
-        let mut result = match resolved {
-            Err(message) => {
-                compilation_error(message, &input, i_slint_compiler::diagnostics::Span::new(0, 0))
-            }
-            Ok(resolved) => {
-                if let Some(project_file) = &resolved.project_file {
-                    attempted_paths.borrow_mut().push(project_file.source_path().clone());
-                }
-                let source = if resolved.source == input { source_code } else { None };
-                let source = match source {
-                    Some(source) => Ok(source),
-                    None => {
-                        if let Some(source) = file_loader(resolved.source.clone()).await {
-                            source.map_err(|error| error.to_string()).and_then(|source| {
-                                if resolved.source.extension() == Some("rs") {
-                                    i_slint_compiler::lexer::extract_rust_macro(source)
-                                        .ok_or_else(|| "No `slint!` macro".into())
-                                } else {
-                                    Ok(source)
-                                }
-                            })
-                        } else if let Some(path) = resolved.source.as_native_path() {
-                            i_slint_compiler::diagnostics::load_from_path(path)
-                                .map_err(|diagnostic| diagnostic.message().to_string())
-                        } else {
-                            resolved.source.read_to_string().map_err(|error| error.to_string())
-                        }
-                    }
-                };
-                match source {
-                    Err(message) => {
-                        compilation_error(message, &resolved.source, Default::default())
-                    }
-                    Ok(source) => {
-                        let mut config = self.config.clone();
-                        self.overrides.apply(resolved.project_file.as_ref(), &mut config);
-                        build_compilation_result(
-                            source,
-                            resolved.source,
-                            config,
-                            animation_mode,
-                            self.resource_loader.clone(),
-                        )
-                        .await
-                    }
-                }
+        let mut result = match loaded {
+            None => CompilationResult {
+                components: HashMap::new(),
+                diagnostics: diagnostics.into_iter().collect(),
+                #[cfg(feature = "internal")]
+                watch_paths: Vec::new(),
+                #[cfg(feature = "internal")]
+                structs_and_enums: Vec::new(),
+            },
+            Some(loaded) => {
+                let mut config = self.config.clone();
+                self.overrides.apply(loaded.project_file.as_ref(), &mut config);
+                build_compilation_result(
+                    loaded.source_code,
+                    loaded.source,
+                    config,
+                    animation_mode,
+                    self.resource_loader.clone(),
+                )
+                .await
             }
         };
         #[cfg(feature = "internal")]
         {
             result.watch_paths.push(input);
-            result.watch_paths.extend(attempted_paths.borrow().iter().cloned());
+            result.watch_paths.extend(attempted_paths);
             result.watch_paths.sort();
             result.watch_paths.dedup();
         }
@@ -1189,39 +1123,6 @@ pub(crate) enum AnimationMode {
     #[cfg_attr(not(feature = "internal"), allow(dead_code))]
     Static,
     Running,
-}
-
-fn empty_compilation_result() -> CompilationResult {
-    CompilationResult {
-        components: HashMap::new(),
-        diagnostics: Vec::new(),
-        #[cfg(feature = "internal")]
-        watch_paths: Vec::new(),
-        #[cfg(feature = "internal")]
-        structs_and_enums: Vec::new(),
-    }
-}
-
-fn compilation_error(
-    message: String,
-    path: &SourcePath,
-    span: i_slint_compiler::diagnostics::Span,
-) -> CompilationResult {
-    let mut diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
-    diagnostics.push_error_with_span(
-        message,
-        i_slint_compiler::diagnostics::SourceLocation {
-            source_file: Some(i_slint_compiler::diagnostics::SourceFileInner::from_path_only(
-                path.clone(),
-            )),
-            span,
-        },
-    );
-    let mut result = empty_compilation_result();
-    result.diagnostics = diagnostics.into_iter().collect();
-    #[cfg(feature = "internal")]
-    result.watch_paths.push(path.clone());
-    result
 }
 
 async fn build_compilation_result(
@@ -3168,7 +3069,7 @@ mod project_file_tests {
         ] {
             for static_compilation in [false, true] {
                 let manifest = path.parent().join(FILE_NAME).unwrap();
-                let current_experimental = std::rc::Rc::new(std::cell::RefCell::new(false));
+                let current_experimental = std::rc::Rc::new(std::cell::RefCell::new("[]"));
                 let mut compiler = Compiler::default();
                 compiler.set_project_root(Some(path.parent()), i_slint_core::InternalToken);
                 let loader_experimental = current_experimental.clone();
@@ -3176,7 +3077,7 @@ mod project_file_tests {
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
                     let contents = if path == loader_manifest {
                         Ok(format!(
-                            r#"{{"slint-edition":"1.19","enable-experimental-features":{}}}"#,
+                            r#"{{"slint-edition":"1.19","experimental-features":{}}}"#,
                             loader_experimental.borrow()
                         ))
                     } else {
@@ -3192,7 +3093,9 @@ mod project_file_tests {
                     Overrides {
                         style: Some("fluent".into()),
                         project: i_slint_compiler::project_file::ProjectFileData {
-                            enable_experimental_features: Some(true),
+                            experimental_features: Some(
+                                i_slint_compiler::ExperimentalFeature::ComponentContainer.into(),
+                            ),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -3216,7 +3119,7 @@ mod project_file_tests {
                     compile_source(&compiler, path.clone(), static_compilation, source)
                         .has_errors()
                 );
-                *current_experimental.borrow_mut() = true;
+                *current_experimental.borrow_mut() = r#"["component-container"]"#;
                 let result = compile_source(&compiler, path.clone(), static_compilation, source);
                 assert!(!result.has_errors(), "{result:?}");
                 assert!(result.watch_paths.contains(&manifest));
@@ -3377,9 +3280,9 @@ mod project_file_tests {
         compiler.set_project_file_loader(
             std::rc::Rc::new(move |path| {
                 let contents = if path == enabled_manifest {
-                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into())
+                    Ok(r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into())
                 } else {
-                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":false}"#.into())
+                    Ok(r#"{"slint-edition":"1.19","experimental-features":[]}"#.into())
                 };
                 Box::pin(async move { Some(contents) })
             }),

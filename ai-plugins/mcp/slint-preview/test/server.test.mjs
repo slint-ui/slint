@@ -45,6 +45,7 @@ before(async () => {
             ...process.env,
             SLINT_PREVIEW_VIEW_START_TIMEOUT_MS: "200",
             SLINT_PREVIEW_SCREENSHOT_TIMEOUT_MS: "400",
+            SLINT_PREVIEW_TIMEOUT_MS: "700",
         },
     });
     createInterface({ input: server.stdout }).on("line", (line) => {
@@ -115,7 +116,7 @@ test("serves the view with the interpreter of the plugin's release on the releas
             ".claude-plugin/plugin.json",
             "assets/slint.svg",
             "mcp/slint-preview/server.mjs",
-            "mcp/slint-preview/view.html",
+            "mcp/slint-preview/view.html.in",
         ]) {
             cpSync(new URL(file, pluginRoot), join(root, file));
         }
@@ -313,8 +314,9 @@ test("reports why a preview has no screenshot", async () => {
         previewId,
         error: "main.slint:1:23: error: Unknown property colour",
     });
-    const { content } = await callTool("get_preview_screenshot", {});
+    const { content, structuredContent } = await callTool("get_preview_screenshot", {});
     assert.match(content[0].text, /Unknown property colour/);
+    assert.equal(structuredContent.status, "error");
 });
 
 test("ignores a late capture of an earlier preview of the same file", async () => {
@@ -330,25 +332,41 @@ test("ignores a late capture of an earlier preview of the same file", async () =
     assert.equal(content[0].type, "text");
 });
 
-test("fails fast when no view starts", async () => {
+test("returns a fallback when no view starts, then accepts a late view", async () => {
     const previewId = await startPreview({ source: "export component B {}" });
-    const start = Date.now();
-    const { content } = await callTool("get_preview_screenshot", {});
-    assert.match(
-        content[0].text,
-        new RegExp(`view for preview ${previewId} didn't start`),
-    );
-    assert.ok(Date.now() - start < 400);
+    const result = await callTool("get_preview_screenshot", {});
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes("slint-viewer --screenshot"));
+    assert.ok(!result.content[0].text.includes("again"));
+    const again = await callTool("get_preview_screenshot", {});
+    assert.equal(again.isError, true);
+
+    await callTool("publish_preview_capture", { previewId, started: true });
+    await callTool("publish_preview_capture", { previewId, png: "iVBORw0K" });
+    assert.equal((await callTool("get_preview_screenshot", {})).structuredContent.status, "ready");
 });
 
-test("waits longer once the view has started", async () => {
+test("reports the current stage and timings while rendering remains pending", async () => {
     const previewId = await startPreview({ source: "export component C {}" });
     await callTool("publish_preview_capture", { previewId, started: true });
-    const { content } = await callTool("get_preview_screenshot", {});
-    assert.match(
-        content[0].text,
-        new RegExp(`Preview ${previewId} didn't finish rendering`),
-    );
+    const screenshot = callTool("get_preview_screenshot", {});
+    const stages = ["started", "reading", "loading", "compiling"];
+    for (const stage of stages.slice(1)) {
+        await callTool("publish_preview_capture", { previewId, stage });
+    }
+    const { content, structuredContent } = await screenshot;
+    assert.match(content[0].text, /pending \(compiling\)/);
+    assert.equal(structuredContent.status, "pending");
+    assert.equal(structuredContent.stage, "compiling");
+    assert.deepEqual(Object.keys(structuredContent.timings), stages);
+    let previous = 0;
+    for (const elapsed of Object.values(structuredContent.timings)) {
+        assert.ok(elapsed >= previous && elapsed <= structuredContent.elapsedMs);
+        previous = elapsed;
+    }
+    const timeout = await callTool("get_preview_screenshot", {});
+    assert.equal(timeout.structuredContent.status, "timeout");
+    assert.equal(timeout.structuredContent.stage, "compiling");
 });
 
 test("tells a waiting call that a newer preview replaced it", async () => {

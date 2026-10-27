@@ -482,6 +482,7 @@ macro_rules! for_each_enums {
                 /// The element is a `Slider` or behaves like one.
                 Slider,
                 /// The element is a `SpinBox` or behaves like one.
+                /// Set `accessible-role: none` on the `TextInput` inside it, whose text this role describes.
                 Spinbox,
                 /// The element is a `Tab` or behaves like one.
                 Tab,
@@ -499,6 +500,8 @@ macro_rules! for_each_enums {
                 ProgressIndicator,
                 /// The role for widget with editable text such as a `LineEdit` or a `TextEdit`.
                 /// This is automatically applied to `TextInput` elements.
+                /// Set `accessible-role: none` on the `TextInput` inside an element that takes this role,
+                /// whose text the role describes.
                 TextInput,
                 /// The element is a `Switch` or behaves like one.
                 Switch,
@@ -696,6 +699,37 @@ macro_rules! for_each_enums {
                 Windows,
                 /// This variant is reported when the operating system is none of the above.
                 Other,
+            }
+
+            /// This enum describes the platform role of a `MenuItem` in a `MenuBar`.
+            ///
+            /// On macOS, the native menu bar moves items with a role into the application menu.
+            /// On other platforms, `about`, `preferences`, and `quit` items stay where they're declared,
+            /// and items with the other roles are hidden.
+            #[non_exhaustive]
+            enum MenuItemRole {
+                /// The item has no special role and stays where it's declared.
+                None,
+                /// The item opens the application's "About" information.
+                About,
+                /// The item opens the application's settings.
+                /// The shortcut defaults to Command+, on macOS.
+                Preferences,
+                /// The item quits the application.
+                /// The shortcut defaults to Command+Q on macOS.
+                Quit,
+                /// The item is the system's "Services" sub-menu on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                Services,
+                /// The item hides the application on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                Hide,
+                /// The item hides all other applications on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                HideOthers,
+                /// The item shows all hidden applications on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                ShowAll,
             }
 
             /// This enum describes how to scroll to a specific position

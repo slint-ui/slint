@@ -66,14 +66,13 @@ compile_error!(
 use std::collections::HashMap;
 use std::env;
 use std::io::{BufWriter, Write};
-use std::path::Path;
-#[cfg(test)]
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 #[cfg(test)]
 use i_slint_compiler::project_file::FILE_NAME as PROJECT_FILE_NAME;
 use i_slint_compiler::project_file::{self, ProjectFile};
+use i_slint_compiler::source_path::SourcePath;
 
 /// Argument of [`CompilerConfiguration::with_default_translation_context()`]
 ///
@@ -410,27 +409,29 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 ///
 /// The project file provides the settings that `config` does not specify.
 pub fn compile_with_config(
-    relative_slint_file_path: impl AsRef<std::path::Path>,
+    path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<(), CompileError> {
     let manifest_path = std::path::PathBuf::from(
         env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?,
     );
-    let (path, project_file) = project_file::resolve_input(&project_file::resolve_relative_path(
+    let (input, input_files) = load_input(project_file::resolve_relative_path(
         &manifest_path,
-        relative_slint_file_path.as_ref().to_path_buf(),
-    ))
-    .map_err(|error| CompileError::CompileError(vec![error]))?;
+        path.as_ref().to_path_buf(),
+    ))?;
 
     let absolute_rust_output_file_path =
         Path::new(&env::var_os("OUT_DIR").ok_or(CompileError::NotRunViaCargo)?).join(
-            path.file_stem()
+            input
+                .source
+                .as_native_path()
+                .and_then(Path::file_stem)
                 .map(Path::new)
                 .unwrap_or_else(|| Path::new("slint_out"))
                 .with_extension("rs"),
         );
 
-    let config = config.resolve_for_cargo(project_file.as_ref(), &manifest_path);
+    let config = config.resolve_for_cargo(input.project_file.as_ref(), &manifest_path);
 
     #[cfg(feature = "experimental-module-builds")]
     if let Some(library_name) = config.library_name.clone() {
@@ -445,7 +446,7 @@ pub fn compile_with_config(
             "cargo::metadata=SLINT_LIBRARY_PACKAGE={}",
             std::env::var("CARGO_PKG_NAME").ok().unwrap_or_default()
         );
-        println!("cargo::metadata=SLINT_LIBRARY_SOURCE={}", path.display());
+        println!("cargo::metadata=SLINT_LIBRARY_SOURCE={}", input.source);
         if let Some(rust_module) = rust_module {
             println!("cargo::metadata=SLINT_LIBRARY_MODULE={}", rust_module);
         }
@@ -456,7 +457,7 @@ pub fn compile_with_config(
     }
 
     let paths_dependencies =
-        compile_resolved(&path, project_file.as_ref(), &absolute_rust_output_file_path, config)?;
+        compile_resolved(input, input_files, &absolute_rust_output_file_path, config)?;
 
     for path_dependency in paths_dependencies {
         println!("cargo:rerun-if-changed={}", path_dependency.display());
@@ -499,25 +500,42 @@ pub fn compile_with_output_path(
     output_rust_file_path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
-    let (slint_file, project_file) = project_file::resolve_input(input_slint_file_path.as_ref())
-        .map_err(|error| CompileError::CompileError(vec![error]))?;
-    compile_resolved(
-        &slint_file,
-        project_file.as_ref(),
-        output_rust_file_path.as_ref(),
-        config.resolve(project_file.as_ref()),
-    )
+    let (input, input_files) = load_input(input_slint_file_path.as_ref().to_path_buf())?;
+    let config = config.resolve(input.project_file.as_ref());
+    compile_resolved(input, input_files, output_rust_file_path.as_ref(), config)
 }
 
-/// Compiles `input_slint_file_path` with `project_file` and `config` applied.
+/// The root file to compile for `path`, which may be a project directory, its contents,
+/// and the files it was found and read from.
+fn load_input(path: PathBuf) -> Result<(project_file::Input, Vec<PathBuf>), CompileError> {
+    let mut diag = BuildDiagnostics::default();
+    let (input, input_files) = spin_on::spin_on(project_file::load_input(
+        &SourcePath::File(path),
+        None,
+        None,
+        None,
+        &mut diag,
+    ));
+    let input = input.ok_or_else(|| {
+        // The messages name their file already
+        let vec = diag.iter().map(|d| d.message().to_string()).collect();
+        diag.print();
+        CompileError::CompileError(vec)
+    })?;
+    Ok((input, input_files.into_iter().filter_map(SourcePath::into_native_path).collect()))
+}
+
+/// Compiles `input` with `compiler_config`, which has its project file applied.
+/// Returns `input_files` and the other files the output depends on.
 fn compile_resolved(
-    input_slint_file_path: &Path,
-    project_file: Option<&ProjectFile>,
+    input: project_file::Input,
+    input_files: Vec<PathBuf>,
     output_rust_file_path: &Path,
     mut compiler_config: i_slint_compiler::CompilerConfiguration,
 ) -> Result<Vec<std::path::PathBuf>, CompileError> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse_file(input_slint_file_path, &mut diag);
+    let syntax_node =
+        i_slint_compiler::parser::parse(input.source_code, Some(input.source), &mut diag);
 
     if diag.has_errors() {
         let vec = diag.to_string_vec();
@@ -526,8 +544,6 @@ fn compile_resolved(
     }
 
     compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
-
-    let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
     let (doc, mut diag, loader) =
@@ -548,7 +564,7 @@ fn compile_resolved(
         std::fs::File::create(output_rust_file_path).map_err(CompileError::SaveError)?,
     );
 
-    let mut dependencies: Vec<std::path::PathBuf> = Vec::new();
+    let mut dependencies = input_files;
 
     for x in diag.all_loaded_files.iter().filter_map(|p| p.as_native_path()) {
         if x.is_absolute() {
@@ -565,11 +581,6 @@ fn compile_resolved(
 
     i_slint_compiler::generator::rust_code_formatter::write_formatted(&generated, &mut output_file)
         .map_err(CompileError::SaveError)?;
-    dependencies.push(input_slint_file_path.to_path_buf());
-
-    if let Some(project_file) = project_file {
-        dependencies.push(project_file.source_path().as_native_path().unwrap().to_owned());
-    }
 
     for er in doc.embedded_file_resources.borrow().iter() {
         if let Some(resource) = er.path.as_ref().and_then(|p| p.as_native_path()) {

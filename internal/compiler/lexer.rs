@@ -550,7 +550,7 @@ fn blank_out_leading_attributes(body: &mut [u8]) {
                 .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
                 .count();
         let name = &body[name_start..name_end];
-        if ![&b"include_path"[..], b"library_path", b"style", b"edition"].contains(&name) {
+        if ![&b"include_path"[..], b"library_path", b"style", b"slint_edition"].contains(&name) {
             return;
         }
         let mut depth = 0;
@@ -625,18 +625,24 @@ fn test_extract_rust_macro() {
     );
     assert_eq!(
         extract_rust_macro(
-            "slint!{ #[edition = \"1.19\"]\n # [style = \"a]\\\"\"] export X {} #[y] }".into()
+            "slint!{ #[slint_edition = \"1.19\"]\n # [style = \"a]\\\"\"] export X {} #[y] }"
+                .into()
         ),
-        Some("      \u{2}                    \n                    export X {} #[y] \u{3}".into()),
+        Some(
+            "      \u{2}                          \n                    export X {} #[y] \u{3}"
+                .into()
+        ),
     );
     assert_eq!(
-        extract_rust_macro("slint!{ // c\n#[style = \"a\"] /* c */ #[ edition=\"1\"] X }".into()),
-        Some("      \u{2} // c\n               /* c */                 X \u{3}".into()),
+        extract_rust_macro(
+            "slint!{ // c\n#[style = \"a\"] /* c */ #[ slint_edition=\"1\"] X }".into()
+        ),
+        Some("      \u{2} // c\n               /* c */                       X \u{3}".into()),
     );
     // cspell:ignore edtion
     assert_eq!(
-        extract_rust_macro("slint!{ #[edtion = \"1.19\"] #[style = \"a\"] X }".into()),
-        Some("      \u{2} #[edtion = \"1.19\"] #[style = \"a\"] X \u{3}".into()),
+        extract_rust_macro("slint!{ #[slint_edtion = \"1.19\"] #[style = \"a\"] X }".into()),
+        Some("      \u{2} #[slint_edtion = \"1.19\"] #[style = \"a\"] X \u{3}".into()),
     );
     let mut unclosed = *br#" #[style = r"a\"] X "#;
     blank_out_leading_attributes(&mut unclosed);

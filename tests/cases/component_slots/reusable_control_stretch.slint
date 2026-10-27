@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 800px;
+    height: 300px;
+    out property <bool> test: action.width < 100px && action.height < 80px
+        && checkbox.width < 160px && checkbox.height < 80px
+        && toggle.width < 160px && toggle.height < 80px
+        && expanded.width > 300px
+        && field-frame.width >= field.min-width && field-frame.height >= field.min-height;
+
+    VerticalLayout {
+        spacing: 20px;
+        HorizontalLayout {
+            spacing: 12px;
+            action := Button { text: "Edit"; }
+            checkbox := CheckBox { text: "Notify"; }
+            toggle := Switch { text: "Online"; }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        expanded := Button { text: "Fill the available width"; horizontal-stretch: 1; }
+    }
+
+    field-frame := Rectangle {
+        x: 0px;
+        y: root.height - self.height;
+        width: field.preferred-width;
+        height: field.preferred-height;
+        field := LineEdit { }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test(), "action controls should keep their content size unless stretching is requested");
+instance.window().set_size(slint::LogicalSize::new(650., 400.));
+slint::platform::update_timers_and_animations();
+assert!(instance.get_test());
+```
+*/

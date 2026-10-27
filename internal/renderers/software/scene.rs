@@ -11,7 +11,9 @@ use super::{
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
-use i_slint_core::graphics::{SharedImageBuffer, TexturePixelFormat};
+#[cfg(feature = "image-owned-textures")]
+use i_slint_core::graphics::{OwnedStorage, StaticTextures};
+use i_slint_core::graphics::{SharedImageBuffer, StaticTexture, TexturePixelFormat};
 use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
 
 #[derive(Default)]
@@ -490,7 +492,16 @@ impl SceneTextureExtra {
 #[derive(Clone)]
 pub enum SharedBufferData {
     SharedImage(SharedImageBuffer),
-    AlphaMap { data: crate::fonts::GlyphAlphaMap, width: u16, sdf: bool },
+    AlphaMap {
+        data: crate::fonts::GlyphAlphaMap,
+        width: u16,
+        sdf: bool,
+    },
+    #[cfg(feature = "image-owned-textures")]
+    Texture {
+        textures: alloc::rc::Rc<StaticTextures<OwnedStorage>>,
+        texture: StaticTexture,
+    },
 }
 
 impl SharedBufferData {
@@ -498,6 +509,8 @@ impl SharedBufferData {
         match self {
             SharedBufferData::SharedImage(image) => image.width() as usize,
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
+            #[cfg(feature = "image-owned-textures")]
+            SharedBufferData::Texture { texture, .. } => texture.rect.width() as usize,
         }
     }
     pub fn height(&self) -> usize {
@@ -506,8 +519,20 @@ impl SharedBufferData {
             SharedBufferData::AlphaMap { data, width, .. } => {
                 data.as_slice().len() / *width as usize
             }
+            #[cfg(feature = "image-owned-textures")]
+            SharedBufferData::Texture { texture, .. } => texture.rect.height() as usize,
         }
     }
+}
+
+/// The pixels in `range` of `texture`, out of the `data` of its textures.
+pub fn texture_pixels<'a>(
+    data: &'a [u8],
+    texture: &StaticTexture,
+    range: core::ops::Range<usize>,
+) -> &'a [u8] {
+    let bpp = texture.format.bpp();
+    &data[texture.index..][range.start * bpp..range.end * bpp]
 }
 
 pub struct SharedBufferCommand {
@@ -557,15 +582,6 @@ impl SharedBufferCommand {
                 format: TexturePixelFormat::Gray8,
                 extra: self.extra,
             },
-            #[cfg(feature = "image-pixel-format-alpha-map")]
-            SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap { alpha, .. }) => {
-                SceneTexture {
-                    data: &alpha.as_bytes()[start..end],
-                    pixel_stride: stride as u16,
-                    format: TexturePixelFormat::AlphaMap,
-                    extra: self.extra,
-                }
-            }
             SharedBufferData::AlphaMap { data, width, sdf } => SceneTexture {
                 data: &data.as_slice()[start..end],
                 pixel_stride: *width,
@@ -574,6 +590,13 @@ impl SharedBufferCommand {
                 } else {
                     TexturePixelFormat::AlphaMap
                 },
+                extra: self.extra,
+            },
+            #[cfg(feature = "image-owned-textures")]
+            SharedBufferData::Texture { textures, texture } => SceneTexture {
+                data: texture_pixels(&textures.data, texture, start..end),
+                pixel_stride: stride as u16,
+                format: texture.format,
                 extra: self.extra,
             },
             SharedBufferData::SharedImage(_) => unreachable!(

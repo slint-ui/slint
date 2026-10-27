@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { SwitchStyle } from "switch_style.slint";
+import { BasicTheme } from "theme.slint";
+
+export global SwitchStyles {
+    out property <SwitchStyle> standard: {
+        unchecked: {
+            rest: {
+                track-color: BasicTheme.background,
+                thumb-color: BasicTheme.foreground,
+                foreground-color: BasicTheme.foreground,
+                track-border-color: BasicTheme.border,
+            },
+            hover: {
+                track-color: BasicTheme.hover-background,
+                thumb-color: BasicTheme.foreground,
+                foreground-color: BasicTheme.foreground,
+                track-border-color: BasicTheme.border,
+            },
+            pressed: {
+                track-color: BasicTheme.pressed-background,
+                thumb-color: BasicTheme.foreground,
+                foreground-color: BasicTheme.foreground,
+                track-border-color: BasicTheme.border,
+            },
+            disabled: {
+                track-color: BasicTheme.disabled-background,
+                thumb-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                track-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        checked: {
+            rest: {
+                track-color: BasicTheme.accent,
+                thumb-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                track-border-color: BasicTheme.accent,
+            },
+            hover: {
+                track-color: BasicTheme.accent-hover,
+                thumb-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                track-border-color: BasicTheme.accent-hover,
+            },
+            pressed: {
+                track-color: BasicTheme.accent-pressed,
+                thumb-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                track-border-color: BasicTheme.accent-pressed,
+            },
+            disabled: {
+                track-color: BasicTheme.disabled-background,
+                thumb-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                track-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        focus-color: BasicTheme.focus,
+    };
+}

@@ -26,7 +26,8 @@ mod tests {
             }
         "#;
         let mut compiler = Compiler::default();
-        compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+        compiler.compiler_configuration(i_slint_core::InternalToken).experimental_features =
+            i_slint_compiler::ExperimentalFeatures::all();
         let result = spin_on::spin_on(compiler.build_from_source(
             source.into(),
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/metadata-probe.slint"),

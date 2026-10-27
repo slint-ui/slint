@@ -1098,7 +1098,6 @@ fn show_info(server_notifier: &crate::ServerNotifier, message: impl Into<String>
     );
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn show_warning(server_notifier: &crate::ServerNotifier, message: impl Into<String>) {
     let _ = server_notifier.send_notification::<lsp_types::notification::ShowMessage>(
         lsp_types::ShowMessageParams {
@@ -1447,12 +1446,17 @@ pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     load_configuration(ctx).await
 }
 
-fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfigOverrides {
+/// Returns the overrides and warnings about the settings it ignores.
+fn parse_configuration(
+    workspace_config: Vec<serde_json::Value>,
+) -> (SessionConfigOverrides, Vec<String>) {
     let mut hide_ui = None;
     let mut include_paths = None;
     let mut library_paths = None;
     let mut style = None;
     let mut experimental = None;
+    let mut edition = None;
+    let mut warnings = Vec::new();
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
@@ -1489,24 +1493,57 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             }
             hide_ui =
                 config_object.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
-            if let Some(value) = config_object.get("experimental").and_then(|v| v.as_bool()) {
-                experimental = Some(value);
+            if let Some(value) = config_object.get("experimental") {
+                let all = i_slint_compiler::ExperimentalFeatures::all();
+                let names: Option<Vec<_>> = value
+                    .as_array()
+                    .and_then(|names| names.iter().map(serde_json::Value::as_str).collect());
+                if let Some(names) = names {
+                    let (features, unknown) =
+                        i_slint_compiler::ExperimentalFeatures::parse_names(names);
+                    warnings.extend(unknown.into_iter().map(|name| {
+                        format!(
+                            "Ignoring the unknown experimental feature '{name}'. Use one of [{all}]"
+                        )
+                    }));
+                    experimental = Some(features);
+                } else {
+                    warnings.push(format!(
+                        "Ignoring the 'experimental' setting {value}. Set it to a list of feature names from [{all}]"
+                    ));
+                }
+            }
+            // SlintPad sets it. Elsewhere, the project file decides, as it does for the build.
+            if cfg!(any(target_arch = "wasm32", test))
+                && let Some(value) = config_object.get("edition")
+            {
+                let current = i_slint_compiler::project_file::SlintEdition::current();
+                let parsed = value
+                    .as_str()
+                    .ok_or_else(|| format!("{value} is not a string"))
+                    .and_then(i_slint_compiler::project_file::SlintEdition::parse_supported);
+                edition = Some(parsed.unwrap_or_else(|error| {
+                    tracing::warn!("Using edition {current}: {error}");
+                    current
+                }));
             }
         }
     }
-    SessionConfigOverrides {
+    let overrides = SessionConfigOverrides {
         hide_ui,
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths,
                 library_paths,
-                enable_experimental_features: experimental,
+                experimental_features: experimental,
+                slint_edition: edition,
                 ..Default::default()
             },
             style,
             ..Default::default()
         },
-    }
+    };
+    (overrides, warnings)
 }
 
 pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()> {
@@ -1535,7 +1572,11 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
         )?
         .await?;
 
-    let config_overrides = parse_configuration(workspace_config);
+    let (config_overrides, warnings) = parse_configuration(workspace_config);
+    for message in warnings {
+        tracing::warn!("{message}");
+        show_warning(&ctx.server_notifier, message);
+    }
     tracing::debug!("Loaded configuration: {config_overrides:?}");
     let diagnostics = ctx.session.set_workspace_config_overrides(config_overrides).await?;
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -1608,15 +1649,36 @@ pub mod tests {
     }
 
     #[test]
-    fn configuration_parser_ignores_empty_collections_and_preserves_false() {
+    fn configuration_parser_keeps_known_experimental_features() {
+        let (overrides, warnings) =
+            parse_configuration(vec![serde_json::json!({"experimental": ["match", "interface"]})]);
+        assert_eq!(
+            overrides.compiler.project.experimental_features,
+            Some(i_slint_compiler::ExperimentalFeature::Match.into())
+        );
+        let [warning] = warnings.as_slice() else { panic!("{warnings:?}") };
+        assert!(warning.starts_with("Ignoring the unknown experimental feature 'interface'."));
+
+        for value in [serde_json::json!(true), serde_json::json!(["match", 1])] {
+            let (overrides, warnings) =
+                parse_configuration(vec![serde_json::json!({ "experimental": value })]);
+            assert_eq!(overrides.compiler.project.experimental_features, None);
+            let [warning] = warnings.as_slice() else { panic!("{warnings:?}") };
+            assert!(warning.starts_with(&format!("Ignoring the 'experimental' setting {value}.")));
+        }
+    }
+
+    #[test]
+    fn configuration_parser_ignores_empty_collections_and_preserves_empty_features() {
         for configuration in [
-            serde_json::json!({"experimental": false}),
-            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": false}),
+            serde_json::json!({"experimental": []}),
+            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": []}),
         ] {
-            let overrides = parse_configuration(vec![configuration]);
+            let (overrides, warnings) = parse_configuration(vec![configuration]);
+            assert!(warnings.is_empty(), "{warnings:?}");
             assert_eq!(overrides.compiler.project.include_paths, None);
             assert_eq!(overrides.compiler.project.library_paths, None);
-            assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
+            assert_eq!(overrides.compiler.project.experimental_features, Some(Default::default()));
             for paths in ["startup", "project"] {
                 let mut compiler_configuration = i_slint_compiler::CompilerConfiguration::new(
                     i_slint_compiler::generator::OutputFormat::Interpreter,
@@ -1635,6 +1697,27 @@ pub mod tests {
     }
 
     #[test]
+    fn configuration_parser_reads_the_edition() {
+        use i_slint_compiler::project_file::SlintEdition;
+        let newer =
+            SlintEdition { minor: SlintEdition::current().minor + 1, ..SlintEdition::current() };
+        let (overrides, warnings) = parse_configuration(vec![serde_json::json!({})]);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(overrides.compiler.project.slint_edition, None);
+        for (value, expected) in [
+            (serde_json::json!("1.18"), Some(SlintEdition { major: 1, minor: 18 })),
+            (serde_json::json!("1.18.1"), Some(SlintEdition::current())),
+            (serde_json::json!(newer.to_string()), Some(SlintEdition::current())),
+            (serde_json::json!(1.18), Some(SlintEdition::current())),
+        ] {
+            let (overrides, warnings) =
+                parse_configuration(vec![serde_json::json!({ "edition": value })]);
+            assert!(warnings.is_empty(), "{warnings:?}");
+            assert_eq!(overrides.compiler.project.slint_edition, expected, "{value}");
+        }
+    }
+
+    #[test]
     fn configuration_parser_filters_nonempty_collections_before_replacement() {
         for (configuration, expected_paths, expected_libraries) in [
             (
@@ -1648,7 +1731,8 @@ pub mod tests {
                 HashMap::new(),
             ),
         ] {
-            let overrides = parse_configuration(vec![configuration]);
+            let (overrides, warnings) = parse_configuration(vec![configuration]);
+            assert!(warnings.is_empty(), "{warnings:?}");
             assert_eq!(overrides.compiler.project.include_paths, Some(expected_paths));
             assert_eq!(overrides.compiler.project.library_paths, Some(expected_libraries));
         }
@@ -2135,7 +2219,9 @@ enum {}
                         "widgets".into(),
                         PathBuf::from("/libraries/widgets"),
                     )])),
-                    enable_experimental_features: Some(true),
+                    experimental_features: Some(
+                        i_slint_compiler::ExperimentalFeature::Match.into(),
+                    ),
                     slint_edition: Some(i_slint_compiler::project_file::SlintEdition::V1_19),
                     ..Default::default()
                 },

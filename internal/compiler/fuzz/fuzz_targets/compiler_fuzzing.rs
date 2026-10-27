@@ -24,7 +24,7 @@ pub fn process_file_source(path: &std::path::Path, source: String) {
     .into_iter()
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
-    compiler_config.enable_experimental = true;
+    compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     compiler_config.style = Some("fluent".into());
     compiler_config.components_to_generate =
         if source.contains("config:generate_all_exported_windows") {
