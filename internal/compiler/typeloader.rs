@@ -1735,9 +1735,8 @@ impl TypeLoader {
             if is_builtin {
                 registry.experimental_features = crate::ExperimentalFeatures::all();
             }
-            registry.expose_internal_types = registry
-                .experimental_features
-                .contains(crate::ExperimentalFeature::InternalTypes);
+            registry.expose_internal_types =
+                registry.experimental_features.contains(crate::ExperimentalFeature::InternalTypes);
         }
         let (imports, reexports) = Self::load_dependencies_recursively_impl(
             state,
