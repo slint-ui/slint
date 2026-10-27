@@ -89,7 +89,7 @@ test("worker pipeline reports invalid captured JSON as a recoverable conversion 
         });
 });
 
-test("a failing unselected native variant rejects an otherwise valid specialized preview", async () => {
+test("a failing unselected native variant preserves the specialized preview", async () => {
     const capture = JSON.parse(
         await readFile("fixtures/source/component-tokens.json", "utf8"),
     );
@@ -111,13 +111,13 @@ test("a failing unselected native variant rejects an otherwise valid specialized
         captureJson: JSON.stringify(capture),
     });
     expect(result).toMatchObject({
-        type: "preview-diagnostics",
-        trace: { outcome: "conversion-error" },
-        diagnostics: [
+        type: "preview-source",
+        warnings: expect.arrayContaining([
             expect.objectContaining({
+                code: "EXPORT_UNAVAILABLE",
                 message: expect.stringContaining("Cyclic variable alias"),
             }),
-        ],
+        ]),
     });
     expect(result).not.toHaveProperty("exportPackage");
 });
@@ -155,3 +155,50 @@ test.each([
         ).toBe(result.warnings?.length);
     },
 );
+
+test("hidden off-tree masters remain available for visible instances and export", async () => {
+    const capture = JSON.parse(
+        await readFile("fixtures/source/component-variants.json", "utf8"),
+    );
+    const request = () => ({
+        type: "preview-capture" as const,
+        revision: 1,
+        captureJson: JSON.stringify(capture),
+    });
+    const baseline = await convertCapture(request());
+    const master = capture.components.definitions.find(
+        (definition: { id: string }) => definition.id === "base:1",
+    );
+    master.variants[0].root.properties.visible = false;
+    const hidden = await convertCapture(request());
+    expect(hidden.type).toBe("preview-source");
+    if (hidden.type !== "preview-source" || baseline.type !== "preview-source")
+        throw Error("Missing preview");
+    expect(hidden.source).toEqual(baseline.source);
+    expect(hidden.exportPackage).toEqual(baseline.exportPackage);
+    expect(hidden.exportPackage).toBeDefined();
+    expect(hidden.warnings).toEqual(baseline.warnings);
+});
+
+test("hidden canvas occurrences are still omitted", async () => {
+    const capture = JSON.parse(
+        await readFile("fixtures/source/component-variants.json", "utf8"),
+    );
+    const occurrence = capture.root.children.pop();
+    const baseline = await convertCapture({
+        type: "preview-capture",
+        revision: 1,
+        captureJson: JSON.stringify(capture),
+    });
+    occurrence.properties.visible = false;
+    capture.root.children.push(occurrence);
+    const hidden = await convertCapture({
+        type: "preview-capture",
+        revision: 2,
+        captureJson: JSON.stringify(capture),
+    });
+    if (hidden.type !== "preview-source" || baseline.type !== "preview-source")
+        throw Error("Missing preview");
+    expect(hidden.source).toEqual(baseline.source);
+    expect(hidden.exportPackage).toEqual(baseline.exportPackage);
+});
