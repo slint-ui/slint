@@ -7,6 +7,8 @@
 - A global exported under more names gets a class for each, like a component, such as `MyGlobal` and `GlobalAlias` for `export { MyGlobal as GlobalAlias }`.
 - On Windows, a `<SlintFile>` outside the project directory, such as `../ui/app.slint`, loads from the output directory.
   Before, the application failed at startup because it looked for the file outside the output directory.
+- Run your app on Android, with a main activity derived from `SlintActivity`.
+  See [Android](README.md#android-preview) and `examples/todo/dotnet-android`.
 
 ## 1.19.0-preview.6
 

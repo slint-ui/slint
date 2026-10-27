@@ -257,6 +257,49 @@ A C# port of an example or demo lives in its `dotnet/` directory, like `examples
   so the 7GUIs ports set `SlintCopyToOutput` to false, which keeps copies out of `bin`.
 - The README of the sample gets a C# column or section next to the other languages.
 
+## Android
+
+Slint owns the entry point on Android, as in the C++ API:
+
+1. The app's activity derives from `SlintActivity`, a `NativeActivity`.
+   Its `OnCreate` registers the C# entry point with `slint_dotnet_android_set_main`.
+2. `NativeActivity` loads `libslint_dotnet.so`, named by the `android.app.lib_name` meta-data,
+   and android-activity runs `android_main` in `api/dotnet/native/android.rs` on a thread of its own.
+3. `android_main` installs Slint's Android platform, claims that thread as the Slint thread, and calls the entry point,
+   which extracts the `.slint` assets and runs `SlintMain`.
+
+Slint's state is thread-local, and `SLINT_THREAD` stays with the first thread,
+so a second `android_main` in the same process can't use Slint.
+`SlintActivity` handles configuration changes itself, and ends the process in `OnDestroy`.
+
+An APK has no output directory.
+On Android, `Slint.targets` adds the files of `SlintFile` and `SlintProject` items as assets under `slint/`,
+at the paths that the generated code loads, and their runtime paths stay relative even with `SlintCopyToOutput=false`.
+`SlintActivity` extracts them to its files directory and sets `GeneratedApi.BaseDirectory`.
+
+The `net10.0-android` build of `Slint.csproj` needs the .NET Android workload, so it's only built with `SlintAndroid=true`,
+in `obj/android` and `bin/android`.
+Build the native library with the NDK, for `aarch64-linux-android` on devices and Apple Silicon emulators,
+and `x86_64-linux-android` for other emulators:
+
+```sh
+NDK=$HOME/Library/Android/sdk/ndk/<version>
+BIN=$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin   # linux-x86_64 on Linux
+export ANDROID_NDK_ROOT=$NDK
+export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$BIN/aarch64-linux-android26-clang
+export CC_aarch64_linux_android=$BIN/aarch64-linux-android26-clang
+export CXX_aarch64_linux_android=$BIN/aarch64-linux-android26-clang++
+export AR_aarch64_linux_android=$BIN/llvm-ar
+cargo build --release -p slint-dotnet --target aarch64-linux-android
+dotnet build examples/todo/dotnet-android -p:SlintAndroid=true
+scripts/dotnet_android_smoke_test.sh examples/todo/dotnet-android/bin/Debug/net10.0-android/dev.slint.dotnet.todo-Signed.apk dev.slint.dotnet.todo
+```
+
+Apps that reference `Slint.csproj` get the release builds from `target/<triple>/release`,
+since a debug build makes every APK hundreds of megabytes.
+The package has them in `runtimes/android-arm64` and `runtimes/android-x64` instead.
+The ".NET Android" job of CI builds the todo example for `x86_64` and starts it in an emulator with the smoke test script.
+
 ## Roadmap
 
 The numbers stay stable, so that commits and discussions can refer to them.
@@ -331,19 +374,15 @@ Next:
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
 - **17.** Platforms beyond the desktop: packages for Android and iOS, and a test of the `linuxkms` backend on embedded Linux.
-  The packages ship the native library for macOS, Linux, and Windows only.
+  The published packages ship the native library for macOS, Linux, and Windows; the publish workflow adds Android.
   Both mobile platforms follow the C++ API, where Slint owns the entry point and calls the application's code,
   so neither needs Native AOT or .NET 11.
-  - Android first, in about three to four weeks.
-    `slint-dotnet` gets an `android_main` like the one in `api/cpp/lib.rs`, which calls a C# entry point.
-    A `SlintActivity` in C# derives from `Android.App.NativeActivity`, which Slint's backend accepts,
-    and registers that entry point before `NativeActivity` loads `libslint_dotnet.so`.
-    The first prototype checks that `NativeActivity` finds the library in a .NET APK,
-    and that the C# entry point runs on the thread of `android_main`.
-    The `.slint` files load from embedded resources through a file loader,
-    since Android assets aren't files.
-    The package gets `runtimes/android-arm64` and `android-x64`, and CI starts a sample in the emulator.
-  - iOS second, in about four to five weeks, reusing the loading from embedded resources.
+  - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
+    the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
+    Left to do: publishing the package with the Android libraries, a test on a real device,
+    and access to Android's events, such as saving and restoring state, like `init_with_event_listener` in Rust.
+  - iOS next, in about four to five weeks.
+    An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
     Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain`,
     instead of `UIApplication.Main`.
     `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`.

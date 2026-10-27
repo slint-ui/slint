@@ -323,6 +323,52 @@ The attribute does nothing on macOS and Linux, so keep it for every platform.
 Don't make `Main` `async`, since an `async Main` runs in a multithreaded apartment.
 For asynchronous code, call `EventLoop.Run(async () => { ... })` from a synchronous `Main`.
 
+## Android (Preview)
+
+The package also runs on Android 8 (API level 26) and later, on `arm64-v8a` and `x86_64` devices and emulators.
+Install the .NET Android workload with `dotnet workload install android`.
+
+1. Create a project with `dotnet new android`, and set in its project file:
+
+   ```xml
+   <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+   <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+   ```
+
+2. Add the package and your `.slint` files as in the [Quick Start](#quick-start).
+
+3. Derive the main activity from `SlintActivity`, and create the components in `SlintMain`:
+
+   ```csharp
+   using Slint.Android;
+
+   [Activity(MainLauncher = true, ConfigurationChanges = SlintActivity.ConfigurationChanges)]
+   [MetaData(SlintActivity.LibraryNameKey, Value = SlintActivity.LibraryName)]
+   public class MainActivity : SlintActivity
+   {
+       protected override void SlintMain()
+       {
+           using var app = AppWindow.Create();
+           app.OnRequestIncreaseValue(() => app.Counter++);
+           app.Run();
+       }
+   }
+   ```
+
+   Both attributes are needed: .NET Android only reads them from your own activity.
+
+4. Run it on a device or emulator with `dotnet run`.
+
+`SlintMain` and every callback run on Slint's thread, not on the Android UI thread.
+Slint's objects belong to that thread, so an app has one `SlintActivity`, and it ends the process when Android destroys it,
+such as after the Back button.
+Keep what should survive in files or preferences.
+
+The build puts the `<SlintFile>` and `<SlintProject>` files into the APK, and `SlintActivity` extracts them at startup.
+Add the images that `.slint` files use as `<SlintFile Include="ui/images/logo.png" Generate="false" />`,
+under the project directory, so that they keep their paths relative to the `.slint` files.
+`examples/todo/dotnet-android` is a complete example.
+
 ## Without Generated Code
 
 `Compiler` compiles `.slint` files at run time,
