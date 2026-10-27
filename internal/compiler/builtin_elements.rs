@@ -49,8 +49,11 @@
 //!
 //! The `@flags` of an element are the boolean fields of `BuiltinElement` (`is_internal`,
 //! `is_global`, ...) plus `expands_to_parent_geometry` or `implicit_size` for the default size,
-//! `builtin_struct(Name)`, `sc` for an element of the Slint SC subset and `skip_inherited` to
+//! `builtin_struct(Name)`, `experimental_feature(Feature)` for an element that needs that feature,
+//! `sc` for an element of the Slint SC subset and `skip_inherited` to
 //! leave the docs of the native items out of the element's.
+//! `constant_layout_info(stretch)` gives the element the default layout info with that stretch,
+//! whatever item it lowers to.
 //! Member modifiers `@shadowable`, `@deprecated` (aliases only) and `@pure` keep their Slint
 //! meaning; `@constexpr` marks a property whose value is known at compile time, `@fake` one
 //! that exists only at compile time and `@sc` one of the Slint SC subset.
@@ -172,6 +175,8 @@ macro_rules! flag {
     ($e:ident expands_to_parent_geometry) => { $e.element.default_size_binding = DefaultSizeBinding::ExpandsToParentGeometry };
     ($e:ident implicit_size) => { $e.element.default_size_binding = DefaultSizeBinding::ImplicitSize };
     ($e:ident builtin_struct($s:ident)) => { $e.class.builtin_struct = Some(BuiltinStruct::$s) };
+    ($e:ident constant_layout_info($stretch:literal)) => { $e.element.constant_layout_info_stretch = Some($stretch) };
+    ($e:ident experimental_feature($f:ident)) => { $e.element.experimental_feature = Some(crate::ExperimentalFeature::$f) };
     ($e:ident $flag:ident) => { $e.element.$flag = true };
 }
 
@@ -396,7 +401,7 @@ impl Loader<'_> {
         if let Some(inner) = text.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
             return Type::Array(Arc::new(self.ty(inner)));
         }
-        let ty = self.types.lookup(&kebab(text));
+        let ty = self.types.lookup_including_disabled(&kebab(text));
         assert!(ty != Type::Invalid, "unknown type `{text}` in a builtin element");
         ty
     }
@@ -497,7 +502,7 @@ fn build(l: &mut Loader) {
         }};
     }
     macro_rules! element {
-        ($(#[doc = $d:literal])* $(@$flag:ident $(($arg:ident))?)* $Name:ident $(: $Item:ident)? $({ $($body:tt)* })?) => {{
+        ($(#[doc = $d:literal])* $(@$flag:ident $(($arg:tt))?)* $Name:ident $(: $Item:ident)? $({ $($body:tt)* })?) => {{
             let mut e = l.element(stringify!($Name), docs!($($d)*));
             $( l.base(&mut e, stringify!($Item)); )?
             $( flag!(e $flag $(($arg))?); )*
@@ -509,7 +514,7 @@ fn build(l: &mut Loader) {
     item! { Empty { } }
 
     element! {
-        @is_internal
+        @is_internal @constant_layout_info(1.)
         Empty: Empty
     }
 
@@ -808,7 +813,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:elements
-        @sc @expands_to_parent_geometry
+        @sc @expands_to_parent_geometry @constant_layout_info(1.)
         Rectangle: BorderRectangle
     }
 
@@ -888,7 +893,6 @@ fn build(l: &mut Loader) {
         ///     image-rendering: pixelated;
         /// }
         /// ```
-        /// \default smooth
         in property <ImageRendering> image-rendering;
 
         @deprecated in property <angle> rotation-angle <=> transform-rotation;
@@ -896,14 +900,11 @@ fn build(l: &mut Loader) {
 
     item! { ClippedImage: ImageItem {
         /// The horizontal alignment of the image within the element.
-        /// \default center
         in property <ImageHorizontalAlignment> horizontal-alignment;
         /// The vertical alignment of the image within the element.
-        /// \default center
         in property <ImageVerticalAlignment> vertical-alignment;
         //! ## Image Tiling
         /// How the image is tiled horizontally.
-        /// \default none
         in property <ImageTiling> horizontal-tiling;
         /// ```slint imageAlt="image horizontal tiling repeat example" width="400" height="400"
         /// Image {
@@ -949,7 +950,6 @@ fn build(l: &mut Loader) {
         ///     horizontal-tiling: round;
         /// }
         /// ```
-        /// \default none
         in property <ImageTiling> vertical-tiling;
         // TODO: sets both horizontal-tiling and vertical-tiling at the same time.
         // in property <ImageTiling> tiling;
@@ -1045,7 +1045,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @accepts_focus
+        @accepts_focus @experimental_feature(ComponentContainer)
         ComponentContainer: ComponentContainer
     }
 
@@ -1057,7 +1057,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Transform: Transform
     }
 
@@ -1441,7 +1441,7 @@ fn build(l: &mut Loader) {
         /// ```
         /// </NotInSC>
         /// \group:gestures
-        @sc @expands_to_parent_geometry
+        @sc @expands_to_parent_geometry @constant_layout_info(1.)
         TouchArea: TouchArea
     }
 
@@ -1459,7 +1459,7 @@ fn build(l: &mut Loader) {
         /// KeyBindings use **logical keys**, based on the character a key produces, not physical key positions.
         ///
         /// See <Link type="KeyBindingOverview" label="Key Bindings"/> for details.
-        @is_non_item_type
+        @is_non_item_type @constant_layout_info(0.)
         KeyBinding: KeyBinding
     }
 
@@ -1556,7 +1556,7 @@ fn build(l: &mut Loader) {
         /// If these callbacks return `EventResult::accept`, then event delivery is finished and the event has been handled. Otherwise, (recursively) try
         /// to deliver the key event to the parent element.
         /// \group:keyboard-input
-        @accepts_focus @expands_to_parent_geometry
+        @accepts_focus @expands_to_parent_geometry @constant_layout_info(1.)
         FocusScope: FocusScope {
             children: KeyBinding;
         }
@@ -1665,7 +1665,7 @@ fn build(l: &mut Loader) {
         /// To bring an element inside the `Flickable` into view, call
         /// [`ensure-visible()`](/reference/common/#ensure-visiblebehavior-scrollbehavior) on that element instead.
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         Flickable: Flickable
     }
 
@@ -1771,7 +1771,7 @@ fn build(l: &mut Loader) {
         /// `Slider`'s `changed` and `released` callbacks.
         /// :::
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         SwipeGestureHandler: SwipeGestureHandler
     }
 
@@ -1852,7 +1852,7 @@ fn build(l: &mut Loader) {
         /// The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
         /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
         /// \group:gestures
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         ScaleRotateGestureHandler: ScaleRotateGestureHandler
     }
 
@@ -1905,7 +1905,7 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         DragArea: DragArea
     }
 
@@ -1940,7 +1940,7 @@ fn build(l: &mut Loader) {
         ///
         /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
         /// \group:drag-and-drop
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         DropArea: DropArea
     }
 
@@ -1973,7 +1973,7 @@ fn build(l: &mut Loader) {
 
     element! {
         /// A `MenuItem` represents a single menu entry. It must be a child of a `Menu` element.
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         MenuItem: MenuItem
     }
 
@@ -2137,7 +2137,7 @@ fn build(l: &mut Loader) {
 
     element! {
         // The NativeItem, exported as ContextMenuInternal for the style
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(0.)
         ContextMenuInternal: ContextMenu {
             in property <[MenuEntry]> entries;
         }
@@ -2302,7 +2302,7 @@ fn build(l: &mut Loader) {
         /// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
         /// </NotInSC>
         /// \group:window
-        @sc
+        @sc @constant_layout_info(0.)
         Window: WindowItem {
             children: MenuBar;
         }
@@ -2354,7 +2354,7 @@ fn build(l: &mut Loader) {
         /// }
         /// ```
         /// \group:window
-        @expands_to_parent_geometry
+        @expands_to_parent_geometry @constant_layout_info(1.)
         WindowMoveArea: WindowMoveArea
     }
 
@@ -2375,7 +2375,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         BoxShadow: BoxShadow
     }
 
@@ -2388,7 +2388,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         BackdropBlur: BackdropBlur
     }
 
@@ -2417,7 +2417,6 @@ fn build(l: &mut Loader) {
         /// The vertical alignment of the text.
         in property <TextVerticalAlignment> vertical-alignment;
         /// The way the text input wraps. Only makes sense when `single-line` is false.
-        /// \default no-wrap
         in property <TextWrap> wrap;
         /// The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance.
         /// \default 0
@@ -2438,7 +2437,6 @@ fn build(l: &mut Loader) {
         /// \default provided at run-time by the selected widget style
         in property <length> text-cursor-width: computed; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
         ///  Use this to configure `TextInput` for editing special input, such as password fields.
-        /// \default text
         in property <InputType> input-type;
         /// Hints for the platform's input method (such as a soft keyboard), for example to configure auto-capitalization.
         /// The input method may take these hints into account, but might also ignore them.
@@ -2547,6 +2545,26 @@ fn build(l: &mut Loader) {
         ///  - `accessible-value: text;`
         ///  - `accessible-enabled: enabled;`
         ///  - `accessible-read-only: read-only; `
+        ///
+        /// Set `accessible-role: none` when the element around the `TextInput` takes the
+        /// `text-input` or `spinbox` role itself.
+        /// Both of them describe the text of the same input otherwise,
+        /// so a screen reader is given that text twice.
+        /// The compiler warns when both of them keep the role.
+        ///
+        /// ```slint
+        /// component CustomLineEdit {
+        ///     in-out property <string> text <=> input.text;
+        ///
+        ///     accessible-role: text-input;
+        ///     accessible-value <=> root.text;
+        ///
+        ///     input := TextInput {
+        ///         // The component around it describes this input
+        ///         accessible-role: none;
+        ///     }
+        /// }
+        /// ```
         /// \group:keyboard-input
         @accepts_focus @expands_to_parent_geometry
         TextInput: TextInput
@@ -2563,7 +2581,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Clip: Clip
     }
 
@@ -2573,7 +2591,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Opacity: Opacity
     }
 
@@ -2583,7 +2601,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(1.)
         Layer: Layer
     }
 
@@ -3231,17 +3249,14 @@ fn build(l: &mut Loader) {
         /// The color for filling the shape of the path.
         in property <brush> fill;
         /// The fill rule to use for the path.
-        /// \default nonzero
         in property <FillRule> fill-rule;
         /// The color for drawing the outline of the path.
         in property <brush> stroke;
         /// The width of the outline.
         in property <length> stroke-width;
         /// The appearance of the ends of the path's outline.
-        /// \default butt
         in property <LineCap> stroke-line-cap;
         /// The appearance of the joins between segments of stroked paths.
-        /// \default miter
         in property <LineJoin> stroke-line-join;
         /// The limit on the ratio of the miter length to the stroke width when `stroke-line-join` is set to `miter`.
         /// When the limit is exceeded, the join is rendered as a bevel instead.
@@ -3400,7 +3415,7 @@ fn build(l: &mut Loader) {
         /// and `height` properties are non-zero, then the entire shape is fit into these bounds - by scaling
         /// accordingly.
         /// \group:elements
-        @disallow_global_types_as_child_elements @expands_to_parent_geometry
+        @disallow_global_types_as_child_elements @expands_to_parent_geometry @constant_layout_info(1.)
         Path: Path {
             children: MoveTo, LineTo, ArcTo, CubicTo, QuadraticTo, Close;
         }
@@ -3485,7 +3500,6 @@ fn build(l: &mut Loader) {
 
             @constexpr in property <bool> close-on-click;
             /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
-            /// \default close-on-click
 
             @constexpr in property <PopupClosePolicy> close-policy;
             /// Use this read-only property to style the element that opened the popup, for example
@@ -3519,7 +3533,7 @@ fn build(l: &mut Loader) {
 
     element! {
         // Internal hover tracker used with `Tooltip` lowering (the compiler inserts `TooltipArea` so `Tooltip` can react to hover and pointer position).
-        @is_internal @expands_to_parent_geometry
+        @is_internal @expands_to_parent_geometry @constant_layout_info(0.)
         TooltipArea: TooltipArea
     }
 
@@ -3765,7 +3779,7 @@ fn build(l: &mut Loader) {
         ///
         /// Same as <Link type="Window"/>.
         /// \group:window
-        @skip_inherited
+        @skip_inherited @constant_layout_info(0.)
         Dialog: WindowItem
     }
 
@@ -4363,7 +4377,7 @@ fn build(l: &mut Loader) {
         /// needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
         ///
         /// \group:window
-        @is_non_item_type @disallow_global_types_as_child_elements
+        @is_non_item_type @disallow_global_types_as_child_elements @constant_layout_info(0.)
         SystemTrayIcon: SystemTrayIcon {
             children: Menu;
         }

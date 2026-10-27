@@ -8,6 +8,17 @@ pub mod fork_harness;
 
 use regex::Regex;
 
+/// The value of `SLINT_ENABLE_EXPERIMENTAL_FEATURES` that enables every experimental feature.
+pub const ALL_EXPERIMENTAL_FEATURES: &str = "interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,internal-types";
+
+#[test]
+fn all_experimental_features_are_listed() {
+    assert_eq!(
+        ALL_EXPERIMENTAL_FEATURES,
+        i_slint_compiler::ExperimentalFeatures::all().to_string()
+    );
+}
+
 pub struct TestCase {
     pub absolute_path: std::path::PathBuf,
     pub relative_path: std::path::PathBuf,
@@ -244,6 +255,25 @@ fn test_extract_ignores() {
 
     let r = extract_ignores(source).collect::<Vec<_>>();
     assert_eq!(r, ["cpp", "rust", "nodejs"]);
+}
+
+pub fn extract_slint_edition(source: &str) -> Option<&str> {
+    static RX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"//slint-edition:\s*(\S+)\s*\n").unwrap());
+    RX.captures(source).map(|mat| mat.get(1).unwrap().as_str())
+}
+
+/// Parses the edition that `extract_slint_edition` finds.
+/// Generic because this crate doesn't depend on the compiler, which defines `SlintEdition`.
+pub fn parse_slint_edition<T: std::str::FromStr>(source: &str) -> Result<Option<T>, T::Err> {
+    extract_slint_edition(source).map(str::parse).transpose()
+}
+
+#[test]
+fn test_extract_slint_edition() {
+    assert!(extract_slint_edition("something").is_none());
+    assert_eq!(extract_slint_edition("//slint-edition: 1.18\nBlah {}\n"), Some("1.18"));
+    assert_eq!(extract_slint_edition("//slint-edition: 1.18\r\nBlah {}\r\n"), Some("1.18"));
 }
 
 pub fn extract_cpp_namespace(source: &str) -> Option<String> {

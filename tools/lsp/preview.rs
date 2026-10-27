@@ -2354,7 +2354,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#,
+            r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -2367,7 +2367,7 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"slint-edition":"1.19","main":"other.slint","enable-experimental-features":true}"#,
+                    r#"{"slint-edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#,
                 ),
                 false,
             ),
@@ -2392,7 +2392,13 @@ mod tests {
                 None,
                 |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
             ));
-            assert_eq!(!diagnostics.is_empty(), has_errors, "{diagnostics:?}");
+            assert_eq!(
+                diagnostics
+                    .iter()
+                    .any(|d| d.level() == i_slint_compiler::diagnostics::DiagnosticLevel::Error),
+                has_errors,
+                "{diagnostics:?}"
+            );
             assert_eq!(compiled.is_some(), !has_errors);
         }
         reset_preview_state(Default::default());

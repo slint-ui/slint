@@ -27,6 +27,7 @@ from ui_driver import (
     launch_editor,
     press_key,
     press_shortcut,
+    query,
     select_outline_row,
 )
 
@@ -185,12 +186,10 @@ def test_radial_stops_cross_insert_delete_and_color(
         p = shifted(c, x=(r.x - c.x) * 0.3, y=(r.y - c.y) * 0.3)
         gesture(window, p, p)
         gesture(window, p, p)
-        control(window, "Gradient stop 4")
-        press_key(window, keys.Delete)
-        assert not elements(window, "Gradient stop 4")
-        click(window, "Gradient stop 2")
-        press_key(window, keys.Delete)
-        press_key(window, keys.Delete)
+        for selected, remaining in [(4, 3), (2, 2), (2, 1)]:
+            click(window, f"Gradient stop {selected}")
+            press_key(window, keys.Delete)
+            expect(query(window, f"Gradient stop {remaining + 1}")).to_be_hidden()
         control(window, "Gradient center handle")
         control(window, "Gradient stop 1")
         assert not elements(window, "Gradient stop 2")

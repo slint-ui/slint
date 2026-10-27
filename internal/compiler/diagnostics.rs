@@ -367,9 +367,6 @@ pub fn diagnostic_end_line_column_with_format(
 pub struct BuildDiagnostics {
     inner: Vec<Diagnostic>,
 
-    /// When false, throw error for experimental features
-    pub enable_experimental: bool,
-
     /// When true, reject features not supported by the safety-critical subset
     #[cfg(feature = "slint-sc")]
     pub slint_sc: bool,
@@ -635,9 +632,7 @@ impl BuildDiagnostics {
                         ));
                     }
                     DiagnosticLevel::Warning => {
-                        result.extend(proc_macro::TokenStream::from(
-                            quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
-                        ));
+                        result.extend(macro_warning(span, message));
                     },
                     DiagnosticLevel::Note => {
                         // TODO: Notes are not (yet) supported in proc-macros, we'll just print them as warnings for now.
@@ -702,6 +697,12 @@ impl BuildDiagnostics {
             std::process::exit(-1);
         }
     }
+}
+
+/// Tokens that make rustc report `message` as a warning at `span`.
+#[cfg(feature = "proc_macro_span")]
+pub fn macro_warning(span: proc_macro2::Span, message: &str) -> proc_macro::TokenStream {
+    quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };).into()
 }
 
 #[cfg(test)]

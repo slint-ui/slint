@@ -8,7 +8,7 @@ use cfg_aliases::cfg_aliases;
 fn main() {
     // The cursor tests set `MouseCursor.custom()` in `slint!` macros, which is experimental.
     // The macro reads this while compiling the crate, and only the tests use it.
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=custom-mouse-cursor");
 
     // Aliases collapsing the orthogonal axes of
     //   (skia-gl vs. skia-wgpu vs. none) x (wgpu-29 vs. wgpu-30).

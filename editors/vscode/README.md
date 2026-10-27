@@ -1,4 +1,3 @@
-
 # Slint for Visual Studio Code
 
 This extension for VS Code adds support for the [Slint](https://slint.dev) design markup language.
@@ -38,8 +37,8 @@ Issues should be reported in the [Slint issue tracker](https://github.com/slint-
 ## Building from Source and Debugging
 
 You need to install the following components:
-* **[Node.js](https://nodejs.org/download/release/)** (v20. or newer)
-* **[pnpm](https://www.pnpm.io/)**
+- **[Node.js](https://nodejs.org/download/release/)** (v20. or newer)
+- **[pnpm](https://www.pnpm.io/)**
 
 The following step will build a local version of the vscode extension and the LSP
 
@@ -66,7 +65,6 @@ If you want to load the web extension, add `--extensionDevelopmentKind=web`
 ## How to build the extension package
 
 To create a `.vsix` package for local installation:
-
 1. Follow the setup steps above to build the lsp binary and install npm dependencies.
 
 2. Create a `.vsix` package (needs `vsce` installed)
@@ -86,6 +84,7 @@ code --install-extension slint-*.vsix
 Note that the resulting `.vsix` package contains your locally built debug LSP server. It is not suitable for distribution.
 
 ## Rules for PRs
+
 The code is typechecked with `tsc` and linted/formatted with Biome.
 If using VS Code then install the [biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome).
 To ensure your PR does not fail check everything with `pnpm type-check && pnpm format && pnpm lint`.
@@ -93,20 +92,13 @@ To ensure your PR does not fail check everything with `pnpm type-check && pnpm f
 
 ## Preview the Library, Preview, and Property Editor
 
-The built-in live-preview can be used to preview itself. For this to work, VS Code needs to be restarted with an environment variable:
-
-1. Close all VS Code Windows and terminate the application.
-2. In a terminal Window, re-launch VS Code:
-   ```bash
-   SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 code
-   ```
-3. Open `tools/lsp/ui/main.slint` and launch the preview, or preview individual components such as the
-   library or properties view.
+The built-in live-preview can preview itself.
+Open `tools/lsp/ui/main.slint` and launch the preview,
+or preview individual components such as the library or properties view.
 
 ## Quality Assurance
 
 This extensions comes with some tools to help with QA:
-
- * `pnpm lint` and `pnpm lint:fix` run the biome linter on the source code
- * `pnpm type-check` run the typescript compiler
- * `pnpm test_grammar` run the tests on the TextMate grammar build into the extension
+- `pnpm lint` and `pnpm lint:fix` run the biome linter on the source code
+- `pnpm type-check` run the typescript compiler
+- `pnpm test_grammar` run the tests on the TextMate grammar build into the extension

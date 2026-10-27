@@ -435,7 +435,7 @@ fn default_config() -> cbindgen::Config {
         ("target_os = android".into(), "__ANDROID__".into()),
         ("feature = image-pixel-format-rgb565".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into()),
         ("feature = image-pixel-format-gray8".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8".into()),
-        ("feature = image-pixel-format-alpha-map".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = image-owned-textures".into(), "SLINT_DISABLED_CODE".into()),
         // Disable Rust WGPU specific API feature
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
@@ -734,7 +734,7 @@ fn gen_corelib(
                 "PHYSICAL_REGION_MAX_SIZE",
             ],
             "slint_image_internal.h",
-            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
+            "#include \"private/slint_color.h\"\nnamespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; struct AnimatedImage{}; struct PhysicalPx; struct StaticStorage; using namespace vtable; namespace types{ struct NineSliceImage{}; using slint::Rgb565Pixel; using slint::Gray8Pixel; } }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
@@ -923,6 +923,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/brush.rs"))
             .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("graphics/image/cache.rs"))
+            .with_src(crate_dir.join("../common/pre_rendered.rs"))
             .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))

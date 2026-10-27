@@ -33,16 +33,16 @@ Astro's default Sharp image service optimizes images.
 
 Run these commands from `ui-libraries/material/docs/`:
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm dev` | Start the development server at `http://localhost:4321/` |
-| `pnpm build` | Check and build the site |
-| `pnpm preview` | Serve the production build locally |
-| `pnpm type-check` | Check Astro types |
-| `pnpm lint` | Lint source files |
-| `pnpm format:fix` | Format source files |
-| `pnpm spellcheck` | Check documentation spelling |
-| `pnpm test` | Test the built site in Chromium, Firefox, and WebKit |
+| Command           | Purpose                                                  |
+| ----------------- | -------------------------------------------------------- |
+| `pnpm dev`        | Start the development server at `http://localhost:4321/` |
+| `pnpm build`      | Check and build the site                                 |
+| `pnpm preview`    | Serve the production build locally                       |
+| `pnpm type-check` | Check Astro types                                        |
+| `pnpm lint`       | Lint source files                                        |
+| `pnpm format:fix` | Format source files                                      |
+| `pnpm spellcheck` | Check documentation spelling                             |
+| `pnpm test`       | Test the built site in Chromium, Firefox, and WebKit     |
 
 Install Playwright's browsers with `pnpm exec playwright install chromium firefox webkit` before running the browser tests.
 Build the site before running `pnpm test`.

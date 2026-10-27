@@ -136,7 +136,10 @@ fn main() -> std::io::Result<()> {
 
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!(
+        "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
+        test_driver_lib::ALL_EXPERIMENTAL_FEATURES
+    );
     println!(
         "cargo:rustc-env=SLINT_EDITION={}.{}",
         env!("CARGO_PKG_VERSION_MAJOR"),
@@ -159,14 +162,14 @@ fn process_case(
     }
     let module_line = format!("#[path=\"{module_name}.rs\"] pub mod r#{module_name};");
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
-    let ignored = if testcase.is_ignored("rust") {
-        "#[ignore = \"testcase ignored for rust\"]"
-    } else if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
+    let ignored = if cfg!(not(feature = "build-time")) && source.contains("//bundle-translations") {
         "#[ignore = \"translation bundle not working with the macro\"]"
     } else if live_preview && testcase.is_ignored("js") {
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
     } else if live_preview && testcase.is_ignored("live-preview") {
         "#[ignore = \"testcase ignored in live-preview mode\"]"
+    } else if live_preview && test_driver_lib::extract_slint_edition(&source).is_some() {
+        "#[ignore = \"live preview takes the edition from SLINT_EDITION, for all test cases\"]"
     } else if live_preview && module_name.contains("write_to_model") {
         "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
     } else {
@@ -183,6 +186,15 @@ fn process_case(
     )?);
 
     output.write_all(b"#![deny(warnings)]\n#![deny(rust_2018_idioms)]\n#![deny(unsafe_code)]\n")?;
+
+    if testcase.is_ignored("rust") {
+        writeln!(
+            output,
+            "{test_attribute} #[ignore = \"testcase ignored for rust\"] fn ignored_for_rust() {{}}"
+        )?;
+        output.flush()?;
+        return Ok(module_line);
+    }
 
     #[cfg(not(feature = "build-time"))]
     if !generate_macro(&source, &mut output, testcase, test_attribute)? {
@@ -281,6 +293,12 @@ fn generate_macro(
         output.write_all(b"\"#]\n")?;
     }
 
+    if let Some(edition) = test_driver_lib::extract_slint_edition(source) {
+        output.write_all(b"#[slint_edition=\"")?;
+        output.write_all(edition.as_bytes())?;
+        output.write_all(b"\"]\n")?;
+    }
+
     let mut abs_path = testcase.absolute_path.clone();
     abs_path.pop();
     output.write_all(b"#[include_path=r#\"")?;
@@ -339,8 +357,12 @@ fn compile_and_generate(
         &mut diag,
     );
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
-    compiler_config.enable_experimental = true;
-    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
+    compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
+    compiler_config.edition = Some(
+        test_driver_lib::parse_slint_edition(source)
+            .unwrap()
+            .unwrap_or_else(i_slint_compiler::project_file::SlintEdition::current),
+    );
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());

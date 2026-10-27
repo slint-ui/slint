@@ -159,7 +159,7 @@ export component Doors {
             y: (parent.height - self.height) / 2 - 1px;
             interactive: root.demo-locked && !root.freeze-lights;
             changed volume => {
-                if self.volume >= 60 {
+                if self.volume >= DialState.totalLights {
                     root.unlockDemo()
                 }
             }

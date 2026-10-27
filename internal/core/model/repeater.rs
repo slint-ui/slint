@@ -834,6 +834,8 @@ fn listview_ensure_row_visible(
     let Some(flickable) = flickable_rc.downcast::<Flickable>() else {
         return false;
     };
+    let behavior =
+        if Flickable::reduced_motion(flickable_rc) { ScrollBehavior::Instant } else { behavior };
     let flickable = flickable.as_pin_ref();
     let content_y = flickable.content_y();
     let viewport_height = flickable_rc.geometry().height();

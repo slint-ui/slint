@@ -1154,8 +1154,10 @@ impl InternalKeyEvent {
     /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
     pub fn shortcut(&self) -> Option<StandardShortcut> {
+        // Compared in lower case, like `Keys::matches`, so that Caps Lock doesn't matter
+        let text = self.key_event.text.to_lowercase();
         if self.key_event.modifiers.control && !self.key_event.modifiers.shift {
-            match self.key_event.text.as_str() {
+            match text.as_str() {
                 #[cfg(not(target_arch = "wasm32"))]
                 "c" => Some(StandardShortcut::Copy),
                 #[cfg(not(target_arch = "wasm32"))]
@@ -1173,9 +1175,9 @@ impl InternalKeyEvent {
                 _ => None,
             }
         } else if self.key_event.modifiers.control && self.key_event.modifiers.shift {
-            match self.key_event.text.as_str() {
+            match text.as_str() {
                 #[cfg(not(target_os = "windows"))]
-                "z" | "Z" => Some(StandardShortcut::Redo),
+                "z" => Some(StandardShortcut::Redo),
                 _ => None,
             }
         } else {

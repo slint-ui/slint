@@ -44,6 +44,7 @@ This method combines your Rust code with the `.slint` design markup in one file,
 
 ```rust,no_run
 slint::slint!{
+    #[slint_edition = "1.19"]
     export component HelloWorld inherits Window {
         Text {
             text: "hello world";
@@ -379,8 +380,11 @@ macro_rules! include_modules {
 #[i_slint_core_macros::slint_doc]
 /// Initialize translations when using the `gettext` feature.
 ///
-/// Call this in your main function with the path where translations are located.
+/// Call this at the start of your main function, before starting other threads,
+/// with the path where translations are located.
 /// This macro internally calls the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+/// It also sets the C library's `LC_MESSAGES` locale from the environment,
+/// which isn't thread-safe.
 ///
 /// The first argument of the macro must be an expression that implements `Into<std::path::PathBuf>`.
 /// It specifies the directory in which gettext should search for translations.
@@ -601,6 +605,7 @@ pub mod wgpu_30 {
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
+    //!    #[slint_edition = "1.19"]
     //!    export component HelloWorld inherits Window {
     //!        preferred-width: 320px;
     //!        preferred-height: 300px;
@@ -687,6 +692,7 @@ pub mod winit_030 {
     //! use slint::winit_030::{WinitWindowAccessor, winit};
     //!
     //! slint::slint!{
+    //!     #[slint_edition = "1.19"]
     //!     import { VerticalBox, Button } from "std-widgets.slint";
     //!     export component HelloWorld inherits Window {
     //!         callback clicked;
@@ -747,9 +753,8 @@ pub mod fontique_012 {
     pub use i_slint_common::sharedfontique::fontique;
 
     #[i_slint_core_macros::slint_doc]
-    /// Returns a clone of [`fontique::Collection`] that's used by Slint for text rendering. It's set up
-    /// with shared storage, so fonts registered with the returned collection or additionally configured font
-    /// fallbacks apply to the entire process.
+    /// Returns a clone of the [`fontique::Collection`] used for text rendering in the current thread's context.
+    /// It uses shared storage, so Slint sees the fonts you register and the fallbacks you configure.
     ///
     /// Note: The recommended way of including custom fonts is at compile time of Slint files. For details,
     ///       see also the [Font Handling](slint:FontHandling) documentation.
@@ -786,5 +791,40 @@ pub mod fontique_012 {
             ctx.font_context().borrow().collection.clone()
         })
         .unwrap()
+    }
+
+    /// Sets the font collection used for text rendering in the current thread's context.
+    /// Slint uses your collection as is and adds the fonts that `.slint` files import.
+    /// To skip system font discovery, create the collection with `system_fonts: false`.
+    ///
+    /// Call this before Slint initializes the platform, for example by creating a component
+    /// or by calling [`set_platform()`](crate::platform::set_platform).
+    /// If the platform is already initialized, this returns an error.
+    ///
+    /// To register fonts after this call, use the collection returned by [`shared_collection()`].
+    ///
+    /// For example, to make a font bundled with your application the default font:
+    ///
+    /// ```rust,no_run
+    /// use slint::fontique_012::fontique;
+    ///
+    /// let mut collection = fontique::Collection::new(fontique::CollectionOptions {
+    ///     system_fonts: false,
+    ///     ..Default::default()
+    /// });
+    /// let font_data = std::fs::read("fonts/MyFont.ttf")?;
+    /// let fonts = collection.register_fonts(fontique::Blob::new(std::sync::Arc::new(font_data)), None);
+    /// // Text without a `font-family` uses the generic sans-serif family.
+    /// collection.set_generic_families(
+    ///     fontique::GenericFamily::SansSerif,
+    ///     fonts.iter().map(|(family_id, _)| *family_id),
+    /// );
+    /// slint::fontique_012::set_shared_collection(collection)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_shared_collection(
+        collection: fontique::Collection,
+    ) -> Result<(), crate::PlatformError> {
+        i_slint_core::font_collection::supply(collection)
     }
 }

@@ -501,7 +501,7 @@ impl Snapshotter {
         target_element.base_type = self.snapshot_element_type(&elem.base_type);
         target_element.slot_target = elem.slot_target.clone();
         target_element.slot_default = elem.slot_default.clone();
-        target_element.cleared_slots = elem.cleared_slots.clone();
+        target_element.empty_slot_assignments = elem.empty_slot_assignments.clone();
         target_element.forwarded_slots = elem.forwarded_slots.clone();
         target_element.typed_slot_interface =
             elem.typed_slot_interface.as_ref().map(|c| self.use_component(c).upgrade().unwrap());
@@ -1016,12 +1016,12 @@ impl TypeLoader {
         }
 
         let symbol_counters = crate::symbol_counters::SymbolCounters::shared();
+        let global_type_registry = crate::typeregister::TypeRegister::builtin();
+        global_type_registry
+            .borrow_mut()
+            .set_experimental_features(compiler_config.experimental_features);
         let myself = Self {
-            global_type_registry: if compiler_config.enable_experimental {
-                crate::typeregister::TypeRegister::builtin_experimental()
-            } else {
-                crate::typeregister::TypeRegister::builtin()
-            },
+            global_type_registry,
             compiler_config,
             resolved_style: style.clone(),
             revision: 0,
@@ -1730,8 +1730,14 @@ impl TypeLoader {
     ) -> (SourcePath, Document) {
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
-        dependency_registry.borrow_mut().expose_internal_types =
-            is_builtin || state.borrow().tl.compiler_config.enable_experimental;
+        {
+            let mut registry = dependency_registry.borrow_mut();
+            if is_builtin {
+                registry.experimental_features = crate::ExperimentalFeatures::all();
+            }
+            registry.expose_internal_types =
+                registry.experimental_features.contains(crate::ExperimentalFeature::InternalTypes);
+        }
         let (imports, reexports) = Self::load_dependencies_recursively_impl(
             state,
             &dependency_doc,
@@ -1860,6 +1866,13 @@ impl TypeLoader {
             || (file_to_import == "std-widgets-impl.slint" && referencing_file.is_none())
             || referencing_file.is_some_and(SourcePath::is_builtin))
         .then(|| SourcePath::Builtin(self.resolved_style.as_str().into()));
+        let is_enabled_widget_interfaces = file_to_import == "std-widget-interfaces.slint"
+            && self
+                .compiler_config
+                .experimental_features
+                .contains(crate::ExperimentalFeature::Interfaces);
+        let widget_interfaces =
+            is_enabled_widget_interfaces.then(|| SourcePath::Builtin("common".into()));
 
         // The directory of the current file is the first in the list of include directories.
         referencing_dir
@@ -1873,11 +1886,7 @@ impl TypeLoader {
             )
             .chain(include_dirs)
             .chain(builtin_style)
-            .chain(
-                (file_to_import == "std-widget-interfaces.slint"
-                    && self.compiler_config.enable_experimental)
-                    .then(|| SourcePath::Builtin("common".into())),
-            )
+            .chain(widget_interfaces)
             .filter_map(|dir| dir.join(file_to_import))
             .find_map(|candidate| crate::fileaccess::find_file(&candidate))
     }
@@ -2505,12 +2514,35 @@ fn test_manual_import() {
 }
 
 #[test]
+fn component_container_requires_its_feature() {
+    let source = "export component Test { in property <component-factory> f; ComponentContainer { component-factory: f; } }";
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.experimental_features = crate::ExperimentalFeatures::default();
+    let mut diag = BuildDiagnostics::default();
+    let node = crate::parser::parse(source.into(), None, &mut diag);
+    let (_, diag, _) = spin_on::spin_on(crate::compile_syntax_node(node, diag, compiler_config));
+    let errors = diag.iter().filter(|d| d.level() == crate::diagnostics::DiagnosticLevel::Error);
+    let messages = errors.map(|d| d.message().to_string()).collect::<Vec<_>>();
+    assert_eq!(messages.len(), 2, "{messages:?}");
+    for what in ["component-factory", "ComponentContainer"] {
+        let expected = format!("'{what}' is experimental. Add 'component-container'");
+        assert!(messages.iter().any(|m| m.starts_with(&expected)), "{messages:?}");
+    }
+}
+
+#[test]
 fn test_import_widget_interfaces() {
     for enable_experimental in [false, true] {
         let mut compiler_config =
             CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         compiler_config.style = Some("fluent".into());
-        compiler_config.enable_experimental = enable_experimental;
+        compiler_config.experimental_features = if enable_experimental {
+            crate::ExperimentalFeature::Interfaces.into()
+        } else {
+            crate::ExperimentalFeatures::default()
+        };
         let mut build_diagnostics = BuildDiagnostics::default();
         let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
 
@@ -2814,11 +2846,10 @@ fn test_snapshotting() {
 #[test]
 fn test_snapshotting_typed_slot_implementations() {
     let mut config = crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-    config.enable_experimental = true;
+    config.experimental_features = crate::ExperimentalFeatures::all();
     let mut type_loader = TypeLoader::new(config, &mut BuildDiagnostics::default());
     let library_path = SourcePath::new("/tmp/typed-slot-implementations.slint");
     let mut diag = BuildDiagnostics::default();
-    diag.enable_experimental = true;
     spin_on::spin_on(
         type_loader.load_file(
             &library_path,

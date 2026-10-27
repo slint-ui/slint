@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// With reduced motion, a smooth `ensure-row-visible` scrolls like an instant one.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 640px;
+
+    callback ensure-row-visible(int, ScrollBehavior);
+    ensure-row-visible(row, behavior) => {
+        listview.ensure-row-visible(row, behavior);
+    }
+
+    out property <length> content-y <=> listview.content-y;
+    out property <length> visible-height <=> listview.visible-height;
+
+    listview := ListView {
+        x: 0;
+        y: 0;
+        width: 600px;
+        height: 600px;
+
+        for i in 1000: Rectangle {
+            height: 50px;
+        }
+    }
+}
+
+/*
+```rust
+use slint::language::ScrollBehavior;
+use slint::{platform::WindowEvent, LogicalPosition};
+use slint_testing::MotionPreference;
+
+let instance = TestCase::new().unwrap();
+let layout = || {
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300., 620.) });
+    instance.get_content_y()
+};
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+layout();
+
+instance.invoke_ensure_row_visible(100, ScrollBehavior::Smooth);
+slint_testing::mock_elapsed_time(1);
+layout();
+assert_eq!(layout(), -(101. * 50. - instance.get_visible_height()));
+
+instance.invoke_ensure_row_visible(3, ScrollBehavior::Smooth);
+slint_testing::mock_elapsed_time(1);
+layout();
+assert_eq!(layout(), -(3. * 50.));
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+*/

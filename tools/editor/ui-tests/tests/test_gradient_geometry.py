@@ -15,6 +15,7 @@ from gradient_interactions import (
     gradient_document,
     open_gradient,
     picker_field,
+    picker_panel,
     shifted,
 )
 from gradient_interactions import click as click_picker_button
@@ -344,6 +345,16 @@ def test_picker_pointer_cancel_restores_stops(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+
+        def picker_beside_field():
+            panel = picker_panel(window, "main").absolute_rect
+            field = control(window, "Rectangle background color picker").absolute_rect
+            gap = field.x - panel.x - panel.width
+            return (
+                0 < gap < field.height and panel.y <= field.y < panel.y + panel.height
+            )
+
+        wait_until(picker_beside_field)
         role = slint_testing.AccessibleRole.Slider
         left = center(control(window, "Gradient stop 1", role))
         right = center(control(window, "Gradient stop 3", role))

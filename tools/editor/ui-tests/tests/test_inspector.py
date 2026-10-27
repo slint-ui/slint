@@ -1077,8 +1077,16 @@ def test_each_text_wrap_writes_exact_source(
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
 
 
-ORIENTATION_ROWS = {"Slider": "inspect-slider", "RadioGroup": "inspect-radio-group"}
-ORIENTATION_DEFAULTS = {"Slider": "Horizontal", "RadioGroup": "Vertical"}
+ORIENTATION_ROWS = {
+    "Slider": "inspect-slider",
+    "RadioGroup": "inspect-radio-group",
+    "TabWidget": "inspect-tab-widget",
+}
+ORIENTATION_DEFAULTS = {
+    "Slider": "Horizontal",
+    "RadioGroup": "Vertical",
+    "TabWidget": "Horizontal",
+}
 
 
 def with_orientation_widgets(
@@ -1090,7 +1098,7 @@ def with_orientation_widgets(
     source = replace_once(
         baseline,
         b"export component InspectorCases",
-        b'import { RadioGroup, Slider } from "std-widgets.slint";\n\n'
+        b'import { RadioGroup, Slider, TabWidget } from "std-widgets.slint";\n\n'
         b"export component InspectorCases",
     )
     widgets = (
@@ -1103,6 +1111,12 @@ def with_orientation_widgets(
         + bindings["RadioGroup"]
         + b'\n        RadioButton { text: "One"; }'
         b'\n        RadioButton { text: "Two"; }'
+        b"\n    }\n\n"
+        b"    inspect-tab-widget := TabWidget {\n"
+        b"        x: 400px;\n        y: 336px;\n        width: 200px;\n        height: 120px;"
+        + bindings["TabWidget"]
+        + b'\n        Tab { title: "First"; }'
+        b'\n        Tab { title: "Second"; }'
         b"\n    }\n"
     )
     assert source.endswith(b"\n}\n")

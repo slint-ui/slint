@@ -800,6 +800,7 @@ impl Model for bool {
 /// use slint::{slint, SharedString, ModelRc, Model, VecModel};
 /// use std::rc::Rc;
 /// slint!{
+///     #[slint_edition = "1.19"]
 ///     import { Button } from "std-widgets.slint";
 ///     export component Example {
 ///         callback add_item <=> btn.clicked;
@@ -849,6 +850,7 @@ impl Model for bool {
 /// # i_slint_backend_testing::init_integration_test_with_mock_time();
 /// use slint::Model;
 /// slint::slint!{
+///     #[slint_edition = "1.19"]
 ///     export component TestCase inherits Window {
 ///         in property <[string]> the_model;
 ///         //...

@@ -753,13 +753,6 @@ jobs:
               with:
                   version: 6.0.10
             - run: sudo apt-get install -y ninja-build
-            # Until a femtovg release includes femtovg/femtovg#354
-            - name: Use femtovg with Emscripten support
-              run: |
-                  cat >> .cargo/config.toml <<'EOF'
-                  [patch.crates-io]
-                  femtovg = { git = "https://github.com/femtovg/femtovg", rev = "d9f4dde04b89ca37783e10857cb90ce805dbe361" }
-                  EOF
             - name: Configure (default renderers)
               run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
             - name: Build todo example (default renderers)

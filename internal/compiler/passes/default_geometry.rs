@@ -24,6 +24,7 @@ use crate::layout::{
     repeated_element_layout_info,
 };
 use crate::object_tree::{Component, Document, Element, ElementRc};
+use crate::project_file::SlintEdition;
 use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, HashSet};
@@ -32,8 +33,10 @@ pub fn default_geometry(
     root_component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
-    repeated_children_constrain_parent: bool,
+    edition: Option<SlintEdition>,
 ) {
+    // #407: an `if`/`for` child counts toward its non-layout parent's size
+    let repeated_children_constrain_parent = edition.is_some_and(|v| v >= SlintEdition::V1_19);
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &None,
@@ -224,10 +227,10 @@ fn gen_layout_info_prop_from_children(
         .iter()
         .filter(|c| has_no_explicit_position(c))
         .filter_map(|c| {
-            let cb = c.borrow();
-            cb.effective_layout_info_prop(Orientation::Horizontal)
-                .cloned()
-                .zip(cb.effective_layout_info_prop(Orientation::Vertical).cloned())
+            let own_h = c.borrow().effective_layout_info_prop(Orientation::Horizontal).cloned();
+            let own_v = c.borrow().effective_layout_info_prop(Orientation::Vertical).cloned();
+            own_h
+                .zip(own_v)
                 .map(|(h, v)| {
                     let mut h = Expression::PropertyReference(h);
                     let mut v = Expression::PropertyReference(v);
@@ -256,7 +259,7 @@ fn gen_layout_info_prop_from_children(
                     if c.borrow().is_legacy_syntax {
                         return None;
                     }
-                    if let Some(r) = cb.repeated.as_ref() {
+                    if let Some(r) = c.borrow().repeated.as_ref() {
                         // Merge every instance's LayoutInfo (issue #407).
                         //
                         // A ListView is left out for the reason `flickable.rs` leaves it
@@ -266,7 +269,7 @@ fn gen_layout_info_prop_from_children(
                         // reports the embedded tree's constraints itself.
                         if !repeated_children_constrain_parent
                             || r.is_listview.is_some()
-                            || cb.is_component_placeholder
+                            || c.borrow().is_component_placeholder
                         {
                             return None;
                         }
@@ -290,11 +293,10 @@ fn gen_layout_info_prop_from_children(
                         if explicit_constraints.has_explicit_restrictions(orientation) {
                             Some(explicit_layout_info(c, orientation))
                         } else {
-                            implicit_layout_info_call(
+                            crate::layout::implicit_layout_info(
                                 c,
                                 orientation,
                                 BuiltinFilter::SkipNonImplicit,
-                                None,
                             )
                         }
                     };
@@ -551,7 +553,9 @@ pub(crate) fn fills_parent_by_default(elem: &ElementRc, parent: &ElementRc, name
     let parent_positions_children = parent_type.default_size_binding != DefaultSizeBinding::None
         || matches!(parent_type.name.as_str(), "Empty" | "Window" | "PopupWindow");
     elem_type.default_size_binding == DefaultSizeBinding::ExpandsToParentGeometry
-        && crate::layout::has_no_intrinsic_size(elem_base)
+        && elem_type.constant_layout_info_stretch.is_some()
+        // A Flickable without a size takes its maximum and preferred size from its content.
+        && !super::flickable::is_flickable_element(elem)
         && parent_positions_children
         && !super::flickable::is_flickable_element(parent)
         && !LayoutConstraints::build(elem, None, MergedFixedSize::Ignored)

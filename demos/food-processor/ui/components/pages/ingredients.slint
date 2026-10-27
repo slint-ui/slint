@@ -10,28 +10,28 @@ component IngredientItem inherits HorizontalLayout {
     alignment: space-between;
 
     HorizontalLayout {
-        spacing: 15px;
-        height: 24px;
+        spacing: Styles.spacing-xl;
+        height: Styles.large-icon-size;
 
-        icon := Image {
+        Image {
             source: root.ingredient.image;
-            width: 24px;
+            width: Styles.large-icon-size;
         }
 
         ingredient := VerticalLayout {
-            spacing: 2px;
+            spacing: Styles.spacing-xs;
             alignment: center;
 
             Text {
                 text: root.ingredient.name;
-                font-size: 10px;
+                font-size: Styles.regular-font-size;
                 font-weight: FontWeight.medium;
                 color: #171717;
             }
 
             if root.ingredient.description != "": Text {
                 text: root.ingredient.description;
-                font-size: 6px;
+                font-size: Styles.caption-font-size;
                 font-weight: FontWeight.normal;
                 color: #737373;
             }
@@ -62,19 +62,19 @@ export component IngredientsPage inherits VerticalLayout {
 
     spacing: Styles.side-margin;
     padding-left: Styles.side-margin;
-    padding-top: Styles.side-margin / 2;
+    padding-right: Styles.side-margin;
+    padding-top: Styles.spacing-lg;
     alignment: start;
 
-
     VerticalLayout {
-        spacing: 10px;
+        spacing: Styles.spacing-lg;
 
         VerticalLayout {
-            padding-bottom: 12px;
+            padding-bottom: Styles.spacing-lg;
 
             Text {
                 text: "Ingredients";
-                font-size: 12px;
+                font-size: Styles.heading-font-size;
                 font-weight: FontWeight.bold;
                 color: #1a1a1a;
             }

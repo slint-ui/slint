@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CheckBoxStyle } from "check_box_style.slint";
+import { BasicTheme } from "theme.slint";
+
+export global CheckBoxStyles {
+    out property <CheckBoxStyle> standard: {
+        unchecked: {
+            rest: {
+                indicator-color: BasicTheme.background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            hover: {
+                indicator-color: BasicTheme.hover-background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            pressed: {
+                indicator-color: BasicTheme.pressed-background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            disabled: {
+                indicator-color: BasicTheme.disabled-background,
+                checkmark-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        checked: {
+            rest: {
+                indicator-color: BasicTheme.accent,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent,
+            },
+            hover: {
+                indicator-color: BasicTheme.accent-hover,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent-hover,
+            },
+            pressed: {
+                indicator-color: BasicTheme.accent-pressed,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent-pressed,
+            },
+            disabled: {
+                indicator-color: BasicTheme.disabled-background,
+                checkmark-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        focus-color: BasicTheme.focus,
+    };
+}
