@@ -779,41 +779,11 @@ impl FlickableDataInner {
                     // estimate.
                     //
                     // At the time of writing, in practice this means we must use a physics animation.
-                    let limit_x = Self::flick_limits(flick_rc, delta.x as f32, Dimension::X);
-                    let limit_y = Self::flick_limits(flick_rc, delta.y as f32, Dimension::Y);
                     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-
-                    let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
-                        (delta.x != Coord::default()).then(|| {
-                            Self::set_simulation(
-                                &content_x,
-                                FlickAnimation::create_animation(
-                                    FlickAnimationParameter::Distance {
-                                        delta: delta.x as f32,
-                                        duration: WHEEL_SCROLL_DURATION,
-                                    },
-                                    effective_bounce(flick, &geo, Dimension::X),
-                                    content_x.get().0 as f32,
-                                    limit_x,
-                                ),
-                            ) as Rc<RefCell<dyn PositionSimulation>>
-                        });
-
-                    let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
-                        (delta.y != Coord::default()).then(|| {
-                            Self::set_simulation(
-                                &content_y,
-                                FlickAnimation::create_animation(
-                                    FlickAnimationParameter::Distance {
-                                        delta: delta.y as f32,
-                                        duration: WHEEL_SCROLL_DURATION,
-                                    },
-                                    effective_bounce(flick, &geo, Dimension::Y),
-                                    content_y.get().0 as f32,
-                                    limit_y,
-                                ),
-                            ) as Rc<RefCell<dyn PositionSimulation>>
-                        });
+                    let x_simulation =
+                        Self::wheel_simulation(flick, flick_rc, Dimension::X, delta.x, &geo);
+                    let y_simulation =
+                        Self::wheel_simulation(flick, flick_rc, Dimension::Y, delta.y, &geo);
 
                     if delta.x != 0 as Coord || delta.y != 0 as Coord {
                         self.pending_flicked = true;
@@ -983,6 +953,37 @@ impl FlickableDataInner {
             &geo,
         );
         Self::move_within_limits(Some(self), flick_rc, !inside_bounds_x, !inside_bounds_y, &geo);
+    }
+
+    /// Starts the animation for one axis of a wheel tick that has no phase.
+    fn wheel_simulation(
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        dimension: Dimension,
+        delta: Coord,
+        geo: &LogicalRect,
+    ) -> Option<Rc<RefCell<dyn PositionSimulation>>> {
+        if delta == Coord::default() {
+            return None;
+        }
+        let content = flick.content(dimension);
+        let limit = Self::flick_limits(flick_rc, delta as f32, dimension);
+        let past_limit = (content.get().0 as f32 - limit.as_ref().get()) * delta as f32 > 0.;
+        if past_limit {
+            return Some(Self::spring_back(flick, flick_rc, dimension, geo, 0.));
+        }
+        Some(Self::set_simulation(
+            &content,
+            FlickAnimation::create_animation(
+                FlickAnimationParameter::Distance {
+                    delta: delta as f32,
+                    duration: WHEEL_SCROLL_DURATION,
+                },
+                effective_bounce(flick, geo, dimension),
+                content.get().0 as f32,
+                limit,
+            ),
+        ))
     }
 
     /// Springs the content back to the limit it is beyond.
