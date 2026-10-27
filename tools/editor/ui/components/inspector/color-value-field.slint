@@ -155,7 +155,6 @@ export component InspectorColorValueField inherits Rectangle {
 
         TouchArea {
             enabled: root.enabled && root.swatch-enabled;
-            mouse-cursor: pointer;
             accessible-role: AccessibleRole.button;
             accessible-label: root.swatch-accessible-name;
             clicked => {

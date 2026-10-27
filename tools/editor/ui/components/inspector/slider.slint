@@ -118,7 +118,6 @@ export component InspectorSlider inherits FocusScope {
         }
     }
     touch := TouchArea {
-        mouse-cursor: pointer;
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 root.focus();

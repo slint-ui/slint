@@ -548,6 +548,7 @@ fn is_supported(url: &Url) -> bool {
 pub async fn run_with_channels(
     mut from_editor: mpsc::UnboundedReceiver<LspToPreviewMessage>,
     to_editor: Rc<dyn PreviewToLsp>,
+    prepare_window: impl AsyncFnOnce(&i_slint_core::api::Window),
 ) -> anyhow::Result<()> {
     let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
     let (preview_session, session_handle) =
@@ -578,6 +579,7 @@ pub async fn run_with_channels(
     let mut inspector = None;
     let mut registered_fonts = HashSet::new();
     let mut pending_fonts = Vec::new();
+    let mut prepare_window = Some(prepare_window);
 
     while let Some(event) = event_receiver.recv().await {
         match event {
@@ -590,6 +592,7 @@ pub async fn run_with_channels(
                     &mut inspector,
                     current_highlight.as_ref(),
                     &mut pending_fonts,
+                    &mut prepare_window,
                 )
                 .await?;
                 current_component = Some(component);
@@ -603,6 +606,7 @@ pub async fn run_with_channels(
                     &mut inspector,
                     current_highlight.as_ref(),
                     &mut pending_fonts,
+                    &mut prepare_window,
                 )
                 .await?;
             }
@@ -636,6 +640,7 @@ async fn show_component(
     inspector: &mut Option<InspectorOverlay>,
     current_highlight: Option<&(Url, u32)>,
     pending_fonts: &mut Vec<Arc<[u8]>>,
+    prepare_window: &mut Option<impl AsyncFnOnce(&i_slint_core::api::Window)>,
 ) -> anyhow::Result<()> {
     let PreviewCompilation::Ready(compiled) = preview_session.compile_component(component).await
     else {
@@ -653,6 +658,9 @@ async fn show_component(
     }
     if inspector.is_none() {
         *inspector = Some(InspectorOverlay::new(new_instance.window()).await?);
+    }
+    if let Some(prepare_window) = prepare_window.take() {
+        prepare_window(new_instance.window()).await;
     }
     new_instance.show()?;
     *component_instance = Some(new_instance);
@@ -700,6 +708,66 @@ mod tests {
         fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
             self.0.borrow_mut().push(message.clone());
             Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn prepare_only_the_primary_window_before_showing_it() {
+        i_slint_backend_testing::init_no_event_loop();
+        let capture = Rc::new(CaptureToEditor::default());
+        let session = Rc::new(PreviewSession {
+            file_cache: Default::default(),
+            dependencies: Default::default(),
+            compiler: Default::default(),
+            project_root: Default::default(),
+            configuration: Default::default(),
+            to_editor: capture,
+        });
+        session.restore_compiler(session.create_compiler());
+        let url = Url::parse("file:///window-preparation.slint").unwrap();
+        let component = PreviewComponent { url: url.clone(), component: Some("Main".into()) };
+        let extra_compiler = slint_interpreter::Compiler::default();
+        let extra = extra_compiler
+            .build_from_source(
+                "export component Extra inherits Window { width: 100px; height: 100px; }".into(),
+                "extra.slint".into(),
+            )
+            .await
+            .component("Extra")
+            .unwrap()
+            .create()
+            .unwrap();
+        extra.show().unwrap();
+        let calls = std::cell::Cell::new(0);
+        let mut prepare = Some(async |window: &i_slint_core::api::Window| {
+            assert!(!window.is_visible());
+            assert!(extra.window().is_visible());
+            calls.set(calls.get() + 1);
+        });
+        let mut instance = None;
+        let mut inspector = None;
+        let mut pending_fonts = Vec::new();
+        for width in [240, 320] {
+            session.process_message(
+                LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url.clone(), None),
+                    contents: format!("export component Main inherits Window {{ width: {width}px; height: 160px; }}").into(),
+                }, &|_| {}, &mut None,
+            );
+            show_component(
+                &session,
+                &component,
+                &mut instance,
+                &mut inspector,
+                None,
+                &mut pending_fonts,
+                &mut prepare,
+            )
+            .await
+            .unwrap();
+            assert!(instance.as_ref().unwrap().window().is_visible());
+            assert!(extra.window().is_visible());
+            assert_eq!(calls.get(), 1);
         }
     }
 

@@ -126,7 +126,7 @@ jobs:
                       --max-turns 40
                       --allowedTools "Read(./**),Grep(./**),Glob(./**)"
                       --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"
-                      --json-schema '{"type":"object","additionalProperties":false,"required":["category","summary"],"properties":{"category":{"type":"string","enum":["regression","flaky","infrastructure","unclear"]},"summary":{"type":"string","maxLength":1500}}}'
+                      --json-schema '{"type":"object","additionalProperties":false,"required":["category","key_error","summary"],"properties":{"category":{"type":"string","enum":["regression","flaky","infrastructure","unclear"]},"key_error":{"type":"string","maxLength":300},"summary":{"type":"string","maxLength":1500}}}'
                   prompt: |
                       Triage a failed CI run on the master branch of the Slint repository.
 
@@ -145,9 +145,10 @@ jobs:
                         - `flaky`: a test that fails intermittently, unrelated to the recent changes.
                         - `infrastructure`: the runner, the network, a download, a cache, or an external service failed.
                         - `unclear`: none of the above fits with confidence.
-                      - `summary`: plain text for a chat message, at most about ten lines.
-                        It's shown in a code block, so don't use Markdown.
-                        Name the failing jobs, quote the key error line, and give the likely cause.
+                      - `key_error`: the one log line that shows the failure, verbatim, or empty if there's none.
+                      - `summary`: plain text for a chat message, at most about six short lines.
+                        Markdown isn't rendered, so don't use it, and don't repeat the key error.
+                        Name the failing jobs and give the likely cause.
                         For a regression, name the suspect commit by its short hash and author.
                         Suggest a fix if one is obvious.
                         Say plainly when you're not sure.
@@ -160,12 +161,19 @@ jobs:
                   RUN_URL: ${{ github.event.workflow_run.html_url }}
                   TRIAGE_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
-                  # The summary comes from the model, so it goes in a code block that
-                  # it can't close: Mattermost loads images and previews links in
-                  # rendered Markdown without a click. Mentions are defused as well.
+                  # The text comes from the model, and Mattermost loads images and
+                  # previews links in rendered Markdown without a click. So the text
+                  # is shown literally: URLs and mentions are broken up with a
+                  # zero-width space, and Markdown syntax is escaped.
                   jq -n --argjson result "$RESULT" --arg run "$RUN_URL" --arg triage "$TRIAGE_URL" '
+                      def inert: gsub("://"; ":/\u200b/") | gsub("(?<w>www)\\."; "\(.w)\u200b."; "i") | gsub("@"; "@\u200b");
+                      def literal: inert | gsub("(?<c>[\\\\`*_{}\\[\\]()#+\\-.!|<>~=:])"; "\\\(.c)");
                       if ($result.category | IN("regression", "flaky", "infrastructure", "unclear")) | not
                       then error("Unexpected category") else . end
-                      | ($result.summary | gsub("`"; "\u2018") | gsub("~"; "\u223c") | gsub("@"; "@\u200b")) as $summary
-                      | {text: ":mag: [Triage](\($triage)) of [the failure](\($run)): **\($result.category)**\n```\n\($summary)\n```"}' \
+                      # A code span renders nothing inside, as long as it has no backtick or line break.
+                      | ($result.key_error | inert | gsub("[`\n\r]"; " ")) as $key_error
+                      | [":mag: [Triage](\($triage)) of [the failure](\($run)): **\($result.category)**"]
+                      + (if $key_error == "" then [] else ["`\($key_error)`"] end)
+                      + [$result.summary | literal]
+                      | {text: join("\n")}' \
                       | curl --fail --silent --show-error --retry 3 --json @- "$WEBHOOK_URL"
