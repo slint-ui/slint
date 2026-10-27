@@ -8,6 +8,9 @@
 - On Android, `SlintLivePreview` no longer makes the app fail at startup, looking for the `.slint` files at their paths on the build machine.
   The build ignores it there, with the warning `SLINT002`, since live reload isn't available on Android yet.
 
+- Update to the latest Slint, where `SLINT_ENABLE_EXPERIMENTAL_FEATURES` takes the names of the experimental features,
+  separated by commas, such as `match,closures`, instead of `1`.
+
 ## 1.19.0-preview.7
 
 - Run your app on Android, with a main activity derived from `SlintActivity`.
