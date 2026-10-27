@@ -36,6 +36,8 @@ pid=$(adb shell pidof "$app" | tr -d '\r' || true)
 if [ -z "$pid" ] || [ -n "$errors" ]; then
     [ -z "$pid" ] && echo "$app isn't running after $seconds seconds"
     [ -n "$errors" ] && printf '%s logged errors:\n%s\n' "$app" "$errors"
+    echo "Log lines about $app, such as why its process ended:"
+    adb logcat -d | grep -E "AndroidRuntime|monodroid|DOTNET|$app|${app: -15}" | tail -n 60
     exit 1
 fi
 echo "$app is running as process $pid"
