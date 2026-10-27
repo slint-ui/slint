@@ -67,6 +67,9 @@ component LineEditBase inherits Rectangle {
     }
 
     text-input := TextInput {
+        // Disable TextInput's built-in accessibility support as the widget takes care of that.
+        accessible-role: none;
+
         property <length> computed-x;
 
         x: min(0px, max(parent.width - self.width - self.text-cursor-width, self.computed-x));
