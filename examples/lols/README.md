@@ -55,5 +55,7 @@ Notifying Slint of every lol instead halves this port's rate, to about 98,000 LO
 The original canvas version counts a lol when it's queued, and this port when the UI thread has applied it.
 
 The one sleep per lol limits every `elements` rate, so its 821 is close to how long a 1 ms sleep takes on that phone.
+In one session, Slint ranged from 824 to 926 LOL/s and Flutter from 727 to 879, so the two tie.
+Applying a frame's worth of lols at once, as in `canvas`, makes no difference here, since the UI thread has time to spare.
 As the original's README says about its `canvas` branch, canvas numbers measure how fast lols reach the renderer,
 which still draws the latest 500 once per frame.
