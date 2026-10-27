@@ -5,6 +5,8 @@
 - On Android, keep what the user was doing when Android ends the process in the background:
   return it from `SlintSaveState`, and take it back in `SlintRestoreState`.
   `SlintPause`, `SlintResume`, and `SlintLowMemory` report the other activity events.
+- On Android, `SlintLivePreview` no longer makes the app fail at startup, looking for the `.slint` files at their paths on the build machine.
+  The build ignores it there, with the warning `SLINT002`, since live reload isn't available on Android yet.
 
 ## 1.19.0-preview.7
 

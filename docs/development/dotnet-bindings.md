@@ -395,6 +395,12 @@ Next:
       and `SlintPause`, `SlintResume`, and `SlintLowMemory` report the other events.
       The bytes go through a buffer that C# fills with `slint_dotnet_android_state_set`, so that neither side frees the other's memory.
       `examples/todo/dotnet-android` keeps its list this way, like the Rust version.
+    - Hot reload on Android, to re-test and design with .NET 11.
+      With .NET 10, `dotnet watch` deploys and starts an app, but its Hot Reload agent never connects back,
+      for a plain `dotnet new android` app as much as for a Slint one, so C# changes don't apply.
+      Live reload of `.slint` files would need the changed files on the device, since the app loads them from its files directory;
+      until then, `Slint.targets` ignores `SlintLivePreview` on Android, with the warning `SLINT002`,
+      instead of generating code that loads the files from the build machine's paths.
   - iOS next, in about four to five weeks, starting with a prototype like the one for Android.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
     Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain`,

@@ -31,6 +31,7 @@
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
                         and reload components when the files change; for development only.
                         LivePreview metadata on a SlintFile overrides it for that file.
+                        Not on Android, where the source directory isn't on the device; the build warns with SLINT002.
 -->
 <Project>
   <PropertyGroup>
@@ -42,7 +43,10 @@
     <SlintCompilerPath Condition="'$(SlintCompilerPath)' == '' and Exists('$(_SlintRepositoryCompiler)')">$([System.IO.Path]::GetFullPath('$(_SlintRepositoryCompiler)'))</SlintCompilerPath>
     <SlintCompilerPath Condition="'$(SlintCompilerPath)' == ''">slint-compiler</SlintCompilerPath>
     <SlintNamespace Condition="'$(SlintNamespace)' == ''">$(RootNamespace)</SlintNamespace>
-    <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(TargetPlatformIdentifier)' != 'android'">true</_SlintFromSource>
+    <!-- From TargetFramework, since a project that imports this file itself does so before the SDK sets TargetPlatformIdentifier. -->
+    <_SlintPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</_SlintPlatform>
+    <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintPlatform)' != 'android'">true</_SlintFromSource>
+    <_SlintLiveAllowed Condition="'$(_SlintPlatform)' != 'android'">true</_SlintLiveAllowed>
   </PropertyGroup>
 
   <ItemGroup>
@@ -50,8 +54,8 @@
     <!-- A full path, since on Windows AssignTargetPath keeps a relative path with '../' as the target path, outside the output directory. -->
     <None Include="@(SlintFile->'%(FullPath)')" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
     <!-- The components reload a changed file themselves, so dotnet watch mustn't restart the application for it. -->
-    <None Update="@(SlintFile)" Watch="false" Condition="'$(SlintLivePreview)' == 'true'" />
-    <None Update="**/*.slint;**/slint-project.json" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '@(SlintProject)' != ''" />
+    <None Update="@(SlintFile)" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '$(_SlintLiveAllowed)' == 'true'" />
+    <None Update="**/*.slint;**/slint-project.json" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '$(_SlintLiveAllowed)' == 'true' and '@(SlintProject)' != ''" />
   </ItemGroup>
 
   <!-- Wildcards can't expand per item outside a target. -->
@@ -78,7 +82,7 @@
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintAssigned.TargetPath).g.cs</GeneratedFile>
         <RuntimePath>%(_SlintAssigned.TargetPath)</RuntimePath>
         <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintAssigned.FullPath)</RuntimePath>
-        <LiveOption Condition="'%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
+        <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
     <ItemGroup Condition="'@(SlintProject)' != ''">
@@ -93,7 +97,7 @@
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintProjectDir.TargetPath)/slint-project.g.cs</GeneratedFile>
         <RuntimePath>%(_SlintProjectDir.TargetPath)</RuntimePath>
         <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintProjectDir.FullPath)</RuntimePath>
-        <LiveOption Condition="'%(_SlintProjectDir.LivePreview)' == 'true' or ('%(_SlintProjectDir.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
+        <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintProjectDir.LivePreview)' == 'true' or ('%(_SlintProjectDir.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
     <ItemGroup>
@@ -118,6 +122,9 @@
         <PathOptions>$(_SlintPathOptions)</PathOptions>
       </_SlintGenerate>
     </ItemGroup>
+    <Warning Code="SLINT002"
+             Text="Live preview of .slint files isn't available on Android yet: the app loads them from the APK, so rebuild and redeploy to see a change."
+             Condition="'$(_SlintLiveAllowed)' != 'true' and ('$(SlintLivePreview)' == 'true' or '@(SlintFile->WithMetadataValue('LivePreview', 'true'))' != '' or '@(SlintProject->WithMetadataValue('LivePreview', 'true'))' != '')" />
     <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->
     <MakeDir Directories="$(_SlintGeneratedDir)" />
     <WriteLinesToFile File="$(_SlintOptionsFile)" Lines="$(SlintCompilerPath)$(_SlintOptions)$(_SlintPathOptions);@(_SlintGenerate->'%(Identity)%(LiveOption)')" Overwrite="true" WriteOnlyWhenDifferent="true" />

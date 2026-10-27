@@ -253,6 +253,8 @@ To reload a single file, set `LivePreview="true"` on its `<SlintFile>` instead.
 `ComponentInstance.Reloaded` tells you when a component reloaded,
 and `ComponentInstance.CreateLive` creates a reloading component without generated code.
 Use live reload during development only.
+On Android, the app loads its `.slint` files from the APK, so live reload isn't available there yet:
+the build ignores `SlintLivePreview` with the warning `SLINT002`, and a changed file needs a rebuild and redeploy.
 
 ### C# Code
 
@@ -265,6 +267,9 @@ Use it in one of these ways:
 
 A handler you passed to an `On…` method runs the new code from its next call,
 because Slint keeps calling the same delegate.
+
+On Android, `dotnet watch` deploys and starts the app with .NET 10, but doesn't apply C# changes,
+for any .NET Android app and not only Slint ones.
 
 ### Both at Once
 
