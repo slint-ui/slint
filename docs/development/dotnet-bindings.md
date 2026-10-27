@@ -336,11 +336,12 @@ Done:
 - **12.** Project directories, with `<SlintProject>`, see [MSBuild](#msbuild).
   They compile and load with the edition and the settings of their `slint-project.json`.
   A `.slint` path still compiles without a project file, and so without an edition.
-- **15.** C# ports of the examples and demos, see [Samples](#samples): 28 projects in `examples/dotnet.slnx`.
+- **15.** C# ports of the examples and demos, see [Samples](#samples): 29 projects in `examples/dotnet.slnx`.
   - Ports of the samples with Python or JavaScript logic, such as `todo`, `printerdemo`, `dnd-kanban`, and `slide_puzzle`.
   - Ports of the samples with logic only in Rust, such as `7guis`, `todo-mvc`, `gallery`, and `usecases`.
   - `imagefilter`, `plotter`, and `maps`, whose images come from pixels and downloads, with filters and a 3D plot in plain C#.
   - `weather-demo`, a `launcher` of the C# ports, and `examples/dotnet-viewer` for the samples without logic.
+  - `examples/lols`, a port of the [LOLs per second](https://github.com/jonathanpeppers/lols) test, also for Android.
   - The ports needed `Window.DispatchEvent`, `DataTransfer.UserData`, `FilterModel` and `SortModel` with `SourceRow` and `Reset`,
     `Keys.ToParts`, the `Image` functions for pixels and data, and tray icon components without `Window` and `Run`.
   - Not ported: the samples for embedded platforms, GPU textures, and native media,

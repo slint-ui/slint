@@ -9,6 +9,7 @@
   Before, the application failed at startup because it looked for the file outside the output directory.
 - Run your app on Android, with a main activity derived from `SlintActivity`.
   See [Android](README.md#android-preview) and `examples/todo/dotnet-android`.
+- Measure Slint with `examples/lols`, a port of the [LOLs per second](https://github.com/jonathanpeppers/lols) test, on the desktop and Android.
 
 ## 1.19.0-preview.6
 

@@ -367,7 +367,8 @@ Keep what should survive in files or preferences.
 The build puts the `<SlintFile>` and `<SlintProject>` files into the APK, and `SlintActivity` extracts them at startup.
 Add the images that `.slint` files use as `<SlintFile Include="ui/images/logo.png" Generate="false" />`,
 under the project directory, so that they keep their paths relative to the `.slint` files.
-`examples/todo/dotnet-android` is a complete example.
+`examples/todo/dotnet-android` is a complete example,
+and `examples/lols/dotnet-android` runs the [LOLs per second](https://github.com/jonathanpeppers/lols) test on Android.
 
 ## Without Generated Code
 
