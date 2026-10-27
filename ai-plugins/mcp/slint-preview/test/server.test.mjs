@@ -116,7 +116,7 @@ test("serves the view with the interpreter of the plugin's release on the releas
             ".claude-plugin/plugin.json",
             "assets/slint.svg",
             "mcp/slint-preview/server.mjs",
-            "mcp/slint-preview/view.html",
+            "mcp/slint-preview/view.html.in",
         ]) {
             cpSync(new URL(file, pluginRoot), join(root, file));
         }

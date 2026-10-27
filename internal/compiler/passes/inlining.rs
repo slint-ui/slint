@@ -198,7 +198,7 @@ fn inline_element(
 
         children_by_slot.entry(slot).or_default().push(child);
     }
-    for slot in std::mem::take(&mut elem_mut.cleared_slots) {
+    for slot in std::mem::take(&mut elem_mut.empty_slot_assignments) {
         children_by_slot.entry(crate::parser::normalize_identifier(&slot)).or_default();
     }
 
@@ -412,10 +412,14 @@ fn inline_element(
         .extend(removed_defaults.retain_optimized(optimized_elements));
     root_component.popup_windows.borrow_mut().extend(
         inlined_component.popup_windows.borrow().iter().filter_map(|p| {
-            if removed_defaults.contains_original(&mapping, &p.parent_element) {
+            if removed_defaults.contains_original(&mapping, &p.parent_element)
+                || removed_defaults.is_replaced_default(&p.component.root_element)
+            {
                 return None;
             }
-            Some(duplicate_popup(p, &mut mapping, priority_delta))
+            let popup = duplicate_popup(p, &mut mapping, priority_delta);
+            removed_defaults.remark_kept_default(&popup.component.root_element);
+            Some(popup)
         }),
     );
 
@@ -537,6 +541,10 @@ fn inline_element(
             elem_mut.layout_info_v_with_constraint = Some(orig.clone());
         }
     }
+    let orig = inlined_component.root_element.borrow().implicit_layout_info_prop.clone();
+    let own = &mut elem_mut.implicit_layout_info_prop;
+    own.0 = own.0.take().or(orig.0);
+    own.1 = own.1.take().or(orig.1);
 
     core::mem::drop(elem_mut);
 
@@ -658,6 +666,7 @@ fn duplicate_element_with_mapping(
         layout_info_prop: elem.layout_info_prop.clone(),
         layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
         layout_info_h_at_own_height: elem.layout_info_h_at_own_height.clone(),
+        implicit_layout_info_prop: elem.implicit_layout_info_prop.clone(),
         height_is_literal: elem.height_is_literal,
         default_fill_parent: elem.default_fill_parent,
         accessibility_props: elem.accessibility_props.clone(),
@@ -673,7 +682,7 @@ fn duplicate_element_with_mapping(
         inline_depth: elem.inline_depth + 1,
         slot_target: elem.slot_target.clone(),
         slot_default: elem.slot_default.clone(),
-        cleared_slots: elem.cleared_slots.clone(),
+        empty_slot_assignments: elem.empty_slot_assignments.clone(),
         typed_slot_interface: elem.typed_slot_interface.clone(),
         forwarded_slots: elem.forwarded_slots.clone(),
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
@@ -1040,7 +1049,7 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
         return true;
     }
 
-    if !elem.borrow().cleared_slots.is_empty() {
+    if !elem.borrow().empty_slot_assignments.is_empty() {
         return true;
     }
 

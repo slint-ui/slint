@@ -312,7 +312,7 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
 ## Enable support for exposing [fontique](https://docs.rs/fontique/0.12.0/fontique/) related APIs.
-unstable-fontique-012 = ["i-slint-common/shared-fontique"]
+unstable-fontique-012 = ["i-slint-common/shared-fontique", "i-slint-core/shared-parley"]
 
 [dependencies]
 i-slint-core = { workspace = true }

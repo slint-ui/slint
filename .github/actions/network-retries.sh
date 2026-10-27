@@ -9,12 +9,14 @@
 set -eu
 
 # curl reads $CURL_HOME/.curlrc (_curlrc on Windows), also when a build script
-# such as skia-bindings' runs it. --retry only retries timeouts and HTTP 408,
-# 429, 500, 502, 503 and 504, not a 404.
+# such as skia-bindings' runs it. --retry alone only retries timeouts and HTTP
+# 408, 429, 500, 502, 503 and 504, not a reset connection (curl error 56) or a
+# failed DNS lookup, so retry all errors. A 404 is retried too, which delays
+# skia-bindings' fallback to a source build by the retries' 50 seconds.
 curl_home="$RUNNER_TEMP/curl-home"
 if [ ! -f "$curl_home/.curlrc" ]; then
     mkdir -p "$curl_home"
-    printf 'retry = 5\nretry-delay = 10\nretry-connrefused\nconnect-timeout = 30\n' > "$curl_home/.curlrc"
+    printf 'retry = 5\nretry-delay = 10\nretry-all-errors\nconnect-timeout = 30\n' > "$curl_home/.curlrc"
     cp "$curl_home/.curlrc" "$curl_home/_curlrc"
     echo "CURL_HOME=$curl_home" >> "$GITHUB_ENV"
 fi

@@ -11,8 +11,8 @@ import { Styles } from "styles.slint";
 import "../../../internal/common/sharedfontique/Inter-VariableFont.ttf";
 
 export component MainWindow inherits Window {
-    width: 512px;
-    height: 300px;
+    width: Styles.window-width;
+    height: Styles.window-height;
     background: black;
 
     default-font-family: "Inter";
@@ -41,7 +41,7 @@ export component MainWindow inherits Window {
 
     Rectangle {
         background: #f8f9fa;
-        border-radius: 14px;
+        border-radius: Styles.border-radius;
         clip: true;
 
         grid := RecipesGrid {
@@ -72,15 +72,13 @@ export component MainWindow inherits Window {
         }
 
         if (is-cooking || show-start-button): button-container := Rectangle {
-            y: 5px;
-            width: show-start-button ? 150px : cooking-timer.preferred-width;
-            height: show-start-button ? 30px : 34px;
+            y: Styles.spacing-sm;
+            width: show-start-button ? Styles.start-button-width : cooking-timer.preferred-width;
+            height: show-start-button ? Styles.control-height : Styles.control-height;
             background: show-start-button ? Styles.slint-blue : #2a2a2a;
-            border-radius: show-start-button ? 8px : 34px / 2;
+            border-radius: Styles.border-radius;
 
-            animate width, height, border-radius, background {
-                duration: 0.2s;
-            }
+            animate width, height, background { duration: 0.2s; }
 
             start-button := StartButton {
                 opacity: root.show-start-button ? 1 : 0;
@@ -88,9 +86,7 @@ export component MainWindow inherits Window {
                 width: 100%;
                 height: 100%;
 
-                animate opacity {
-                    duration: 0.2s;
-                }
+                animate opacity { duration: 0.2s; }
 
                 clicked => {
                     root.is-cooking = true;
@@ -107,9 +103,7 @@ export component MainWindow inherits Window {
                 opacity: root.is-cooking ? 1 : 0;
                 visible: self.opacity > 0;
 
-                animate opacity {
-                    duration: 0.2s;
-                }
+                animate opacity { duration: 0.2s; }
 
                 clicked => {
                     if (root.cooking-recipe-index >= 0) {

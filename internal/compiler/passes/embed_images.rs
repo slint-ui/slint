@@ -9,6 +9,8 @@ use crate::expression_types::ImageReference;
 use crate::object_tree::*;
 use crate::source_path::SourcePath;
 #[cfg(feature = "renderer-software")]
+use i_slint_common::pre_rendered::{IntRect, IntSize, StaticTexture, TexturePixelFormat};
+#[cfg(feature = "renderer-software")]
 use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -334,7 +336,7 @@ impl Pixel for image::Rgba<u8> {
 fn generate_texture(
     image: image::RgbaImage,
     source_format: SourceFormat,
-    original_size: Size,
+    original_size: IntSize,
 ) -> Texture {
     // Analyze each pixels
     let mut top = 0;
@@ -350,7 +352,17 @@ fn generate_texture(
         top += 1;
     }
     if top == image.height() {
-        return Texture::new_empty();
+        return Texture {
+            size: IntSize::new(image.width(), image.height()),
+            original_size,
+            data: vec![0, 0, 0, 0],
+            textures: vec![StaticTexture {
+                rect: IntRect::new((0, 0).into(), (1, 1).into()),
+                format: TexturePixelFormat::Rgba,
+                color: 0,
+                index: 0,
+            }],
+        };
     }
     let mut bottom = image.height() - 1;
     while is_line_transparent(bottom) {
@@ -417,21 +429,23 @@ fn generate_texture(
         }
     }
 
-    let format = if let ColorState::Rgb(c) = color {
-        PixelFormat::AlphaMap(c)
-    } else if is_opaque {
-        PixelFormat::Rgb
-    } else {
-        PixelFormat::RgbaPremultiplied
+    let (format, color) = match color {
+        ColorState::Rgb([r, g, b]) => {
+            (TexturePixelFormat::AlphaMap, u32::from_be_bytes([0xff, r, g, b]))
+        }
+        _ if is_opaque => (TexturePixelFormat::Rgb, 0),
+        _ => (TexturePixelFormat::RgbaPremultiplied, 0),
     };
 
-    let rect = Rect::from_ltrb(left as _, top as _, (right + 1) as _, (bottom + 1) as _).unwrap();
+    let rect = IntRect::new(
+        (left as _, top as _).into(),
+        ((right + 1 - left) as _, (bottom + 1 - top) as _).into(),
+    );
     Texture {
-        total_size: Size { width: image.width(), height: image.height() },
+        size: IntSize::new(image.width(), image.height()),
         original_size,
-        rect,
         data: convert_image(image, source_format, format, rect),
-        format,
+        textures: vec![StaticTexture { rect, format, color, index: 0 }],
     }
 }
 
@@ -439,19 +453,20 @@ fn generate_texture(
 fn convert_image(
     image: image::RgbaImage,
     source_format: SourceFormat,
-    format: PixelFormat,
-    rect: Rect,
+    format: TexturePixelFormat,
+    rect: IntRect,
 ) -> Vec<u8> {
-    let i = image::SubImage::new(&image, rect.x() as _, rect.y() as _, rect.width(), rect.height());
+    let rect = rect.to_u32();
+    let i = image::SubImage::new(&image, rect.origin.x, rect.origin.y, rect.width(), rect.height());
     match (source_format, format) {
-        (_, PixelFormat::Rgb) => {
+        (_, TexturePixelFormat::Rgb) => {
             i.pixels().flat_map(|(_, _, p)| IntoIterator::into_iter(p.0).take(3)).collect()
         }
-        (SourceFormat::RgbaPremultiplied, PixelFormat::RgbaPremultiplied)
-        | (SourceFormat::Rgba, PixelFormat::Rgba) => {
+        (SourceFormat::RgbaPremultiplied, TexturePixelFormat::RgbaPremultiplied)
+        | (SourceFormat::Rgba, TexturePixelFormat::Rgba) => {
             i.pixels().flat_map(|(_, _, p)| IntoIterator::into_iter(p.0)).collect()
         }
-        (SourceFormat::Rgba, PixelFormat::RgbaPremultiplied) => i
+        (SourceFormat::Rgba, TexturePixelFormat::RgbaPremultiplied) => i
             .pixels()
             .flat_map(|(_, _, p)| {
                 let a = p.0[3] as u32;
@@ -461,7 +476,7 @@ fn convert_image(
                     .chain(std::iter::once(a as u8))
             })
             .collect(),
-        (SourceFormat::RgbaPremultiplied, PixelFormat::Rgba) => i
+        (SourceFormat::RgbaPremultiplied, TexturePixelFormat::Rgba) => i
             .pixels()
             .flat_map(|(_, _, p)| {
                 let a = p.0[3] as u32;
@@ -471,7 +486,8 @@ fn convert_image(
                     .chain(std::iter::once(a as u8))
             })
             .collect(),
-        (_, PixelFormat::AlphaMap(_)) => i.pixels().map(|(_, _, p)| p[3]).collect(),
+        (_, TexturePixelFormat::AlphaMap) => i.pixels().map(|(_, _, p)| p[3]).collect(),
+        (_, format) => unreachable!("the compiler doesn't produce {format:?} textures"),
     }
 }
 
@@ -512,7 +528,7 @@ fn load_image_from_bytes(
     extension: Option<&str>,
     scale_factor: f32,
     font_collection: Option<&SharedFontCollection>,
-) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
+) -> image::ImageResult<(image::RgbaImage, SourceFormat, IntSize)> {
     use resvg::{tiny_skia, usvg};
 
     let is_svg = matches!(extension, Some("svg") | Some("svgz"));
@@ -554,7 +570,7 @@ fn load_image_from_bytes(
                 (
                     img,
                     SourceFormat::RgbaPremultiplied,
-                    Size { width: original_size.width() as _, height: original_size.height() as _ },
+                    IntSize::new(original_size.width() as _, original_size.height() as _),
                 )
             },
         );
@@ -571,11 +587,7 @@ fn load_image_from_bytes(
             );
         }
 
-        (
-            image.to_rgba8(),
-            SourceFormat::Rgba,
-            Size { width: original_width, height: original_height },
-        )
+        (image.to_rgba8(), SourceFormat::Rgba, IntSize::new(original_width, original_height))
     })
 }
 

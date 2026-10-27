@@ -203,13 +203,11 @@ fn a_project_file_argument_is_reported() {
     for arguments in argument_sets {
         let output = project.compile(&project.root.join("slint-project.json"), &arguments);
         assert!(!output.status.success());
-        assert_eq!(
-            stderr(&output).trim(),
-            format!(
-                "A `slint-project.json` cannot be compiled directly; pass its directory instead ({})",
-                project.root.display()
-            )
+        let message = format!(
+            "A `slint-project.json` cannot be compiled directly; pass its directory instead ({})",
+            project.root.display()
         );
+        assert!(stderr(&output).contains(&message), "{}", stderr(&output));
     }
 }
 

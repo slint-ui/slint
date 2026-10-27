@@ -10,9 +10,9 @@
 use super::{Fixed, PhysicalLength, PhysicalRect};
 use crate::scene::{GradientFactor, GradientPosition, PremultipliedGradientStop};
 use derive_more::{Add, Mul, Sub};
-use i_slint_core::Color;
 use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
 use i_slint_core::lengths::{PointLengths, SizeLengths};
+use i_slint_core::{Color, InternalToken};
 #[allow(unused_imports)]
 use num_traits::Float;
 
@@ -952,7 +952,7 @@ fn draw_linear_gradient(
             blue: (b >> 15) as u8,
             alpha: (a >> 15) as u8,
         };
-        pix.blend_dithered(color, noise.next());
+        pix.blend_dithered(color, noise.next(), InternalToken);
         r = r.wrapping_add(dr as _);
         g = g.wrapping_add(dg as _);
         b = b.wrapping_add(db as _);
@@ -984,14 +984,14 @@ fn blend_stops(
                 green: lerp(c1.green, c2.green),
                 blue: lerp(c1.blue, c2.blue),
             };
-            pixel.blend_dithered(color, noise.next());
+            pixel.blend_dithered(color, noise.next(), InternalToken);
 
             return;
         } else if position > stop2.position {
             fallback = stop2.color;
         }
     }
-    pixel.blend_dithered(fallback, noise.next());
+    pixel.blend_dithered(fallback, noise.next(), InternalToken);
 }
 
 /// `position` clamped to [0, 1].
@@ -1176,7 +1176,7 @@ fn blend_gradient_slice(
     mut noise: GradientNoise,
 ) {
     for pix in slice {
-        pix.blend_dithered(color, noise.next());
+        pix.blend_dithered(color, noise.next(), InternalToken);
     }
 }
 
@@ -1242,8 +1242,9 @@ pub trait TargetPixel: Sized + Copy {
 
     /// Like `blend`, with `noise` in 0..=255 (a fraction of one quantization step).
     /// Formats with less than 8 bits per channel can use it to dither.
+    #[doc(hidden)]
     #[inline]
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, _noise: u8) {
+    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, _noise: u8, _: InternalToken) {
         self.blend(color)
     }
 }
@@ -1311,7 +1312,7 @@ impl TargetPixel for Rgb565Pixel {
         Rgb565Pixel::from_rgb(r, g, b)
     }
 
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8) {
+    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
         self.blend(dither_rgb565(color, noise))
     }
 }
@@ -1363,7 +1364,7 @@ impl TargetPixel for Rgb565BigEndianPixel {
         self.0 = native.0.to_be();
     }
 
-    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8) {
+    fn blend_dithered(&mut self, color: PremultipliedRgbaColor, noise: u8, _: InternalToken) {
         self.blend(dither_rgb565(color, noise))
     }
 

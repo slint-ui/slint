@@ -37,6 +37,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.library_paths = library_paths;
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
+    compiler_config.edition =
+        test_driver_lib::parse_slint_edition(&source)?.or(compiler_config.edition);
     if source.contains("//bundle-translations") {
         compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
@@ -156,6 +158,10 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .arg("--no-cache")
         .arg(&python_file)
         .env("PYTHONPATH", PYTHON_PATH.clone())
+        .env(
+            "SLINT_EDITION",
+            test_driver_lib::extract_slint_edition(&source).unwrap_or(env!("SLINT_EDITION")),
+        )
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()

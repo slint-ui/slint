@@ -27,8 +27,12 @@ color-parsing = []
 fontconfig-dlopen = ["fontique?/fontconfig-dlopen"]
 markdown = ["dep:pulldown-cmark", "dep:htmlparser", "dep:derive_more", "color-parsing"]
 locale-decimal-separator = ["dep:icu_decimal", "dep:icu_locale_core", "dep:icu_provider"]
+# The `TexturePixelFormat` variants of the features of the same name in i-slint-core.
+image-pixel-format-gray8 = []
+image-pixel-format-rgb565 = []
 
 [dependencies]
+euclid = { workspace = true }
 fontique = { workspace = true, optional = true }
 skrifa = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }

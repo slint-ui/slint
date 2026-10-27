@@ -47,6 +47,7 @@ clru = { workspace = true }
 crossbeam-channel = "0.5"
 futures-util = "0.3.32"
 itertools = { workspace = true }
+jsonc-parser = "0.34.0"
 lsp-types = { workspace = true }
 nucleo-matcher = "0.3.1"
 pathdiff = "0.2.3"

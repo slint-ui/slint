@@ -37,8 +37,15 @@ TITLE_SOURCE = "TitleCases.slint"
             b"        y: 192px;\n",
             b'        y: 192px;\n        title: "Settings";\n',
         ),
+        (
+            "titled-tab",
+            "Tab",
+            '"General"',
+            b'            title: "General";\n',
+            b'            title: "Settings";\n',
+        ),
     ],
-    ids=("group-box", "radio-group"),
+    ids=("group-box", "radio-group", "tab"),
 )
 def test_title_writes_exact_source(
     editor_binary: Path,

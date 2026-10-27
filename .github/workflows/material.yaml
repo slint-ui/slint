@@ -46,6 +46,7 @@ jobs:
       env:
           CARGO_PROFILE_RELEASE_OPT_LEVEL: s
           CARGO_INCREMENTAL: false
+          CARGO_PROFILE_DEV_DEBUG: 0
       runs-on: ubuntu-latest
       defaults:
         run:

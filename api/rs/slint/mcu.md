@@ -139,7 +139,7 @@ use alloc::{rc::Rc, boxed::Box};
 # mod hal { pub struct Timer(); impl Timer { pub fn get_time(&self) -> u64 { todo!() } } }
 use slint::platform::{Platform, software_renderer::MinimalSoftwareWindow};
 
-# slint::slint!{ export MyUI := Window {} } /*
+# slint::slint!{ #[slint_edition = "1.19"] export MyUI := Window {} } /*
 slint::include_modules!();
 # */
 

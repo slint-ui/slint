@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 mod without_font {
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component WithoutFont inherits Window {
             Text {
                 text: "Hello";
@@ -23,6 +24,7 @@ mod without_font {
 
 mod with_font {
     slint::slint! {
+        #[slint_edition = "1.19"]
         import "../../../examples/slide_puzzle/plaster-font/Plaster-Regular.ttf";
 
         export component WithFont inherits Window {

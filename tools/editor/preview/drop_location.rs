@@ -832,6 +832,14 @@ pub fn edited_text_compiles(
         return preview::CompilationResult::NoChange;
     }
 
+    // TODO: Apply project-file changes during trial compilation once DocumentCache supports them;
+    // they can affect the compilation outcome.
+    result.retain(|edited| {
+        !SourcePath::from_url(&edited.url)
+            .as_native_path()
+            .is_some_and(i_slint_compiler::project_file::is_project_file)
+    });
+
     let mut diag = BuildDiagnostics::default();
 
     let mut document_cache = document_cache.snapshot().expect("This is not loading anything!");
@@ -1416,6 +1424,33 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits);
 
         (document_cache, workspace_edit)
+    }
+
+    #[test]
+    fn workspace_edit_trial_compilation_filters_project_files_after_detecting_no_change() {
+        use super::preview::CompilationResult;
+        let (document_cache, _) = workspace_edit_setup(Vec::new());
+        for (source, project_file, expected) in [
+            (None, false, CompilationResult::NoChange),
+            (None, true, CompilationResult::ChangeCompiles),
+            (Some(DEMO_CODE), true, CompilationResult::ChangeCompiles),
+            (Some("export component Broken { invalid }"), true, CompilationResult::ChangeFails),
+        ] {
+            let mut edits = source
+                .into_iter()
+                .map(|contents| text_edit::EditedText {
+                    url: test::main_test_file_name().to_url().unwrap(),
+                    contents: contents.into(),
+                })
+                .collect::<Vec<_>>();
+            if project_file {
+                edits.push(text_edit::EditedText {
+                    url: test::test_file_name("slint-project.json").to_url().unwrap(),
+                    contents: r#"{"include-paths":["changed"]}"#.into(),
+                });
+            }
+            assert_eq!(super::edited_text_compiles(&document_cache, edits), expected);
+        }
     }
 
     #[test]

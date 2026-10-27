@@ -205,8 +205,8 @@ fn blur_and_colorize<R: femtovg::Renderer + TextureImporter>(
     shadow_options: &i_slint_core::graphics::boxshadow::BoxShadowOptions,
 ) -> Option<Rc<Texture<R>>> {
     let shadow_image = if shadow_options.blur.get() > 0. {
-        let blurred_image = shadow_image
-            .filter(femtovg::ImageFilter::GaussianBlur { sigma: shadow_options.blur_sigma() });
+        let blurred_image =
+            shadow_image.filter(femtovg::ImageFilter::gaussian_blur(shadow_options.blur_sigma()));
         textures_to_delete_after_flush.borrow_mut().push(shadow_image);
         blurred_image
     } else {
@@ -1600,7 +1600,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     /// `size` of the shape's geometry.
     fn brush_to_paint(&self, brush: Brush, size: PhysicalSize) -> Option<femtovg::Paint> {
         let resolved = i_slint_core::graphics::resolve_brush(&brush, size, self.scale_factor)?;
-        Some(match resolved {
+        let paint = match resolved {
             ResolvedBrush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
             ResolvedBrush::LinearGradient(gradient) => femtovg::Paint::linear_gradient_stops(
                 gradient.start.x,
@@ -1626,7 +1626,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     to_femtovg_stops(&gradient.stops),
                 )
             }
-        })
+        };
+        // Slint gradients follow CSS, which interpolates stops premultiplied: a transparent stop
+        // fades the other color out instead of mixing in its own (black).
+        Some(paint.with_premultiplied_interpolation(true))
     }
 
     fn current_render_target(&self) -> femtovg::RenderTarget {

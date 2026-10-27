@@ -8,25 +8,34 @@ export component SwitchBase {
     implement SwitchInterface <=> self;
 
     in property <bool> enabled: true;
-    in-out property <bool> checked;
     in property <string> text;
-    in property <length> indicator-width: 40px;
-    in property <length> indicator-height: 22px;
-    in property <length> spacing: 8px;
-    in property <length> content-padding;
-    in property <length> content-padding-left: root.content-padding;
-    in property <length> content-padding-right: root.content-padding;
-    in property <length> content-padding-top: root.content-padding;
-    in property <length> content-padding-bottom: root.content-padding;
+    in property <bool> focus-on-click;
+    in property <bool> focus-on-tab-navigation: true;
+
+    in property <length> spacing;
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
+
+    in-out property <bool> checked;
+
     out property <bool> has-focus: interaction.has-focus;
     out property <bool> focus-visible: interaction.focus-visible;
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
+
+    slot content;
+
     callback toggled();
 
-    slot background;
-    slot indicator;
-    slot content;
+    public function activate() {
+        if !root.enabled { return; }
+        root.checked = !root.checked;
+        root.toggled();
+    }
 
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -38,35 +47,15 @@ export component SwitchBase {
     accessible-checked: root.checked;
     accessible-action-default => { root.activate(); }
 
-    public function activate() {
-        if !root.enabled { return; }
-        root.checked = !root.checked;
-        root.toggled();
-    }
-
-    background { }
-
     interaction := PressInteraction {
         width: root.width;
         height: root.height;
         enabled: root.enabled;
+        focus-on-click: root.focus-on-click;
+        focus-on-tab-navigation: root.focus-on-tab-navigation;
         activated => { root.activate(); }
     }
 
-    HorizontalLayout {
-        padding-left: root.content-padding-left;
-        padding-right: root.content-padding-right;
-        padding-top: root.content-padding-top;
-        padding-bottom: root.content-padding-bottom;
-        spacing: root.spacing;
-        Rectangle {
-            width: root.indicator-width;
-            height: root.indicator-height;
-            vertical-stretch: 0;
-            indicator { }
-        }
-
-        content { }
-        @children
-    }
+    content { }
+    @children
 }

@@ -8,6 +8,7 @@ fn styled_text_can_be_created_from_rust_markdown() {
     i_slint_backend_testing::init_no_event_loop();
 
     slint! {
+        #[slint_edition = "1.19"]
         export component Test inherits Window {
             in-out property <styled-text> text;
         }

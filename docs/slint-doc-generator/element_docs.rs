@@ -474,6 +474,13 @@ fn write_slint_property(
     {
         default_value = d;
     }
+    if default_value.is_empty()
+        && matches!(info.default_value, BuiltinPropertyDefault::None)
+        && info.property_visibility != PropertyVisibility::Output
+        && let Type::Enumeration(enumeration) = &info.ty
+    {
+        default_value = enumeration.values[enumeration.default_value].to_string();
+    }
 
     let (type_attr, is_enum, is_struct) = if types.enums.contains(&type_name) {
         ("enum", true, false)
@@ -772,7 +779,8 @@ fn write_sub_element(
 
 /// Generate .mdx page files for each exported builtin element.
 pub fn generate(cfg: &Config, links: &mdx::TypeLinks) -> Result<(), Box<dyn std::error::Error>> {
-    let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental();
+    let register = i_slint_compiler::typeregister::TypeRegister::builtin();
+    register.borrow_mut().set_experimental_features(i_slint_compiler::ExperimentalFeatures::all());
     let register = register.borrow();
     let generated_dir = cfg.reference_dir();
     create_dir_all(&generated_dir)?;

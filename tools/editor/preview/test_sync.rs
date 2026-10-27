@@ -22,12 +22,13 @@ fn response(request: &Request) -> serde_json::Value {
             .sources
             .iter()
             .filter_map(|(url, expected)| {
-                let actual = cache
+                let matches = cache
                     .as_ref()
-                    .and_then(|cache| cache.get_document(url))
-                    .and_then(|document| document.node.as_ref())
-                    .and_then(|node| node.source_file.source());
-                (actual != Some(expected.as_str())).then_some(url)
+                    .and_then(|cache| {
+                        super::workspace_edit_source_file(cache, &state.source_code, url)
+                    })
+                    .is_some_and(|source| source.source() == Some(expected.as_str()));
+                (!matches).then_some(url)
             })
             .collect();
         serde_json::json!({
@@ -73,8 +74,12 @@ mod tests {
         let new = "export component Test inherits Window { width: 200px; }";
         let old_cache =
             compile_test_with_sources("fluent", [(url.clone(), old.into())].into(), false);
-        let new_cache =
-            recompile_test_with_sources("fluent", [(url.clone(), new.into())].into(), false, false);
+        let new_cache = recompile_test_with_sources(
+            "fluent",
+            [(url.clone(), new.into())].into(),
+            false,
+            i_slint_compiler::ExperimentalFeatures::default(),
+        );
         let request = Request { id: 42, sources: [(url, new.into())].into() };
         PREVIEW_STATE.with_borrow_mut(|state| {
             *state = PreviewState::default();
