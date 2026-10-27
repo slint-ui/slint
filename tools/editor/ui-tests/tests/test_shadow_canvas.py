@@ -222,6 +222,66 @@ def test_shadow_panel_uses_the_existing_solid_color_picker(
 
 
 @pytest.mark.parametrize(
+    "rotation,percent,radius",
+    [(0, 100, 12), (30, 200, 12), (45, 100, 72), (90, 100, 12), (-45, 100, 72)],
+)
+def test_shadow_handles_follow_the_rotated_guides(
+    shadow_family,
+    editor_binary,
+    editor_environment,
+    shadow_scene,
+    tmp_path,
+    rotation,
+    percent,
+    radius,
+):
+    baseline = (
+        shadow_scene.read_bytes()
+        .replace(
+            b"        x: 160px;",
+            f"        transform-rotation: {rotation}deg;\n        x: 160px;".encode(),
+        )
+        .replace(b"border-radius: 12px", f"border-radius: {radius}px".encode())
+    )
+    shadow_scene.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, shadow_scene) as editor:
+        wait_for_source(shadow_scene, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "shadow-card")
+        zoom_canvas(window, percent)
+        center_canvas_selection(window)
+        open_shadow(window, shadow_family)
+        move_shadow_panel(window, shadow_family)
+        offset = center(element(window, "Shadow offset handle"))
+        angle = math.radians(rotation)
+        for handle, expansion in (("blur", 26), ("spread", 10)):
+            point = center(element(window, f"Shadow {handle} handle"))
+            dx = (point.x - offset.x) / (percent / 100)
+            dy = (point.y - offset.y) / (percent / 100)
+            if handle == "blur":
+                assert dx == pytest.approx(0, abs=0.01)
+                assert dy < 0
+            else:
+                assert dx > 0
+                assert dy == pytest.approx(0, abs=0.01)
+            expansion *= shadow_family.direction
+            half_width, half_height = 120 + expansion, 80 + expansion
+            guide_radius = max(0, min(radius + expansion, half_width, half_height))
+            x = abs(dx * math.cos(angle) + dy * math.sin(angle))
+            y = abs(-dx * math.sin(angle) + dy * math.cos(angle))
+            qx, qy = x - half_width + guide_radius, y - half_height + guide_radius
+            distance = (
+                math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - guide_radius
+            )
+            assert distance == pytest.approx(0, abs=0.01)
+        window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
+        screenshot(window).save(tmp_path / "shadow-guide-handles.png")
+        window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+        snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize(
     "handle,dx,dy,changes",
     [
         ("offset", 20, 12, (("offset-x", 24, 44), ("offset-y", 32, 44))),
@@ -265,7 +325,7 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
             start,
             dx * scale,
             dy * scale,
-            math.radians(rotation),
+            math.radians(rotation) if handle == "offset" else 0,
         )
         before = screenshot(window)
         button = slint_testing.PointerEventButton.Left
@@ -970,7 +1030,7 @@ def test_small_shadow_handles_remain_individually_draggable(
             start,
             8,
             8 if shadow_family.name == "inner" and handle == "blur" else -8,
-            math.radians(rotation),
+            math.radians(rotation) if handle == "offset" else 0,
         )
         gesture(window, start, end)
         changed = wait_for_source_change(shadow_scene, baseline)
