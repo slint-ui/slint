@@ -864,6 +864,7 @@ impl Window {
 /// ```rust
 /// # i_slint_backend_testing::init_no_event_loop();
 /// slint::slint!{
+/// #[slint_edition = "1.19"]
 /// export global Palette {
 ///     in property<color> foreground-color;
 ///     in property<color> background-color;
@@ -913,6 +914,7 @@ impl Window {
 /// ```rust
 /// # i_slint_backend_testing::init_no_event_loop();
 /// slint::slint!{
+/// #[slint_edition = "1.19"]
 /// export global Palette {
 ///     in property<color> foreground-color;
 ///     in property<color> background-color;
@@ -967,6 +969,7 @@ pub trait Global<'a, Component> {
 /// ```
 /// # i_slint_backend_testing::init_no_event_loop();
 /// slint::slint!{
+///     #[slint_edition = "1.19"]
 ///     export component App inherits Window {
 ///         in-out property <int> counter: 0;
 ///         callback do_something;
@@ -1004,6 +1007,7 @@ pub trait Global<'a, Component> {
 /// ```
 /// # i_slint_backend_testing::init_no_event_loop();
 /// slint::slint!{
+///    #[slint_edition = "1.19"]
 ///    export global MyGlobal {}
 ///
 ///    export component App inherits Window {}
@@ -1221,7 +1225,7 @@ mod weak_handle {
         /// # Example
         /// ```rust
         /// # i_slint_backend_testing::init_no_event_loop();
-        /// slint::slint! { export component MyApp inherits Window { in property <int> foo; /* ... */ } }
+        /// slint::slint! { #[slint_edition = "1.19"] export component MyApp inherits Window { in property <int> foo; /* ... */ } }
         /// let handle = MyApp::new().unwrap();
         /// let handle_weak = handle.as_weak();
         /// let thread = std::thread::spawn(move || {
@@ -1281,7 +1285,7 @@ pub use weak_handle::*;
 ///
 /// # Example
 /// ```rust
-/// slint::slint! { export component MyApp inherits Window { in property <int> foo; /* ... */ } }
+/// slint::slint! { #[slint_edition = "1.19"] export component MyApp inherits Window { in property <int> foo; /* ... */ } }
 /// # i_slint_backend_testing::init_no_event_loop();
 /// let handle = MyApp::new().unwrap();
 /// let handle_weak = handle.as_weak();

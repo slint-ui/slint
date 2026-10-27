@@ -341,6 +341,7 @@ impl EditorSession {
             slint_edition,
             schema: _,
             main: _,
+            metadata: (),
         } = overrides;
         let override_source = |workspace_supplied| {
             if workspace_supplied {
@@ -380,6 +381,7 @@ impl EditorSession {
                     slint_edition: project_edition,
                     schema: _,
                     main: _,
+                    metadata: (),
                 } = project.resolved_data();
                 let source = format!("project file {}", project.source_path());
                 let mut warn = |setting: String, selected: String, source: &str| {
@@ -414,7 +416,9 @@ impl EditorSession {
                     &mut warn,
                 );
                 keep_first(&mut edition, project_edition, &source, "slint-edition", &mut warn);
-                if let Some(warning) = project.slint_edition().behavior_change_warning() {
+                if let Some(warning) =
+                    project.slint_edition().behavior_change_warning("slint-edition")
+                {
                     let mut edition_diagnostics = BuildDiagnostics::default();
                     edition_diagnostics.push_warning_with_span(warning, project.edition_location());
                     diagnostics.extend(edition_diagnostics.iter().map(|d| {
@@ -441,6 +445,7 @@ impl EditorSession {
                 slint_edition: edition.map(|(version, _)| version),
                 schema: None,
                 main: None,
+                metadata: (),
             },
             project_diagnostics,
         )
@@ -1159,11 +1164,17 @@ impl EditorSession {
             tracing::trace!("Ignoring file watcher event for open document: {url}");
             return Ok(Default::default());
         }
-        if let Some(path) = SourcePath::from_url(&url).into_native_path()
-            && self.active_project_file_paths().any(|active_path| active_path == path)
-        {
-            tracing::debug!("Active project file changed: {url} (type: {typ:?})");
-            return self.reload_active_project_file(&path, typ).await;
+        if let Some(path) = SourcePath::from_url(&url).into_native_path() {
+            if self.active_project_file_paths().any(|active_path| active_path == path) {
+                tracing::debug!("Active project file changed: {url} (type: {typ:?})");
+                return self.reload_active_project_file(&path, typ).await;
+            }
+            if i_slint_compiler::project_file::is_project_file(&path)
+                && typ != FileChangeKind::Deleted
+            {
+                let contents = std::fs::read(&path)?;
+                return self.update_project_file_contents(path, contents, None).await;
+            }
         }
 
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
@@ -1578,8 +1589,8 @@ mod preview_tests {
         std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
         let buffer = r#"{"slint-edition":"1.19","enable-experimental-features":true}"#;
         spin_on::spin_on(session.open_document(buffer.into(), url.clone(), Some(4))).unwrap();
-        for change in [FileChangeKind::Changed, FileChangeKind::Deleted] {
-            if matches!(change, FileChangeKind::Changed) {
+        for change in [FileChangeKind::Created, FileChangeKind::Changed, FileChangeKind::Deleted] {
+            if !matches!(change, FileChangeKind::Deleted) {
                 std::fs::write(
                     &path,
                     r#"{"slint-edition":"1.19","enable-experimental-features":false}"#,
@@ -2614,6 +2625,25 @@ mod tests {
     }
 
     #[test]
+    fn a_configured_edition_applies_without_a_project_file() {
+        let edition = i_slint_compiler::project_file::SlintEdition { major: 1, minor: 18 };
+        let mut session = session();
+        spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
+            compiler: Overrides {
+                project: ProjectFileData { slint_edition: Some(edition), ..Default::default() },
+                ..Default::default()
+            },
+            ..Default::default()
+        }))
+        .unwrap();
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.edition,
+            Some(edition)
+        );
+        assert_eq!(session.preview_config.overrides.project.slint_edition, Some(edition));
+    }
+
+    #[test]
     fn the_edition_reaches_the_preview_and_a_conflict_is_reported() {
         let temp = TempDir::new().unwrap();
         let outer = temp.path().join(FILE_NAME);
@@ -3090,6 +3120,30 @@ mod tests {
     }
 
     #[test]
+    fn watcher_registers_created_and_changed_project_files() {
+        for change in [FileChangeKind::Created, FileChangeKind::Changed] {
+            let directory = TempDir::new().unwrap();
+            let document = directory.path().join("main.slint");
+            write_document(&document);
+            let mut session = session();
+            open_document(&mut session, &document).unwrap();
+            assert!(session.active_project_file_paths().next().is_none());
+            let path = directory.path().join(FILE_NAME);
+            std::fs::write(&path, r#"{"slint-edition":"1.19","include-paths":["created"]}"#)
+                .unwrap();
+            spin_on::spin_on(
+                session.trigger_file_watcher(Url::from_file_path(&path).unwrap(), change),
+            )
+            .unwrap();
+            assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.include_paths,
+                [directory.path().join("created")]
+            );
+        }
+    }
+
+    #[test]
     fn a_deleted_project_file_is_dropped() {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
@@ -3123,13 +3177,13 @@ mod tests {
         );
         assert!(session.pending_recompile.contains(&document_url));
 
-        // A project file created again is found the next time the document loads.
         std::fs::write(
             &project_path,
             r#"{ "slint-edition": "1.19", "include-paths": ["second"] }"#,
         )
         .unwrap();
-        spin_on::spin_on(session.reload_document(document_url)).unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Created))
+            .unwrap();
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),

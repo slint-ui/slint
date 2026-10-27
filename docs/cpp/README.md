@@ -85,8 +85,8 @@ cbindgen headers (`cargo xtask generate_cppdocs_headers`), the Doxygen XML, runs
 the converter and Astro, and publishes `docs/cpp/dist`.
 
 When porting the prose, these MyST constructs were translated to Starlight:
-`:::{note}`/```` ```{caution} ```` → `:::note`/`:::caution` asides;
-```` ```{eval-rst} ```` RST grid tables → GitHub Markdown tables; `{toctree}` →
+`:::{note}`/` ```{caution} ` → `:::note`/`:::caution` asides;
+` ```{eval-rst} ` RST grid tables → GitHub Markdown tables; `{toctree}` →
 sidebar entries in `astro.config.mjs`; and intra-doc `*.md` links → page slugs.
 
 Cross-references to the Slint language reference use the `SlintRef` component
@@ -100,7 +100,6 @@ Validated locally (Doxygen 1.9.8 + `pnpm`): the pipeline builds 79 pages and
 Starlight reports all internal links valid.
 
 Remaining:
-
 - **Doxygen strictness**: the `Doxyfile` sets `WARN_AS_ERROR = NO` because the
   public headers have two pre-existing, benign Doxygen quirks (a template
   constructor out-of-line match in `slint-interpreter.h` and a documented

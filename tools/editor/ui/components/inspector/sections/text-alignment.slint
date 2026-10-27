@@ -8,6 +8,7 @@ import { InspectorContext } from "context.slint";
 export component InspectorTextAlignmentSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> popup-bottom;
+    in property <bool> show-vertical: true;
 
     title: @tr("Alignment");
 
@@ -36,7 +37,7 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
             Rectangle { }
         }
 
-        Row {
+        if root.show-vertical: Row {
             InspectorFieldLabel {
                 text: @tr("Vertical");
                 vertical-alignment: center;

@@ -1,0 +1,178 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The compiler adds properties to some elements, under another name when the element already
+// declares one with that name.
+// Each element below declares the names the compiler would use for it, and must keep their
+// values and size itself like its twin that doesn't declare them.
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+    in-out property <bool> toggle;
+
+    // An element sized by its children: `layoutinfo-h` and `layoutinfo-v`.
+    plain := Rectangle {
+        x: 0;
+        y: 0;
+        property <int> layoutinfo-h: 1;
+        property <int> layoutinfo-v: 2;
+        Rectangle { min-width: 40px; min-height: 30px; }
+    }
+    plain-twin := Rectangle {
+        x: 0;
+        y: 0;
+        Rectangle { min-width: 40px; min-height: 30px; }
+    }
+
+    // A layout: `layout-cache`, `layoutinfo-h`, and `layoutinfo-v`.
+    box := VerticalLayout {
+        x: 0;
+        y: 0;
+        spacing: 0;
+        property <int> layout-cache: 3;
+        property <int> layoutinfo-h: 4;
+        property <int> layoutinfo-v: 5;
+        Rectangle { min-width: 15px; min-height: 20px; }
+        Rectangle { min-height: 10px; }
+    }
+    box-twin := VerticalLayout {
+        x: 0;
+        y: 0;
+        spacing: 0;
+        Rectangle { min-width: 15px; min-height: 20px; }
+        Rectangle { min-height: 10px; }
+    }
+
+    // A grid: `layout-organized-data`, `layout-cache-h`, and `layout-cache-v`.
+    grid := GridLayout {
+        x: 0;
+        y: 0;
+        spacing: 0;
+        property <int> layout-organized-data: 6;
+        property <int> layout-cache-h: 7;
+        property <int> layout-cache-v: 8;
+        Row {
+            Rectangle { min-width: 10px; min-height: 5px; }
+            Rectangle { min-width: 20px; }
+        }
+    }
+    grid-twin := GridLayout {
+        x: 0;
+        y: 0;
+        spacing: 0;
+        Row {
+            Rectangle { min-width: 10px; min-height: 5px; }
+            Rectangle { min-width: 20px; }
+        }
+    }
+
+    // A wrapping column flex with a fixed height: `layoutinfo-h-at-own-height`.
+    // Four boxes of 40x30 fit in two columns at 70px.
+    wrapping := FlexboxLayout {
+        x: 0;
+        y: 0;
+        height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0;
+        padding: 0;
+        cross-axis-line-alignment: start;
+        property <int> layoutinfo-h-at-own-height: 9;
+        Rectangle { width: 40px; height: 30px; }
+        Rectangle { width: 40px; height: 30px; }
+        Rectangle { width: 40px; height: 30px; }
+        Rectangle { width: 40px; height: 30px; }
+    }
+    wrapping-twin := FlexboxLayout {
+        x: 0;
+        y: 0;
+        height: 70px;
+        flex-direction: column;
+        flex-wrap: wrap;
+        spacing: 0;
+        padding: 0;
+        cross-axis-line-alignment: start;
+        Rectangle { width: 40px; height: 30px; }
+        Rectangle { width: 40px; height: 30px; }
+        Rectangle { width: 40px; height: 30px; }
+        Rectangle { width: 40px; height: 30px; }
+    }
+
+    // An element with states: `state`.
+    stateful := Rectangle {
+        property <int> state: 10;
+        states [
+            on when root.toggle: { background: red; }
+        ]
+    }
+
+    // An item measuring itself: `implicit-layoutinfo-h` and `implicit-layoutinfo-v`.
+    text := Text {
+        x: 0;
+        y: 0;
+        text: "Hello World";
+        property <int> implicit-layoutinfo-h: 11;
+        property <int> implicit-layoutinfo-v: 12;
+    }
+    text-twin := Text {
+        x: 0;
+        y: 0;
+        text: "Hello World";
+    }
+
+    out property <bool> values-kept: plain.layoutinfo-h == 1 && plain.layoutinfo-v == 2
+        && box.layout-cache == 3 && box.layoutinfo-h == 4 && box.layoutinfo-v == 5
+        && grid.layout-organized-data == 6 && grid.layout-cache-h == 7 && grid.layout-cache-v == 8
+        && wrapping.layoutinfo-h-at-own-height == 9
+        && stateful.state == 10
+        && text.implicit-layoutinfo-h == 11 && text.implicit-layoutinfo-v == 12;
+
+    out property <bool> sizes-kept: plain.min-width == 40px && plain.min-height == 30px
+        && plain.min-width == plain-twin.min-width && plain.min-height == plain-twin.min-height
+        && box.min-width == 15px && box.min-height == 30px
+        && box.min-width == box-twin.min-width && box.min-height == box-twin.min-height
+        && box.preferred-height == box-twin.preferred-height
+        && grid.min-width == 30px && grid.min-height == 5px
+        && grid.min-width == grid-twin.min-width && grid.min-height == grid-twin.min-height
+        && wrapping.preferred-width == 80px && wrapping.preferred-width == wrapping-twin.preferred-width
+        && text.preferred-width > 0px
+        && text.preferred-width == text-twin.preferred-width
+        && text.preferred-height == text-twin.preferred-height
+        && text.min-width == text-twin.min-width;
+
+    out property <bool> state-applied: stateful.background == (root.toggle ? Colors.red : Colors.transparent);
+
+    out property <bool> test: values-kept && sizes-kept && state-applied;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_values_kept());
+assert!(instance.get_sizes_kept());
+assert!(instance.get_test());
+instance.set_toggle(true);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_values_kept());
+assert(instance.get_sizes_kept());
+assert(instance.get_test());
+handle->set_toggle(true);
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.values_kept);
+assert(instance.sizes_kept);
+assert(instance.test);
+instance.toggle = true;
+assert(instance.test);
+```
+
+*/

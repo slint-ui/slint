@@ -61,7 +61,7 @@ catalog:
   '@astrojs/check': 0.9.12
   '@astrojs/sitemap': 3.7.4
   '@astrojs/starlight': 0.42.6
-  '@biomejs/biome': 2.5.15
+  '@biomejs/biome': 2.6.2
   '@expressive-code/plugin-line-numbers': 0.44.3
   '@pagefind/default-ui': 1.5.2
   '@playwright/test': 1.64.1

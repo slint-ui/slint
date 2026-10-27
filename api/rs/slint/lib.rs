@@ -44,6 +44,7 @@ This method combines your Rust code with the `.slint` design markup in one file,
 
 ```rust,no_run
 slint::slint!{
+    #[slint_edition = "1.19"]
     export component HelloWorld inherits Window {
         Text {
             text: "hello world";
@@ -379,8 +380,11 @@ macro_rules! include_modules {
 #[i_slint_core_macros::slint_doc]
 /// Initialize translations when using the `gettext` feature.
 ///
-/// Call this in your main function with the path where translations are located.
+/// Call this at the start of your main function, before starting other threads,
+/// with the path where translations are located.
 /// This macro internally calls the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+/// It also sets the C library's `LC_MESSAGES` locale from the environment,
+/// which isn't thread-safe.
 ///
 /// The first argument of the macro must be an expression that implements `Into<std::path::PathBuf>`.
 /// It specifies the directory in which gettext should search for translations.
@@ -601,6 +605,7 @@ pub mod wgpu_30 {
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
+    //!    #[slint_edition = "1.19"]
     //!    export component HelloWorld inherits Window {
     //!        preferred-width: 320px;
     //!        preferred-height: 300px;
@@ -687,6 +692,7 @@ pub mod winit_030 {
     //! use slint::winit_030::{WinitWindowAccessor, winit};
     //!
     //! slint::slint!{
+    //!     #[slint_edition = "1.19"]
     //!     import { VerticalBox, Button } from "std-widgets.slint";
     //!     export component HelloWorld inherits Window {
     //!         callback clicked;

@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//slint-edition: 1.18
+
+// Before edition 1.19, a height that only states set is zero while no state applies (#8852).
+
+export component TestCase inherits Window {
+    in-out property <bool> open;
+    in-out property <bool> tall;
+    out property <length> outer-height: outer.height;
+    out property <length> lone-height: lone.height;
+
+    VerticalLayout {
+        outer := Rectangle {
+            height: inner.height;
+            inner := Rectangle {
+                states [
+                    expanded when open: { height: 50px; }
+                    collapsed when !open: { height: 10px; }
+                ]
+            }
+        }
+        lone := Rectangle {
+            height: lone-inner.height;
+            lone-inner := Rectangle {
+                states [
+                    taller when tall: { height: 30px; }
+                ]
+            }
+        }
+    }
+
+    out property <bool> test: outer-height == 10px && lone-height == 0px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_outer_height(), 10.);
+assert_eq!(instance.get_lone_height(), 0.);
+instance.set_open(true);
+instance.set_tall(true);
+assert_eq!(instance.get_outer_height(), 50.);
+assert_eq!(instance.get_lone_height(), 30.);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_outer_height(), 10.);
+assert_eq(instance.get_lone_height(), 0.);
+instance.set_open(true);
+instance.set_tall(true);
+assert_eq(instance.get_outer_height(), 50.);
+assert_eq(instance.get_lone_height(), 30.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.outer_height, 10);
+assert.equal(instance.lone_height, 0);
+instance.open = true;
+instance.tall = true;
+assert.equal(instance.outer_height, 50);
+assert.equal(instance.lone_height, 30);
+```
+*/

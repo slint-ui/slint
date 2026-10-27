@@ -16,11 +16,12 @@ component SwitchHost {
 
 component CustomSwitch inherits SwitchBase {
     slot forwarded-indicator;
-    indicator << forwarded-indicator;
-
-    content << Text {
-        text: "Replacement label";
-        vertical-alignment: center;
+    content << HorizontalLayout {
+        forwarded-indicator { }
+        Text {
+            text: "Replacement label";
+            vertical-alignment: center;
+        }
     }
 }
 
@@ -29,6 +30,10 @@ export component TestCase inherits Window {
     height: 280px;
     in-out property <bool> enabled <=> basic.enabled;
     in-out property <bool> checked <=> basic.checked;
+    in-out property <length> track-height <=> basic.track-height;
+    in-out property <length> track-width <=> basic.track-width;
+    in-out property <length> thumb-padding <=> basic.thumb-padding;
+    in-out property <length> thumb-size <=> basic.thumb-size;
     out property <bool> pressed: basic.pressed;
     out property <bool> hovered: basic.hovered;
     out property <bool> focused: basic.has-focus;
@@ -43,6 +48,7 @@ export component TestCase inherits Window {
     public function focus-other() { other.focus(); }
     public function activate-basic() { basic.activate(); }
     public function activate-disabled() { disabled.activate(); }
+    public function activate-contracts() { headless-choice.activate(); styled-choice.activate(); }
 
     basic := Switch {
         x: 20px;
@@ -75,28 +81,33 @@ export component TestCase inherits Window {
         text: "Custom switch";
 
         forwarded-indicator << Rectangle {
+            width: 40px;
+            height: 22px;
+            vertical-stretch: 0;
             background: #0f766e;
         }
         toggled => { root.custom-toggles += 1; }
     }
 
-    SwitchHost {
+    headless-host := SwitchHost {
         x: 240px;
         y: 20px;
         width: 180px;
         height: 40px;
-        choice << SwitchBase {
+        choice << headless-choice := SwitchBase {
+            width: 100%;
+            height: 100%;
             text: "Headless contract";
         }
         toggled => { root.contract-toggles += 1; }
     }
 
-    SwitchHost {
+    styled-host := SwitchHost {
         x: 240px;
         y: 80px;
         width: 180px;
         height: 40px;
-        choice << Switch {
+        choice << styled-choice := Switch {
             text: "Styled contract";
         }
         toggled => { root.contract-toggles += 1; }
@@ -111,6 +122,30 @@ export component TestCase inherits Window {
 }
 
 /*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let control = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Basic switch").next().unwrap();
+let thumb = control.query_descendants().match_id("Switch::thumb").find_first().unwrap();
+for (height, padding) in [(18., 3.), (26., 4.), (22., 3.)] {
+    instance.set_track_height(height);
+    instance.set_thumb_padding(padding);
+    let expected = height - 2. * padding;
+    assert_eq!(instance.get_thumb_size(), expected);
+    assert_eq!(thumb.size().width, expected);
+    assert_eq!(thumb.size().height, expected);
+    instance.set_checked(false);
+    let start = thumb.absolute_position().x;
+    instance.set_checked(true);
+    assert_eq!(thumb.absolute_position().x - start, instance.get_track_width() - expected - 2. * padding);
+}
+instance.set_thumb_size(17.);
+instance.set_track_height(28.);
+assert_eq!(thumb.size().width, 17.);
+instance.set_track_width(20.);
+assert_eq!(thumb.size().width, 14.);
+```
+
 ```rust
 use slint::platform::{Key, PointerEventButton, WindowEvent};
 use slint_testing::AccessibleRole;
@@ -227,5 +262,9 @@ assert_eq!(instance.get_custom_toggles(), 1);
 click(&find("Headless contract"));
 click(&find("Styled contract"));
 assert_eq!(instance.get_contract_toggles(), 2);
+instance.invoke_activate_contracts();
+assert_eq!(instance.get_contract_toggles(), 4);
+assert_eq!(find("Headless contract").accessible_checked(), Some(false));
+assert_eq!(find("Styled contract").accessible_checked(), Some(false));
 ```
 */

@@ -32,6 +32,8 @@ export component TestCase inherits Window {
 
     headless-host := SelectionHost {
         control << headless := ComboBoxBase {
+            item-height: 32px;
+            popup-padding: 4px;
             popup << ComboBoxPopupBase { }
         }
     }
@@ -42,7 +44,7 @@ export component TestCase inherits Window {
     }
 
     empty := ComboBox {
-        placeholder: "Choose an option";
+        placeholder-text: "Choose an option";
     }
 
     init => {
@@ -50,6 +52,7 @@ export component TestCase inherits Window {
         headless.select(1);
     }
     out property <bool> test: styled-host.value == "Beta" && headless-host.value == "Beta"
+        && styled.count == 2 && headless.count == 2
         && styled-host.selections == 1 && styled-host.last-selected == "Beta"
         && headless-host.selections == 1 && headless-host.last-selected == "Beta"
         && initial-value.current-index == 1 && initial-value.current-value == "Beta"

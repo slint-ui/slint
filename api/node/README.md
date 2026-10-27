@@ -1,4 +1,3 @@
-
 # Slint-node (Beta)
 
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
@@ -37,9 +36,8 @@ included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64
 
 On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
 `pnpm install && pnpm build` in `api/node`. You need to install the following components:
-
-  * **[pnpm](https://www.pnpm.io/)**
-  * **[Rust compiler](https://www.rust-lang.org/tools/install)**
+- **[pnpm](https://www.pnpm.io/)**
+- **[Rust compiler](https://www.rust-lang.org/tools/install)**
 
 You will also need a few more dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
 
@@ -113,7 +111,9 @@ import { MainWindow } from "./ui/main.slint";
 
 let component = new MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
 
@@ -128,7 +128,9 @@ import * as slint from "slint-ui";
 let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
 
@@ -170,7 +172,9 @@ let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // connect to a callback
-component.clicked = function() { console.log("hello"); };
+component.clicked = function () {
+    console.log("hello");
+};
 // emit a callback
 component.clicked();
 ```
@@ -210,23 +214,23 @@ let result = component.my_function();
 
 The types used for properties in .slint design markup each translate to specific types in JavaScript. The follow table summarizes the entire mapping:
 
-| `.slint` Type | JavaScript Type | Notes |
-| --- | --- | --- |
-| `int` | `Number` | |
-| `float` | `Number` | |
-| `string` | `String` | |
-| `color` | `RgbaColor` |  |
-| `brush` | `Brush` |  |
-| `image` | `ImageData` |  |
-| `data-transfer` | `DataTransfer` | Drag-and-drop and clipboard payload; usually obtained from a callback parameter. See [Drag and Drop](https://docs.slint.dev/latest/docs/guide/development/drag-and-drop/). |
-| `length` | `Number` | |
-| `physical_length` | `Number` | |
-| `duration` | `Number` | The number of milliseconds |
-| `angle` | `Number` | The angle in degrees |
-| structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
-| array | `Array` or any implementation of Model | |
-| `styled-text` | `StyledText` | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create. |
-| enumeration | `String` | The value of an enum |
+| `.slint` Type     | JavaScript Type                        | Notes                                                                                                                                                                      |
+| ----------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `int`             | `Number`                               |                                                                                                                                                                            |
+| `float`           | `Number`                               |                                                                                                                                                                            |
+| `string`          | `String`                               |                                                                                                                                                                            |
+| `color`           | `RgbaColor`                            |                                                                                                                                                                            |
+| `brush`           | `Brush`                                |                                                                                                                                                                            |
+| `image`           | `ImageData`                            |                                                                                                                                                                            |
+| `data-transfer`   | `DataTransfer`                         | Drag-and-drop and clipboard payload; usually obtained from a callback parameter. See [Drag and Drop](https://docs.slint.dev/latest/docs/guide/development/drag-and-drop/). |
+| `length`          | `Number`                               |                                                                                                                                                                            |
+| `physical_length` | `Number`                               |                                                                                                                                                                            |
+| `duration`        | `Number`                               | The number of milliseconds                                                                                                                                                 |
+| `angle`           | `Number`                               | The angle in degrees                                                                                                                                                       |
+| structure         | `Object`                               | Structures are mapped to JavaScript objects where each structure field is a property.                                                                                      |
+| array             | `Array` or any implementation of Model |                                                                                                                                                                            |
+| `styled-text`     | `StyledText`                           | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create.                                                                                                 |
+| enumeration       | `String`                               | The value of an enum                                                                                                                                                       |
 
 ### Arrays and Models
 
@@ -241,11 +245,10 @@ component.model = [1, 2, 3];
 component.model = component.model.concat(4);
 ```
 
-Another option is to set a model object.  A model object has the following function:
-
-* `rowCount()`: returns the number of element in the model.
-* `rowData(index)`: return the row at the given index
-* `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
+Another option is to set a model object. A model object has the following function:
+- `rowCount()`: returns the number of element in the model.
+- `rowData(index)`: return the row at the given index
+- `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
 
 As an example, here is the implementation of the `ArrayModel` (which is available as `slint.ArrayModel`)
 
@@ -327,7 +330,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
@@ -363,7 +365,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));

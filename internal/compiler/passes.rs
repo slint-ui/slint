@@ -150,6 +150,7 @@ pub async fn run_passes(
             &doc.local_registry,
             &symbol_counters,
             &mut forwarded_references,
+            type_loader.compiler_config.edition,
             diag,
         );
         lower_text_input_interface::lower_text_input_interface(component);
@@ -225,7 +226,7 @@ pub async fn run_passes(
             component,
             diag,
             &symbol_counters,
-            type_loader.compiler_config.repeated_children_constrain_parent(),
+            type_loader.compiler_config.edition,
         );
         crate::layout::mark_repeated_cells_child_of_layout(component);
         lower_layout::optimize_single_cell_layouts(component);
