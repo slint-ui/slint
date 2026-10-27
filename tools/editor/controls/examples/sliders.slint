@@ -152,15 +152,50 @@ export component SliderExamples inherits Rectangle {
                     }
 
                     PreviewSlider {
-                        style: root.preview-style;
-                        fill-color: #0f766e;
-                        handle-color: #0f766e;
+                        style: {
+                            rest: {
+                                fill-color: #0f766e,
+                                handle-color: #0f766e,
+                                ..root.preview-style.rest,
+                            },
+                            hover: {
+                                fill-color: #0f766e,
+                                handle-color: #0f766e,
+                                ..root.preview-style.hover,
+                            },
+                            pressed: {
+                                fill-color: #0f766e,
+                                handle-color: #0f766e,
+                                ..root.preview-style.pressed,
+                            },
+                            ..root.preview-style,
+                        };
                         size-index: root.size-index;
                         enabled: !root.preview-disabled;
                         accessible-label: "Styled custom slider";
                         value <=> root.custom-value;
                         changed(value) => { root.custom-changes += 1; }
                         released(value) => { root.custom-releases += 1; }
+                    }
+
+                    Text {
+                        text: "Disabled track override";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    PreviewSlider {
+                        style: {
+                            disabled: {
+                                track-color: Colors.magenta,
+                                ..root.preview-style.disabled,
+                            },
+                            ..root.preview-style,
+                        };
+                        size-index: root.size-index;
+                        enabled: false;
+                        accessible-label: "Disabled slider with a magenta track";
+                        value: 60;
                     }
 
                     Text {

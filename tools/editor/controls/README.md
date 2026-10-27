@@ -56,21 +56,61 @@ Use the read-only colors on `BasicTheme` for application visuals that should fol
 Host applications can export `BasicTheme` and set its `palette` input directly.
 
 For custom colors, supply an application-owned `BasicPalette` instead of a library preset.
-Supply every field, referencing preset fields for colors you want to keep; omitted fields become transparent.
+Use `{ accent: blue, ..BasicPalettes.dark }` to change selected colors while retaining the rest of a preset.
 Library palettes and style presets are read-only.
 The application selects light or dark mode; standard widgets from `std-widgets.slint` require their own palette configuration.
 
 ## Colors and State Styles
 
-Use direct properties, such as `foreground-color` or `checked-color`, for simple color changes.
-Direct colors override the selected style while enabled, including hover and pressed states.
-Disabled controls use their style's disabled colors.
+Set colors through the control's `style` struct.
+Each control selects its rest, hover, pressed, or disabled colors from that style.
+Use `..base` to retain preset fields while overriding selected colors:
 
-For different colors in each state, pass a complete style struct through `style`.
-Struct literals don't merge with presets.
-Omitted fields receive their declared defaults or their type's default value.
-Reference preset fields explicitly to retain their values and reactive bindings.
-Custom styles follow the application theme only where their bindings reference it.
+```slint
+import { Button, ButtonStyles } from "src/basic.slint";
+
+export component App inherits Window {
+    Button {
+        text: "Save";
+        style: {
+            pressed: {
+                background-color: yellow,
+                foreground-color: black,
+                ..ButtonStyles.primary.pressed,
+            },
+            ..ButtonStyles.primary,
+        };
+    }
+}
+```
+
+Each `..base` must be last in its struct literal.
+Updates are shallow; the nested update retains the pressed state's other fields.
+Retained colors continue to follow the preset and application theme.
+Without `..base`, omitted fields receive their declared defaults or their type's default value.
+
+Use the same approach to override a slider's disabled track while retaining its other disabled colors and enabled states:
+
+```slint
+import { Slider, SliderStyles } from "src/basic.slint";
+
+export component App inherits Window {
+    Slider {
+        enabled: false;
+        accessible-label: "Custom disabled slider";
+        style: {
+            disabled: {
+                track-color: Colors.magenta,
+                ..SliderStyles.standard.disabled,
+            },
+            ..SliderStyles.standard,
+        };
+    }
+}
+```
+
+CheckBox and Switch styles also distinguish checked and unchecked values.
+To override one color in one state, retain the base at each nesting level, as shown in `examples/check_boxes.slint`.
 See [Style Struct Fields](API.md#style-struct-fields) for the states and colors available on each control.
 
 ## Dimensions and Padding
@@ -101,10 +141,19 @@ See the [API reference](API.md) for each control's geometry inputs and defaults.
 Use an application component to share defaults across instances without changing other controls:
 
 ```slint
-import { CheckBox } from "src/basic.slint";
+import { CheckBox, CheckBoxStyles } from "src/basic.slint";
 
 component AppCheckBox inherits CheckBox {
-    checked-color: #0f766e;
+    style: {
+        checked: {
+            rest: {
+                indicator-color: #0f766e,
+                ..CheckBoxStyles.standard.checked.rest,
+            },
+            ..CheckBoxStyles.standard.checked,
+        },
+        ..CheckBoxStyles.standard,
+    };
     indicator-size: 18px;
     font-size: 13px;
     vertical-padding: 4px;
@@ -118,8 +167,9 @@ export component App inherits Window {
 }
 ```
 
-Set `style` on the application component to share state colors as well.
-Individual instances can override these defaults.
+This style changes the checked indicator's rest color and retains the preset's other states.
+Override hover and pressed colors separately to customize those states.
+Individual instances can replace the shared style.
 
 ## Custom Visuals and Slots
 
@@ -194,4 +244,5 @@ Each page provides size and disabled settings for previews, and the gallery supp
 Preview sizes are defined by gallery components in `examples/preview_controls.slint`; headless examples keep their custom dimensions.
 The Button page shows defaults, direct adjustments, reusable application defaults, and custom visuals through slots.
 Its customization examples keep their own dimensions independently of the preview size selector.
+The Button, Slider, and CheckBox pages show nested style updates that retain the remaining preset fields.
 Every control page demonstrates custom visuals through slots.

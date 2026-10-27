@@ -96,12 +96,28 @@ export component SwitchExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom switches";
-            description: "Set a checked color, supply headless visuals, or bind the label to the checked state.";
+            description: "Override checked-state colors, supply headless visuals, or bind the label to the checked state.";
             VerticalLayout {
                 spacing: 12px;
                 PreviewSwitch {
-                    style: root.preview-style;
-                    checked-color: #0f766e;
+                    style: {
+                        checked: {
+                            rest: {
+                                track-color: #0f766e,
+                                ..root.preview-style.checked.rest,
+                            },
+                            hover: {
+                                track-color: #0f766e,
+                                ..root.preview-style.checked.hover,
+                            },
+                            pressed: {
+                                track-color: #0f766e,
+                                ..root.preview-style.checked.pressed,
+                            },
+                            ..root.preview-style.checked,
+                        },
+                        ..root.preview-style,
+                    };
                     size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Custom checked color";
@@ -139,6 +155,7 @@ export component SwitchExamples inherits Rectangle {
                                 border-radius: 2px;
                             }
                         }
+
                         Text {
                             text: bare.text;
                             color: #5b21b6;

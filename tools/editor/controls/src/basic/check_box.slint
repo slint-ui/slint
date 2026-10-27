@@ -13,9 +13,6 @@ import { FocusOutline } from "focus_outline.slint";
 export component CheckBox inherits CheckBoxBase {
     in property <CheckBoxStyle> style: CheckBoxStyles.standard;
 
-    in property <brush> checked-color: root.state-style.indicator-color;
-    in property <brush> foreground-color: root.state-style.foreground-color;
-
     in property <string> font-family;
     in property <bool> font-italic;
 
@@ -62,7 +59,7 @@ export component CheckBox inherits CheckBoxBase {
             width: root.indicator-size;
             height: root.indicator-size;
             vertical-stretch: 0;
-            background: root.enabled && root.checked ? root.checked-color : root.state-style.indicator-color;
+            background: root.state-style.indicator-color;
             border-color: root.state-style.indicator-border-color;
             border-width: root.indicator-border-width;
             border-radius: root.indicator-radius;
@@ -104,9 +101,9 @@ export component CheckBox inherits CheckBoxBase {
         }
 
         HorizontalLayout {
-            if root.text != "": Text {
+            if root.text != "": label := Text {
                 text: root.text;
-                color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+                color: root.state-style.foreground-color;
                 font-size: root.font-size;
                 font-weight: root.font-weight;
                 font-family: root.font-family;
@@ -114,6 +111,7 @@ export component CheckBox inherits CheckBoxBase {
                 vertical-alignment: center;
             }
         }
+
         @children
     }
 }

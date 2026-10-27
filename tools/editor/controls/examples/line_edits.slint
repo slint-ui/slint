@@ -35,6 +35,7 @@ export component LineEditExamples inherits Rectangle {
             size-index <=> root.size-index;
             disabled <=> root.preview-disabled;
         }
+
         ExampleSection {
             title: "Base theme";
             description: "Editable, disabled, read-only, and password fields using BasicTheme.";
@@ -48,7 +49,8 @@ export component LineEditExamples inherits Rectangle {
                     placeholder-text: "Enter a name";
                     leading << Text {
                         text: "Name:";
-                        color: name-field.foreground-color;
+                        color: !name-field.enabled ? name-field.style.disabled.foreground-color
+                            : name-field.hovered ? name-field.style.hover.foreground-color : name-field.style.rest.foreground-color;
                         font-size: name-field.font-size;
                         vertical-alignment: center;
                     }
@@ -122,10 +124,7 @@ export component LineEditExamples inherits Rectangle {
                     style: {
                         rest: root.green-field-colors,
                         hover: root.green-field-colors,
-                        disabled: root.preview-style.disabled,
-                        selection-background-color: root.preview-style.selection-background-color,
-                        selection-foreground-color: root.preview-style.selection-foreground-color,
-                        focus-color: root.preview-style.focus-color,
+                        ..root.preview-style,
                     };
                 }
 

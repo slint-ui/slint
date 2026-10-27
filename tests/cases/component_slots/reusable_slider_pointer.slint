@@ -12,9 +12,28 @@ import {
     LinearSliderSurface,
 } from "../../../tools/editor/controls/src/headless.slint";
 component CustomSlider inherits Slider {
-    style: SliderStyles.standard;
-    fill-color: #654321;
-    handle-color: #654321;
+    style: {
+        rest: {
+            fill-color: #654321,
+            handle-color: #654321,
+            ..SliderStyles.standard.rest,
+        },
+        hover: {
+            fill-color: #654321,
+            handle-color: #654321,
+            ..SliderStyles.standard.hover,
+        },
+        pressed: {
+            fill-color: #654321,
+            handle-color: #654321,
+            ..SliderStyles.standard.pressed,
+        },
+        disabled: {
+            track-color: Colors.magenta,
+            ..SliderStyles.standard.disabled,
+        },
+        ..SliderStyles.standard,
+    };
 }
 
 export component TestCase inherits Window {
@@ -31,13 +50,10 @@ export component TestCase inherits Window {
     out property <int> releases;
     out property <float> last-released;
     out property <bool> pressed: slider.pressed;
-    out property <brush> handle-color: slider.handle-color;
-    out property <brush> fill-color: slider.fill-color;
-    out property <brush> track-color: slider.track-color;
     out property <bool> focused: slider.has-focus;
     out property <bool> test: custom.style.rest.track-color == SliderStyles.standard.rest.track-color
-        && custom.fill-color == #654321 && custom.handle-color == #654321
-        && custom.style.disabled == SliderStyles.standard.disabled && bound-surface.handle-color == root.custom-color;
+        && custom.style.rest.fill-color == #654321 && custom.style.rest.handle-color == #654321
+        && custom.style.disabled == { track-color: Colors.magenta, ..SliderStyles.standard.disabled } && bound-surface.handle-color == root.custom-color;
     public function focus-other() { other.focus(); }
     slider := Slider {
         accessible-label: "Pointer slider";
@@ -93,6 +109,11 @@ export component TestCase inherits Window {
 ```rust
 use slint::platform::{Key, PointerEventButton, WindowEvent};
 let instance = TestCase::new().unwrap();
+mod visuals { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/control_visuals.rs")); }
+let handle_color = || visuals::color(instance.window(), "TestCase::slider", "Slider::handle");
+let fill_color = || visuals::color(instance.window(), "TestCase::slider", "Slider::fill");
+let track_color = || visuals::color(instance.window(), "TestCase::slider", "Slider::track");
+
 assert!(instance.get_test());
 let palette = instance.global::<BasicTheme<'_>>();
 let button = PointerEventButton::Left;
@@ -103,7 +124,7 @@ let press = |position| instance.window().dispatch_event(WindowEvent::PointerPres
 let release = |position| instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
 let outside = point(470., 260.);
 move_to(outside);
-assert_eq!(instance.get_handle_color(), palette.get_accent());
+assert_eq!(handle_color(), palette.get_accent());
 click(180., 40.);
 assert_eq!(instance.get_value(), 75.);
 assert_eq!(instance.get_changes(), 1);
@@ -115,11 +136,11 @@ let outline = || slider_element.query_descendants().match_id("Slider::focus-outl
 let ring = outline().expect("Focused slider has no outline");
 assert_eq!(ring.size().width, 28.);
 assert_eq!(ring.size().height, 28.);
-assert_eq!(instance.get_handle_color(), palette.get_accent_hover());
+assert_eq!(handle_color(), palette.get_accent_hover());
 press(point(185., 40.));
 assert!(instance.get_pressed());
 assert_eq!(instance.get_value(), 75.);
-assert_eq!(instance.get_handle_color(), palette.get_accent_pressed());
+assert_eq!(handle_color(), palette.get_accent_pressed());
 move_to(point(205., 40.));
 assert_eq!(instance.get_value(), 85.);
 move_to(point(260., 40.));
@@ -150,10 +171,12 @@ press(point(150., 40.));
 instance.set_enabled(false);
 slint::platform::update_timers_and_animations();
 assert!(!instance.get_pressed());
-assert_eq!(instance.get_handle_color(), palette.get_disabled_foreground());
+assert_eq!(handle_color(), palette.get_disabled_foreground());
+assert_eq!(visuals::color(instance.window(), "TestCase::custom", "Slider::track"), slint::Brush::from(slint::Color::from_rgb_u8(255, 0, 255)));
+assert_eq!(visuals::color(instance.window(), "TestCase::custom", "Slider::handle"), palette.get_disabled_foreground());
 assert!(outline().is_none());
-assert_eq!(instance.get_fill_color(), palette.get_disabled_foreground());
-assert_eq!(instance.get_track_color(), palette.get_disabled_background());
+assert_eq!(fill_color(), palette.get_disabled_foreground());
+assert_eq!(track_color(), palette.get_disabled_background());
 assert!(instance.get_test());
 move_to(point(200., 40.));
 instance.set_enabled(true);

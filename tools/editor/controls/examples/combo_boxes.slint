@@ -121,9 +121,24 @@ export component ComboBoxExamples inherits Rectangle {
                     }
 
                     PreviewComboBox {
-                        style: root.preview-style;
-                        background-color: #f0fdfa;
-                        foreground-color: #115e59;
+                        style: {
+                            rest: {
+                                background-color: #f0fdfa,
+                                foreground-color: #115e59,
+                                ..root.preview-style.rest,
+                            },
+                            hover: {
+                                background-color: #f0fdfa,
+                                foreground-color: #115e59,
+                                ..root.preview-style.hover,
+                            },
+                            pressed: {
+                                background-color: #f0fdfa,
+                                foreground-color: #115e59,
+                                ..root.preview-style.pressed,
+                            },
+                            ..root.preview-style,
+                        };
                         size-index: root.size-index;
                         enabled: !root.preview-disabled;
                         accessible-label: "Tinted combo box";

@@ -12,7 +12,25 @@ import { ExampleSection } from "section.slint";
 import { PreviewSettings } from "preview_settings.slint";
 
 component CustomCheckBox inherits PreviewCheckBox {
-    checked-color: #0f766e;
+    in property <CheckBoxStyle> base-style: CheckBoxStyles.standard;
+    style: {
+        checked: {
+            rest: {
+                indicator-color: #0f766e,
+                ..root.base-style.checked.rest,
+            },
+            hover: {
+                indicator-color: #0f766e,
+                ..root.base-style.checked.hover,
+            },
+            pressed: {
+                indicator-color: #0f766e,
+                ..root.base-style.checked.pressed,
+            },
+            ..root.base-style.checked,
+        },
+        ..root.base-style,
+    };
 }
 
 export component CheckBoxExamples inherits Rectangle {
@@ -89,11 +107,11 @@ export component CheckBoxExamples inherits Rectangle {
 
         ExampleSection {
             title: "Custom checkboxes";
-            description: "Set a checked color, reuse component defaults, or supply your own visuals through slots.";
+            description: "Set a checked color, override a state style, reuse component defaults, or supply your own visuals through slots.";
             VerticalLayout {
                 spacing: 12px;
                 CustomCheckBox {
-                    style: root.preview-style;
+                    base-style: root.preview-style;
                     size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Custom checked color";
@@ -102,10 +120,29 @@ export component CheckBoxExamples inherits Rectangle {
                 }
 
                 CustomCheckBox {
-                    style: root.preview-style;
+                    base-style: root.preview-style;
                     size-index: root.size-index;
                     enabled: !root.preview-disabled;
                     text: "Same shared defaults";
+                    toggled => { root.custom-toggles += 1; }
+                }
+
+                PreviewCheckBox {
+                    style: {
+                        checked: {
+                            rest: {
+                                indicator-color: #0f766e,
+                                indicator-border-color: #0f766e,
+                                ..root.preview-style.checked.rest,
+                            },
+                            ..root.preview-style.checked,
+                        },
+                        ..root.preview-style,
+                    };
+                    size-index: root.size-index;
+                    enabled: !root.preview-disabled;
+                    text: "Custom checked rest state";
+                    checked: true;
                     toggled => { root.custom-toggles += 1; }
                 }
 
@@ -139,6 +176,7 @@ export component CheckBoxExamples inherits Rectangle {
                                 background: white;
                             }
                         }
+
                         Text {
                             text: bare.text;
                             color: #5b21b6;

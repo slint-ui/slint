@@ -17,16 +17,13 @@ export component TestCase inherits Window {
     in-out property <bool> enabled: true;
     in-out property <length> override-border-width: 3px;
     in-out property <length> override-border-radius: 9px;
-    out property <brush> field-background: subject.background-color;
-    out property <brush> field-foreground: subject.foreground-color;
-    out property <color> field-selection-background: subject.selection-background-color;
-    out property <color> field-selection-foreground: subject.selection-foreground-color;
+    out property <color> field-selection-background: subject.style.selection-background-color;
+    out property <color> field-selection-foreground: subject.style.selection-foreground-color;
     out property <length> field-height: subject.height;
     in-out property <length> field-font-size <=> subject.font-size;
     in-out property <length> field-border-width <=> subject.border-width;
-    out property <brush> default-background: defaults.background-color;
     out property <bool> test: prefix.width > 0px && suffix.width > 0px
-        && custom.background-color == #123456 && custom.foreground-color == #abcdef
+        && custom.style.rest.background-color == #123456 && custom.style.rest.foreground-color == #abcdef
         && custom.font-size == 13px && custom.border-radius == root.override-border-radius;
 
     public function focus-field() { subject.focus(); }
@@ -60,11 +57,21 @@ export component TestCase inherits Window {
         x: 20px;
         y: 110px;
         width: 220px;
-        style: root.field-style;
-        background-color: #123456;
-        foreground-color: #abcdef;
-        selection-background-color: #123456;
-        selection-foreground-color: #fedcba;
+        style: {
+            rest: {
+                background-color: #123456,
+                foreground-color: #abcdef,
+                ..root.field-style.rest,
+            },
+            hover: {
+                background-color: #123456,
+                foreground-color: #abcdef,
+                ..root.field-style.hover,
+            },
+            selection-background-color: #123456,
+            selection-foreground-color: #fedcba,
+            ..root.field-style,
+        };
         text: "Custom text";
         enabled: root.enabled;
         font-size: 13px;
@@ -101,6 +108,11 @@ use slint_testing::ElementHandle;
 use i_slint_core::item_tree::ItemRc;
 use std::ops::ControlFlow;
 let instance = TestCase::new().unwrap();
+mod visuals { include!(concat!(env!("CARGO_MANIFEST_DIR"), "/control_visuals.rs")); }
+let field_background = || visuals::color(instance.window(), "TestCase::subject", "LineEdit::surface");
+let field_foreground = || visuals::color(instance.window(), "TestCase::subject", "LineEditBase::input");
+let default_background = || visuals::color(instance.window(), "TestCase::defaults", "LineEdit::surface");
+
 let root = ItemRc::new_root(i_slint_core::window::WindowInner::from_pub(instance.window()).component());
 let find_item = |parent: &ItemRc, id: &str| {
     parent.visit_descendants(|item| {
@@ -149,11 +161,11 @@ let move_to = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved 
     position: slint::LogicalPosition::new(x, y)
 });
 move_to(480., 200.);
-assert_eq!(instance.get_field_background(), style.rest.background_color);
-assert_eq!(instance.get_field_foreground(), style.rest.foreground_color);
+assert_eq!(field_background(), style.rest.background_color);
+assert_eq!(field_foreground(), style.rest.foreground_color);
 move_to(120., 30.);
-assert_eq!(instance.get_field_background(), style.hover.background_color);
-assert_eq!(instance.get_field_foreground(), style.hover.foreground_color);
+assert_eq!(field_background(), style.hover.background_color);
+assert_eq!(field_foreground(), style.hover.foreground_color);
 assert_eq!(surface.as_pin_ref().border_color(), style.hover.border_color);
 assert_eq!(placeholder.as_pin_ref().color(), style.hover.placeholder_color);
 assert_eq!(input.as_pin_ref().color(), brush(0xab, 0xcd, 0xef));
@@ -168,11 +180,11 @@ assert_eq!(outline.size().width, field.size().width + 8.);
 assert_eq!(instance.get_field_border_width(), 1.);
 instance.set_enabled(false);
 slint::platform::update_timers_and_animations();
-assert_eq!(instance.get_field_background(), style.disabled.background_color);
-assert_eq!(instance.get_field_foreground(), style.disabled.foreground_color);
+assert_eq!(field_background(), style.disabled.background_color);
+assert_eq!(field_foreground(), style.disabled.foreground_color);
 assert_eq!(input.as_pin_ref().color(), style.disabled.foreground_color);
-assert_eq!(input.as_pin_ref().selection_background_color(), style.selection_background_color);
-assert_eq!(input.as_pin_ref().selection_foreground_color(), style.selection_foreground_color);
+assert_eq!(input.as_pin_ref().selection_background_color(), slint::Color::from_rgb_u8(0x12, 0x34, 0x56));
+assert_eq!(input.as_pin_ref().selection_foreground_color(), slint::Color::from_rgb_u8(0xfe, 0xdc, 0xba));
 assert_geometry(3., 9.);
 assert!(field.query_descendants().match_id("LineEdit::focus-outline").find_first().is_none());
 instance.set_enabled(true);
@@ -207,7 +219,7 @@ let theme = instance.global::<BasicTheme<'_>>();
 let mut palette = theme.get_palette();
 palette.background = brush(0x12, 0x34, 0x56);
 theme.set_palette(palette);
-assert_eq!(instance.get_default_background(), brush(0x12, 0x34, 0x56));
+assert_eq!(default_background(), brush(0x12, 0x34, 0x56));
 assert!(instance.get_test());
 instance.set_override_border_width(5.);
 instance.set_override_border_radius(0.);
