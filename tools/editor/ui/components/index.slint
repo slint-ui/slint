@@ -262,7 +262,6 @@ export component SidebarToggleButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
         clicked => {
             root.clicked();
         }
@@ -340,7 +339,6 @@ export component ComponentPaletteRow inherits Rectangle {
 
         touch := TouchArea {
             enabled: root.enabled && root.drag-enabled;
-            mouse-cursor: self.enabled ? pointer : default;
         }
     }
 }

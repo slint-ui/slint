@@ -74,7 +74,6 @@ export component InspectorColorField inherits Rectangle {
         }
 
         gradient-touch := TouchArea {
-            mouse-cursor: pointer;
             clicked => {
                 root.show-picker();
                 swatch-focus.focus();
@@ -134,7 +133,6 @@ export component InspectorColorField inherits Rectangle {
         }
 
         TouchArea {
-            mouse-cursor: pointer;
             accessible-role: AccessibleRole.button;
             accessible-label: @tr("{} color picker", root.accessible-name);
             clicked => {
