@@ -29,7 +29,8 @@ export component MainWindow inherits Window {
     }
 
     Rectangle {
-        y: 20px;
+        // Below the status bar and the camera cutout on phones, which are zero on the desktop.
+        y: root.safe-area-insets.top + 20px;
         width: label.preferred-width + 14px;
         height: label.preferred-height + 14px;
         background: red;
