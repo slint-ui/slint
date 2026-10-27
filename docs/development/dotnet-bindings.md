@@ -262,11 +262,13 @@ A C# port of an example or demo lives in its `dotnet/` directory, like `examples
 Slint owns the entry point on Android, as in the C++ API:
 
 1. The app's activity derives from `SlintActivity`, a `NativeActivity`.
-   Its `OnCreate` registers the C# entry point with `slint_dotnet_android_set_main`.
+   Its `OnCreate` registers the C# entry point and event callbacks with `slint_dotnet_android_set_callbacks`.
 2. `NativeActivity` loads `libslint_dotnet.so`, named by the `android.app.lib_name` meta-data,
    and android-activity runs `android_main` in `api/dotnet/native/android.rs` on a thread of its own.
 3. `android_main` installs Slint's Android platform, claims that thread as the Slint thread, and calls the entry point,
    which extracts the `.slint` assets and runs `SlintMain`.
+4. The platform's event listener passes Android's activity events back to C#, while `Run` polls them:
+   the saved state, and the pause, resume, and low-memory events.
 
 Slint's state is thread-local, and `SLINT_THREAD` stays with the first thread,
 so a second `android_main` in the same process can't use Slint.
@@ -384,8 +386,15 @@ Next:
   - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
     the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
     Published in 1.19.0-preview.7, and tested on a Motorola edge 60 neo.
-    Left to do: access to Android's events, such as saving and restoring state, like `init_with_event_listener` in Rust,
-    so that an app can keep its state, since `SlintActivity` ends the process when Android destroys it.
+    - Android's activity events, such as saving and restoring state, like `init_with_event_listener` in Rust.
+      Android ends the process of an app in the background when it needs memory,
+      and starts a new one with the state the app saved when the user returns,
+      and `SlintActivity` also ends the process when Android destroys the activity.
+      `android_main` installs the platform with an event listener, which calls back into C# on the Slint thread:
+      `SlintSaveState` returns the bytes to keep, `SlintRestoreState` gets them back once per process,
+      and `SlintPause`, `SlintResume`, and `SlintLowMemory` report the other events.
+      The bytes go through a buffer that C# fills with `slint_dotnet_android_state_set`, so that neither side frees the other's memory.
+      `examples/todo/dotnet-android` keeps its list this way, like the Rust version.
   - iOS next, in about four to five weeks, starting with a prototype like the one for Android.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
     Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain`,

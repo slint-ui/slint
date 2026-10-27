@@ -364,7 +364,21 @@ Install the .NET Android workload with `dotnet workload install android`.
 `SlintMain` and every callback run on Slint's thread, not on the Android UI thread.
 Slint's objects belong to that thread, so an app has one `SlintActivity`, and it ends the process when Android destroys it,
 such as after the Back button.
-Keep what should survive in files or preferences.
+
+Android also ends the process of an app in the background when it needs memory,
+and starts a new one when the user returns.
+To keep what the user was doing, return it from `SlintSaveState`, and take it back in `SlintRestoreState`:
+
+```csharp
+protected override byte[]? SlintSaveState() => JsonSerializer.SerializeToUtf8Bytes(settings);
+
+protected override void SlintRestoreState(byte[] state) => Apply(JsonSerializer.Deserialize<Settings>(state));
+```
+
+`SlintRestoreState` runs once, in the event loop, after `SlintMain` created the components.
+`SlintPause`, `SlintResume`, and `SlintLowMemory` report the other activity events.
+All of them run on Slint's thread, unlike `OnPause` and the other methods of `Activity`.
+Android drops the saved state when the user closes the app, so keep what must outlast that in files or preferences.
 
 The build puts the `<SlintFile>` and `<SlintProject>` files into the APK, and `SlintActivity` extracts them at startup.
 Add the images that `.slint` files use as `<SlintFile Include="ui/images/logo.png" Generate="false" />`,

@@ -5,6 +5,18 @@ using System.Runtime.InteropServices;
 
 namespace Slint.Interop;
 
+#if ANDROID
+/// <summary>The C# side of <c>SlintActivity</c>, see <c>AndroidCallbacks</c> in <c>android.rs</c>.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct AndroidCallbacks
+{
+    public delegate* unmanaged<void> Main;
+    public delegate* unmanaged<int, void> Event;
+    public delegate* unmanaged<nint, void> SaveState;
+    public delegate* unmanaged<byte*, nuint, void> RestoreState;
+}
+
+#endif
 /// <summary>The exports of <c>api/dotnet/native</c>.</summary>
 internal static unsafe partial class NativeMethods
 {
@@ -630,6 +642,9 @@ internal static unsafe partial class NativeMethods
     // android.rs
 
     [LibraryImport(Library)]
-    public static partial void slint_dotnet_android_set_main(delegate* unmanaged<void> main);
+    public static partial void slint_dotnet_android_set_callbacks(AndroidCallbacks callbacks);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_android_state_set(nint state, byte* data, nuint len);
 #endif
 }
