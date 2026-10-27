@@ -1383,8 +1383,16 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
+        let stroke = matches!(brush, GlyphBrush::Stroke(_));
         if COLOR_BITMAP_GLYPHS.with(|glyphs| {
-            glyphs.borrow_mut().draw(&mut self.painter, font, font_size, y_offset, glyphs_it)
+            glyphs.borrow_mut().draw(
+                &mut self.painter,
+                font,
+                font_size,
+                y_offset,
+                stroke,
+                glyphs_it,
+            )
         }) {
             return;
         }
@@ -1729,7 +1737,7 @@ thread_local! {
     pub static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default())
 }
 
-/// Glyphs of fonts that draw them as colour bitmaps, as emoji fonts do (`CBDT`, `sbix`): rendered
+/// Glyphs of fonts that draw them as color bitmaps, as emoji fonts do (`CBDT`, `sbix`): rendered
 /// with swash and drawn as images, not with a QRawFont. Qt's FreeType engine (6.4 at least, not
 /// 6.8) sizes a glyph's buffer for the QRawFont's pixel size and copies the font's bitmap strike
 /// into it (`QFontEngineFT::loadGlyph`), past its end.
@@ -1745,29 +1753,34 @@ thread_local! {
 }
 
 impl ColorBitmapGlyphs {
-    /// Draws `glyphs` if `font` is a colour bitmap font, and says whether it is.
+    /// Draws `glyphs` if `font` is a color bitmap font, and says whether it is. Their stroke
+    /// draws nothing: the fill draws each glyph once.
     fn draw(
         &mut self,
         painter: &mut QPainterPtr,
         font: &parley::FontData,
         font_size: sharedparley::PhysicalLength,
         y_offset: sharedparley::PhysicalLength,
+        stroke: bool,
         glyphs: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) -> bool {
-        let Some(font_ref) = swash::FontRef::from_index(font.data.as_ref(), font.index as usize)
-        else {
-            return false;
-        };
-        let mut scaler = self.context.builder(font_ref).size(font_size.get()).build();
-        let is_color = *self
-            .fonts
-            .entry((font.data.clone().into(), font.index))
-            .or_insert_with(|| scaler.has_color_bitmaps());
-        if !is_color {
-            return false;
+        let font_ref = || swash::FontRef::from_index(font.data.as_ref(), font.index as usize);
+        let is_color =
+            *self.fonts.entry((font.data.clone().into(), font.index)).or_insert_with(|| {
+                font_ref().is_some_and(|font_ref| {
+                    self.context.builder(font_ref).build().has_color_bitmaps()
+                })
+            });
+        if !is_color || stroke {
+            return is_color;
         }
+        let Some(font_ref) = font_ref() else { return true };
+        let mut scaler = self.context.builder(font_ref).size(font_size.get()).build();
         use swash::scale::{StrikeWith, image::Content};
         for glyph in glyphs {
+            // Skipped, not drawn with the QRawFont: in Noto Color Emoji these draw nothing (the
+            // space, the zero-width joiner, the tags of a subdivision flag), and it has no
+            // outlines (`glyf`, `CFF`) to fall back on.
             let Some(image) = scaler.scale_color_bitmap(glyph.id as u16, StrikeWith::BestFit)
             else {
                 continue;
@@ -1780,6 +1793,7 @@ impl ColorBitmapGlyphs {
             let width = image.placement.width as i32;
             let height = image.placement.height as i32;
             let data = image.data.as_ptr();
+            // swash decodes the strikes' PNGs to RGBA with straight alpha.
             cpp! { unsafe [painter as "QPainterPtr*", data as "const uchar*", width as "int",
                            height as "int", x as "float", y as "float"] {
                 QImage img(data, width, height, width * 4, QImage::Format_RGBA8888);

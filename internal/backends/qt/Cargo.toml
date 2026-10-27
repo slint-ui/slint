@@ -36,7 +36,7 @@ lyon_path = { workspace = true, optional = true }
 pin-project = { version = "1", optional = true }
 pin-weak = { version = "1", optional = true }
 qttypes = { version = "0.2.7", default-features = false, optional = true }
-# Colour bitmap glyphs (emoji), which Qt's QRawFont overruns a buffer on (qt_window.rs).
+# Color bitmap glyphs (emoji), which Qt's QRawFont overruns a buffer on (qt_window.rs).
 swash = { workspace = true, optional = true, features = ["std", "scale"] }
 
 # The browser decodes images on the web; decode with the image and resvg crates elsewhere.
