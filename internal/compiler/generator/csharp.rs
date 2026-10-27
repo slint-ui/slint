@@ -753,7 +753,7 @@ pub fn generate(
         string_literal(&source.to_string_lossy())
     } else {
         format!(
-            "global::System.IO.Path.Combine(global::System.AppContext.BaseDirectory, {})",
+            "global::System.IO.Path.Combine(global::Slint.Generated.GeneratedApi.BaseDirectory, {})",
             string_literal(&runtime_path)
         )
     };

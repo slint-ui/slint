@@ -83,6 +83,12 @@ public sealed record ExpectedApi(
 [EditorBrowsable(EditorBrowsableState.Never)]
 public static class GeneratedApi
 {
+    /// <summary>
+    /// The directory that generated code loads <c>.slint</c> files with relative paths from:
+    /// the application directory, or on Android the directory where <c>SlintActivity</c> extracts them.
+    /// </summary>
+    public static string BaseDirectory { get; internal set; } = AppContext.BaseDirectory;
+
     /// <summary>Compiles <paramref name="path"/>, throwing with the diagnostics if it has errors.</summary>
     public static CompilationResult Load(
         string path,

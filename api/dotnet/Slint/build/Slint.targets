@@ -10,6 +10,7 @@
                                                            and copies the project file and the .slint files under ui
 
   A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
+  On Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup.
 
   Properties:
     SlintCompilerPath   the slint-compiler binary; defaults to the one of the Slint.Compiler package,
@@ -26,7 +27,7 @@
   Library paths, for imports such as "@mylib/widgets.slint", relative to the project; for SlintFile items only:
     <SlintLibraryPath Include="mylib" Path="../mylib/" />
     SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
-                        a file that refers to images outside the project
+                        a file that refers to images outside the project; not on Android, where the source isn't
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
                         and reload components when the files change; for development only.
                         LivePreview metadata on a SlintFile overrides it for that file.
@@ -41,6 +42,7 @@
     <SlintCompilerPath Condition="'$(SlintCompilerPath)' == '' and Exists('$(_SlintRepositoryCompiler)')">$([System.IO.Path]::GetFullPath('$(_SlintRepositoryCompiler)'))</SlintCompilerPath>
     <SlintCompilerPath Condition="'$(SlintCompilerPath)' == ''">slint-compiler</SlintCompilerPath>
     <SlintNamespace Condition="'$(SlintNamespace)' == ''">$(RootNamespace)</SlintNamespace>
+    <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(TargetPlatformIdentifier)' != 'android'">true</_SlintFromSource>
   </PropertyGroup>
 
   <ItemGroup>
@@ -75,7 +77,7 @@
       <_SlintGenerate Include="@(_SlintAssigned)" Condition="'%(_SlintAssigned.Generate)' != 'false'">
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintAssigned.TargetPath).g.cs</GeneratedFile>
         <RuntimePath>%(_SlintAssigned.TargetPath)</RuntimePath>
-        <RuntimePath Condition="'$(SlintCopyToOutput)' == 'false'">%(_SlintAssigned.FullPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintAssigned.FullPath)</RuntimePath>
         <LiveOption Condition="'%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
@@ -90,7 +92,7 @@
         <IsProject>true</IsProject>
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintProjectDir.TargetPath)/slint-project.g.cs</GeneratedFile>
         <RuntimePath>%(_SlintProjectDir.TargetPath)</RuntimePath>
-        <RuntimePath Condition="'$(SlintCopyToOutput)' == 'false'">%(_SlintProjectDir.FullPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintProjectDir.FullPath)</RuntimePath>
         <LiveOption Condition="'%(_SlintProjectDir.LivePreview)' == 'true' or ('%(_SlintProjectDir.LivePreview)' == '' and '$(SlintLivePreview)' == 'true')"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
@@ -131,6 +133,20 @@
     <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)" />
     <!-- slint-compiler leaves an output that didn't change as it is, which would keep it older than the inputs. -->
     <Touch Files="@(_SlintGenerate->'%(GeneratedFile)')" />
+  </Target>
+
+  <!-- The output directory isn't part of an APK, so the files go into its assets, at the paths that the generated code loads. -->
+  <Target Name="_SlintAndroidAssets" BeforeTargets="_ComputeAndroidAssetsPaths" DependsOnTargets="_SlintPrepare"
+          Condition="'$(TargetPlatformIdentifier)' == 'android'">
+    <ItemGroup>
+      <AndroidAsset Include="@(_SlintAssigned)" LogicalName="slint/%(_SlintAssigned.TargetPath)" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_SlintProjectSource)' != ''">
+      <_SlintProjectAsset Include="@(_SlintProjectSource)">
+        <LogicalName>slint/$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</LogicalName>
+      </_SlintProjectAsset>
+      <AndroidAsset Include="@(_SlintProjectAsset)" />
+    </ItemGroup>
   </Target>
 
   <Target Name="_SlintAddGenerated" BeforeTargets="CoreCompile;BeforeCompile" DependsOnTargets="SlintGenerate">
