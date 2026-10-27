@@ -344,8 +344,9 @@ Done:
   - `imagefilter`, `plotter`, and `maps`, whose images come from pixels and downloads, with filters and a 3D plot in plain C#.
   - `weather-demo`, a `launcher` of the C# ports, and `examples/dotnet-viewer` for the samples without logic.
   - `examples/lols`, a port of the [LOLs per second](https://github.com/jonathanpeppers/lols) test, also for Android.
-    The `slint` branch of the [lols fork](https://github.com/yurkinh/lols/tree/slint) has the Java, .NET for Android, MAUI,
-    and Flutter versions, updated to build today, and `scripts/compare-android.sh`, which runs them all on a phone.
+    The draft [jonathanpeppers/lols#5](https://github.com/jonathanpeppers/lols/pull/5) proposes it to the original as `src/slint`,
+    built from the `yurkinh.slint.net` package, next to the Java, .NET for Android, MAUI, and Flutter versions,
+    updated to build today, and `scripts/compare-android.sh`, which runs them all on a phone.
   - The ports needed `Window.DispatchEvent`, `DataTransfer.UserData`, `FilterModel` and `SortModel` with `SourceRow` and `Reset`,
     `Keys.ToParts`, the `Image` functions for pixels and data, and tray icon components without `Window` and `Run`.
   - Not ported: the samples for embedded platforms, GPU textures, and native media,
@@ -386,7 +387,7 @@ Next:
   - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
     the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
     Published in 1.19.0-preview.7, and tested on a Motorola edge 60 neo.
-    - Android's activity events, such as saving and restoring state, like `init_with_event_listener` in Rust.
+    - Done for the next preview: Android's activity events, such as saving and restoring state, like `init_with_event_listener` in Rust.
       Android ends the process of an app in the background when it needs memory,
       and starts a new one with the state the app saved when the user returns,
       and `SlintActivity` also ends the process when Android destroys the activity.
@@ -395,7 +396,7 @@ Next:
       and `SlintPause`, `SlintResume`, and `SlintLowMemory` report the other events.
       The bytes go through a buffer that C# fills with `slint_dotnet_android_state_set`, so that neither side frees the other's memory.
       `examples/todo/dotnet-android` keeps its list this way, like the Rust version.
-    - Hot reload on Android, to re-test and design with .NET 11.
+    - Next, once .NET 11 is out: hot reload on Android, to re-test and design with it.
       With .NET 10, `dotnet watch` deploys and starts an app, but its Hot Reload agent never connects back,
       for a plain `dotnet new android` app as much as for a Slint one, so C# changes don't apply.
       Live reload of `.slint` files would need the changed files on the device, since the app loads them from its files directory;
