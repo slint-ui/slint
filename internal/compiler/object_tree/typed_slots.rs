@@ -433,7 +433,7 @@ impl Element {
                     ),
                     &se,
                 ),
-                Some(None) => r.borrow_mut().cleared_slots.push(name),
+                Some(None) => r.borrow_mut().empty_slot_assignments.push(name),
                 None => {}
             }
             return;

@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 
-const html = readFileSync(new URL("../view.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../view.html.in", import.meta.url), "utf8");
 const scripts = html.split('<script type="module">');
 assert.equal(scripts.length, 2);
 const script = scripts[1]

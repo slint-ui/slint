@@ -1,0 +1,35 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview: always exposes window(), forbidden for SystemTrayIcon roots
+//ignore: cpp-live-preview
+
+component TrayCounting inherits SystemTrayIcon {
+    in-out property <int> ticks;
+    slot extra << Timer {
+        interval: 1ms;
+        triggered => {
+            root.ticks += 1;
+        }
+    }
+    extra { }
+}
+
+export component TestCase inherits TrayCounting {
+    in-out property <int> kept-ticks: self.ticks;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(10);
+assert!(instance.get_kept_ticks() > 0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(10);
+assert(instance.get_kept_ticks() > 0);
+```
+*/

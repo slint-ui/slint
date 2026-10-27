@@ -1,0 +1,140 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+
+component Counting inherits Rectangle {
+    in-out property <int> ticks;
+    slot content << Timer {
+        interval: 1ms;
+        triggered => {
+            root.ticks += 1;
+        }
+    }
+    VerticalLayout {
+        content { }
+    }
+}
+
+component Middle inherits Rectangle {
+    in-out property <int> ticks <=> counting.ticks;
+    slot outer;
+    counting := Counting {
+        content << outer;
+    }
+}
+
+component Filling inherits Counting {
+    in-out property <int> derived-ticks;
+    content << Timer {
+        interval: 1ms;
+        triggered => {
+            root.derived-ticks += 1;
+        }
+    }
+}
+
+component TabCounting inherits TabWidget {
+    in-out property <int> ticks;
+    slot extra << Timer {
+        interval: 1ms;
+        triggered => {
+            root.ticks += 1;
+        }
+    }
+    Tab {
+        title: "Tab";
+    }
+    extra { }
+}
+
+export component TestCase inherits Window {
+    in-out property <int> kept-ticks: kept.ticks;
+    in-out property <int> replaced-ticks: replaced.ticks;
+    in-out property <int> cleared-ticks: cleared.ticks;
+    in-out property <int> forwarded-ticks: forwarded.ticks;
+    in-out property <int> forwarded-kept-ticks: forwarded-kept.ticks;
+    in-out property <int> derived-base-ticks: derived.ticks;
+    in-out property <int> derived-ticks: derived.derived-ticks;
+    in-out property <int> derived-replaced-ticks: derived-replaced.ticks + derived-replaced.derived-ticks;
+    in-out property <int> supplied-base-ticks: supplied.ticks;
+    in-out property <int> supplied-ticks;
+    in-out property <int> tab-kept-ticks: tab-kept.ticks;
+    in-out property <int> tab-cleared-ticks: tab-cleared.ticks;
+
+    VerticalLayout {
+        kept := Counting { }
+
+        replaced := Counting {
+            content << Rectangle { }
+        }
+
+        cleared := Counting {
+            content << { }
+        }
+
+        forwarded := Middle {
+            outer << Rectangle { }
+        }
+
+        forwarded-kept := Middle { }
+
+        derived := Filling { }
+
+        derived-replaced := Filling {
+            content << Rectangle { }
+        }
+
+        supplied := Counting {
+            content << Timer {
+                interval: 1ms;
+                triggered => {
+                    root.supplied-ticks += 1;
+                }
+            }
+        }
+
+        tab-kept := TabCounting { }
+
+        tab-cleared := TabCounting {
+            extra << { }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(10);
+assert!(instance.get_kept_ticks() > 0);
+assert_eq!(instance.get_replaced_ticks(), 0);
+assert_eq!(instance.get_cleared_ticks(), 0);
+assert_eq!(instance.get_forwarded_ticks(), 0);
+assert!(instance.get_forwarded_kept_ticks() > 0);
+assert_eq!(instance.get_derived_base_ticks(), 0);
+assert!(instance.get_derived_ticks() > 0);
+assert_eq!(instance.get_derived_replaced_ticks(), 0);
+assert_eq!(instance.get_supplied_base_ticks(), 0);
+assert!(instance.get_supplied_ticks() > 0);
+assert!(instance.get_tab_kept_ticks() > 0);
+assert_eq!(instance.get_tab_cleared_ticks(), 0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::mock_elapsed_time(10);
+assert(instance.get_kept_ticks() > 0);
+assert_eq(instance.get_replaced_ticks(), 0);
+assert_eq(instance.get_cleared_ticks(), 0);
+assert_eq(instance.get_forwarded_ticks(), 0);
+assert(instance.get_forwarded_kept_ticks() > 0);
+assert_eq(instance.get_derived_base_ticks(), 0);
+assert(instance.get_derived_ticks() > 0);
+assert_eq(instance.get_derived_replaced_ticks(), 0);
+assert_eq(instance.get_supplied_base_ticks(), 0);
+assert(instance.get_supplied_ticks() > 0);
+assert(instance.get_tab_kept_ticks() > 0);
+assert_eq(instance.get_tab_cleared_ticks(), 0);
+```
+*/

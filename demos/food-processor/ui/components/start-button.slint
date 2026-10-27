@@ -1,28 +1,30 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { Styles } from "../styles.slint";
+
 export component StartButton {
     callback clicked <=> ta.clicked;
 
     HorizontalLayout {
-        spacing: 8px;
+        spacing: Styles.spacing-md;
         alignment: center;
 
         Image {
             source: @image-url("../images/play.svg");
             colorize: white;
-            width: 15px;
+            width: Styles.medium-icon-size;
         }
 
         Text {
-            font-size: 8pt;
+            font-size: Styles.regular-font-size;
             font-weight: FontWeight.bold;
             color: white;
             text: "Start Recipe";
-            letter-spacing: 0.1px;
+            letter-spacing: 0.2px;
             vertical-alignment: center;
         }
     }
 
-    ta := TouchArea {}
+    ta := TouchArea { }
 }
