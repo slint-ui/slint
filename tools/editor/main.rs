@@ -637,7 +637,7 @@ async fn activate_project(
     // Or manually in switch_project.
     session.attach_preview(to_previews[PRIMARY_PREVIEW_INDEX].clone(), Some(component), root);
     session.attach_preview(to_previews[RUN_PREVIEW_INDEX].clone(), None, None);
-    if let Err(error) = sync_file_watcher_if_needed(watcher, &session, &project_root, &mut None) {
+    if let Err(error) = sync_file_watcher_if_needed(watcher, &session, project_root, &mut None) {
         tracing::warn!("Failed to watch project: {error}");
     }
 
