@@ -231,7 +231,7 @@ jobs:
                     #- "https://github.com/SergioGasquez/espup-slint"
 
                 sub_path: ["."]
-                os: ["ubuntu-24.04"]
+                os: ["ubuntu-26.04"]
 
         runs-on: "ubuntu-latest"
         steps:
