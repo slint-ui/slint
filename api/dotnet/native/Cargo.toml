@@ -20,7 +20,14 @@ name = "slint_dotnet"
 
 [features]
 # Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
-default = ["backend-linuxkms-libinput", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility", "live-preview"]
+default = [
+  "backend-linuxkms-libinput",
+  "backend-winit",
+  "renderer-femtovg",
+  "renderer-skia",
+  "accessibility",
+  "live-preview",
+]
 
 backend-qt = ["slint-interpreter/backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit"]
