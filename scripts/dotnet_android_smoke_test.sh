@@ -31,7 +31,7 @@ reconnect
 
 # SlintActivity logs an exception of SlintMain under the tag Slint, and the app then ends.
 # Logcat names a crashed process by the last 15 characters of its name, and other processes crash on emulators too.
-errors=$(adb logcat -d | grep -E " E Slint +:|RustStdoutStderr|Fatal signal.*\\(${app: -15}\\)" || true)
+errors=$(adb logcat -d | grep -E " E Slint +:|RustStdoutStderr: .*panicked|Fatal signal.*\\(${app: -15}\\)" || true)
 pid=$(adb shell pidof "$app" | tr -d '\r' || true)
 if [ -z "$pid" ] || [ -n "$errors" ]; then
     [ -z "$pid" ] && echo "$app isn't running after $seconds seconds"
