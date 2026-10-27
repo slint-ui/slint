@@ -81,34 +81,47 @@ public abstract unsafe class Model<T> : IReadOnlyList<T>, INativeModel
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>Tells Slint that the row <paramref name="row"/> changed.</summary>
-    protected void NotifyRowChanged(int row) => Notify(
-        new ModelChange(ModelChangeKind.Changed, row, 1),
-        weak => NativeMethods.slint_dotnet_model_notify_row_changed(weak, (nuint)row));
+    protected void NotifyRowChanged(int row)
+    {
+        Changed?.Invoke(new ModelChange(ModelChangeKind.Changed, row, 1));
+        if (_weak != null)
+        {
+            NativeError.Check(NativeMethods.slint_dotnet_model_notify_row_changed(_weak, (nuint)row));
+        }
+    }
 
     /// <summary>Tells Slint that <paramref name="count"/> rows were inserted at <paramref name="index"/>.</summary>
-    protected void NotifyRowAdded(int index, int count) => Notify(
-        new ModelChange(ModelChangeKind.Added, index, count),
-        weak => NativeMethods.slint_dotnet_model_notify_row_added(weak, (nuint)index, (nuint)count));
+    protected void NotifyRowAdded(int index, int count)
+    {
+        Changed?.Invoke(new ModelChange(ModelChangeKind.Added, index, count));
+        if (_weak != null)
+        {
+            NativeError.Check(NativeMethods.slint_dotnet_model_notify_row_added(_weak, (nuint)index, (nuint)count));
+        }
+    }
 
     /// <summary>Tells Slint that <paramref name="count"/> rows were removed at <paramref name="index"/>.</summary>
-    protected void NotifyRowRemoved(int index, int count) => Notify(
-        new ModelChange(ModelChangeKind.Removed, index, count),
-        weak => NativeMethods.slint_dotnet_model_notify_row_removed(weak, (nuint)index, (nuint)count));
+    protected void NotifyRowRemoved(int index, int count)
+    {
+        Changed?.Invoke(new ModelChange(ModelChangeKind.Removed, index, count));
+        if (_weak != null)
+        {
+            NativeError.Check(NativeMethods.slint_dotnet_model_notify_row_removed(_weak, (nuint)index, (nuint)count));
+        }
+    }
 
     /// <summary>Tells Slint that all rows changed.</summary>
-    protected void NotifyReset() => Notify(new ModelChange(ModelChangeKind.Reset, 0, 0), NativeMethods.slint_dotnet_model_notify_reset);
+    protected void NotifyReset()
+    {
+        Changed?.Invoke(new ModelChange(ModelChangeKind.Reset, 0, 0));
+        if (_weak != null)
+        {
+            NativeError.Check(NativeMethods.slint_dotnet_model_notify_reset(_weak));
+        }
+    }
 
     /// <summary>The changes that the <c>Notify</c> methods report, for the adapters in <see cref="ModelAdapters"/>.</summary>
     internal event Action<ModelChange>? Changed;
-
-    private void Notify(ModelChange change, Func<ModelWeakHandle, bool> notify)
-    {
-        Changed?.Invoke(change);
-        if (_weak != null)
-        {
-            NativeError.Check(notify(_weak));
-        }
-    }
 
     private protected virtual nint ToNativeValue()
     {
