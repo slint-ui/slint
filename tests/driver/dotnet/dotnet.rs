@@ -35,7 +35,7 @@ pub fn test(identifier: &str, edition: Option<&str>) -> Result<(), Box<dyn Error
         .arg(identifier)
         .env("SLINT_BACKEND", "testing")
         // The generated code compiles the case again at run time, which needs the same settings.
-        .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
+        .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", test_driver_lib::ALL_EXPERIMENTAL_FEATURES)
         .env("SLINT_EDITION", edition.unwrap_or(env!("SLINT_EDITION")))
         .output()?;
     if output.status.success() {
