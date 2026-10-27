@@ -485,7 +485,9 @@ export class DoxygenConverter {
             slug: slugFor(name),
             members: funcGroups.get(name) ?? [],
         }));
-        return { functions, enums };
+        const byName = (a: MemberPage, b: MemberPage): number =>
+            a.name.localeCompare(b.name);
+        return { functions: functions.sort(byName), enums: enums.sort(byName) };
     }
 
     // --- page rendering -----------------------------------------------------
@@ -601,10 +603,12 @@ export class DoxygenConverter {
             }
             out.push("", `## ${heading}`);
             for (const page of pages) {
+                const href = relativeUrl(this.currentSlug, page.slug);
                 out.push(
                     this.listItem(
-                        `[${page.name}](${relativeUrl(this.currentSlug, page.slug)})`,
-                        child(page.members[0], "briefdescription"),
+                        `[${page.name}](${href})`,
+                        href,
+                        page.members[0],
                     ),
                 );
             }
@@ -657,9 +661,27 @@ export class DoxygenConverter {
             : `\`${text}\``;
     }
 
-    private listItem(link: string, brief: XmlElement | undefined): string {
-        const summary = firstLine(this.renderBlocks(brief));
-        return summary ? `- ${link}: ${summary}` : `- ${link}`;
+    /**
+     * A list entry linking to an item, followed by its brief description.
+     * Doxygen only makes a one-line `///` comment the brief, so for a longer
+     * comment this takes the first sentence of the detailed description.
+     */
+    private listItem(
+        link: string,
+        href: string | undefined,
+        item: XmlElement | undefined,
+    ): string {
+        const brief = firstLine(
+            this.renderBlocks(item && child(item, "briefdescription")),
+        );
+        const summary =
+            brief ||
+            firstSentence(
+                this.renderBlocks(item && child(item, "detaileddescription")),
+            );
+        // The entry already links to the item, so unlink its own name.
+        const text = href ? unlink(summary, href) : summary;
+        return text ? `- ${link}: ${text}` : `- ${link}`;
     }
 
     /** List the nested namespaces and classes/structs of a compound, with links to their pages. */
@@ -671,14 +693,9 @@ export class DoxygenConverter {
                 ? name.slice(entry.name.length + 2)
                 : name;
             const target = this.compoundTargets.get(el.attrs.refid);
-            const text = target
-                ? `[${display}](${relativeUrl(this.currentSlug, target.slug)})`
-                : `\`${display}\``;
-            const inner = this.loadCompound(el.attrs.refid);
-            return this.listItem(
-                text,
-                inner && child(inner, "briefdescription"),
-            );
+            const href = target && relativeUrl(this.currentSlug, target.slug);
+            const text = href ? `[${display}](${href})` : `\`${display}\``;
+            return this.listItem(text, href, this.loadCompound(el.attrs.refid));
         };
 
         const namespaces = children(def, "innernamespace");
@@ -1393,6 +1410,26 @@ function frontmatterString(value: string): string {
 function firstLine(markdown: string): string {
     const line = markdown.split("\n").find((l) => l.trim().length > 0) ?? "";
     return collapse(line.trim());
+}
+
+/** The first sentence of the first paragraph, skipping code blocks, headings, lists, and asides. */
+function firstSentence(markdown: string): string {
+    const paragraph =
+        markdown
+            .split("\n\n")
+            .find((block) => !/^\s*(```|#|:::|[-*|>]|\d+\.)/.test(block)) ?? "";
+    const text = collapse(paragraph);
+    // A sentence ends before a capital letter, which skips "e.g." and "i.e.".
+    return text.match(/^.*?[.!?](?=\s+[A-Z`[]|$)/)?.[0] ?? text;
+}
+
+/** Replace the Markdown links to `href` by their label. */
+function unlink(markdown: string, href: string): string {
+    const escaped = href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return markdown.replace(
+        new RegExp(`\\[([^\\]]*)\\]\\(${escaped}\\)`, "g"),
+        "$1",
+    );
 }
 
 function collapse(text: string): string {
