@@ -240,6 +240,13 @@ export global InspectorContext {
         return InspectorContext.commit-code(property-name, value + "px");
     }
 
+    public function commit-size-code(property-name: string, value: string) -> bool {
+        if !value.is-float() || value.to-float() <= 0 {
+            return false;
+        }
+        return InspectorContext.commit-px-code(property-name, value);
+    }
+
     public pure function field-key(property-name: string) -> string {
         return InspectorContext.inspector-key + ":" + property-name;
     }
