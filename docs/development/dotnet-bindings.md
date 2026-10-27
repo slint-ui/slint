@@ -148,6 +148,7 @@ which uses the test fonts and reports Windows as the operating system, like the 
 It passes the include and library paths and the bundled translations of a case like the other drivers do.
 Like them, it sets `SLINT_EDITION` to the edition of this Slint, for the compiler and for the runner,
 since layout fixes such as #407 only apply from edition 1.19.
+A case with a `//slint-edition:` line gets that edition instead, at generation and in its runner process.
 
 The ```` ```csharp ```` blocks of a case go into `cases/<case>.test.cs`, which the runner calls after the `test` check.
 The runner is the assembly `Slint.TestDriver`, which sees the internal `Slint.Testing`.
@@ -315,6 +316,10 @@ Done:
 - **16.** A smoke test of the sample ports in CI, see [Samples](#samples).
   It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
   It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
+- **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
+  Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
+  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
+  The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
 
 Next:
 
@@ -325,10 +330,6 @@ Next:
   extends the README with deployment, troubleshooting, and samples.
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
-- **14.** The upstream pull request, once the maintainers agree in #3550:
-  squash the branch, with the official `Slint` package IDs and a `ChangeLog:` trailer.
-  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
-  The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
 - **17.** Platforms beyond the desktop: packages for Android and iOS, and a test of the `linuxkms` backend on embedded Linux.
   The packages ship the native library for macOS, Linux, and Windows only.
 - **18.** Rendering notifiers and textures from OpenGL or WGPU, which the samples `opengl_texture`, `opengl_underlay`,

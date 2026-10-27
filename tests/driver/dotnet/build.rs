@@ -24,6 +24,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let ignored = testcase.is_ignored("csharp") || testcase.is_ignored("interpreter");
         let identifier = testcase.identifier();
+        let source = std::fs::read_to_string(&testcase.absolute_path)?;
+        let edition = test_driver_lib::extract_slint_edition(&source);
         if !ignored {
             writeln!(cases_file, "{identifier}\t{}", testcase.absolute_path.display())?;
         }
@@ -34,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[test]
             {ignore}
             fn test_dotnet_{identifier}() {{
-                dotnet::test("{identifier}").unwrap();
+                dotnet::test("{identifier}", {edition:?}).unwrap();
             }}
         "##,
             ignore = if ignored { "#[ignore]" } else { "" },

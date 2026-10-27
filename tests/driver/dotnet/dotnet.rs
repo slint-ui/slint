@@ -26,7 +26,7 @@ struct Batch {
 
 static BATCH: LazyLock<Batch> = LazyLock::new(build_batch);
 
-pub fn test(identifier: &str) -> Result<(), Box<dyn Error>> {
+pub fn test(identifier: &str, edition: Option<&str>) -> Result<(), Box<dyn Error>> {
     if let Some(failure) = BATCH.failures.get(identifier) {
         return Err(failure.clone().into());
     }
@@ -36,7 +36,7 @@ pub fn test(identifier: &str) -> Result<(), Box<dyn Error>> {
         .env("SLINT_BACKEND", "testing")
         // The generated code compiles the case again at run time, which needs the same settings.
         .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
-        .env("SLINT_EDITION", env!("SLINT_EDITION"))
+        .env("SLINT_EDITION", edition.unwrap_or(env!("SLINT_EDITION")))
         .output()?;
     if output.status.success() {
         Ok(())
@@ -74,6 +74,9 @@ fn generate(identifier: &str, path: &Path) -> Result<(String, Option<String>, Ca
     });
     let mut config = CompilerConfiguration::new(format.clone());
     config.style = Some(STYLE.into());
+    config.edition = test_driver_lib::parse_slint_edition(&source)
+        .map_err(|e| format!("invalid edition: {e:?}"))?
+        .or(config.edition);
     // Relative to the directory of this crate, which cargo test runs in, like the other drivers.
     config.include_paths =
         test_driver_lib::extract_include_paths(&source).map(PathBuf::from).collect();
