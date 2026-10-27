@@ -375,13 +375,13 @@ Next:
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
 - **17.** Platforms beyond the desktop: packages for Android and iOS, and a test of the `linuxkms` backend on embedded Linux.
-  The published packages ship the native library for macOS, Linux, and Windows; the publish workflow adds Android.
+  The packages ship the native library for macOS, Linux, and Windows, and for Android from 1.19.0-preview.7.
   Both mobile platforms follow the C++ API, where Slint owns the entry point and calls the application's code,
   so neither needs Native AOT or .NET 11.
   - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
     the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
-    Left to do: publishing the package with the Android libraries, a test on a real device,
-    and access to Android's events, such as saving and restoring state, like `init_with_event_listener` in Rust.
+    Published in 1.19.0-preview.7, and tested on a Motorola edge 60 neo.
+    Left to do: access to Android's events, such as saving and restoring state, like `init_with_event_listener` in Rust.
   - iOS next, in about four to five weeks.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
     Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain`,
