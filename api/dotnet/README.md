@@ -193,6 +193,8 @@ todos.Add(new TodoItem { Title = "Write the docs" });
 To show your own data, derive from `Model<T>`,
 and call `NotifyRowChanged`, `NotifyRowAdded`, `NotifyRowRemoved`, or `NotifyReset` when it changes.
 Override `InsertRow` and `RemoveRow` to let `.slint` code add and remove rows, as `ListModel` does.
+Each notification is a call into Slint, so for rows that change many times per frame,
+store the changes and notify each changed row once per frame, as `examples/lols` does.
 
 `Filter`, `Sort`, `Map`, and `Reverse` return views of a model that follow its changes:
 
