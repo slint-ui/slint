@@ -26,11 +26,6 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
    When available, call `preview_slint` with the saved file's absolute `path`, then `get_preview_screenshot` to inspect it.
-   The response only acknowledges the request; check for `ready`, following the screenshot tool's instructions for `pending` and `timeout`.
-   After a crash, preserve the diagnostic and tell the user; a new `preview_slint` call starts a fresh interpreter.
-   Try one justified retry or a small preview workaround, preserving the requested UI and behavior.
-   Stop identical crash loops, and verify recovery with `get_preview_screenshot`; a native render does not verify the plugin preview.
-   If recovery fails, explain the limitation and offer a bug report with the runtime version, diagnostic, and minimal reproducer.
    Use `slint-viewer --screenshot` if the host lacks MCP Apps support.
 4. Share the render when the host supports it: inline the screenshot in chat
    apps, or print its absolute path and summarize the visual checks in CLI-only
