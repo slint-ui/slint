@@ -658,13 +658,6 @@ SPDX-License-Identifier = "CC-BY-4.0"
 SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f9c2.svg. Artwork unchanged; whitespace normalized."
 
 [[annotations]]
-path = "demos/food-processor/ui/images/ingredients/soy.svg"
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
-SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/sesame_oil.svg in https://opengameart.org/sites/default/files/food_0.7z. ViewBox trimmed and colors changed for soy sauce."
-
-[[annotations]]
 path = "demos/food-processor/ui/images/ingredients/spinach.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
