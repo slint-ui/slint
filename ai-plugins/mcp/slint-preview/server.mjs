@@ -352,7 +352,8 @@ const toolCalls = {
 };
 
 function readView() {
-    return readFileSync(new URL("view.html", import.meta.url), "utf8");
+    // The .in suffix prevents Codex from offering this MCP App template as a standalone website.
+    return readFileSync(new URL("view.html.in", import.meta.url), "utf8");
 }
 
 const handlers = {
