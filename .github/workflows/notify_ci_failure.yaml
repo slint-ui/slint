@@ -82,6 +82,8 @@ jobs:
                   RUN_ID: ${{ github.event.workflow_run.id }}
                   WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
                   HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+              # Unlike the default, an explicit bash adds pipefail.
+              shell: bash
               run: |
                   mkdir -p .triage/logs
                   gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
@@ -89,9 +91,12 @@ jobs:
                           | {id, name, html_url, failed_steps: [.steps[] | select(.conclusion == "failure") | .name]}' \
                       | jq -s . > .triage/failed_jobs.json
                   # A broken build fails dozens of matrix jobs with the same error.
+                  # gh refuses to print the color codes of cargo's output unless
+                  # allowed, and they'd get in the way of Grep, so strip them.
                   for id in $(jq -r '.[:20][].id' .triage/failed_jobs.json); do
-                      gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" > ".triage/logs/$id.log" \
-                          || echo "Could not fetch the log of job $id"
+                      gh api --allow-escape-sequences "repos/$GITHUB_REPOSITORY/actions/jobs/$id/logs" \
+                          | sed 's/\x1b\[[0-9;]*[A-Za-z]//g' > ".triage/logs/$id.log" \
+                          || echo "::warning::Could not fetch the log of job $id"
                   done
 
                   last_green=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$WORKFLOW_ID/runs?branch=master&event=workflow_dispatch&status=success&per_page=1" \
