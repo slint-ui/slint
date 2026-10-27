@@ -282,7 +282,7 @@ pub fn check_no_reference_to_popup(
     });
 }
 
-fn report_access(
+pub fn report_access(
     element: &ElementRc,
     diag: &mut BuildDiagnostics,
     popup_window_element: &ElementRc,

@@ -5,40 +5,56 @@ export component Test inherits Window {
     // Access a named text-mode tooltip's text property.
     Rectangle {
         tt := Tooltip {
-//            >      <error{Cannot access property or callback 'tt.text' inside of a Tooltip from enclosing component}
             text: @markdown("Hello");
         }
     }
     property <styled-text> val: tt.text;
+//                              >      <error{Cannot access property or callback 'tt.text' inside of a Tooltip from enclosing component}
 
     // Access a named tooltip's text property from a separate parent.
     Rectangle {
         tt2 := Tooltip {
-//             >      <error{Cannot access property or callback 'tt2.text' inside of a Tooltip from enclosing component}
             text: @markdown("tip");
         }
     }
     property <styled-text> d: tt2.text;
+//                            >       <error{Cannot access property or callback 'tt2.text' inside of a Tooltip from enclosing component}
 
-    // Multiple references to the same tooltip property produce multiple errors.
+    // Each tooltip property is reported once, at its first access.
     Rectangle {
         tt3 := Tooltip {
-//             >      <error{Cannot access property or callback 'tt3.text' inside of a Tooltip from enclosing component}
-//             >      <^error{Cannot access property or callback 'tt3.text' inside of a Tooltip from enclosing component}
             text: @markdown("multi");
         }
     }
     property <styled-text> a: tt3.text;
+//                            >       <error{Cannot access property or callback 'tt3.text' inside of a Tooltip from enclosing component}
     property <styled-text> b: tt3.text;
+
+    // Two-way bindings and change callbacks are reported at the access too.
+    Rectangle {
+        tt5 := Tooltip {
+            text: @markdown("two-way");
+        }
+    }
+    Rectangle {
+        tt6 := Tooltip {
+            text: @markdown("changed");
+        }
+    }
+    property <styled-text> two-way <=> tt5.text;
+//                                 >           <error{Cannot access property or callback 'tt5.text' inside of a Tooltip from enclosing component}
+    property <styled-text> changed-target;
+    changed val => { changed-target = tt6.text; }
+//                                    >      <error{Cannot access property or callback 'tt6.text' inside of a Tooltip from enclosing component}
 
     // Named custom-content tooltip — access the tooltip element itself.
     Rectangle {
         tt4 := Tooltip {
-//             >      <error{Cannot access property or callback 'tt4.text' inside of a Tooltip from enclosing component}
             Rectangle { background: red; }
         }
     }
     property <styled-text> cd: tt4.text;
+//                             >       <error{Cannot access property or callback 'tt4.text' inside of a Tooltip from enclosing component}
 
     // Access a named child inside a custom-content tooltip.
     Rectangle {
