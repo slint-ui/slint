@@ -172,7 +172,7 @@ pub(crate) struct SlintContextInner {
 
     pub(crate) log_message_handler: RefCell<Option<crate::debug_log::LogMessageHandler>>,
     #[cfg(feature = "shared-parley")]
-    font_context: crate::font_collection::LazyFontContext,
+    pub(crate) font_context: core::cell::RefCell<crate::textlayout::sharedparley::FontContext>,
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
 
@@ -228,6 +228,9 @@ impl SlintContext {
         platform_context: core::pin::Pin<Rc<PlatformContext>>,
         timers: crate::timers::TimerListRc,
     ) -> Self {
+        #[cfg(feature = "shared-parley")]
+        let collection = crate::font_collection::take_or_create();
+
         let this = Self(Rc::pin(SlintContextInner {
             platform_context,
 
@@ -242,7 +245,15 @@ impl SlintContext {
 
             log_message_handler: Default::default(),
             #[cfg(feature = "shared-parley")]
-            font_context: crate::font_collection::LazyFontContext::new(),
+            font_context: {
+                let font_context = parley::FontContext {
+                    collection: collection.inner,
+                    source_cache: collection.source_cache,
+                };
+                core::cell::RefCell::new(crate::textlayout::sharedparley::FontContext::new(
+                    font_context,
+                ))
+            },
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             timers,
@@ -287,17 +298,7 @@ impl SlintContext {
     pub fn font_context(
         &self,
     ) -> &core::cell::RefCell<crate::textlayout::sharedparley::FontContext> {
-        self.0.font_context.get()
-    }
-
-    /// Makes this context use `collection` instead of discovering the system fonts.
-    /// Fails once the context has used its fonts.
-    #[cfg(feature = "shared-parley")]
-    pub fn set_font_collection(
-        &self,
-        collection: i_slint_common::sharedfontique::fontique::Collection,
-    ) -> Result<(), PlatformError> {
-        self.0.font_context.set_collection(collection)
+        &self.0.font_context
     }
 
     /// Return a reference to the swash scale context

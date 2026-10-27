@@ -797,26 +797,34 @@ pub mod fontique_012 {
     /// Slint uses the collection as is and adds the fonts that `.slint` files import.
     /// Create it with `system_fonts: false` to skip system font discovery.
     ///
-    /// Call this before creating components or calling [`shared_collection()`].
-    /// Returns an error if the context already uses its font collection.
-    /// Like [`shared_collection()`], this initializes the default backend if no platform is set.
-    /// A default backend starts discovering system fonts in the background, and Slint discards the result.
+    /// Call this before Slint initializes the platform, for example by creating a component
+    /// or by calling [`set_platform()`](crate::platform::set_platform).
+    /// Returns an error if the platform is already initialized.
     ///
     /// To register fonts after this call, use the collection returned by [`shared_collection()`].
+    ///
+    /// The example below makes a font that ships with the application the default font:
     ///
     /// ```rust,no_run
     /// use slint::fontique_012::fontique;
     ///
-    /// let collection = fontique::Collection::new(fontique::CollectionOptions {
+    /// let mut collection = fontique::Collection::new(fontique::CollectionOptions {
     ///     system_fonts: false,
     ///     ..Default::default()
     /// });
+    /// let font_data = std::fs::read("fonts/MyFont.ttf")?;
+    /// let fonts = collection.register_fonts(fontique::Blob::new(std::sync::Arc::new(font_data)), None);
+    /// // Text without a `font-family` uses the generic sans-serif family.
+    /// collection.set_generic_families(
+    ///     fontique::GenericFamily::SansSerif,
+    ///     fonts.iter().map(|(family_id, _)| *family_id),
+    /// );
     /// slint::fontique_012::set_shared_collection(collection)?;
-    /// # Ok::<(), slint::PlatformError>(())
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn set_shared_collection(
         collection: fontique::Collection,
     ) -> Result<(), crate::PlatformError> {
-        i_slint_backend_selector::with_global_context(|ctx| ctx.set_font_collection(collection))?
+        i_slint_core::font_collection::supply(collection)
     }
 }
