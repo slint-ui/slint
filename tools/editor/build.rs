@@ -9,5 +9,7 @@ fn main() {
         .unwrap();
     // TODO: Find a way to configure the gallery's slint! macro from the project file.
     // slint-build configures only its own compilation.
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!(
+        "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=interfaces,shadowable,closures,named-slots,custom-mouse-cursor,component-container"
+    );
 }

@@ -2127,7 +2127,10 @@ export component TestCase inherits Window {
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         config.style = Some("fluent".into());
         config.debug_info = debug_info;
-        config.enable_experimental = true;
+        config.experimental_features =
+            [crate::ExperimentalFeature::Testable, crate::ExperimentalFeature::Shadowable]
+                .into_iter()
+                .collect();
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             source.into(),
