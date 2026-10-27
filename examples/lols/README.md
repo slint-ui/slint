@@ -33,16 +33,19 @@ adb logcat -s Lols
 
 The app prints the final rate when all lols are in.
 Release builds with .NET 10 on a Motorola edge 60 neo with Android 16,
-next to the original apps from the `main` and `canvas` branches of LOLs per second:
+next to the original apps from the `main` and `canvas` branches of LOLs per second,
+and a [Flutter version](https://github.com/yurkinh/lols/tree/slint/src/flutter) with the same modes:
 
 | App | One label per lol, 5,000 | Canvas, 100,000 |
 | --- | --- | --- |
 | Java, `TextView` | 625 LOL/s | |
 | .NET for Android, `TextView` | 587 LOL/s | 161,656 LOL/s, one `View` drawing on a `Canvas` |
 | .NET MAUI, `Label` | 271 LOL/s, with 2 ms sleeps | |
+| Flutter, `Text` widgets and a `CustomPainter` | 880 LOL/s, `elements` | 153,266 LOL/s, `canvas` |
 | Slint for .NET | 821 LOL/s, `elements` | 95,162 LOL/s, `canvas` |
 
-The originals post each label to the UI thread, while this port applies a frame's worth of lols at once.
+The originals post each label to the UI thread, while the Flutter version and this port apply a frame's worth of lols at once.
+In `canvas`, Flutter keeps each lol in a Dart list, while this port converts each one into a Slint struct through the native library.
 The original canvas version counts a lol when it's queued, and this port when the UI thread has applied it.
 
 The one sleep per lol limits every `elements` rate, so its 821 is close to how long a 1 ms sleep takes on that phone.
