@@ -302,12 +302,22 @@ jobs:
               with:
                   version: 6.5.1
                   cache: true
+            # Corrosion runs cargo with a target directory inside the CMake build tree,
+            # named after the hash of the manifest path that api/cpp/CMakeLists.txt passes,
+            # below the platform and configuration with the Visual Studio generator.
+            # corrosion-rs/corrosion#688 replaces this step with CORROSION_CARGO_TARGET_DIR.
+            - name: Locate the Corrosion target directory
+              id: corrosion
+              shell: bash
+              run: |
+                  printf '%s' "${GITHUB_WORKSPACE//\\//}/api/cpp/../../Cargo.toml" > "$RUNNER_TEMP/manifest-path"
+                  hash=$(cmake -E sha1sum "$RUNNER_TEMP/manifest-path" | cut -c1-5)
+                  dir=../cppbuild/$([ "$RUNNER_OS" != Windows ] || echo x64/Debug/)cargo/.._$hash
+                  echo "dir=$dir" >> "$GITHUB_OUTPUT"
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: ${{ matrix.rust_version }}
-                  # Corrosion runs cargo with a target directory inside the
-                  # CMake build tree, which the default cache misses
-                  cache-directories: ${{ runner.workspace }}/cppbuild/cargo
+                  cache-workspaces: ". -> ${{ steps.corrosion.outputs.dir }}"
             - uses: TheMrMilchmann/setup-msvc-dev@v4
               if: runner.os == 'Windows'
               with:
