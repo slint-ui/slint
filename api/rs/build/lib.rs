@@ -409,7 +409,7 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 ///
 /// The project file provides the settings that `config` does not specify.
 pub fn compile_with_config(
-    relative_slint_file_path: impl AsRef<std::path::Path>,
+    path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,
 ) -> Result<(), CompileError> {
     let manifest_path = std::path::PathBuf::from(
@@ -417,7 +417,7 @@ pub fn compile_with_config(
     );
     let (input, input_files) = load_input(project_file::resolve_relative_path(
         &manifest_path,
-        relative_slint_file_path.as_ref().to_path_buf(),
+        path.as_ref().to_path_buf(),
     ))?;
 
     let absolute_rust_output_file_path =

@@ -35,6 +35,7 @@ jobs:
     permissions:
       pull-requests: read
       issues: read
+      checks: read
     outputs:
       numbers: ${{ steps.select.outputs.numbers }}
       areas: ${{ steps.select.outputs.areas }}
@@ -57,15 +58,26 @@ jobs:
               return reviews.some(review => review.user?.login !== pr.user.login);
             }
 
-            // Whether someone can push to the repository. Their PRs get a
-            // review from the team anyway, so only triage the others.
-            const writers = new Map();
-            async function hasWriteAccess(login) {
-              if (!writers.has(login)) {
+            // Whether someone is on the team: they can push to the repository,
+            // or have triage access. Their PRs get a review from the team
+            // anyway, so only triage the others. `permission` reports triage
+            // access as `read`; only `role_name` tells it apart.
+            const members = new Map();
+            async function isTeamMember(login) {
+              if (!members.has(login)) {
                 const { data } = await github.rest.repos.getCollaboratorPermissionLevel({ ...context.repo, username: login });
-                writers.set(login, data.permission === 'admin' || data.permission === 'write');
+                members.set(login, data.permission === 'admin' || data.permission === 'write' || data.role_name === 'triage');
               }
-              return writers.get(login);
+              return members.get(login);
+            }
+
+            // The contribution_agreement job in pr_checks.yaml passes once the
+            // author accepted the contribution terms.
+            async function acceptedAgreement(pr) {
+              const { data } = await github.rest.checks.listForRef({
+                ...context.repo, ref: pr.head.sha, check_name: 'contribution_agreement',
+              });
+              return data.check_runs.some(run => run.conclusion === 'success');
             }
 
             const numbers = [];
@@ -84,7 +96,7 @@ jobs:
               if (!manual && await reviewedByOthers(pr)) continue;
 
               // A manual run triages the PR it was asked for, whoever wrote it.
-              if (!manual && await hasWriteAccess(pr.user.login)) continue;
+              if (!manual && (await isTeamMember(pr.user.login) || !await acceptedAgreement(pr))) continue;
               numbers.push(pr.number);
             }
             core.notice(numbers.length ? `Triaging ${numbers.map(n => `#${n}`).join(', ')}` : 'Nothing to triage');

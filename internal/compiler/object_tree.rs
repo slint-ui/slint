@@ -21,7 +21,7 @@ use crate::property_analysis::PropertyAnalysis;
 use crate::source_path::SourcePath;
 use crate::typeloader::{ImportKind, ImportedTypes, LibraryInfo};
 use crate::typeregister::{self, TypeRegister};
-use crate::{parser, reject_experimental_feature};
+use crate::{ExperimentalFeature, parser, reject_experimental_feature};
 use interfaces::ImplementedInterface;
 use itertools::Either;
 use smol_str::{SmolStr, ToSmolStr, format_smolstr};
@@ -648,7 +648,13 @@ impl Component {
                         ElementType::Global
                     }
                     Some(t) if t == "interface" => {
-                        if reject_experimental_feature(diag, tr, "interface", &node) {
+                        if reject_experimental_feature(
+                            diag,
+                            tr,
+                            ExperimentalFeature::Interfaces,
+                            "interface",
+                            &node,
+                        ) {
                             ElementType::Error
                         } else {
                             ElementType::Interface(None)
@@ -666,7 +672,7 @@ impl Component {
             declared_slots: RefCell::new(declared_slots),
             ..Default::default()
         };
-        c.check_slot_validity(diag);
+        c.check_slot_validity(diag, tr);
         let c = Rc::new(c);
         // x and y on a Window are meaningless
         if c.root_element
@@ -713,8 +719,8 @@ impl Component {
         c
     }
 
-    fn check_slot_validity(&self, diagnostics: &mut BuildDiagnostics) {
-        if !diagnostics.enable_experimental {
+    fn check_slot_validity(&self, diagnostics: &mut BuildDiagnostics, tr: &TypeRegister) {
+        if !tr.experimental_features.contains(ExperimentalFeature::NamedSlots) {
             return;
         }
         if self.is_global() || self.is_interface() {
@@ -913,7 +919,15 @@ fn shadowable_attribute(
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    node.is_some_and(|node| !reject_experimental_feature(diag, tr, "@shadowable", &node))
+    node.is_some_and(|node| {
+        !reject_experimental_feature(
+            diag,
+            tr,
+            ExperimentalFeature::Shadowable,
+            "@shadowable",
+            &node,
+        )
+    })
 }
 
 /// The `@testable` attribute (an experimental feature), if the declaration has one.
@@ -922,7 +936,9 @@ fn testable_attribute(
     tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> Option<syntax_nodes::TestableAttribute> {
-    node.filter(|node| !reject_experimental_feature(diag, tr, "@testable", node))
+    node.filter(|node| {
+        !reject_experimental_feature(diag, tr, ExperimentalFeature::Testable, "@testable", node)
+    })
 }
 
 /// The message from a `@deprecated` attribute on a member, empty when the declaration gives no
@@ -1371,8 +1387,7 @@ pub struct Element {
     /// Also set on a root-level assignment to an inherited untyped slot (`name << ...`).
     pub slot_default: Option<SmolStr>,
 
-    /// The untyped slots this element clears with `name << { }`.
-    pub cleared_slots: Vec<SmolStr>,
+    pub empty_slot_assignments: Vec<SmolStr>,
 
     pub typed_slot_interface: Option<Rc<Component>>,
 
@@ -2192,9 +2207,7 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> MatchElementInfo {
-        if !diag.enable_experimental {
-            diag.push_error("match elements are an experimental feature".into(), &node);
-        }
+        reject_experimental_feature(diag, tr, ExperimentalFeature::Match, "match", &node);
         if node.MatchCase().next().is_none() && node.WildcardMatchCase().is_none() {
             diag.push_error("Expected at least one case".into(), &node);
         }
@@ -3082,7 +3095,20 @@ pub fn type_from_node(
             diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
         }
 
-        if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
+        let disabled_feature = (prop_type == Type::Invalid)
+            .then(|| {
+                tr.lookup_qualified_including_disabled(&qualified_type.members)
+                    .experimental_feature()
+            })
+            .flatten();
+        if let Some(feature) = disabled_feature {
+            diag.push_error(
+                crate::experimental_feature_error(&qualified_type.to_smolstr(), feature),
+                &qualified_type_node,
+            );
+        } else if prop_type == Type::Invalid
+            && tr.lookup_element(&qualified_type.to_smolstr()).is_err()
+        {
             diag.push_error(format!("Unknown type '{qualified_type}'"), &qualified_type_node);
         } else if !prop_type.is_property_type() {
             diag.push_error(
@@ -3826,8 +3852,7 @@ fn visit_all_named_references_in_element_dyn(
     }
 }
 
-/// Returns the component of `elem`.
-pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
+fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
     let component = elem.borrow().enclosing_component.upgrade().unwrap();
     let index = parent
         .borrow()
@@ -3844,8 +3869,16 @@ pub fn remove_child_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Componen
     component
 }
 
+pub fn remove_lowered_element(elem: &ElementRc, parent: &ElementRc) -> Rc<Component> {
+    let component = remove_child_element(elem, parent);
+    if let Some(slot) = elem.borrow().slot_target.clone() {
+        parent.borrow_mut().empty_slot_assignments.push(slot);
+    }
+    component
+}
+
 pub fn move_to_optimized_elements(elem: &ElementRc, parent: &ElementRc) {
-    remove_child_element(elem, parent)
+    remove_lowered_element(elem, parent)
         .optimized_elements
         .borrow_mut()
         .push(OptimizedElement { element: elem.clone(), former_parent: Rc::downgrade(parent) });

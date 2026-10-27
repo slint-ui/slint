@@ -480,6 +480,10 @@
       "languageId": "restructuredtext"
     },
     {
+      "filename": "**/*.html.in",
+      "languageId": "html"
+    },
+    {
       "filename": "**/*.slint",
       "languageId": "rust"
     }

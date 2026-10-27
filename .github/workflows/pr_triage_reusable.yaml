@@ -3,8 +3,8 @@
 
 name: PR Triage (Reusable)
 
-# Triages one pull request: labels it, assigns the area maintainers, and posts
-# a first review. Called by pr_triage.yaml.
+# Triages one pull request: labels it, requests a review from the area
+# maintainers, and posts a first review. Called by pr_triage.yaml.
 on:
   workflow_call:
     inputs:
@@ -184,7 +184,7 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - name: Apply labels, assign maintainers, and post the review
+      - name: Apply labels, request reviewers, and post the review
         uses: actions/github-script@v9
         env:
           RESULT: ${{ needs.classify.outputs.result }}
@@ -226,31 +226,31 @@ jobs:
             await github.rest.issues.addLabels({ ...context.repo, issue_number, labels });
 
             // An area label description ends with `(mX,bY)`: maintainer X,
-            // backup Y. Assign the maintainer, or the backup when the
-            // maintainer wrote the PR.
+            // backup Y. Request a review from the maintainer, or the backup
+            // when the maintainer wrote the PR.
             const author = pr.user.login;
-            const assignees = new Map();
+            const reviewers = new Map();
             for (const name of areas) {
               const code = byName.get(name).description?.match(/\(([^()]*)\)\s*$/)?.[1] ?? '';
               const roles = code.split(',').map(s => s.trim()).filter(s => /^[mb][A-Z]$/.test(s));
               const candidates = [...roles.filter(r => r[0] === 'm'), ...roles.filter(r => r[0] === 'b')]
                 .map(r => logins[r[1]])
                 .filter(login => login && login !== author);
-              const assignee = candidates[0];
-              if (assignee) {
-                assignees.set(assignee, [...(assignees.get(assignee) ?? []), name]);
+              const reviewer = candidates[0];
+              if (reviewer) {
+                reviewers.set(reviewer, [...(reviewers.get(reviewer) ?? []), name]);
               }
             }
-            if (assignees.size > 0) {
-              await github.rest.issues.addAssignees({ ...context.repo, issue_number, assignees: [...assignees.keys()] });
+            if (reviewers.size > 0) {
+              await github.rest.pulls.requestReviewers({ ...context.repo, pull_number: issue_number, reviewers: [...reviewers.keys()] });
             }
 
             // The reason and the review come from the model, so keep them from mentioning anyone.
             const noMentions = text => text.replace(/@/g, '@​');
             const lines = [`**Complexity:** ${result.complexity}. ${noMentions(result.complexity_reason)}`];
-            if (assignees.size > 0) {
-              const list = [...assignees].map(([login, names]) => `@${login} (${names.map(n => `\`${n}\``).join(', ')})`);
-              lines.push('', `**Assigned:** ${list.join(', ')}`);
+            if (reviewers.size > 0) {
+              const list = [...reviewers].map(([login, names]) => `@${login} (${names.map(n => `\`${n}\``).join(', ')})`);
+              lines.push('', `**Review requested from:** ${list.join(', ')}`);
             }
             lines.push('', '### First Review', '', noMentions(result.review));
 
@@ -277,7 +277,7 @@ jobs:
               (upToDate && diffLines.get(c.path)?.has(c.line) ? inline : leftover).push(comment);
             }
             const asList = comments => comments.length > 0 ? ['', ...comments.map(c => `- \`${noMentions(c.path)}:${c.line}\`: ${c.body}`)] : [];
-            const footer = ['', '<sub>Automated triage and review. Change the labels and assignees if they\'re wrong.</sub>'];
+            const footer = ['', '<sub>Automated triage and review. Change the labels and reviewers if they\'re wrong.</sub>'];
 
             try {
               await github.rest.pulls.createReview({

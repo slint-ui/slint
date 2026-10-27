@@ -2384,10 +2384,10 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let commits = std::rc::Rc::new(std::cell::Cell::new(0));
         let count = commits.clone();
-        api.on_inspector_fill_commit(move |key, property, _| {
+        api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
             assert_eq!(key, "first");
             assert_eq!(property, "background");
             count.set(count.get() + 1);
@@ -2746,6 +2746,52 @@ mod tests {
     }
 
     #[test]
+    fn progress_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("ProgressIndicator", true),
+            ("Spinner", true),
+            ("Slider", false),
+            ("Rectangle", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            for label in ["Indeterminate", "Progress value"] {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn checked_switch_reads_source_when_runtime_value_is_unresolved() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -2956,7 +3002,7 @@ mod tests {
             .into()
         });
         editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
         for (type_name, horizontal, vertical) in [
             ("Text", true, true),
             ("StyledText", true, true),
@@ -3032,6 +3078,7 @@ mod tests {
                 session_key: ":0:0:0:background".into(),
                 property_name: "background".into(),
                 size: slint::LogicalSize::new(200., 200.),
+                element_rotation: 0.,
             },
             ..Default::default()
         });
@@ -3056,7 +3103,7 @@ mod tests {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
             super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _| true);
+            api.on_inspector_fill_preview(|_, _, _, _, _| true);
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.type_name = "Rectangle".into();
@@ -3152,8 +3199,10 @@ mod tests {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
             super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _| true);
-            api.on_inspector_fill_commit(|_, _, _| panic!("stale sessions must not commit"));
+            api.on_inspector_fill_preview(|_, _, _, _, _| true);
+            api.on_inspector_fill_commit(|_, _, _, _, _, _| {
+                panic!("stale sessions must not commit")
+            });
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
             api.on_inspector_cancel(move || count.set(count.get() + 1));
@@ -3207,7 +3256,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(Default::default());
         let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
@@ -3284,7 +3333,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(super::FillSessionRequest {
             fill: super::FillData {
@@ -3319,7 +3368,7 @@ mod tests {
         assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), stops);
         assert!(session.invoke_preview_fill(snapshot));
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
-        api.on_inspector_fill_preview(|_, _, _| false);
+        api.on_inspector_fill_preview(|_, _, _, _, _| false);
         assert!(!session.invoke_move_stop_position(0.75));
         assert!(!session.get_open());
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
@@ -3349,7 +3398,7 @@ mod tests {
                 ..Default::default()
             });
             let expected = target.clone();
-            api.on_inspector_fill_preview(move |key, property, _| {
+            api.on_inspector_fill_preview(move |key, property, _, _, _| {
                 assert_eq!(key, expected);
                 assert_eq!(property, "background");
                 true
@@ -3359,11 +3408,11 @@ mod tests {
             api.on_inspector_cancel(move || count.set(count.get() + 1));
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
             if reject_preview {
-                api.on_inspector_fill_preview(|_, _, _| false);
+                api.on_inspector_fill_preview(|_, _, _, _, _| false);
                 assert!(!session.invoke_preview_color(slint::Color::from_rgb_u8(0, 255, 0)));
             } else {
                 let expected = target.clone();
-                api.on_inspector_fill_commit(move |key, property, _| {
+                api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
                     assert_eq!(key, expected);
                     assert_eq!(property, "background");
                     false

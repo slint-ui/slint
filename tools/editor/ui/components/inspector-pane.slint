@@ -10,7 +10,7 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
     InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
-    InspectorOrientationSection, InspectorRangeSection, InspectorStandardButtonKindSection,
+    InspectorOrientationSection, InspectorProgressSection, InspectorRangeSection, InspectorStandardButtonKindSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
@@ -82,7 +82,7 @@ export component InspectorPane inherits Rectangle {
 
                 if Api.selection.highlight-index < 0: CanvasPresetsSection { }
 
-                if InspectorContext.is-resizable-selection(): InspectorGeometrySection { }
+                if InspectorContext.has-backend-rect(): InspectorGeometrySection { }
 
                 if (InspectorContext.is-root-selection() || InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection()): InspectorAppearanceSection {
                     pane-width: root.width;
@@ -105,6 +105,8 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
                 if InspectorContext.is-slider-selection() || InspectorContext.is-spinbox-selection(): InspectorRangeSection { }
+
+                if InspectorContext.is-progress-selection(): InspectorProgressSection { }
 
                 if InspectorContext.has-orientation-selection(): InspectorOrientationSection {
                     popup-bottom: root.popup-bottom;

@@ -114,7 +114,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-visual-editor-v1-rust
-                  save_if: ${{ github.ref == 'refs/heads/master' }}
             - name: Test the visual editor
               run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
             - uses: actions/setup-python@v7
@@ -252,7 +251,7 @@ jobs:
 
     cpp_test_driver_32bit:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'widgets') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         env:
             SLINT_NO_QT: 1
             RUSTFLAGS: -D warnings
@@ -302,12 +301,22 @@ jobs:
               with:
                   version: 6.5.1
                   cache: true
+            # Corrosion runs cargo with a target directory inside the CMake build tree,
+            # named after the hash of the manifest path that api/cpp/CMakeLists.txt passes,
+            # below the platform and configuration with the Visual Studio generator.
+            # corrosion-rs/corrosion#688 replaces this step with CORROSION_CARGO_TARGET_DIR.
+            - name: Locate the Corrosion target directory
+              id: corrosion
+              shell: bash
+              run: |
+                  printf '%s' "${GITHUB_WORKSPACE//\\//}/api/cpp/../../Cargo.toml" > "$RUNNER_TEMP/manifest-path"
+                  hash=$(cmake -E sha1sum "$RUNNER_TEMP/manifest-path" | cut -c1-5)
+                  dir=../cppbuild/$([ "$RUNNER_OS" != Windows ] || echo x64/Debug/)cargo/.._$hash
+                  echo "dir=$dir" >> "$GITHUB_OUTPUT"
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: ${{ matrix.rust_version }}
-                  # Corrosion runs cargo with a target directory inside the
-                  # CMake build tree, which the default cache misses
-                  cache-directories: ${{ runner.workspace }}/cppbuild/cargo
+                  cache-workspaces: ". -> ${{ steps.corrosion.outputs.dir }}"
             - uses: TheMrMilchmann/setup-msvc-dev@v4
               if: runner.os == 'Windows'
               with:
@@ -491,22 +500,19 @@ jobs:
     # The slint-sc test programs on the targets of Ferrocene other than
     # x86_64-unknown-linux-gnu, which the docs job runs with the coverage.
     # The targets are the `TARGETS` of api/slint-sc/tests/driver.rs, run in
-    # QEMU. Debian has a QEMU with the Cortex-R52 machine, which Ubuntu 24.04
-    # lacks.
+    # QEMU.
     slint_sc_targets:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
-        runs-on: ubuntu-24.04
-        container: debian:trixie
+        runs-on: ubuntu-26.04
         steps:
-            - name: Install QEMU and the cross compilers
-              run: |
-                  apt-get update
-                  apt-get install -y --no-install-recommends ca-certificates curl git gcc libc6-dev \
-                      qemu-user qemu-system-arm \
-                      gcc-riscv64-linux-gnu libc6-dev-riscv64-cross \
-                      gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross \
-                      gcc-s390x-linux-gnu libc6-dev-s390x-cross
             - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: >-
+                      qemu-user qemu-system-arm
+                      gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+                      gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross
+                      gcc-s390x-linux-gnu libc6-dev-s390x-cross
             - name: List the targets
               id: targets
               shell: bash
@@ -753,13 +759,6 @@ jobs:
               with:
                   version: 6.0.10
             - run: sudo apt-get install -y ninja-build
-            # Until a femtovg release includes femtovg/femtovg#354
-            - name: Use femtovg with Emscripten support
-              run: |
-                  cat >> .cargo/config.toml <<'EOF'
-                  [patch.crates-io]
-                  femtovg = { git = "https://github.com/femtovg/femtovg", rev = "d9f4dde04b89ca37783e10857cb90ce805dbe361" }
-                  EOF
             - name: Configure (default renderers)
               run: emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Debug -DSLINT_BUILD_EXAMPLES=ON
             - name: Build todo example (default renderers)
@@ -900,7 +899,7 @@ jobs:
     # rust-skia has no prebuilt binaries for i686-pc-windows-msvc.
     win32_build:
         if: ${{ inputs.full }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
@@ -944,7 +943,7 @@ jobs:
     # compilation and no system libraries.
     linuxkms_features:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'linuxkms_backend') || contains(fromJSON(inputs.changes), 'api_cpp') }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
@@ -960,7 +959,7 @@ jobs:
     # happens to ship.
     linuxkms_build_matrix:
         if: ${{ inputs.full }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         strategy:
             fail-fast: false
             matrix:
@@ -1053,6 +1052,8 @@ jobs:
                       target: thumbv7em-none-eabihf
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
             fail-fast: false
+        # native_sim compiles against the host's glibc headers,
+        # which Zephyr's `__unused` macro breaks on Ubuntu 26.04.
         runs-on: ubuntu-24.04
         steps:
           - uses: actions/checkout@v7

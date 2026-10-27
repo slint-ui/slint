@@ -3644,3 +3644,199 @@ describe("milestone7", () => {
         });
     });
 });
+
+test.each(["SECTION", "TABLE", "TABLE_CELL"])(
+    "%s raster fallback preserves its type for geometry defaults and validation",
+    async (type) => {
+        const png = new Uint8Array(
+            await readFile("fixtures/authored/odd-size.png"),
+        );
+        const section = {
+            type,
+            id: "section:raster",
+            name: "Raster section",
+            x: -2679,
+            y: 0,
+            width: 40,
+            height: 30,
+            fills: [],
+            children: [],
+        };
+        const capture = async (properties = {}) =>
+            (
+                await captureSource(
+                    { ...section, ...properties } as unknown as SceneNode,
+                    Symbol("mixed"),
+                    async () => "",
+                    async () => undefined,
+                    async () => png,
+                    1,
+                    false,
+                    undefined,
+                    undefined,
+                    4,
+                    undefined,
+                    undefined,
+                    "raster",
+                )
+            ).source;
+        const source = await capture();
+        expect(source.root).toMatchObject({
+            type,
+        });
+        expect(source).toHaveProperty("rasterized", true);
+        expect(source.root.properties).not.toHaveProperty("opacity");
+        expect(source.root.properties).not.toHaveProperty("rotation");
+        expect(source.root.properties).not.toHaveProperty("visible");
+        const normalized = await normalizeSource(source);
+        expect(normalized).toMatchObject({
+            ok: true,
+            snapshot: {
+                root: { kind: "svg", x: -2679, y: 0, width: 40, height: 30 },
+            },
+        });
+        if (!normalized.ok || normalized.empty)
+            throw Error("Missing raster snapshot");
+        const converted = convertSnapshot(normalized.snapshot);
+        expect(converted.ok).toBe(true);
+        const defaults = await normalizeSource(
+            await capture({
+                x: undefined,
+                y: undefined,
+                width: undefined,
+                height: undefined,
+            }),
+        );
+        expect(defaults).toMatchObject({
+            ok: true,
+            snapshot: {
+                root: {
+                    x: 0,
+                    y: 0,
+                    width: 0,
+                    height: 0,
+                    opacity: 1,
+                    rotation: 0,
+                    visible: true,
+                },
+            },
+        });
+        for (const properties of [
+            { opacity: 2 },
+            { rotation: Number.NaN },
+            { x: Number.NaN },
+            { y: Number.NaN },
+            { width: -1 },
+            { height: -1 },
+        ]) {
+            expect(
+                await normalizeSource(await capture(properties)),
+            ).toMatchObject({
+                ok: false,
+                diagnostics: expect.arrayContaining([
+                    expect.objectContaining({ code: "INVALID_GEOMETRY" }),
+                ]),
+            });
+        }
+    },
+);
+
+test.each([false, true])(
+    "captures vector and bitmap assets from hidden masters (already in the selected tree: %s)",
+    async (inTree) => {
+        const png = new Uint8Array(
+            await readFile("fixtures/authored/odd-size.png"),
+        );
+        const icon = {
+            ...rectangle,
+            type: "VECTOR",
+            id: "hidden:vector",
+            name: "Vector icon",
+            visible: true,
+        };
+        const bitmap = {
+            ...rectangle,
+            id: "hidden:bitmap",
+            name: "Bitmap",
+            visible: true,
+            fills: [
+                {
+                    type: "IMAGE",
+                    imageHash: "hidden:image",
+                    scaleMode: "FIT",
+                    visible: true,
+                    opacity: 1,
+                },
+            ],
+        };
+        const omitted = { ...icon, id: "hidden:omitted", visible: false };
+        const master = {
+            ...componentLikeNode(
+                "COMPONENT",
+                "hidden:master",
+                [icon, bitmap, omitted] as unknown as SceneNode[],
+                { visible: false },
+            ),
+        };
+        const instance = componentLikeNode("INSTANCE", "hidden:instance", [], {
+            getMainComponentAsync: async () => master,
+            componentProperties: {},
+        });
+        const selected = inTree
+            ? ({
+                  ...group,
+                  id: "hidden:selection",
+                  children: [master, instance],
+              } as unknown as SceneNode)
+            : instance;
+        const exported: string[] = [];
+        const capture = await captureSource(
+            selected,
+            Symbol("mixed"),
+            async (node) => {
+                exported.push(node.id);
+                return '<svg width="24" height="24" viewBox="0 0 24 24"><path d="M0 0H24V24H0Z" fill="red"/></svg>';
+            },
+            async (hash) =>
+                hash === "hidden:image"
+                    ? { bytes: png, width: 40, height: 30 }
+                    : undefined,
+        );
+        expect(exported).toEqual(["hidden:vector"]);
+        expect(capture.source.images["hidden:image"].value?.bytes).toEqual(png);
+        const capturedMaster =
+            capture.source.components?.definitions[0].variants[0].root;
+        expect(capturedMaster?.children?.map((node) => node.id)).toEqual([
+            "hidden:vector",
+            "hidden:bitmap",
+        ]);
+        expect(capturedMaster?.children?.[0].exports?.svg.value).toContain(
+            'fill="red"',
+        );
+        const normalized = await normalizeSource(capture.source, "export");
+        if (!normalized.ok || normalized.empty)
+            throw Error(JSON.stringify(normalized));
+        const definition =
+            normalized.snapshot.components?.definitions[0].variants[0].root;
+        expect(definition).toMatchObject({
+            children: [
+                { kind: "svg", svg: expect.stringContaining('fill="red"') },
+                {
+                    kind: "rectangle",
+                    fills: [
+                        {
+                            kind: "image",
+                            mimeType: "image/png",
+                            data: expect.any(String),
+                            intrinsicWidth: 40,
+                            intrinsicHeight: 30,
+                        },
+                    ],
+                },
+            ],
+        });
+        expect(normalized.warnings).not.toContainEqual(
+            expect.objectContaining({ code: "NODE_PLACEHOLDER" }),
+        );
+    },
+);

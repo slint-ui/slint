@@ -49,7 +49,8 @@
 //!
 //! The `@flags` of an element are the boolean fields of `BuiltinElement` (`is_internal`,
 //! `is_global`, ...) plus `expands_to_parent_geometry` or `implicit_size` for the default size,
-//! `builtin_struct(Name)`, `sc` for an element of the Slint SC subset and `skip_inherited` to
+//! `builtin_struct(Name)`, `experimental_feature(Feature)` for an element that needs that feature,
+//! `sc` for an element of the Slint SC subset and `skip_inherited` to
 //! leave the docs of the native items out of the element's.
 //! `constant_layout_info(stretch)` gives the element the default layout info with that stretch,
 //! whatever item it lowers to.
@@ -175,6 +176,7 @@ macro_rules! flag {
     ($e:ident implicit_size) => { $e.element.default_size_binding = DefaultSizeBinding::ImplicitSize };
     ($e:ident builtin_struct($s:ident)) => { $e.class.builtin_struct = Some(BuiltinStruct::$s) };
     ($e:ident constant_layout_info($stretch:literal)) => { $e.element.constant_layout_info_stretch = Some($stretch) };
+    ($e:ident experimental_feature($f:ident)) => { $e.element.experimental_feature = Some(crate::ExperimentalFeature::$f) };
     ($e:ident $flag:ident) => { $e.element.$flag = true };
 }
 
@@ -399,7 +401,7 @@ impl Loader<'_> {
         if let Some(inner) = text.strip_prefix('[').and_then(|t| t.strip_suffix(']')) {
             return Type::Array(Arc::new(self.ty(inner)));
         }
-        let ty = self.types.lookup(&kebab(text));
+        let ty = self.types.lookup_including_disabled(&kebab(text));
         assert!(ty != Type::Invalid, "unknown type `{text}` in a builtin element");
         ty
     }
@@ -1043,7 +1045,7 @@ fn build(l: &mut Loader) {
     } }
 
     element! {
-        @accepts_focus
+        @accepts_focus @experimental_feature(ComponentContainer)
         ComponentContainer: ComponentContainer
     }
 
@@ -2580,6 +2582,26 @@ fn build(l: &mut Loader) {
         ///  - `accessible-value: text;`
         ///  - `accessible-enabled: enabled;`
         ///  - `accessible-read-only: read-only; `
+        ///
+        /// Set `accessible-role: none` when the element around the `TextInput` takes the
+        /// `text-input` or `spinbox` role itself.
+        /// Both of them describe the text of the same input otherwise,
+        /// so a screen reader is given that text twice.
+        /// The compiler warns when both of them keep the role.
+        ///
+        /// ```slint
+        /// component CustomLineEdit {
+        ///     in-out property <string> text <=> input.text;
+        ///
+        ///     accessible-role: text-input;
+        ///     accessible-value <=> root.text;
+        ///
+        ///     input := TextInput {
+        ///         // The component around it describes this input
+        ///         accessible-role: none;
+        ///     }
+        /// }
+        /// ```
         /// \group:keyboard-input
         @accepts_focus @expands_to_parent_geometry
         TextInput: TextInput

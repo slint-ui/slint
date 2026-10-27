@@ -24,7 +24,7 @@ fn errors(source: String) -> Vec<String> {
     let syntax_node = parse(source, None, &mut diagnostics);
     let mut config = CompilerConfiguration::new(OutputFormat::Interpreter);
     // The default follows SLINT_ENABLE_EXPERIMENTAL_FEATURES; pin it off.
-    config.enable_experimental = false;
+    config.experimental_features = i_slint_compiler::ExperimentalFeatures::default();
     let (_, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, config));
     diagnostics

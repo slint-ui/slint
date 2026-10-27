@@ -463,7 +463,7 @@ fn analyze_binding(
     // so the expression of a property aliased to this one is a dependency of this binding too.
     // The other direction is covered by the `two_way_bindings` loop above.
     let mut aliased_deps = Vec::new();
-    for alias in reverse_aliases.get(&current.prop).into_iter().flatten() {
+    for alias in transitive_reverse_aliases(&current.prop, reverse_aliases) {
         let element = alias.element();
         let element_borrow = element.borrow();
         if let Some(alias_binding) = element_borrow.binding(alias.name()) {
@@ -805,6 +805,23 @@ fn describe_loop(current: &PropertyPath, cycle: &[&PropertyPath]) -> String {
         out.push_str(&prop.prop.declared_name());
     }
     out
+}
+
+fn transitive_reverse_aliases(
+    prop: &NamedReference,
+    reverse_aliases: &ReverseAliases,
+) -> Vec<NamedReference> {
+    let mut result = Vec::new();
+    let mut pending = vec![prop];
+    while let Some(p) = pending.pop() {
+        for alias in reverse_aliases.get(p).into_iter().flatten() {
+            if alias != prop && !result.contains(alias) {
+                result.push(alias.clone());
+                pending.push(alias);
+            }
+        }
+    }
+    result
 }
 
 /// Find properties two-way-bound (via `<=>`) to `prop`, ascending through base components
