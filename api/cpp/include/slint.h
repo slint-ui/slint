@@ -896,18 +896,13 @@ struct BackendRequirements
 ///
 /// ```cpp
 /// using GraphicsAPI = slint::BackendRequirements::GraphicsAPI;
-/// if (auto error = slint::select_backend({ .graphics_api = GraphicsAPI::OpenGL,
-///                                          .min_version = { { 3, 2 } } })) {
-///     std::cerr << "Error selecting a backend with OpenGL support: " << *error << std::endl;
-///     return EXIT_FAILURE;
-/// }
+/// slint::select_backend({ .graphics_api = GraphicsAPI::OpenGL, .min_version = { { 3, 2 } } });
 /// auto app = App::create();
 /// ```
 ///
-/// Returns an error message if the requirements can't be met,
+/// Aborts the program with an error message if the requirements can't be met,
 /// or if a backend is already active.
-[[nodiscard]] inline std::optional<SharedString>
-select_backend(const BackendRequirements &requirements = {})
+inline void select_backend(const BackendRequirements &requirements = {})
 {
     private_api::assert_main_thread();
     using GraphicsAPI = BackendRequirements::GraphicsAPI;
@@ -933,11 +928,6 @@ select_backend(const BackendRequirements &requirements = {})
             break;
         }
     }
-    if (requirements.min_version && graphics_api != RequiredGraphicsAPI::OpenGL
-        && graphics_api != RequiredGraphicsAPI::OpenGLES) {
-        return SharedString("A minimum version is only supported with OpenGL and OpenGL ES");
-    }
-
     // A default std::string_view has a null data pointer, which SharedString doesn't accept.
     auto to_shared_string = [](std::string_view s) {
         return s.empty() ? SharedString() : SharedString(s);
@@ -945,12 +935,8 @@ select_backend(const BackendRequirements &requirements = {})
     SharedString backend = to_shared_string(requirements.backend);
     SharedString renderer = to_shared_string(requirements.renderer);
     auto version = requirements.min_version.value_or(BackendRequirements::GraphicsAPIVersion {});
-    SharedString error;
-    if (cbindgen_private::slint_select_backend(&backend, &renderer, graphics_api, version.major,
-                                               version.minor, &error)) {
-        return {};
-    }
-    return error;
+    cbindgen_private::slint_select_backend(&backend, &renderer, graphics_api, version.major,
+                                           version.minor);
 }
 
 /// Sets the application id for use on Wayland or X11 with
