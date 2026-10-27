@@ -244,28 +244,18 @@ pub fn draw_text(
         None
     };
 
-    let layout_builder = shaping_builder(text, item_rc, text.wrap(), scale_factor);
-
     let window_adapter = item_renderer.window().window_adapter();
 
-    let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
     let text_color = text.color().color();
 
-    let _ = with_text_layout(
-        cache,
-        item_rc,
+    let _ = with_render_text_layout(
+        scale_factor,
         text,
-        &layout_builder,
-        LayoutOptions {
-            horizontal_align,
-            vertical_align,
-            max_height: Some(max_height),
-            max_width: Some(max_width),
-            max_lines: text.line_limit(),
-            text_overflow,
-        },
+        item_rc,
+        size,
         window_adapter.window(),
+        cache,
         |layout| {
             // When `overflow: elide` can't even fit the first line, the line is still drawn
             // (rather than dropped, which would render nothing) but its vertical overflow needs
@@ -287,14 +277,23 @@ pub fn draw_text(
             };
 
             if render {
+                let mut selection_spans = SelectionSpans::default();
+                let selection = text.selection().and_then(|selection| {
+                    draw_selection_background(
+                        item_renderer,
+                        layout,
+                        selection.range,
+                        selection.background,
+                        selection.foreground,
+                        &mut selection_spans,
+                    )
+                });
                 layout.draw(
                     item_renderer,
                     platform_fill_brush,
                     platform_stroke_brush,
                     text_color,
-                    // `Text` has no selection today; the machinery is shared so wiring one up
-                    // later is a matter of passing spans here.
-                    None,
+                    selection.as_ref(),
                 );
             }
 
@@ -303,6 +302,36 @@ pub fn draw_text(
             }
         },
     );
+}
+
+/// Lays a `Text` or `StyledText` item out as it is drawn, `size` being the item's.
+fn with_render_text_layout<R>(
+    scale_factor: ScaleFactor,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    item_rc: Option<&crate::item_tree::ItemRc>,
+    size: LogicalSize,
+    window: &crate::api::Window,
+    cache: Option<&TextLayoutCache>,
+    f: impl FnOnce(&Layout) -> R,
+) -> Option<R> {
+    let layout_builder = shaping_builder(text, item_rc, text.wrap(), scale_factor);
+    let (horizontal_align, vertical_align) = text.alignment();
+    with_text_layout(
+        cache,
+        item_rc,
+        text,
+        &layout_builder,
+        LayoutOptions {
+            horizontal_align,
+            vertical_align,
+            max_height: Some(size.height_length()),
+            max_width: Some(size.width_length()),
+            max_lines: text.line_limit(),
+            text_overflow: text.overflow(),
+        },
+        window,
+        f,
+    )
 }
 
 #[cfg(feature = "std")]
@@ -315,27 +344,62 @@ pub fn link_under_cursor(
     window: &crate::api::Window,
     cache: Option<&TextLayoutCache>,
 ) -> Option<std::string::String> {
-    let layout_builder = shaping_builder(text, Some(item_rc), text.wrap(), scale_factor);
-
-    let (horizontal_align, vertical_align) = text.alignment();
-
-    with_text_layout(
-        cache,
-        Some(item_rc),
-        text,
-        &layout_builder,
-        LayoutOptions {
-            horizontal_align,
-            vertical_align,
-            max_height: Some(size.height_length()),
-            max_width: Some(size.width_length()),
-            max_lines: text.line_limit(),
-            text_overflow: text.overflow(),
-        },
-        window,
-        |layout| link_in_layout(layout, cursor),
-    )
+    with_render_text_layout(scale_factor, text, Some(item_rc), size, window, cache, |layout| {
+        link_in_layout(layout, cursor)
+    })
     .flatten()
+}
+
+/// The byte offset into the raw text of the character under `cursor`,
+/// or of the nearest one on that line.
+/// `None` when nothing is laid out there.
+#[cfg(feature = "std")]
+pub fn byte_offset_under_cursor(
+    scale_factor: ScaleFactor,
+    text: Pin<&dyn crate::item_rendering::RenderText>,
+    item_rc: &crate::item_tree::ItemRc,
+    size: LogicalSize,
+    cursor: PhysicalPoint,
+    window: &crate::api::Window,
+    cache: Option<&TextLayoutCache>,
+) -> Option<usize> {
+    with_render_text_layout(scale_factor, text, Some(item_rc), size, window, cache, |layout| {
+        layout.byte_offset_from_point(cursor).0
+    })
+}
+
+/// Fills the highlight behind `range` and returns what recolors its glyphs.
+/// `None` when nothing of the range is on a drawn line.
+fn draw_selection_background<'a, R: GlyphRenderer>(
+    item_renderer: &mut R,
+    layout: &Layout,
+    range: core::ops::Range<usize>,
+    background: Color,
+    foreground: Color,
+    spans: &'a mut SelectionSpans,
+) -> Option<SelectionRendering<'a, R>> {
+    // When a piece of text is first selected, it gets an empty range like `1..1`. If the text
+    // starts with a multi-byte character then this selection would be within that character and
+    // parley would panic, so empty ranges are filtered out. The spans only feed drawing (the
+    // highlight fill and the glyph clip), so only the lines the clip lets through need any.
+    if range.is_empty() {
+        return None;
+    }
+    *spans = layout.selection_geometry(range, &draw::visible_band(item_renderer), |x| {
+        item_renderer.snap_selection_x(x)
+    });
+    if spans.is_empty() {
+        return None;
+    }
+    // Inside the clip, like the glyphs it sits under: a line box taller than the item would
+    // otherwise paint the highlight over whatever follows the item.
+    for rect in spans.backgrounds() {
+        item_renderer.fill_rectangle_with_color(rect, background);
+    }
+    // Selected glyphs are recolored by clipping, not by restyling the layout, so that a boundary
+    // landing inside a ligature cuts the glyph instead of recoloring all of it.
+    let foreground = item_renderer.platform_brush_for_color(&foreground)?;
+    Some(SelectionRendering { spans, foreground })
 }
 
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
@@ -433,42 +497,15 @@ pub fn draw_text_input(
             );
 
             if render {
-                // When a piece of text is first selected, it gets an empty range like `1..1`. If
-                // the text starts with a multi-byte character then this selection would be within
-                // that character and parley would panic, so empty ranges are filtered out. The
-                // spans only feed drawing (the highlight fill and the glyph clip), so only the
-                // lines the clip lets through need any.
-                let selection_spans = if selection_range.is_empty() {
-                    SelectionSpans::default()
-                } else {
-                    layout.selection_geometry(
-                        selection_range,
-                        &draw::visible_band(item_renderer),
-                        |x| item_renderer.snap_selection_x(x),
-                    )
-                };
-                // Inside the clip, like the glyphs it sits under: a line box taller than the item
-                // would otherwise paint the highlight over whatever follows the input.
-                for background in selection_spans.backgrounds() {
-                    item_renderer.fill_rectangle_with_color(
-                        background,
-                        text_input.selection_background_color(),
-                    );
-                }
-
-                // Selected glyphs are recolored by clipping, not by restyling the layout, so that
-                // a boundary landing inside a ligature cuts the glyph instead of recoloring all
-                // of it.
-                let selection = (!selection_spans.is_empty())
-                    .then(|| {
-                        item_renderer
-                            .platform_brush_for_color(&text_input.selection_foreground_color())
-                            .map(|foreground| SelectionRendering {
-                                spans: &selection_spans,
-                                foreground,
-                            })
-                    })
-                    .flatten();
+                let mut selection_spans = SelectionSpans::default();
+                let selection = draw_selection_background(
+                    item_renderer,
+                    layout,
+                    selection_range,
+                    text_input.selection_background_color(),
+                    text_input.selection_foreground_color(),
+                    &mut selection_spans,
+                );
 
                 layout.draw(
                     item_renderer,
