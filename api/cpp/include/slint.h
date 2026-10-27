@@ -849,22 +849,8 @@ void blocking_invoke_from_event_loop(Functor f)
 /// Requirements for select_backend(). Unset members leave the choice to Slint.
 struct BackendRequirements
 {
-    /// A graphics API that the renderer must use.
-    enum class GraphicsAPI {
-        /// OpenGL
-        OpenGL,
-        /// OpenGL ES
-        OpenGLES,
-        /// Apple's Metal framework
-        Metal,
-        /// Vulkan
-        Vulkan,
-        /// Direct 3D
-        Direct3D,
-    };
-
-    /// A version of a graphics API.
-    struct GraphicsAPIVersion
+    /// A version of OpenGL or OpenGL ES.
+    struct OpenGLVersion
     {
         /// The major version, such as 3 for OpenGL 3.2.
         uint8_t major;
@@ -880,10 +866,11 @@ struct BackendRequirements
     /// This requires that Slint was built with the corresponding renderer feature.
     std::string_view renderer = {};
     /// The graphics API that the renderer must use.
+    /// GraphicsAPI::Inaccessible isn't a valid requirement.
     std::optional<GraphicsAPI> graphics_api = {};
-    /// The minimum version of the graphics API.
-    /// Only OpenGL and OpenGL ES support a version.
-    std::optional<GraphicsAPIVersion> min_version = {};
+    /// The minimum version of OpenGL or OpenGL ES.
+    /// This requires \ref graphics_api to be GraphicsAPI::OpenGL or GraphicsAPI::OpenGLES.
+    std::optional<OpenGLVersion> min_opengl_version = {};
 };
 
 /// Selects one of Slint's built-in
@@ -895,8 +882,8 @@ struct BackendRequirements
 /// For example, to render with desktop OpenGL 3.2 or newer:
 ///
 /// ```cpp
-/// using GraphicsAPI = slint::BackendRequirements::GraphicsAPI;
-/// slint::select_backend({ .graphics_api = GraphicsAPI::OpenGL, .min_version = { { 3, 2 } } });
+/// slint::select_backend({ .graphics_api = slint::GraphicsAPI::OpenGL,
+///                         .min_opengl_version = { { 3, 2 } } });
 /// auto app = App::create();
 /// ```
 ///
@@ -905,36 +892,16 @@ struct BackendRequirements
 inline void select_backend(const BackendRequirements &requirements = {})
 {
     private_api::assert_main_thread();
-    using GraphicsAPI = BackendRequirements::GraphicsAPI;
-    using cbindgen_private::RequiredGraphicsAPI;
 
-    auto graphics_api = RequiredGraphicsAPI::Any;
-    if (requirements.graphics_api) {
-        switch (*requirements.graphics_api) {
-        case GraphicsAPI::OpenGL:
-            graphics_api = RequiredGraphicsAPI::OpenGL;
-            break;
-        case GraphicsAPI::OpenGLES:
-            graphics_api = RequiredGraphicsAPI::OpenGLES;
-            break;
-        case GraphicsAPI::Metal:
-            graphics_api = RequiredGraphicsAPI::Metal;
-            break;
-        case GraphicsAPI::Vulkan:
-            graphics_api = RequiredGraphicsAPI::Vulkan;
-            break;
-        case GraphicsAPI::Direct3D:
-            graphics_api = RequiredGraphicsAPI::Direct3D;
-            break;
-        }
-    }
     // A default std::string_view has a null data pointer, which SharedString doesn't accept.
     auto to_shared_string = [](std::string_view s) {
         return s.empty() ? SharedString() : SharedString(s);
     };
     SharedString backend = to_shared_string(requirements.backend);
     SharedString renderer = to_shared_string(requirements.renderer);
-    auto version = requirements.min_version.value_or(BackendRequirements::GraphicsAPIVersion {});
+    auto version = requirements.min_opengl_version.value_or(BackendRequirements::OpenGLVersion {});
+    const GraphicsAPI *graphics_api =
+            requirements.graphics_api ? &*requirements.graphics_api : nullptr;
     cbindgen_private::slint_select_backend(&backend, &renderer, graphics_api, version.major,
                                            version.minor);
 }
