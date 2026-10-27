@@ -48,7 +48,8 @@
     <_SlintAndroidArm64Library>$(MSBuildThisFileDirectory)../../../target/aarch64-linux-android/$(SlintAndroidCargoProfile)/libslint_dotnet.so</_SlintAndroidArm64Library>
     <_SlintAndroidX64Library>$(MSBuildThisFileDirectory)../../../target/x86_64-linux-android/$(SlintAndroidCargoProfile)/libslint_dotnet.so</_SlintAndroidX64Library>
   </PropertyGroup>
-  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android'">
+  <!-- A package has the libraries in runtimes/android-*/native instead, see SlintNativeRuntimesDir. -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' == 'android' and '$(SlintNativeRuntimesDir)' == ''">
     <AndroidNativeLibrary Include="$(_SlintAndroidArm64Library)" Abi="arm64-v8a" Condition="Exists('$(_SlintAndroidArm64Library)')" />
     <AndroidNativeLibrary Include="$(_SlintAndroidX64Library)" Abi="x86_64" Condition="Exists('$(_SlintAndroidX64Library)')" />
   </ItemGroup>
