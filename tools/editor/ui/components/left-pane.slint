@@ -40,7 +40,6 @@ component NewSlintFileButton inherits Rectangle {
 
     touch := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
         clicked => { root.clicked(); }
     }
 
