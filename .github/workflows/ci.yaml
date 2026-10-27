@@ -114,7 +114,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-visual-editor-v1-rust
-                  save_if: ${{ github.ref == 'refs/heads/master' }}
             - name: Test the visual editor
               run: cargo test --locked -p slint-editor --all-features --features slint/mcp --timings
             - uses: actions/setup-python@v7
