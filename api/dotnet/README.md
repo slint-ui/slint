@@ -19,7 +19,7 @@ It's community documentation, not affiliated with SixtyFPS GmbH.
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- macOS, Linux, or Windows, on x64 or arm64
+- macOS, Linux, or Windows, on x64 or arm64, or [Android](#android-preview) on arm64 and x86_64
 
 ## Quick Start
 

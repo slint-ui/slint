@@ -1,14 +1,14 @@
 # What's New in Slint for .NET
 
-## Unreleased
+## 1.19.0-preview.7
 
+- Run your app on Android, with a main activity derived from `SlintActivity`.
+  See [Android](README.md#android-preview) and `examples/todo/dotnet-android`.
 - `.slint` code can add and remove rows of a `ListModel`, with `push`, `insert`, and `remove` of an array.
   Override `InsertRow` and `RemoveRow` to support them in your own `Model<T>`.
 - A global exported under more names gets a class for each, like a component, such as `MyGlobal` and `GlobalAlias` for `export { MyGlobal as GlobalAlias }`.
 - On Windows, a `<SlintFile>` outside the project directory, such as `../ui/app.slint`, loads from the output directory.
   Before, the application failed at startup because it looked for the file outside the output directory.
-- Run your app on Android, with a main activity derived from `SlintActivity`.
-  See [Android](README.md#android-preview) and `examples/todo/dotnet-android`.
 - Notifying Slint of model changes no longer allocates.
 - Measure Slint with `examples/lols`, a port of the [LOLs per second](https://github.com/jonathanpeppers/lols) test, on the desktop and Android.
 
