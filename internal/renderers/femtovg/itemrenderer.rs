@@ -710,6 +710,10 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                 );
 
                 self.canvas.borrow_mut().save_with(|canvas| {
+                    // Blit the layer on whole device pixels, or the texture is resampled and its
+                    // content looks blurry, as in a context menu opened at the fractional pointer
+                    // position Wayland reports.
+                    let aligned = Self::pixel_align_origin(canvas, layer_origin);
                     // The layer_path can be bigger than the layer image (e.g. when the children occupy
                     // a smaller region than the clip), so clip to avoid the image paint extending past
                     // the image bounds.
@@ -720,6 +724,9 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                         layer_image_height,
                     );
                     canvas.fill_path(&layer_path, &layer_image_paint);
+                    if aligned {
+                        canvas.restore();
+                    }
                 });
             }
 
