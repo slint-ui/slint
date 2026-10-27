@@ -1251,35 +1251,37 @@ fn embed_resource(
             }));
 
             for (glyphset_index, glyphset) in glyphs.iter().enumerate() {
+                let mut glyph_inits = Vec::with_capacity(glyphset.glyph_data.len());
                 for (glyph_index, glyph) in glyphset.glyph_data.iter().enumerate() {
-                    declarations.push(Declaration::Var(Var {
-                        ty: "const uint8_t".into(),
-                        name: format_smolstr!(
-                            "slint_embedded_resource_{}_gs_{}_gd_{}",
-                            resource_id,
-                            glyphset_index,
-                            glyph_index
-                        ),
-                        array_size: Some(glyph.data.len()),
-                        init: Some(format!(
-                            "{{ {} }}",
-                            glyph.data.iter().map(ToString::to_string).join(", ")
-                        )),
-                        ..Default::default()
-                    }));
+                    let data = if glyph.data.is_empty() {
+                        "::slint::private_api::make_slice<uint8_t>(nullptr, 0)".to_string()
+                    } else {
+                        let name = format_smolstr!(
+                            "slint_embedded_resource_{resource_id}_gs_{glyphset_index}_gd_{glyph_index}"
+                        );
+                        declarations.push(Declaration::Var(Var {
+                            ty: "const uint8_t".into(),
+                            name: name.clone(),
+                            array_size: Some(glyph.data.len()),
+                            init: Some(format!(
+                                "{{ {} }}",
+                                glyph.data.iter().map(ToString::to_string).join(", ")
+                            )),
+                            ..Default::default()
+                        }));
+                        format!("::slint::private_api::make_slice({name}, {})", glyph.data.len())
+                    };
+                    glyph_inits.push(format!(
+                        "{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = {data} }}",
+                        glyph.x, glyph.y, glyph.width, glyph.height, glyph.x_advance
+                    ));
                 }
 
                 declarations.push(Declaration::Var(Var{
                     ty: "const ::slint::cbindgen_private::BitmapGlyph<::slint::cbindgen_private::StaticStorage>".into(),
                     name: format_smolstr!("slint_embedded_resource_{}_glyphset_{}", resource_id, glyphset_index),
                     array_size: Some(glyphset.glyph_data.len()),
-                    init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
-                        format!("{{ .x = {}, .y = {}, .width = {}, .height = {}, .x_advance = {}, .data = ::slint::private_api::make_slice({}, {}) }}",
-                        glyph.x, glyph.y, glyph.width, glyph.height, glyph.x_advance,
-                        format_args!("slint_embedded_resource_{}_gs_{}_gd_{}", resource_id, glyphset_index, glyph_index),
-                        glyph.data.len()
-                    )
-                    }).join(", \n"))),
+                    init: Some(format!("{{ {} }}", glyph_inits.join(", \n"))),
                     ..Default::default()
                 }));
             }
