@@ -328,21 +328,62 @@ For asynchronous code, call `EventLoop.Run(async () => { ... })` from a synchron
 ## Android (Preview)
 
 The package also runs on Android 8 (API level 26) and later, on `arm64-v8a` and `x86_64` devices and emulators.
-Install the .NET Android workload with `dotnet workload install android`.
 
-1. Create a project with `dotnet new android`, and set in its project file:
+1. Install the .NET Android workload, then create a project and add the package:
 
-   ```xml
-   <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
-   <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+   ```sh
+   dotnet workload install android
+   dotnet new android -o MyApp
+   cd MyApp
+   dotnet add package yurkinh.slint.net --prerelease
    ```
 
-2. Add the package and your `.slint` files as in the [Quick Start](#quick-start).
+2. In `MyApp.csproj`, change `SupportedOSPlatformVersion` to 26, add the runtime identifiers that Slint has libraries for,
+   and add your `.slint` file:
 
-3. Derive the main activity from `SlintActivity`, and create the components in `SlintMain`:
+   ```xml
+   <PropertyGroup>
+     <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+   </PropertyGroup>
+   <ItemGroup>
+     <SlintFile Include="ui/app-window.slint" />
+   </ItemGroup>
+   ```
+
+   The template already sets `SupportedOSPlatformVersion` to 24: change that line rather than adding a second one.
+
+3. Create `ui/app-window.slint`, the same as in the [Quick Start](#quick-start):
+
+   ```slint
+   import { Button, VerticalBox } from "std-widgets.slint";
+
+   export component AppWindow inherits Window {
+       in-out property <int> counter: 42;
+       callback request-increase-value();
+       VerticalBox {
+           Text {
+               text: "Counter: \{root.counter}";
+           }
+           Button {
+               text: "Increase value";
+               clicked => {
+                   root.request-increase-value();
+               }
+           }
+       }
+   }
+   ```
+
+   Without a `<SlintFile>` item for it, the build generates no `AppWindow` class,
+   and fails with "The name 'AppWindow' does not exist".
+
+4. Replace `MainActivity.cs`: derive the main activity from `SlintActivity`, and create the components in `SlintMain`:
 
    ```csharp
    using Slint.Android;
+
+   namespace MyApp;
 
    [Activity(MainLauncher = true, ConfigurationChanges = SlintActivity.ConfigurationChanges)]
    [MetaData(SlintActivity.LibraryNameKey, Value = SlintActivity.LibraryName)]
@@ -358,8 +399,16 @@ Install the .NET Android workload with `dotnet workload install android`.
    ```
 
    Both attributes are needed: .NET Android only reads them from your own activity.
+   The template's `Resources/layout/activity_main.xml` is no longer used, and you can delete it.
 
-4. Run it on a device or emulator with `dotnet run`.
+5. Connect a device with USB debugging, or start an emulator, and run the app:
+
+   ```sh
+   dotnet build -t:Run
+   ```
+
+   To install the APK of a Debug build with `adb install` instead,
+   set `<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>`, since a Debug build leaves the assemblies out of the APK otherwise.
 
 `SlintMain` and every callback run on Slint's thread, not on the Android UI thread.
 Slint's objects belong to that thread, so an app has one `SlintActivity`, and it ends the process when Android destroys it,
