@@ -17,6 +17,7 @@ use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, LayerRenderer,
     RenderBorderRectangle, RenderImage, RenderRectangle, RenderText,
 };
+use i_slint_core::item_tree::ParentItemTraversalMode;
 use i_slint_core::items::{
     self, Clip, FillRule, ImageRendering, ImageTiling, ItemRc, Layer, Opacity, RenderingResult,
 };
@@ -138,6 +139,37 @@ fn rect_with_radius_to_path(
     let mut path = femtovg::Path::new();
     append_rect_with_radius_to_path(&mut path, rect, border_radius);
     path
+}
+
+/// Whether the walk from an `Opacity` down to the `BackdropBlur` it wraps passes through `item`,
+/// see `GLItemRenderer::draw_wrapped_backdrop_blur`.
+fn passes_to_wrapped_backdrop_blur(item: Pin<items::ItemRef>) -> bool {
+    items::ItemRef::downcast_pin::<items::Transform>(item).is_some()
+        || items::ItemRef::downcast_pin::<Layer>(item).is_some()
+        // A rounded clip renders its children into a layer, see `visit_clip`.
+        || items::ItemRef::downcast_pin::<Clip>(item)
+            .is_some_and(|clip| clip.logical_border_radius().is_zero())
+}
+
+/// Whether `visit_opacity` draws this blur instead of the layer it sits in,
+/// see `GLItemRenderer::draw_wrapped_backdrop_blur`.
+fn is_drawn_by_wrapping_opacity(blur_rc: &ItemRc) -> bool {
+    let mut child = blur_rc.clone();
+    while let Some(parent) = child.parent_item(ParentItemTraversalMode::StopAtPopups) {
+        if parent.first_child().as_ref() != Some(&child) {
+            return false;
+        }
+        let item = parent.borrow();
+        if let Some(opacity) = items::ItemRef::downcast_pin::<Opacity>(item) {
+            return opacity.wraps_backdrop_blur()
+                && Opacity::need_layer(&parent, opacity.opacity());
+        }
+        if !passes_to_wrapped_backdrop_blur(item) {
+            return false;
+        }
+        child = parent;
+    }
+    false
 }
 
 fn render_inset_box_shadow_image<R: femtovg::Renderer + TextureImporter>(
@@ -637,19 +669,13 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     fn draw_backdrop_blur(
         &mut self,
         backdrop_blur: Pin<&i_slint_core::items::BackdropBlur>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
         size: LogicalSize,
     ) {
-        let sigma = (backdrop_blur.blur() * self.scale_factor).get();
-        if sigma <= 0. {
-            return;
+        if !i_slint_core::properties::evaluate_no_tracking(|| is_drawn_by_wrapping_opacity(self_rc))
+        {
+            self.blur_backdrop(backdrop_blur, size);
         }
-        let path = rect_with_radius_to_path(
-            PhysicalRect::from_size(size * self.scale_factor),
-            backdrop_blur.logical_border_radius() * self.scale_factor,
-        );
-        // Errors leave the target untouched, so the backdrop just stays sharp.
-        let _ = self.canvas.borrow_mut().blur_path(&path, femtovg::FillRule::NonZero, sigma);
     }
 
     fn visit_opacity(
@@ -1303,16 +1329,41 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
             self.translate(geometry.origin.to_vector());
             let item = item_rc.borrow();
             if let Some(blur) = items::ItemRef::downcast_pin::<items::BackdropBlur>(item) {
-                self.draw_backdrop_blur(blur, &item_rc, geometry.size);
+                self.blur_backdrop(blur, geometry.size);
                 return;
             }
-            if items::ItemRef::downcast_pin::<items::Transform>(item).is_some() {
-                item.as_ref().render(&mut (self as &mut dyn ItemRenderer), &item_rc, geometry.size);
-            } else if items::ItemRef::downcast_pin::<Layer>(item).is_none() {
+            if !passes_to_wrapped_backdrop_blur(item) {
                 return;
+            }
+            if items::ItemRef::downcast_pin::<Layer>(item).is_none() {
+                let result = item.as_ref().render(
+                    &mut (self as &mut dyn ItemRenderer),
+                    &item_rc,
+                    geometry.size,
+                );
+                if matches!(result, RenderingResult::ContinueRenderingWithoutChildren) {
+                    return;
+                }
             }
             child = item_rc.first_child();
         }
+    }
+
+    fn blur_backdrop(
+        &mut self,
+        backdrop_blur: Pin<&i_slint_core::items::BackdropBlur>,
+        size: LogicalSize,
+    ) {
+        let sigma = (backdrop_blur.blur() * self.scale_factor).get();
+        if sigma <= 0. {
+            return;
+        }
+        let path = rect_with_radius_to_path(
+            PhysicalRect::from_size(size * self.scale_factor),
+            backdrop_blur.logical_border_radius() * self.scale_factor,
+        );
+        // Errors leave the target untouched, so the backdrop just stays sharp.
+        let _ = self.canvas.borrow_mut().blur_path(&path, femtovg::FillRule::NonZero, sigma);
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
