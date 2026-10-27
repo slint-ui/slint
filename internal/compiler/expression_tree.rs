@@ -143,6 +143,7 @@ fn builtin_function_is_const(
         BuiltinFunction::ParseMarkdown => false,
         BuiltinFunction::StringToStyledText => true,
         BuiltinFunction::ColorToStyledText => true,
+        BuiltinFunction::SlintHighlighter => true,
         BuiltinFunction::OpenUrl => false,
         BuiltinFunction::MacosBringAllWindowsToFront => false,
         BuiltinFunction::PathPointAt => true,

@@ -1,6 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+#[cfg(feature = "std")]
+mod slint_highlighter;
+#[cfg(feature = "std")]
+pub use slint_highlighter::slint_highlighter;
+
+/// Returns empty styled text: markdown needs the `std` feature.
+#[cfg(not(feature = "std"))]
+pub fn slint_highlighter(_text: &str) -> StyledText {
+    Default::default()
+}
+
 /// Styled text that has been parsed and separated into paragraphs
 ///
 /// Clones of a StyledText share the same underlying data, so cloning is cheap.
@@ -71,8 +82,8 @@ pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
         [paragraph] => paragraph.text.as_str().into(),
         _ => {
             let mut result = alloc::string::String::new();
-            for paragraph in styled_text.paragraphs.iter() {
-                if !result.is_empty() {
+            for (index, paragraph) in styled_text.paragraphs.iter().enumerate() {
+                if index > 0 {
                     result.push('\n');
                 }
                 result.push_str(paragraph.text.as_str());

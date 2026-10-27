@@ -2461,6 +2461,11 @@ fn build(l: &mut Loader) {
         /// handle keys before `TextInput` does. Return `accept` to indicate that you've handled the event, or return
         /// `reject` to let `TextInput` handle it.
         callback key-released(event: KeyEvent) -> EventResult;
+        /// Invoked to style the displayed text, for example for syntax highlighting.
+        /// The argument is the text to display, including any text being composed with an input method.
+        /// Return a `styled-text` with the same characters, such as one built with `@markdown()` interpolation.
+        /// If the characters differ, or the input is a password field, the text is displayed unstyled.
+        callback highlight(text: string) -> styled-text;
         in property <bool> enabled: true;
         /// When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text.
         in property <bool> single-line: true;

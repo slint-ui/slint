@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global Highlighter {
+    public pure function bold(text: string) -> styled-text {
+        return @markdown("**\{text}**");
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+    in-out property <bool> mismatch;
+    in-out property <string> text <=> input.text;
+    out property <int> cursor-pos: input.cursor-position-byte-offset;
+    out property <length> styled-width: styled.preferred-width;
+    out property <length> plain-width: plain.preferred-width;
+    out property <length> mismatched-width: mismatched.preferred-width;
+
+    VerticalLayout {
+        alignment: start;
+        input := TextInput {
+            single-line: false;
+            highlight(text) => {
+                if mismatch {
+                    return @markdown("x\{text}");
+                }
+                return Highlighter.bold(text);
+            }
+        }
+        HorizontalLayout {
+            alignment: start;
+            styled := TextInput {
+                text: "Hello World";
+                highlight(text) => Highlighter.bold(text);
+            }
+        }
+        HorizontalLayout {
+            alignment: start;
+            plain := TextInput {
+                text: "Hello World";
+            }
+        }
+        HorizontalLayout {
+            alignment: start;
+            mismatched := TextInput {
+                text: "Hello World";
+                highlight(text) => @markdown("Hello *World*!");
+            }
+        }
+        TextInput {
+            text: "export component A {}";
+            highlight(text) => SlintInternal.slint-highlighter(text);
+        }
+    }
+
+    out property <bool> slint-highlighter-ok: SlintInternal.slint-highlighter("export Foo := 42; // x")
+        == @markdown("<font color=\"#9b4dca\">export</font> <font color=\"#2a7fd4\">Foo</font> := "
+                     "<font color=\"#d4762a\">42</font>; <font color=\"#808080\">// x</font>");
+
+    out property <bool> test: styled-width > plain-width && mismatched-width == plain-width && slint-highlighter-ok;
+}
+
+/*
+```rust
+use slint::platform::Key;
+use slint::SharedString;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+slint_testing::send_keyboard_string_sequence(&instance, "aé\naé\naé");
+assert_eq!(instance.get_cursor_pos(), 11);
+
+// The highlighted text is one paragraph containing '\n', so this moves across lines.
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+assert_eq!(instance.get_cursor_pos(), 7);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::UpArrow));
+assert_eq!(instance.get_cursor_pos(), 3);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_cursor_pos(), 7);
+
+instance.set_mismatch(true);
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::DownArrow));
+assert_eq!(instance.get_cursor_pos(), 11);
+slint_testing::send_keyboard_string_sequence(&instance, "!");
+assert_eq!(instance.get_text(), "aé\naé\naé!");
+```
+*/

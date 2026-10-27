@@ -624,6 +624,7 @@ impl TypeRegister {
 
     pub fn set_experimental_features(&mut self, features: crate::ExperimentalFeatures) {
         self.experimental_features = features;
+        self.expose_internal_types = features.contains(crate::ExperimentalFeature::InternalTypes);
     }
 
     pub fn new(parent: &Rc<RefCell<TypeRegister>>) -> Self {

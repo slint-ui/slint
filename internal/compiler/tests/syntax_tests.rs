@@ -519,7 +519,11 @@ fn process_file_source(
     if path.parent().and_then(|p| p.file_name()).is_some_and(|n| n == "renderer-software") {
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
-    compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
+    // Without `internal-types`, so that a test can check that `SlintInternal` is hidden.
+    compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all()
+        .iter()
+        .filter(|f| *f != i_slint_compiler::ExperimentalFeature::InternalTypes)
+        .collect();
     compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
