@@ -11,6 +11,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Translations {
     /// An array with all the array of string
     /// The first vector index is stored in the LLR.
