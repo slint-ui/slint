@@ -313,14 +313,76 @@ pub(super) fn create_text_paragraphs(
             }
         }
         PlainOrStyledText::Styled(rich_text) => {
-            for paragraph in rich_text.paragraphs {
-                paragraphs.push(paragraph_from_text(
-                    font_context,
-                    &paragraph.text,
-                    0..0,
-                    paragraph.formatting,
-                    paragraph.links,
-                ));
+            /// Splits `spans` at the ascending `lines`, rebasing each piece onto its line.
+            /// Each span is only visited for the lines it overlaps.
+            fn split_at_lines<T>(
+                spans: &[T],
+                range: fn(&T) -> Range<usize>,
+                rebased: fn(&T, Range<usize>) -> T,
+                lines: &[Range<usize>],
+            ) -> Vec<Vec<T>> {
+                let mut by_start: Vec<usize> = (0..spans.len()).collect();
+                by_start.sort_by_key(|&i| range(&spans[i]).start);
+                let mut by_start = by_start.into_iter().peekable();
+                let mut open = Vec::new();
+                lines
+                    .iter()
+                    .map(|line| {
+                        while let Some(i) = by_start.next_if(|&i| range(&spans[i]).start < line.end)
+                        {
+                            open.push(i);
+                        }
+                        open.retain(|&i| range(&spans[i]).end > line.start);
+                        open.iter()
+                            .filter_map(|&i| {
+                                let r = range(&spans[i]);
+                                let r = r.start.max(line.start) - line.start
+                                    ..r.end.min(line.end) - line.start;
+                                (r.start < r.end).then(|| rebased(&spans[i], r))
+                            })
+                            .collect()
+                    })
+                    .collect()
+            }
+
+            // Ranges index the paragraphs joined with '\n', like `get_raw_text`.
+            let mut offset = 0;
+            for paragraph in rich_text.paragraphs.iter() {
+                let lines: Vec<_> = paragraph_ranges(&paragraph.text).collect();
+                let (formatting, links) = if lines == [0..paragraph.text.len()] {
+                    (
+                        alloc::vec![paragraph.formatting.clone()],
+                        alloc::vec![paragraph.links.clone()],
+                    )
+                } else {
+                    (
+                        split_at_lines(
+                            &paragraph.formatting,
+                            |span| span.range.clone(),
+                            |span, range| i_slint_common::styled_text::FormattedSpan {
+                                range,
+                                style: span.style.clone(),
+                            },
+                            &lines,
+                        ),
+                        split_at_lines(
+                            &paragraph.links,
+                            |(range, _)| range.clone(),
+                            |(_, link), range| (range, link.clone()),
+                            &lines,
+                        ),
+                    )
+                };
+                for ((range, formatting), links) in lines.into_iter().zip(formatting).zip(links) {
+                    paragraphs.push(paragraph_from_text(
+                        font_context,
+                        &paragraph.text[range.clone()],
+                        offset + range.start..offset + range.end,
+                        formatting,
+                        links,
+                    ));
+                }
+                offset += paragraph.text.len() + 1;
             }
         }
     };

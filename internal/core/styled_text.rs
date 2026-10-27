@@ -71,8 +71,8 @@ pub fn get_raw_text(styled_text: &StyledText) -> alloc::borrow::Cow<'_, str> {
         [paragraph] => paragraph.text.as_str().into(),
         _ => {
             let mut result = alloc::string::String::new();
-            for paragraph in styled_text.paragraphs.iter() {
-                if !result.is_empty() {
+            for (index, paragraph) in styled_text.paragraphs.iter().enumerate() {
+                if index > 0 {
                     result.push('\n');
                 }
                 result.push_str(paragraph.text.as_str());

@@ -787,6 +787,8 @@ pub struct TextInput {
     pub edited: Callback<VoidArg>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
+    pub highlight: Callback<StringArg, crate::styled_text::StyledText>,
+    highlighted_text: Property<crate::styled_text::StyledText>,
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
@@ -827,6 +829,39 @@ impl Item for TextInput {
                 text_input.as_pin_ref().align_to_text(new_text, &self_rc);
             },
         );
+        let self_weak = self_rc.downgrade();
+        self.highlighted_text.set_binding(move || {
+            let Some(self_rc) = self_weak.upgrade() else { return Default::default() };
+            let Some(text_input) = self_rc.downcast::<TextInput>() else {
+                return Default::default();
+            };
+            let text_input = text_input.as_pin_ref();
+            if !text_input.highlight.has_handler() || text_input.is_password() {
+                return Default::default();
+            }
+            let text = text_input.text_with_preedit().0;
+            let styled = text_input.highlight.call(&(text.clone(),));
+            // Whether the paragraphs joined with '\n' are `text`, without allocating the join.
+            let same_characters = (|| {
+                let mut rest = text.as_str();
+                for (index, paragraph) in styled.paragraphs.iter().enumerate() {
+                    if index > 0 {
+                        rest = rest.strip_prefix('\n')?;
+                    }
+                    rest = rest.strip_prefix(paragraph.text.as_str())?;
+                }
+                Some(rest.is_empty())
+            })()
+            .unwrap_or(false);
+            if same_characters {
+                styled
+            } else {
+                crate::debug_log!(
+                    "TextInput: the text returned by 'highlight' differs from its argument and is ignored"
+                );
+                Default::default()
+            }
+        });
     }
 
     fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
@@ -1351,8 +1386,12 @@ impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         // Deliberately not `visual_representation`, which would size the item off the cursor and
         // the selection too -- see `text_with_preedit`.
-        let text = self.text_with_preedit().0;
-        PlainOrStyledText::Plain(if self.is_password() { mask_password(&text) } else { text })
+        let highlighted = self.highlighted_text();
+        if highlighted.paragraphs.is_empty() {
+            PlainOrStyledText::Plain(self.displayed_text())
+        } else {
+            PlainOrStyledText::Styled(highlighted)
+        }
     }
 }
 
@@ -2155,6 +2194,13 @@ impl TextInput {
             self.preedit_text.set(Default::default());
             self.insert(&text, window_adapter, self_rc);
         }
+    }
+
+    /// The characters [`RenderString::text`] displays: [`Self::text_with_preedit`], masked in a
+    /// password field.
+    pub(crate) fn displayed_text(self: Pin<&Self>) -> SharedString {
+        let text = self.text_with_preedit().0;
+        if self.is_password() { mask_password(&text) } else { text }
     }
 
     /// Returns the `text` property with the IME composition (preedit) inserted at the cursor, and

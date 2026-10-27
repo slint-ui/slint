@@ -73,11 +73,7 @@ impl CachedTextInputAccessibilityState {
         // Before the layout, so it survives a renderer with none to lend. The displayed
         // text, not `accessible-value`: that one is the raw `text`, which for a password field
         // would hand out the characters themselves.
-        if let PlainOrStyledText::Plain(displayed) =
-            crate::item_rendering::RenderString::text(text_input)
-        {
-            parent_node.set_value(displayed.as_str().to_string());
-        }
+        parent_node.set_value(text_input.displayed_text().as_str().to_string());
 
         with_text_input_layout(renderer, text_input, item_rc, size, |layout| {
             let paragraphs: alloc::vec::Vec<_> = layout.paragraphs().collect();

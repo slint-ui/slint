@@ -914,11 +914,7 @@ fn with_text_input_layout_impl<R>(
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
 
-    // `RenderString for TextInput` yields plain text; a styled input doesn't exist.
-    let PlainOrStyledText::Plain(text) = crate::item_rendering::RenderString::text(text_input)
-    else {
-        return None;
-    };
+    let text = text_input.displayed_text();
 
     with_text_layout(
         cache,
