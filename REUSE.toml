@@ -501,182 +501,182 @@ path = "demos/food-processor/ui/images/ingredients/asparagus.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Delapouite"
 SPDX-License-Identifier = "CC-BY-3.0"
-SPDX-FileComment = "https://game-icons.net/1x1/delapouite/asparagus.html. Recolored green."
+SPDX-FileComment = "https://game-icons.net/1x1/delapouite/asparagus.html. Recolored green. Optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/avocado.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
-SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f951.svg. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f951.svg. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/bacon.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/bacon.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/bacon.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/beans.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
-SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1fad8.svg. Recolored green for edamame."
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1fad8.svg. Recolored green for edamame. Optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/butter.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
-SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f9c8.svg. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f9c8.svg. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/carrots.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/carrot.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/carrot.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/cucumber.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/cucumber.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/cucumber.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/egg.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/egg_plain.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/egg_plain.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/garlic.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: spice/garlic.svg in https://opengameart.org/sites/default/files/spice.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: spice/garlic.svg in https://opengameart.org/sites/default/files/spice.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/lemon.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/lemon.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/lemon.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/lime.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/lemon.svg in https://opengameart.org/sites/default/files/food_0.7z. Rind recolored green."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/lemon.svg in https://opengameart.org/sites/default/files/food_0.7z. Rind recolored green. Optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/mango.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
-SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f96d.svg. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f96d.svg. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/muffin.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/bun.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/bun.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/mushrooms.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/mushroom.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/mushroom.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/noodles.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/plain_noodles.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/plain_noodles.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/oil.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/sesame_oil.svg in https://opengameart.org/sites/default/files/food_0.7z. ViewBox trimmed."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/sesame_oil.svg in https://opengameart.org/sites/default/files/food_0.7z. ViewBox trimmed. Optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/olive-oil.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/olive_oil.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/olive_oil.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/onion.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/onion.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/onion.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/paprika.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: spice/hot_pepper.svg in https://opengameart.org/sites/default/files/spice.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: spice/hot_pepper.svg in https://opengameart.org/sites/default/files/spice.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/pork.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/meat.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/meat.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/potato.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/potato.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/potato.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/rice.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/rice.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/rice.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/salt.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
-SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f9c2.svg. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f9c2.svg. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/spinach.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/spinach.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/spinach.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/stock.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
 SPDX-License-Identifier = "CC0-1.0"
-SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/stock_sauce.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; whitespace normalized."
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/stock_sauce.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
 
 [[annotations]]
 path = "demos/food-processor/ui/images/ingredients/yogurt.svg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
 SPDX-License-Identifier = "CC-BY-4.0"
-SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f963.svg. Bowl contents recolored for yogurt."
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f963.svg. Bowl contents recolored for yogurt. Optimized with svgo."
 
 [[annotations]]
 path = "demos/weather-demo/ui/assets/weathericons-font.ttf"
