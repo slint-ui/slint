@@ -30,4 +30,5 @@
   <Project Path="dotnet-viewer/DotnetViewer.csproj" />
   <Project Path="../demos/launcher/dotnet/Launcher.csproj" />
   <Project Path="../demos/weather-demo/dotnet/WeatherDemo.csproj" />
+  <Project Path="lols/dotnet/Lols.csproj" />
 </Solution>

@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Positions are fractions of the window, like `AbsoluteLayoutFlags.PositionProportional` in the MAUI version.
+export struct Lol {
+    x: float,
+    y: float,
+    color: color,
+    rotation: angle,
+}
+
+export component MainWindow inherits Window {
+    title: "LOLs per second";
+    // A Pixel 5 in logical pixels, the device of the other versions.
+    preferred-width: 393px;
+    preferred-height: 851px;
+    background: white;
+
+    in property <[Lol]> lols;
+    in property <string> rate: "LOL/s:";
+
+    for lol in root.lols: Text {
+        x: lol.x * root.width;
+        y: lol.y * root.height;
+        text: "lol?";
+        font-size: 14px;
+        color: lol.color;
+        transform-rotation: lol.rotation;
+    }
+
+    Rectangle {
+        y: 20px;
+        width: label.preferred-width + 14px;
+        height: label.preferred-height + 14px;
+        background: red;
+
+        label := Text {
+            text: root.rate;
+            color: white;
+        }
+    }
+}
