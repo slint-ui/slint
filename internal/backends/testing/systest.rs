@@ -57,6 +57,9 @@ impl TestingClient {
 
         let request = request.ok_or_else(|| "Empty request".to_string())?;
 
+        i_slint_core::with_existing_context(|context| context.update_timers_and_animations())
+            .map_err(|error| error.to_string())?;
+
         Ok(match request {
             Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(&self.state)),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
@@ -384,4 +387,59 @@ fn convert_window_event(
             i_slint_core::platform::WindowEvent::WindowActiveChanged(active)
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn requests_observe_expired_timers_and_change_handlers() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            #[edition = "1.19"]
+            export component App inherits Window {
+                in-out property <int> input;
+                out property <int> observed;
+                changed input => { observed = input; }
+                accessible-role: region;
+                accessible-label: "value " + observed;
+            }
+        }
+        let app = App::new().unwrap();
+        let state = Rc::new(IntrospectionState::new());
+        state.add_window(
+            &i_slint_core::window::WindowInner::from_pub(app.window()).window_adapter(),
+        );
+        let root = state.windows.borrow().values().next().unwrap().root_element_handle;
+        let client = TestingClient {
+            state,
+            message_loop_future: Default::default(),
+            server_addr: String::new(),
+        };
+        let future_timer_fired = Rc::new(std::cell::Cell::new(false));
+        let fired = future_timer_fired.clone();
+        slint::Timer::single_shot(std::time::Duration::from_secs(60), move || fired.set(true));
+
+        for value in [42, 84] {
+            app.set_input(value - 1);
+            let weak = app.as_weak();
+            slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                weak.unwrap().set_input(value);
+            });
+            let response = futures_lite::future::block_on(client.handle_request(Some(
+                proto::request_to_aut::Msg::RequestElementProperties(
+                    proto::RequestElementProperties {
+                        element_handle: Some(introspection::index_to_handle(root)),
+                    },
+                ),
+            )))
+            .unwrap();
+            let proto::aut_response::Msg::ElementProperties(properties) = response else {
+                panic!("expected element properties");
+            };
+            assert_eq!(properties.accessible_label, format!("value {value}"));
+            assert!(!future_timer_fired.get());
+        }
+    }
 }
