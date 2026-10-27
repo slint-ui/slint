@@ -36,7 +36,10 @@ adb logcat -s Lols
 The app prints the final rate when all lols are in.
 Release builds with .NET 10 on a Motorola edge 60 neo with Android 16,
 next to the original apps from the `main` and `canvas` branches of LOLs per second,
-and a [Flutter version](https://github.com/yurkinh/lols/tree/slint/src/flutter) with the same modes:
+and a [Flutter version](https://github.com/yurkinh/lols/tree/slint/src/flutter) with the same modes.
+To run the same comparison on your own phone, use the
+[`slint` branch of the lols fork](https://github.com/yurkinh/lols/tree/slint#comparing-on-your-own-phone),
+whose `scripts/compare-android.sh` builds every version, runs each on the connected device, and prints the rates:
 
 | App | One label per lol, 5,000 | Canvas, 100,000 |
 | --- | --- | --- |
