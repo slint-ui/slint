@@ -831,7 +831,13 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
             ctx.locals.get(name).cloned().unwrap_or(Value::Void)
         }
         Expression::StructFieldAccess { base, name } => {
-            if let Value::Struct(s) = eval_expression(ctx, base)
+            let base_value = match &**base {
+                Expression::ReadLocalVariable { name, .. } => {
+                    std::borrow::Cow::Borrowed(ctx.locals.get(name).unwrap_or(&Value::Void))
+                }
+                _ => std::borrow::Cow::Owned(eval_expression(ctx, base)),
+            };
+            if let Value::Struct(s) = &*base_value
                 && let Some(v) = s.get_field(name)
                 && !matches!(v, Value::Void)
             {

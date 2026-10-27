@@ -326,12 +326,30 @@ fn parse_array(p: &mut impl Parser) {
 /// {a:b}
 /// { a: "foo" , }
 /// {a:b, c: 4 + 4, d: [a,] }
+/// { ..base }
+/// { a: 1, ..base, }
+/// { a: { b: 2, ..base.a }, ..base }
 /// ```
 fn parse_object_notation(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ObjectLiteral);
     p.expect(SyntaxKind::LBrace);
 
     while p.nth(0).kind() != SyntaxKind::RBrace {
+        if p.nth(0).kind() == SyntaxKind::Dot && p.nth(1).kind() == SyntaxKind::Dot {
+            {
+                let mut p = p.start_node(SyntaxKind::ObjectUpdate);
+                p.consume();
+                p.consume();
+                parse_expression(&mut *p);
+                p.test(SyntaxKind::Comma);
+            }
+            if p.peek().kind() != SyntaxKind::RBrace {
+                p.error("The '..base' expression must be the last entry in a struct literal");
+                p.until(SyntaxKind::RBrace);
+                return;
+            }
+            break;
+        }
         let mut p = p.start_node(SyntaxKind::ObjectMember);
         p.expect(SyntaxKind::Identifier);
         p.expect(SyntaxKind::Colon);

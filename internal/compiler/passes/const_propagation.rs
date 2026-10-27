@@ -78,6 +78,7 @@ fn simplify_expression(
         {
             simplify_single_statement_code_block(expr, ga, cache)
         }
+        Expression::CodeBlock(_) => simplify_struct_update_block(expr, ga, cache),
         Expression::FunctionCall { .. } => simplify_function_call(expr, ga, cache),
         Expression::ElementReference { .. } => false,
         Expression::LayoutCacheAccess { .. } => false,
@@ -383,6 +384,67 @@ fn simplify_single_statement_code_block(
     let Expression::CodeBlock(stmts) = expr else { unreachable!() };
     *expr = stmts[0].clone();
     simplify_expression(expr, ga, cache)
+}
+
+#[inline(never)]
+fn simplify_struct_update_block(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
+    let Expression::CodeBlock(stmts) = expr else { unreachable!() };
+    let mut can_inline = true;
+    for stmt in stmts.iter_mut() {
+        can_inline &= simplify_expression(stmt, ga, cache);
+    }
+    let [Expression::StoreLocalVariable { name, value }, Expression::Struct { values, .. }] =
+        stmts.as_mut_slice()
+    else {
+        return can_inline;
+    };
+    let Expression::Struct { values: base_values, .. } = &**value else {
+        return can_inline;
+    };
+    if !is_literal_constant(value) {
+        return can_inline;
+    }
+    for field in values.values() {
+        let mut has_assignment = false;
+        field.visit_recursive(&mut |expr| {
+            has_assignment |= matches!(expr, Expression::SelfAssignment { .. })
+                || matches!(expr, Expression::StoreLocalVariable { name: local, .. } if local == name);
+        });
+        if has_assignment {
+            return can_inline;
+        }
+    }
+    for field in values.values_mut() {
+        field.visit_recursive_mut(&mut |expr| {
+            if let Expression::StructFieldAccess { base, name: field_name } = expr
+                && matches!(&**base, Expression::ReadLocalVariable { name: local, .. } if local == name)
+                && let Some(field_value) = base_values.get(field_name)
+            {
+                *expr = field_value.clone();
+            } else if matches!(expr, Expression::ReadLocalVariable { name: local, .. } if local == name) {
+                *expr = (**value).clone();
+            }
+        });
+    }
+    *expr = stmts.pop().unwrap();
+    can_inline & simplify_expression(expr, ga, cache)
+}
+
+fn is_literal_constant(expr: &Expression) -> bool {
+    match expr {
+        Expression::StringLiteral(_)
+        | Expression::NumberLiteral(..)
+        | Expression::BoolLiteral(_)
+        | Expression::EnumerationValue(_) => true,
+        Expression::Cast { from, .. } => is_literal_constant(from),
+        Expression::UnaryOp { sub, .. } => is_literal_constant(sub),
+        Expression::Struct { values, .. } => values.values().all(is_literal_constant),
+        _ => false,
+    }
 }
 
 #[inline(never)]
@@ -873,6 +935,72 @@ fn test_unit_normalization() {
     // Equality folds for numbers (now via the ordering arm) and bools.
     assert!(matches!(fold("bool", "1px != 2px"), Expression::BoolLiteral(true)));
     assert!(matches!(fold("bool", "true == false"), Expression::BoolLiteral(false)));
+}
+
+#[test]
+fn test_fold_struct_update_block() {
+    let ty = std::sync::Arc::new(crate::langtype::Struct::new(
+        [("x".into(), Type::Float32), ("y".into(), Type::Float32)].into(),
+        StructName::None,
+    ));
+    let literal = |x| Expression::Struct {
+        ty: ty.clone(),
+        values: [("x".into(), x), ("y".into(), Expression::NumberLiteral(2., Unit::None))].into(),
+    };
+    let local =
+        || Expression::ReadLocalVariable { name: "base".into(), ty: Type::Struct(ty.clone()) };
+    let update = |base, x| {
+        Expression::CodeBlock(vec![
+            Expression::StoreLocalVariable { name: "base".into(), value: Box::new(base) },
+            Expression::Struct {
+                ty: ty.clone(),
+                values: [
+                    ("x".into(), x),
+                    (
+                        "y".into(),
+                        Expression::StructFieldAccess { base: Box::new(local()), name: "y".into() },
+                    ),
+                ]
+                .into(),
+            },
+        ])
+    };
+    let mut expr = update(
+        literal(Expression::NumberLiteral(1., Unit::None)),
+        Expression::NumberLiteral(3., Unit::None),
+    );
+    fold_const_expression(&mut expr);
+    let Expression::Struct { values, .. } = expr else { panic!("not folded: {expr:?}") };
+    assert!(matches!(values["x"], Expression::NumberLiteral(3., Unit::None)));
+    assert!(matches!(values["y"], Expression::NumberLiteral(2., Unit::None)));
+
+    for base in [
+        local(),
+        literal(Expression::ReadLocalVariable { name: "other".into(), ty: Type::Float32 }),
+        literal(Expression::FunctionParameterReference { index: 0, ty: Type::Float32 }),
+    ] {
+        let mut expr = update(base, Expression::NumberLiteral(3., Unit::None));
+        fold_const_expression(&mut expr);
+        assert!(matches!(expr, Expression::CodeBlock(_)), "{expr:?}");
+    }
+
+    let mut expr = update(
+        literal(Expression::NumberLiteral(1., Unit::None)),
+        Expression::CodeBlock(vec![
+            Expression::SelfAssignment {
+                lhs: Box::new(Expression::StructFieldAccess {
+                    base: Box::new(local()),
+                    name: "y".into(),
+                }),
+                rhs: Box::new(Expression::NumberLiteral(4., Unit::None)),
+                op: '=',
+                node: None,
+            },
+            Expression::NumberLiteral(3., Unit::None),
+        ]),
+    );
+    fold_const_expression(&mut expr);
+    assert!(matches!(expr, Expression::CodeBlock(_)), "{expr:?}");
 }
 
 #[test]

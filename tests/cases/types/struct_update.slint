@@ -1,0 +1,141 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export enum Emphasis { normal, strong }
+
+export struct StateColors {
+    background: color,
+    foreground: color,
+}
+
+export struct Style {
+    rest: StateColors,
+    pressed: StateColors,
+    spacing: length = 4px,
+    emphasis: Emphasis,
+}
+
+struct UpdateDefaults {
+    simple: { x: int, y: int } = { x: 3, ..{ x: 1, y: 2 } },
+    nested: { data: { x: int, y: int }, z: int } = {
+        data: { y: 4, ..{ x: 1, y: 2 } },
+        ..{ data: { x: 0, y: 0 }, z: 5 }
+    },
+    chained: { x: int, y: int } = { x: 6, ..{ y: 7, ..{ x: 1, y: 2 } } },
+    copied: { x: int, y: int } = { ..(true ? { x: 8, y: 9 } : { x: 0, y: 0 }) },
+    style: Style = { ..{ rest: { background: Colors.blue }, emphasis: Emphasis.strong } },
+}
+
+export component TestCase {
+    private property <UpdateDefaults> defaults;
+    in-out property <color> accent: blue;
+    in-out property <color> pressed-color: yellow;
+    in-out property <length> gap: 8px;
+    in-out property <Style> base: {
+        rest: { background: root.accent, foreground: white },
+        pressed: { background: black, foreground: white },
+        spacing: root.gap,
+    };
+    out property <Style> custom: {
+        pressed: { background: root.pressed-color, ..root.base.pressed },
+        emphasis: strong,
+        ..root.base
+    };
+    out property <Style> copy: { ..root.base };
+    out property <Style> chained: { spacing: 12px, ..root.custom, };
+    out property <Style> replaced: { pressed: { background: red }, ..root.base };
+
+    pure function update(style: Style) -> Style {
+        let result = { emphasis: strong, ..style };
+        return result;
+    }
+
+    pure callback copy-base() -> Style;
+    copy-base => { ..root.base };
+
+    private property <int> calls;
+    private property <bool> single-evaluation;
+    private property <bool> reactive;
+
+    function counted-base() -> Style {
+        root.calls += 1;
+        return root.base;
+    }
+
+    function counted-spacing() -> length {
+        root.calls += 10;
+        return root.calls * 1px;
+    }
+
+    init => {
+        let result = { spacing: 20px, ..root.counted-base() };
+        let complete = {
+            rest: { background: red },
+            pressed: { background: red },
+            spacing: 1px,
+            emphasis: normal,
+            ..root.counted-base()
+        };
+        root.single-evaluation = root.calls == 2 && result.spacing == 20px && complete.spacing == 1px;
+        let ordered = { spacing: root.counted-spacing(), ..root.counted-base() };
+        root.single-evaluation = root.single-evaluation && root.calls == 13 && ordered.spacing == 13px;
+        let literal-base = { x: root.counted-spacing(), ..{ x: 0px, y: 7 } };
+        root.single-evaluation = root.single-evaluation && root.calls == 23
+            && literal-base.x == 23px && literal-base.y == 7;
+        root.reactive = root.custom.rest.background == blue && root.custom.pressed.background == yellow;
+        root.accent = green;
+        root.pressed-color = orange;
+        root.gap = 10px;
+        root.reactive = root.reactive && root.custom.rest.background == green
+            && root.custom.pressed.background == orange && root.custom.spacing == 10px;
+    }
+
+    out property <bool> test: root.single-evaluation && root.reactive
+        && root.defaults.simple == { x: 3, y: 2 }
+        && root.defaults.nested == { data: { x: 1, y: 4 }, z: 5 }
+        && root.defaults.chained == { x: 6, y: 7 }
+        && root.defaults.copied == { x: 8, y: 9 }
+        && root.defaults.style.spacing == 4px
+        && root.defaults.style.emphasis == Emphasis.strong
+        && root.defaults.style.rest.background == blue
+        && root.custom.rest == root.base.rest
+        && root.custom.pressed.background == root.pressed-color
+        && root.custom.pressed.foreground == white
+        && root.custom.emphasis == Emphasis.strong
+        && root.custom.spacing == root.gap
+        && root.base.pressed.background == black
+        && root.base.emphasis == Emphasis.normal
+        && root.copy == root.base
+        && root.copy-base() == root.base
+        && root.chained.spacing == 12px
+        && root.chained.pressed == root.custom.pressed
+        && root.replaced.pressed.foreground == transparent
+        && root.update(root.base).emphasis == Emphasis.strong
+        && ({ b: 9, ..{ a: 1, b: 2 } }.a == 1);
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_accent(slint::Color::from_rgb_u8(10, 20, 30));
+instance.set_pressed_color(slint::Color::from_rgb_u8(40, 50, 60));
+instance.set_gap(16.);
+assert!(instance.get_test());
+assert_eq!(instance.get_custom().rest.background, instance.get_accent());
+assert_eq!(instance.get_custom().pressed.background, instance.get_pressed_color());
+assert_eq!(instance.get_custom().spacing, 16.);
+```
+
+```cpp
+auto instance = TestCase::create();
+assert(instance->get_test());
+instance->set_accent(slint::Color::from_rgb_uint8(10, 20, 30));
+instance->set_pressed_color(slint::Color::from_rgb_uint8(40, 50, 60));
+instance->set_gap(16);
+assert(instance->get_test());
+assert_eq(instance->get_custom().rest.background, instance->get_accent());
+assert_eq(instance->get_custom().pressed.background, instance->get_pressed_color());
+assert_eq(instance->get_custom().spacing, 16);
+```
+*/
