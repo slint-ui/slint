@@ -271,6 +271,17 @@ pub trait RendererSealed {
         true
     }
 
+    /// Whether this renderer lays `text`'s text out through parley, so that the byte offsets
+    /// parley hit-testing yields are the ones it draws.
+    #[cfg(feature = "shared-parley")]
+    fn text_has_parley_layout(
+        &self,
+        _text: Pin<&dyn crate::item_rendering::RenderText>,
+        _item_rc: &ItemRc,
+    ) -> bool {
+        true
+    }
+
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
         &self,
