@@ -14,8 +14,8 @@ int main()
 {
     // VTK renders with desktop OpenGL 3.2 or newer.
     // Without this, Slint creates an OpenGL ES context on most platforms.
-    using GraphicsAPI = slint::BackendRequirements::GraphicsAPI;
-    slint::select_backend({ .graphics_api = GraphicsAPI::OpenGL, .min_version = { { 3, 2 } } });
+    slint::select_backend(
+            { .graphics_api = slint::GraphicsAPI::OpenGL, .min_opengl_version = { { 3, 2 } } });
 
     auto app = App::create();
     auto view = std::make_shared<VtkView>();

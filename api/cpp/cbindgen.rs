@@ -443,6 +443,7 @@ fn default_config() -> cbindgen::Config {
     config.defines = defines.into_iter().collect();
     config.structure.associated_constants_in_body = true;
     config.constant.allow_constexpr = true;
+    config.enumeration.deprecated_variant_with_note = Some("[[deprecated({})]]".into());
     config
 }
 
