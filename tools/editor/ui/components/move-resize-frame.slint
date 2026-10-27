@@ -220,12 +220,12 @@ export component MoveResizeFrame inherits Rectangle {
     }
 
     function store-free-resize-target(local-delta: Point) {
-        let target-width = root.resize-axis == ResizeAxis.vertical ? root.resize-start-size.width
+        let target-width = max(1px * root.geometry-scale, root.resize-axis == ResizeAxis.vertical ? root.resize-start-size.width
             : root.corner-on-left(root.resize-corner) ? root.resize-start-size.width - local-delta.x
-            : root.resize-start-size.width + local-delta.x;
-        let target-height = root.resize-axis == ResizeAxis.horizontal ? root.resize-start-size.height
+            : root.resize-start-size.width + local-delta.x);
+        let target-height = max(1px * root.geometry-scale, root.resize-axis == ResizeAxis.horizontal ? root.resize-start-size.height
             : root.corner-on-top(root.resize-corner) ? root.resize-start-size.height - local-delta.y
-            : root.resize-start-size.height + local-delta.y;
+            : root.resize-start-size.height + local-delta.y);
         root.free-resize-position = root.position-for-fixed-corner(
             root.resize-corner,
             root.resize-fixed-corner,

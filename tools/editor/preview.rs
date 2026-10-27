@@ -1659,8 +1659,8 @@ fn override_selected_element_geometry_impl(
     let values = [
         ("x", new_rect.origin.x.round() as f64, current_rect.origin.x.round() as f64),
         ("y", new_rect.origin.y.round() as f64, current_rect.origin.y.round() as f64),
-        ("width", new_rect.width().round() as f64, current_rect.width().round() as f64),
-        ("height", new_rect.height().round() as f64, current_rect.height().round() as f64),
+        ("width", new_rect.width().round().max(1.) as f64, current_rect.width().round() as f64),
+        ("height", new_rect.height().round().max(1.) as f64, current_rect.height().round() as f64),
     ];
     let values = values
         .into_iter()
