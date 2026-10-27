@@ -219,6 +219,13 @@ impl crate::PreviewToLsp for RemoteControlledPreviewToLsp {
 
 #[cfg(feature = "preview-process")]
 pub fn run() -> crate::Result<()> {
+    run_with_window_setup(async |_| {})
+}
+
+#[cfg(feature = "preview-process")]
+pub fn run_with_window_setup(
+    prepare_window: impl AsyncFnOnce(&slint_interpreter::Window) + 'static,
+) -> crate::Result<()> {
     let (to_preview, from_editor) = mpsc::unbounded_channel();
     let to_editor = Rc::new(RemoteControlledPreviewToLsp::new(
         move |message| {
@@ -237,6 +244,7 @@ pub fn run() -> crate::Result<()> {
                 if let Err(error) = i_slint_live_preview::preview_sessions::run_with_channels(
                     from_editor,
                     to_editor,
+                    prepare_window,
                 )
                 .await
                 {

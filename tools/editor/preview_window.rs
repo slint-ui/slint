@@ -3,32 +3,28 @@
 
 use std::ffi::OsString;
 
+use slint::Window;
 use slint::winit_030::{WinitWindowAccessor, winit};
-use slint::{PhysicalPosition, PhysicalSize, Window};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Placement {
-    anchor: (i32, i32),
-    monitor_origin: (i32, i32),
-    monitor_size: (u32, u32),
+    anchor: (f64, f64),
+    bounds_origin: (f64, f64),
+    bounds_size: (f64, f64),
 }
 
-pub fn placement(editor: &Window) -> Option<Placement> {
+fn placement(editor: &Window) -> Option<Placement> {
     editor.with_winit_window(|window| {
-        let position = window.outer_position().ok()?;
-        let size = window.outer_size();
         let monitor = window.current_monitor()?;
-        let origin = monitor.position();
-        let bounds = monitor.size();
-        let inset = (24. * window.scale_factor()).round() as i32;
-        Some(Placement {
-            anchor: (position.x + size.width as i32 - inset, position.y + 2 * inset),
-            monitor_origin: (origin.x + inset, origin.y + inset),
-            monitor_size: (
-                bounds.width.saturating_sub(2 * inset as u32),
-                bounds.height.saturating_sub(2 * inset as u32),
-            ),
-        })
+        Some(Placement::from_physical(
+            window.outer_position().ok()?,
+            window.outer_size(),
+            window.scale_factor(),
+            monitor.position(),
+            monitor.size(),
+            monitor.scale_factor(),
+            cfg!(target_os = "macos"),
+        ))
     })?
 }
 
@@ -41,6 +37,19 @@ pub fn arguments(placement: Option<Placement>) -> Vec<OsString> {
         );
     }
     arguments
+}
+
+pub fn arguments_provider(
+    editor: slint::Weak<crate::preview::ui::EditorUi>,
+) -> i_slint_editor_preview::springboard::LocalPreviewArguments {
+    std::sync::Arc::new(move || {
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let _ = editor.upgrade_in_event_loop(move |editor| {
+            use slint::ComponentHandle;
+            let _ = sender.send(arguments(placement(editor.window())));
+        });
+        receiver
+    })
 }
 
 pub fn activation_callback() -> Option<i_slint_editor_preview::child_process::PreviewReadyCallback>
@@ -72,16 +81,9 @@ pub fn activation_callback() -> Option<i_slint_editor_preview::child_process::Pr
 }
 
 pub fn run(placement: Option<Placement>) -> i_slint_editor_preview::Result<()> {
-    if !crate::headless_requested() {
-        let selector = slint::BackendSelector::new()
-            .with_winit_window_attributes_hook(move |attributes| match placement {
-                Some(placement) => attributes.with_position(winit::dpi::PhysicalPosition::new(
-                    placement.monitor_origin.0,
-                    placement.monitor_origin.1,
-                )),
-                None => attributes,
-            })
-            .with_winit_custom_application_handler(PreviewWindow { placement, presented: false });
+    let headless = crate::headless_requested();
+    if !headless {
+        let selector = slint::BackendSelector::new();
         #[cfg(target_os = "macos")]
         let selector = {
             use winit::platform::macos::EventLoopBuilderExtMacOS;
@@ -92,50 +94,85 @@ pub fn run(placement: Option<Placement>) -> i_slint_editor_preview::Result<()> {
         };
         selector.select()?;
     }
-    i_slint_editor_preview::child_process::run()
-}
-
-struct PreviewWindow {
-    placement: Option<Placement>,
-    presented: bool,
-}
-
-impl slint::winit_030::CustomApplicationHandler for PreviewWindow {
-    fn window_event(
-        &mut self,
-        _event_loop: &winit::event_loop::ActiveEventLoop,
-        _window_id: winit::window::WindowId,
-        window: Option<&winit::window::Window>,
-        _slint_window: Option<&Window>,
-        event: &winit::event::WindowEvent,
-    ) -> slint::winit_030::EventResult {
-        if !self.presented
-            && matches!(event, winit::event::WindowEvent::RedrawRequested)
-            && let Some(window) = window
-        {
-            self.presented = true;
-            if let Some(placement) = self.placement {
-                let size = window.outer_size();
-                let position = placement.position(PhysicalSize::new(size.width, size.height));
-                window
-                    .set_outer_position(winit::dpi::PhysicalPosition::new(position.x, position.y));
-            }
-            window.focus_window();
+    i_slint_editor_preview::child_process::run_with_window_setup(async move |window| {
+        if headless {
+            return;
         }
-        slint::winit_030::EventResult::Propagate
-    }
+        if let Some(placement) = placement {
+            #[cfg(target_os = "macos")]
+            window.set_position(slint::LogicalPosition::new(
+                placement.bounds_origin.0 as f32,
+                placement.bounds_origin.1 as f32,
+            ));
+            #[cfg(not(target_os = "macos"))]
+            window.set_position(slint::PhysicalPosition::new(
+                placement.bounds_origin.0.round() as i32,
+                placement.bounds_origin.1.round() as i32,
+            ));
+        }
+        let Ok(native) = window.winit_window().await else { return };
+        if let Some(placement) = placement {
+            let size = native.outer_size();
+            let coordinate_scale =
+                if cfg!(target_os = "macos") { native.scale_factor() } else { 1. };
+            let size = size.to_logical::<f64>(coordinate_scale);
+            let position = placement.position((size.width, size.height));
+            #[cfg(target_os = "macos")]
+            native.set_outer_position(winit::dpi::LogicalPosition::new(position.0, position.1));
+            #[cfg(not(target_os = "macos"))]
+            native.set_outer_position(winit::dpi::PhysicalPosition::new(
+                position.0.round() as i32,
+                position.1.round() as i32,
+            ));
+        }
+        let mut presented = false;
+        window.on_winit_window_event(move |window, event| {
+            if !presented && matches!(event, winit::event::WindowEvent::RedrawRequested) {
+                presented = true;
+                window.with_winit_window(|native| native.focus_window());
+            }
+            slint::winit_030::EventResult::Propagate
+        });
+    })
 }
 
 impl Placement {
-    fn position(self, size: PhysicalSize) -> PhysicalPosition {
-        PhysicalPosition::new(
-            (self.anchor.0 - size.width as i32).clamp(
-                self.monitor_origin.0,
-                self.monitor_origin.0 + self.monitor_size.0.saturating_sub(size.width) as i32,
+    fn from_physical(
+        editor_origin: winit::dpi::PhysicalPosition<i32>,
+        editor_size: winit::dpi::PhysicalSize<u32>,
+        editor_scale: f64,
+        monitor_origin: winit::dpi::PhysicalPosition<i32>,
+        monitor_size: winit::dpi::PhysicalSize<u32>,
+        monitor_scale: f64,
+        logical: bool,
+    ) -> Self {
+        // AppKit global positions are points; winit physical positions use the queried screen's scale.
+        let editor_coordinate_scale = if logical { editor_scale } else { 1. };
+        let monitor_coordinate_scale = if logical { monitor_scale } else { 1. };
+        let origin = editor_origin.to_logical::<f64>(editor_coordinate_scale);
+        let size = editor_size.to_logical::<f64>(editor_coordinate_scale);
+        let bounds_origin = monitor_origin.to_logical::<f64>(monitor_coordinate_scale);
+        let bounds_size = monitor_size.to_logical::<f64>(monitor_coordinate_scale);
+        let inset = 24. * editor_scale / editor_coordinate_scale;
+        Self {
+            anchor: (origin.x + size.width - inset, origin.y + 2. * inset),
+            bounds_origin: (bounds_origin.x + inset, bounds_origin.y + inset),
+            bounds_size: (
+                (bounds_size.width - 2. * inset).max(0.),
+                (bounds_size.height - 2. * inset).max(0.),
+            ),
+        }
+    }
+
+    fn position(self, size: (f64, f64)) -> (f64, f64) {
+        (
+            (self.anchor.0 - size.0).clamp(
+                self.bounds_origin.0,
+                self.bounds_origin.0 + (self.bounds_size.0 - size.0).max(0.),
             ),
             self.anchor.1.clamp(
-                self.monitor_origin.1,
-                self.monitor_origin.1 + self.monitor_size.1.saturating_sub(size.height) as i32,
+                self.bounds_origin.1,
+                self.bounds_origin.1 + (self.bounds_size.1 - size.1).max(0.),
             ),
         )
     }
@@ -144,17 +181,17 @@ impl Placement {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use winit::dpi::{LogicalPosition, LogicalSize};
 
     #[test]
     fn launch_arguments_round_trip_negative_monitor_coordinates() {
         let placement = Placement {
-            anchor: (-800, -1200),
-            monitor_origin: (-1900, -1400),
-            monitor_size: (1880, 960),
+            anchor: (-800., -1200.),
+            bounds_origin: (-1900., -1400.),
+            bounds_size: (1880., 960.),
         };
-        let arguments = arguments(Some(placement));
         let cli = <crate::Cli as clap::Parser>::try_parse_from(
-            std::iter::once(OsString::from("slint-editor")).chain(arguments),
+            std::iter::once(OsString::from("slint-editor")).chain(arguments(Some(placement))),
         )
         .unwrap();
         assert!(cli.run_preview_child);
@@ -164,25 +201,59 @@ mod tests {
     #[test]
     fn placement_stays_on_the_editors_monitor() {
         let placement = Placement {
-            anchor: (-800, -1200),
-            monitor_origin: (-1900, -1000),
-            monitor_size: (1880, 960),
+            anchor: (-800., -1200.),
+            bounds_origin: (-1900., -1000.),
+            bounds_size: (1880., 960.),
         };
-        let size = PhysicalSize::new(600, 400);
         for (anchor, expected) in [
-            ((-200, -900), (-800, -900)),
-            ((300, -900), (-620, -900)),
-            ((-1600, -1200), (-1900, -1000)),
-            ((-200, -100), (-800, -440)),
+            ((-200., -900.), (-800., -900.)),
+            ((300., -900.), (-620., -900.)),
+            ((-1600., -1200.), (-1900., -1000.)),
+            ((-200., -100.), (-800., -440.)),
         ] {
-            assert_eq!(
-                Placement { anchor, ..placement }.position(size),
-                PhysicalPosition::new(expected.0, expected.1),
-            );
+            assert_eq!(Placement { anchor, ..placement }.position((600., 400.)), expected);
         }
-        assert_eq!(
-            placement.position(PhysicalSize::new(3000, 2000)),
-            PhysicalPosition::new(-1900, -1000),
+        assert_eq!(placement.position((3000., 2000.)), (-1900., -1000.));
+    }
+
+    #[test]
+    fn appkit_placement_uses_points_across_different_backing_scales() {
+        for (editor_scale, monitor_scale, child_scale) in [(1., 1., 2.), (2., 2., 1.), (2., 1., 2.)]
+        {
+            for monitor_x in [1512., -1920.] {
+                let placement = Placement::from_physical(
+                    LogicalPosition::new(monitor_x + 100., 100.).to_physical(editor_scale),
+                    LogicalSize::new(1200., 800.).to_physical(editor_scale),
+                    editor_scale,
+                    LogicalPosition::new(monitor_x, 0.).to_physical(monitor_scale),
+                    LogicalSize::new(1920., 1080.).to_physical(monitor_scale),
+                    monitor_scale,
+                    true,
+                );
+                let child_size = LogicalSize::new(480., 320.)
+                    .to_physical::<u32>(child_scale)
+                    .to_logical::<f64>(child_scale);
+                assert_eq!(
+                    placement.position((child_size.width, child_size.height)),
+                    (monitor_x + 796., 148.)
+                );
+                assert_eq!(placement.bounds_origin, (monitor_x + 24., 24.));
+            }
+        }
+    }
+
+    #[test]
+    fn physical_desktop_coordinates_do_not_change_with_monitor_scale() {
+        let placement = Placement::from_physical(
+            winit::dpi::PhysicalPosition::new(3000, 200),
+            winit::dpi::PhysicalSize::new(1600, 1000),
+            2.,
+            winit::dpi::PhysicalPosition::new(2560, 0),
+            winit::dpi::PhysicalSize::new(2560, 1440),
+            1.,
+            false,
         );
+        assert_eq!(placement.bounds_origin, (2608., 48.));
+        assert_eq!(placement.position((960., 640.)), (3592., 296.));
     }
 }

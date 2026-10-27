@@ -44,7 +44,7 @@ const PRIMARY_PREVIEW_INDEX: usize = 0;
 const RUN_PREVIEW_INDEX: usize = 1;
 
 enum EditorToSessionMessage {
-    RunPreview(Option<preview_window::Placement>),
+    RunPreview,
     SwitchProject(Project),
     CloseProject,
 }
@@ -213,11 +213,8 @@ fn start_editor_session(
     let (to_editor_session, from_editor_preview) = crossbeam_channel::unbounded();
     let preview_global = editor_ui.global::<preview::ui::Preview>();
     let run_preview_sender = to_editor_session.clone();
-    let editor_weak = editor_ui.as_weak();
     preview_global.on_run(move || {
-        let placement =
-            editor_weak.upgrade().and_then(|editor| preview_window::placement(editor.window()));
-        run_preview_sender.send(EditorToSessionMessage::RunPreview(placement)).ok();
+        run_preview_sender.send(EditorToSessionMessage::RunPreview).ok();
     });
     let springboard_global = editor_ui.global::<editor_preview::springboard_ui::Springboard>();
     let springboard_global = <editor_preview::springboard_ui::Springboard as slint::Global<
@@ -228,7 +225,13 @@ fn start_editor_session(
         as Rc<dyn editor_preview::PreviewToLsp + 'static>;
     preview::ui::initialize_editor(editor_ui, &to_lsp, "");
     preview::initialize(editor_ui, to_lsp, settings);
-    start_lsp_thread(vec![from_preview], from_editor_preview, project, springboard_global);
+    start_lsp_thread(
+        vec![from_preview],
+        from_editor_preview,
+        project,
+        springboard_global,
+        preview_window::arguments_provider(editor_ui.as_weak()),
+    );
     to_editor_session
 }
 
@@ -237,6 +240,7 @@ fn start_lsp_thread(
     from_editor_preview: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
     springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
+    prepare_arguments: editor_preview::springboard::LocalPreviewArguments,
 ) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -247,7 +251,13 @@ fn start_lsp_thread(
         let local_set = tokio::task::LocalSet::new();
         if let Err(err) = local_set.block_on(
             &rt,
-            lsp_main(from_previews, from_editor_preview, project, springboard_global),
+            lsp_main(
+                from_previews,
+                from_editor_preview,
+                project,
+                springboard_global,
+                prepare_arguments,
+            ),
         ) {
             tracing::error!("{err}");
             std::process::exit(1);
@@ -288,6 +298,7 @@ async fn lsp_main(
     from_editor: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
     springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
+    prepare_arguments: editor_preview::springboard::LocalPreviewArguments,
 ) -> Result<()> {
     let mut from_previews = bridge_crossbeam_to_tokio(from_previews);
     let mut from_editor = bridge_crossbeam_receiver(from_editor);
@@ -305,7 +316,8 @@ async fn lsp_main(
 
     let local_preview = editor_preview::springboard::LocalPreviewConfig {
         executable: std::env::current_exe()?,
-        arguments: vec![std::ffi::OsString::from("--run-preview-child")],
+        arguments: preview_window::arguments(None),
+        prepare_arguments: Some(prepare_arguments),
         on_ready: preview_window::activation_callback(),
     };
     let springboard = editor_preview::springboard::Springboard::new(
@@ -368,9 +380,8 @@ async fn lsp_main(
             }
             editor_message = from_editor.recv() => {
                 match editor_message {
-                    Some(EditorToSessionMessage::RunPreview(placement)) => {
+                    Some(EditorToSessionMessage::RunPreview) => {
                         if run_preview(&mut session) {
-                            springboard.set_local_preview_arguments(preview_window::arguments(placement));
                             springboard.start();
                         }
                     }
