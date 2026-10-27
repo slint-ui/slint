@@ -84,10 +84,11 @@ runs:
               echo "CC=gcc-10" >> $GITHUB_ENV
               echo "CXX=g++-10" >> $GITHUB_ENV
         # Also save after a failed download, so that the next run resumes from it.
-        # Otherwise only master saves: other branches restore its cache.
+        # Otherwise only the CI workflow on master saves: other branches restore its
+        # cache, and the other workflows run too rarely for theirs to survive eviction.
         - name: Compute apt cache key
           id: apt-save
-          if: always() && runner.os == 'Linux' && steps.apt-cache.outputs.prefix != ''
+          if: always() && steps.apt-cache.outputs.prefix != ''
           shell: bash
           env:
               PREFIX: ${{ steps.apt-cache.outputs.prefix }}
@@ -102,7 +103,7 @@ runs:
                   echo "key=$key" >> "$GITHUB_OUTPUT"
               fi
         - name: Save apt downloads
-          if: always() && steps.apt-save.outputs.key != '' && (failure() || github.ref == 'refs/heads/master')
+          if: always() && steps.apt-save.outputs.key != '' && (failure() || github.ref == 'refs/heads/master' && github.workflow == 'CI')
           uses: actions/cache/save@v6
           with:
               path: |

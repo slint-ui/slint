@@ -29,9 +29,11 @@ inputs:
         required: false
         default: "true"
     save_if:
-        description: "Condition to save the cache"
+        description: "Condition to save the cache (default: on master, in the CI workflow)"
         required: false
-        default: ${{ github.ref == 'refs/heads/master' }}
+        # The other workflows run once a day at most, and GitHub evicts their
+        # caches before the next run restores them.
+        default: ${{ github.ref == 'refs/heads/master' && github.workflow == 'CI' }}
     cache-directories:
         description: "Additional directories for Swatinem/rust-cache, eg cargo target directories managed by CMake"
         required: false
