@@ -31,6 +31,7 @@ mod flatpak;
 #[cfg(target_os = "macos")]
 mod open_documents;
 mod preview;
+mod preview_window;
 #[cfg(target_os = "macos")]
 mod sparkle;
 mod startup;
@@ -43,7 +44,7 @@ const PRIMARY_PREVIEW_INDEX: usize = 0;
 const RUN_PREVIEW_INDEX: usize = 1;
 
 enum EditorToSessionMessage {
-    RunPreview,
+    RunPreview(Option<preview_window::Placement>),
     SwitchProject(Project),
     CloseProject,
 }
@@ -59,7 +60,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.run_preview_child {
-        return editor_preview::child_process::run();
+        return preview_window::run(cli.preview_window_placement);
     }
 
     let headless = headless_requested();
@@ -173,6 +174,8 @@ impl editor_preview::PreviewToLsp for EmbeddedPreviewToLsp {
 struct Cli {
     #[arg(long, hide = true)]
     run_preview_child: bool,
+    #[arg(long, hide = true, requires = "run_preview_child", value_parser = |value: &str| serde_json::from_str::<preview_window::Placement>(value))]
+    preview_window_placement: Option<preview_window::Placement>,
     file: Option<String>,
     component: Option<String>,
     #[arg(short = 'p', long, requires = "file", help = "Use this directory as the project root")]
@@ -210,8 +213,11 @@ fn start_editor_session(
     let (to_editor_session, from_editor_preview) = crossbeam_channel::unbounded();
     let preview_global = editor_ui.global::<preview::ui::Preview>();
     let run_preview_sender = to_editor_session.clone();
+    let editor_weak = editor_ui.as_weak();
     preview_global.on_run(move || {
-        run_preview_sender.send(EditorToSessionMessage::RunPreview).ok();
+        let placement =
+            editor_weak.upgrade().and_then(|editor| preview_window::placement(editor.window()));
+        run_preview_sender.send(EditorToSessionMessage::RunPreview(placement)).ok();
     });
     let springboard_global = editor_ui.global::<editor_preview::springboard_ui::Springboard>();
     let springboard_global = <editor_preview::springboard_ui::Springboard as slint::Global<
@@ -300,6 +306,7 @@ async fn lsp_main(
     let local_preview = editor_preview::springboard::LocalPreviewConfig {
         executable: std::env::current_exe()?,
         arguments: vec![std::ffi::OsString::from("--run-preview-child")],
+        on_ready: preview_window::activation_callback(),
     };
     let springboard = editor_preview::springboard::Springboard::new(
         local_preview,
@@ -361,8 +368,9 @@ async fn lsp_main(
             }
             editor_message = from_editor.recv() => {
                 match editor_message {
-                    Some(EditorToSessionMessage::RunPreview) => {
+                    Some(EditorToSessionMessage::RunPreview(placement)) => {
                         if run_preview(&mut session) {
+                            springboard.set_local_preview_arguments(preview_window::arguments(placement));
                             springboard.start();
                         }
                     }

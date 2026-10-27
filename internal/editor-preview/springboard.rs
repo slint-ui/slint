@@ -33,6 +33,7 @@ use settings::{NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SpringboardSett
 pub struct LocalPreviewConfig {
     pub executable: PathBuf,
     pub arguments: Vec<OsString>,
+    pub on_ready: Option<crate::child_process::PreviewReadyCallback>,
 }
 
 type SpringboardAction = Box<dyn FnOnce(&mut SpringboardTask) + Send + 'static>;
@@ -152,6 +153,12 @@ impl Springboard {
 
     pub fn start(&self) {
         let _ = self.task_sender.send(Box::new(|task| task.start()));
+    }
+
+    pub fn set_local_preview_arguments(&self, arguments: Vec<OsString>) {
+        let _ = self.task_sender.send(Box::new(move |task| {
+            task.local_preview.arguments = arguments;
+        }));
     }
 
     pub fn close(&self) {
@@ -347,7 +354,8 @@ impl SpringboardTask {
                 self.local_preview.executable.clone(),
                 self.local_preview.arguments.clone(),
                 sender,
-            );
+            )
+            .with_ready_callback(self.local_preview.on_ready.clone());
             match preview.start_preview() {
                 Ok(()) => {
                     self.preview = Some(Endpoint::Local { preview, receiver });
@@ -669,7 +677,7 @@ mod tests {
         let (executable, arguments) = fixture_config(name);
         let (sender, receiver) = mpsc::unbounded_channel();
         let controller = Springboard::new(
-            LocalPreviewConfig { executable, arguments },
+            LocalPreviewConfig { executable, arguments, on_ready: None },
             sender,
             Default::default(),
         );
