@@ -353,14 +353,16 @@ def test_stop_drag_crosses_neighbors_without_losing_capture(
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         for dx in (30, 70, 100, 130, 70, -50, -120, 20):
             window.dispatch_event(slint_testing.PointerMoveEvent(destination(dx)))
+            position = min(100, max(0, 55 + dx / 2))
             assert float(
                 control(
                     window, "Gradient stop 2", slint_testing.AccessibleRole.Slider
                 ).accessible_value
-            ) == pytest.approx(55 + dx / 2)
+            ) == pytest.approx(position)
             actual = center(control(window, "Gradient stop 2"), rotation)
-            assert actual.x == pytest.approx(destination(dx).x, abs=0.001)
-            assert actual.y == pytest.approx(destination(dx).y, abs=0.001)
+            expected = destination((position - 55) * 2)
+            assert actual.x == pytest.approx(expected.x, abs=0.001)
+            assert actual.y == pytest.approx(expected.y, abs=0.001)
         window.dispatch_event(
             slint_testing.PointerReleaseEvent(destination(20), button)
         )

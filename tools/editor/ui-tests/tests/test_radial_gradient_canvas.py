@@ -476,6 +476,7 @@ def test_dragging_circle_radius_creates_ellipse(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
+        move_picker_to_files(window, "main")
         label = (
             "Gradient radius X and rectangle rotation handle"
             if axis == "x"
@@ -589,6 +590,7 @@ def test_radial_endpoint_rotation_saves_rectangle_and_noop_does_not_write_source
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
+        move_picker_to_files(window, "main")
         c = center(control(window, "Gradient center handle"))
         r = center(control(window, "Gradient radius X and rectangle rotation handle"))
         radius = math.hypot(r.x - c.x, r.y - c.y)

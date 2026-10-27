@@ -6,7 +6,15 @@ import math
 import pytest
 import slint_testing
 from editor_sync import wait_for_source
-from gradient_interactions import center, click, control, gesture, open_radial, shifted
+from gradient_interactions import (
+    center,
+    click,
+    control,
+    gesture,
+    move_picker_to_files,
+    open_radial,
+    shifted,
+)
 from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_assertions import expect
@@ -35,6 +43,7 @@ def test_escape_restores_radial_gesture(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
+        move_picker_to_files(window, "main")
         start = center(control(window, label))
         end = shifted(start, x=25, y=-15)
         button = slint_testing.PointerEventButton.Left
@@ -58,6 +67,7 @@ def test_radial_keyboard_and_collapsed_radius(
         wait_for_source(radial_scene, radial_scene.read_bytes())
         window = first_window(editor)
         open_radial(window)
+        move_picker_to_files(window, "main")
         c = center(control(window, "Gradient center handle"))
         r = center(control(window, "Gradient radius X and rectangle rotation handle"))
         gesture(window, r, c)
