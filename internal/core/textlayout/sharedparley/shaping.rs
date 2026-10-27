@@ -17,6 +17,10 @@ use super::*;
 /// that visually marks them as code.
 const INLINE_CODE_FONT_SCALE: f32 = 0.85;
 
+// Proportions of GitHub's Markdown style.
+pub(super) const QUOTE_INDENT_EM: f32 = 1.25;
+pub(super) const QUOTE_BAR_WIDTH_EM: f32 = 0.2;
+
 std::thread_local! {
     static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();
 }
@@ -269,34 +273,37 @@ pub(super) fn create_text_paragraphs(
     text: PlainOrStyledText,
     link_color: Color,
 ) -> Vec<TextParagraph> {
-    let paragraph_from_text =
-        |font_context: &mut FontContext,
-         text: &str,
-         range: std::ops::Range<usize>,
-         formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
-         links: Vec<(std::ops::Range<usize>, std::string::String)>| {
-            let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
-                .iter()
-                .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code))
-                .map(|s| s.range.clone())
-                .collect();
+    let quote_step = PhysicalLength::new(
+        (layout_builder.pixel_size * layout_builder.scale_factor * QUOTE_INDENT_EM).get().round(),
+    );
+    let paragraph_from_text = |font_context: &mut FontContext,
+                               text: &str,
+                               range: std::ops::Range<usize>,
+                               formatting: Vec<i_slint_common::styled_text::FormattedSpan>,
+                               links: Vec<(std::ops::Range<usize>, std::string::String)>,
+                               quote_depth: u8| {
+        let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
+            .iter()
+            .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code))
+            .map(|s| s.range.clone())
+            .collect();
 
-            let control_characters = text
-                .char_indices()
-                .filter_map(|(index, c)| c.is_control().then_some(index))
-                .collect();
+        let control_characters =
+            text.char_indices().filter_map(|(index, c)| c.is_control().then_some(index)).collect();
 
-            let layout = layout_builder.build(font_context, text, formatting, Some(link_color));
+        let layout = layout_builder.build(font_context, text, formatting, Some(link_color));
 
-            TextParagraph {
-                range,
-                y: PhysicalLength::default(),
-                layout,
-                links,
-                code_ranges,
-                control_characters,
-            }
-        };
+        TextParagraph {
+            range,
+            y: PhysicalLength::default(),
+            layout,
+            links,
+            code_ranges,
+            control_characters,
+            quote_depth,
+            quote_step,
+        }
+    };
 
     let mut paragraphs = Vec::with_capacity(1);
 
@@ -309,6 +316,7 @@ pub(super) fn create_text_paragraphs(
                     range,
                     Default::default(),
                     Default::default(),
+                    0,
                 ));
             }
         }
@@ -320,6 +328,7 @@ pub(super) fn create_text_paragraphs(
                     0..0,
                     paragraph.formatting,
                     paragraph.links,
+                    paragraph.quote_depth,
                 ));
             }
         }
@@ -404,4 +413,12 @@ pub(super) struct TextParagraph {
     pub(super) code_ranges: std::vec::Vec<Range<usize>>,
     /// Ascending byte offsets of the control characters in the paragraph's text.
     pub(super) control_characters: std::vec::Vec<usize>,
+    pub(super) quote_depth: u8,
+    pub(super) quote_step: PhysicalLength,
+}
+
+impl TextParagraph {
+    pub(super) fn x(&self) -> PhysicalLength {
+        self.quote_step * self.quote_depth as f32
+    }
 }
