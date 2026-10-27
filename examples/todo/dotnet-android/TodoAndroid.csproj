@@ -1,0 +1,32 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Todo</RootNamespace>
+    <ApplicationId>dev.slint.dotnet.todo</ApplicationId>
+    <ApplicationTitle>Slint Todo</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- The ABIs that Slint has libraries for. -->
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <!-- Lets adb install the APK of a Debug build, which otherwise leaves the assemblies to Fast Deployment. -->
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+  </PropertyGroup>
+  <ItemGroup>
+    <SlintFile Include="../ui/todo.slint" />
+    <Compile Include="../dotnet/TodoLogic.cs" />
+  </ItemGroup>
+  <!--
+    Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below.
+    In this repository, build with -p:SlintAndroid=true, after building slint-dotnet for Android, see docs/development/dotnet-bindings.md.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" />
+  </ItemGroup>
+  <Import Project="../../../api/dotnet/Slint/build/Slint.targets" />
+</Project>
