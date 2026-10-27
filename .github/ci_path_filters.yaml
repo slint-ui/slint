@@ -168,6 +168,8 @@ api_dotnet:
  - 'internal/compiler/generator/csharp*{,/**}'
  - 'tests/driver/dotnet/**'
  - 'examples/memory/dotnet/**'
+ - 'examples/*/dotnet-android/**'
+ - 'scripts/dotnet_android_smoke_test.sh'
  - '.github/workflows/dotnet_test_reusable.yaml'
 
 api_node: &api_node

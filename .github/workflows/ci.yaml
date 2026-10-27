@@ -215,6 +215,63 @@ jobs:
           name: ".NET Windows"
           os: "windows-2022"
 
+    # Builds the Android version of the todo example and starts it in an emulator.
+    dotnet_android:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') || contains(fromJSON(inputs.changes), 'android_backend') }}
+        name: ".NET Android"
+        runs-on: ubuntu-22.04
+        env:
+            DOTNET_CLI_TELEMETRY_OPTOUT: 1
+            DOTNET_NOLOGO: 1
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: x86_64-linux-android
+                  key: x-dotnet-android-v0
+            # The Android backend compiles a Java helper against an SDK platform, and links with the NDK.
+            - name: Set up the Android SDK and NDK
+              shell: bash
+              run: |
+                  ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+                  bin=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+                  {
+                      echo "ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME"
+                      echo "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER=$bin/x86_64-linux-android26-clang"
+                      echo "CC_x86_64_linux_android=$bin/x86_64-linux-android26-clang"
+                      echo "CXX_x86_64_linux_android=$bin/x86_64-linux-android26-clang++"
+                      echo "AR_x86_64_linux_android=$bin/llvm-ar"
+                  } >> "$GITHUB_ENV"
+            - name: Build slint-compiler, and the native library for the emulator
+              run: |
+                  cargo build -p slint-compiler
+                  cargo build --release -p slint-dotnet --target x86_64-linux-android
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: microsoft
+                  java-version: 21
+            - name: Install the .NET Android workload
+              run: dotnet workload install android
+            - name: Build the todo example for Android
+              run: dotnet build examples/todo/dotnet-android/TodoAndroid.csproj -p:SlintAndroid=true -p:RuntimeIdentifiers=android-x64
+            - name: Enable KVM for the emulator
+              run: |
+                  echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+                  sudo udevadm control --reload-rules
+                  sudo udevadm trigger --name-match=kvm
+            - name: Start the todo example in an emulator
+              uses: reactivecircus/android-emulator-runner@v2
+              with:
+                  api-level: 35
+                  arch: x86_64
+                  target: google_apis
+                  emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+                  script: scripts/dotnet_android_smoke_test.sh examples/todo/dotnet-android/bin/Debug/net10.0-android/dev.slint.dotnet.todo-Signed.apk dev.slint.dotnet.todo 30
+
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_python') || contains(fromJSON(inputs.changes), 'tests') }}
