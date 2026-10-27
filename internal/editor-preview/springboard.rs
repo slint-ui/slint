@@ -36,7 +36,7 @@ pub struct LocalPreviewConfig {
     pub executable: PathBuf,
     pub arguments: Vec<OsString>,
     pub prepare_arguments: Option<LocalPreviewArguments>,
-    pub on_ready: Option<crate::child_process::PreviewReadyCallback>,
+    pub on_started: Option<crate::child_process::PreviewStartedCallback>,
 }
 
 type SpringboardAction = Box<dyn FnOnce(&mut SpringboardTask) + Send + 'static>;
@@ -376,7 +376,7 @@ impl SpringboardTask {
         let (sender, receiver) = mpsc::unbounded_channel();
         let preview =
             ChildProcessLspToPreview::new(self.local_preview.executable.clone(), arguments, sender)
-                .with_ready_callback(self.local_preview.on_ready.clone());
+                .with_started_callback(self.local_preview.on_started.clone());
         match preview.start_preview() {
             Ok(()) => {
                 self.preview = Some(Endpoint::Local { preview, receiver });
@@ -698,7 +698,7 @@ mod tests {
         let (executable, arguments) = fixture_config(name);
         let (sender, receiver) = mpsc::unbounded_channel();
         let controller = Springboard::new(
-            LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_ready: None },
+            LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_started: None },
             sender,
             Default::default(),
         );

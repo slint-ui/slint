@@ -318,7 +318,11 @@ async fn lsp_main(
         executable: std::env::current_exe()?,
         arguments: preview_window::arguments(None),
         prepare_arguments: Some(prepare_arguments),
-        on_ready: preview_window::activation_callback(),
+        #[cfg(target_os = "macos")]
+        on_started: (!headless_requested())
+            .then(|| std::sync::Arc::new(preview_window::yield_activation_to) as _),
+        #[cfg(not(target_os = "macos"))]
+        on_started: None,
     };
     let springboard = editor_preview::springboard::Springboard::new(
         local_preview,

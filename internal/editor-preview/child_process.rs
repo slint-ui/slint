@@ -18,15 +18,14 @@ struct ChildProcessLspToPreviewInner {
     to_child_sender: mpsc::UnboundedSender<String>,
 }
 
-pub type PreviewReadyCallback =
-    Arc<dyn Fn(u32) -> tokio::sync::oneshot::Receiver<()> + Send + Sync>;
+pub type PreviewStartedCallback = Arc<dyn Fn(u32) + Send + Sync>;
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
     executable: PathBuf,
     arguments: Vec<OsString>,
     preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
-    on_ready: Option<PreviewReadyCallback>,
+    on_started: Option<PreviewStartedCallback>,
 }
 
 impl ChildProcessLspToPreview {
@@ -40,12 +39,12 @@ impl ChildProcessLspToPreview {
             executable,
             arguments,
             preview_to_lsp_channel,
-            on_ready: None,
+            on_started: None,
         }
     }
 
-    pub fn with_ready_callback(mut self, callback: Option<PreviewReadyCallback>) -> Self {
-        self.on_ready = callback;
+    pub fn with_started_callback(mut self, callback: Option<PreviewStartedCallback>) -> Self {
+        self.on_started = callback;
         self
     }
 
@@ -67,7 +66,7 @@ impl ChildProcessLspToPreview {
 
         tracing::debug!("Preview process spawned (PID {:?})", child.id());
         let process_id = child.id().expect("Preview process has no PID");
-        let mut on_ready = self.on_ready.clone();
+        let mut on_started = self.on_started.clone();
 
         let from_child = child.stdout.take().expect("Child has no stdout");
         let mut to_child = child.stdin.take().expect("Child has no stdin");
@@ -82,8 +81,8 @@ impl ChildProcessLspToPreview {
             let mut lines = reader.lines();
             while let Some(line) = lines.next_line().await.map_err(|error| error.to_string())? {
                 if let Ok(message) = serde_json::from_str(&line) {
-                    if let Some(on_ready) = on_ready.take() {
-                        let _ = on_ready(process_id).await;
+                    if let Some(on_started) = on_started.take() {
+                        on_started(process_id);
                     }
                     let _ = channel.send(message);
                 }
@@ -370,30 +369,20 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn ready_callback_completes_before_forwarding_messages() {
+    async fn started_notification_does_not_gate_protocol_messages() {
         let (executable, arguments) = fixture_config("echo_child");
         let (sender, mut receiver) = mpsc::unbounded_channel();
-        let (ready_sender, mut ready_receiver) = mpsc::unbounded_channel();
-        let (release, released) = tokio::sync::oneshot::channel();
-        let released = Arc::new(std::sync::Mutex::new(Some(released)));
+        let (ui_sender, mut ui_queue) = mpsc::unbounded_channel();
         let transport = ChildProcessLspToPreview::new(executable, arguments, sender)
-            .with_ready_callback(Some(Arc::new(move |process_id| {
-                let released = released.lock().unwrap().take().unwrap();
-                ready_sender.send(process_id).unwrap();
-                released
+            .with_started_callback(Some(Arc::new(move |process_id| {
+                ui_sender.send(process_id).unwrap();
             })));
         transport.start_preview().unwrap();
-        let process_id =
-            tokio::time::timeout(std::time::Duration::from_secs(5), ready_receiver.recv())
-                .await
-                .unwrap()
-                .unwrap();
-        assert!(receiver.try_recv().is_err());
-        release.send(()).unwrap();
-        assert_eq!(started(&mut receiver).await, process_id);
+        let process_id = started(&mut receiver).await;
         transport.send_running(&LspToPreviewMessage::ShowPreview(component()));
         assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::DebugMessage { .. }));
-        assert!(ready_receiver.try_recv().is_err());
+        assert_eq!(ui_queue.try_recv().unwrap(), process_id);
+        assert!(ui_queue.try_recv().is_err());
         transport.send_running(&LspToPreviewMessage::Quit);
         assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
         assert_reaped(process_id);

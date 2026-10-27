@@ -52,32 +52,24 @@ pub fn arguments_provider(
     })
 }
 
-pub fn activation_callback() -> Option<i_slint_editor_preview::child_process::PreviewReadyCallback>
-{
-    #[cfg(target_os = "macos")]
-    if !crate::headless_requested() {
-        return Some(std::sync::Arc::new(|process_id| {
-            let (ready, completed) = tokio::sync::oneshot::channel();
-            let _ = slint::invoke_from_event_loop(move || {
-                use objc2::{MainThreadMarker, runtime::NSObjectProtocol, sel};
-                use objc2_app_kit::{NSApplication, NSRunningApplication};
-                let application =
-                    NSApplication::sharedApplication(MainThreadMarker::new().unwrap());
-                let preview = NSRunningApplication::runningApplicationWithProcessIdentifier(
-                    process_id as i32,
-                );
-                // macOS 14 requires the active app to yield before another app requests activation.
-                if application.respondsToSelector(sel!(yieldActivationToApplication:))
-                    && let Some(preview) = preview
-                {
-                    application.yieldActivationToApplication(&preview);
-                }
-                let _ = ready.send(());
-            });
-            completed
-        }));
-    }
-    None
+#[cfg(target_os = "macos")]
+pub fn yield_activation_to(process_id: u32) {
+    let _ = slint::invoke_from_event_loop(move || {
+        use objc2::{MainThreadMarker, runtime::NSObjectProtocol, sel};
+        use objc2_app_kit::{NSApplication, NSApplicationActivationOptions, NSRunningApplication};
+        let application = NSApplication::sharedApplication(MainThreadMarker::new().unwrap());
+        // macOS 14 uses cooperative activation between applications.
+        if application.respondsToSelector(sel!(yieldActivationToApplication:))
+            && let Some(preview) =
+                NSRunningApplication::runningApplicationWithProcessIdentifier(process_id as i32)
+        {
+            application.yieldActivationToApplication(&preview);
+            preview.activateFromApplication_options(
+                &NSRunningApplication::currentApplication(),
+                NSApplicationActivationOptions::empty(),
+            );
+        }
+    });
 }
 
 pub fn run(placement: Option<Placement>) -> i_slint_editor_preview::Result<()> {
