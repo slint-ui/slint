@@ -73,8 +73,8 @@ pub fn slint_highlighter(text: &str) -> StyledText {
     while let Some(first) = rest.chars().next() {
         let (len, color) = if rest.starts_with("//") {
             (rest.find('\n').unwrap_or(rest.len()), Some(COMMENT_COLOR))
-        } else if rest.starts_with("/*") {
-            (rest[2..].find("*/").map_or(rest.len(), |end| end + 4), Some(COMMENT_COLOR))
+        } else if let Some(comment) = rest.strip_prefix("/*") {
+            (comment.find("*/").map_or(rest.len(), |end| end + 4), Some(COMMENT_COLOR))
         } else if first == '"' {
             (string_literal_len(rest), Some(STRING_COLOR))
         } else if first.is_ascii_digit() || first == '#' {

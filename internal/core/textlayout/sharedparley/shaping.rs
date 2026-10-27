@@ -349,7 +349,8 @@ pub(super) fn create_text_paragraphs(
             let mut offset = 0;
             for paragraph in rich_text.paragraphs.iter() {
                 let lines: Vec<_> = paragraph_ranges(&paragraph.text).collect();
-                let (formatting, links) = if lines == [0..paragraph.text.len()] {
+                let (formatting, links) = if matches!(lines.as_slice(), [line] if *line == (0..paragraph.text.len()))
+                {
                     (
                         alloc::vec![paragraph.formatting.clone()],
                         alloc::vec![paragraph.links.clone()],
