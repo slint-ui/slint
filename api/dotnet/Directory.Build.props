@@ -21,6 +21,15 @@
     <SlintCompilerPackageId Condition="'$(SlintCompilerPackageId)' == ''">$(SlintPackageId).Compiler</SlintCompilerPackageId>
   </PropertyGroup>
   <!--
+    With SlintAndroid=true, Slint.csproj restores with another set of target frameworks,
+    so the Android builds keep their own obj and bin, instead of taking turns with the desktop builds.
+  -->
+  <PropertyGroup Condition="'$(SlintAndroid)' == 'true'">
+    <BaseIntermediateOutputPath>obj/android/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/android/</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**;bin/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <!--
     SlintCommunityPackage=true packs a build that the Slint project doesn't publish, such as from a fork:
     it takes the authors and repository from SlintPackageAuthors and SlintPackageRepositoryUrl,
     leaves out the Slint logo, and says so in the description.
