@@ -109,21 +109,11 @@ export component TabImpl inherits Rectangle {
 component FluentTabBarBase inherits TabBarBase {
     // injected properties:
     // The currently focused tab
-    in-out property <int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1;
+    in-out property <int> current-focused: i-focus-scope.has-focus ? root.focused-tab : -1;
     accessible-role: tab-list;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
     accessible-item-count: root.num-tabs;
-
-    changed num-tabs => {
-        if i-focus-scope.focused-tab >= root.num-tabs {
-            i-focus-scope.focused-tab = root.num-tabs - 1;
-        } else if i-focus-scope.focused-tab < 0 && root.num-tabs > 0 {
-            i-focus-scope.focused-tab = 0;
-        }
-    }
-
     i-focus-scope := FocusScope {
-        property <int> focused-tab: 0;
         x: 0;
         // Do not react on clicks
         width: 0px;
@@ -133,11 +123,11 @@ component FluentTabBarBase inherits TabBarBase {
                 return accept;
             }
             if (event.text == Key.LeftArrow) {
-                self.focused-tab = Math.max(self.focused-tab - 1,  0);
+                root.focused-tab = root.clamp-tab(root.focused-tab - 1);
                 return accept;
             }
             if (event.text == Key.RightArrow) {
-                self.focused-tab = Math.min(self.focused-tab + 1, root.num-tabs - 1);
+                root.focused-tab = root.clamp-tab(root.focused-tab + 1);
                 return accept;
             }
             return reject;

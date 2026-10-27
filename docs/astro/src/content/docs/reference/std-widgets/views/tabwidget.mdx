@@ -29,6 +29,28 @@ export component Example inherits Window {
 `TabWidget` is a container for a set of tabs. It can only have `Tab` elements as children and only one tab will be visible at
 a time.
 
+Wrap a `Tab` in `if` or `for` to add and remove tabs at run-time:
+
+```slint
+import { TabWidget } from "std-widgets.slint";
+export component Example inherits Window {
+    in property <bool> show-settings;
+    in property <[string]> documents: ["Lorem", "Ipsum"];
+    TabWidget {
+        for document in documents: Tab {
+            title: document;
+            Text { text: "Content of " + document; }
+        }
+        if show-settings: Tab {
+            title: "Settings";
+        }
+    }
+}
+```
+
+The `title` of a `Tab` in an `if` or `for` can only use the model data, the index, and properties declared outside of the `Tab`.
+Set it with a binding: assigning it, or changing it in a state, is an error.
+
 ## Properties
 
 ### current-index

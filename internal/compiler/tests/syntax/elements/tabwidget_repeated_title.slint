@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The tab bar entry of a Tab in an `if` or `for` is in another repeater than the Tab,
+// so the title can only depend on the model and on properties outside the Tab.
+
+import { TabWidget } from "std-widgets.slint";
+
+export component Test {
+    in-out property <string> name;
+    in-out property <[string]> model: ["a", "b"];
+    TabWidget {
+        for t in root.model: Tab {
+            property <string> extra: t + "!";
+            title: self.extra;
+//                 >         <error{The 'title' of a Tab in an 'if' or 'for' can't use 'self.extra' from inside the Tab, use the model data or properties outside the Tab instead}
+        }
+
+        for t in root.model: Tab {
+            title: label.text;
+//                 >         <error{The 'title' of a Tab in an 'if' or 'for' can't use 'label.text' from inside the Tab, use the model data or properties outside the Tab instead}
+            label := Text {
+                text: t;
+            }
+        }
+
+        if root.name == "": Tab {
+            title <=> label2.text;
+//          >                    <error{The 'title' of a Tab in an 'if' or 'for' can't use 'label2.text' from inside the Tab, use the model data or properties outside the Tab instead}
+            label2 := Text {
+                text: "x";
+            }
+        }
+
+        for t in root.model: Tab {
+            title: t;
+            init => {
+                self.title = "x";
+//              >              <error{Can't assign the 'title' of a Tab in an 'if' or 'for', bind 'title' to an expression instead}
+            }
+        }
+
+        if root.name == "": Tab {
+            title: "x";
+            Text {
+                text <=> parent.title;
+//              >                    <error{Can't use '<=>' with the 'title' of a Tab in an 'if' or 'for', use a one-way binding instead}
+            }
+            states [
+                empty when root.name == "": {
+                    title: "y";
+//                  >   <error{A state can't change the 'title' of a Tab in an 'if' or 'for', use a condition in the 'title' binding instead}
+                }
+            ]
+        }
+
+        for t[i] in root.model: Tab {
+            title: "\{t} \{i} \{root.name}";
+        }
+
+        if root.name == "": Tab {
+            title <=> root.name;
+        }
+
+        for t in root.model: Tab {
+            title <=> t;
+        }
+
+        Tab {
+            init => {
+                self.title = "x";
+            }
+        }
+
+        Tab {
+            x <=> root.x;
+//          >           <error{The property 'x' cannot be set for Tabs inside a TabWidget}
+            Rectangle { }
+        }
+    }
+}

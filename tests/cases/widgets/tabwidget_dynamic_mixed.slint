@@ -1,0 +1,173 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Static, `if` and `for` tabs in the same TabWidget.
+
+import { TabWidget } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    // Wide enough for every tab to be visible in the tab bar.
+    width: 1600px;
+    height: 300px;
+    in-out property <bool> show-extra;
+    in-out property <string> extra-title: "Extra";
+    in-out property <[string]> letters: ["Alpha", "Bravo"];
+    in-out property <int> count: -3;
+    in-out property <int> current-index <=> tab-widget.current-index;
+
+    tab-widget := TabWidget {
+        Tab {
+            title: "First";
+        }
+
+        if root.show-extra: Tab {
+            title <=> root.extra-title;
+        }
+
+        for letter[index] in root.letters: Tab {
+            title: (index + 1) + ". " + letter;
+        }
+
+        // A negative count creates no tab.
+        for i in root.count: Tab {
+            title: "Number " + i;
+        }
+
+        // The tab bar and the panels must share the instance of this model.
+        for name in ["Golf", "Hotel"]: Tab {
+            title <=> name;
+            TextInput {
+                text <=> name;
+            }
+        }
+
+        Tab {
+            title: "Last";
+        }
+    }
+}
+
+/*
+```rust
+use i_slint_backend_testing::{AccessibleRole, ElementQuery};
+
+let instance = TestCase::new().unwrap();
+
+let with_role = |role| ElementQuery::from_root(&instance).match_accessible_role(role).find_all();
+let labels_with_role = |role| -> Vec<String> {
+    with_role(role).iter().map(|e| e.accessible_label().unwrap_or_default().to_string()).collect()
+};
+let tab_indices = || -> Vec<usize> {
+    with_role(AccessibleRole::Tab).iter().map(|e| e.accessible_item_index().unwrap()).collect()
+};
+let tab_count = || {
+    ElementQuery::from_root(&instance)
+        .match_descendants()
+        .match_accessible_role(AccessibleRole::TabList)
+        .find_first()
+        .unwrap()
+        .accessible_item_count()
+};
+let select = |label: &str| {
+    ElementQuery::from_root(&instance)
+        .match_accessible_role(AccessibleRole::Tab)
+        .match_accessible_label(label)
+        .find_first()
+        .unwrap()
+        .invoke_accessible_default_action();
+    slint_testing::mock_elapsed_time(1);
+};
+
+assert_eq!(tab_count(), Some(6));
+assert_eq!(
+    labels_with_role(AccessibleRole::Tab),
+    ["First", "1. Alpha", "2. Bravo", "Golf", "Hotel", "Last"]
+);
+assert_eq!(tab_indices(), [0, 1, 2, 3, 4, 5]);
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["First"]);
+
+// The tabs after a `for` move when its count changes.
+instance.set_count(2);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(tab_count(), Some(8));
+assert_eq!(
+    labels_with_role(AccessibleRole::Tab),
+    ["First", "1. Alpha", "2. Bravo", "Number 0", "Number 1", "Golf", "Hotel", "Last"]
+);
+assert_eq!(tab_indices(), [0, 1, 2, 3, 4, 5, 6, 7]);
+
+// The tabs after an `if` move when it shows its tab.
+instance.set_show_extra(true);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(tab_count(), Some(9));
+assert_eq!(
+    labels_with_role(AccessibleRole::Tab),
+    ["First", "Extra", "1. Alpha", "2. Bravo", "Number 0", "Number 1", "Golf", "Hotel", "Last"]
+);
+assert_eq!(tab_indices(), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+
+// Clicking a tab shows its panel.
+for label in ["Extra", "2. Bravo", "Number 1", "Last", "First"] {
+    select(label);
+    assert_eq!(labels_with_role(AccessibleRole::TabPanel), [label]);
+}
+select("Number 0");
+assert_eq!(instance.get_current_index(), 4);
+
+// A title linked with `<=>` follows its property in the tab bar and in the panel.
+instance.set_extra_title("Changed".into());
+assert_eq!(labels_with_role(AccessibleRole::Tab)[1], "Changed");
+select("Changed");
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Changed"]);
+
+// Panels from `if` and `for` fill the content area like static panels.
+let panel_size = || with_role(AccessibleRole::TabPanel)[0].size();
+select("First");
+let static_size = panel_size();
+for label in ["Changed", "1. Alpha", "Golf"] {
+    select(label);
+    assert_eq!(panel_size(), static_size, "{label}");
+}
+
+// Editing the model data in a panel changes the title in the tab bar.
+let input = ElementQuery::from_root(&instance)
+    .match_accessible_role(AccessibleRole::TextInput)
+    .find_first()
+    .unwrap();
+input.set_accessible_value("Golf Edited");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(labels_with_role(AccessibleRole::Tab)[6], "Golf Edited");
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Golf Edited"]);
+
+// Hiding the `if` tab keeps the index, so the next tab becomes current.
+instance.set_show_extra(false);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_current_index(), 6);
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Hotel"]);
+
+// Hiding the `if` tab when the last tab is current selects the new last tab.
+instance.set_show_extra(true);
+slint_testing::mock_elapsed_time(1);
+select("Last");
+assert_eq!(instance.get_current_index(), 8);
+instance.set_show_extra(false);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_current_index(), 7);
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Last"]);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.set_count(2);
+instance.set_show_extra(true);
+instance.set_current_index(8);
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_current_index(), 8);
+
+// Hiding the `if` tab when the last tab is current selects the new last tab.
+instance.set_show_extra(false);
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_current_index(), 7);
+```
+*/

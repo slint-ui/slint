@@ -4,8 +4,10 @@
 import { TabWidget } from "std-widgets.slint";
 
 export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
     in-out property <[string]> tabs;
-    out property <int> current-index <=> tab-widget.current-index;
+    in-out property <int> current-index <=> tab-widget.current-index;
 
     tab-widget := TabWidget {
         for title in tabs: Tab {
@@ -24,14 +26,6 @@ use std::rc::Rc;
 
 let instance = TestCase::new().unwrap();
 
-// The `for` loop instantiates one tab per model entry.
-let tabs = Rc::new(slint::VecModel::from(vec![
-    "Alpha".into(),
-    "Bravo".into(),
-    "Charlie".into(),
-]));
-instance.set_tabs(tabs.clone().into());
-
 let labels_with_role = |role| -> Vec<String> {
     ElementQuery::from_root(&instance)
         .match_accessible_role(role)
@@ -40,13 +34,23 @@ let labels_with_role = |role| -> Vec<String> {
         .map(|e| e.accessible_label().unwrap_or_default().to_string())
         .collect()
 };
+let tab_bar = || {
+    ElementQuery::from_root(&instance)
+        .match_descendants()
+        .match_accessible_role(AccessibleRole::TabList)
+        .find_first()
+        .unwrap()
+};
 
-let tab_bar = ElementQuery::from_root(&instance)
-    .match_descendants()
-    .match_accessible_role(AccessibleRole::TabList)
-    .find_first()
-    .unwrap();
-assert_eq!(tab_bar.accessible_item_count(), Some(3));
+// The `for` loop instantiates one tab per model entry.
+let tabs = Rc::new(slint::VecModel::from(vec![
+    "Alpha".into(),
+    "Bravo".into(),
+    "Charlie".into(),
+]));
+instance.set_tabs(tabs.clone().into());
+slint_testing::mock_elapsed_time(1);
+assert_eq!(tab_bar().accessible_item_count(), Some(3));
 assert_eq!(labels_with_role(AccessibleRole::Tab), ["Alpha", "Bravo", "Charlie"]);
 // Queries skip hidden elements, so only the current panel matches.
 assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Alpha"]);
@@ -54,16 +58,50 @@ assert_eq!(instance.get_current_index(), 0);
 
 // Adding an entry adds a tab at runtime.
 tabs.push("Delta".into());
-assert_eq!(tab_bar.accessible_item_count(), Some(4));
+slint_testing::mock_elapsed_time(1);
+assert_eq!(tab_bar().accessible_item_count(), Some(4));
 assert_eq!(labels_with_role(AccessibleRole::Tab), ["Alpha", "Bravo", "Charlie", "Delta"]);
 assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Alpha"]);
 
-// Removing an entry removes the corresponding tab.
-// The selection follows the index, so the next tab becomes current.
+// The selection follows the index, so removing a tab before the current one
+// selects the next tab.
+instance.set_current_index(1);
 tabs.remove(0);
-assert_eq!(tab_bar.accessible_item_count(), Some(3));
+slint_testing::mock_elapsed_time(1);
 assert_eq!(labels_with_role(AccessibleRole::Tab), ["Bravo", "Charlie", "Delta"]);
-assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Bravo"]);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Charlie"]);
+
+// Removing the current tab selects the tab that takes its place.
+tabs.remove(1);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Delta"]);
+
+// Removing the current tab when it's the last one selects the new last tab.
+tabs.remove(1);
+slint_testing::mock_elapsed_time(1);
 assert_eq!(instance.get_current_index(), 0);
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Bravo"]);
+
+// Without tabs, no tab is current.
+tabs.remove(0);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(tab_bar().accessible_item_count(), Some(0));
+assert_eq!(instance.get_current_index(), -1);
+assert!(labels_with_role(AccessibleRole::TabPanel).is_empty());
+
+// Scrolling over an empty tab bar doesn't select a tab that doesn't exist.
+tab_bar().scroll(0., -50.);
+assert_eq!(instance.get_current_index(), -1);
+tab_bar().scroll(0., 50.);
+assert_eq!(instance.get_current_index(), -1);
+
+// When tabs come back, the first one becomes current.
+tabs.push("Echo".into());
+tabs.push("Foxtrot".into());
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(labels_with_role(AccessibleRole::TabPanel), ["Echo"]);
 ```
 */
