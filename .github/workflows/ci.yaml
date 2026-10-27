@@ -256,8 +256,10 @@ jobs:
                   java-version: 21
             - name: Install the .NET Android workload
               run: dotnet workload install android
+            # Not -p:RuntimeIdentifiers, which as a global property would also build Slint.Compiler per runtime identifier.
+            # The APK just lacks the library for arm64, which CI doesn't build.
             - name: Build the todo example for Android
-              run: dotnet build examples/todo/dotnet-android/TodoAndroid.csproj -p:SlintAndroid=true -p:RuntimeIdentifiers=android-x64
+              run: dotnet build examples/todo/dotnet-android/TodoAndroid.csproj -p:SlintAndroid=true
             - name: Enable KVM for the emulator
               run: |
                   echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
