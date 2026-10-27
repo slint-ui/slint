@@ -7371,6 +7371,7 @@ dependencies = [
 name = "slint-dotnet"
 version = "1.19.0"
 dependencies = [
+ "i-slint-backend-android-activity",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-testing",

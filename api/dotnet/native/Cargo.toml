@@ -65,5 +65,8 @@ spin_on = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+i-slint-backend-android-activity = { workspace = true, features = ["native-activity", "aa-06"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 i-slint-backend-linuxkms = { workspace = true, optional = true }

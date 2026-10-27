@@ -12,6 +12,8 @@ use std::panic::AssertUnwindSafe;
 use std::sync::OnceLock;
 use std::thread::ThreadId;
 
+#[cfg(target_os = "android")]
+mod android;
 mod brush;
 mod instance;
 mod interpreter;
