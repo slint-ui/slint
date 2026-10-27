@@ -43,6 +43,7 @@ fn render_and_misses(window: &Rc<MinimalSoftwareWindow>) -> u64 {
 }
 
 slint::slint! {
+    #[slint_edition = "1.19"]
     export component TestComponent inherits Window {
         in property <string> label: "Hello wrapping world";
         in property <length> size: 16px;

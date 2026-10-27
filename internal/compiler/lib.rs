@@ -248,11 +248,6 @@ pub struct CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
-    /// Whether an `if`/`for` child counts toward the size of a non-layout parent (#407).
-    pub fn repeated_children_constrain_parent(&self) -> bool {
-        self.edition.is_some_and(|version| version >= project_file::SlintEdition::V1_19)
-    }
-
     /// The absolute path of the directory the translations are bundled from, if any.
     pub fn absolute_bundled_translations_path(&self) -> Option<String> {
         #[cfg(feature = "bundle-translations")]
@@ -424,7 +419,8 @@ fn prepare_for_compile(
         diagnostics.push_error_with_span(message.clone(), Default::default());
     }
     if let Some(location) = &compiler_config.edition_location
-        && let Some(warning) = compiler_config.edition.and_then(|e| e.behavior_change_warning())
+        && let Some(warning) =
+            compiler_config.edition.and_then(|e| e.behavior_change_warning("slint-edition"))
     {
         diagnostics.push_warning_with_span(warning, location.clone());
     }

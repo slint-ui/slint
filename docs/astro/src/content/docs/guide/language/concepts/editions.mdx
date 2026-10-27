@@ -26,7 +26,7 @@ If the edition is newer than your version of Slint, Slint refuses to compile you
 
 When you compile or load `.slint` files, the edition comes from the project file.
 The Rust `slint!` macro doesn't load a project file.
-Set its edition with an attribute at the start of the macro body:
+Set its edition with an attribute at the start of the macro body, or the macro warns:
 
 ```rust
 slint::slint! {
@@ -46,16 +46,139 @@ Links from "Share" always include the edition, so that they keep their behavior 
 
 ## Behavior Changes
 
-These releases changed the behavior:
+Each section lists what a release changed, and how to update your code if the change breaks it.
 
-- 1.19: An element created with `if` or `for` counts toward the size of its non-layout parent,
-  as a static child does ([#407](https://github.com/slint-ui/slint/issues/407)).
-  A child that sizes itself from that parent then forms a binding loop, which the compiler reports as an error.
-  To fix it, size the child without reading the parent's size:
-  - Replace `width: parent.width` with `width: 100%`, and the same for `height`.
-    Don't do this for an element placed in a layout: there, a percentage is an exact demand on the layout.
-  - Remove a size computed from the parent's size minus some padding when a layout already applies that padding and spacing.
-  - Give the parent an explicit `width` or `height`.
-  - As a last resort, set `x` or `y` on the child, which keeps it out of its parent's size.
-    This pins its position: a `Text` that was centered in its parent moves to `0, 0`.
-    In a layout, where setting `x` is an error, wrap the child in a `Rectangle` and set `x` on that.
+### 1.19
+
+#### `if` and `for` Elements Count Toward Their Parent's Size
+
+A non-layout parent, such as a `Rectangle`, computes its minimum and preferred size from its children.
+Before 1.19, it ignored any child created with `if` or `for`.
+Wrapping an element in `if true:` changed the layout around it, which was a bug
+([#407](https://github.com/slint-ui/slint/issues/407)).
+With edition 1.19, a parent counts every child, however it was created.
+
+In this example, both rectangles hold the same text.
+Before, the layout gave the first one a height of `0px`, as if it were empty.
+Now both are as tall as their text:
+
+```slint
+export component Example inherits Window {
+    width: 200px;
+    VerticalLayout {
+        alignment: start;
+        Rectangle {
+            background: lightgray;
+            if true: Text { text: "Quarterly Report"; }
+        }
+        Rectangle {
+            background: lightblue;
+            Text { text: "Quarterly Report"; }
+        }
+    }
+}
+```
+
+If you wrote code for the old behavior, it might need these changes:
+
+- A parent now grows to fit its `if` and `for` children,
+  which can change the size of the elements around it in a layout.
+  Where the parent should keep a size of its own, give it an explicit `width` or `height`.
+- A child that computes its size, or another property, from that parent's size now forms a binding loop,
+  which the compiler reports as an error.
+
+In this example, the title's text depends on the width of the `Rectangle`,
+and the `Rectangle` is now as wide as the text it contains:
+
+```slint no-test
+component Header {
+    in property <bool> show-title: true;
+    HorizontalLayout {
+        Rectangle {
+            if show-title: Text {
+                // error: The binding for the property 'text' is part of a binding loop
+                text: parent.width > 200px ? "Quarterly Report" : "Report";
+            }
+        }
+        Rectangle { background: lightblue; }
+    }
+}
+```
+
+To fix the loop, size the child, or compute its properties, without reading the parent's size:
+
+- Give the parent an explicit `width` or `height`:
+
+  ```slint {5}
+  component Header {
+      in property <bool> show-title: true;
+      HorizontalLayout {
+          Rectangle {
+              width: 150px;
+              if show-title: Text {
+                  text: parent.width > 200px ? "Quarterly Report" : "Report";
+              }
+          }
+          Rectangle { background: lightblue; }
+      }
+  }
+  ```
+
+- Replace `width: parent.width` with `width: 100%`, and the same for `height`.
+  Don't do this for an element placed in a layout: there, a percentage sets an exact size in the layout.
+- When a layout already applies the padding and spacing, remove any size computed from the parent's size minus that padding.
+- As a last resort, set `x` or `y` on the child, which keeps it out of its parent's size.
+  This pins its position: a `Text` that was centered in its parent moves to `0, 0`.
+  In a layout, where setting `x` is an error, wrap the child in a `Rectangle` and set `x` on that.
+
+#### Properties Set Only by States Keep Their Default Value
+
+Before 1.19, a `width`, `height`, `x`, or `y` that only some [states](../../coding/states/) set was `0px` while none of them applied.
+It didn't keep the element's [default size and position](../../coding/positioning-and-layouts/).
+Adding a state for one case changed every other case too, which was a bug
+([#8852](https://github.com/slint-ui/slint/issues/8852)).
+With edition 1.19, the property keeps its default while none of the states applies.
+
+In this example, the `Rectangle` now covers the window unless `compact` is true.
+Before, it disappeared whenever `compact` was false:
+
+```slint
+export component Example inherits Window {
+    width: 200px;
+    height: 100px;
+    in property <bool> compact;
+    Rectangle {
+        background: blue;
+        states [
+            small when compact: { height: 20px; }
+        ]
+    }
+}
+```
+
+If your code relied on the `0px`, set the value outside the states, such as `height: 0px;`.
+If a parent follows the size that the states set, the two now form a binding loop,
+because the element's default size follows the parent.
+The compiler reports it even when one state always applies, because it can't prove the conditions cover every case:
+
+```slint no-test
+export component Example inherits Window {
+    in property <bool> open;
+    VerticalLayout {
+        Rectangle {
+            // error: The binding for the property 'height' is part of a binding loop
+            height: panel.height;
+            panel := VerticalLayout {
+                states [
+                    expanded when open: { height: self.preferred-height; }
+                    collapsed when !open: { height: 0px; }
+                ]
+                animate height { duration: 100ms; }
+                Text { text: "Details"; }
+            }
+        }
+    }
+}
+```
+
+To fix the loop, add `height: 0px;` to `panel`, or replace its states with `height: open ? self.preferred-height : 0px;`.

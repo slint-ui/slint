@@ -180,6 +180,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::ColorScheme => PROPERTY_ACCESS_COST,
         BuiltinFunction::AccentColor => PROPERTY_ACCESS_COST,
+        BuiltinFunction::ReducedMotion => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
         BuiltinFunction::SetupMenuBar => isize::MAX,
         BuiltinFunction::SetupSystemTrayIcon => isize::MAX,
@@ -281,7 +282,13 @@ fn inline_simple_expressions_in_expression(
         let prop_info = ctx.property_info(prop);
         if prop_info.analysis.as_ref().is_some_and(|a| !a.is_set && !a.is_set_externally) {
             if let Some((binding, map)) = prop_info.binding {
-                if binding.animation.is_none() && binding.kind != super::super::BindingKind::State {
+                // A binding loop that is only a warning reaches this pass as a cycle. The binding
+                // being visited is mutably borrowed by `inline_simple_expressions`: don't inline
+                // it into itself.
+                if binding.expression.try_borrow().is_ok()
+                    && binding.animation.is_none()
+                    && binding.kind != super::super::BindingKind::State
+                {
                     let mapped_ctx = map.map_context(ctx);
                     let cost = expression_cost(&binding.expression.borrow(), &mapped_ctx);
                     let use_count = binding.use_count.get();
@@ -529,6 +536,36 @@ export component Foo {
             "out property <length> w: t.preferred-width; out property <length> m: t.min-width;",
         );
         assert!(twice.iter().any(|n| n.contains("implicit-layoutinfo-h")), "{twice:?}");
+    }
+
+    /// Without edition 1.19 or newer, a binding loop through the window layout is only
+    /// a warning, and it hides the inner loop.
+    #[test]
+    fn leaves_a_binding_loop_in_place() {
+        let unit = crate::llr::lower_test_source(
+            r#"
+export component TestCase inherits Window {
+    HorizontalLayout {
+        Rectangle {
+            VerticalLayout {
+                Rectangle { width: parent.width; }
+            }
+        }
+    }
+}
+"#,
+        );
+        // The loop is left as a binding that reads its own property.
+        let reads_itself = unit.sub_components.iter().any(|sc| {
+            sc.property_init.iter().any(|(prop, binding)| {
+                let mut found = false;
+                binding.expression.borrow().visit_recursive(&mut |e| {
+                    found |= matches!(e, Expression::PropertyReference(p) if p == prop);
+                });
+                found
+            })
+        });
+        assert!(reads_itself);
     }
 
     #[test]

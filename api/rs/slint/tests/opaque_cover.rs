@@ -16,6 +16,7 @@ const WIDTH: usize = 37;
 const HEIGHT: usize = 23;
 
 slint::slint! {
+    #[slint_edition = "1.19"]
     export component Scene inherits Window {
         in property <image> picture;
         background: #ffffff;

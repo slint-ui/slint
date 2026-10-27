@@ -1,0 +1,87 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Project, ProjectFileState } from "../../project.slint";
+import { Style, Metrics, Typography, Colors } from "../../style.slint";
+import { InspectorSection, InspectorValueField, InspectorSegment, InspectorIconButton } from "index.slint";
+
+export component CanvasPresetsSection inherits InspectorSection {
+    title: @tr("Canvas presets");
+
+    VerticalLayout {
+        padding-left: Style.inspector-layout.padding;
+        padding-right: Style.inspector-layout.padding;
+        spacing: Metrics.space-compact;
+
+        Text {
+            text: Project.project-file-state == ProjectFileState.Available ? @tr("Project file: slint-project.json")
+                : Project.project-file-state == ProjectFileState.Missing ? @tr("No project file. Settings are not saved.")
+                : @tr("Project file is invalid.");
+            color: Project.project-file-state == ProjectFileState.Missing ? Colors.warning : Colors.muted;
+            font-size: Typography.caption.size;
+            wrap: word-wrap;
+            accessible-role: text;
+            accessible-label: @tr("Canvas settings status");
+            accessible-value: self.text;
+        }
+
+        for preset[index] in Project.canvas-presets: HorizontalLayout {
+            spacing: Metrics.space-tight;
+            accessible-role: region;
+            accessible-label: @tr("Canvas preset {}", index + 1);
+            InspectorSegment {
+                kind: "text";
+                label: "\{index + 1}";
+                width: 24px;
+                horizontal-stretch: 0;
+                selected: index == Project.selected-canvas-preset;
+                clicked => { Project.select-canvas-preset(index); }
+            }
+            InspectorValueField {
+                horizontal-stretch: 1;
+                min-width: 0px;
+                accessible-name: @tr("Canvas preset {} width", index + 1);
+                prefix: "W";
+                value: "\{preset.width / 1px}";
+                accepted(text) => { return Project.update-canvas-preset(index, text, "\{preset.height / 1px}"); }
+            }
+            InspectorValueField {
+                horizontal-stretch: 1;
+                min-width: 0px;
+                accessible-name: @tr("Canvas preset {} height", index + 1);
+                prefix: "H";
+                value: "\{preset.height / 1px}";
+                accepted(text) => { return Project.update-canvas-preset(index, "\{preset.width / 1px}", text); }
+            }
+            if Project.canvas-presets.length > 1: InspectorIconButton {
+                label: @tr("Delete canvas preset {}", index + 1);
+                Image {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 16px;
+                    height: 16px;
+                    source: @image-url("../../assets/lucide/trash.svg");
+                    colorize: Colors.muted;
+                }
+                clicked => { Project.delete-canvas-preset(index); }
+            }
+        }
+
+        InspectorSegment {
+            kind: "text";
+            label: @tr("Add preset");
+            selected: false;
+            clicked => { Project.add-canvas-preset(); }
+        }
+
+        if Project.canvas-presets-error != "": Text {
+            text: Project.canvas-presets-error;
+            color: Colors.danger;
+            font-size: Typography.caption.size;
+            wrap: word-wrap;
+            accessible-role: text;
+            accessible-label: @tr("Canvas settings error");
+            accessible-value: self.text;
+        }
+    }
+}

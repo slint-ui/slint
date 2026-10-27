@@ -6,20 +6,21 @@ use ::slint::slint;
 #[test]
 fn simple_window() {
     i_slint_backend_testing::init_no_event_loop();
-    slint!(export component X inherits Window{});
+    slint!(#[slint_edition = "1.19"] export component X inherits Window{});
     X::new().unwrap();
 }
 #[test]
 fn empty_stuff() {
-    slint!();
-    slint!(export struct Hei { abcd: bool });
-    slint!(export global G { });
+    slint!(#[slint_edition = "1.19"]);
+    slint!(#[slint_edition = "1.19"] export struct Hei { abcd: bool });
+    slint!(#[slint_edition = "1.19"] export global G { });
 }
 
 #[test]
 fn test_serialize_deserialize_struct() {
     i_slint_backend_testing::init_no_event_loop();
     slint! {
+        #[slint_edition = "1.19"]
 
         @rust-attr(derive(serde::Serialize, serde::Deserialize))
         export enum TestEnum {
@@ -43,6 +44,7 @@ fn test_serialize_deserialize_struct() {
 fn test_multiple_rust_attrs() {
     i_slint_backend_testing::init_no_event_loop();
     slint! {
+        #[slint_edition = "1.19"]
         @rust-attr(derive(serde::Serialize, serde::Deserialize))
         @rust-attr(serde(rename_all = "camelCase"))
         export struct MultiAttr {
@@ -75,6 +77,7 @@ mod edition_1_19 {
     }
 }
 
+#[allow(deprecated)]
 mod no_edition {
     slint::slint! {
         export component Test inherits Window {

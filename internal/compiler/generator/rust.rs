@@ -151,21 +151,6 @@ impl quote::ToTokens for Orientation {
     }
 }
 
-impl quote::ToTokens for crate::embedded_resources::PixelFormat {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        use crate::embedded_resources::PixelFormat::*;
-        let tks = match self {
-            Rgb => quote!(sp::TexturePixelFormat::Rgb),
-            Rgba => quote!(sp::TexturePixelFormat::Rgba),
-            RgbaPremultiplied => {
-                quote!(sp::TexturePixelFormat::RgbaPremultiplied)
-            }
-            AlphaMap(_) => quote!(sp::TexturePixelFormat::AlphaMap),
-        };
-        tokens.extend(tks);
-    }
-}
-
 pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::Void => Some(quote!(())),
@@ -798,8 +783,7 @@ fn generate_shared_globals(
                     #(#from_library_global_names : self.#from_library_global_names.clone(),)*
                     window_adapter: window_adapter.into(),
                     context: self.context.clone(),
-                    // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
-                    root_item_tree_weak: ::core::default::Default::default(),
+                    root_item_tree_weak: self.root_item_tree_weak.clone(),
                     #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
                 })
             }
@@ -6113,16 +6097,20 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 }
                 #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
-                    data, format, rect,
-                    total_size: crate::embedded_resources::Size{width, height},
-                    original_size: crate::embedded_resources::Size{width: unscaled_width, height: unscaled_height},
+                    data, textures, size, original_size,
                 }) => {
-                    let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
-                    let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
-                        quote!(sp::Color::from_rgb_u8(#r, #g, #b))
-                    } else {
-                        quote!(sp::Color::from_argb_encoded(0))
-                    };
+                    let (width, height) = (size.width, size.height);
+                    let (unscaled_width, unscaled_height) = (original_size.width, original_size.height);
+                    let textures = textures.iter().map(|i_slint_common::pre_rendered::StaticTexture { rect, format, color, index }| {
+                        let (r_x, r_y, r_w, r_h) = (rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
+                        let format = format_ident!("{format:?}");
+                        quote!(sp::StaticTexture {
+                            rect: sp::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
+                            format: sp::TexturePixelFormat::#format,
+                            color: #color,
+                            index: #index,
+                        })
+                    });
                     let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", resource_id);
                     let data_size = data.len();
                     quote!(
@@ -6134,14 +6122,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                             size: sp::IntSize::new(#width as _, #height as _),
                             original_size: sp::IntSize::new(#unscaled_width as _, #unscaled_height as _),
                             data: sp::Slice::from_slice(&#symbol_data.0),
-                            textures: sp::Slice::from_slice(&[
-                                sp::StaticTexture {
-                                    rect: sp::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
-                                    format: #format,
-                                    color: #color,
-                                    index: 0,
-                                }
-                            ])
+                            textures: sp::Slice::from_slice(&[#(#textures),*])
                         };
                     )
                 },

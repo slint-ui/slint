@@ -41,6 +41,8 @@ mod ios;
 #[cfg(target_os = "macos")]
 mod macos;
 mod touch_finger_id;
+#[cfg(target_os = "windows")]
+mod windows_settings;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -898,6 +900,8 @@ impl i_slint_core::platform::Platform for Backend {
                     i_slint_core::lengths::LogicalLength::new(height as f32),
                 ));
             }
+
+            ctx.set_motion_preference(windows_settings::motion_preference());
         }
     }
 
@@ -1168,6 +1172,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// use slint::winit_030::{WinitWindowAccessor, winit};
     ///
     /// slint::slint!{
+    ///     #[slint_edition = "1.19"]
     ///     import { VerticalBox, Button } from "std-widgets.slint";
     ///     export component HelloWorld inherits Window {
     ///         callback clicked;
@@ -1446,6 +1451,7 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 #[cfg(test)]
 mod testui {
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             Text { text: "Ok"; }
         }

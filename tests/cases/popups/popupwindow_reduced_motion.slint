@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Animations in a native popup window follow the reduced-motion setting too.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    in-out property <bool> cond;
+    out property <length> popup-x;
+
+    popup := PopupWindow {
+        width: 100px;
+        height: 100px;
+        Rectangle {
+            x: root.cond ? 100px : 0px;
+            animate x { duration: 1s; }
+            changed x => {
+                root.popup-x = self.x;
+            }
+        }
+    }
+
+    public function show-popup() {
+        popup.show();
+    }
+}
+
+/*
+```rust
+use slint_testing::MotionPreference;
+let instance = TestCase::new().unwrap();
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+instance.invoke_show_popup();
+slint_testing::set_motion_preference(MotionPreference::Reduced);
+instance.set_cond(true);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_popup_x(), 100.);
+slint_testing::set_motion_preference(MotionPreference::NoPreference);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::set_use_native_popup(&instance, true);
+instance.invoke_show_popup();
+slint_testing::set_reduced_motion(true);
+instance.set_cond(true);
+slint_testing::mock_elapsed_time(1);
+assert_eq(instance.get_popup_x(), 100.);
+slint_testing::set_reduced_motion(false);
+```
+*/

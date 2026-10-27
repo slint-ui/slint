@@ -52,6 +52,7 @@ pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
 mod outline;
+mod project_file;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
@@ -106,6 +107,7 @@ pub fn initialize(
     editor_ui.on_inspector_pane_reset(reset_pane(PaneSize::InspectorWidth));
     editor_ui.on_elements_pane_reset(reset_pane(PaneSize::ElementsHeight));
     editor_ui.on_outline_pane_reset(reset_pane(PaneSize::OutlineHeight));
+    project_file::setup(editor_ui);
 
     to_lsp
         .send_telemetry(&mut [(
@@ -457,6 +459,7 @@ fn delete_document(url: &lsp_types::Url) {
         )
     });
 
+    project_file::refresh(url);
     if let Some(current) = current
         && (&current.url == url || url_is_used)
     {
@@ -490,6 +493,7 @@ fn reset_project_state(root: Option<Url>) {
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
     });
+    project_file::reset();
     inline_text_edit::refresh();
     inline_text_edit::notify_finished(false);
 
@@ -532,6 +536,7 @@ pub fn set_user_settings(name: String, contents: String) {
             }
             preview_state.settings = settings;
         });
+        project_file::reload_settings();
     }
 }
 
@@ -606,8 +611,17 @@ fn record_current_project() {
     }
     let Some(component_name) = component.component else { return };
     let Ok(url) = Url::from_file_path(path) else { return };
-    let project =
-        Project { root, preview: PreviewComponent { url, component: Some(component_name) } };
+    let selected_canvas_preset = PREVIEW_STATE.with_borrow(|state| {
+        state
+            .editor_ui
+            .as_ref()
+            .map_or(0, |editor| editor.global::<ui::Project>().get_selected_canvas_preset())
+    });
+    let project = Project {
+        root,
+        preview: PreviewComponent { url, component: Some(component_name) },
+        selected_canvas_preset,
+    };
     let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.settings.add_recent_project(project) {
             return None;
@@ -722,6 +736,7 @@ fn set_contents(url: &VersionedUrl, content: String) {
         let reload = (dependency && changed).then(|| preview_state.current_component()).flatten();
         (reload, invalidate)
     });
+    project_file::refresh(url.url());
     if invalidate {
         inspector::invalidate();
     }
@@ -1916,10 +1931,28 @@ enum CompilationResult {
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let _ = slint::invoke_from_event_loop(move || {
+        project_file::workspace_edit_finished(&edit, applied);
         if !inline_text_edit::workspace_edit_finished(&edit, applied) {
             inspector::workspace_edit_finished(edit, applied);
         }
     });
+}
+
+fn workspace_edit_source_file(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    source_code: &SourceCodeCache,
+    url: &lsp_types::Url,
+) -> Option<i_slint_compiler::diagnostics::SourceFile> {
+    let path = SourcePath::from_url(url);
+    if path.as_native_path().is_some_and(i_slint_compiler::project_file::is_project_file) {
+        let source = source_code.get(url)?;
+        Some(std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+            path,
+            source.code.clone(),
+        )))
+    } else {
+        Some(document_cache.get_document(url)?.node.as_ref()?.source_file.clone())
+    }
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
@@ -1935,9 +1968,12 @@ fn submit_workspace_edit(
     let Some(document_cache) = document_cache() else {
         return false;
     };
-    let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
-        return false;
-    };
+    let result = PREVIEW_STATE.with_borrow(|state| {
+        text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |url| {
+            workspace_edit_source_file(&document_cache, &state.source_code, url)
+        })
+    });
+    let Ok(result) = result else { return false };
     let fill_refresh = if let Some(fill) = fill.clone() {
         let [expected] = result.as_slice() else { return false };
         let unchanged = PREVIEW_STATE.with_borrow(|state| {
@@ -1971,7 +2007,11 @@ fn submit_workspace_edit(
         }
     }
 
-    let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
+    let reverse_edit = PREVIEW_STATE.with_borrow(|state| {
+        text_edit::reversed_edit_with_source(&edit, document_cache.format, |url| {
+            workspace_edit_source_file(&document_cache, &state.source_code, url)
+        })
+    });
 
     let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
@@ -3454,7 +3494,7 @@ mod tests {
         reset_preview_state(Default::default());
     }
 
-    fn availability_test_editor() -> ui::EditorUi {
+    pub(super) fn availability_test_editor() -> ui::EditorUi {
         i_slint_backend_testing::init_no_event_loop();
         reset_preview_state(Default::default());
         let editor = ui::create_ui().unwrap();
@@ -3471,7 +3511,11 @@ mod tests {
         editor
     }
 
-    fn apply_availability_test_source(editor: &ui::EditorUi, source: &str, source_available: bool) {
+    pub(super) fn apply_availability_test_source(
+        editor: &ui::EditorUi,
+        source: &str,
+        source_available: bool,
+    ) {
         let requested = PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap());
         let path = SourcePath::from_url(&requested.url);
         if source_available {
@@ -3793,6 +3837,80 @@ mod tests {
             "Replacement preview",
         );
         assert_eq!(global.get_entries().row_count(), 1);
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn project_workspace_edits_use_raw_cache_and_undo_callbacks() {
+        let editor = availability_test_editor();
+        apply_availability_test_source(
+            &editor,
+            "export component Main inherits Rectangle {}",
+            true,
+        );
+        undo_redo::setup(&editor.global::<ui::Api>());
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("slint-project.json");
+        let url = Url::from_file_path(&path).unwrap();
+        let original = r#"{"slint-edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        std::fs::write(&path, original).unwrap();
+        set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state.to_lsp.borrow_mut() =
+                Some(Rc::new(CapturePreviewToLsp { messages: messages.clone() }));
+        });
+        let document_cache = document_cache().unwrap();
+        let source_file = PREVIEW_STATE.with_borrow(|state| {
+            workspace_edit_source_file(&document_cache, &state.source_code, &url).unwrap()
+        });
+        let edit = project_file::update_canvas_presets_edit(
+            &source_file,
+            Some(1),
+            &[project_file::CanvasPreset { width: 720, height: 1280 }],
+            document_cache.format,
+        )
+        .unwrap();
+        assert!(send_workspace_edit("Canvas presets".into(), edit.clone(), true));
+        assert!(!send_workspace_edit("Successive presets".into(), edit.clone(), true));
+        let result =
+            text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |_| {
+                Some(source_file.clone())
+            })
+            .unwrap();
+        let expected = result[0].contents.clone();
+        std::fs::write(&path, &expected).unwrap();
+        set_contents(&VersionedUrl::new(url.clone(), Some(2)), expected.clone());
+        preview_instance_ready();
+        messages.as_ref().borrow_mut().clear();
+        for (redo, expected_source) in [(false, original), (true, expected.as_str())] {
+            if redo {
+                editor.global::<ui::Api>().invoke_redo();
+            } else {
+                editor.global::<ui::Api>().invoke_undo();
+            }
+            let messages = std::mem::take(&mut *messages.as_ref().borrow_mut());
+            let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = messages.as_slice() else {
+                panic!("Missing history edit");
+            };
+            let result = PREVIEW_STATE
+                .with_borrow(|state| {
+                    text_edit::apply_workspace_edit_with_source(
+                        edit,
+                        document_cache.format,
+                        |url| workspace_edit_source_file(&document_cache, &state.source_code, url),
+                    )
+                })
+                .unwrap();
+            assert_eq!(result[0].contents, expected_source);
+            std::fs::write(&path, expected_source).unwrap();
+            set_contents(&VersionedUrl::new(url.clone(), None), expected_source.into());
+            preview_instance_ready();
+        }
+        std::fs::write(&path, "{}").unwrap();
+        editor.global::<ui::Api>().invoke_undo();
+        assert!(messages.borrow().is_empty());
+        assert!(!editor.global::<ui::Api>().get_undo_enabled());
         reset_preview_state(Default::default());
     }
 

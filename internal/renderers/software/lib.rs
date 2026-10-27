@@ -36,11 +36,14 @@ use euclid::Length;
 use fixed::Fixed;
 #[cfg(feature = "std")]
 use i_slint_core::api::PlatformError;
+#[cfg(feature = "image-owned-textures")]
+use i_slint_core::graphics::OwnedStorage;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::RefreshMode;
 use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{IntSize, StaticTexture};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, ItemRendererFeatures, PlainOrStyledText,
@@ -2300,113 +2303,134 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 .cast()
                 .transformed(self.rotation);
 
-        match image_inner {
-            ImageInner::None => (),
-            ImageInner::StaticTextures(StaticTextures {
-                data,
-                textures,
-                size,
-                original_size,
-                ..
-            }) => {
-                let adjust_x = size.width as f32 / original_size.width as f32;
-                let adjust_y = size.height as f32 / original_size.height as f32;
-                let source_to_target_x = source_to_target_x / adjust_x;
-                let source_to_target_y = source_to_target_y / adjust_y;
-                let source_rect =
-                    source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().to_box2d().cast();
+        enum Pixels {
+            Static(&'static [u8]),
+            #[cfg(feature = "image-owned-textures")]
+            Owned(Rc<StaticTextures<OwnedStorage>>),
+        }
+        let mut draw_textures = |pixels: Pixels,
+                                 textures: &[StaticTexture],
+                                 size: IntSize,
+                                 original_size: IntSize| {
+            let adjust_x = size.width as f32 / original_size.width as f32;
+            let adjust_y = size.height as f32 / original_size.height as f32;
+            let source_to_target_x = source_to_target_x / adjust_x;
+            let source_to_target_y = source_to_target_y / adjust_y;
+            let source_rect =
+                source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().to_box2d().cast();
 
-                for t in textures.as_slice() {
-                    let t_rect = t.rect.to_box2d();
-                    // That's the source rect in the whole image coordinate
-                    let Some(src_rect) = t_rect.intersection(&source_rect) else { continue };
+            for t in textures {
+                let t_rect = t.rect.to_box2d();
+                // That's the source rect in the whole image coordinate
+                let Some(src_rect) = t_rect.intersection(&source_rect) else { continue };
 
-                    let target_rect = if tiled.is_some() {
-                        euclid::Rect::new(offset, fit_size).round().cast::<i32>()
-                    } else {
-                        // The slice maps onto the fit rect `offset ..= offset + fit_size`;
-                        // this texture only covers `src_rect` of the slice's `source_rect`, so
-                        // inset each edge by the uncovered source amount. Edges reaching the
-                        // slice boundary keep the exact fit rect, so abutting slices share a
-                        // seamless edge (scaling each from its source extent drifted apart).
-                        let inset = |a: i32, b: i32, s2t: f32| (a - b) as f32 * s2t;
-                        euclid::Box2D::<f32, PhysicalPx>::new(
-                            euclid::point2(
-                                offset.x
-                                    + inset(src_rect.min.x, source_rect.min.x, source_to_target_x),
-                                offset.y
-                                    + inset(src_rect.min.y, source_rect.min.y, source_to_target_y),
-                            ),
-                            euclid::point2(
-                                offset.x + fit_size.width
-                                    - inset(source_rect.max.x, src_rect.max.x, source_to_target_x),
-                                offset.y + fit_size.height
-                                    - inset(source_rect.max.y, src_rect.max.y, source_to_target_y),
-                            ),
-                        )
-                        .round()
-                        .to_rect()
-                        .cast::<i32>()
-                    };
-                    let target_rect = target_rect.transformed(self.rotation).round();
-
-                    let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
-                        continue;
-                    };
-
-                    let pixel_stride = t.rect.width() as usize;
-                    let core::ops::Range { start, end } = compute_range_in_buffer(
-                        &PhysicalRect::from_untyped(
-                            &src_rect.to_rect().translate(-t.rect.origin.to_vector()).cast(),
+                let target_rect = if tiled.is_some() {
+                    euclid::Rect::new(offset, fit_size).round().cast::<i32>()
+                } else {
+                    // The slice maps onto the fit rect `offset ..= offset + fit_size`;
+                    // this texture only covers `src_rect` of the slice's `source_rect`, so
+                    // inset each edge by the uncovered source amount. Edges reaching the
+                    // slice boundary keep the exact fit rect, so abutting slices share a
+                    // seamless edge (scaling each from its source extent drifted apart).
+                    let inset = |a: i32, b: i32, s2t: f32| (a - b) as f32 * s2t;
+                    euclid::Box2D::<f32, PhysicalPx>::new(
+                        euclid::point2(
+                            offset.x + inset(src_rect.min.x, source_rect.min.x, source_to_target_x),
+                            offset.y + inset(src_rect.min.y, source_rect.min.y, source_to_target_y),
                         ),
-                        pixel_stride,
-                    );
-                    let bpp = t.format.bpp();
+                        euclid::point2(
+                            offset.x + fit_size.width
+                                - inset(source_rect.max.x, src_rect.max.x, source_to_target_x),
+                            offset.y + fit_size.height
+                                - inset(source_rect.max.y, src_rect.max.y, source_to_target_y),
+                        ),
+                    )
+                    .round()
+                    .to_rect()
+                    .cast::<i32>()
+                };
+                let target_rect = target_rect.transformed(self.rotation).round();
 
-                    let color = if colorize.alpha() > 0 { colorize } else { t.color };
-                    let alpha = if colorize.alpha() > 0 || t.format == TexturePixelFormat::AlphaMap
-                    {
-                        color.alpha() as u16 * global_alpha_u16 / 255
-                    } else {
-                        global_alpha_u16
-                    } as u8;
+                let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                    continue;
+                };
 
-                    let tiling = tiled.map(|tile_o| {
-                        let src_o = src_rect.min - source_rect.min;
-                        let gap = (src_o) + (source_rect.max - src_rect.max);
-                        target_pixel_buffer::TilingInfo {
-                            offset_x: ((src_o.x as f32 - tile_o.x as f32) * source_to_target_x)
-                                .round() as _,
-                            offset_y: ((src_o.y as f32 - tile_o.y as f32) * source_to_target_y)
-                                .round() as _,
-                            scale_x: 1. / source_to_target_x,
-                            scale_y: 1. / source_to_target_y,
-                            gap_x: (gap.x as f32 * source_to_target_x).round() as _,
-                            gap_y: (gap.y as f32 * source_to_target_y).round() as _,
-                        }
-                    });
+                let pixel_stride = t.rect.width() as usize;
+                let texture_rect = PhysicalRect::from_untyped(
+                    &src_rect.to_rect().translate(-t.rect.origin.to_vector()).cast(),
+                );
 
-                    let t = target_pixel_buffer::DrawTextureArgs {
-                        data: target_pixel_buffer::TextureDataContainer::Static(
+                let color =
+                    if colorize.alpha() > 0 { colorize } else { Color::from_argb_encoded(t.color) };
+                let alpha = if colorize.alpha() > 0 || t.format == TexturePixelFormat::AlphaMap {
+                    color.alpha() as u16 * global_alpha_u16 / 255
+                } else {
+                    global_alpha_u16
+                } as u8;
+
+                let tiling = tiled.map(|tile_o| {
+                    let src_o = src_rect.min - source_rect.min;
+                    let gap = (src_o) + (source_rect.max - src_rect.max);
+                    target_pixel_buffer::TilingInfo {
+                        offset_x: ((src_o.x as f32 - tile_o.x as f32) * source_to_target_x).round()
+                            as _,
+                        offset_y: ((src_o.y as f32 - tile_o.y as f32) * source_to_target_y).round()
+                            as _,
+                        scale_x: 1. / source_to_target_x,
+                        scale_y: 1. / source_to_target_y,
+                        gap_x: (gap.x as f32 * source_to_target_x).round() as _,
+                        gap_y: (gap.y as f32 * source_to_target_y).round() as _,
+                    }
+                });
+
+                let t = target_pixel_buffer::DrawTextureArgs {
+                    data: match &pixels {
+                        Pixels::Static(data) => target_pixel_buffer::TextureDataContainer::Static(
                             target_pixel_buffer::TextureData::new(
-                                &data.as_slice()[t.index..][start * bpp..end * bpp],
+                                texture_pixels(
+                                    data,
+                                    t,
+                                    compute_range_in_buffer(&texture_rect, pixel_stride),
+                                ),
                                 t.format,
-                                pixel_stride * bpp,
+                                pixel_stride * t.format.bpp(),
                                 src_rect.size().cast(),
                             ),
                         ),
-                        colorize: (color.alpha() > 0).then_some(color),
-                        alpha,
-                        dst_x: target_rect.origin.x as _,
-                        dst_y: target_rect.origin.y as _,
-                        dst_width: target_rect.size.width as _,
-                        dst_height: target_rect.size.height as _,
-                        rotation: self.rotation.orientation,
-                        tiling,
-                    };
+                        #[cfg(feature = "image-owned-textures")]
+                        Pixels::Owned(textures) => {
+                            target_pixel_buffer::TextureDataContainer::Shared {
+                                buffer: SharedBufferData::Texture {
+                                    textures: textures.clone(),
+                                    texture: t.clone(),
+                                },
+                                source_rect: texture_rect,
+                            }
+                        }
+                    },
+                    colorize: (color.alpha() > 0).then_some(color),
+                    alpha,
+                    dst_x: target_rect.origin.x as _,
+                    dst_y: target_rect.origin.y as _,
+                    dst_width: target_rect.size.width as _,
+                    dst_height: target_rect.size.height as _,
+                    rotation: self.rotation.orientation,
+                    tiling,
+                };
 
-                    self.processor.process_target_texture(&t, clipped_target.cast());
-                }
+                self.processor.process_target_texture(&t, clipped_target.cast());
+            }
+        };
+
+        match image_inner {
+            ImageInner::None => (),
+            ImageInner::StaticTextures(StaticTextures { data, textures, size, original_size }) => {
+                draw_textures(Pixels::Static(data), textures, *size, *original_size)
+            }
+            #[cfg(feature = "image-owned-textures")]
+            ImageInner::OwnedTextures(owned) => {
+                let StaticTextures { textures, size, original_size, .. } = &**owned;
+                draw_textures(Pixels::Owned(owned.clone()), textures, *size, *original_size)
             }
 
             ImageInner::NineSlice(..) => unreachable!(),
@@ -2428,14 +2452,6 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
-                    #[cfg(feature = "image-pixel-format-alpha-map")]
-                    let colorize = if let SharedImageBuffer::AlphaMap { color, .. } = &buffer
-                        && colorize.alpha() == 0
-                    {
-                        *color
-                    } else {
-                        colorize
-                    };
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
                     } else {

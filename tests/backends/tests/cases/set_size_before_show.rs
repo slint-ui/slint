@@ -12,6 +12,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 slint::slint! {
+    #[slint_edition = "1.19"]
     export component Fixed inherits Window {
         preferred-width: 400px;
         preferred-height: 300px;

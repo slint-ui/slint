@@ -26,6 +26,15 @@ pub struct ProjectFileData {
 
     /// Selects the language behavior of this Slint release. Required in a project file.
     pub slint_edition: Option<SlintEdition>,
+
+    #[serde(default, deserialize_with = "ignore_metadata", skip_serializing)]
+    pub metadata: (),
+}
+
+fn ignore_metadata<'de, Deserializer: serde::Deserializer<'de>>(
+    deserializer: Deserializer,
+) -> Result<(), Deserializer::Error> {
+    serde::de::IgnoredAny::deserialize(deserializer).map(|_| ())
 }
 
 /// The `major.minor` of the Slint release whose language behavior a project uses.
@@ -37,18 +46,27 @@ pub struct SlintEdition {
 
 impl SlintEdition {
     pub const V1_19: Self = Self { major: 1, minor: 19 };
-    /// The newest edition that a behavior check of `CompilerConfiguration` depends on.
+    /// The newest edition that a compiler behavior check depends on.
     pub const LATEST_BEHAVIOR_CHANGE: Self = Self::V1_19;
 
-    /// The warning for an edition that misses a newer behavior change.
-    pub fn behavior_change_warning(self) -> Option<String> {
+    /// The warning for an edition that misses a newer behavior change, where `setting` is
+    /// the name of the setting that selected the edition.
+    pub fn behavior_change_warning(self, setting: &str) -> Option<String> {
         let newer = Self::LATEST_BEHAVIOR_CHANGE;
         (self < newer).then(|| {
             format!(
-                "'slint-edition' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at https://slint.dev/releases/{}/docs/slint/guide/language/concepts/editions/#behavior-changes",
-                env!("CARGO_PKG_VERSION")
+                "'{setting}' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at {}",
+                Self::behavior_changes_url()
             )
         })
+    }
+
+    /// The documentation of the behavior changes that depend on the edition.
+    pub fn behavior_changes_url() -> String {
+        format!(
+            "https://slint.dev/releases/{}/docs/slint/guide/language/concepts/editions/#behavior-changes",
+            env!("CARGO_PKG_VERSION")
+        )
     }
 
     /// Parses an edition that this Slint supports: one that isn't newer than [`Self::current()`].
@@ -292,7 +310,8 @@ impl ProjectFile {
         Self::parse(source_path, source)
     }
 
-    fn parse(source_path: SourcePath, mut source: Vec<u8>) -> Result<Self, Box<dyn Error>> {
+    /// Parses project-file contents without reading from disk.
+    pub fn parse(source_path: SourcePath, mut source: Vec<u8>) -> Result<Self, Box<dyn Error>> {
         blank_out_comments(&mut source);
         let current = SlintEdition::current();
         let missing =
@@ -421,6 +440,7 @@ impl ProjectFileData {
             enable_experimental_features,
             main: _,
             slint_edition,
+            metadata: (),
         } = self;
         if let Some(include_paths) = include_paths {
             compiler_config.include_paths = include_paths.clone();
@@ -547,6 +567,7 @@ impl Overrides {
             enable_experimental_features,
             main,
             slint_edition,
+            metadata: (),
         } = project;
         replace_if_supplied(&mut self.project.schema, schema);
         replace_if_supplied(&mut self.project.library_paths, library_paths);
@@ -746,6 +767,22 @@ mod tests {
     }
 
     #[test]
+    fn metadata_is_ignored() {
+        let baseline: super::ProjectFileData =
+            serde_json::from_str(r#"{"main":"main.slint"}"#).unwrap();
+        for metadata in ["null", "true", "42", r#"{"visual-editor":{"canvas-presets":[]}}"#] {
+            let source = format!(r#"{{"main":"main.slint","metadata":{metadata}}}"#);
+            let parsed: super::ProjectFileData = serde_json::from_str(&source).unwrap();
+            assert_eq!(parsed, baseline);
+            assert_eq!(
+                serde_json::to_value(parsed).unwrap(),
+                serde_json::to_value(&baseline).unwrap()
+            );
+        }
+        assert!(serde_json::from_str::<super::ProjectFileData>(r#"{"unknown":{}}"#).is_err());
+    }
+
+    #[test]
     fn partially_specified_project_file_is_valid() {
         let parsed = load_project_file(
             r#"{
@@ -860,6 +897,11 @@ mod tests {
     }
 
     #[test]
+    fn a_file_of_only_comments_is_invalid() {
+        assert!(load_project_file("// nothing set yet\n/* not even this */\n").is_err());
+    }
+
+    #[test]
     fn a_comment_keeps_the_line_of_a_later_error() {
         let error = load_project_file(
             r#"{
@@ -921,6 +963,13 @@ mod tests {
                 error.contains(&format!(r#"add "slint-edition": "{current}""#)),
                 "{case:?}: {error}"
             );
+        }
+    }
+
+    #[test]
+    fn empty_files_and_invalid_metadata_are_rejected() {
+        for source in ["", "  \t \n", r#"{ "metadata": { this is not json! } }"#] {
+            assert!(load_project_file(source).is_err(), "{source}");
         }
     }
 
@@ -992,12 +1041,12 @@ mod tests {
     #[test]
     fn an_edition_before_the_latest_behavior_change_gets_a_warning() {
         let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
-        let warning = parse("1.18").behavior_change_warning().unwrap();
+        let warning = parse("1.18").behavior_change_warning("slint-edition").unwrap();
         assert!(
             warning
                 .contains("'slint-edition' 1.18 misses the language behavior changes up to 1.19")
         );
-        assert_eq!(SlintEdition::current().behavior_change_warning(), None);
+        assert_eq!(SlintEdition::current().behavior_change_warning("slint-edition"), None);
     }
 
     #[test]
@@ -1020,17 +1069,6 @@ mod tests {
             assert_eq!(config.edition, Some(SlintEdition::V1_19));
             assert!(config.edition_location.is_none());
         });
-    }
-
-    #[test]
-    fn the_edition_selects_the_behavior() {
-        let config = |source: &str| {
-            with_project_file_contents(source, |path| {
-                ProjectFile::load(path).unwrap().into_compiler_configuration(OutputFormat::Llr)
-            })
-        };
-        assert!(config(r#"{ "slint-edition": "1.19" }"#).repeated_children_constrain_parent());
-        assert!(!config(r#"{ "slint-edition": "1.18" }"#).repeated_children_constrain_parent());
     }
 
     #[test]
@@ -1242,7 +1280,11 @@ mod tests {
     #[test]
     fn callback_loading_shares_parsing_and_relative_paths() {
         for source in [
+            "",
+            "  \t \r\n",
+            "{}",
             "// empty\n/* manifest */",
+            r#"{ "metadata": { this is not json! } }"#,
             r#"{"slint-edition":"1.19","main":"ui/main.slint","include-paths":["include","../shared"],"library-paths":{"widgets":"lib/main.slint"}}"#,
             r#"{"unknown":true}"#,
             "{\n// preserved line\n\"main\": invalid}",
