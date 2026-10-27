@@ -653,10 +653,17 @@ mod tests {
                 let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
                 let imported =
                     Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
+                let root = Url::from_directory_path(std::env::temp_dir()).unwrap();
+                let manifest = root.join("slint-project.json").unwrap();
                 let error_line = r#"    in property <string> label: "Next →"; foo: 1;"#;
                 for message in [
                     LspToPreviewMessage::SetConfiguration {
                         config: PreviewConfig { format_utf8: false, ..Default::default() },
+                    },
+                    LspToPreviewMessage::OpenProject { root: Some(root) },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(manifest.clone(), Some(5)),
+                        contents: br#"{"slint-edition":"1.18"}"#.to_vec(),
                     },
                     LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(main.clone(), Some(3)),
@@ -701,6 +708,12 @@ mod tests {
                 let utf16_column =
                     error_line[..error_line.find("foo").unwrap()].encode_utf16().count();
                 assert_eq!(error.range.start, lsp_types::Position::new(1, utf16_column as u32));
+                let (version, manifest_diagnostics) = &diagnostics[&manifest];
+                assert_eq!(*version, Some(5));
+                let [warning] = manifest_diagnostics.as_slice() else {
+                    panic!("{manifest_diagnostics:?}")
+                };
+                assert!(warning.message.starts_with("'slint-edition' 1.18"), "{warning:?}");
             })
             .await;
     }
