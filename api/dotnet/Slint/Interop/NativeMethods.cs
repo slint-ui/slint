@@ -625,4 +625,11 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_value_image_to_rgba8(ValueHandle value, byte* output, nuint len);
+
+#if ANDROID
+    // android.rs
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_android_set_main(delegate* unmanaged<void> main);
+#endif
 }
