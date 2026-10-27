@@ -37,16 +37,17 @@ runs:
           env:
               EXTRA_PACKAGES: ${{ inputs.extra-packages }}
               ADD_ARCHITECTURE: ${{ inputs.add-architecture }}
+              FORCE_GCC_10: ${{ inputs.force-gcc-10 }}
           run: |
               dir="$RUNNER_TEMP/apt-archives"
               mkdir -p "$dir/partial"
               # The _apt user can't reach the runner's home directory.
               printf 'Dir::Cache::Archives "%s";\nAPT::Sandbox::User "root";\n' "$dir" \
                   | sudo tee /etc/apt/apt.conf.d/81-ci-archive-cache > /dev/null
-              packages=$(printf '%s %s' "$ADD_ARCHITECTURE" "$EXTRA_PACKAGES" | sha1sum | cut -c1-8)
+              packages=$(printf '%s %s %s' "$ADD_ARCHITECTURE" "$FORCE_GCC_10" "$EXTRA_PACKAGES" | sha1sum | cut -c1-8)
               # Not keyed on the workflow, so that pull requests (autofix.ci) restore
-              # what the scheduled runs of the CI workflow saved on master.
-              prefix="apt-${{ github.job }}-$ImageOS-${{ runner.arch }}-$packages-"
+              # what the CI workflow saved on master.
+              prefix="apt-$ImageOS-${{ runner.arch }}-$packages-"
               echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
         - name: Restore apt downloads
           id: apt-restore
