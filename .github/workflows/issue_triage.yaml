@@ -24,7 +24,7 @@ jobs:
       github.event.issue.user.type != 'Bot' &&
       !contains(fromJson('["OWNER", "MEMBER"]'), github.event.issue.author_association) &&
       !contains(github.event.issue.labels.*.name, 'need triaging')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Add the need triaging label

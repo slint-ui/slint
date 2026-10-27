@@ -52,7 +52,7 @@ jobs:
                     - arch: aarch64
                       # arm64 runners are free for public repositories, but the
                       # label does not resolve in private ones.
-                      runner: ubuntu-24.04-arm
+                      runner: ubuntu-26.04-arm
         runs-on: ${{ matrix.runner }}
         container:
             image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-26.08

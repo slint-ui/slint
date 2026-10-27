@@ -252,7 +252,7 @@ jobs:
 
     cpp_test_driver_32bit:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'widgets') || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'tests') }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         env:
             SLINT_NO_QT: 1
             RUSTFLAGS: -D warnings
@@ -495,7 +495,7 @@ jobs:
     # lacks.
     slint_sc_targets:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         container: debian:trixie
         steps:
             - name: Install QEMU and the cross compilers
@@ -893,7 +893,7 @@ jobs:
     # rust-skia has no prebuilt binaries for i686-pc-windows-msvc.
     win32_build:
         if: ${{ inputs.full }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
@@ -937,7 +937,7 @@ jobs:
     # compilation and no system libraries.
     linuxkms_features:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'linuxkms_backend') || contains(fromJSON(inputs.changes), 'api_cpp') }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
@@ -953,7 +953,7 @@ jobs:
     # happens to ship.
     linuxkms_build_matrix:
         if: ${{ inputs.full }}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         strategy:
             fail-fast: false
             matrix:
@@ -1046,6 +1046,8 @@ jobs:
                       target: thumbv7em-none-eabihf
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
             fail-fast: false
+        # native_sim compiles against the host's glibc headers,
+        # which Zephyr's `__unused` macro breaks on Ubuntu 26.04.
         runs-on: ubuntu-24.04
         steps:
           - uses: actions/checkout@v7
