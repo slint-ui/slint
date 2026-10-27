@@ -65,6 +65,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
         });
         if let Some(editor) = editor {
             editor.global::<ui::ShadowSession>().invoke_cancel();
+            editor.global::<ui::Api>().set_inspector_number_edit_pending(false);
         }
     }
     let result = PREVIEW_STATE.with_borrow_mut(|state| {
@@ -297,7 +298,12 @@ pub(super) fn commit_shadow(
         .collect();
     let accepted = property_edit(node, url, version, changes)
         .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
-    if accepted && file_edit_pending() {
+    finish_number_commit(accepted)
+}
+
+fn finish_number_commit(accepted: bool) -> ui::InspectorCommitResult {
+    let pending = accepted && file_edit_pending();
+    if pending {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
         });
@@ -306,7 +312,7 @@ pub(super) fn commit_shadow(
     }
     if !accepted {
         ui::InspectorCommitResult::Rejected
-    } else if file_edit_pending() {
+    } else if pending {
         ui::InspectorCommitResult::Pending
     } else {
         ui::InspectorCommitResult::Unchanged
@@ -437,21 +443,26 @@ pub(super) fn commit_fill(
     accepted
 }
 
-pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
+pub(super) fn commit(
+    key: SharedString,
+    name: SharedString,
+    value: f32,
+) -> ui::InspectorCommitResult {
     if file_edit_pending() {
         cancel();
-        return false;
+        return ui::InspectorCommitResult::Rejected;
     }
-    let Some((node, url, version, names)) = validate(&key, &name, value) else { return false };
+    let Some((node, url, version, names)) = validate(&key, &name, value) else {
+        return ui::InspectorCommitResult::Rejected;
+    };
     let unit = if name == "transform-rotation" { "deg" } else { "px" };
     let changes = names
         .iter()
         .map(|name| {
             i_slint_editor_preview::editing::PropertyChange::new(name, format!("{value}{unit}"))
         })
-        .collect::<Vec<_>>();
-    let edit = property_edit(node, url, version, changes);
-    let accepted = edit.is_some_and(|edit| {
+        .collect();
+    let accepted = property_edit(node, url, version, changes).is_some_and(|edit| {
         send_workspace_edit(
             match name.as_str() {
                 "transform-rotation" => "Rotating element",
@@ -464,14 +475,7 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
             true,
         )
     });
-    if accepted {
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            state.inspector_edit.take();
-        });
-    } else {
-        cancel();
-    }
-    accepted
+    finish_number_commit(accepted)
 }
 
 pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {

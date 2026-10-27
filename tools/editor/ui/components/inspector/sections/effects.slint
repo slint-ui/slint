@@ -54,7 +54,7 @@ export component InspectorEffectsSection inherits InspectorSection {
             width: root.field-width;
             accessible-name: @tr("Backdrop blur amount");
             label: @tr("Blur");
-            value: Api.number-property("backdrop-blur", 0);
+            value: InspectorContext.number-value("backdrop-blur", Api.number-property("backdrop-blur", 0));
             maximum: 128;
             clamp-maximum: false;
             commit-key: InspectorContext.field-key("backdrop-blur");

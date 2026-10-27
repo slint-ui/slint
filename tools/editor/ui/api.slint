@@ -664,11 +664,12 @@ export global Api {
 
     pure callback window-active() -> bool;
     in property <int> inspector-generation;
+    in-out property <bool> inspector-number-edit-pending;
     in property <int> inspector-fill-generation;
     in property <bool> inspector-fill-refresh-pending;
     pure callback inspector-values(key: string) -> [float];
     callback inspector-preview(key: string, name: string, value: float) -> bool;
-    callback inspector-commit(key: string, name: string, value: float) -> bool;
+    callback inspector-commit(key: string, name: string, value: float) -> InspectorCommitResult;
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> InspectorCommitResult;

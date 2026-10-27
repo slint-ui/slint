@@ -1717,6 +1717,8 @@ def test_effect_slider_previews_without_source_writes(
                 end, slint_testing.PointerEventButton.Left
             )
         )
+        if outcome == "commit":
+            assert inspector_field(window, label).accessible_value == "64"
         if outcome != "commit":
             if outcome == "source":
                 snapshot.wait_for_applied(

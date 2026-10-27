@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
+import { Api, CodeBinding, ElementInformation, InspectorCommitResult, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
 import { InspectorEnumOptions } from "../enum-options.slint";
 
 export global InspectorContext {
@@ -11,10 +11,43 @@ export global InspectorContext {
         : [];
     out property <string> selection-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index;
     out property <string> inspector-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.source-version + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
-    out property <[float]> control-values: Api.inspector-values(InspectorContext.inspector-key);
+    private property <string> number-name;
+    private property <float> number-draft;
+    private property <string> number-target;
+    changed selection-key => {
+        if InspectorContext.selection-key != InspectorContext.number-target { Api.inspector-number-edit-pending = false; }
+    }
+    out property <[float]> control-values: {
+        let values = Api.inspector-values(InspectorContext.inspector-key);
+        return [
+            InspectorContext.number-value("transform-rotation", values[0]),
+            InspectorContext.number-value("border-top-left-radius", values[1]),
+            InspectorContext.number-value("border-top-right-radius", values[2]),
+            InspectorContext.number-value("border-bottom-left-radius", values[3]),
+            InspectorContext.number-value("border-bottom-right-radius", values[4]),
+        ];
+    }
+
+    public pure function has-pending-number(name: string) -> bool {
+        return Api.inspector-number-edit-pending && InspectorContext.selection-key == InspectorContext.number-target
+            && (name == InspectorContext.number-name || (InspectorContext.number-name == "all-corners"
+                && (name == "border-top-left-radius" || name == "border-top-right-radius"
+                    || name == "border-bottom-left-radius" || name == "border-bottom-right-radius")));
+    }
+
+    public pure function number-value(name: string, source: float) -> float {
+        return InspectorContext.has-pending-number(name) ? InspectorContext.number-draft : source;
+    }
 
     public function commit-inspector(name: string, value: float) -> bool {
-        return Api.inspector-commit(InspectorContext.inspector-key, name, value);
+        if Api.inspector-number-edit-pending { return false; }
+        InspectorContext.number-name = name;
+        InspectorContext.number-draft = value;
+        InspectorContext.number-target = InspectorContext.selection-key;
+        Api.inspector-number-edit-pending = true;
+        let result = Api.inspector-commit(InspectorContext.inspector-key, name, value);
+        Api.inspector-number-edit-pending = result == InspectorCommitResult.pending;
+        return result != InspectorCommitResult.rejected;
     }
 
     public pure function has-backend-rect() -> bool {

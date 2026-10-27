@@ -376,6 +376,7 @@ impl PreviewState {
             api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
             api.set_inspector_fill_refresh_pending(false);
+            api.set_inspector_number_edit_pending(false);
             ui::ui_set_known_components(&api, &[], usize::MAX);
             ui::ui_set_preview_data(&api, Default::default(), None);
             outline::reset_outline(&api, None);
@@ -2975,6 +2976,7 @@ fn set_selected_element(
                     ));
                     if !preview_state.workspace_edit_sent {
                         editor_ui.global::<ui::ShadowSession>().invoke_source_refreshed();
+                        api.set_inspector_number_edit_pending(false);
                     }
                 }
             } else if selection.is_none()
