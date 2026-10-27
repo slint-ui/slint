@@ -1732,6 +1732,16 @@ mod tests {
         editor
     }
 
+    fn number_test_values(value: f32) -> super::InspectorValues {
+        super::InspectorValues {
+            rotation: value,
+            top_left_radius: value,
+            top_right_radius: value,
+            bottom_left_radius: value,
+            bottom_right_radius: value,
+        }
+    }
+
     fn set_number_test_source(api: &super::Api<'_>, value: f32) {
         api.on_source_property_value_data(move |name, fallback| {
             if !matches!(name.as_str(), "backdrop-blur" | "border-width") {
@@ -1745,7 +1755,59 @@ mod tests {
                 ..Default::default()
             }
         });
-        api.on_inspector_values(move |_| std::rc::Rc::new(VecModel::from(vec![value; 5])).into());
+        api.on_inspector_values(move |_| number_test_values(value));
+    }
+
+    fn number_field(
+        editor: &super::EditorUi,
+        label: &str,
+    ) -> i_slint_backend_testing::ElementHandle {
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(editor, label)
+            .find(|element| {
+                element.accessible_role()
+                    == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+            })
+            .unwrap_or_else(|| panic!("Missing number field: {label}"))
+    }
+
+    #[test]
+    fn number_corner_drafts_follow_named_geometry_fields() {
+        i_slint_backend_testing::init_no_event_loop();
+        let corners = [
+            ("Top left corner radius", "border-top-left-radius", "11"),
+            ("Top right corner radius", "border-top-right-radius", "12"),
+            ("Bottom left corner radius", "border-bottom-left-radius", "13"),
+            ("Bottom right corner radius", "border-bottom-right-radius", "14"),
+        ];
+        for (label, property, _) in corners {
+            let editor = number_test_editor();
+            let api = editor.global::<super::Api>();
+            api.on_inspector_values(|_| super::InspectorValues {
+                rotation: 5.,
+                top_left_radius: 11.,
+                top_right_radius: 12.,
+                bottom_left_radius: 13.,
+                bottom_right_radius: 14.,
+            });
+            api.on_inspector_commit(move |_, name, value| {
+                assert_eq!(name, property);
+                assert_eq!(value, 35.);
+                super::InspectorCommitResult::Pending
+            });
+            slint::platform::update_timers_and_animations();
+            assert_eq!(find_element(&editor, "Rotation knob").accessible_value().unwrap(), "5");
+            for (field, _, expected) in corners {
+                assert_eq!(number_field(&editor, field).accessible_value().unwrap(), expected);
+            }
+            number_field(&editor, label).set_accessible_value("35");
+            slint::platform::update_timers_and_animations();
+            for (field, _, source) in corners {
+                assert_eq!(
+                    number_field(&editor, field).accessible_value().unwrap(),
+                    if field == label { "35" } else { source }
+                );
+            }
+        }
     }
 
     #[test]
@@ -1760,55 +1822,124 @@ mod tests {
         assert_eq!(find_element(&editor, "Backdrop blur amount").accessible_value().unwrap(), "47");
     }
 
+    fn start_number_drag(
+        editor: &super::EditorUi,
+        label: &str,
+        start: (f32, f32),
+        end: (f32, f32),
+        delta: (f32, f32),
+    ) -> LogicalPosition {
+        let control = find_element(editor, label);
+        let origin = control.absolute_position();
+        let size = control.size();
+        let point =
+            |(x, y)| LogicalPosition::new(origin.x + size.width * x, origin.y + size.height * y);
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position: point(start),
+            button: PointerEventButton::Left,
+        });
+        let end = point(end);
+        let end = LogicalPosition::new(end.x + delta.0, end.y + delta.1);
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+        slint::platform::update_timers_and_animations();
+        end
+    }
+
+    #[test]
+    fn number_pending_rotation_rejects_and_rolls_back_a_second_drag() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = number_test_editor();
+        let api = editor.global::<super::Api>();
+        let previewed = std::rc::Rc::new(std::cell::Cell::new(85.));
+        let committed = std::rc::Rc::new(std::cell::Cell::new(85.));
+        let value = previewed.clone();
+        api.on_inspector_preview(move |_, _, next| {
+            value.set(next);
+            true
+        });
+        let value = committed.clone();
+        api.on_inspector_commit(move |_, _, next| {
+            value.set(next);
+            super::InspectorCommitResult::Pending
+        });
+        let (preview, source) = (previewed.clone(), committed.clone());
+        api.on_inspector_cancel(move || preview.set(source.get()));
+        for expected in [175., 175.] {
+            let end = start_number_drag(&editor, "Rotation knob", (0.5, 0.1), (0.9, 0.5), (0., 0.));
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position: end,
+                button: PointerEventButton::Left,
+            });
+            assert_eq!(committed.get(), expected);
+            assert_eq!(previewed.get(), expected);
+        }
+    }
+
+    #[test]
+    fn number_draft_survives_visiting_another_selection() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = number_test_editor();
+        let api = editor.global::<super::Api>();
+        find_element(&editor, "Backdrop blur amount").set_accessible_value("35");
+        let original = api.get_current_element();
+        let mut other = original.clone();
+        other.offset += 1;
+        api.set_current_element(other);
+        slint::platform::update_timers_and_animations();
+        assert_eq!(find_element(&editor, "Backdrop blur amount").accessible_value().unwrap(), "85");
+        api.set_current_element(original);
+        slint::platform::update_timers_and_animations();
+        assert_eq!(find_element(&editor, "Backdrop blur amount").accessible_value().unwrap(), "35");
+    }
+
+    #[test]
+    fn number_draft_does_not_repeat_source_geometry_lookups() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = number_test_editor();
+        let api = editor.global::<super::Api>();
+        let calls = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = calls.clone();
+        api.on_inspector_values(move |_| {
+            count.set(count.get() + 1);
+            number_test_values(85.)
+        });
+        assert_eq!(find_element(&editor, "Rotation knob").accessible_value().unwrap(), "85");
+        let before = calls.get();
+        find_element(&editor, "Backdrop blur amount").set_accessible_value("35");
+        assert_eq!(find_element(&editor, "Rotation knob").accessible_value().unwrap(), "85");
+        assert_eq!(calls.get(), before);
+        api.set_inspector_number_edit_pending(false);
+        assert_eq!(find_element(&editor, "Rotation knob").accessible_value().unwrap(), "85");
+        assert_eq!(calls.get(), before);
+    }
+
     #[test]
     fn number_controls_keep_the_submitted_value_after_release() {
         i_slint_backend_testing::init_no_event_loop();
-        for (label, field, move_pointer) in [
-            ("Backdrop blur amount", "Backdrop blur amount value", false),
-            ("All corner radii slider", "All corner radii", false),
-            ("Rotation knob", "Rotation", true),
-            ("Border width scrubber", "Border width", true),
-            ("Rotation scrubber", "Rotation", true),
+        for (label, field, start, end, delta, expected) in [
+            (
+                "Backdrop blur amount",
+                "Backdrop blur amount value",
+                (0.5, 0.5),
+                (0.5, 0.5),
+                (0., 0.),
+                "64",
+            ),
+            ("All corner radii slider", "All corner radii", (0.5, 0.5), (0.5, 0.5), (0., 0.), "30"),
+            ("Rotation knob", "Rotation", (0.5, 0.1), (0.9, 0.5), (0., 0.), "175"),
+            ("Border width scrubber", "Border width", (0.5, 0.5), (0.5, 0.5), (20., 0.), "105"),
+            ("Rotation scrubber", "Rotation", (0.5, 0.5), (0.5, 0.5), (20., 0.), "105"),
         ] {
             let editor = number_test_editor();
-            let slider = find_element(&editor, label);
-            let rect = slider.absolute_position();
-            let size = slider.size();
-            let position = if label == "Rotation knob" {
-                LogicalPosition::new(rect.x + size.width / 2., rect.y + size.height * 0.1)
-            } else {
-                LogicalPosition::new(rect.x + size.width * 0.3, rect.y + size.height / 2.)
-            };
-            editor.window().dispatch_event(WindowEvent::PointerPressed {
-                position,
-                button: PointerEventButton::Left,
-            });
-            let end = if move_pointer {
-                let end = if label == "Rotation knob" {
-                    LogicalPosition::new(rect.x + size.width * 0.9, rect.y + size.height / 2.)
-                } else {
-                    LogicalPosition::new(position.x + 20., position.y + 10.)
-                };
-                editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
-                end
-            } else {
-                position
-            };
-            slint::platform::update_timers_and_animations();
+            let end = start_number_drag(&editor, label, start, end, delta);
             let during = find_element(&editor, label).accessible_value().unwrap();
-            assert_ne!(during, "85");
+            assert_eq!(during, expected, "{label}");
             editor.window().dispatch_event(WindowEvent::PointerReleased {
                 position: end,
                 button: PointerEventButton::Left,
             });
             assert_eq!(find_element(&editor, label).accessible_value().unwrap(), during, "{label}");
-            let input =
-                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, field)
-                    .find(|element| {
-                        element.accessible_role()
-                            == Some(i_slint_backend_testing::AccessibleRole::TextInput)
-                    })
-                    .unwrap_or_else(|| panic!("Missing number field: {field}"));
+            let input = number_field(&editor, field);
             assert_eq!(input.accessible_value().unwrap(), during, "{field}");
             let api = editor.global::<super::Api>();
             api.set_inspector_generation(1);
@@ -1829,7 +1960,7 @@ mod tests {
     }
 
     #[test]
-    fn number_drafts_clear_on_rejection_noop_and_selection_changes() {
+    fn number_drafts_clear_on_rejected_and_unchanged_edits() {
         i_slint_backend_testing::init_no_event_loop();
         for result in
             [super::InspectorCommitResult::Rejected, super::InspectorCommitResult::Unchanged]
@@ -1844,29 +1975,17 @@ mod tests {
                 "85"
             );
         }
-        for rejected in [false, true] {
-            let editor = number_test_editor();
-            let api = editor.global::<super::Api>();
-            find_element(&editor, "Backdrop blur amount").set_accessible_value("35");
-            if rejected {
-                crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
-                    state.editor_ui = Some(editor.clone_strong());
-                    state.workspace_edit_sent = true;
-                });
-                super::super::inspector::workspace_edit_finished(Default::default(), false);
-                crate::preview::PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
-            } else {
-                let mut element = api.get_current_element();
-                element.offset += 1;
-                api.set_current_element(element);
-                slint::platform::update_timers_and_animations();
-            }
-            assert!(!api.get_inspector_number_edit_pending());
-            assert_eq!(
-                find_element(&editor, "Backdrop blur amount").accessible_value().unwrap(),
-                "85"
-            );
-        }
+        let editor = number_test_editor();
+        let api = editor.global::<super::Api>();
+        find_element(&editor, "Backdrop blur amount").set_accessible_value("35");
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.editor_ui = Some(editor.clone_strong());
+            state.workspace_edit_sent = true;
+        });
+        super::super::inspector::workspace_edit_finished(Default::default(), false);
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
+        assert!(!api.get_inspector_number_edit_pending());
+        assert_eq!(find_element(&editor, "Backdrop blur amount").accessible_value().unwrap(), "85");
     }
 
     fn shadow_test_editor(inner: bool) -> super::EditorUi {

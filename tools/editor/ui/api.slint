@@ -66,6 +66,14 @@ export struct InspectorNumberChange {
     value: float,
 }
 
+export struct InspectorValues {
+    rotation: float,
+    top-left-radius: float,
+    top-right-radius: float,
+    bottom-left-radius: float,
+    bottom-right-radius: float,
+}
+
 /// One device discovered as a possible remote-preview target.
 export struct RemoteViewerInfo {
     /// User-facing name, e.g. "Simon's iPhone".
@@ -667,7 +675,7 @@ export global Api {
     in-out property <bool> inspector-number-edit-pending;
     in property <int> inspector-fill-generation;
     in property <bool> inspector-fill-refresh-pending;
-    pure callback inspector-values(key: string) -> [float];
+    pure callback inspector-values(key: string) -> InspectorValues;
     callback inspector-preview(key: string, name: string, value: float) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> InspectorCommitResult;
     callback inspector-cancel();

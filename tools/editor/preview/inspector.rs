@@ -65,7 +65,7 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
         });
         if let Some(editor) = editor {
             editor.global::<ui::ShadowSession>().invoke_cancel();
-            editor.global::<ui::Api>().set_inspector_number_edit_pending(false);
+            number_edit_finished(&editor.global::<ui::Api>());
         }
     }
     let result = PREVIEW_STATE.with_borrow_mut(|state| {
@@ -96,6 +96,10 @@ pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: b
     clear_fill_refresh();
     PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
     undo_redo::apply_pending();
+}
+
+pub(super) fn number_edit_finished(api: &ui::Api<'_>) {
+    api.set_inspector_number_edit_pending(false);
 }
 
 fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
@@ -296,26 +300,24 @@ pub(super) fn commit_shadow(
             )
         })
         .collect();
-    let accepted = property_edit(node, url, version, changes)
-        .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
-    finish_number_commit(accepted)
+    let result = property_edit(node, url, version, changes)
+        .map(|edit| submit_workspace_edit("Changing shadow".into(), edit, true, None))
+        .unwrap_or(WorkspaceEditResult::Rejected);
+    finish_number_commit(result)
 }
 
-fn finish_number_commit(accepted: bool) -> ui::InspectorCommitResult {
-    let pending = accepted && file_edit_pending();
-    if pending {
+fn finish_number_commit(result: WorkspaceEditResult) -> ui::InspectorCommitResult {
+    if result == WorkspaceEditResult::Sent {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
         });
     } else {
         cancel();
     }
-    if !accepted {
-        ui::InspectorCommitResult::Rejected
-    } else if pending {
-        ui::InspectorCommitResult::Pending
-    } else {
-        ui::InspectorCommitResult::Unchanged
+    match result {
+        WorkspaceEditResult::Sent => ui::InspectorCommitResult::Pending,
+        WorkspaceEditResult::Unchanged => ui::InspectorCommitResult::Unchanged,
+        WorkspaceEditResult::Rejected => ui::InspectorCommitResult::Rejected,
     }
 }
 
@@ -432,7 +434,8 @@ pub(super) fn commit_fill(
         return false;
     };
     let accepted =
-        submit_workspace_edit("Editing fill".into(), edit, true, fill_changed.then_some(value));
+        submit_workspace_edit("Editing fill".into(), edit, true, fill_changed.then_some(value))
+            != WorkspaceEditResult::Rejected;
     if !accepted {
         cancel();
     } else if !fill_changed {
@@ -462,24 +465,27 @@ pub(super) fn commit(
             i_slint_editor_preview::editing::PropertyChange::new(name, format!("{value}{unit}"))
         })
         .collect();
-    let accepted = property_edit(node, url, version, changes).is_some_and(|edit| {
-        send_workspace_edit(
-            match name.as_str() {
-                "transform-rotation" => "Rotating element",
-                "border-width" => "Changing border width",
-                "backdrop-blur" => "Changing backdrop blur",
-                _ => "Changing border radius",
-            }
-            .into(),
-            edit,
-            true,
-        )
-    });
-    finish_number_commit(accepted)
+    let result = property_edit(node, url, version, changes)
+        .map(|edit| {
+            submit_workspace_edit(
+                match name.as_str() {
+                    "transform-rotation" => "Rotating element",
+                    "border-width" => "Changing border width",
+                    "backdrop-blur" => "Changing backdrop blur",
+                    _ => "Changing border radius",
+                }
+                .into(),
+                edit,
+                true,
+                None,
+            )
+        })
+        .unwrap_or(WorkspaceEditResult::Rejected);
+    finish_number_commit(result)
 }
 
-pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
-    let values = (|| {
+pub(super) fn values(key: SharedString) -> ui::InspectorValues {
+    (|| {
         let (node, _, _) = target(&key)?;
         let selected = selected_element()?;
         let instance = component_instance()?;
@@ -489,16 +495,15 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
             .get(selected.instance_index)
             .copied()?;
         let radii = geometry.corner_radii;
-        Some(vec![
-            geometry.transform_rotation,
-            radii.top_left,
-            radii.top_right,
-            radii.bottom_left,
-            radii.bottom_right,
-        ])
+        Some(ui::InspectorValues {
+            rotation: geometry.transform_rotation,
+            top_left_radius: radii.top_left,
+            top_right_radius: radii.top_right,
+            bottom_left_radius: radii.bottom_left,
+            bottom_right_radius: radii.bottom_right,
+        })
     })()
-    .unwrap_or_else(|| vec![0.; 5]);
-    slint::ModelRc::new(slint::VecModel::from(values))
+    .unwrap_or_default()
 }
 
 pub(super) fn invalidate() {

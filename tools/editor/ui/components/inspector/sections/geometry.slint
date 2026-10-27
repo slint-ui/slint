@@ -66,7 +66,7 @@ export component InspectorGeometrySection inherits InspectorSection {
         label: @tr("Rotation");
         height: Metrics.control-large;
         knob := InspectorRotationKnob {
-            value: InspectorContext.control-values[0];
+            value: InspectorContext.control-values.rotation;
             commit-key: InspectorContext.inspector-key;
             preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "transform-rotation", value); }
             accepted(value) => { return InspectorContext.commit-inspector("transform-rotation", value); }

@@ -1719,7 +1719,13 @@ def test_effect_slider_previews_without_source_writes(
         )
         if outcome == "commit":
             assert inspector_field(window, label).accessible_value == "64"
-        if outcome != "commit":
+            expected = effect_expected(baseline, family, "blur", "64")
+            snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+            press_shortcut(window, keys.Control, "z")
+            snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+            press_shortcut(window, keys.Control, keys.Shift, "z")
+            snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+        else:
             if outcome == "source":
                 snapshot.wait_for_applied(
                     baseline + b"\n// External edit\n", INSPECTOR_SOURCE
@@ -1740,13 +1746,6 @@ def test_effect_slider_previews_without_source_writes(
                 slint_testing.PointerMoveEvent(slint_testing.LogicalPosition(0, 0))
             )
             assert artboard_pixels(window) == before
-        else:
-            expected = effect_expected(baseline, family, "blur", "64")
-            snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
-            press_shortcut(window, keys.Control, "z")
-            snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
-            press_shortcut(window, keys.Control, keys.Shift, "z")
-            snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
 
 
 INVALID_EDITS = (

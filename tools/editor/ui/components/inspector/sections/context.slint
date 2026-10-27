@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CodeBinding, ElementInformation, InspectorCommitResult, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
+import { Api, CodeBinding, ElementInformation, InspectorCommitResult, InspectorValues, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
 import { InspectorEnumOptions } from "../enum-options.slint";
 
 export global InspectorContext {
@@ -14,19 +14,14 @@ export global InspectorContext {
     private property <string> number-name;
     private property <float> number-draft;
     private property <string> number-target;
-    changed selection-key => {
-        if InspectorContext.selection-key != InspectorContext.number-target { Api.inspector-number-edit-pending = false; }
-    }
-    out property <[float]> control-values: {
-        let values = Api.inspector-values(InspectorContext.inspector-key);
-        return [
-            InspectorContext.number-value("transform-rotation", values[0]),
-            InspectorContext.number-value("border-top-left-radius", values[1]),
-            InspectorContext.number-value("border-top-right-radius", values[2]),
-            InspectorContext.number-value("border-bottom-left-radius", values[3]),
-            InspectorContext.number-value("border-bottom-right-radius", values[4]),
-        ];
-    }
+    private property <InspectorValues> source-control-values: Api.inspector-values(InspectorContext.inspector-key);
+    out property <InspectorValues> control-values: {
+        rotation: InspectorContext.number-value("transform-rotation", InspectorContext.source-control-values.rotation),
+        top-left-radius: InspectorContext.number-value("border-top-left-radius", InspectorContext.source-control-values.top-left-radius),
+        top-right-radius: InspectorContext.number-value("border-top-right-radius", InspectorContext.source-control-values.top-right-radius),
+        bottom-left-radius: InspectorContext.number-value("border-bottom-left-radius", InspectorContext.source-control-values.bottom-left-radius),
+        bottom-right-radius: InspectorContext.number-value("border-bottom-right-radius", InspectorContext.source-control-values.bottom-right-radius),
+    };
 
     public pure function has-pending-number(name: string) -> bool {
         return Api.inspector-number-edit-pending && InspectorContext.selection-key == InspectorContext.number-target
@@ -40,7 +35,7 @@ export global InspectorContext {
     }
 
     public function commit-inspector(name: string, value: float) -> bool {
-        if Api.inspector-number-edit-pending { return false; }
+        if Api.inspector-number-edit-pending { Api.inspector-cancel(); return false; }
         InspectorContext.number-name = name;
         InspectorContext.number-draft = value;
         InspectorContext.number-target = InspectorContext.selection-key;

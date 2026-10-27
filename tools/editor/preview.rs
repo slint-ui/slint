@@ -376,7 +376,7 @@ impl PreviewState {
             api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
             api.set_inspector_fill_refresh_pending(false);
-            api.set_inspector_number_edit_pending(false);
+            inspector::number_edit_finished(&api);
             ui::ui_set_known_components(&api, &[], usize::MAX);
             ui::ui_set_preview_data(&api, Default::default(), None);
             outline::reset_outline(&api, None);
@@ -1930,6 +1930,13 @@ enum CompilationResult {
     NoChange,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WorkspaceEditResult {
+    Sent,
+    Unchanged,
+    Rejected,
+}
+
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let _ = slint::invoke_from_event_loop(move || {
         project_file::workspace_edit_finished(&edit, applied);
@@ -1957,7 +1964,7 @@ fn workspace_edit_source_file(
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    submit_workspace_edit(label, edit, test_edit, None)
+    submit_workspace_edit(label, edit, test_edit, None) != WorkspaceEditResult::Rejected
 }
 
 fn submit_workspace_edit(
@@ -1965,18 +1972,18 @@ fn submit_workspace_edit(
     edit: lsp_types::WorkspaceEdit,
     test_edit: bool,
     fill: Option<ui::FillData>,
-) -> bool {
+) -> WorkspaceEditResult {
     let Some(document_cache) = document_cache() else {
-        return false;
+        return WorkspaceEditResult::Rejected;
     };
     let result = PREVIEW_STATE.with_borrow(|state| {
         text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |url| {
             workspace_edit_source_file(&document_cache, &state.source_code, url)
         })
     });
-    let Ok(result) = result else { return false };
+    let Ok(result) = result else { return WorkspaceEditResult::Rejected };
     let fill_refresh = if let Some(fill) = fill.clone() {
-        let [expected] = result.as_slice() else { return false };
+        let [expected] = result.as_slice() else { return WorkspaceEditResult::Rejected };
         let unchanged = PREVIEW_STATE.with_borrow(|state| {
             state
                 .source_code
@@ -1985,7 +1992,7 @@ fn submit_workspace_edit(
         });
         if unchanged {
             inspector::cancel();
-            return true;
+            return WorkspaceEditResult::Unchanged;
         }
         Some((
             fill,
@@ -2003,8 +2010,8 @@ fn submit_workspace_edit(
         let test_result = drop_location::edited_text_compiles(&document_cache, result);
         match test_result {
             CompilationResult::ChangeCompiles => {}
-            CompilationResult::ChangeFails => return false,
-            CompilationResult::NoChange => return true,
+            CompilationResult::ChangeFails => return WorkspaceEditResult::Rejected,
+            CompilationResult::NoChange => return WorkspaceEditResult::Unchanged,
         }
     }
 
@@ -2014,13 +2021,13 @@ fn submit_workspace_edit(
         })
     });
 
-    let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    let result = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
             tracing::debug!(%label, "Preview: rejecting an edit while another is pending");
-            return false;
+            return WorkspaceEditResult::Rejected;
         }
         if let Some((fill, expected)) = fill_refresh {
-            let Some(reverse) = reverse_edit else { return false };
+            let Some(reverse) = reverse_edit else { return WorkspaceEditResult::Rejected };
             preview_state.fill_refresh = Some(inspector::FillRefresh {
                 expected,
                 submitted_edit: edit.clone(),
@@ -2043,15 +2050,15 @@ fn submit_workspace_edit(
             .unwrap()
             .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
             .unwrap();
-        true
+        WorkspaceEditResult::Sent
     });
-    if accepted && fill.is_some() {
+    if result == WorkspaceEditResult::Sent && fill.is_some() {
         let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
         if let Some(api) = api {
             api.set_inspector_fill_refresh_pending(true);
         }
     }
-    accepted
+    result
 }
 
 fn change_style() {
@@ -2370,6 +2377,11 @@ fn preview_instance_ready() {
     if let Some(selection) = selection {
         element_selection::restore_selection(selection, SelectionNotification::Never);
     }
+    PREVIEW_STATE.with_borrow(|state| {
+        if let Some(api) = state.api.upgrade() {
+            inspector::number_edit_finished(&api);
+        }
+    });
     inline_text_edit::refresh();
     if notify_editor {
         notify_restored_selection();
@@ -2976,7 +2988,6 @@ fn set_selected_element(
                     ));
                     if !preview_state.workspace_edit_sent {
                         editor_ui.global::<ui::ShadowSession>().invoke_source_refreshed();
-                        api.set_inspector_number_edit_pending(false);
                     }
                 }
             } else if selection.is_none()
@@ -3858,6 +3869,37 @@ mod tests {
     }
 
     #[test]
+    fn number_edit_finishes_without_restorable_selection() {
+        let editor = availability_test_editor();
+        for condition in ["no selection", "no component", "missing element"] {
+            PREVIEW_STATE.with_borrow_mut(|state| state.selected = None);
+            if condition == "missing element" {
+                apply_availability_test_source(
+                    &editor,
+                    "export component Main inherits Rectangle {}",
+                    true,
+                );
+            }
+            let api = editor.global::<ui::Api>();
+            api.set_inspector_number_edit_pending(true);
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                state.workspace_edit_sent = true;
+                if condition != "no selection" {
+                    state.selected = Some(ElementSelection {
+                        path: SourcePath::from_url(&state.current_component().unwrap().url),
+                        offset: u32::MAX.into(),
+                        instance_index: 0,
+                        editing_text: false,
+                    });
+                }
+            });
+            preview_instance_ready();
+            assert!(!api.get_inspector_number_edit_pending(), "{condition}");
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
     fn project_workspace_edits_use_raw_cache_and_undo_callbacks() {
         let editor = availability_test_editor();
         apply_availability_test_source(
@@ -3888,8 +3930,18 @@ mod tests {
             document_cache.format,
         )
         .unwrap();
-        assert!(send_workspace_edit("Canvas presets".into(), edit.clone(), true));
-        assert!(!send_workspace_edit("Successive presets".into(), edit.clone(), true));
+        assert_eq!(
+            submit_workspace_edit("No change".into(), Default::default(), true, None),
+            WorkspaceEditResult::Unchanged
+        );
+        assert_eq!(
+            submit_workspace_edit("Canvas presets".into(), edit.clone(), true, None),
+            WorkspaceEditResult::Sent
+        );
+        assert_eq!(
+            submit_workspace_edit("Successive presets".into(), edit.clone(), true, None),
+            WorkspaceEditResult::Rejected
+        );
         let result =
             text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |_| {
                 Some(source_file.clone())
