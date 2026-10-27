@@ -491,22 +491,19 @@ jobs:
     # The slint-sc test programs on the targets of Ferrocene other than
     # x86_64-unknown-linux-gnu, which the docs job runs with the coverage.
     # The targets are the `TARGETS` of api/slint-sc/tests/driver.rs, run in
-    # QEMU. Debian has a QEMU with the Cortex-R52 machine, which Ubuntu 24.04
-    # lacks.
+    # QEMU.
     slint_sc_targets:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
         runs-on: ubuntu-26.04
-        container: debian:trixie
         steps:
-            - name: Install QEMU and the cross compilers
-              run: |
-                  apt-get update
-                  apt-get install -y --no-install-recommends ca-certificates curl git gcc libc6-dev \
-                      qemu-user qemu-system-arm \
-                      gcc-riscv64-linux-gnu libc6-dev-riscv64-cross \
-                      gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross \
-                      gcc-s390x-linux-gnu libc6-dev-s390x-cross
             - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: >-
+                      qemu-user qemu-system-arm
+                      gcc-riscv64-linux-gnu libc6-dev-riscv64-cross
+                      gcc-powerpc64le-linux-gnu libc6-dev-ppc64el-cross
+                      gcc-s390x-linux-gnu libc6-dev-s390x-cross
             - name: List the targets
               id: targets
               shell: bash
