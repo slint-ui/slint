@@ -398,8 +398,6 @@ Next:
   The generated code compiles its `.slint` files at startup: in a release build, 20 to 100 ms for the samples,
   such as about 100 ms for `gallery` and 40 ms for `printerdemo`, plus about 50 ms for the first compile in a process.
   Layout, rendering, and text are the same Rust code as in a Rust app; only bindings and callbacks in `.slint` run in the interpreter.
-  - First, measure a demo in Rust and in C#, such as `printerdemo`, for the time to the first frame and the frame times of animations,
-    on the desktop and on a phone, to see whether the interpreter matters beyond startup.
   - The lols canvas showed that calls across the native boundary cost the most:
     notifying a model change per row halved its rate, compared with once per frame.
     Look for more such calls to batch, and make each cheaper, such as a `RemoveRange` on `ListModel`.
