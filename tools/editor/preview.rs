@@ -3165,6 +3165,17 @@ pub mod test {
 
     use i_slint_editor_preview::test::main_test_file_name;
 
+    /// Cargo exports the `SLINT_ENABLE_EXPERIMENTAL_FEATURES` from `build.rs` to the tests too,
+    /// so every compilation reports the enabled experimental features in an info diagnostic.
+    pub fn without_info(
+        diagnostics: Vec<super::diagnostics::Diagnostic>,
+    ) -> Vec<super::diagnostics::Diagnostic> {
+        diagnostics
+            .into_iter()
+            .filter(|d| d.level() != super::diagnostics::DiagnosticLevel::Info)
+            .collect()
+    }
+
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
@@ -3204,6 +3215,7 @@ pub mod test {
                 })
             },
         ));
+        let diagnostics = without_info(diagnostics);
 
         assert!(diagnostics.is_empty());
 
@@ -3272,6 +3284,7 @@ mod tests {
                     })
                 },
             ));
+            let diagnostics = test::without_info(diagnostics);
             assert!(diagnostics.is_empty(), "{diagnostics:?}");
             PREVIEW_STATE.with_borrow_mut(|state| {
                 assert_ne!(state.current_component(), Some(original.clone()));
@@ -3372,6 +3385,7 @@ mod tests {
                 None,
                 |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
             ));
+            let diagnostics = test::without_info(diagnostics);
             assert_eq!(!diagnostics.is_empty(), has_errors, "{diagnostics:?}");
             assert_eq!(compiled.is_some(), !has_errors);
         }
@@ -3526,7 +3540,7 @@ mod tests {
                 );
             });
         }
-        let (mut diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
+        let (diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
             spin_on::spin_on(parse_source(
                 Default::default(),
                 path,
@@ -3536,6 +3550,7 @@ mod tests {
                 requested.component.clone(),
                 |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
             ));
+        let mut diagnostics = test::without_info(diagnostics);
         let loaded_component_name = compiled.as_ref().map(|compiled| compiled.name().to_string());
         ui::diagnostics::set_compilation_diagnostics(
             &mut diagnostics,

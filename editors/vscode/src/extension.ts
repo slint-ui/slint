@@ -197,10 +197,6 @@ function startClient(
 
     options.env["SLINT_LSP_PANIC_LOG_DIR"] = lsp_panic_log_dir(context).fsPath;
 
-    if (context.extension.packageJSON.name.endsWith("-nightly") || devBuild) {
-        options.env["SLINT_ENABLE_EXPERIMENTAL_FEATURES"] = "1";
-    }
-
     const args = configuration.get<[string]>("lsp-args");
 
     const serverOptions: ServerOptions = {

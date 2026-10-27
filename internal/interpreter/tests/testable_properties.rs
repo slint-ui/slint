@@ -18,7 +18,7 @@ fn compile(code: &str) -> ComponentInstance {
     // SAFETY: set once, before any component is compiled; no test in this file
     // reads or relies on a concurrently different value.
     unsafe {
-        std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
+        std::env::set_var("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "testable");
     }
     let result =
         spin_on::spin_on(Compiler::default().build_from_source(code.into(), Default::default()));

@@ -56,6 +56,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
 
     let diagnostics = result
         .diagnostics()
+        .filter(|d| d.level() != slint_interpreter::DiagnosticLevel::Info)
         .filter(|d| {
             let msg = d.message();
             // It is ok if there is no components
