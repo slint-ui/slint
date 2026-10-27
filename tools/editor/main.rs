@@ -31,6 +31,7 @@ mod flatpak;
 #[cfg(target_os = "macos")]
 mod open_documents;
 mod preview;
+mod preview_window;
 #[cfg(target_os = "macos")]
 mod sparkle;
 mod startup;
@@ -59,7 +60,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.run_preview_child {
-        return editor_preview::child_process::run();
+        return preview_window::run(cli.preview_window_placement);
     }
 
     let headless = headless_requested();
@@ -173,6 +174,8 @@ impl editor_preview::PreviewToLsp for EmbeddedPreviewToLsp {
 struct Cli {
     #[arg(long, hide = true)]
     run_preview_child: bool,
+    #[arg(long, hide = true, requires = "run_preview_child", value_parser = |value: &str| serde_json::from_str::<preview_window::Placement>(value))]
+    preview_window_placement: Option<preview_window::Placement>,
     file: Option<String>,
     component: Option<String>,
     #[arg(short = 'p', long, requires = "file", help = "Use this directory as the project root")]
@@ -222,7 +225,13 @@ fn start_editor_session(
         as Rc<dyn editor_preview::PreviewToLsp + 'static>;
     preview::ui::initialize_editor(editor_ui, &to_lsp, "");
     preview::initialize(editor_ui, to_lsp, settings);
-    start_lsp_thread(vec![from_preview], from_editor_preview, project, springboard_global);
+    start_lsp_thread(
+        vec![from_preview],
+        from_editor_preview,
+        project,
+        springboard_global,
+        preview_window::arguments_provider(editor_ui.as_weak()),
+    );
     to_editor_session
 }
 
@@ -231,6 +240,7 @@ fn start_lsp_thread(
     from_editor_preview: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
     springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
+    prepare_arguments: editor_preview::springboard::LocalPreviewArguments,
 ) {
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -241,7 +251,13 @@ fn start_lsp_thread(
         let local_set = tokio::task::LocalSet::new();
         if let Err(err) = local_set.block_on(
             &rt,
-            lsp_main(from_previews, from_editor_preview, project, springboard_global),
+            lsp_main(
+                from_previews,
+                from_editor_preview,
+                project,
+                springboard_global,
+                prepare_arguments,
+            ),
         ) {
             tracing::error!("{err}");
             std::process::exit(1);
@@ -282,6 +298,7 @@ async fn lsp_main(
     from_editor: crossbeam_channel::Receiver<EditorToSessionMessage>,
     project: Project,
     springboard_global: slint::Weak<editor_preview::springboard_ui::Springboard<'static>>,
+    prepare_arguments: editor_preview::springboard::LocalPreviewArguments,
 ) -> Result<()> {
     let mut from_previews = bridge_crossbeam_to_tokio(from_previews);
     let mut from_editor = bridge_crossbeam_receiver(from_editor);
@@ -299,7 +316,13 @@ async fn lsp_main(
 
     let local_preview = editor_preview::springboard::LocalPreviewConfig {
         executable: std::env::current_exe()?,
-        arguments: vec![std::ffi::OsString::from("--run-preview-child")],
+        arguments: preview_window::arguments(None),
+        prepare_arguments: Some(prepare_arguments),
+        #[cfg(target_os = "macos")]
+        on_started: (!headless_requested())
+            .then(|| std::sync::Arc::new(preview_window::yield_activation_to) as _),
+        #[cfg(not(target_os = "macos"))]
+        on_started: None,
     };
     let springboard = editor_preview::springboard::Springboard::new(
         local_preview,
