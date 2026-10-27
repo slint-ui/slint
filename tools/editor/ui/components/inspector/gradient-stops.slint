@@ -79,7 +79,7 @@ export component InspectorGradientStops inherits Rectangle {
                 accessible-action-set-value(text) => {
                     if text.is-float() {
                         root.selected-index = index;
-                        FillSession.move-stop-position(text.to-float() / root.units);
+                        FillSession.move-stop-position((text.to-float() / root.units).clamp(0, 1));
                     }
                 }
                 accessible-action-default => {
@@ -132,7 +132,7 @@ export component InspectorGradientStops inherits Rectangle {
             InspectorSegment {
                 width: root.style.action-width; kind: "text"; label: "+";
                 accessible-label: @tr("Add gradient stop");
-                clicked => { FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops)); }
+                clicked => { FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops).clamp(0, 1)); }
             }
         }
         HorizontalLayout {
@@ -176,7 +176,7 @@ export component InspectorGradientStops inherits Rectangle {
                             accepted(text) => {
                                 if !text.is-float() { return false; }
                                 root.selected-index = index;
-                                return FillSession.move-stop-position(text.to-float() / root.units);
+                                return FillSession.move-stop-position((text.to-float() / root.units).clamp(0, 1));
                             }
                         }
                         InspectorColorValueField {
