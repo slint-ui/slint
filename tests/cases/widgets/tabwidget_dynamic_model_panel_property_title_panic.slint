@@ -1,0 +1,17 @@
+/*
+Test case for https://github.com/slint-ui/slint/pull/12368
+*/
+
+import { TabWidget } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+    property <[string]> tabs: ["A", "B"];
+    TabWidget {
+        for t in tabs: Tab {
+            property <string> extra: t + "!";
+            title: self.extra;
+        }
+    }
+    property <bool> test: true;
+}
