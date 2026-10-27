@@ -130,10 +130,10 @@ def test_pickers_drag_independently_and_reopen_beside_current_anchor(
         main_position = main.absolute_position
         stop_origin = stop.absolute_position
         handle = control(window, "Move Stop color picker")
-        gesture(window, center(handle), shifted(center(handle), x=-40, y=80))
+        gesture(window, center(handle), shifted(center(handle), x=-40, y=-80))
         assert main.absolute_position == main_position
         assert stop.absolute_position.x == pytest.approx(stop_origin.x - 40)
-        assert stop.absolute_position.y == pytest.approx(stop_origin.y + 80)
+        assert stop.absolute_position.y == pytest.approx(stop_origin.y - 80)
         stop_position = stop.absolute_position
         click_picker_button(window, "Edit stop 3 color")
         assert stop.absolute_position == stop_position

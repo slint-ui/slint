@@ -82,7 +82,7 @@ export component InspectorPane inherits Rectangle {
 
                 if Api.selection.highlight-index < 0: CanvasPresetsSection { }
 
-                if InspectorContext.is-resizable-selection(): InspectorGeometrySection { }
+                if InspectorContext.has-backend-rect(): InspectorGeometrySection { }
 
                 if (InspectorContext.is-root-selection() || InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection()): InspectorAppearanceSection {
                     pane-width: root.width;

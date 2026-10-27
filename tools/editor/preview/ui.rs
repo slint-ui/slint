@@ -2956,7 +2956,7 @@ mod tests {
             .into()
         });
         editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
         for (type_name, horizontal, vertical) in [
             ("Text", true, true),
             ("StyledText", true, true),
