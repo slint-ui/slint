@@ -342,6 +342,8 @@ Done:
   - `imagefilter`, `plotter`, and `maps`, whose images come from pixels and downloads, with filters and a 3D plot in plain C#.
   - `weather-demo`, a `launcher` of the C# ports, and `examples/dotnet-viewer` for the samples without logic.
   - `examples/lols`, a port of the [LOLs per second](https://github.com/jonathanpeppers/lols) test, also for Android.
+    The `slint` branch of the [lols fork](https://github.com/yurkinh/lols/tree/slint) has the Java, .NET for Android, MAUI,
+    and Flutter versions, updated to build today, and `scripts/compare-android.sh`, which runs them all on a phone.
   - The ports needed `Window.DispatchEvent`, `DataTransfer.UserData`, `FilterModel` and `SortModel` with `SourceRow` and `Reset`,
     `Keys.ToParts`, the `Image` functions for pixels and data, and tray icon components without `Window` and `Run`.
   - Not ported: the samples for embedded platforms, GPU textures, and native media,
@@ -361,6 +363,7 @@ Done:
   It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
   It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
 - **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
+  Its description lists what each preview added, Android included.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
@@ -381,8 +384,9 @@ Next:
   - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
     the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
     Published in 1.19.0-preview.7, and tested on a Motorola edge 60 neo.
-    Left to do: access to Android's events, such as saving and restoring state, like `init_with_event_listener` in Rust.
-  - iOS next, in about four to five weeks.
+    Left to do: access to Android's events, such as saving and restoring state, like `init_with_event_listener` in Rust,
+    so that an app can keep its state, since `SlintActivity` ends the process when Android destroys it.
+  - iOS next, in about four to five weeks, starting with a prototype like the one for Android.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
     Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain`,
     instead of `UIApplication.Main`.
@@ -390,6 +394,18 @@ Next:
     The first prototype checks that P/Invoke resolves into the statically linked library, and that the app starts in the simulator.
 - **18.** Rendering notifiers and textures from OpenGL or WGPU, which the samples `opengl_texture`, `opengl_underlay`,
   `wgpu_texture`, and `bevy` need, so that C# can draw into a scene or show a texture of its own.
+- **19.** Performance compared with Rust.
+  The generated code compiles its `.slint` files at startup: in a release build, 20 to 100 ms for the samples,
+  such as about 100 ms for `gallery` and 40 ms for `printerdemo`, plus about 50 ms for the first compile in a process.
+  Layout, rendering, and text are the same Rust code as in a Rust app; only bindings and callbacks in `.slint` run in the interpreter.
+  - First, measure a demo in Rust and in C#, such as `printerdemo`, for the time to the first frame and the frame times of animations,
+    on the desktop and on a phone, to see whether the interpreter matters beyond startup.
+  - The lols canvas showed that calls across the native boundary cost the most:
+    notifying a model change per row halved its rate, compared with once per frame.
+    Look for more such calls to batch, and make each cheaper, such as a `RemoveRange` on `ListModel`.
+  - Compiling `.slint` ahead of time, like the Rust and C++ generators, isn't planned:
+    every app build would need a Rust or C++ toolchain for each target, compiled components would need a C ABI and C# wrappers of their own,
+    and live reload and loading `.slint` files at run time would go.
 
 ## Live Reload
 
