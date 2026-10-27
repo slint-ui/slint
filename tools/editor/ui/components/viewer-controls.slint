@@ -13,6 +13,7 @@ import { DeviceManager } from "device-manager.slint";
 export component ViewerControls inherits Rectangle {
     private property <bool> manager-open: manager.is-open;
     changed manager-open => { if !root.manager-open { Springboard.cancel-pairing(); } }
+    private property <string> error: Springboard.connection.error != "" ? Springboard.connection.error : Springboard.discovery-error;
     in property <bool> can-start;
     in property <bool> busy;
     width: 378px * ViewerStyle.pill-scale;
@@ -82,7 +83,7 @@ export component ViewerControls inherits Rectangle {
         anchor-width: root.width; anchor-height: root.height;
         label: @tr("Viewer options");
         panel-height: 132px * ViewerStyle.scale
-            + (Springboard.error-message == "" ? 0px : Metrics.space-compact + Typography.caption.size);
+            + (root.error == "" ? 0px : Metrics.space-compact + Typography.caption.size);
         selector := ViewerButton {
             x: ViewerStyle.inset;
             y: ViewerStyle.inset;
@@ -98,7 +99,7 @@ export component ViewerControls inherits Rectangle {
             viewers := PopupWindow {
                 close-policy: close-on-click-outside;
                 y: selector.height + 2px * ViewerStyle.scale; width: selector.width;
-                height: min(224px, Springboard.saved-count * ViewerStyle.row-height + 8px * ViewerStyle.scale);
+                height: min(224px, Springboard.saved-endpoints.length * ViewerStyle.row-height + 8px * ViewerStyle.scale);
                 FloatingSurface {
                     background: ViewerStyle.menu;
                     border-width: 1px * ViewerStyle.scale; border-color: ViewerStyle.border;
@@ -107,14 +108,13 @@ export component ViewerControls inherits Rectangle {
                 EditorScrollView {
                     x: 5px * ViewerStyle.scale; y: 4px * ViewerStyle.scale;
                     width: parent.width - 10px * ViewerStyle.scale; height: parent.height - 8px * ViewerStyle.scale;
-                    content-width: self.width; content-height: Springboard.saved-count * ViewerStyle.row-height;
+                    content-width: self.width; content-height: Springboard.saved-endpoints.length * ViewerStyle.row-height;
                     horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
                     VerticalLayout {
                     width: parent.width;
-                    for endpoint[index] in Springboard.endpoints: option := ButtonBase {
+                    for endpoint[index] in Springboard.saved-endpoints: option := ButtonBase {
                         mouse-cursor: MouseCursor.default;
-                        width: parent.width; height: endpoint.saved ? ViewerStyle.row-height : 0px;
-                        visible: endpoint.saved;
+                        width: parent.width; height: ViewerStyle.row-height;
                         text: index == 0 ? Preview.local-name : endpoint.name;
                         enabled: endpoint.unavailable-reason == "";
                         accessible-description: endpoint.unavailable-reason;
@@ -150,10 +150,10 @@ export component ViewerControls inherits Rectangle {
                 Text { x: 20px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: device-manager.text; color: ViewerStyle.action-text; font-size: 17px * ViewerStyle.scale; }
             }
         }
-        if Springboard.error-message != "": Text {
+        if root.error != "": Text {
             x: selector.x; y: device-manager.y + device-manager.height + Metrics.space-compact;
             width: selector.width; height: Typography.caption.size;
-            text: Springboard.error-message;
+            text: root.error;
             color: ViewerStyle.muted; font-size: Typography.caption.size; overflow: elide;
         }
     }
@@ -166,7 +166,7 @@ export component ViewerControls inherits Rectangle {
             closed => { manager.close(); }
         }
     }
-    private property <bool> pairing-required: Springboard.connection-state == ConnectionState.PairingRequired
-        || Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired;
+    private property <bool> pairing-required: Springboard.connection.state == ConnectionState.PairingRequired
+        || Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired;
     changed pairing-required => { if root.pairing-required { popup.close(); manager.show(); } }
 }

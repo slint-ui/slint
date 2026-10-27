@@ -375,9 +375,10 @@ impl std::fmt::Display for PairingRejection {
             Self::Expired => f.write_str("The pairing code expired before it was entered"),
             Self::TooManyAttempts => f.write_str("Too many incorrect pairing codes"),
             Self::Busy => f.write_str("Another computer is pairing with the viewer"),
-            Self::TooSoon { retry_after_seconds: 1 } => f.write_str("Try again in a second"),
+            // The number is from when the viewer refused, so it only bounds the wait.
+            // TODO: count down the real seconds in the editor instead.
             Self::TooSoon { retry_after_seconds } => {
-                write!(f, "Try again in {retry_after_seconds} seconds")
+                write!(f, "Try again in less than {retry_after_seconds}s")
             }
         }
     }
@@ -552,12 +553,7 @@ mod tests {
     fn the_cool_down_says_how_long_is_left() {
         assert_eq!(
             PairingRejection::TooSoon { retry_after_seconds: 18 }.to_string(),
-            "Try again in 18 seconds"
-        );
-        // One second reads badly in the plural form.
-        assert_eq!(
-            PairingRejection::TooSoon { retry_after_seconds: 1 }.to_string(),
-            "Try again in a second"
+            "Try again in less than 18s"
         );
     }
 }

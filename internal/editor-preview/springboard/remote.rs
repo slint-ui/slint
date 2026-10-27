@@ -5,8 +5,10 @@ use i_slint_live_preview::protocol::{
     PROTOCOL_SUBPROTOCOL, SERVICE_TYPE, SLINT_VERSION, TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY,
 };
 
+use super::EndpointIdentity;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct DiscoveredViewer {
+pub(super) struct RemoteViewer {
     pub fullname: String,
     pub name: String,
     pub addresses: Vec<String>,
@@ -16,7 +18,7 @@ pub(super) struct DiscoveredViewer {
 
 #[derive(Debug)]
 pub(super) enum DiscoveryEvent {
-    Updated(DiscoveredViewer),
+    Updated(RemoteViewer),
     Removed(String),
 }
 
@@ -35,6 +37,16 @@ impl Discovery {
                 Err(error.into())
             }
         }
+    }
+
+    /// Query again right away, instead of waiting out mDNS's query backoff.
+    pub fn restart(&mut self) -> crate::Result<()> {
+        let Some(daemon) = &self.daemon else { return Ok(()) };
+        // Calling `browse` again without stopping keeps the old query schedule
+        // running next to the new one.
+        daemon.stop_browse(SERVICE_TYPE)?;
+        self.receiver = daemon.browse(SERVICE_TYPE)?;
+        Ok(())
     }
 
     pub async fn next_event(&self) -> crate::Result<DiscoveryEvent> {
@@ -66,7 +78,32 @@ impl Drop for Discovery {
     }
 }
 
-fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
+impl RemoteViewer {
+    /// A viewer the user entered by address, dialed like a discovered one.
+    // NOTE: a scoped IPv6 address such as `fe80::1%eth0` doesn't parse, so it
+    // isn't bracketed and can't be dialed.
+    pub(super) fn manual(host: &str, port: u16) -> Self {
+        let address = match host.parse::<std::net::Ipv6Addr>() {
+            Ok(_) => format!("[{host}]"),
+            Err(_) => host.to_owned(),
+        };
+        Self {
+            fullname: String::new(),
+            name: host.to_owned(),
+            addresses: vec![address],
+            port,
+            unavailable_reason: String::new(),
+        }
+    }
+
+    // TODO: use the host the viewer advertises in its TXT record, which survives
+    // conflict renaming, once viewers advertise one.
+    pub(super) fn identity(&self) -> EndpointIdentity {
+        EndpointIdentity::Remote { host: self.name.clone() }
+    }
+}
+
+fn normalize(viewer: mdns_sd::ResolvedService) -> RemoteViewer {
     let name = viewer
         .fullname
         .strip_suffix(&format!(".{}", viewer.ty_domain))
@@ -106,7 +143,7 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
             unavailable_reason = "Viewer has no usable address".into();
         }
     }
-    DiscoveredViewer {
+    RemoteViewer {
         fullname: viewer.fullname,
         name,
         addresses,

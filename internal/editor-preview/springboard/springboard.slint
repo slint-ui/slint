@@ -4,23 +4,22 @@
 export enum PreviewEndpointKind {
     Local,
     Remote,
+    Manual,
 }
 
 export struct PreviewEndpoint {
-    id: string,
     name: string,
     kind: PreviewEndpointKind,
+    address: string,
     unavailable-reason: string,
     version-mismatch: string,
+    // Whether a discovered endpoint is also in `saved-endpoints`.
     saved: bool,
-    nearby: bool,
-    address: string,
 }
 
 export enum SpringboardState {
     Stopped,
-    Idle,
-    EndpointSelected,
+    Running,
 }
 
 export enum ConnectionState {
@@ -32,26 +31,36 @@ export enum ConnectionState {
     Failed,
 }
 
-export enum ViewerSearchState {
+export struct Connection {
+    state: ConnectionState,
+    pairing-code-digits: int,
+    error: string,
+}
+
+export enum ManualEndpointState {
     Idle,
-    Searching,
-    Found,
-    Failed,
+    Probing,
+    Reachable,
+    Unreachable,
     Incompatible,
 }
 
+export struct ManualEndpoint {
+    state: ManualEndpointState,
+    version: string,
+}
+
 export global Springboard {
-    in property <[PreviewEndpoint]> endpoints;
-    in property <int> saved-count: 1;
-    in property <int> selected-endpoint-index: -1;
-    out property <PreviewEndpoint> selected-endpoint: endpoints[selected-endpoint-index];
-    in property <string> last-selected-endpoint-name;
+    // Local is always first.
+    in property <[PreviewEndpoint]> saved-endpoints;
+    in property <[PreviewEndpoint]> discovered-endpoints;
+    in property <string> discovery-error;
+    // Index into `saved-endpoints`.
+    in property <int> selected-endpoint-index;
+    in property <PreviewEndpoint> selected-endpoint;
     in property <SpringboardState> state;
-    in property <ConnectionState> connection-state;
-    in property <int> pairing-code-digits;
-    in property <string> error-message;
-    in property <ViewerSearchState> search-state;
-    in property <string> search-viewer-version;
+    in property <Connection> connection;
+    in property <ManualEndpoint> manual-endpoint;
     in property <string> editor-version;
 
     public pure function version-description(version: string) -> string {
@@ -59,11 +68,15 @@ export global Springboard {
     }
 
     callback close();
+    // Index into `saved-endpoints`.
     callback select-endpoint(endpoint-index: int);
+    // Index into `discovered-endpoints`.
     callback pair-endpoint(endpoint-index: int);
-    callback search-address(address: string);
-    callback connect-found-device();
-    callback forget-device(id: string);
+    // An empty host resets `manual-endpoint`.
+    callback probe-address(host: string, port: int);
+    callback connect-manual-endpoint();
+    // Index into `saved-endpoints`.
+    callback forget-device(endpoint-index: int);
     callback discover-devices();
     callback cancel-pairing();
     callback submit-pairing-code(code: string);

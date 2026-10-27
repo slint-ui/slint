@@ -8,12 +8,12 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
 };
 use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToLspMessage, session,
+    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToLspMessage, SLINT_VERSION_HEADER, session,
 };
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite_wasm::{CloseCode, Message, WebSocketStream};
 
-use super::remote::DiscoveredViewer;
+use super::remote::RemoteViewer;
 use crate::remote_authentication::{
     self, AuthenticationError, PairingAnswer, PairingCredentials, PairingPrompt,
 };
@@ -34,7 +34,7 @@ pub(super) struct RemoteConnection {
 }
 
 impl RemoteConnection {
-    pub fn connect(viewer: DiscoveredViewer, credentials: Option<PairingCredentials>) -> Self {
+    pub fn connect(viewer: RemoteViewer, credentials: Option<PairingCredentials>) -> Self {
         let (sender, messages) = mpsc::unbounded_channel();
         let (event_sender, receiver) = mpsc::unbounded_channel();
         let (close_sender, close_receiver) = oneshot::channel();
@@ -63,14 +63,14 @@ impl Drop for RemoteConnection {
 }
 
 async fn run(
-    viewer: DiscoveredViewer,
+    viewer: RemoteViewer,
     credentials: Option<PairingCredentials>,
     messages: mpsc::UnboundedReceiver<LspToPreviewMessage>,
     events: &mpsc::UnboundedSender<ConnectionEvent>,
     mut close_receiver: oneshot::Receiver<()>,
 ) -> Result<(), String> {
     let mut socket = tokio::select! {
-        result = dial(&viewer) => result?,
+        result = dial(&viewer) => result.map_err(|error| error.to_string())?,
         _ = &mut close_receiver => return Ok(()),
     };
     let authenticated = tokio::select! {
@@ -110,7 +110,25 @@ async fn run(
     result
 }
 
-async fn dial(viewer: &DiscoveredViewer) -> Result<WebSocketStream, String> {
+#[derive(Debug)]
+pub(super) enum DialError {
+    Unreachable(String),
+    /// `version` is the viewer's Slint version, empty when it doesn't say.
+    Incompatible {
+        message: String,
+        version: String,
+    },
+}
+
+impl std::fmt::Display for DialError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unreachable(message) | Self::Incompatible { message, .. } => f.write_str(message),
+        }
+    }
+}
+
+pub(super) async fn dial(viewer: &RemoteViewer) -> Result<WebSocketStream, DialError> {
     let mut last_error = "Viewer has no usable address".to_string();
     let mut mismatch = None;
     for address in &viewer.addresses {
@@ -126,14 +144,27 @@ async fn dial(viewer: &DiscoveredViewer) -> Result<WebSocketStream, String> {
             Ok(Ok(socket)) => return Ok(socket),
             Ok(Err(error)) => {
                 mismatch = mismatch.or_else(|| {
-                    remote_authentication::describe_version_mismatch(&error, "Springboard")
+                    let message =
+                        remote_authentication::describe_version_mismatch(&error, "Springboard")?;
+                    Some(DialError::Incompatible { message, version: viewer_version(&error) })
                 });
                 last_error = error.to_string();
             }
             Err(_) => last_error = format!("Connection attempt to {address} timed out"),
         }
     }
-    Err(mismatch.unwrap_or(last_error))
+    Err(mismatch.unwrap_or(DialError::Unreachable(last_error)))
+}
+
+/// The Slint version a viewer reports when it rejects our protocol.
+fn viewer_version(error: &tokio_tungstenite_wasm::Error) -> String {
+    let tokio_tungstenite_wasm::Error::Http(response) = error else { return String::new() };
+    response
+        .headers()
+        .get(SLINT_VERSION_HEADER)
+        .and_then(|version| version.to_str().ok())
+        .unwrap_or_default()
+        .to_owned()
 }
 
 async fn receive(
@@ -231,7 +262,7 @@ mod tests {
                 ));
             })
             .await;
-        let mut socket = dial(&DiscoveredViewer {
+        let mut socket = dial(&RemoteViewer {
             fullname: "ipv6".into(),
             name: "IPv6".into(),
             addresses: vec!["[::1%0]".into()],
@@ -278,7 +309,7 @@ mod tests {
                     })
                     .await;
                     let mut connection = RemoteConnection::connect(
-                        DiscoveredViewer {
+                        RemoteViewer {
                             fullname: "closing-peer".into(),
                             name: "Closing".into(),
                             addresses: vec!["127.0.0.1".into()],
@@ -322,7 +353,7 @@ mod tests {
                     }
                 }
             }).await;
-            let mut connection = RemoteConnection::connect(DiscoveredViewer {
+            let mut connection = RemoteConnection::connect(RemoteViewer {
                 fullname: "silent-peer".into(), name: "Silent".into(), addresses: vec!["127.0.0.1".into()], port, unavailable_reason: String::new(),
             }, None);
             tokio::time::timeout(Duration::from_secs(5), async {
