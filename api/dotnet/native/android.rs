@@ -22,6 +22,7 @@ fn android_main(app: AndroidApp) {
     i_slint_core::platform::set_platform(Box::new(AndroidPlatform::new(app)))
         .expect("the Android platform is set once");
     crate::check_thread().expect("android_main runs before any other use of Slint");
-    let main = MAIN.get().expect("slint_dotnet_android_set_main runs before NativeActivity.onCreate");
+    let main =
+        MAIN.get().expect("slint_dotnet_android_set_main runs before NativeActivity.onCreate");
     main();
 }
