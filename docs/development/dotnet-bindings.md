@@ -332,6 +332,22 @@ Next:
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
 - **17.** Platforms beyond the desktop: packages for Android and iOS, and a test of the `linuxkms` backend on embedded Linux.
   The packages ship the native library for macOS, Linux, and Windows only.
+  Both mobile platforms follow the C++ API, where Slint owns the entry point and calls the application's code,
+  so neither needs Native AOT or .NET 11.
+  - Android first, in about three to four weeks.
+    `slint-dotnet` gets an `android_main` like the one in `api/cpp/lib.rs`, which calls a C# entry point.
+    A `SlintActivity` in C# derives from `Android.App.NativeActivity`, which Slint's backend accepts,
+    and registers that entry point before `NativeActivity` loads `libslint_dotnet.so`.
+    The first prototype checks that `NativeActivity` finds the library in a .NET APK,
+    and that the C# entry point runs on the thread of `android_main`.
+    The `.slint` files load from embedded resources through a file loader,
+    since Android assets aren't files.
+    The package gets `runtimes/android-arm64` and `android-x64`, and CI starts a sample in the emulator.
+  - iOS second, in about four to five weeks, reusing the loading from embedded resources.
+    Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain`,
+    instead of `UIApplication.Main`.
+    `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`.
+    The first prototype checks that P/Invoke resolves into the statically linked library, and that the app starts in the simulator.
 - **18.** Rendering notifiers and textures from OpenGL or WGPU, which the samples `opengl_texture`, `opengl_underlay`,
   `wgpu_texture`, and `bevy` need, so that C# can draw into a scene or show a texture of its own.
 
