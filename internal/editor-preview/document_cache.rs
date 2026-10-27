@@ -277,18 +277,10 @@ impl DocumentCache {
             self.source_file_versions.clone(),
         );
 
-        if self.type_loader.compiler_config.enable_experimental
-            != compiler_config.enable_experimental
-        {
-            *self.type_loader.global_type_registry.borrow_mut() =
-                Rc::into_inner(if compiler_config.enable_experimental {
-                    TypeRegister::builtin_experimental()
-                } else {
-                    TypeRegister::builtin()
-                })
-                .unwrap()
-                .into_inner();
-        }
+        self.type_loader
+            .global_type_registry
+            .borrow_mut()
+            .set_experimental_features(compiler_config.experimental_features);
 
         self.config = config.clone();
         self.open_import_callback = open_import_callback;

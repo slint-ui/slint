@@ -20,7 +20,12 @@ pub(super) fn add(ctx: &Context, result: &mut Vec<CodeActionOrCommand>) {
 fn case_insertion(ctx: &Context) -> Option<(&'static str, TextEdit)> {
     let document_cache = ctx.document_cache;
     let token = &ctx.token;
-    if !document_cache.compiler_configuration().compiler_config.enable_experimental {
+    if !document_cache
+        .compiler_configuration()
+        .compiler_config
+        .experimental_features
+        .contains(i_slint_compiler::ExperimentalFeature::Match)
+    {
         return None;
     }
     let match_element = enclosing_match_element(token)?;

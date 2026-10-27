@@ -21,8 +21,8 @@ use crate::object_tree::{
 };
 use crate::parser::{self, SyntaxNode, SyntaxToken};
 use crate::parser::{SyntaxKind, syntax_nodes};
-use crate::reject_experimental_feature;
 use crate::typeregister::TypeRegister;
+use crate::{ExperimentalFeature, reject_experimental_feature};
 
 fn check_property_declaration_conflicts(
     result: &PropertyLookupResult,
@@ -100,7 +100,13 @@ fn resolve_implement_statement(
     #[cfg(feature = "slint-sc")]
     diagnostics.slint_sc_error("'implement' is", &node);
 
-    if reject_experimental_feature(diagnostics, type_register, "implement", &node) {
+    if reject_experimental_feature(
+        diagnostics,
+        type_register,
+        ExperimentalFeature::Interfaces,
+        "implement",
+        &node,
+    ) {
         return None;
     }
 
@@ -327,7 +333,13 @@ pub(super) fn disallow_implement_in_non_root(
     diagnostics: &mut BuildDiagnostics,
 ) {
     for stmt in node.ImplementStatement() {
-        if reject_experimental_feature(diagnostics, type_register, "implement", &stmt) {
+        if reject_experimental_feature(
+            diagnostics,
+            type_register,
+            ExperimentalFeature::Interfaces,
+            "implement",
+            &stmt,
+        ) {
             continue;
         }
         diagnostics.push_error("'implement' is only allowed in the root element".into(), &stmt);

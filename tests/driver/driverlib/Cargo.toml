@@ -27,3 +27,6 @@ walkdir = "2"
 # cSpell: ignore libtest
 libtest-mimic = { version = "0.8", optional = true }
 satchel = { version = "0.3", optional = true }
+
+[dev-dependencies]
+i-slint-compiler = { workspace = true }
