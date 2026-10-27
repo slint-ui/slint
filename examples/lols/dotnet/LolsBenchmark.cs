@@ -28,7 +28,8 @@ internal sealed class LolsBenchmark : IDisposable
         // canvas queues 100000 lols and sleeps every 256; elements adds 5000 and sleeps after each.
         var total = mode == "canvas" ? 100_000 : 5_000;
         var model = new ListModel<Lol>();
-        window.Lols = model;
+        var rows = new FrameModel(Max);
+        window.Lols = mode == "elements" ? model : rows;
 
         // Slint objects belong to the Slint thread, so the producer only fills the queue.
         var queue = new ConcurrentQueue<Lol>();
@@ -65,18 +66,16 @@ internal sealed class LolsBenchmark : IDisposable
                     }
                     model.Add(lol);
                 }
-                else if (model.Count < Max)
-                {
-                    model.Add(lol);
-                }
                 else
                 {
                     // A fixed set of rows: Slint only updates properties, and creates no elements.
-                    model[next] = lol;
+                    rows.Set(next, lol);
                     next = (next + 1) % Max;
                 }
                 _count++;
             }
+            // Tells Slint once per frame which rows changed, like a canvas that draws once per frame.
+            rows.NotifyChanges();
             if (_count == total && _stopwatch.IsRunning)
             {
                 _stopwatch.Stop();
@@ -94,6 +93,48 @@ internal sealed class LolsBenchmark : IDisposable
     {
         _drain.Dispose();
         _update.Dispose();
+    }
+
+    /// <summary>
+    /// A fixed number of rows that change without notifying Slint, until <see cref="NotifyChanges"/>.
+    /// A row that changes many times between two frames notifies once.
+    /// </summary>
+    private sealed class FrameModel(int size) : Model<Lol>
+    {
+        private readonly Lol?[] _rows = new Lol?[size];
+        private readonly bool[] _changed = new bool[size];
+        private int _count;
+
+        public override int RowCount => _count;
+
+        public override Lol RowData(int row) => _rows[row]!;
+
+        public void Set(int row, Lol lol)
+        {
+            _rows[row] = lol;
+            _changed[row] = true;
+        }
+
+        public void NotifyChanges()
+        {
+            var count = _count;
+            while (_count < _rows.Length && _rows[_count] != null)
+            {
+                _count++;
+            }
+            if (_count > count)
+            {
+                NotifyRowAdded(count, _count - count);
+            }
+            for (var row = 0; row < count; row++)
+            {
+                if (_changed[row])
+                {
+                    NotifyRowChanged(row);
+                }
+            }
+            Array.Clear(_changed);
+        }
     }
 
     private string Rate() => "LOL/s: " + (_count / _stopwatch.Elapsed.TotalSeconds).ToString("0.00", CultureInfo.InvariantCulture);
