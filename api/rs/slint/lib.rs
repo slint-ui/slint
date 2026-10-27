@@ -794,24 +794,22 @@ pub mod fontique_012 {
     }
 
     /// Sets the font collection used for text rendering in the current thread's context.
-    /// Slint uses it instead of discovering system fonts.
-    /// Embedded fonts and fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH` are still registered.
+    /// Slint uses the collection as is and adds the fonts that `.slint` files import.
+    /// Create it with `system_fonts: false` to skip system font discovery.
     ///
     /// Call this before creating components or calling [`shared_collection()`].
     /// Returns an error if the context already uses its font collection.
     /// Like [`shared_collection()`], this initializes the default backend if no platform is set.
-    /// When using a custom platform, call [`set_platform()`](crate::platform::set_platform) first.
     /// A default backend starts discovering system fonts in the background, and Slint discards the result.
     ///
-    /// Slint converts the collection to shared storage.
-    /// Create it with `shared: true` to share later changes with clones retained by your application.
+    /// To register fonts after this call, use the collection returned by [`shared_collection()`].
     ///
     /// ```rust,no_run
     /// use slint::fontique_012::fontique;
     ///
     /// let collection = fontique::Collection::new(fontique::CollectionOptions {
-    ///     shared: true,
     ///     system_fonts: false,
+    ///     ..Default::default()
     /// });
     /// slint::fontique_012::set_shared_collection(collection)?;
     /// # Ok::<(), slint::PlatformError>(())

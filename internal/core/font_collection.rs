@@ -72,12 +72,17 @@ impl LazyFontContext {
         &self,
         mut collection: sharedfontique::fontique::Collection,
     ) -> Result<(), crate::api::PlatformError> {
+        if self.font_context.get().is_some() {
+            return Err(crate::api::PlatformError::Other(
+                "The font collection is already in use".into(),
+            ));
+        }
         collection.make_shared();
-        self.font_context
-            .set(font_context(sharedfontique::init_collection(collection, true)))
-            .map_err(|_| {
-                crate::api::PlatformError::Other("The font collection is already in use".into())
-            })?;
+        let font_context = core::cell::RefCell::new(FontContext::new(parley::FontContext {
+            collection,
+            source_cache: sharedfontique::fontique::SourceCache::new_shared(),
+        }));
+        let _ = self.font_context.set(font_context);
         #[cfg(feature = "std")]
         drop(self.prefetched.take());
         Ok(())

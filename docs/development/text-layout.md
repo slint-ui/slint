@@ -41,7 +41,8 @@ and a `SlintContext` created on that thread while the returned guard lives takes
 Dropping the guard discards the result if no context took it.
 Otherwise, a context discovers system fonts synchronously.
 Applications can supply a collection with `slint::fontique_012::set_shared_collection()` before the context uses its fonts.
-The context then discards a prefetched result, skips system font discovery, and still registers environment and embedded fonts.
+The context then discards a prefetched result and uses the collection without the fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH`.
+It still registers embedded fonts.
 See `internal/core/font_collection.rs`.
 
 Configure Fontconfig before Slint creates the backend.

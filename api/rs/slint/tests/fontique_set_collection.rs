@@ -6,6 +6,7 @@
 use slint::fontique_012::{fontique, set_shared_collection, shared_collection};
 
 slint::slint! {
+    #[slint_edition = "1.19"]
     import "../../../internal/common/sharedfontique/Inter-VariableFont.ttf";
 
     export component WithFont inherits Window {
