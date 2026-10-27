@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::EndpointIdentity;
-
 /// File the springboard stores its last selection in. The springboard itself
 /// has no filesystem access (it must also work when it is not hosted by the
 /// editor process), so the setting travels over the preview protocol and the
@@ -11,7 +9,7 @@ pub(super) const SPRINGBOARD_SETTINGS_FILE: &str = "springboard-settings.json";
 
 const SPRINGBOARD_SETTINGS_VERSION: u32 = 1;
 
-/// The endpoint a session last connected to, mirroring [`EndpointIdentity`] but
+/// The endpoint a session last connected to, mirroring [`super::EndpointIdentity`] but
 /// additionally remembering the display name it had at the time.
 ///
 /// The name cannot be recovered from the identity alone: it comes from the
@@ -26,15 +24,6 @@ pub(super) enum NamedEndpointIdentity {
     Remote { fullname: String, name: String },
 }
 
-impl From<NamedEndpointIdentity> for EndpointIdentity {
-    fn from(named: NamedEndpointIdentity) -> Self {
-        match named {
-            NamedEndpointIdentity::Local => Self::Local,
-            NamedEndpointIdentity::Remote { fullname, .. } => Self::Remote(fullname),
-        }
-    }
-}
-
 /// Persisted springboard state: the endpoint the user last connected to, so it
 /// can be preselected once it shows up on the network again.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -46,8 +35,8 @@ pub(super) struct SpringboardSettings {
 }
 
 impl SpringboardSettings {
-    pub(super) fn new(last_selected: Option<NamedEndpointIdentity>) -> Self {
-        Self { version: SPRINGBOARD_SETTINGS_VERSION, last_selected }
+    pub(super) fn new(last_selected: NamedEndpointIdentity) -> Self {
+        Self { version: SPRINGBOARD_SETTINGS_VERSION, last_selected: Some(last_selected) }
     }
 
     pub(super) fn serialize(&self) -> String {
@@ -62,6 +51,9 @@ impl SpringboardSettings {
     /// A blob written by another version is used as far as it parses, so a
     /// setting that version does not know about is the only thing lost.
     pub(super) fn deserialize(contents: &str) -> Option<Self> {
+        if contents.is_empty() {
+            return None;
+        }
         match serde_json::from_str::<Self>(contents) {
             Ok(settings) => {
                 if settings.version != SPRINGBOARD_SETTINGS_VERSION {

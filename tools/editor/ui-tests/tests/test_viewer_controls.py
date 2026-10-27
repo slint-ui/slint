@@ -3,12 +3,74 @@
 
 # cspell:ignore getcolors
 
+import json
+from pathlib import Path
+
 import pytest
 import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
 from ui_assertions import expect
-from ui_driver import element, first_window, launch_editor, query, screenshot
+from ui_driver import (
+    element,
+    first_window,
+    launch_editor,
+    query,
+    screenshot,
+    wait_until,
+)
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        None,
+        "{",
+        '{"version":1,"last_selected":null}',
+        json.dumps(
+            {
+                "version": 1,
+                "last_selected": {
+                    "remote": {
+                        "fullname": "missing-viewer._slint-preview._tcp.local.",
+                        "name": "Missing viewer",
+                    }
+                },
+            }
+        ),
+    ],
+    ids=["missing", "corrupt", "empty-selection", "missing-remote"],
+)
+def test_viewer_recovers_settings_and_remembers_local(
+    editor_binary, editor_environment, radial_scene, contents
+):
+    with launch_editor(editor_binary, editor_environment, radial_scene):
+        directory = Path(editor_environment["HOME"]).parent
+        settings = wait_until(
+            lambda: next(directory.rglob("visual-editor-user-settings.json"), None)
+        ).with_name("springboard-settings.json")
+
+    if contents is not None:
+        settings.write_text(contents)
+
+    def saved_selection():
+        try:
+            return json.loads(settings.read_text())
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    for _ in range(2):
+        with launch_editor(editor_binary, editor_environment, radial_scene) as editor:
+            wait_for_source(radial_scene, radial_scene.read_bytes())
+            window = first_window(editor)
+            element(window, "Start preview").single_click(
+                slint_testing.PointerEventButton.Left
+            )
+            expect(query(window, "Connected")).to_be_visible()
+            expect.poll(
+                saved_selection,
+                message="Local viewer selection is saved",
+            ).to_equal({"version": 1, "last_selected": "local"})
 
 
 def test_viewer_transport_and_popup(
@@ -21,13 +83,7 @@ def test_viewer_transport_and_popup(
         expect(query(window, "Off")).to_be_visible()
         element(window, "Start preview").single_click(left)
         expect(query(window, "Stop preview")).to_be_visible()
-        element(window, "Viewer controls").single_click(left)
-        element(window, "Choose viewer").single_click(left)
-        element(
-            window, "Slint Viewer (local)", role=slint_testing.AccessibleRole.Button
-        ).single_click(left)
         expect(query(window, "Connected")).to_be_visible()
-        element(window, "Viewer controls").single_click(left)
 
         launcher = element(window, "Viewer controls")
         assert launcher.size.width == pytest.approx(252)
