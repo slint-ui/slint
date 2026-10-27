@@ -32,6 +32,13 @@ adb logcat -s Lols
 ```
 
 The app prints the final rate when all lols are in.
+Release builds, with yurkinh.slint.net from the `dotnet_bindings` branch:
+
+| Device | `canvas` | `elements` |
+| --- | --- | --- |
+| Motorola edge 60 neo, Android 16 | ~94,000 LOL/s | ~880 LOL/s |
+| Pixel 9 emulator, Android 17, on an Apple Silicon Mac | ~169,000 LOL/s | ~750 LOL/s |
+
 Both rates are mostly limited by the `Thread.Sleep` calls of the original:
 256 lols per sleep in `canvas`, and one lol per sleep in `elements`.
 As the original's README says about its `canvas` branch, such numbers mostly count objects put in a queue.
