@@ -32,13 +32,19 @@ adb logcat -s Lols
 ```
 
 The app prints the final rate when all lols are in.
-Release builds, with yurkinh.slint.net from the `dotnet_bindings` branch:
+Release builds with .NET 10 on a Motorola edge 60 neo with Android 16,
+next to the original apps from the `main` and `canvas` branches of LOLs per second:
 
-| Device | `canvas` | `elements` |
+| App | One label per lol, 5,000 | Canvas, 100,000 |
 | --- | --- | --- |
-| Motorola edge 60 neo, Android 16 | ~94,000 LOL/s | ~880 LOL/s |
-| Pixel 9 emulator, Android 17, on an Apple Silicon Mac | ~169,000 LOL/s | ~750 LOL/s |
+| Java, `TextView` | 625 LOL/s | |
+| .NET for Android, `TextView` | 587 LOL/s | 161,656 LOL/s, one `View` drawing on a `Canvas` |
+| .NET MAUI, `Label` | 271 LOL/s, with 2 ms sleeps | |
+| Slint for .NET | 821 LOL/s, `elements` | 95,162 LOL/s, `canvas` |
 
-Both rates are mostly limited by the `Thread.Sleep` calls of the original:
-256 lols per sleep in `canvas`, and one lol per sleep in `elements`.
-As the original's README says about its `canvas` branch, such numbers mostly count objects put in a queue.
+The originals post each label to the UI thread, while this port applies a frame's worth of lols at once.
+The original canvas version counts a lol when it's queued, and this port when the UI thread has applied it.
+
+The one sleep per lol limits every `elements` rate, so its 821 is close to how long a 1 ms sleep takes on that phone.
+As the original's README says about its `canvas` branch, canvas numbers measure how fast lols reach the renderer,
+which still draws the latest 500 once per frame.
