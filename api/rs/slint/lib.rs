@@ -754,7 +754,7 @@ pub mod fontique_012 {
 
     #[i_slint_core_macros::slint_doc]
     /// Returns a clone of the [`fontique::Collection`] used for text rendering in the current thread's context.
-    /// It uses shared storage, so registered fonts and configured fallbacks are visible to Slint.
+    /// It uses shared storage, so Slint sees the fonts you register and the fallbacks you configure.
     ///
     /// Note: The recommended way of including custom fonts is at compile time of Slint files. For details,
     ///       see also the [Font Handling](slint:FontHandling) documentation.
@@ -794,16 +794,16 @@ pub mod fontique_012 {
     }
 
     /// Sets the font collection used for text rendering in the current thread's context.
-    /// Slint uses the collection as is and adds the fonts that `.slint` files import.
-    /// Create it with `system_fonts: false` to skip system font discovery.
+    /// Slint uses your collection as is and adds the fonts that `.slint` files import.
+    /// To skip system font discovery, create the collection with `system_fonts: false`.
     ///
     /// Call this before Slint initializes the platform, for example by creating a component
     /// or by calling [`set_platform()`](crate::platform::set_platform).
-    /// Returns an error if the platform is already initialized.
+    /// If the platform is already initialized, this returns an error.
     ///
     /// To register fonts after this call, use the collection returned by [`shared_collection()`].
     ///
-    /// The example below makes a font that ships with the application the default font:
+    /// For example, to make a font bundled with your application the default font:
     ///
     /// ```rust,no_run
     /// use slint::fontique_012::fontique;
