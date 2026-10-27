@@ -48,9 +48,17 @@ export component TestCase inherits Window {
                 highlight(text) => @markdown("Hello *World*!");
             }
         }
+        TextInput {
+            text: "export component A {}";
+            highlight(text) => SlintInternal.slint-highlighter(text);
+        }
     }
 
-    out property <bool> test: styled-width > plain-width && mismatched-width == plain-width;
+    out property <bool> slint-highlighter-ok: SlintInternal.slint-highlighter("export Foo := 42; // x")
+        == @markdown("<font color=\"#9b4dca\">export</font> <font color=\"#2a7fd4\">Foo</font> := "
+                     "<font color=\"#d4762a\">42</font>; <font color=\"#808080\">// x</font>");
+
+    out property <bool> test: styled-width > plain-width && mismatched-width == plain-width && slint-highlighter-ok;
 }
 
 /*

@@ -232,6 +232,8 @@ macro_rules! for_each_builtin_function {
             MacosBringAllWindowsToFront: impure fn() -> ()
             ParseMarkdown: pure fn(format: SharedString, arguments: [StyledText]) -> StyledText
             StringToStyledText: pure fn string_to_styled_text(s: SharedString) -> StyledText { crate::styled_text::string_to_styled_text(s.into()) }
+            /// `SlintInternal.slint-highlighter`, a `.slint` highlighter for `TextInput`'s `highlight`.
+            SlintHighlighter: pure fn slint_highlighter(text: SharedString) -> StyledText { crate::styled_text::slint_highlighter(&text) }
             /// Converts a color to a hex string wrapped in StyledText.
             /// Used for `<font color='\{expr}'>` interpolation in `@markdown`,
             /// because `parse_interpolated` takes `StyledText` arguments.
