@@ -279,6 +279,9 @@ impl SpringboardTask {
             return;
         }
         self.state = ui::SpringboardState::Running;
+        // TODO: check in a follow-up: discovery that failed to start is only
+        // retried by "Pair nearby", so a saved remote may wait forever.
+        // Previously it retried on every play.
         self.connect();
         self.update_ui();
     }
