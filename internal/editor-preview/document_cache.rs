@@ -385,6 +385,19 @@ impl DocumentCache {
         self.config.clone()
     }
 
+    pub(crate) fn set_open_import_callback(&mut self, callback: OpenImportCallback) {
+        self.config.open_import_callback = Some(callback.clone());
+        let mut compiler_config = self.type_loader.compiler_config.clone();
+        let (callback, _) = Self::wire_up_import_fallback(
+            &mut compiler_config,
+            Some(callback),
+            self.source_file_versions.clone(),
+        );
+        self.open_import_callback = callback;
+        self.type_loader.compiler_config.open_import_callback =
+            compiler_config.open_import_callback;
+    }
+
     fn element_at_document_and_offset(
         &self,
         document: &i_slint_compiler::object_tree::Document,

@@ -114,7 +114,7 @@ pub fn send_requested_state_to_preview(
         if let Some(contents) = i_slint_editor_preview::settings_store::load("lsp", name) {
             ctx.session
                 .primary_preview()
-                .to_preview
+                .to_preview()
                 .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
         }
     }
@@ -161,7 +161,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
         {
             let version =
                 ctx.session.document_cache.document_version_by_path(node.source_file.path());
-            ctx.session.primary_preview().to_preview.send(&LspToPreviewMessage::SetContents {
+            ctx.session.primary_preview().to_preview().send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents: node.text().to_string().into(),
             });
@@ -169,7 +169,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
             tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
             ctx.session
                 .primary_preview()
-                .to_preview
+                .to_preview()
                 .send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
     }
@@ -479,7 +479,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         if hover.is_some() {
             let (_document, preview) =
                 get_highlights_for_position(ctx, &params.text_document_position_params);
-            ctx.session.primary_preview().to_preview.send(&preview);
+            ctx.session.primary_preview().to_preview().send(&preview);
         }
 
         Ok(hover)
@@ -583,7 +583,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         // Update the highlight in the live preview.
         // We do this even if there are no highlights to clear any previous highlights.
-        ctx.session.primary_preview().to_preview.send(&preview);
+        ctx.session.primary_preview().to_preview().send(&preview);
 
         let not_empty = !document_highlights.is_empty();
         Ok(not_empty.then_some(document_highlights))
@@ -717,13 +717,7 @@ pub fn show_preview_command(
             .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
         None => None,
     };
-    if *ctx.session.primary_preview().project_root.borrow() != root {
-        ctx.session.primary_preview_mut().to_show = None;
-        ctx.session.primary_preview().project_root.replace(root);
-        ctx.session.send_state_to_preview(0);
-    }
-    let c = PreviewComponent { url, component };
-    ctx.session.show_preview(0, c);
+    ctx.session.show_preview(0, PreviewComponent { url, component }, root);
 
     Ok(())
 }
@@ -732,8 +726,10 @@ pub fn show_preview_command(
     not(target_arch = "wasm32"),
     any(feature = "preview-builtin", feature = "preview-external")
 ))]
-pub fn sync_preview_project_root(session: &editor_preview::EditorSession) -> std::io::Result<()> {
-    let Some(component) = session.primary_preview().to_show.as_ref() else { return Ok(()) };
+pub fn sync_preview_project_root(
+    session: &mut editor_preview::EditorSession,
+) -> std::io::Result<()> {
+    let Some(component) = session.primary_preview().component().cloned() else { return Ok(()) };
     let source = SourcePath::from_url(&component.url);
     let root = match source.as_native_path() {
         Some(path) => session
@@ -741,9 +737,8 @@ pub fn sync_preview_project_root(session: &editor_preview::EditorSession) -> std
             .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
         None => None,
     };
-    if *session.primary_preview().project_root.borrow() != root {
-        session.primary_preview().project_root.replace(root);
-        session.send_state_to_preview(0);
+    if session.primary_preview().project_root() != root.as_ref() {
+        session.show_preview(0, component, root);
     }
     Ok(())
 }
@@ -1912,7 +1907,7 @@ pub mod tests {
     -> (Context, crate::editor_preview::test::CapturedPreviewMessages) {
         let (capture, messages) = test::preview_capture();
         let mut ctx = test::mock_context();
-        ctx.session.primary_preview_mut().to_preview = capture;
+        ctx.session.replace_preview_transport(0, capture);
         (ctx, messages)
     }
 
@@ -2308,7 +2303,7 @@ enum {}
         ))
         .unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session).unwrap();
+        sync_preview_project_root(&mut context.session).unwrap();
         let outer_root_url = Url::from_directory_path(outer_root).unwrap();
         assert!(matches!(
             messages.borrow().first(),
@@ -2326,7 +2321,7 @@ enum {}
         ))
         .unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session).unwrap();
+        sync_preview_project_root(&mut context.session).unwrap();
         assert!(matches!(
             messages.borrow().first(),
             Some(LspToPreviewMessage::OpenProject { root: None })
@@ -2335,7 +2330,7 @@ enum {}
         std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
         spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session).unwrap();
+        sync_preview_project_root(&mut context.session).unwrap();
         assert!(
             matches!(messages.borrow().first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
             if root == &outer_root_url)
@@ -2390,14 +2385,14 @@ enum {}
         assert!(messages.borrow().is_empty());
 
         let previous_root = Url::from_directory_path(directory.path()).unwrap();
-        context.session.primary_preview().project_root.replace(Some(previous_root.clone()));
-        context.session.primary_preview_mut().to_show =
-            Some(PreviewComponent { url: source_url, component: None });
-        assert!(sync_preview_project_root(&context.session).is_err());
-        assert_eq!(
-            context.session.primary_preview().project_root.borrow().as_ref(),
-            Some(&previous_root)
+        context.session.show_preview(
+            0,
+            PreviewComponent { url: source_url, component: None },
+            Some(previous_root.clone()),
         );
+        messages.borrow_mut().clear();
+        assert!(sync_preview_project_root(&mut context.session).is_err());
+        assert_eq!(context.session.primary_preview().project_root(), Some(&previous_root));
         assert!(messages.borrow().is_empty());
     }
 

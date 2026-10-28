@@ -43,6 +43,7 @@ export component InspectorAppearanceSection inherits InspectorSection {
 
         if InspectorContext.is-rectangle-selection(): InspectorColorField {
             accessible-name: @tr("Rectangle background");
+            element-rotation: InspectorContext.control-values[0];
             target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
             value: Api.source-property-value("background", "");
             swatch: InspectorContext.property-brush("background");

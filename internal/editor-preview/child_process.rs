@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{cell::RefCell, ffi::OsString, path::PathBuf};
+use std::{cell::RefCell, ffi::OsString, path::PathBuf, sync::Arc};
 
 #[cfg(feature = "preview-process")]
 use std::{io::BufRead, rc::Rc};
@@ -18,11 +18,14 @@ struct ChildProcessLspToPreviewInner {
     to_child_sender: mpsc::UnboundedSender<String>,
 }
 
+pub type PreviewStartedCallback = Arc<dyn Fn(u32) + Send + Sync>;
+
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
     executable: PathBuf,
     arguments: Vec<OsString>,
     preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
+    on_started: Option<PreviewStartedCallback>,
 }
 
 impl ChildProcessLspToPreview {
@@ -31,7 +34,18 @@ impl ChildProcessLspToPreview {
         arguments: Vec<OsString>,
         preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
     ) -> Self {
-        Self { inner: RefCell::new(None), executable, arguments, preview_to_lsp_channel }
+        Self {
+            inner: RefCell::new(None),
+            executable,
+            arguments,
+            preview_to_lsp_channel,
+            on_started: None,
+        }
+    }
+
+    pub fn with_started_callback(mut self, callback: Option<PreviewStartedCallback>) -> Self {
+        self.on_started = callback;
+        self
     }
 
     fn preview_is_running(&self) -> bool {
@@ -51,6 +65,8 @@ impl ChildProcessLspToPreview {
             .spawn()?;
 
         tracing::debug!("Preview process spawned (PID {:?})", child.id());
+        let process_id = child.id().expect("Preview process has no PID");
+        let mut on_started = self.on_started.clone();
 
         let from_child = child.stdout.take().expect("Child has no stdout");
         let mut to_child = child.stdin.take().expect("Child has no stdin");
@@ -65,6 +81,9 @@ impl ChildProcessLspToPreview {
             let mut lines = reader.lines();
             while let Some(line) = lines.next_line().await.map_err(|error| error.to_string())? {
                 if let Ok(message) = serde_json::from_str(&line) {
+                    if let Some(on_started) = on_started.take() {
+                        on_started(process_id);
+                    }
                     let _ = channel.send(message);
                 }
             }
@@ -199,6 +218,13 @@ impl crate::PreviewToLsp for RemoteControlledPreviewToLsp {
 
 #[cfg(feature = "preview-process")]
 pub fn run() -> crate::Result<()> {
+    run_with_window_setup(async |_| {})
+}
+
+#[cfg(feature = "preview-process")]
+pub fn run_with_window_setup(
+    prepare_window: impl AsyncFnOnce(&slint_interpreter::Window) + 'static,
+) -> crate::Result<()> {
     let (to_preview, from_editor) = mpsc::unbounded_channel();
     let to_editor = Rc::new(RemoteControlledPreviewToLsp::new(
         move |message| {
@@ -217,6 +243,7 @@ pub fn run() -> crate::Result<()> {
                 if let Err(error) = i_slint_live_preview::preview_sessions::run_with_channels(
                     from_editor,
                     to_editor,
+                    prepare_window,
                 )
                 .await
                 {
@@ -339,6 +366,26 @@ pub(crate) mod tests {
         assert!(!std::path::Path::new(&format!("/proc/{process_id}")).exists());
         #[cfg(not(target_os = "linux"))]
         let _ = process_id;
+    }
+
+    #[tokio::test]
+    async fn started_notification_does_not_gate_protocol_messages() {
+        let (executable, arguments) = fixture_config("echo_child");
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let (ui_sender, mut ui_queue) = mpsc::unbounded_channel();
+        let transport = ChildProcessLspToPreview::new(executable, arguments, sender)
+            .with_started_callback(Some(Arc::new(move |process_id| {
+                ui_sender.send(process_id).unwrap();
+            })));
+        transport.start_preview().unwrap();
+        let process_id = started(&mut receiver).await;
+        transport.send_running(&LspToPreviewMessage::ShowPreview(component()));
+        assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::DebugMessage { .. }));
+        assert_eq!(ui_queue.try_recv().unwrap(), process_id);
+        assert!(ui_queue.try_recv().is_err());
+        transport.send_running(&LspToPreviewMessage::Quit);
+        assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::Exited));
+        assert_reaped(process_id);
     }
 
     #[tokio::test]

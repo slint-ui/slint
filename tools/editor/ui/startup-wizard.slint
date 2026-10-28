@@ -99,7 +99,6 @@ component WelcomeAction inherits Rectangle {
 
     touch := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
         clicked => {
             root.clicked();
         }
@@ -166,7 +165,6 @@ component RecentProjectRow inherits Rectangle {
 
     touch := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
         clicked => {
             root.opened();
         }

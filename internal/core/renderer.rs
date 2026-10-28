@@ -127,7 +127,7 @@ pub trait RendererSealed {
     #[cfg(not(feature = "shared-parley"))]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
         item_rc: &crate::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize;
@@ -138,7 +138,7 @@ pub trait RendererSealed {
     #[cfg(feature = "shared-parley")]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::HasFont>,
+        text_item: Pin<&dyn crate::item_rendering::RenderString>,
         item_rc: &crate::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
@@ -176,16 +176,21 @@ pub trait RendererSealed {
     fn text_line_height(
         &self,
         font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
     ) -> Option<LogicalLength> {
         #[cfg(feature = "shared-parley")]
         {
             let ctx = self.slint_context()?;
             let mut font_ctx = ctx.font_context().borrow_mut();
-            crate::textlayout::sharedparley::text_line_height(&mut font_ctx, &font_request)
+            crate::textlayout::sharedparley::text_line_height(
+                &mut font_ctx,
+                &font_request,
+                line_height_factor,
+            )
         }
         #[cfg(not(feature = "shared-parley"))]
         {
-            let _ = font_request;
+            let _ = (font_request, line_height_factor);
             None
         }
     }
@@ -266,6 +271,17 @@ pub trait RendererSealed {
     fn text_input_has_parley_layout(
         &self,
         _text_input: Pin<&crate::items::TextInput>,
+        _item_rc: &ItemRc,
+    ) -> bool {
+        true
+    }
+
+    /// Whether this renderer lays `text`'s text out through parley, so that the byte offsets
+    /// parley hit-testing yields are the ones it draws.
+    #[cfg(feature = "shared-parley")]
+    fn text_has_parley_layout(
+        &self,
+        _text: Pin<&dyn crate::item_rendering::RenderText>,
         _item_rc: &ItemRc,
     ) -> bool {
         true

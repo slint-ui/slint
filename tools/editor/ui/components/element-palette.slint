@@ -118,7 +118,6 @@ component ElementPaletteGroup inherits VerticalLayout {
         }
         TouchArea {
             enabled: root.query == "";
-            mouse-cursor: self.enabled ? pointer : default;
             clicked => { group-focus.focus(); root.toggle(); }
         }
     }

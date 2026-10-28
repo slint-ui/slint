@@ -30,10 +30,14 @@ use remote::{Discovery, RemoteViewer};
 use remote_connection::ConnectionEvent;
 use settings::{SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
+pub type LocalPreviewArguments = Arc<dyn Fn() -> oneshot::Receiver<Vec<OsString>> + Send + Sync>;
+
 #[derive(Clone)]
 pub struct LocalPreviewConfig {
     pub executable: PathBuf,
     pub arguments: Vec<OsString>,
+    pub prepare_arguments: Option<LocalPreviewArguments>,
+    pub on_started: Option<crate::child_process::PreviewStartedCallback>,
 }
 
 type SpringboardAction = Box<dyn FnOnce(&mut SpringboardTask) + Send + 'static>;
@@ -90,6 +94,7 @@ enum EndpointIdentity {
 
 struct SpringboardTask {
     local_preview: LocalPreviewConfig,
+    pending_local_launch: Option<oneshot::Receiver<Vec<OsString>>>,
     to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
     global: slint::Weak<ui::Springboard<'static>>,
     displayed_endpoints: Arc<RwLock<DisplayedEndpoints>>,
@@ -194,6 +199,7 @@ impl Springboard {
         });
         let task = SpringboardTask {
             local_preview,
+            pending_local_launch: None,
             to_editor,
             global,
             displayed_endpoints,
@@ -255,6 +261,21 @@ impl SpringboardTask {
                     Some(action) => action(&mut self),
                     None => break,
                 },
+                arguments = async {
+                    match &mut self.pending_local_launch {
+                        Some(arguments) => arguments.await.ok(),
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    self.pending_local_launch = None;
+                    match arguments {
+                        Some(arguments) => {
+                            self.connection = Connection::local(&self.local_preview, arguments);
+                        }
+                        None => self.connection.fail("Cannot prepare Local preview".into()),
+                    }
+                    self.update_ui();
+                }
                 event = self.connection.next_event() => {
                     match event {
                         Some(event) => self.handle_connection(event),
@@ -319,6 +340,7 @@ impl SpringboardTask {
             return;
         }
         self.connection = Connection::default();
+        self.pending_local_launch = None;
         self.selected_endpoint = identity;
         // A new endpoint is saved once it connects, see `ConnectionEvent::Connected`.
         if !self.is_unsaved(&self.selected_endpoint) {
@@ -349,12 +371,22 @@ impl SpringboardTask {
     fn connect(&mut self) {
         if self.state == ui::SpringboardState::Stopped
             || self.connection.is_started()
+            || self.pending_local_launch.is_some()
             || self.connection.state == ui::ConnectionState::Failed
         {
             return;
         }
         match &self.selected_endpoint {
-            EndpointIdentity::Local => self.connection = Connection::local(&self.local_preview),
+            EndpointIdentity::Local => match &self.local_preview.prepare_arguments {
+                Some(prepare_arguments) => {
+                    self.pending_local_launch = Some(prepare_arguments());
+                    self.connection.state = ui::ConnectionState::Connecting;
+                }
+                None => {
+                    let arguments = self.local_preview.arguments.clone();
+                    self.connection = Connection::local(&self.local_preview, arguments);
+                }
+            },
             EndpointIdentity::Remote { .. } => {
                 let Some(viewer) = self.discovery.find(&self.selected_endpoint) else { return };
                 if !viewer.unavailable_reason.is_empty() {
@@ -428,6 +460,7 @@ impl SpringboardTask {
 
     fn close(&mut self) {
         self.connection = Connection::default();
+        self.pending_local_launch = None;
         self.state = ui::SpringboardState::Stopped;
         self.update_ui();
     }
@@ -601,7 +634,7 @@ mod tests {
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let (discovered, discovery_receiver) = flume::unbounded();
         let controller = Springboard::spawn(
-            LocalPreviewConfig { executable, arguments },
+            LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_started: None },
             sender,
             Default::default(),
             Ok(Discovery::from_receiver(discovery_receiver)),
@@ -691,6 +724,54 @@ mod tests {
             panic!("Expected protocol echo");
         };
         serde_json::from_str(&message).unwrap()
+    }
+
+    #[tokio::test]
+    async fn local_launch_requests_fresh_arguments_and_stop_cancels_preparation() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (requests, mut preparations) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| {
+                        task.local_preview.prepare_arguments = Some(Arc::new(move || {
+                            let (sender, receiver) = oneshot::channel();
+                            requests.send(sender).unwrap();
+                            receiver
+                        }));
+                    }))
+                    .unwrap();
+                let mut last_process = None;
+                for cancelled in [true, false, false] {
+                    controller.start();
+                    let preparation = tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        preparations.recv(),
+                    )
+                    .await
+                    .unwrap()
+                    .unwrap();
+                    // A second start waits for the same preparation.
+                    controller.start();
+                    assert!(inspect(&controller, |task| !task.connection.is_started()).await);
+                    assert!(preparations.try_recv().is_err());
+                    assert!(receiver.try_recv().is_err());
+                    let (_, arguments) = fixture_config("echo_child");
+                    if cancelled {
+                        controller.shutdown().await;
+                        assert!(preparation.send(arguments).is_err());
+                    } else {
+                        preparation.send(arguments).unwrap();
+                        let process = started(&mut receiver).await;
+                        assert_ne!(last_process, Some(process));
+                        last_process = Some(process);
+                        controller.shutdown().await;
+                    }
+                    assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                }
+            })
+            .await;
     }
 
     #[tokio::test]

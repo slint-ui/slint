@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::pin::Pin;
+use std::{ffi::OsString, pin::Pin};
 
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, pairing};
 use tokio::sync::{mpsc, oneshot};
@@ -35,13 +35,10 @@ pub(super) struct Connection {
 }
 
 impl Connection {
-    pub(super) fn local(config: &LocalPreviewConfig) -> Self {
+    pub(super) fn local(config: &LocalPreviewConfig, arguments: Vec<OsString>) -> Self {
         let (sender, receiver) = mpsc::unbounded_channel();
-        let preview = ChildProcessLspToPreview::new(
-            config.executable.clone(),
-            config.arguments.clone(),
-            sender,
-        );
+        let preview = ChildProcessLspToPreview::new(config.executable.clone(), arguments, sender)
+            .with_started_callback(config.on_started.clone());
         match preview.start_preview() {
             Ok(()) => Self {
                 state: ui::ConnectionState::Connected,

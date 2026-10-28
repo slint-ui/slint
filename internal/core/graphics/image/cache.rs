@@ -25,7 +25,6 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             #[cfg(feature = "image-owned-textures")]
             ImageInner::OwnedTextures(textures) => textures.data.len(),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size().area() as usize,
-            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory
             ImageInner::NineSlice(nine) => self.weight(_key, &nine.0),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
