@@ -27,15 +27,19 @@ TAB_SOURCE = "TabCases.slint"
         (
             "empty-tabs",
             b"        height: 200px;\n    }\n\n    tabs",
-            b"        height: 200px;\n"
-            b'        Tab {\n            title: "Tab 1";\n        }\n'
-            b"    }\n\n    tabs",
+            (
+                b"        height: 200px;\n"
+                b'        Tab {\n            title: "Tab 1";\n        }\n'
+                b"    }\n\n    tabs"
+            ),
         ),
         (
             "tabs",
             b'            title: "Tab 1";\n        }\n',
-            b'            title: "Tab 1";\n        }\n'
-            b'        Tab {\n            title: "Tab 2";\n        }\n',
+            (
+                b'            title: "Tab 1";\n        }\n'
+                b'        Tab {\n            title: "Tab 2";\n        }\n'
+            ),
         ),
     ],
     ids=("empty", "after-existing-tab"),
