@@ -3589,6 +3589,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         const SUBPIXEL_BINS: i32 = fonts::vectorfont::SUBPIXEL_BIN_COUNT;
 
         let color = self.alpha_color(brush.color);
+        let text_rgb = [brush.color.red(), brush.color.green(), brush.color.blue()];
         let physical_clip: euclid::Rect<i32, PhysicalPx> =
             (self.current_state.clip.translate(self.current_state.offset.to_vector()).cast()
                 * self.scale_factor)
@@ -3615,9 +3616,13 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             let dst_int_x = quantized_x.div_euclid(SUBPIXEL_BINS);
             let subpixel_bin = quantized_x.rem_euclid(SUBPIXEL_BINS) as u8;
 
-            let Some(glyph) =
-                font.render_vector_glyph(id, subpixel_bin, brush.stroke, true, slint_context)
-            else {
+            let Some(glyph) = font.render_vector_glyph(
+                id,
+                subpixel_bin,
+                brush.stroke,
+                Some(text_rgb),
+                slint_context,
+            ) else {
                 continue;
             };
 

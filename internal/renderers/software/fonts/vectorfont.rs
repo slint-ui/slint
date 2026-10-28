@@ -70,8 +70,9 @@ struct GlyphCacheKey {
     skew_bits: Option<u32>,
     /// Outline stroke width; `None` for a filled glyph.
     stroke_width: Option<StrokeWidth>,
-    /// Whether a color glyph was asked for, where the font has one.
-    color: bool,
+    /// Whether a color glyph was asked for, where the font has one, and for a font with color
+    /// layers the text's color, which layers drawn in the text's color use (`[0; 3]` otherwise).
+    color: Option<[u8; 3]>,
 }
 
 struct RenderableGlyphWeightScale;
@@ -213,23 +214,30 @@ impl VectorFont {
         self
     }
 
-    /// Renders a glyph. With `color`, a glyph the font draws in color (an emoji's layers or
-    /// bitmap) comes back as [`VectorGlyphPixels::Color`]; otherwise, and for a stroke, it's the
+    /// Renders a glyph. With `color` (the text's red, green and blue), a glyph the font draws in
+    /// color (an emoji's layers or bitmap) comes back as [`VectorGlyphPixels::Color`], its layers
+    /// that use the text's color drawn in `color`; otherwise, and for a stroke, it's the
     /// outline's coverage.
     pub fn render_vector_glyph(
         &self,
         glyph_id: core::num::NonZeroU16,
         subpixel_bin: u8,
         stroke_width: Option<StrokeWidth>,
-        color: bool,
+        color: Option<[u8; 3]>,
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<RenderableVectorGlyph> {
         GLYPH_CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
 
             let skew_degrees = self.synthesis.skew();
-            // A stroke is drawn from the outline, so color makes no difference to it.
-            let color = color && stroke_width.is_none();
+            // A stroke is drawn from the outline, so color makes no difference to it. Only color
+            // layers (a `COLR` table) can use the text's color: other glyphs keep one cache entry
+            // whatever the text's color is.
+            let color = color.filter(|_| stroke_width.is_none()).map(|rgb| {
+                let has_layers =
+                    self.swash_font_ref().table(swash::tag_from_bytes(b"COLR")).is_some();
+                if has_layers { rgb } else { [0; 3] }
+            });
 
             let cache_key = GlyphCacheKey {
                 font_blob_id: self.font_blob.id(),
@@ -274,7 +282,7 @@ impl VectorFont {
                 // `CBDT` or `sbix` font, scaled to the pixel size. A font without either, and a
                 // stroke, gives the outline.
                 use swash::scale::{Source, StrikeWith};
-                let sources: &[Source] = if color {
+                let sources: &[Source] = if color.is_some() {
                     &[
                         Source::ColorOutline(0),
                         Source::ColorBitmap(StrikeWith::BestFit),
@@ -288,6 +296,10 @@ impl VectorFont {
                     .format(swash::zeno::Format::Alpha)
                     .offset(swash::zeno::Vector::new(subpixel_offset_x, 0.0))
                     .transform(transform);
+                if let Some([r, g, b]) = color {
+                    // Opaque: the text's alpha applies when the glyph is drawn.
+                    render.default_color([r, g, b, 255]);
+                }
                 if let Some(stroke_width) = stroke_width {
                     let mut stroke = swash::zeno::Stroke::new(stroke_width.to_physical());
                     // Matches the Skia and FemtoVG text stroke.
@@ -415,7 +427,7 @@ impl super::GlyphRenderer for VectorFont {
         slint_context: &i_slint_core::SlintContext,
     ) -> Option<super::RenderableGlyph> {
         // A coverage map, like the bitmap fonts' glyphs this path also draws.
-        self.render_vector_glyph(glyph_id, 0, None, false, slint_context).and_then(|glyph| {
+        self.render_vector_glyph(glyph_id, 0, None, None, slint_context).and_then(|glyph| {
             let VectorGlyphPixels::AlphaMap(alpha_map) = glyph.pixels else { return None };
             Some(super::RenderableGlyph {
                 x: glyph.x,

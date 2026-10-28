@@ -66,6 +66,19 @@ subset_font NotoSans-unhinted/NotoSansSymbols2-Regular.ttf \
 # U+1F600 GRINNING FACE, once from each color emoji font.
 subset_font NotoSans-unhinted/NotoColorEmoji.ttf NotoColorEmoji-Subset.ttf "U+1F600"
 subset_font NotoSans-unhinted/Twemoji.Mozilla.ttf TwemojiMozilla-Subset.ttf "U+1F600"
+# Draw the face's dark layer (eyes and mouth) in the text's color (palette index 0xFFFF), so the
+# test also covers layers that take the text's color.
+uvx --from fonttools python -c '
+import sys
+from fontTools.ttLib import TTFont
+font = TTFont(sys.argv[1])
+cpal = font["CPAL"].palettes[0]
+for layers in font["COLR"].ColorLayers.values():
+    for layer in layers:
+        if cpal[layer.colorID].hex() == "#664500FF":
+            layer.colorID = 0xFFFF
+font.save(sys.argv[1])
+' TwemojiMozilla-Subset.ttf
 
 cat > NotoColorEmoji-Subset.ttf.license <<'LICENSE'
 SPDX-FileCopyrightText: Google Inc. <https://github.com/googlefonts/noto-emoji>

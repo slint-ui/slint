@@ -4,9 +4,10 @@
 // cspell:ignore COLR CBDT
 
 // Color glyphs (issue #3568): the same emoji from a font with bitmaps (CBDT, Noto Color Emoji)
-// and from a font with color layers (COLR version 0, Twemoji Mozilla). The two take different
-// paths to premultiplied pixels. Each row has the glyph next to a letter (to show the baseline),
-// at half the text's opacity (it applies, its color doesn't), and in italic (synthesized: the
+// and from a font with color layers (COLR version 0, Twemoji Mozilla, its eyes and mouth changed
+// to a layer in the text's color, which is blue here). The two take different paths to
+// premultiplied pixels. Each row has the glyph next to a letter (to show the baseline),
+// at half the text's opacity (it applies to the whole glyph), and in italic (synthesized: the
 // layers lean, the bitmap stays upright).
 
 // The embed-assets pipeline pre-renders one-color glyph maps, so it has no color glyphs.
