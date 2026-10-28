@@ -361,7 +361,10 @@ Done:
 - **6.** Publishing to nuget.org with trusted publishing, see [Packages](#packages).
   Until the Slint project publishes them, a fork publishes community packages under its own IDs,
   such as `yurkinh.slint.net` and `yurkinh.slint.net.Compiler`.
-  `api/dotnet/WHATS_NEW.md` lists what each preview added.
+  `api/dotnet/WHATS_NEW.md` lists what each preview added, up to 1.19.0-preview.8.
+  To build packages without the workflow, such as for a fork or an unpublished change,
+  follow [Building the Packages Locally](#building-the-packages-locally);
+  to generate the C# code in a script, "Generating the Code by Hand" in `api/dotnet/README.md`.
 - **7.** The proposal to upstream the bindings, in [discussion #3550](https://github.com/slint-ui/slint/discussions/3550).
   The pull request itself is item 14.
 - **8.** API gaps compared to Python and Node.js:
@@ -411,7 +414,7 @@ Done:
   It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
   It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
 - **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
-  Its description lists what each preview added, Android included.
+  Its description lists what each preview added, up to the Android state events of preview.8.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
