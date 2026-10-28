@@ -12,7 +12,7 @@ These icons come from Lucide revision `22e6094bb533ac2b0ae3b592d2184da461ec1f4b`
 - [square.svg](https://github.com/lucide-icons/lucide/blob/22e6094bb533ac2b0ae3b592d2184da461ec1f4b/icons/square.svg)
 - [type.svg](https://github.com/lucide-icons/lucide/blob/22e6094bb533ac2b0ae3b592d2184da461ec1f4b/icons/type.svg)
 
-The viewer controls also use `check`, `chevron-down`, `monitor`, `smartphone`, `trash`, and `x` from that revision.
+The viewer controls also use `check`, `chevron-down`, `monitor`, `plus`, `smartphone`, `trash`, and `x` from that revision.
 `play-filled.svg` and `square-filled.svg` come from its `play.svg` and `square.svg`.
 
 Each SVG changes `stroke-width` from `2` to `1.6` to match the editor's icon weight.
@@ -21,6 +21,6 @@ Preserve these changes when updating the files.
 
 The [pinned upstream license](https://github.com/lucide-icons/lucide/blob/22e6094bb533ac2b0ae3b592d2184da461ec1f4b/LICENSE)
 uses ISC for Lucide and additionally MIT for Feather-derived icons.
-It lists `check`, `chevron-down`, `monitor`, `smartphone`, `square`, `trash`, `type`, and `x` as Feather-derived,
+It lists `check`, `chevron-down`, `monitor`, `plus`, `smartphone`, `square`, `trash`, `type`, and `x` as Feather-derived,
 with copyright `2013-present Cole Bemis`.
 The asset annotations in the repository's `REUSE.toml` follow those copyright notices and license terms.

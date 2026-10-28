@@ -623,23 +623,23 @@ impl RendererSealed for TestingWindow {
 
     fn char_size(
         &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
+        font_request: i_slint_core::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize {
-        let font_request = text_item.font_request(item_rc);
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
             LogicalSize::new(
                 pixel_size,
-                fixed_test_font_line_height(text_item.line_height_factor(), pixel_size),
+                fixed_test_font_line_height(line_height_factor, pixel_size),
             )
         } else {
             let Some(ctx) = self.slint_context() else {
                 return LogicalSize::default();
             };
             let mut font_ctx = ctx.font_context().borrow_mut();
-            sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
+            sharedparley::char_size(&mut font_ctx, &font_request, line_height_factor, ch)
+                .unwrap_or_default()
         }
     }
 

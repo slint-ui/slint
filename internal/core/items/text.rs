@@ -1019,7 +1019,14 @@ fn text_layout_info(
                     let unwrapped_width = implicit_size(width_text, None).width;
                     let min = match text.overflow() {
                         TextOverflow::Elide => unwrapped_width.min(
-                            window_adapter.renderer().char_size(width_text, self_rc, '…').width,
+                            window_adapter
+                                .renderer()
+                                .char_size(
+                                    width_text.font_request(self_rc),
+                                    width_text.line_height_factor(),
+                                    '…',
+                                )
+                                .width,
                         ),
                         TextOverflow::Clip => match wrap {
                             TextWrap::NoWrap => unwrapped_width,
@@ -1922,7 +1929,10 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window_adapter.renderer().char_size(self, self_rc, ' ').height;
+        let font_height = window_adapter
+            .renderer()
+            .char_size(self.font_request(self_rc), RenderString::line_height_factor(self), ' ')
+            .height;
 
         let mut reset_preferred_x_pos = true;
 

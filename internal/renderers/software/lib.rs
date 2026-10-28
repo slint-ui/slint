@@ -862,14 +862,13 @@ impl RendererSealed for SoftwareRenderer {
 
     fn char_size(
         &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
+        font_request: i_slint_core::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize {
         let Some(scale_factor) = self.scale_factor() else {
             return LogicalSize::default();
         };
-        let font_request = text_item.font_request(item_rc);
         #[cfg(feature = "systemfonts")]
         let Some(slint_ctx) = self.slint_context() else {
             return Default::default();
@@ -888,18 +887,14 @@ impl RendererSealed for SoftwareRenderer {
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
             let mut font_ctx = slint_ctx.font_context().borrow_mut();
-            return sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+            return sharedparley::char_size(&mut font_ctx, &font_request, line_height_factor, ch)
                 .unwrap_or_default();
         }
 
         let (longest_line_width, height) = with_font!(&font, |font| {
             let mut buf = [0u8, 0u8, 0u8, 0u8];
-            let layout = fonts::text_layout_for_font(
-                font,
-                &font_request,
-                text_item.line_height_factor(),
-                scale_factor,
-            );
+            let layout =
+                fonts::text_layout_for_font(font, &font_request, line_height_factor, scale_factor);
             layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None)
         });
         (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
