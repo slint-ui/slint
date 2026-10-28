@@ -134,6 +134,14 @@ The `initialize` response includes a detailed `instructions` field that guides M
 The query syntax is in `query_element_descendants`' input schema, so a client that lists the tools reads it once.
 `QUERY_STACK_FIELD_DESCRIPTIONS` adds only what the schema's field names and enums don't say, such as the id format.
 
+### Scrolling Into View
+
+`query_element_descendants` with `scrollIntoView` also searches content clipped by Flickables.
+For virtualized lists, it pages through each Flickable and searches nested lists before advancing the outer page.
+This keeps off-screen inner lists instantiated while their rows are searched.
+A search without a match restores scroll positions in surviving Flickables.
+Paging can recreate virtualized rows, invalidating their handles and resetting state stored in those rows.
+
 ### Snapshot
 
 `get_element_snapshot` lists every window, or the subtree of an element, as text, one line per element, so an agent can explore without the token cost of `get_element_tree`.

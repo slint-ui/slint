@@ -482,11 +482,13 @@ impl ElementQuery {
     /// A `ListView` creates only the rows it shows,
     /// so the search then pages through each `Flickable` at or below the query's root
     /// that holds a `for` or `if`, from its top, until an element matches.
+    /// Nested lists are searched on each page before the outer list advances.
     /// It gives up on a `Flickable` after 10,000 pages, such as one that grows as it's paged.
     /// Paging recreates a `ListView`'s rows, which invalidates earlier handles to them.
     /// Like scrolling, paging replaces a binding on the `Flickable`'s `content-y`.
     ///
-    /// Returns None if no element matches, with each `Flickable` back at its position.
+    /// Returns None if no element matches, restoring each surviving `Flickable`'s position.
+    /// Recreated rows lose state stored in those rows, including nested scroll positions.
     /// Also returns None if scrolling can't reveal the first match,
     /// such as one outside its `Flickable`'s `content-height`.
     ///
@@ -520,14 +522,7 @@ impl ElementQuery {
         let found = find().or_else(|| {
             let window_adapter = self.root.window_adapter()?;
             let window = WindowInner::from_pub(window_adapter.window());
-            let mut paged = Vec::new();
-            loop {
-                let flickable = self.root.flickable_to_page(&paged)?;
-                if let Some(found) = page_until_found(&flickable, window, &find) {
-                    return Some(found);
-                }
-                paged.push(flickable.downgrade());
-            }
+            self.root.find_by_paging(window, &find, true)
         })?;
         found.scroll_into_view();
         found.item.upgrade().is_some_and(|item| item.is_visible()).then_some(found)
@@ -572,12 +567,13 @@ fn page_until_found(
     let flick = flick.as_pin_ref();
     let content_y = Flickable::FIELD_OFFSETS.content_y().apply_pin(flick);
     let original = content_y.get();
+    let root = ElementHandle { item: flickable.downgrade(), element_index: 0 };
     let mut offset = 0 as Coord;
     let mut previous_page = None;
     for _ in 0..MAX_PAGES {
         content_y.set(LogicalLength::new(-offset));
         window.ensure_tree_instantiated();
-        if let Some(found) = find() {
+        if let Some(found) = find().or_else(|| root.find_by_paging(window, find, false)) {
             return Some(found);
         }
         let reached = -content_y.get().get();
@@ -1532,14 +1528,33 @@ impl ElementHandle {
         }
     }
 
-    fn flickable_to_page(&self, paged: &[ItemWeak]) -> Option<ItemRc> {
+    fn find_by_paging(
+        &self,
+        window: &WindowInner,
+        find: &dyn Fn() -> Option<ElementHandle>,
+        include_self: bool,
+    ) -> Option<ElementHandle> {
+        let mut paged = Vec::new();
+        loop {
+            let flickable = self.flickable_to_page(&paged, include_self)?;
+            if let Some(found) = page_until_found(&flickable, window, find) {
+                return Some(found);
+            }
+            paged.push(flickable.downgrade());
+        }
+    }
+
+    fn flickable_to_page(&self, paged: &[ItemWeak], include_self: bool) -> Option<ItemRc> {
         let to_page = |item: &ItemRc| {
             item.downcast::<Flickable>().is_some()
-                && !paged.contains(&item.downgrade())
+                && !std::iter::successors(Some(item.clone()), |ancestor| {
+                    ancestor.parent_item(ParentItemTraversalMode::StopAtPopups)
+                })
+                .any(|ancestor| paged.contains(&ancestor.downgrade()))
                 && holds_repeated_elements(item)
         };
         let self_item = self.item.upgrade()?;
-        if to_page(&self_item) {
+        if include_self && to_page(&self_item) {
             return Some(self_item);
         }
         self.visit_descendants_impl(
@@ -1777,6 +1792,7 @@ fn test_text_matchers() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         component Row {
             in property <string> title;
             @testable in property <bool> selected;
@@ -2034,6 +2050,7 @@ fn test_visit_descendants_stops_in_popup_of_start_element() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;
@@ -2146,6 +2163,7 @@ fn test_scroll_into_view_reveals_flickable_content() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;
@@ -2176,6 +2194,7 @@ fn test_scroll_into_view_creates_list_view_rows() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         import { ListView } from "std-widgets.slint";
         export component App inherits Window {
             width: 100px;
@@ -2206,6 +2225,7 @@ fn test_scroll_into_view_reveals_list_view_row_in_flickable() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         import { ListView } from "std-widgets.slint";
         export component App inherits Window {
             width: 100px;
@@ -2237,23 +2257,37 @@ fn test_scroll_into_view_pages_list_views_in_recreated_rows() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         import { ListView } from "std-widgets.slint";
         export component App inherits Window {
             width: 100px;
             height: 100px;
-            ListView {
-                for outer in 20: ListView {
+            out property <length> content-y: list.content-y;
+            list := ListView {
+                for outer in 12: ListView {
                     height: 50px;
-                    for inner in 100: Text { text: "Row " + outer + "." + inner; height: 10px; }
+                    for inner in 60: Text { text: "Row " + outer + "." + inner; height: 10px; }
                 }
             }
         }
     }
 
     let app = App::new().unwrap();
-    let row = app.root_element().query_descendants().match_accessible_label("Row 0.50");
-    let found = row.scroll_into_view().expect("the nested list wasn't paged");
-    assert_eq!(found.accessible_label().unwrap(), "Row 0.50");
+    let flickable =
+        app.root_element().query_descendants().match_inherits("Flickable").find_first().unwrap();
+    for root in [app.root_element(), flickable] {
+        for label in ["Row 0.50", "Row 10.50", "Row 11.59", "Row 0.59", "Row 10.59"] {
+            let row = root.query_descendants().match_accessible_label(label);
+            let found = row.scroll_into_view().expect("the nested list wasn't paged");
+            assert_eq!(found.accessible_label().unwrap(), label);
+            assert!(row.find_first().is_some());
+        }
+        let content_y = app.get_content_y();
+        assert!(content_y < 0.);
+        let missing = root.query_descendants().match_accessible_label("Missing");
+        assert!(missing.scroll_into_view().is_none());
+        assert_eq!(app.get_content_y(), content_y);
+    }
 }
 
 #[test]
@@ -2261,6 +2295,7 @@ fn test_scroll_into_view_keeps_content_y_binding_without_repeated_elements() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;
@@ -2286,6 +2321,7 @@ fn test_scroll_into_view_stops_paging_a_growing_flickable() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;
@@ -2308,6 +2344,7 @@ fn test_scroll_into_view_reports_a_match_it_cant_reveal() {
     crate::init_no_event_loop();
 
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;

@@ -1810,6 +1810,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             import { ListView } from "std-widgets.slint";
             export component App inherits Window {
                 width: 100px;
@@ -1853,6 +1854,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             export component App inherits Window {
                 width: 100px;
                 height: 100px;
@@ -1888,6 +1890,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             export component App inherits Window {
                 width: 100px;
                 height: 100px;
@@ -1997,6 +2000,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             component Toggle inherits Rectangle {
                 @testable in-out property <bool> on;
                 @testable in property <string> caption;
@@ -2139,6 +2143,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             export component App inherits Window {
                 width: 100px;
                 height: 100px;
@@ -2359,6 +2364,7 @@ mod tests {
 
         crate::init_no_event_loop();
         slint::slint! {
+            #[slint_edition = "1.19"]
             component Item {
                 @testable in property <bool> selected;
                 @testable in property <float> amount;

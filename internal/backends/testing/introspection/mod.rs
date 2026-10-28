@@ -1246,6 +1246,7 @@ fn test_query_element_descendants_by_property_matchers() {
 
     crate::init_no_event_loop();
     slint::slint! {
+        #[slint_edition = "1.19"]
         component Item {
             @testable in property <string> state: "idle";
         }
