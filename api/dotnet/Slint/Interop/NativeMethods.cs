@@ -634,6 +634,29 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_value_image_to_rgba8(ValueHandle value, byte* output, nuint len);
 
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_value_new_image_from_gl_texture(
+        uint textureId, uint width, uint height, [MarshalAs(UnmanagedType.U1)] bool bottomLeft);
+
+    // rendering.rs
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_backend_select(int api, int major, int minor, Utf8Str backend, Utf8Str renderer);
+
+    [LibraryImport(Library)]
+    public static partial int slint_dotnet_window_set_rendering_notifier(
+        ComponentInstanceHandle instance,
+        delegate* unmanaged<nint, int, nint, void> call,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData);
+
+    [LibraryImport(Library)]
+    public static partial int slint_dotnet_graphics_api_kind(nint api);
+
+    [LibraryImport(Library)]
+    public static partial nint slint_dotnet_graphics_api_get_proc_address(nint api, Utf8Str name);
+
 #if ANDROID
     // android.rs
 

@@ -187,6 +187,25 @@ public sealed unsafe class Image : IDisposable
     /// <exception cref="SlintException"><paramref name="pixels"/> doesn't have <c>width * height * 3</c> bytes.</exception>
     public static Image FromRgb8(int width, int height, ReadOnlySpan<byte> pixels) => FromPixels(width, height, pixels, alpha: false);
 
+    /// <summary>
+    /// Creates an image that shows an OpenGL texture, which stays yours to delete.
+    /// Create the texture in a <see cref="Window.SetRenderingNotifier"/> callback,
+    /// with the window's context, as a <c>GL_TEXTURE_2D</c> with <c>GL_RGBA</c> pixels,
+    /// and show the image in that window only.
+    /// </summary>
+    /// <param name="textureId">The texture's name, from <c>glGenTextures</c>.</param>
+    /// <param name="width">The texture's width in pixels.</param>
+    /// <param name="height">The texture's height in pixels.</param>
+    /// <param name="origin">Where the first row of the texture is, at the top by default.</param>
+    public static Image FromBorrowedOpenGLTexture(uint textureId, int width, int height, BorrowedOpenGLTextureOrigin origin = BorrowedOpenGLTextureOrigin.TopLeft)
+    {
+        ArgumentOutOfRangeException.ThrowIfZero(textureId);
+        ArgumentOutOfRangeException.ThrowIfNegative(width);
+        ArgumentOutOfRangeException.ThrowIfNegative(height);
+        return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_image_from_gl_texture(
+            textureId, (uint)width, (uint)height, origin == BorrowedOpenGLTextureOrigin.BottomLeft))));
+    }
+
     private static Image FromPixels(int width, int height, ReadOnlySpan<byte> pixels, bool alpha)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(width);

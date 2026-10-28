@@ -12,3 +12,13 @@ This is implemented using the `set_rendering_notifier` function on the `slint::W
 Since the graphical effect is continuous, the code in the callback requests a redraw of the contents by calling `slint::Window::request_redraw()`.
 
 ![Screenshot of the OpenGL Texture Example on macOS](https://github.com/slint-ui/slint/assets/1486/b9f1f6cf-3859-418e-9662-0c7170c3b1f2 "OpenGL Texture")
+
+## C#
+
+The C# version is in [`dotnet/Program.cs`](./dotnet/Program.cs).
+It renders into a texture like the Rust version, and shows it with `Image.FromBorrowedOpenGLTexture`.
+It loads the OpenGL functions it calls with `GraphicsApi.GetProcAddress`, in [`dotnet/GL.cs`](./dotnet/GL.cs).
+
+```sh
+dotnet run --project examples/opengl_texture/dotnet
+```

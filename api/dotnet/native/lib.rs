@@ -18,6 +18,7 @@ mod brush;
 mod instance;
 mod interpreter;
 mod models;
+mod rendering;
 mod special;
 #[cfg(feature = "testing")]
 mod testing;
@@ -172,10 +173,37 @@ fn claim_if_unclaimed() {
 
 /// Runs `f` on the Slint thread, turning an error or a panic into the thread's last error and `on_error`.
 fn guard<T>(on_error: T, f: impl FnOnce() -> Result<T, String>) -> T {
-    let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    guard_any_thread(on_error, || {
         check_thread()?;
         f()
-    }));
+    })
+}
+
+/// Like `guard`, for `slint_dotnet_backend_select`: claims the Slint thread without creating the default platform,
+/// so that `f` can create another one, and fails after any other use of Slint.
+/// If `f` fails, the default platform takes its place.
+fn guard_selection(f: impl FnOnce() -> Result<(), String>) -> bool {
+    guard_any_thread(false, || {
+        let current = std::thread::current().id();
+        let mut claimed = false;
+        SLINT_THREAD.get_or_init(|| {
+            claimed = true;
+            current
+        });
+        if !claimed {
+            return Err("Select the backend before any other use of Slint".into());
+        }
+        let result = f();
+        if result.is_err() {
+            let _ = i_slint_backend_selector::with_platform(|_| Ok(()));
+        }
+        result.map(|()| true)
+    })
+}
+
+/// Turns an error or a panic of `f` into the thread's last error and `on_error`.
+fn guard_any_thread<T>(on_error: T, f: impl FnOnce() -> Result<T, String>) -> T {
+    let result = std::panic::catch_unwind(AssertUnwindSafe(f));
     let message = match result {
         Ok(Ok(value)) => return value,
         Ok(Err(message)) => message,

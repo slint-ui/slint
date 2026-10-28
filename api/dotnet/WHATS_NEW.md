@@ -6,6 +6,10 @@
 - Structs, and so records, cross into Slint in one call per struct instead of three per field,
   with numbers passed inline and field names encoded once.
   This takes about 6% off the Slint thread's work in the lols example on an Android emulator.
+- Draw with OpenGL below or on top of the scene, or into a texture that an `Image` shows:
+  `BackendSelector` requires a renderer that uses OpenGL, `Window.SetRenderingNotifier` runs code in each phase of rendering,
+  and `Image.FromBorrowedOpenGLTexture` shows a texture.
+  The examples `opengl_underlay` and `opengl_texture` have C# versions that use them.
 
 ## 1.19.0-preview.8
 

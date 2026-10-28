@@ -178,6 +178,38 @@ pub unsafe extern "C" fn slint_dotnet_value_new_image_from_pixels(
     })
 }
 
+/// An image of an OpenGL texture of the window's context, which stays owned by the caller;
+/// `bottom_left` flips it for a texture whose origin is at the bottom left, as OpenGL draws by default.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_value_new_image_from_gl_texture(
+    texture_id: u32,
+    width: u32,
+    height: u32,
+    bottom_left: bool,
+) -> *mut Value {
+    use i_slint_core::graphics::{
+        BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin, IntSize,
+    };
+    guard(std::ptr::null_mut(), || {
+        let texture_id =
+            std::num::NonZeroU32::new(texture_id).ok_or("0 isn't an OpenGL texture")?;
+        let origin = if bottom_left {
+            BorrowedOpenGLTextureOrigin::BottomLeft
+        } else {
+            BorrowedOpenGLTextureOrigin::TopLeft
+        };
+        let image = unsafe {
+            BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
+                texture_id,
+                IntSize::new(width, height),
+            )
+        }
+        .origin(origin)
+        .build();
+        Ok(into_raw(Value::Image(image)))
+    })
+}
+
 /// Decodes `data`, such as a PNG, JPEG, or SVG file; an empty `format` guesses it from the data.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_value_new_image_from_data(

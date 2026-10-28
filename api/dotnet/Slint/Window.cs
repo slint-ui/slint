@@ -132,6 +132,33 @@ public sealed unsafe class Window
         Checked(h => NativeMethods.slint_dotnet_window_on_close_requested(h, &CloseTrampoline, userData, &ActionTrampoline.Release));
     }
 
+    /// <summary>
+    /// Sets the <paramref name="notifier"/> that runs in each phase of rendering the window,
+    /// to draw below or on top of the scene with the graphics API that Slint renders with.
+    /// It runs on the Slint thread.
+    /// </summary>
+    /// <exception cref="NotSupportedException">
+    /// The renderer doesn't support notifiers; select one that renders with OpenGL with <see cref="BackendSelector"/>.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">The window has a notifier already.</exception>
+    public void SetRenderingNotifier(RenderingNotifier notifier)
+    {
+        ArgumentNullException.ThrowIfNull(notifier);
+        // The native side owns this handle from here.
+        var userData = GCHandle.ToIntPtr(GCHandle.Alloc(notifier));
+        var result = NativeMethods.slint_dotnet_window_set_rendering_notifier(_instance, &RenderingTrampoline, userData, &ActionTrampoline.Release);
+        switch (result)
+        {
+            case 1:
+                throw new NotSupportedException("The renderer doesn't support rendering notifiers; select one that renders with OpenGL with BackendSelector");
+            case 2:
+                throw new InvalidOperationException("The window has a rendering notifier already");
+            default:
+                NativeError.Check(result == 0);
+                break;
+        }
+    }
+
     /// <summary>Sends <paramref name="windowEvent"/> to the window, as if it came from the windowing system.</summary>
     public WindowEventDispatchResult DispatchEvent(WindowEvent windowEvent)
     {
@@ -174,6 +201,19 @@ public sealed unsafe class Window
         {
             NativeError.SetPending(e);
             return (int)CloseRequestResponse.HideWindow;
+        }
+    }
+
+    [UnmanagedCallersOnly]
+    private static void RenderingTrampoline(nint userData, int state, nint api)
+    {
+        try
+        {
+            ((RenderingNotifier)GCHandle.FromIntPtr(userData).Target!)((RenderingState)state, new GraphicsApi(api));
+        }
+        catch (Exception e)
+        {
+            NativeError.SetPending(e);
         }
     }
 

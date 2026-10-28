@@ -53,7 +53,8 @@ Every export in `api/dotnet/native` follows these rules:
 - A managed callback is a function pointer plus a `GCHandle` as user data.
   Rust calls the drop function pointer when it drops the closure, which frees the `GCHandle`.
 - Slint objects are `!Send`.
-  The first call claims the Slint thread and creates the platform there.
+  The first call claims the Slint thread and creates the platform there,
+  except `slint_dotnet_backend_select`, which claims it so that `BackendSelector` can create another platform.
   Calls from any other thread fail with an error.
 - Objects released on another thread, such as by the .NET finalizer, are dropped on the Slint thread through `invoke_from_event_loop`.
 - An exception thrown by a .NET callback is kept until the native call returns, then rethrown.
@@ -383,7 +384,7 @@ Done:
 - **12.** Project directories, with `<SlintProject>`, see [MSBuild](#msbuild).
   They compile and load with the edition and the settings of their `slint-project.json`.
   A `.slint` path still compiles without a project file, and so without an edition.
-- **15.** C# ports of the examples and demos, see [Samples](#samples): 29 projects in `examples/dotnet.slnx`.
+- **15.** C# ports of the examples and demos, see [Samples](#samples): 31 projects in `examples/dotnet.slnx`.
   - Ports of the samples with Python or JavaScript logic, such as `todo`, `printerdemo`, `dnd-kanban`, and `slide_puzzle`.
   - Ports of the samples with logic only in Rust, such as `7guis`, `todo-mvc`, `gallery`, and `usecases`.
   - `imagefilter`, `plotter`, and `maps`, whose images come from pixels and downloads, with filters and a 3D plot in plain C#.
@@ -397,8 +398,9 @@ Done:
     and their `nuget.config` with the `dotnet6` feed is gone.
   - The ports needed `Window.DispatchEvent`, `DataTransfer.UserData`, `FilterModel` and `SortModel` with `SourceRow` and `Reset`,
     `Keys.ToParts`, the `Image` functions for pixels and data, and tray icon components without `Window` and `Run`.
-  - Not ported: the samples for embedded platforms, GPU textures, and native media,
-    such as `mcu-*`, `uefi-demo`, `opengl_*`, `wgpu_texture`, `bevy`, `vtk`, `ffmpeg`, `gstreamer-player`, and `servo`; see items 17 and 18.
+  - `opengl_underlay` and `opengl_texture` draw with OpenGL, see item 18.
+  - Not ported: the samples for embedded platforms, WGPU, and native media,
+    such as `mcu-*`, `uefi-demo`, `wgpu_texture`, `bevy`, `vtk`, `ffmpeg`, `gstreamer-player`, and `servo`; see items 17 and 18.
   - The stock quote service of `async-io` no longer answers in any language, so the C# version reports the error.
 - **11.** On Windows, a clear exception in `Create` and `Run` for a thread that isn't in a single-threaded apartment,
   instead of a winit panic, see [Threading and macOS](#threading-and-macos).
@@ -455,6 +457,14 @@ Done:
     every app build would need a Rust or C++ toolchain for each target, compiled components would need a C ABI and C# wrappers of their own,
     and live reload and loading `.slint` files at run time would go.
 
+- **18.** Drawing with OpenGL, for the samples `opengl_underlay` and `opengl_texture`.
+  `BackendSelector` requires a renderer that uses OpenGL, `Window.SetRenderingNotifier` passes each `RenderingState`
+  and a `GraphicsApi`, whose `GetProcAddress` loads OpenGL functions, and `Image.FromBorrowedOpenGLTexture` shows a texture.
+  The C# samples call OpenGL through function pointers in a small `GL` class, without a binding library,
+  and pick GLSL 1.50 or ES 3.00 at run time, since macOS only has desktop OpenGL.
+  `wgpu_texture` and `bevy` aren't portable: Slint's WGPU notifier hands over Rust `wgpu` objects,
+  which C# can't use, and Bevy is a Rust engine.
+
 Next:
 
 - **10.** A C# tab in the pages of the documentation website that have a Python tab, and in `live-preview.mdx`,
@@ -492,8 +502,6 @@ Next:
     instead of `UIApplication.Main`.
     `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`.
     The first prototype checks that P/Invoke resolves into the statically linked library, and that the app starts in the simulator.
-- **18.** Rendering notifiers and textures from OpenGL or WGPU, which the samples `opengl_texture`, `opengl_underlay`,
-  `wgpu_texture`, and `bevy` need, so that C# can draw into a scene or show a texture of its own.
 
 ## Live Reload
 

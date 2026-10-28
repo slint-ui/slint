@@ -11,3 +11,13 @@ This is implemented using the `set_rendering_notifier` function on the `slint::W
 Since the graphical effect is continuous, the code in the callback requests a redraw of the contents by calling `slint::Window::request_redraw()`.
 
 ![Screenshot of OpenGL Underlay](https://slint.dev/resources/opengl_underlay_screenshot.png "OpenGL Underlay screenshot")
+
+## C#
+
+The C# version is in [`dotnet/Program.cs`](./dotnet/Program.cs).
+It requires an OpenGL renderer with `BackendSelector`, sets the notifier with `Window.SetRenderingNotifier`,
+and loads the OpenGL functions it calls with `GraphicsApi.GetProcAddress`, in [`dotnet/GL.cs`](./dotnet/GL.cs).
+
+```sh
+dotnet run --project examples/opengl_underlay/dotnet
+```

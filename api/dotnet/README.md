@@ -215,6 +215,38 @@ app.Window.DispatchEvent(new WindowEvent.KeyPressed("a"));
 app.Window.DispatchEvent(new WindowEvent.KeyReleased("a"));
 ```
 
+### Drawing With OpenGL
+
+Draw below or on top of the scene, or into a texture that an `Image` shows, with OpenGL.
+Require a renderer that uses OpenGL before any other use of Slint, then set a rendering notifier:
+
+```csharp
+new BackendSelector().RequireOpenGL().Select();
+using var app = AppWindow.Create();
+app.Window.SetRenderingNotifier((state, api) =>
+{
+    switch (state)
+    {
+        case RenderingState.RenderingSetup:
+            // Load the OpenGL functions, such as with api.GetProcAddress("glDrawArrays"), and create resources.
+            break;
+        case RenderingState.BeforeRendering:
+            // Draw below the scene, or into a texture: app.Texture = Image.FromBorrowedOpenGLTexture(texture, width, height);
+            break;
+        case RenderingState.RenderingTeardown:
+            // Release the resources.
+            break;
+    }
+});
+app.Run();
+```
+
+The notifier runs with the window's OpenGL context current, so restore the state that it changes, such as bound buffers.
+`GraphicsApi` is valid during the call only, while the function addresses stay valid with the context.
+The examples [`opengl_underlay`](https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_underlay/dotnet)
+and [`opengl_texture`](https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_texture/dotnet) show both ways.
+WGPU and Metal give C# no access to Slint's device, so drawing with them isn't available.
+
 ## Models
 
 Use a `ListModel<T>` for the rows of a `for` repeater, or any array property.

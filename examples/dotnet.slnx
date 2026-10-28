@@ -31,4 +31,6 @@
   <Project Path="../demos/launcher/dotnet/Launcher.csproj" />
   <Project Path="../demos/weather-demo/dotnet/WeatherDemo.csproj" />
   <Project Path="lols/dotnet/Lols.csproj" />
+  <Project Path="opengl_underlay/dotnet/OpenGLUnderlay.csproj" />
+  <Project Path="opengl_texture/dotnet/OpenGLTexture.csproj" />
 </Solution>

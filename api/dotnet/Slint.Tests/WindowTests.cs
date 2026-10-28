@@ -30,6 +30,31 @@ public sealed class WindowTests
     });
 
     [TestMethod]
+    public void SelectingTheBackendFailsAfterSlintIsInUse() => SlintThread.Run(() =>
+    {
+        using var app = CreateApp();
+        var error = Assert.ThrowsExactly<SlintException>(() => new BackendSelector().RequireOpenGL().Select());
+        StringAssert.Contains(error.Message, "before any other use of Slint");
+    });
+
+    [TestMethod]
+    public void RendererWithoutNotifiersRejectsThem() => SlintThread.Run(() =>
+    {
+        using var app = CreateApp();
+        // The testing backend draws nothing, so it has no graphics API to report.
+        Assert.ThrowsExactly<NotSupportedException>(() => app.Window.SetRenderingNotifier((_, _) => Assert.Fail("the notifier ran")));
+    });
+
+    [TestMethod]
+    public void BorrowedOpenGLTexturesKeepTheirSize() => SlintThread.Run(() =>
+    {
+        using var image = Image.FromBorrowedOpenGLTexture(7, 320, 200, BorrowedOpenGLTextureOrigin.BottomLeft);
+        Assert.AreEqual(320, image.Width);
+        Assert.AreEqual(200, image.Height);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Image.FromBorrowedOpenGLTexture(0, 1, 1));
+    });
+
+    [TestMethod]
     public void SizesRoundTrip() => SlintThread.Run(() =>
     {
         using var app = CreateApp();
