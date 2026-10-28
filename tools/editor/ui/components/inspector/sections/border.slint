@@ -17,13 +17,15 @@ export component InspectorBorderSection inherits InspectorSection {
         InspectorValueField {
             property <PropertyValue> border-value: Api.source-property-value-data("border-width", {});
             accessible-name: @tr("Border width");
-            value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : InspectorContext.property-length-label("border-width", "0");
+            value: self.border-value.value-resolved || InspectorContext.has-pending-number("border-width")
+                ? "\{InspectorContext.number-value("border-width", self.border-value.value-float)}"
+                : InspectorContext.property-length-label("border-width", "0");
             suffix: "px";
             suffix-width: Metrics.icon-small;
             commit-key: InspectorContext.inspector-key;
             scrubbable: true;
             scrub-on-suffix: true;
-            scrub-value: self.border-value.value-float;
+            scrub-value: InspectorContext.number-value("border-width", self.border-value.value-float);
             scrub-has-minimum: true;
             scrub-preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "border-width", value); }
             scrub-accepted(value) => { return InspectorContext.commit-inspector("border-width", value); }

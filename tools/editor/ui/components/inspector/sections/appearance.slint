@@ -43,7 +43,7 @@ export component InspectorAppearanceSection inherits InspectorSection {
 
         if InspectorContext.is-rectangle-selection(): InspectorColorField {
             accessible-name: @tr("Rectangle background");
-            element-rotation: InspectorContext.control-values[0];
+            element-rotation: InspectorContext.control-values.rotation;
             target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
             value: Api.source-property-value("background", "");
             swatch: InspectorContext.property-brush("background");
@@ -77,7 +77,7 @@ export component InspectorAppearanceSection inherits InspectorSection {
         padding-right: root.style.padding;
         InspectorCornerEditor {
             width: root.pane-width - 2 * root.style.padding - Metrics.border-width;
-            values: [InspectorContext.control-values[1], InspectorContext.control-values[2], InspectorContext.control-values[3], InspectorContext.control-values[4]];
+            values: [InspectorContext.control-values.top-left-radius, InspectorContext.control-values.top-right-radius, InspectorContext.control-values.bottom-left-radius, InspectorContext.control-values.bottom-right-radius];
             maximum: min(InspectorContext.selected-width(), InspectorContext.selected-height()) / 2px;
             selection-key: InspectorContext.selection-key;
             commit-key: InspectorContext.inspector-key;
