@@ -371,7 +371,7 @@ export component Example inherits Window {
 
 ### `for`
 
-The VerticalLayout and HorizontalLayout can also contain `for` or `if` expressions:
+The VerticalLayout and HorizontalLayout can also contain `for` expressions, which add an element for each entry of a model:
 
 <CodeSnippetMD imagePath="/src/assets/generated/layouts-for-loop.png"  imageWidth="200" imageHeight="200" imageAlt='Explicit Placement'>
 ```slint
@@ -388,6 +388,29 @@ export component Example inherits Window {
 }
 ```
 </CodeSnippetMD>
+
+### `if`
+
+Use an `if` expression to add or remove an element from a layout.
+The `visible` property doesn't do that: an invisible element still takes up its space, plus the spacing around it.
+
+<CodeSnippetMD imagePath="/src/assets/generated/layouts-conditional.png"  imageWidth="200" imageHeight="50" imageAlt='Conditional element in a layout'>
+```slint
+export component Example inherits Window {
+    width: 200px;
+    height: 50px;
+    in property <bool> show-details: true;
+    HorizontalLayout {
+        spacing: 5px;
+        Rectangle { background: green; }
+        if root.show-details : Rectangle { background: orange; }
+        Rectangle { background: blue; }
+    }
+}
+```
+</CodeSnippetMD>
+
+When `show-details` is `false`, the green and blue rectangles share the whole width.
 
 ## GridLayout
 
