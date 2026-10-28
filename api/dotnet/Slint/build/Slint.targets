@@ -52,10 +52,11 @@
     <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../ios/slint_dotnet.xcframework</_SlintIOSLibrary>
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios' and !Exists('$(_SlintIOSLibrary)')">$(MSBuildThisFileDirectory)../../../../target/ios/slint_dotnet.xcframework</_SlintIOSLibrary>
+    <_SlintIOSLibrary Condition="'$(_SlintIOSLibrary)' != ''">$([System.IO.Path]::GetFullPath('$(_SlintIOSLibrary)'))</_SlintIOSLibrary>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(_SlintPlatform)' == 'ios' and Exists('$(_SlintIOSLibrary)')">
-    <NativeReference Include="$([System.IO.Path]::GetFullPath('$(_SlintIOSLibrary)'))" Kind="Framework" />
+    <NativeReference Include="$(_SlintIOSLibrary)" Kind="Framework" />
   </ItemGroup>
 
   <ItemGroup>
