@@ -142,9 +142,9 @@ export component InspectorPane inherits Rectangle {
                     field-width: root.field-width;
                     popup-bottom: root.popup-bottom;
                 }
-                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() || InspectorContext.is-lineedit-selection(): InspectorTextAlignmentSection {
+                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() || InspectorContext.has-only-horizontal-alignment(): InspectorTextAlignmentSection {
                     popup-bottom: root.popup-bottom;
-                    show-vertical: !InspectorContext.is-lineedit-selection();
+                    show-vertical: !InspectorContext.has-only-horizontal-alignment();
                 }
                 if InspectorContext.is-text-selection(): InspectorTextWrapSection {
                     popup-bottom: root.popup-bottom;
