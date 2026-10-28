@@ -6,11 +6,12 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- - **Breaking:** Experimental features are enabled by name. `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` is now an error.
+ - **Breaking:** To enable experimental features, list their names in `SLINT_ENABLE_EXPERIMENTAL_FEATURES`,
+   or in the `experimental-features` key of `slint-project.json`. `1` and unknown names are errors.
  - Added `slint-project.json` project files to configure the main file, paths, and experimental
    features of a project. Pass the project directory to the compiler to use it.
- - Added editions: set `slint-edition` in `slint-project.json`, or `#[slint_edition]` in `slint!`,
-   to the Slint release whose language behavior your project uses. (#14172)
+ - Added editions: to opt into a release's language changes, set `slint-edition` in `slint-project.json`,
+   or `#[slint_edition = "1.19"]` in `slint!`. (#14172)
  - `Image` plays animated GIF, PNG, and WebP images.
  - On Windows, animations respect the system's reduced-motion setting.
  - Fixed the default font family on macOS, iOS, and Windows. (#13540)
@@ -221,6 +222,8 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - **Breaking:** `SLINT_FEATURE_EXPERIMENTAL` no longer enables the experimental language features.
+   List their names in `SLINT_ENABLE_EXPERIMENTAL_FEATURES` or in `slint-project.json` instead.
+ - **Breaking:** A namespace starting with `slint`, such as `slint::ui`, is rejected.
  - Added web support with Emscripten. (#13581)
  - Added iOS support.
  - Added `slint::select_backend()` to select a backend, renderer, or graphics API.
@@ -235,7 +238,6 @@ All notable changes to this project are documented in this file.
  - `SharedString`: Fixed a crash with a default-constructed `std::string_view`.
  - Fixed a crash on startup with the wgpu or Vello renderer.
  - Fixed generated code in a namespace with a nested `slint` part, such as `my::slint::ui`. (#7134)
- - **Breaking:** A namespace starting with `slint`, such as `slint::ui`, is rejected.
  - Fixed embedded fonts in generated code with MSVC.
  - Fixed `-Wtautological-compare` errors in the generated code. (#8295)
  - Fixed including `slint-testing.h` twice.
@@ -264,7 +266,8 @@ All notable changes to this project are documented in this file.
 ### Python
 
  - Added `MapModel`, `ReverseModel`, `FilterModel`, and `SortModel`.
- - Fixed names that are Python keywords or `self`.
+ - Names that are Python keywords or `self`, such as a struct field `class`, are accessible with a
+   trailing `_`, as in the type hints.
 
 ### Tooling
 
