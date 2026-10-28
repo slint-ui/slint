@@ -503,6 +503,16 @@ Next:
     instead of `UIApplication.Main`.
     `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`.
     The first prototype checks that P/Invoke resolves into the statically linked library, and that the app starts in the simulator.
+  - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
+    for samples published from the 1.19.0-preview.9 package for `linux-arm64`, run as root on the console:
+    - The software renderer runs all the tested samples, including the Gallery, the printer demo, and lols,
+      and libinput delivers keys and clicks: a virtual keyboard from `/dev/uinput` adds a todo.
+    - The OpenGL renderers failed at the first frame, because `GbmDisplay` named a modifier to a driver
+      without `DRM_CAP_ADDFB2_MODIFIERS`. It now checks the capability, like `GbmDmabufDisplay`,
+      and Skia, FemtoVG, and both OpenGL samples render; that change in `internal/backends/linuxkms` goes upstream on its own.
+    - Building `slint-dotnet` without the `live-preview` feature failed, since `is_window` needs the interpreter's `internal` feature,
+      which `Cargo.toml` now enables directly.
+    - Next: a Raspberry Pi, for real hardware and a touchscreen, and a `vkms` job in CI for the software renderer.
 
 ## Live Reload
 
