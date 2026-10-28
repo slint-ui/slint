@@ -3761,7 +3761,11 @@ mod tests {
             global.set_compiling(compiling);
             assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Stale);
         }
-        apply_availability_test_source(&editor, "export Main := Rectangle {}", true);
+        apply_availability_test_source(
+            &editor,
+            "export component Main inherits Rectangle { color: red; }",
+            true,
+        );
         assert_eq!(global.get_preview_availability(), ui::PreviewAvailability::Current);
         assert!(global.get_preview_editable());
         assert_eq!(global.get_errors().row_count(), 0);

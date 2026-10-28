@@ -36,8 +36,7 @@ global MyType := {
 //  >             <error{Functions must have a code block}
 }
 
-export SuperSimple := Rectangle {
-//                 ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component SuperSimple inherits Rectangle {
     MyType {
 //  >     <error{Cannot create an instance of a global component}
         ccc: "hello";
