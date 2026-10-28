@@ -1107,25 +1107,18 @@ fn directory_without_project_file_is_a_compilation_error() {
 }
 
 #[test]
-fn project_file_cannot_be_compiled_directly() {
+fn project_file_can_be_compiled_directly() {
     with_temp_test_dir("direct-project-file", |test_root| {
         let project_file = project_file_path_in(test_root);
         std::fs::write(&project_file, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
-        let error = compile_with_output_path(
+        std::fs::write(test_root.join("main.slint"), "export component Main inherits Window { }")
+            .unwrap();
+        let dependencies = compile_with_output_path(
             &project_file,
             test_root.join("main.rs"),
             CompilerConfiguration::new(),
         )
-        .unwrap_err();
-        let CompileError::CompileError(messages) = error else {
-            panic!("Expected a compilation error, got {error:?}");
-        };
-        assert_eq!(
-            messages,
-            vec![format!(
-                "A `{PROJECT_FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
-                test_root.display()
-            )]
-        );
+        .unwrap();
+        assert!(dependencies.contains(&i_slint_compiler::source_path::clean_path(&project_file)));
     });
 }
