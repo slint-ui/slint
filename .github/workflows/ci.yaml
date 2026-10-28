@@ -283,6 +283,13 @@ jobs:
             DOTNET_NOLOGO: 1
         steps:
             - uses: actions/checkout@v7
+            # The .NET iOS workload of the pinned .NET SDK requires this Xcode, which isn't the image's default.
+            - name: Select Xcode 27.1
+              run: |
+                  ls -d /Applications/Xcode*.app
+                  xcode=$(ls -d /Applications/Xcode_27.1*.app 2> /dev/null | tail -n 1)
+                  sudo xcode-select -s "${xcode:?Xcode 27.1 isn't on this runner}"
+                  xcodebuild -version
             - uses: ./.github/actions/setup-rust
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
