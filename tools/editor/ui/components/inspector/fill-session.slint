@@ -20,6 +20,8 @@ export struct FillSessionRequest {
     allow-gradient: bool,
     anchor-position: Point,
     anchor-size: Size,
+    activation-position: Point,
+    activation-size: Size,
 }
 
 export global FillSession {
@@ -48,6 +50,7 @@ export global FillSession {
     private property <bool> session-active;
     out property <bool> editable: open && !Api.inspector-fill-refresh-pending && !request.unsupported;
     out property <int> focus-generation;
+    out property <int> anchor-focus-generation;
     private property <bool> canvas-editable: editable && session-active && request.target.canvas
         && Api.current-element.type-name == "Rectangle"
         && Api.selection.highlight-index >= 0;
@@ -267,6 +270,17 @@ export global FillSession {
         FillSession.last-gradient = fill.kind == BrushKind.solid ? FillSession.last-gradient : fill.kind;
         FillSession.preview-fill(FillSession.draft);
         FillSession.reset-axis();
+    }
+
+    public function focus-anchor(position: Point) -> bool {
+        let origin = FillSession.request.activation-position;
+        let size = FillSession.request.activation-size;
+        if !FillSession.open || position.x < origin.x || position.y < origin.y
+            || position.x >= origin.x + size.width || position.y >= origin.y + size.height {
+            return false;
+        }
+        FillSession.anchor-focus-generation += 1;
+        return true;
     }
 
     public function begin(request: FillSessionRequest) {
