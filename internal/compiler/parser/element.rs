@@ -401,12 +401,18 @@ fn parse_if_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "if");
     let mut p = p.start_node(SyntaxKind::ConditionalElement);
     p.expect(SyntaxKind::Identifier); // "if"
-    parse_expression(&mut *p);
-    if !expect_colon_before_sub_element(&mut *p) {
+    parse_conditional_tail(&mut *p);
+}
+
+/// Parse `<condition> : <sub-element>` and any following branch, with the `if` already consumed.
+/// Shared by the leading `if` and each `else if`, whose tails are identical.
+fn parse_conditional_tail(p: &mut impl Parser) {
+    parse_expression(p);
+    if !expect_colon_before_sub_element(p) {
         return;
     }
-    parse_sub_element(&mut *p);
-    parse_else_branch(&mut *p);
+    parse_sub_element(p);
+    parse_else_branch(p);
 }
 
 /// Expect the `:` that separates a conditional's condition from its sub-element. On a missing
@@ -426,14 +432,16 @@ fn expect_colon_before_sub_element(p: &mut impl Parser) -> bool {
 /// `else { }` and `else := E { }` instantiate a component named `else`, and `else : expr;`
 /// binds a property named `else`. The branch forms are `else if <cond> : E { }` and `else : E { }`.
 fn parse_else_branch(p: &mut impl Parser) {
-    if p.peek().as_str() != "else" {
+    // Look ahead without consuming whitespace: the conditional element is still open, so a plain
+    // peek would attach the trailing whitespace and comment to it when no branch follows.
+    if p.nth_no_consume_ws(0).as_str() != "else" {
         return;
     }
-    let is_else_if = p.nth(1).as_str() == "if"
-        && !matches!(p.nth(2).kind(), SyntaxKind::LBrace | SyntaxKind::ColonEqual);
+    let is_else_if = p.nth_no_consume_ws(1).as_str() == "if"
+        && !matches!(p.nth_no_consume_ws(2).kind(), SyntaxKind::LBrace | SyntaxKind::ColonEqual);
     // Treat `else : …` as a branch only when a sub-element follows, so `else : expr;`
     // remains a binding of a property named `else`.
-    let is_else = p.nth(1).kind() == SyntaxKind::Colon && sub_element_follows(p, 2);
+    let is_else = p.nth_no_consume_ws(1).kind() == SyntaxKind::Colon && sub_element_follows(&*p, 2);
     if !is_else_if && !is_else {
         return;
     }
@@ -441,12 +449,7 @@ fn parse_else_branch(p: &mut impl Parser) {
     p.expect(SyntaxKind::Identifier); // "else"
     if is_else_if {
         p.expect(SyntaxKind::Identifier); // "if"
-        parse_expression(&mut *p);
-        if !expect_colon_before_sub_element(&mut *p) {
-            return;
-        }
-        parse_sub_element(&mut *p);
-        parse_else_branch(&mut *p);
+        parse_conditional_tail(&mut *p);
     } else {
         p.expect(SyntaxKind::Colon);
         parse_sub_element(&mut *p);
@@ -456,18 +459,22 @@ fn parse_else_branch(p: &mut impl Parser) {
 /// Whether the tokens starting at offset `i` look like a sub-element (`[id :=] Name { … }`),
 /// as opposed to an expression. Used to tell `else : Elem { }` from `else : expr;`.
 /// Keep this in sync with the prefix that [`parse_sub_element`] accepts.
-fn sub_element_follows(p: &mut impl Parser, mut i: usize) -> bool {
-    if p.nth(i).kind() == SyntaxKind::Identifier && p.nth(i + 1).kind() == SyntaxKind::ColonEqual {
+fn sub_element_follows(p: &impl Parser, mut i: usize) -> bool {
+    if p.nth_no_consume_ws(i).kind() == SyntaxKind::Identifier
+        && p.nth_no_consume_ws(i + 1).kind() == SyntaxKind::ColonEqual
+    {
         i += 2;
     }
-    if p.nth(i).kind() != SyntaxKind::Identifier {
+    if p.nth_no_consume_ws(i).kind() != SyntaxKind::Identifier {
         return false;
     }
     i += 1;
-    while p.nth(i).kind() == SyntaxKind::Dot && p.nth(i + 1).kind() == SyntaxKind::Identifier {
+    while p.nth_no_consume_ws(i).kind() == SyntaxKind::Dot
+        && p.nth_no_consume_ws(i + 1).kind() == SyntaxKind::Identifier
+    {
         i += 2;
     }
-    p.nth(i).kind() == SyntaxKind::LBrace
+    p.nth_no_consume_ws(i).kind() == SyntaxKind::LBrace
 }
 
 #[cfg_attr(test, parser_test)]
