@@ -470,10 +470,22 @@ Next:
     On a Pixel 9 emulator, both together took the Slint thread's CPU time during the test from about 3050 to 2830 ms in the elements mode,
     and from 500 to 470 ms in the canvas mode, about 6%; LOL/s is bound by the producer's sleeps in both.
     What's left is Slint's own work: in the canvas mode, the Slint thread is busy for almost the whole test.
-  - Next, a profile of the Slint thread on a phone with `simpleperf`, to find out how much of a frame is rendering,
-    text, and the repeater, and whether it differs from a Rust app with the same `.slint` file.
-    What the bindings could still save is small: a generated record converts through a `Struct` dictionary per row,
-    which the generator could replace with a direct conversion.
+  - Profiles of lols, against a Rust version with the same `.slint` file, logic, and Skia renderer,
+    with `sample` on macOS and `simpleperf` on a Pixel 9 emulator:
+    - On macOS, `canvas` keeps the Slint thread busy in both languages, 65 to 69% of it in Skia rasterizing the glyphs of rotated text.
+      The interpreter and the bindings add about 5% in C#.
+      In `elements`, the Slint thread is busy 32% of the time in C# and 21% in Rust:
+      the interpreter evaluates the row bindings and creates a `Text` per row (about 8 points),
+      and the bindings convert rows (about 3).
+    - On the emulator, the Slint thread's CPU time during the test is 450 ms in C# and 390 ms in Rust for `canvas`,
+      and 2570 ms in C# and 1690 ms in Rust for `elements`, at the same LOL/s.
+      In `elements`, the interpreter cloning expressions and allocating for each new row dominates the difference.
+    - Every export checks the Slint thread with `std::thread::current`, which costs a `pthread_getspecific` call on Android,
+      about 5% of the busy time in `canvas`.
+      Reading the thread from a register instead made no measurable difference, so the check stays.
+    - What the bindings could still save is small: a generated record converts through a `Struct` dictionary per row,
+      which the generator could replace with a direct conversion.
+      The larger share is the interpreter's, and so a matter of Slint itself, see the next item.
   - LOL/s can't show such changes, since the producer's sleeps bound it.
     Compare the Slint thread's CPU time during the test instead, from `/proc/thread-self/stat`, on one emulator session.
     On a phone, the Slint thread draws frame after frame while the screen is on, so the frame rate shows the cost there,
