@@ -428,6 +428,10 @@ impl FemtoVGRenderer<WGPUBackend> {
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
+        // femtovg's backdrop blur copies the output texture before reading it.
+        if swapchain_capabilities.usages.contains(wgpu::TextureUsages::COPY_SRC) {
+            surface_config.usage |= wgpu::TextureUsages::COPY_SRC;
+        }
 
         if let Some(mode) = composite_alpha_mode(transparent, &swapchain_capabilities.alpha_modes) {
             surface_config.alpha_mode = mode;
@@ -599,6 +603,10 @@ impl FemtoVGWGPURenderer {
     }
 
     /// Render the scene to the given texture view, with the specified size and format.
+    ///
+    /// `BackdropBlur` needs `wgpu::TextureUsages::COPY_SRC` on the view's texture,
+    /// and the view must cover mip 0 of a single-layer texture.
+    /// Otherwise the backdrop stays sharp.
     pub fn render_to_texture_view(
         &self,
         texture_view: &wgpu::TextureView,
@@ -632,6 +640,8 @@ impl FemtoVGWGPURenderer {
 
     /// Render the scene to the given texture.
     /// This is a convenience method that creates a texture view for the entire texture and calls `render_to_texture_view`.
+    ///
+    /// `BackdropBlur` needs `wgpu::TextureUsages::COPY_SRC` on `texture`; see `render_to_texture_view`.
     pub fn render_to_texture(&self, texture: &wgpu::Texture) -> Result<(), PlatformError> {
         let size = texture.size();
         self.render_to_texture_view(

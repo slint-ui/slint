@@ -119,13 +119,13 @@ def test_property_access() -> None:
 
     brushval = instance.get_property("brushprop")
     assert str(brushval.color) == "argb(255, 255, 0, 255)"
-    instance.set_property("brushprop", Brush(Color("rgb(128, 128, 128)")))
+    instance.set_property("brushprop", Brush(Color("#808080")))
     brushval = instance.get_property("brushprop")
     assert str(brushval.color) == "argb(255, 128, 128, 128)"
 
     brushval = instance.get_property("colprop")
     assert str(brushval.color) == "argb(255, 0, 255, 0)"
-    instance.set_property("colprop", Color("rgb(128, 128, 128)"))
+    instance.set_property("colprop", Color("#808080"))
     brushval = instance.get_property("colprop")
     assert str(brushval.color) == "argb(255, 128, 128, 128)"
 

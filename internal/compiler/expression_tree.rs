@@ -94,11 +94,17 @@ fn builtin_function_is_const(
         | BuiltinFunction::TextInputPaste
         | BuiltinFunction::TextInputUndo
         | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::StyledTextSetSelectionOffsets
+        | BuiltinFunction::StyledTextSelectAll
+        | BuiltinFunction::StyledTextClearSelection
+        | BuiltinFunction::StyledTextCopy
         | BuiltinFunction::SwipeGestureHandlerCancel
         | BuiltinFunction::ContextMenuClose
         | BuiltinFunction::WindowClose
         | BuiltinFunction::WindowHide => false,
-        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => false,
+        BuiltinFunction::HasSelection
+        | BuiltinFunction::StyledTextHasSelection
+        | BuiltinFunction::ContextMenuIsOpen => false,
         BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
         BuiltinFunction::StringIsEmpty
         | BuiltinFunction::StringCharacterCount

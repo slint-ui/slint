@@ -30,10 +30,13 @@ locale-decimal-separator = ["dep:icu_decimal", "dep:icu_locale_core", "dep:icu_p
 # The `TexturePixelFormat` variants of the features of the same name in i-slint-core.
 image-pixel-format-gray8 = []
 image-pixel-format-rgb565 = []
+# Serialize the bitmap fonts.
+serde = ["dep:serde"]
 
 [dependencies]
 euclid = { workspace = true }
 fontique = { workspace = true, optional = true }
+serde = { workspace = true, optional = true, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
 resvg = { workspace = true, optional = true }
 pulldown-cmark = { version = "0.13.0", optional = true, default-features = false }

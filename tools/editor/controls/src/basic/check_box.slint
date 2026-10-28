@@ -2,13 +2,86 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { CheckBoxBase } from "../headless.slint";
-import {
-    CheckBoxStyle,
-    CheckBoxStateStyle,
-    CheckBoxStateStyles,
-} from "check_box_style.slint";
-import { CheckBoxStyles } from "check_box_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
+import { BasicTheme } from "theme.slint";
+
+export struct CheckBoxStateStyle {
+    indicator-color: brush,
+    checkmark-color: brush,
+    foreground-color: brush,
+    indicator-border-color: brush,
+}
+
+export struct CheckBoxStateStyles {
+    rest: CheckBoxStateStyle,
+    hover: CheckBoxStateStyle,
+    pressed: CheckBoxStateStyle,
+    disabled: CheckBoxStateStyle,
+}
+
+export struct CheckBoxStyle {
+    unchecked: CheckBoxStateStyles,
+    checked: CheckBoxStateStyles,
+    focus-color: brush,
+}
+
+export global CheckBoxStyles {
+    out property <CheckBoxStyle> standard: {
+        unchecked: {
+            rest: {
+                indicator-color: BasicTheme.background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            hover: {
+                indicator-color: BasicTheme.hover-background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            pressed: {
+                indicator-color: BasicTheme.pressed-background,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.border,
+            },
+            disabled: {
+                indicator-color: BasicTheme.disabled-background,
+                checkmark-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        checked: {
+            rest: {
+                indicator-color: BasicTheme.accent,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent,
+            },
+            hover: {
+                indicator-color: BasicTheme.accent-hover,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent-hover,
+            },
+            pressed: {
+                indicator-color: BasicTheme.accent-pressed,
+                checkmark-color: BasicTheme.accent-foreground,
+                foreground-color: BasicTheme.foreground,
+                indicator-border-color: BasicTheme.accent-pressed,
+            },
+            disabled: {
+                indicator-color: BasicTheme.disabled-background,
+                checkmark-color: BasicTheme.disabled-foreground,
+                foreground-color: BasicTheme.disabled-foreground,
+                indicator-border-color: BasicTheme.disabled-foreground,
+            },
+        },
+        focus-color: BasicTheme.focus,
+    };
+}
 
 export component CheckBox inherits CheckBoxBase {
     in property <CheckBoxStyle> style: CheckBoxStyles.standard;

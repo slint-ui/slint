@@ -368,7 +368,6 @@ pub fn set_preview_default_fonts(api: &Api<'_>, instance: &slint_interpreter::Co
         0,
         i_slint_core::lengths::LogicalLength::default(),
         i_slint_core::lengths::LogicalLength::default(),
-        1.0,
         false,
     );
     api.set_preview_default_font_family(font.family.unwrap_or_default());
@@ -2044,6 +2043,117 @@ mod tests {
     }
 
     #[test]
+    fn inspector_scrub_cursor_covers_the_field_and_yields_to_text_editing() {
+        use i_slint_core::{cursor::MouseCursorInner, items::BuiltInMouseCursor};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            source_uri: "file:///inspector.slint".into(),
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection {
+            highlight_index: 0,
+            is_resizable: true,
+            ..Default::default()
+        });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 160.,
+                height: 96.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_inspector_values(|_| {
+            std::rc::Rc::new(VecModel::from(vec![0., 12., 12., 12., 12.])).into()
+        });
+        api.on_inspector_preview(|_, _, _| true);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1000.));
+        slint::platform::update_timers_and_animations();
+        let image = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
+        assert_eq!((image.size().width, image.size().height), (32, 32));
+        let scrub_cursor =
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x: 16, hotspot_y: 16 };
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+
+        for separate in [false, true] {
+            if separate {
+                find_element(&editor, "Separate corners").invoke_accessible_default_action();
+            }
+            let labels = if separate {
+                &[
+                    "Top left corner radius",
+                    "Top right corner radius",
+                    "Bottom left corner radius",
+                    "Bottom right corner radius",
+                ][..]
+            } else {
+                &["Position X", "All corner radii"][..]
+            };
+            for label in labels {
+                let field = find_element(&editor, label);
+                let position = field.absolute_position();
+                let size = field.size();
+                for fraction in [0.05, 0.5, 0.95] {
+                    editor.window().dispatch_event(WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(
+                            position.x + size.width * fraction,
+                            position.y + size.height / 2.,
+                        ),
+                    });
+                    assert!(cursor() == scrub_cursor, "hovering {label} at {fraction}");
+                }
+                let start = LogicalPosition::new(
+                    position.x + size.width / 2.,
+                    position.y + size.height / 2.,
+                );
+                let click = |position| {
+                    editor.window().dispatch_event(WindowEvent::PointerPressed {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                    editor.window().dispatch_event(WindowEvent::PointerReleased {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                };
+                click(start);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerMoved {
+                    position: LogicalPosition::new(position.x + size.width * 0.05, start.y),
+                });
+                assert!(cursor() == scrub_cursor, "hovering the label while editing {label}");
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerPressed {
+                    position: start,
+                    button: PointerEventButton::Left,
+                });
+                let end = LogicalPosition::new(start.x + 12., start.y);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+                assert!(cursor() == scrub_cursor, "dragging {label}");
+                editor.window().dispatch_event(WindowEvent::PointerReleased {
+                    position: end,
+                    button: PointerEventButton::Left,
+                });
+            }
+        }
+    }
+
+    #[test]
     fn resize_cursor_rotates_and_reuses_half_turns() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
@@ -2051,15 +2161,6 @@ mod tests {
         let horizontal = cursors.invoke_resize_image(0.);
         assert_eq!(horizontal, cursors.invoke_resize_image(180.));
         assert_ne!(horizontal, cursors.invoke_resize_image(90.));
-    }
-
-    #[test]
-    fn scrub_cursor_uses_fixed_pixel_size() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::create_ui().unwrap();
-        let cursor = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
-        assert_eq!(cursor.size().width, 32);
-        assert_eq!(cursor.size().height, 32);
     }
 
     #[test]
@@ -2586,6 +2687,83 @@ mod tests {
     }
 
     #[test]
+    fn placeholder_field_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("LineEdit", true),
+            ("TextEdit", true),
+            ("TextInput", false),
+            ("Button", false),
+            ("Text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Placeholder text"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn placeholder_field_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "LineEdit".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let field = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Placeholder text",
+        )
+        .find(|element| {
+            element.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+        })
+        .unwrap();
+        field.set_accessible_value("\"Enter a name\"");
+        assert_eq!(
+            *commits.borrow(),
+            [("placeholder-text".to_string(), "\"Enter a name\"".to_string())]
+        );
+    }
+
+    #[test]
     fn read_only_switch_follows_selected_element_type() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -3017,6 +3195,67 @@ mod tests {
             for (label, expected) in
                 [("Horizontal Alignment", horizontal), ("Vertical Alignment", vertical)]
             {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn scrollbar_policy_combos_follow_selected_element_properties() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 200.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let api_weak = <super::Api as slint::Global<'_, super::EditorUi>>::as_weak(&api);
+        api.on_has_property(move |name| {
+            api_weak
+                .upgrade()
+                .is_some_and(|api| super::source_property_value_data(&api, name).is_some())
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, property, expected) in [
+            ("ScrollView", "horizontal-scrollbar-policy", true),
+            ("MyListView", "horizontal-scrollbar-policy", true),
+            ("Flickable", "viewport-width", false),
+            ("Rectangle", "background", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            api.set_properties(
+                std::rc::Rc::new(VecModel::from(vec![super::PropertyGroup {
+                    group_name: type_name.into(),
+                    properties: std::rc::Rc::new(VecModel::from(vec![create_test_property(
+                        property, "",
+                    )]))
+                    .into(),
+                }]))
+                .into(),
+            );
+            slint::platform::update_timers_and_animations();
+            for label in ["Horizontal Scroll Bar Policy", "Vertical Scroll Bar Policy"] {
                 assert_eq!(
                     i_slint_backend_testing::ElementHandle::find_by_accessible_label(
                         &editor, label

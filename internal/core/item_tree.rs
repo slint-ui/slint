@@ -3425,8 +3425,8 @@ mod tests {
     impl crate::renderer::RendererSealed for Renderer {
         fn char_size(
             &self,
-            _text_item: Pin<&dyn crate::item_rendering::HasFont>,
-            _item_rc: &crate::item_tree::ItemRc,
+            _font_request: crate::graphics::FontRequest,
+            _line_height_factor: Option<f32>,
             _ch: char,
         ) -> LogicalSize {
             LogicalSize::new(5., 10.)

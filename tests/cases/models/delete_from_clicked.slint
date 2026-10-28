@@ -13,6 +13,7 @@ export global Glob {
     }
     in-out property <string> value;
     in-out property <string> value_after: "XXXXX";
+    in-out property <string> callback_result: "XXXXX";
 }
 
 component Button {
@@ -54,6 +55,9 @@ export component TestCase inherits Window {
             // The repeated Button constrains its row, so without a fixed height the rows
             // shrink to the font-dependent text height and the clicks below miss.
             height: 100px;
+            function row-function() -> string { string }
+            callback row-callback() -> string;
+            row-callback => { string }
             if Glob.condition: Button {
                 text: string;
                 enabled: some-variable;
@@ -63,7 +67,8 @@ export component TestCase inherits Window {
                     Glob.value = string;
                     Glob.clicked(string);
                     // `string` belongs to the row that `clicked` just removed
-                    Glob.value_after = string;
+                    Glob.value_after = string + row-function();
+                    Glob.callback_result = row-callback();
                 }
             }
         }
@@ -84,6 +89,7 @@ instance.global::<Glob<'_>>().on_clicked(move |val|{
 slint_testing::send_mouse_click(&instance, 150., 150.);
 assert_eq!(instance.global::<Glob<'_>>().get_value(), "world");
 assert_eq!(instance.global::<Glob<'_>>().get_value_after(), "");
+assert_eq!(instance.global::<Glob<'_>>().get_callback_result(), "");
 ```
 
 // same thing but with the keyboard
@@ -103,6 +109,7 @@ slint_testing::send_keyboard_string_sequence(&instance, " ");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq!(instance.global::<Glob<'_>>().get_value(), "world");
 assert_eq!(instance.global::<Glob<'_>>().get_value_after(), "");
+assert_eq!(instance.global::<Glob<'_>>().get_callback_result(), "");
 ```
 
 ```cpp
@@ -121,6 +128,7 @@ instance.global<Glob>().on_clicked([=](slint::SharedString val){
 slint_testing::send_mouse_click(&instance, 150., 150.);
 assert_eq(instance.global<Glob>().get_value(), "world");
 assert_eq(instance.global<Glob>().get_value_after(), "");
+assert_eq(instance.global<Glob>().get_callback_result(), "");
 ```
 
 ```cpp
@@ -143,6 +151,7 @@ slint_testing::send_keyboard_string_sequence(&instance, " ");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq(instance.global<Glob>().get_value(), "world");
 assert_eq(instance.global<Glob>().get_value_after(), "");
+assert_eq(instance.global<Glob>().get_callback_result(), "");
 ```
 
 
@@ -157,6 +166,7 @@ instance.Glob.clicked = (val) => {
 slintlib.private_api.send_mouse_click(instance, 150., 150.);
 assert.equal(instance.Glob.value, "world");
 assert.equal(instance.Glob.value_after, "");
+assert.equal(instance.Glob.callback_result, "");
 ```
 
 ```js
@@ -174,6 +184,7 @@ slintlib.private_api.send_keyboard_string_sequence(instance, " ");
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert.equal(instance.Glob.value, "world");
 assert.equal(instance.Glob.value_after, "");
+assert.equal(instance.Glob.callback_result, "");
 ```
 
 

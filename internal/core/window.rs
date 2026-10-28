@@ -1637,27 +1637,33 @@ impl WindowInner {
                 );
             },
         );
+    }
 
-        // Track position
-        if item.downcast::<crate::items::TextInput>().is_some() {
-            self.focus_item_position_tracker.init(
-                (item.downgrade(), self.window_adapter_weak.clone()),
-                |(item, _)| {
-                    let Some(item) = item.upgrade() else { return Default::default() };
-                    Some(item.map_to_native_window(item.geometry().origin))
-                },
-                |(item, window_adapter), _| {
-                    let (Some(item), Some(window_adapter)) =
-                        (item.upgrade(), window_adapter.upgrade())
-                    else {
-                        return;
-                    };
-                    if let Some(text_input) = item.downcast::<crate::items::TextInput>() {
-                        text_input.as_pin_ref().update_ime(&window_adapter, &item);
-                    }
-                },
-            );
-        }
+    /// Calls `on_moved` whenever the position of the focused `item` in the native window changes.
+    /// The tracking is reset when the item loses focus.
+    ///
+    /// This is called by the item itself (e.g. TextInput) rather than from `track_focus_item`,
+    /// so that the window doesn't reference the item's code and pull it into the binary of
+    /// applications that don't use that item.
+    pub(crate) fn track_focus_item_position(
+        &self,
+        item: &ItemRc,
+        on_moved: fn(&ItemRc, &Rc<dyn WindowAdapter>),
+    ) {
+        self.focus_item_position_tracker.init(
+            (item.downgrade(), self.window_adapter_weak.clone(), on_moved),
+            |(item, _, _)| {
+                let Some(item) = item.upgrade() else { return Default::default() };
+                Some(item.map_to_native_window(item.geometry().origin))
+            },
+            |(item, window_adapter, on_moved), _| {
+                let (Some(item), Some(window_adapter)) = (item.upgrade(), window_adapter.upgrade())
+                else {
+                    return;
+                };
+                on_moved(&item, &window_adapter);
+            },
+        );
     }
 
     fn move_focus(

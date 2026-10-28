@@ -14,7 +14,7 @@ use crate::input::Keys;
 use crate::item_tree::ItemRc;
 use crate::items::{
     ContextMenu, Flickable, FocusScope, FontMetrics, ItemRef, ItemVTable, OperatingSystemType,
-    ScrollBehavior, SwipeGestureHandler, TextInput, WindowItem,
+    StyledTextItem, ScrollBehavior, SwipeGestureHandler, TextInput, WindowItem,
 };
 use crate::lengths::logical_position_to_api;
 use crate::string::ToSharedString;

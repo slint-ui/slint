@@ -1,13 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// SIZE=128x112
 // BASE_THRESHOLD=3
 //ignore: software
 //ignore: software-embed-assets
 //ignore: anyrender
 //ignore: vello_cpu
-// FemtoVG doesn't support backdrop blur.
-//ignore: femtovg
 
 // The blur covers the rounded rectangle only, stays beneath its drop shadow and border,
 // sees through the rectangle's own opacity, and rotates with it.
@@ -74,6 +73,7 @@ export component TestCase inherits Window {
         background: #ffffff40;
         backdrop-blur: 3px;
         opacity: 0.8;
+        visible: true;
         Rectangle {
             width: 12px;
             height: 12px;

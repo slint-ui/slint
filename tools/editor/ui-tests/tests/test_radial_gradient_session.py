@@ -24,6 +24,7 @@ from ui_driver import (
     launch_editor,
     press_key,
     press_shortcut,
+    query,
 )
 
 
@@ -95,9 +96,10 @@ def test_radial_keyboard_and_collapsed_radius(
             ).accessible_value
         ) == pytest.approx(36)
         press_key(window, keys.Backspace)
+        expect(query(window, "Gradient stop 3")).to_be_hidden()
         press_key(window, keys.Backspace)
+        expect(query(window, "Gradient stop 2")).to_be_hidden()
         control(window, "Gradient stop 1")
-        assert not elements(window, "Gradient stop 2")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 

@@ -140,8 +140,7 @@ fn wait_for_input(max_timeout: Option<Duration>) {
     let timer = unsafe {
         uefi::boot::create_event(EventType::TIMER, Tpl::APPLICATION, None, None).unwrap()
     };
-    uefi::boot::set_timer(&timer, TimerTrigger::Periodic((timeout.as_nanos() / 100) as u64))
-        .unwrap();
+    uefi::boot::set_timer(&timer, TimerTrigger::Periodic(timeout)).unwrap();
 
     uefi::boot::set_watchdog_timer(2 * watchdog_timeout.as_micros() as usize, 0x10000, None)
         .unwrap();
@@ -318,34 +317,33 @@ impl slint::platform::Platform for Platform {
             while let Some(mut mouse) =
                 mpointer.read_state().expect("Failed to read state from Pointer.")
             {
-                position.x +=
-                    (mouse.relative_movement[0] as f32) / (mouse_mode.resolution[0] as f32);
-                position.y +=
-                    (mouse.relative_movement[1] as f32) / (mouse_mode.resolution[1] as f32);
+                position.x += (mouse.relative_movement_x as f32) / (mouse_mode.resolution_x as f32);
+                position.y += (mouse.relative_movement_y as f32) / (mouse_mode.resolution_y as f32);
 
                 if position.x < 0.0 {
                     position.x = 0.0;
                 } else if position.x > (info.resolution().0 - pointer_x) as f32 {
                     position.x = (info.resolution().0 - pointer_x) as f32;
-                    mouse.relative_movement[0] = (info.resolution().0) as i32;
+                    mouse.relative_movement_x = (info.resolution().0) as i32;
                 }
 
                 if position.y < 0.0 {
                     position.y = 0.0;
                 } else if position.y > (info.resolution().1 - pointer_y) as f32 {
                     position.y = (info.resolution().1 - pointer_y) as f32;
-                    mouse.relative_movement[1] = (info.resolution().1) as i32;
+                    mouse.relative_movement_y = (info.resolution().1) as i32;
                 }
 
                 self.window.dispatch_event_with_result(WindowEvent::PointerMoved { position })?;
 
+                let pressed = [mouse.left_button.into(), mouse.right_button.into()];
                 for (index, button) in
                     [PointerEventButton::Left, PointerEventButton::Right].into_iter().enumerate()
                 {
-                    if mouse.button[index] == buttons[index] {
+                    if pressed[index] == buttons[index] {
                         continue;
                     }
-                    buttons[index] = mouse.button[index];
+                    buttons[index] = pressed[index];
                     let event = if buttons[index] {
                         WindowEvent::PointerPressed { position, button }
                     } else {

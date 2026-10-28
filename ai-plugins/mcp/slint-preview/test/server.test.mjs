@@ -89,6 +89,15 @@ test("lists preview_slint with its view, and the view's own tools for the view o
     assert.equal(screenshot._meta, undefined);
 });
 
+test("all tools declare their annotations", async () => {
+    const { result } = await request("tools/list");
+    for (const tool of result.tools) {
+        for (const hint of ["readOnlyHint", "destructiveHint", "openWorldHint"]) {
+            assert.equal(typeof tool.annotations?.[hint], "boolean", `${tool.name}: ${hint}`);
+        }
+    }
+});
+
 function assertServesInterpreter(content, url, hosts) {
     assert.equal(content.mimeType, "text/html;profile=mcp-app");
     assert.doesNotMatch(content.text, /__[A-Z_]+__/);
@@ -168,14 +177,24 @@ test("answers a call with text only", async () => {
     assert.equal(result.structuredContent, undefined);
 });
 
-test("takes either an absolute path or source", async () => {
+test("takes either an absolute path or source, and a project root only with a path", async () => {
     const call = (args) =>
         request("tools/call", { name: "preview_slint", arguments: args });
     assert.ok((await call({ path: "/project/main.slint" })).result);
+    assert.ok(
+        (
+            await call({
+                path: "/project/ui/main.slint",
+                projectRoot: "/project",
+            })
+        ).result,
+    );
     for (const args of [
         {},
         { path: "/project/main.slint", source: "" },
         { path: "main.slint" },
+        { source: "", projectRoot: "/project" },
+        { path: "/project/main.slint", projectRoot: "project" },
     ]) {
         assert.equal(
             (await call(args)).error?.code,
@@ -229,7 +248,8 @@ test("reports a file it can't read as a tool error", async () => {
             path: "/nonexistent/main.slint",
         });
         assert.equal(result.isError, true, name);
-        assert.match(result.content[0].text, /ENOENT/, name);
+        // The view tells a missing import by this prefix.
+        assert.match(result.content[0].text, /^ENOENT:/, name);
     }
 });
 

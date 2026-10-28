@@ -81,7 +81,6 @@ component ImageEditorTab inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
         clicked => {
             tab-focus.focus();
             root.clicked();
@@ -201,7 +200,6 @@ component FloatingCopyButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
         clicked => {
             copy-focus.focus();
             root.clicked();

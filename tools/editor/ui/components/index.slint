@@ -20,6 +20,7 @@ export global EditorCursors {
     pure callback rotation-image(angle) -> image;
     pure callback resize-image(angle) -> image;
     pure callback scrub-horizontal-image() -> image;
+    scrub-horizontal-image => { return @image-url("../assets/cursors/scrub-horizontal.svg"); }
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),
         14,
@@ -262,7 +263,6 @@ export component SidebarToggleButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
         clicked => {
             root.clicked();
         }
@@ -340,7 +340,6 @@ export component ComponentPaletteRow inherits Rectangle {
 
         touch := TouchArea {
             enabled: root.enabled && root.drag-enabled;
-            mouse-cursor: self.enabled ? pointer : default;
         }
     }
 }

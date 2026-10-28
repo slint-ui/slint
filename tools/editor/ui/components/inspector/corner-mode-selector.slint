@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../../controls/src/headless.slint";
+import { Style, Theme, ThemeKind, Colors, Metrics, CornerModeStyle } from "../../style.slint";
+
+component CornerModeSegment inherits ButtonBase {
+    in property <CornerModeStyle> style: Style.corner-mode;
+    in property <bool> separate;
+    private property <bool> down: root.checked || root.pressed;
+    private property <bool> dark: Theme.current == ThemeKind.dark;
+    private property <length> offset: root.pressed ? 1px : 0px;
+    vertical-stretch: 1;
+    horizontal-stretch: 1;
+    text: root.separate ? @tr("Separate corners") : @tr("All corners");
+    focus-on-click: true;
+    focus-on-tab-navigation: root.checked;
+    mouse-cursor: MouseCursor.default;
+    accessible-checkable: true;
+
+    background << Rectangle {
+        background: root.dark ? #16191e : #9aa8b7;
+        Rectangle {
+            y: root.offset;
+            height: parent.height - root.offset;
+            background: root.checked
+                ? @linear-gradient(180deg, Colors.selection.brighter(0.03), Colors.selection)
+                : root.style.selected-background;
+
+            Rectangle {
+                y: 0px;
+                height: root.down ? 1px : 0.5px;
+                background: root.down ? (root.dark ? #00000055 : #34465a26)
+                    : root.dark ? #ffffff26 : #ffffffe6;
+            }
+            Rectangle {
+                y: parent.height - self.height;
+                height: 0.5px;
+                background: root.down ? (root.dark ? #ffffff15 : #ffffff99)
+                    : root.dark ? #00000066 : #4c5f7233;
+            }
+            if root.hovered || root.pressed: Rectangle {
+                background: root.pressed ? #00000009 : Colors.foreground.with-alpha(0.025);
+            }
+        }
+        if root.focus-visible: Rectangle {
+            x: 2px;
+            y: 2px;
+            width: parent.width - 4px;
+            height: parent.height - 4px;
+            border-radius: max(0px, root.style.radius - 2px);
+            border-width: Metrics.focus-width;
+            border-color: root.style.focus-border;
+        }
+    }
+    content << Image {
+        y: (root.height - self.height) / 2 + root.offset;
+        width: 18px;
+        height: 18px;
+        source: root.separate ? @image-url("../../assets/corners-separate.svg") : @image-url("../../assets/corners-all.svg");
+        colorize: root.checked ? root.style.foreground : root.style.muted;
+    }
+}
+
+export component InspectorCornerModeSelector inherits FocusScope {
+    in property <CornerModeStyle> style: Style.corner-mode;
+    in property <bool> separate;
+    callback chosen(bool);
+    private property <length> frame-inset: 0.75px;
+    width: 2 * root.style.width;
+    height: root.style.height;
+    focus-on-tab-navigation: false;
+    accessible-role: groupbox;
+    accessible-label: @tr("Corner radius mode");
+
+    key-pressed(event) => {
+        if event.text == Key.LeftArrow || event.text == Key.Home {
+            root.chosen(false);
+            all-button.focus();
+            return accept;
+        }
+        if event.text == Key.RightArrow || event.text == Key.End {
+            root.chosen(true);
+            separate-button.focus();
+            return accept;
+        }
+        return reject;
+    }
+
+    Rectangle {
+        border-radius: root.style.radius;
+        background: root.style.border;
+        Rectangle {
+            x: root.frame-inset;
+            y: root.frame-inset;
+            width: parent.width - 2 * root.frame-inset;
+            height: parent.height - 2 * root.frame-inset;
+            border-radius: max(0px, root.style.radius - root.frame-inset);
+            background: root.style.border;
+            clip: true;
+            HorizontalLayout {
+                spacing: Metrics.hairline-width;
+                all-button := CornerModeSegment {
+                    style: root.style;
+                    checked: !root.separate;
+                    clicked => { root.chosen(false); }
+                }
+                separate-button := CornerModeSegment {
+                    style: root.style;
+                    checked: root.separate;
+                    separate: true;
+                    clicked => { root.chosen(true); }
+                }
+            }
+        }
+    }
+}

@@ -14,8 +14,8 @@ use crate::preview::ui::{Api, EditorUi, Project as ProjectGlobal};
 const NEW_PROJECT_NAME: &str = "Slint UI Project";
 const NEW_PROJECT_MAIN_FILE: &str = "main.slint";
 const NEW_PROJECT_MAIN_FILE_CONTENTS: &str = r#"export component MainWindow inherits Window {
-    width: 400px;
-    height: 300px;
+    width: 390px;
+    height: 720px;
 
     Text {
         text: "Hello from Slint";

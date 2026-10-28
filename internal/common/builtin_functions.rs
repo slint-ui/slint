@@ -120,6 +120,21 @@ macro_rules! for_each_builtin_function {
             HasSelection: pure fn has_selection(text_input: ItemArg<TextInput> => ElementReference) -> bool {
                 text_input.item.has_selection()
             }
+            StyledTextSetSelectionOffsets: impure fn styled_text_set_selection_offsets(styled_text: ItemArg<StyledTextItem> => ElementReference, anchor: i32, focus: i32) -> () {
+                styled_text.item.set_selection_offsets(anchor, focus)
+            }
+            StyledTextSelectAll: impure fn styled_text_select_all(styled_text: ItemArg<StyledTextItem> => ElementReference) -> () {
+                styled_text.item.select_all()
+            }
+            StyledTextClearSelection: impure fn styled_text_clear_selection(styled_text: ItemArg<StyledTextItem> => ElementReference) -> () {
+                styled_text.item.clear_selection()
+            }
+            StyledTextCopy: impure fn styled_text_copy(styled_text: ItemArg<StyledTextItem> => ElementReference) -> () {
+                with_window_adapter(&styled_text.rc, |w| styled_text.item.copy(w, &styled_text.rc))
+            }
+            StyledTextHasSelection: pure fn styled_text_has_selection(styled_text: ItemArg<StyledTextItem> => ElementReference) -> bool {
+                styled_text.item.has_selection()
+            }
             ItemFontMetrics: pure fn item_font_metrics(element: ItemRc => ElementReference) -> FontMetrics {
                 with_window_adapter(&element, |w| crate::items::text_item_font_metrics(w, &element))
             }

@@ -8,7 +8,7 @@ export component ButtonBase {
     implement ButtonInterface <=> self;
 
     in property <bool> enabled: true;
-    in property <MouseCursor> mouse-cursor: MouseCursor.pointer;
+    in property <MouseCursor> mouse-cursor: MouseCursor.default;
     in property <string> text;
     in property <bool> checkable;
     in property <image> icon;
@@ -21,6 +21,7 @@ export component ButtonBase {
     in-out property <bool> checked;
 
     out property <bool> has-focus: interaction.has-focus;
+    out property <bool> focus-visible: interaction.focus-visible;
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
 

@@ -19,6 +19,7 @@ macro_rules! declare_builtin_functions {
         /// A function built into the run-time.
         /// The functions of builtin elements name their variant in `builtin_elements.rs`.
         #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub enum BuiltinFunction {
             $($(#[$attr])* $Name $(($Payload))?,)*
         }

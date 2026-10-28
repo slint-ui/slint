@@ -39,6 +39,7 @@ component EditorTreeRow {
     callback drag-started();
     callback row-hover-changed(int, bool);
     callback expanded-changed(int, bool);
+    callback add-tab-requested(string, int);
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -56,6 +57,7 @@ component EditorTreeRow {
     property <length> gap-height: root.gap-before || root.gap-after ? Metrics.outline-row-height : 0px;
     property <length> content-y: root.gap-before ? root.gap-height : 0px;
     property <image> row-icon: ElementVisuals.for-kind(node.icon-kind).icon;
+    property <bool> show-add-tab: root.current && root.node.element-type == "TabWidget";
 
     height: Metrics.outline-row-height + root.gap-height;
     vertical-stretch: 0;
@@ -259,7 +261,6 @@ component EditorTreeRow {
                         width: parent.width;
                         y: root.content-y;
                         height: Metrics.outline-row-height;
-                        mouse-cursor: pointer;
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                                 AppState.outline-drag-background = row-highlight.background;
@@ -299,7 +300,6 @@ component EditorTreeRow {
                                 width: root.style.row.hit-size;
                                 height: root.style.row.hit-size;
                                 y: (parent.height - self.height) / 2;
-                                mouse-cursor: root.node.has-children ? MouseCursor.pointer : MouseCursor.default;
                                 clicked => {
                                     root.toggle-expanded();
                                 }
@@ -340,6 +340,42 @@ component EditorTreeRow {
                                 font-size: root.style.row.font-size;
                                 overflow: elide;
                             }
+                        }
+
+                        if root.show-add-tab: Rectangle {
+                            width: root.style.row.hit-size;
+                        }
+                    }
+
+                    if root.show-add-tab: Rectangle {
+                        x: parent.width - self.width - root.style.row.padding-inline;
+                        y: root.content-y + (Metrics.outline-row-height - self.height) / 2;
+                        width: root.style.row.hit-size;
+                        height: root.style.row.hit-size;
+                        border-radius: root.style.row.radius;
+                        background: add-tab-touch.has-hover ? root.style.row.hover-background : transparent;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: @tr("Add Tab");
+                        accessible-action-default => {
+                            root.add-tab-requested(root.node.uri, root.node.offset);
+                        }
+
+                        add-tab-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.add-tab-requested(root.node.uri, root.node.offset);
+                            }
+                        }
+
+                        Image {
+                            width: Metrics.icon-small;
+                            height: Metrics.icon-small;
+                            source: Icons.plus;
+                            colorize: root.style.row.foreground;
+                        }
+
+                        Tooltip {
+                            text: @markdown("\{@tr("Add Tab")}");
                         }
                     }
 
@@ -391,6 +427,7 @@ export component EditorTreeView inherits FocusScope {
     callback row-current-requested(string, int);
     callback drag-started();
     callback row-expanded-changed(int, bool);
+    callback row-add-tab-requested(string, int);
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list;
@@ -498,6 +535,9 @@ export component EditorTreeView inherits FocusScope {
             }
             expanded-changed(row-index, expanded) => {
                 root.row-expanded-changed(row-index, expanded);
+            }
+            add-tab-requested(uri, offset) => {
+                root.row-add-tab-requested(uri, offset);
             }
         }
     }

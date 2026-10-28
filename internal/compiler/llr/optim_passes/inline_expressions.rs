@@ -141,11 +141,17 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::TextInputPaste
         | BuiltinFunction::TextInputUndo
         | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::StyledTextSetSelectionOffsets
+        | BuiltinFunction::StyledTextSelectAll
+        | BuiltinFunction::StyledTextClearSelection
+        | BuiltinFunction::StyledTextCopy
         | BuiltinFunction::SwipeGestureHandlerCancel
         | BuiltinFunction::ContextMenuClose
         | BuiltinFunction::WindowClose
         | BuiltinFunction::WindowHide => isize::MAX,
-        BuiltinFunction::HasSelection | BuiltinFunction::ContextMenuIsOpen => PROPERTY_ACCESS_COST,
+        BuiltinFunction::HasSelection
+        | BuiltinFunction::StyledTextHasSelection
+        | BuiltinFunction::ContextMenuIsOpen => PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
