@@ -154,6 +154,30 @@ def test_text_drag_preview_uses_preview_default_font_size(
         assert selected.size.height == pytest.approx(preview_size.height, abs=1)
 
 
+def test_insert_textedit_outside_layout_sets_default_size(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Palette.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, source_file.read_bytes())
+        window = first_window(editor)
+        target = canvas_drop_position(window)
+        begin_palette_drag(window, "TextEdit", target)
+        release_palette_drag(window, target)
+        expected = (GOLDENS / "Palette.insert-textedit.slint").read_bytes()
+        snapshot.wait_for_exact(expected, "Palette.slint")
+        selected = element(
+            window, "Selected TextEdit", role=slint_testing.AccessibleRole.Region
+        )
+        expect.poll(
+            lambda: (selected.size.width, selected.size.height),
+            message="inserted TextEdit size",
+        ).to_equal((200, 100))
+
+
 @pytest.mark.parametrize("kind", PALETTE_KINDS)
 def test_palette_drop_outside_canvas_does_not_edit_source(
     editor_binary: Path,

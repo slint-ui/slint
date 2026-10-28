@@ -61,6 +61,9 @@ pub struct ComponentInformation {
     pub defined_at: Option<Position>,
     /// Default property values.
     pub default_properties: Vec<PropertyChange>,
+    /// Default size, for when the parent isn't a layout.
+    #[serde(default)]
+    pub default_size: Vec<PropertyChange>,
 }
 
 impl ComponentInformation {
@@ -154,6 +157,7 @@ fn builtin_component_info(name: &str) -> ComponentInformation {
         is_interface: false,
         defined_at: None,
         default_properties,
+        default_size: Vec::new(),
     }
 }
 
@@ -177,6 +181,15 @@ pub fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         _ => Vec::new(),
     };
 
+    let default_size = match name {
+        "GroupBox" | "TextEdit" => vec![
+            PropertyChange::new("width", "200px".to_string()),
+            PropertyChange::new("height", "100px".to_string()),
+        ],
+        "ProgressIndicator" | "Slider" => vec![PropertyChange::new("width", "160px".to_string())],
+        _ => Vec::new(),
+    };
+
     ComponentInformation {
         name: name.to_string(),
         category: "Std-Widgets".to_string(),
@@ -190,6 +203,7 @@ pub fn std_widgets_info(name: &str, is_global: bool) -> ComponentInformation {
         is_interface: false,
         defined_at: None,
         default_properties,
+        default_size,
     }
 }
 
@@ -207,6 +221,7 @@ fn std_widget_interfaces_info(name: &str) -> ComponentInformation {
         is_interface: true,
         defined_at: None,
         default_properties: Vec::new(),
+        default_size: Vec::new(),
     }
 }
 
@@ -229,6 +244,7 @@ fn exported_project_component_info(
         is_interface,
         defined_at: Some(position),
         default_properties: Vec::new(),
+        default_size: Vec::new(),
     }
 }
 
@@ -252,6 +268,7 @@ fn file_local_component_info(
         is_interface,
         defined_at: Some(position),
         default_properties: Vec::new(),
+        default_size: Vec::new(),
     }
 }
 
