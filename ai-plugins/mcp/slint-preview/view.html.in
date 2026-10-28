@@ -40,10 +40,19 @@
   #diagnostics li { white-space: pre-wrap; }
   .error { color: var(--error); }
   .warning { color: var(--warning); }
+  #crash { margin: 8px; }
+  #crash button { font: inherit; }
+  #crash pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <div id="status">Waiting for Slint source…</div>
+<section id="crash" hidden role="alert">
+  <strong class="error">The preview crashed</strong>
+  <p>Retry restarts the preview without changing your source files.</p>
+  <button id="retry" type="button">Retry preview</button>
+  <details><summary>Technical details</summary><pre id="crash-details"></pre></details>
+</section>
 <div id="stage"><canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas></div>
 <ul id="diagnostics"></ul>
 <script type="module">
@@ -56,6 +65,9 @@
   const pristineCanvas = canvas.cloneNode();
   const diagnosticsEl = document.getElementById("diagnostics");
   const stage = document.getElementById("stage");
+  const crashEl = document.getElementById("crash");
+  const crashDetailsEl = document.getElementById("crash-details");
+  const retryButton = document.getElementById("retry");
 
   let nextId = 1;
   const pending = new Map();
@@ -230,9 +242,12 @@
 
   function handlePanic(message) {
     if (!interpreter) return;
+    const { previewId, runtime } = interpreter;
     interpreter.panic(new Panic(message));
     interpreter = null;
     instance = null;
+    pendingImages.clear();
+    retryButton.disabled = false;
     // The dead module keeps its listeners on the old canvas and media queries.
     darkQueryLists.length = 0;
     resolutionQueryLists.length = 0;
@@ -241,12 +256,17 @@
     const freshCanvas = pristineCanvas.cloneNode();
     canvas.replaceWith(freshCanvas);
     canvas = freshCanvas;
-    showStatus(`The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`, "error");
+    const error = `The Slint interpreter crashed. The next preview starts a fresh one.\n${message}`;
+    showStatus("");
+    diagnosticsEl.replaceChildren();
+    crashDetailsEl.textContent = `${runtime}\n${message}`;
+    crashEl.hidden = false;
+    publish({ previewId, runtime, error }).catch(() => {});
     reportToModel(
-      "The Slint interpreter crashed, which is a bug in Slint. Change the source to work around it. " +
-        "The next preview_slint call starts a fresh interpreter. " +
-        "Offer the user to report it at https://github.com/slint-ui/slint/issues with this message, " +
-        `the Slint version, and the smallest .slint source that reproduces it.\n${message}`,
+      `The Slint interpreter crashed with ${runtime}. Report the interruption. ` +
+        "Use preview_slint for a fresh interpreter; try one justified retry or preview workaround while preserving the requested UI. " +
+        "Verify recovery with get_preview_screenshot. Stop identical crash loops. " +
+        `If recovery fails, offer a bug report at https://github.com/slint-ui/slint/issues with this diagnostic and a minimal reproducer.\n${message}`,
     );
   }
 
@@ -352,6 +372,7 @@
     showStatus("Loading the Slint interpreter…");
     publish({ previewId, stage: "loading" }).catch(() => {});
     const current = loadInterpreter();
+    current.previewId = previewId;
     let slint;
     try {
       slint = await untilPanic(current, current.slint);
@@ -406,8 +427,11 @@
   // Each preview_slint result names its preview, and each tool input renders the next one.
   const previewIds = [];
   const previewIdWaiters = [];
+  function resultPreviewId(result) {
+    return result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+  }
   function receivePreviewId(result) {
-    const id = result?._meta?.["slint/previewId"] ?? result?.content?.[0]?.text?.match(/^Rendering Slint preview (\S+)\.$/)?.[1];
+    const id = resultPreviewId(result);
     if (!id) return;
     const waiter = previewIdWaiters.shift();
     waiter ? waiter(id) : previewIds.push(id);
@@ -425,6 +449,7 @@
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function failureText() {
+    if (!crashEl.hidden) return `The Slint interpreter crashed.\n${crashDetailsEl.textContent}`;
     if (statusEl.className === "error") return statusEl.textContent;
     if (!canvas.hidden) return null;
     return [...diagnosticsEl.children].map((li) => li.textContent).join("\n") || "Nothing was rendered.";
@@ -475,8 +500,8 @@
     switch (message.method) {
       case "ui/notifications/tool-input": {
         const args = message.params?.arguments ?? {};
-        const previewId = nextPreviewId();
-        previewId.then(async (id) => {
+        const startPreview = (previewId) => previewId.then(async (id) => {
+          crashEl.hidden = true;
           await publish({ previewId: id, started: true });
           await render(args, id);
         })
@@ -494,6 +519,21 @@
             showStatus(error, "error");
             await publish({ previewId: await previewId, error }).catch(() => {});
           });
+        startPreview(nextPreviewId());
+        retryButton.onclick = async () => {
+          retryButton.disabled = true;
+          showStatus("Restarting preview…");
+          try {
+            const result = await request("tools/call", { name: "preview_slint", arguments: args });
+            const id = resultPreviewId(result);
+            if (!id || result.isError) throw new Error(result.content?.[0]?.text ?? "No preview ID returned");
+            await startPreview(Promise.resolve(id));
+          } catch (e) {
+            showStatus(`Couldn't restart the preview: ${e}`, "error");
+          } finally {
+            retryButton.disabled = false;
+          }
+        };
         break;
       }
       case "ui/notifications/tool-result":
