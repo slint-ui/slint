@@ -870,6 +870,7 @@ impl RendererSealed for SoftwareRenderer {
             return LogicalSize::default();
         };
         let font_request = text_item.font_request(item_rc);
+        let line_height_factor = text_item.line_height_factor();
         #[cfg(feature = "systemfonts")]
         let Some(slint_ctx) = self.slint_context() else {
             return Default::default();
@@ -888,18 +889,14 @@ impl RendererSealed for SoftwareRenderer {
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
             let mut font_ctx = slint_ctx.font_context().borrow_mut();
-            return sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+            return sharedparley::char_size(&mut font_ctx, &font_request, line_height_factor, ch)
                 .unwrap_or_default();
         }
 
         let (longest_line_width, height) = with_font!(&font, |font| {
             let mut buf = [0u8, 0u8, 0u8, 0u8];
-            let layout = fonts::text_layout_for_font(
-                font,
-                &font_request,
-                text_item.line_height_factor(),
-                scale_factor,
-            );
+            let layout =
+                fonts::text_layout_for_font(font, &font_request, line_height_factor, scale_factor);
             layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None)
         });
         (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()

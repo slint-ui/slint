@@ -628,18 +628,20 @@ impl RendererSealed for TestingWindow {
         ch: char,
     ) -> LogicalSize {
         let font_request = text_item.font_request(item_rc);
+        let line_height_factor = text_item.line_height_factor();
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
             LogicalSize::new(
                 pixel_size,
-                fixed_test_font_line_height(text_item.line_height_factor(), pixel_size),
+                fixed_test_font_line_height(line_height_factor, pixel_size),
             )
         } else {
             let Some(ctx) = self.slint_context() else {
                 return LogicalSize::default();
             };
             let mut font_ctx = ctx.font_context().borrow_mut();
-            sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
+            sharedparley::char_size(&mut font_ctx, &font_request, line_height_factor, ch)
+                .unwrap_or_default()
         }
     }
 
