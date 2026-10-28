@@ -290,6 +290,27 @@ To compile and run the demo:
 CARGO_PROFILE_RELEASE_OPT_LEVEL=s cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --release --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml
 ```
 
+#### M5Stack StopWatch
+
+The [M5Stack StopWatch Dev Kit](https://shop.m5stack.com/products/m5stack-stopwatch-dev-kit-esp32-s3) features:
+- Round 1.75" AMOLED display with 466x466 resolution
+- CO5300 display controller (QSPI)
+- CST820 capacitive touch controller
+- ESP32-S3R8 with 16MB flash and 8MB octal PSRAM
+- M5IOE1 I2C GPIO expander controlling the power rails, panel reset and touch reset
+- Microphone, audio codec, IMU and RTC on a shared I2C bus, reachable from
+  applications through `mcu_board_support::with_i2c()`
+
+The board has no USB-UART bridge; its only console is the native USB
+Serial/JTAG port. Applications can switch the panel off while idle with
+`mcu_board_support::set_display_on()`.
+
+To compile and run the demo:
+
+```sh
+cargo +esp run --manifest-path demos/printerdemo_mcu/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-stopwatch --release --config examples/mcu-board-support/m5stack_stopwatch/cargo-config.toml
+```
+
 #### ESoPe SLD_C_W_S3
 
 The [ESoPE SLD_C_W_S3](https://esope.de/de/produkte/esope-plattform?view=article&id=95:pr-sld-c-w-s3-de&catid=11) PCB features an ESP32 S3,
