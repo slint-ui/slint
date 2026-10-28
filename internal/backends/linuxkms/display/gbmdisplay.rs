@@ -13,6 +13,7 @@ pub struct GbmDisplay {
     gbm_surface: gbm::Surface<OwnedFramebufferHandle>,
     gbm_device: gbm::Device<SharedFd>,
     surface_format: drm::buffer::DrmFourcc,
+    display_takes_modifiers: bool,
 }
 
 impl GbmDisplay {
@@ -33,7 +34,20 @@ impl GbmDisplay {
             )
             .map_err(|e| format!("Error creating gbm surface: {e}"))?;
 
-        Ok(GbmDisplay { drm_output, gbm_surface, gbm_device, surface_format })
+        // See the same check in `GbmDmabufDisplay::new`.
+        let display_takes_modifiers = drm::Device::get_driver_capability(
+            &drm_output.drm_device,
+            drm::DriverCapability::AddFB2Modifiers,
+        )
+        .is_ok_and(|value| value != 0);
+
+        Ok(GbmDisplay {
+            drm_output,
+            gbm_surface,
+            gbm_device,
+            surface_format,
+            display_takes_modifiers,
+        })
     }
 
     pub fn config_template_builder(&self) -> glutin::config::ConfigTemplateBuilder {
@@ -68,21 +82,18 @@ impl super::Presenter for GbmDisplay {
                 .map_err(|err| format!("Could not lock gbm front buffer: {err}"))?
         };
 
-        // Same logic as in drm-rs' `add_planar_framebuffer` function.
-        let flags = if drm::buffer::PlanarBuffer::modifier(&front_buffer)
-            .filter(|modifier| !matches!(modifier, drm::buffer::DrmModifier::Invalid))
-            .is_some()
-        {
-            drm::control::FbCmd2Flags::MODIFIERS
+        let has_modifier = drm::buffer::PlanarBuffer::modifier(&front_buffer)
+            .is_some_and(|modifier| !matches!(modifier, drm::buffer::DrmModifier::Invalid));
+        let device = &self.drm_output.drm_device;
+        let fb = if self.display_takes_modifiers && has_modifier {
+            device.add_planar_framebuffer(&front_buffer, drm::control::FbCmd2Flags::MODIFIERS)
         } else {
-            drm::control::FbCmd2Flags::empty()
-        };
-
-        let fb = self
-            .drm_output
-            .drm_device
-            .add_planar_framebuffer(&front_buffer, flags)
-            .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
+            device.add_planar_framebuffer(
+                &super::ImplicitLayout(&front_buffer),
+                drm::control::FbCmd2Flags::empty(),
+            )
+        }
+        .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
         front_buffer.set_userdata(OwnedFramebufferHandle {
             handle: fb,

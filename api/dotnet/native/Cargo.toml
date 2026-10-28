@@ -60,7 +60,7 @@ accessibility = ["slint-interpreter/accessibility"]
 [dependencies]
 i-slint-backend-selector = { workspace = true }
 i-slint-core = { workspace = true, features = ["tr"] }
-slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "bundle-translations"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "bundle-translations", "internal"] }
 spin_on = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
