@@ -5,7 +5,7 @@ using Slint;
 
 namespace Todo;
 
-/// <summary>The logic of the todo list, which the desktop and the Android versions share.</summary>
+/// <summary>The logic of the todo list, which the desktop, Android, and iOS versions share.</summary>
 internal static class TodoLogic
 {
     public static ListModel<TodoItem> Connect(MainWindow window)

@@ -551,7 +551,10 @@ Next:
         lols reaches 202,000 to 210,000 LOL/s in canvas mode and 880 LOL/s in elements mode, like the Motorola edge 60 neo.
       - The OpenGL samples run without their OpenGL content on iOS, as designed: Slint renders with Skia through WGPU on Metal,
         and its rendering notifier offers no OpenGL there. The plotter, which draws 3D in C#, works.
-      - Next: the app lifecycle and saved state, Hot Reload, and Native AOT.
+      - The app lifecycle needs no bindings: UIKit's notifications, which .NET for iOS offers in C#, arrive on the main thread,
+        which is the Slint thread. `examples/todo/dotnet-ios` writes its list to a file when the app enters the background,
+        and reads it at startup, with `TodoState`, which the Android version now shares.
+      - Next: Hot Reload, and Native AOT.
     - Later, postponed: drawing with Metal from C#. Slint's notifier hands over Rust `wgpu` objects, and only behind an unstable feature,
       so it would need the `MTLDevice` and command queue under WGPU as raw pointers, which the `Metal` API of .NET for iOS could use,
       and a way to show a Metal texture in an `Image`, both new work in Slint.

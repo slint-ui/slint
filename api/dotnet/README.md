@@ -584,6 +584,15 @@ and reference `api/dotnet/Slint/Slint.csproj` and its `build/Slint.targets`, as 
 
 - The build embeds Slint's framework into the app, and puts the `.slint` files into the app bundle.
 - `SlintLivePreview` isn't available on iOS yet; the build ignores it, with the warning `SLINT002`.
+- iOS ends apps in the background without notice. Keep what the user was doing when the app leaves the screen,
+  with the UIKit notifications of .NET for iOS, which arrive on the Slint thread:
+
+  ```csharp
+  var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "state.json");
+  using var observer = UIKit.UIApplication.Notifications.ObserveDidEnterBackground((_, _) => File.WriteAllBytes(file, SaveState(app)));
+  ```
+
+  Read the file back after `Create`, as [the todo example](https://github.com/yurkinh/slint/blob/dotnet_bindings/examples/todo/dotnet-ios/Program.cs) does.
 
 ## Embedded Linux
 

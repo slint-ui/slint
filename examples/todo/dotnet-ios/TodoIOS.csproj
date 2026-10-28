@@ -18,6 +18,7 @@
   <ItemGroup>
     <SlintFile Include="../ui/todo.slint" />
     <Compile Include="../dotnet/TodoLogic.cs" />
+    <Compile Include="../dotnet/TodoState.cs" />
   </ItemGroup>
   <!--
     Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below.
