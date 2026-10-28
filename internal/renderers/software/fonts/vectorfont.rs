@@ -228,6 +228,8 @@ impl VectorFont {
             let mut cache = cache.borrow_mut();
 
             let skew_degrees = self.synthesis.skew();
+            // A stroke is drawn from the outline, so color makes no difference to it.
+            let color = color && stroke_width.is_none();
 
             let cache_key = GlyphCacheKey {
                 font_blob_id: self.font_blob.id(),
@@ -272,7 +274,7 @@ impl VectorFont {
                 // `CBDT` or `sbix` font, scaled to the pixel size. A font without either, and a
                 // stroke, gives the outline.
                 use swash::scale::{Source, StrikeWith};
-                let sources: &[Source] = if color && stroke_width.is_none() {
+                let sources: &[Source] = if color {
                     &[
                         Source::ColorOutline(0),
                         Source::ColorBitmap(StrikeWith::BestFit),
