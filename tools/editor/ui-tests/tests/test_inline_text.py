@@ -13,6 +13,7 @@ from canvas_interactions import (
     center,
     fixture_element,
     hover_fixture_element,
+    without_snapping,
     zoom_canvas,
 )
 from PIL import Image
@@ -124,9 +125,10 @@ def test_unselected_text_click_then_drag_moves_instead_of_editing(
 
         start = center(element(window, "Text move handle"))
         end = slint_testing.LogicalPosition(x=start.x + 30, y=start.y)
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        with without_snapping(window):
+            window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+            window.dispatch_event(slint_testing.PointerMoveEvent(end))
+            window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
         assert not elements(window.root_element, "Inline text editor")
         snapshot.wait_for_applied(expected)

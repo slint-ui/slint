@@ -287,7 +287,10 @@ export component EditorUi inherits Window {
             property <bool> shift-pressed: false;
             private property <bool> window-active: Api.window-active();
             changed window-active => {
-                if !self.window-active { self.shift-pressed = false; }
+                if !self.window-active {
+                    self.shift-pressed = false;
+                    Snapping.disabled = false;
+                }
             }
             private property <int> fill-focus-generation: FillSession.focus-generation;
             changed fill-focus-generation => {
@@ -346,6 +349,7 @@ export component EditorUi inherits Window {
             }
 
             capture-key-pressed(event) => {
+                Snapping.disabled = Platform.os == OperatingSystemType.macos ? event.modifiers.meta : event.modifiers.control;
                 if root.canvas-zoom-enabled && event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && event.text == "=" {
                     CanvasView.set-zoom(CanvasView.next-zoom-level);
                     return accept;
@@ -362,6 +366,7 @@ export component EditorUi inherits Window {
             }
 
             capture-key-released(event) => {
+                Snapping.disabled = Platform.os == OperatingSystemType.macos ? event.modifiers.meta : event.modifiers.control;
                 if event.text == Key.Space {
                     CanvasView.space-pressed = false;
                 }
@@ -433,6 +438,7 @@ export component EditorUi inherits Window {
                 self.nudge-key-held = false;
                 self.write-nudge();
                 self.shift-pressed = false;
+                Snapping.disabled = false;
                 CanvasView.space-pressed = false;
                 CanvasView.panning = false;
             }
