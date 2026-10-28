@@ -160,6 +160,17 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "FlexboxLayout");
     }
 
+    public pure function has-layout-alignment-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "HorizontalLayout"
+                || InspectorContext.element-information.type-name == "VerticalLayout"
+                || InspectorContext.element-information.type-name == "FlexboxLayout");
+    }
+
+    public pure function is-flexbox-layout-selection() -> bool {
+        return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "FlexboxLayout";
+    }
+
     public pure function selected-x() -> length {
         return InspectorContext.has-backend-rect()
             ? InspectorContext.selection-rects[Api.selection.highlight-index].x

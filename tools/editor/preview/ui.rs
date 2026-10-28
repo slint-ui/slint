@@ -3209,6 +3209,54 @@ mod tests {
     }
 
     #[test]
+    fn layout_alignment_rows_follow_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 200.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+        for (type_name, alignment, line_alignment) in [
+            ("HorizontalLayout", true, false),
+            ("VerticalLayout", true, false),
+            ("FlexboxLayout", true, true),
+            ("GridLayout", false, false),
+            ("Rectangle", false, false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            for (label, expected) in
+                [("Layout Alignment", alignment), ("Cross Axis Line Alignment", line_alignment)]
+            {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn scrollbar_policy_combos_follow_selected_element_properties() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
