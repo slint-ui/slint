@@ -1,5 +1,11 @@
 # What's New in Slint for .NET
 
+## Next Preview
+
+- On embedded Linux, the OpenGL renderers of the `linuxkms` backend work with display drivers without modifier support,
+  such as `virtio-gpu` in virtual machines, instead of failing with "Error adding gbm buffer as framebuffer".
+- The native library builds without its `live-preview` feature.
+
 ## 1.19.0-preview.9
 
 - `ListModel.InsertRange` and `ListModel.RemoveRange` change several rows with one notification.

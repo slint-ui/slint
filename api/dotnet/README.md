@@ -19,7 +19,7 @@ It's community documentation, not affiliated with SixtyFPS GmbH.
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- macOS, Linux, or Windows, on x64 or arm64, or [Android](#android-preview) on arm64 and x86_64
+- macOS, Linux, or Windows, on x64 or arm64, [embedded Linux](#embedded-linux) without a desktop, or [Android](#android-preview) on arm64 and x86_64
 
 ## Quick Start
 
@@ -514,6 +514,27 @@ Add the images that `.slint` files use as `<SlintFile Include="ui/images/logo.pn
 under the project directory, so that they keep their paths relative to the `.slint` files.
 `examples/todo/dotnet-android` is a complete example,
 and `examples/lols/dotnet-android` runs the [LOLs per second](https://github.com/jonathanpeppers/lols) test on Android.
+
+## Embedded Linux
+
+On a device without a desktop, such as a board with a touchscreen,
+Slint draws straight to the display with its `linuxkms` backend, and reads input with libinput.
+Publish for the device's runtime identifier, and start the app on its console:
+
+```sh
+dotnet publish -c Release -r linux-arm64 --self-contained
+SLINT_BACKEND=linuxkms ./MyApp
+```
+
+- Give the app access to `/dev/dri` and `/dev/input`: run it as root, or add its user to the `video` and `input` groups.
+- Stop the desktop first, if the device has one, since it holds the display.
+- `linuxkms` picks a renderer; `linuxkms-software`, `linuxkms-femtovg`, and `linuxkms-skia-opengl` choose one.
+- The device needs libinput and libudev, and for OpenGL, GBM and EGL, which the app loads at run time.
+- In 1.19.0-preview.9 and earlier, the OpenGL renderers fail with "Error adding gbm buffer as framebuffer"
+  on display drivers without modifier support, such as `virtio-gpu` in virtual machines.
+  Use `linuxkms-software` there, or the next preview.
+
+See [Slint's LinuxKMS guide](https://docs.slint.dev/latest/docs/slint/guide/backends-and-renderers/backend_linuxkms/) for the renderers and the display settings.
 
 ## Without Generated Code
 
