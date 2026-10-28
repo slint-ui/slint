@@ -2941,18 +2941,19 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
     ) {
         let font_request = text.font_request(self_rc);
 
-        #[cfg(feature = "systemfonts")]
-        let mut font_ctx = self.window.context().font_context().borrow_mut();
-        let font = fonts::match_font(
-            &font_request,
-            self.scale_factor,
+        let font = {
             #[cfg(feature = "systemfonts")]
-            &mut font_ctx,
-        );
+            let mut font_ctx = self.window.context().font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                self.scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
 
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
-            drop(font_ctx);
             sharedparley::draw_text(self, text, Some(self_rc), size, Some(self.text_layout_cache));
             return;
         }
@@ -3027,18 +3028,19 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         size: LogicalSize,
     ) {
         let font_request = text_input.font_request(self_rc);
-        #[cfg(feature = "systemfonts")]
-        let mut font_ctx = self.window.context().font_context().borrow_mut();
-        let font = fonts::match_font(
-            &font_request,
-            self.scale_factor,
+        let font = {
             #[cfg(feature = "systemfonts")]
-            &mut font_ctx,
-        );
+            let mut font_ctx = self.window.context().font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                self.scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
 
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
-            drop(font_ctx);
             sharedparley::draw_text_input(self, text_input, self_rc, size, self.text_layout_cache);
             return;
         }
@@ -3383,18 +3385,19 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
     fn draw_string(&mut self, string: &str, color: Color) {
         let font_request = Default::default();
-        #[cfg(feature = "systemfonts")]
-        let mut font_ctx = self.window.context().font_context().borrow_mut();
-        let font = fonts::match_font(
-            &font_request,
-            self.scale_factor,
+        let font = {
             #[cfg(feature = "systemfonts")]
-            &mut font_ctx,
-        );
+            let mut font_ctx = self.window.context().font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                self.scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
 
         #[cfg(feature = "systemfonts")]
         if uses_parley(&font) {
-            drop(font_ctx);
             sharedparley::draw_text(
                 self,
                 std::pin::pin!((i_slint_core::SharedString::from(string), Brush::from(color))),

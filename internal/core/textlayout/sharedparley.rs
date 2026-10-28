@@ -162,11 +162,13 @@ use shaping::{
 /// back: `f` only borrows the [`Layout`], so no caller can lose the shaped paragraphs and cost the
 /// next use of the entry a reshape.
 ///
-/// The font context is borrowed from `window`'s Slint context for shaping and layout only, and
-/// released before `f` runs -- glyph drawing inside `f` re-enters it, and property bindings
-/// evaluated under `f` must not find it borrowed. The wrap mode, line-height factor and scale
-/// factor the cache entry is keyed on come from `layout_builder`, so shaping and layout cannot
-/// disagree about them.
+/// The font context is borrowed from `window`'s Slint context for shaping and layout only,
+/// and released before `f` runs, as glyph drawing inside `f` re-enters it.
+/// Bindings that measure text borrow it too, so this evaluates the text and the link color first.
+/// Building `layout_builder` evaluated the rest of what shaping reads.
+/// `f` must not read properties, for the same reason: it runs with the cache entry checked out.
+/// The wrap mode, line-height factor and scale factor the cache entry is keyed on come from
+/// `layout_builder`, so shaping and layout cannot disagree about them.
 ///
 /// Returns `None` only when `window` has no Slint context yet.
 fn with_text_layout<R>(
@@ -179,6 +181,8 @@ fn with_text_layout<R>(
     f: impl FnOnce(&Layout) -> R,
 ) -> Option<R> {
     let ctx = crate::window::WindowInner::from_pub(window).try_context()?;
+    let _ = text.text();
+    let _ = text.link_color();
     let mut font_ctx = ctx.font_context().borrow_mut();
 
     let text_wrap = layout_builder.text_wrap;
@@ -255,6 +259,7 @@ pub fn draw_text(
 
     let text_overflow = text.overflow();
     let text_color = text.color().color();
+    let text_selection = text.selection();
 
     let _ = with_render_text_layout(
         scale_factor,
@@ -285,7 +290,7 @@ pub fn draw_text(
 
             if render {
                 let mut selection_spans = SelectionSpans::default();
-                let selection = text.selection().and_then(|selection| {
+                let selection = text_selection.and_then(|selection| {
                     draw_selection_background(
                         item_renderer,
                         layout,
@@ -476,6 +481,12 @@ pub fn draw_text_input(
 
     let scale_factor = item_renderer.scale_factor();
 
+    let selection_background = text_input.selection_background_color();
+    let selection_foreground = text_input.selection_foreground_color();
+    let cursor = visual_representation
+        .cursor_position
+        .map(|cursor_pos| (cursor_pos, text_input.text_cursor_width() * scale_factor));
+
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
 
@@ -509,8 +520,8 @@ pub fn draw_text_input(
                     item_renderer,
                     layout,
                     selection_range,
-                    text_input.selection_background_color(),
-                    text_input.selection_foreground_color(),
+                    selection_background,
+                    selection_foreground,
                     &mut selection_spans,
                 );
 
@@ -522,11 +533,11 @@ pub fn draw_text_input(
                     selection.as_ref(),
                 );
 
-                if let Some(cursor_pos) = visual_representation.cursor_position {
+                if let Some((cursor_pos, cursor_width)) = cursor {
                     let cursor_rect = layout.cursor_rect_for_byte_offset(
                         cursor_pos,
                         visual_representation.cursor_affinity,
-                        text_input.text_cursor_width() * scale_factor,
+                        cursor_width,
                     );
                     item_renderer
                         .fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
@@ -571,16 +582,6 @@ fn text_size_impl(
     cache: Option<&TextLayoutCache>,
 ) -> Option<LogicalSize> {
     let scale_factor = scale_factor?;
-
-    // Evaluate the properties that `shape_paragraphs` reads before borrowing font_context: they
-    // can trigger property bindings that re-enter text_size for other elements, which would panic
-    // on a second borrow_mut(). Afterwards they are clean, so shaping can read them again -- now
-    // without re-entering -- inside the cache entry's dependency tracker.
-    let _ = text_item.font_request(item_rc);
-    let _ = text_item.stroke();
-    let _ = text_item.link_color();
-    let _ = text_item.text();
-
     let window_adapter = window_adapter?;
 
     // Only `layout()`'s elision glyph reads this, and `TextOverflow::Clip` never asks for one.
@@ -631,7 +632,7 @@ fn text_content_widths_impl(
 ) -> Option<crate::renderer::ContentWidths> {
     let scale_factor = scale_factor?;
 
-    // See text_size(): evaluate properties before borrowing font_context. Afterwards they are
+    // See with_text_layout: evaluate properties before borrowing font_context. Afterwards they are
     // clean, so `compute` can read them again -- now without re-entering -- inside the cache
     // entry's dependency tracker.
     let _ = text_item.font_request(item_rc);
