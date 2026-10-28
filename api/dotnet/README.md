@@ -23,6 +23,20 @@ It's community documentation, not affiliated with SixtyFPS GmbH.
 
 ## Quick Start
 
+From the next preview, after 1.19.0-preview.9, a template creates the app in one step:
+
+```sh
+dotnet new install yurkinh.slint.net.Templates
+dotnet new slint -o MyApp
+cd MyApp
+dotnet run
+```
+
+The app has the counter below, live preview in Debug builds for `dotnet watch`, and Native AOT in Release builds.
+`--style fluent`, `material`, `cupertino`, or `cosmic` picks the widget style.
+
+Or set up the project yourself:
+
 1. Create a project and add the `yurkinh.slint.net` package:
 
    ```sh

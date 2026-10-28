@@ -5,6 +5,11 @@
 - On embedded Linux, the OpenGL renderers of the `linuxkms` backend work with display drivers without modifier support,
   such as `virtio-gpu` in virtual machines, instead of failing with "Error adding gbm buffer as framebuffer".
 - The native library builds without its `live-preview` feature.
+- iOS: the package embeds Slint as a framework into `net10.0-ios` apps, which run on devices and in the simulator.
+  The C# `Main` creates the components and calls `Run`, and the app's `Info.plist` names Slint's `SlintWindowSceneDelegate`.
+  Native AOT works with `PublishAot` in the project; see the README for keeping state when iOS ends the app.
+- Templates: `dotnet new install yurkinh.slint.net.Templates`, then `dotnet new slint -o MyApp` creates a desktop app
+  with live preview in Debug builds and Native AOT in Release builds.
 
 ## 1.19.0-preview.9
 
