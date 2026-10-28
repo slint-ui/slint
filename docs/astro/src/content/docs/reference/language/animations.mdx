@@ -251,8 +251,8 @@ Slint reads that setting on these platforms:
 - Windows, with the winit backend: `Animation effects` under `Settings > Accessibility > Visual effects`.
 - Android: `Remove animations` under `Settings > Accessibility`.
 
-Slint reads the setting at startup and again whenever one of your application's windows gains focus.
-When it's on, Slint skips animations:
+On other platforms and backends, animations always run.
+When your users reduce motion, Slint skips animations:
 
 - Every `animate` block behaves as if `enabled` were `false`, so a change sets the property to its target value at once.
 - A `Flickable` still pans while the pointer is down, but doesn't fling when the pointer is released.

@@ -569,9 +569,10 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.font_scale(env))
     }
 
-    /// Reads whether Android runs animators, which "Remove animations" under
-    /// Settings > Accessibility turns off. Android sends no configuration change for this
-    /// setting, so callers read it at startup and again whenever the window gains focus.
+    /// Sets the motion preference of `ctx` to reduced when Android doesn't run animators,
+    /// which "Remove animations" under Settings > Accessibility turns off. Android sends no
+    /// configuration change for this setting, so call it at startup and again whenever the
+    /// window gains focus.
     pub fn set_motion_preference(&self, ctx: &i_slint_core::SlintContext) {
         if let Ok(enabled) = self.with_jni_env(|env, helper| helper.animators_enabled(env)) {
             ctx.set_motion_preference(if enabled {
