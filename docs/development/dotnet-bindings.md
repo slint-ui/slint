@@ -416,7 +416,9 @@ Done:
   It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
   It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
 - **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
-  Its description lists what each preview added, up to drawing with OpenGL in preview.9.
+  Its description lists what each preview added, up to drawing with OpenGL in preview.9,
+  and the manual `linuxkms` test with its `GbmDisplay` change.
+  That change in `internal/backends/linuxkms` fixes Slint itself, so it can also go upstream as a pull request of its own, before this one.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
@@ -475,7 +477,8 @@ Next:
   extends the README with deployment, troubleshooting, and samples.
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
-- **17.** Platforms beyond the desktop: packages for Android and iOS, and a test of the `linuxkms` backend on embedded Linux.
+- **17.** Platforms beyond the desktop: packages for Android and iOS, and the `linuxkms` backend on embedded Linux,
+  which works in a virtual machine and waits for a test on real hardware.
   The packages ship the native library for macOS, Linux, and Windows, and for Android from 1.19.0-preview.7.
   Both mobile platforms follow the C++ API, where Slint owns the entry point and calls the application's code,
   so neither needs Native AOT or .NET 11.
