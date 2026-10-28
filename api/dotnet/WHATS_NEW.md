@@ -1,6 +1,6 @@
 # What's New in Slint for .NET
 
-## Unreleased
+## 1.19.0-preview.8
 
 - On Android, keep what the user was doing when Android ends the process in the background:
   return it from `SlintSaveState`, and take it back in `SlintRestoreState`.
