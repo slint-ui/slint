@@ -76,29 +76,19 @@ fn main() {
         ns_window.setAlphaValue(0.75);
         let initial_alpha = ns_window.alphaValue();
         let frames = Rc::new(Cell::new(0));
-        let transparent_frames = Rc::new(Cell::new(0));
         let needs_fresh_frame = Rc::new(Cell::new(true));
         let protected_frames = Rc::new(Cell::new(true));
         let protected = protected_frames.clone();
         let frame_count = frames.clone();
-        let transparent_count = transparent_frames.clone();
         let fresh_frame = needs_fresh_frame.clone();
         let window = ns_window.clone();
         app.window()
-            .set_rendering_notifier(move |state, api| {
+            .set_rendering_notifier(move |state, _| {
                 if matches!(state, slint::RenderingState::AfterRendering) {
                     if fresh_frame.replace(false) {
                         protected.set(
                             protected.get() && (!window.isVisible() || window.alphaValue() == 0.),
                         );
-                        eprintln!(
-                            "fresh frame: {api:?}, visible={}, alpha={}",
-                            window.isVisible(),
-                            window.alphaValue()
-                        );
-                    }
-                    if window.alphaValue() == 0. {
-                        transparent_count.set(transparent_count.get() + 1);
                     }
                     frame_count.set(frame_count.get() + 1);
                 }
@@ -170,18 +160,7 @@ fn main() {
             .await;
             assert!(ns_window.isVisible());
             assert_eq!(ns_window.alphaValue(), initial_alpha);
-            eprintln!(
-                "minimize/restore: frames {} -> {}, alpha={}",
-                before,
-                frames.get(),
-                ns_window.alphaValue()
-            );
         }
-        eprintln!(
-            "{renderer}: frames={}, transparent frames={}",
-            frames.get(),
-            transparent_frames.get()
-        );
         app.hide().unwrap();
         assert_eq!(ns_window.alphaValue(), initial_alpha);
         slint::quit_event_loop().unwrap();
