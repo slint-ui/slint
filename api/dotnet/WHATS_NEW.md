@@ -1,6 +1,6 @@
 # What's New in Slint for .NET
 
-## Next Preview
+## 1.19.0-preview.9
 
 - `ListModel.InsertRange` and `ListModel.RemoveRange` change several rows with one notification.
 - Structs, and so records, cross into Slint in one call per struct instead of three per field,
