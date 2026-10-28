@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics, InspectorStyle } from "../../../style.slint";
+import { InspectorComboBox, InspectorEnumOptions, InspectorFieldLabel, InspectorSection } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorLayoutAlignmentSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> popup-bottom;
+    property <string> default-alignment: InspectorContext.is-flexbox-layout-selection() ? "start" : "stretch";
+
+    title: @tr("Alignment");
+
+    GridLayout {
+        padding-left: root.style.padding;
+        spacing: Metrics.space-compact;
+
+        Row {
+            InspectorFieldLabel {
+                text: @tr("Main axis");
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Layout Alignment");
+                value: InspectorEnumOptions.option-label("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
+                selected-index: InspectorEnumOptions.option-index("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
+                options: InspectorEnumOptions.layout-alignment-options;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("alignment", text);
+                }
+            }
+
+            Rectangle { }
+        }
+
+        if InspectorContext.is-flexbox-layout-selection(): Row {
+            InspectorFieldLabel {
+                text: @tr("Lines");
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Cross Axis Line Alignment");
+                value: InspectorEnumOptions.option-label("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
+                selected-index: InspectorEnumOptions.option-index("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
+                options: InspectorEnumOptions.layout-alignment-options;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("cross-axis-line-alignment", text);
+                }
+            }
+
+            Rectangle { }
+        }
+    }
+}
