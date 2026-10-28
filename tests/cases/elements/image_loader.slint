@@ -1,0 +1,84 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tests for the custom asset loader API (set_image_loader).
+// The loader is set up in the test functions before the component is created,
+// providing image data for asset IDs that don't exist on the filesystem.
+//ignore: rust-macro, interpreter
+
+export component TestCase inherits Rectangle {
+    in property <image> img_source;
+
+    img := Image {
+        x: 0;
+        y: 0;
+        source: img_source;
+    }
+
+    in-out property <length> img_width: img.width;
+    in-out property <length> img_height: img.height;
+    in-out property <bool> test: img.source.width > 0 && img.source.height > 0;
+}
+
+/*
+```cpp
+#include <slint.h>
+#include <vector>
+
+// Minimal 1x1 red PNG
+static std::vector<uint8_t> small_png = {
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00,
+    0x0C, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+    0x00, 0x03, 0x01, 0x01, 0x00, 0xC9, 0xFE, 0x92, 0xEF, 0x00, 0x00, 0x00,
+    0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+};
+
+slint::set_image_loader([](const std::string_view asset_path) -> std::optional<std::vector<uint8_t>> {
+    if (asset_path == "custom-loader-test.png") {
+        return small_png;
+    }
+    return std::nullopt;
+});
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Load image at runtime so the asset loader is consulted
+instance.set_img_source(slint::Image::load_from_path("custom-loader-test.png"));
+
+assert_eq(instance.get_img_width(), 1.);
+assert_eq(instance.get_img_height(), 1.);
+assert(instance.get_test());
+```
+
+```rust
+// Minimal 1x1 red PNG
+let small_png: &[u8] = &[
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00,
+    0x0C, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+    0x00, 0x03, 0x01, 0x01, 0x00, 0xC9, 0xFE, 0x92, 0xEF, 0x00, 0x00, 0x00,
+    0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+];
+
+slint::set_image_loader(move |id| {
+    if id == "custom-loader-test.png" {
+        Some(Ok(small_png.to_vec()))
+    } else {
+        None
+    }
+});
+
+let instance = TestCase::new().unwrap();
+
+// Load image at runtime so the asset loader is consulted
+instance.set_img_source(slint::Image::load_from_path(std::path::Path::new("custom-loader-test.png")).unwrap());
+
+assert_eq!(instance.get_img_width(), 1.);
+assert_eq!(instance.get_img_height(), 1.);
+assert!(instance.get_test());
+```
+*/
