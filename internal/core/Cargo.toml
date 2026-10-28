@@ -195,7 +195,7 @@ web-time = { version = "1.0", optional = true }
 wasm-bindgen = { version = "0.2" }
 js-sys = { version = "0.3", default-features = false, features = ["std"] }
 clru = { workspace = true }
-web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob", "BlobPropertyBag", "Url", "DomParser", "SupportedType", "Document", "Element"] }
+web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator", "Blob", "BlobPropertyBag", "Url", "DomParser", "SupportedType", "Document", "Element", "WebGlTexture"] }
 
 
 [dev-dependencies]

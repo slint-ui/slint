@@ -6790,7 +6790,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 name = "opengl_texture"
 version = "1.19.0"
 dependencies = [
- "glow 0.17.0",
+ "glow 0.18.0",
  "slint",
  "slint-build",
  "web-time",
@@ -6800,7 +6800,7 @@ dependencies = [
 name = "opengl_underlay"
 version = "1.19.0"
 dependencies = [
- "glow 0.17.0",
+ "glow 0.18.0",
  "slint",
  "slint-build",
  "web-time",

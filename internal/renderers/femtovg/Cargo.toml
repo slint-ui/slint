@@ -44,7 +44,7 @@ glow = { workspace = true }
 wgpu-30 = { workspace = true, optional = true, default-features = true }
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies]
-web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
+web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "WebGlTexture", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
 # Enable wgpu-core's WebGL2 backend so the wgpu init helper can fall back to
 # it transparently when no BROWSER_WEBGPU adapter is available (e.g. in

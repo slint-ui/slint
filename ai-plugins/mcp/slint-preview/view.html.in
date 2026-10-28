@@ -320,10 +320,12 @@
   }
 
   let instance = null;
-  async function render({ source, path, style }, previewId) {
+  async function render({ source, path, projectRoot, style }, previewId) {
     let url = "main.slint";
     let loadImport = null;
     let loadResource = null;
+    // Interpreters without this parameter ignore it, and compile without the project file.
+    const projectRootUrl = projectRoot ? toFileUrl(projectRoot) : null;
     if (path) {
       showStatus(`Reading ${path}…`);
       publish({ previewId, stage: "reading" }).catch(() => {});
@@ -335,8 +337,14 @@
         return;
       }
       url = toFileUrl(path);
-      // The interpreter reports only a string rejection as the import error.
-      loadImport = (file) => readSlintFile(fromFileUrl(file)).catch((e) => Promise.reject(String(e.message ?? e)));
+      // The interpreter reports only a string rejection as the import error,
+      // and continues the include path search for null.
+      // cspell:ignore ENOENT ENOTDIR
+      loadImport = (file) =>
+        readSlintFile(fromFileUrl(file)).catch((e) => {
+          const message = String(e.message ?? e);
+          return /^(ENOENT|ENOTDIR):/.test(message) ? null : Promise.reject(message);
+        });
       // Imported fonts. Interpreters without this parameter ignore it, and fall back to the default font.
       loadResource = (file) => readBinaryFile(fromFileUrl(file)).then(({ bytes }) => bytes);
     }
@@ -367,8 +375,8 @@
     const { component, diagnostics } = await untilPanic(
       current,
       style
-        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource)
-        : slint.compile_from_string(source, url, loadImport, loadResource),
+        ? slint.compile_from_string_with_style(source, url, style, loadImport, loadResource, undefined, projectRootUrl)
+        : slint.compile_from_string(source, url, loadImport, loadResource, projectRootUrl),
     );
 
     diagnosticsEl.replaceChildren(...diagnostics.map((d) => {

@@ -110,7 +110,11 @@ importers:
 
   ai-plugins/hooks: {}
 
-  ai-plugins/mcp/slint-preview: {}
+  ai-plugins/mcp/slint-preview:
+    devDependencies:
+      playwright:
+        specifier: 'catalog:'
+        version: 1.64.1
 
   api/node:
     devDependencies:
