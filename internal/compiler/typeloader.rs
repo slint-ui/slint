@@ -2253,7 +2253,7 @@ fn test_import_path_verbatim() {
         let requested_ = requested_.clone();
         Box::pin(async move {
             requested_.borrow_mut().push(path);
-            Some(Ok("export XX := Rectangle {} ".to_owned()))
+            Some(Ok("export component XX inherits Rectangle {} ".to_owned()))
         })
     }));
 
@@ -2305,7 +2305,7 @@ fn test_load_from_callback_ok() {
             assert_eq!(path.to_string().replace('\\', "/"), "../FooBar.slint");
             assert!(!ok_.get());
             ok_.set(true);
-            Some(Ok("export XX := Rectangle {} ".to_owned()))
+            Some(Ok("export component XX inherits Rectangle {} ".to_owned()))
         })
     }));
 
@@ -2314,7 +2314,7 @@ fn test_load_from_callback_ok() {
         r#"
 /* ... */
 import { XX } from "../Ab/.././FooBar.slint";
-X := XX {}
+component X inherits XX {}
 "#
         .into(),
         Some(SourcePath::new("HELLO")),

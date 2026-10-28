@@ -8,8 +8,7 @@ global MyGlobal := {
     color_prop: red;
 }
 
-export SomeComp := Rectangle {
-//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component SomeComp inherits Rectangle {
     property<length> foo;
 }
 
@@ -23,8 +22,7 @@ global StyleMetrics {
     out property <length> padding: 3px;
 }
 
-export X := Rectangle {
-//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+export component X inherits Rectangle {
     x: MyGlobal.custom_prop;
     background: MyGlobal.blue;
 //                       >  <error{'MyGlobal' does not have a property 'blue'}
