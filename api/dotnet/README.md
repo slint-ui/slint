@@ -159,6 +159,42 @@ Paths are relative to the project.
 The generated code loads imports from these directories where they are,
 so an application that runs elsewhere needs the imported files copied, such as with `<SlintFile Generate="false" />`.
 
+### Generating the Code by Hand
+
+The build runs `slint-compiler` for each `<SlintFile>`.
+Run it yourself to generate the code in a script, or for a project that doesn't use `Slint.targets`:
+
+```sh
+slint-compiler -f csharp ui/app-window.slint -o AppWindow.g.cs \
+    --csharp-namespace MyApp \
+    --csharp-runtime-path ui/app-window.slint
+```
+
+- `--csharp-namespace` sets the namespace of the generated classes.
+- `--csharp-runtime-path` is where the generated code loads the `.slint` file at run time, relative to the application directory.
+  Copy the `.slint` files there, as the build does.
+- For a project file, pass its directory instead of a file, and the directory as the runtime path.
+
+The other settings map to options:
+
+| Setting | Option |
+|---|---|
+| `SlintStyle` | `--style fluent` |
+| `SlintIncludePaths` | `-I <dir>`, once per directory |
+| `<SlintLibraryPath>` | `-L mylib=../mylib/` |
+| `SlintTranslationDomain` | `--translation-domain <domain>` |
+| `SlintBundledTranslations` | `--bundle-translations <dir>` |
+| `SlintNoDefaultTranslationContext` | `--no-default-translation-context` |
+| `SlintLivePreview` | `--csharp-live-preview` |
+
+The package `yurkinh.slint.net.Compiler` has the compiler in `tools/<rid>/`,
+such as `~/.nuget/packages/yurkinh.slint.net.compiler/<version>/tools/osx-arm64/slint-compiler`.
+NuGet doesn't keep its executable bit, so run `chmod +x` on it first.
+Add the generated file to the project with `<Compile Include="AppWindow.g.cs" />`,
+and generate it again when the `.slint` file changes.
+
+To build with a `slint-compiler` of your own instead, set `SlintCompilerPath` to it.
+
 ## Window
 
 Each component has a `Window`, for the window it shows in:
@@ -453,6 +489,11 @@ using var app = definition.Create();
 app.SetCallback("request-increase-value", _ => app.SetProperty("counter", (double)app.GetProperty("counter")! + 1));
 app.Run();
 ```
+
+## Building From Source
+
+To build the native library, the compiler, and the packages yourself, such as for a platform or a change that isn't published,
+follow [Building the Packages Locally](https://github.com/yurkinh/slint/blob/dotnet_bindings/docs/development/dotnet-bindings.md#building-the-packages-locally).
 
 ## Slint Language Manual
 

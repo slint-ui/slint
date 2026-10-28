@@ -174,6 +174,48 @@ dotnet pack api/dotnet/Slint -c Release -p:Version=<version> -p:SlintNativeRunti
 `.github/workflows/publish_nuget_package.yaml` builds the binaries on each platform,
 packs them, builds and runs a project with the packages on macOS, Linux, and Windows,
 and publishes them to nuget.org when asked to.
+
+### Building the Packages Locally
+
+A local pack has the platforms whose binaries you built, such as your machine's and Android's.
+From the repository root, on an Apple Silicon Mac:
+
+```sh
+# The native library and the compiler for this machine
+cargo build --release -p slint-dotnet -p slint-compiler
+
+# The native library for Android devices, with the NDK variables of the Android section
+cargo build --release -p slint-dotnet --target aarch64-linux-android
+
+# One directory per runtime identifier
+mkdir -p out/native/osx-arm64 out/native/android-arm64 out/compiler/osx-arm64
+cp target/release/libslint_dotnet.dylib out/native/osx-arm64/
+cp target/aarch64-linux-android/release/libslint_dotnet.so out/native/android-arm64/
+cp target/release/slint-compiler out/compiler/osx-arm64/
+
+cd api/dotnet
+dotnet pack Slint.Compiler -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
+    -p:SlintCompilerBinariesDir=$PWD/../../out/compiler
+dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
+    -p:SlintNativeRuntimesDir=$PWD/../../out/native -p:SlintAndroid=true
+```
+
+| Platform | Runtime identifiers | Native library | Compiler |
+|---|---|---|---|
+| macOS | `osx-arm64`, `osx-x64` | `libslint_dotnet.dylib` | `slint-compiler` |
+| Linux | `linux-x64`, `linux-arm64` | `libslint_dotnet.so` | `slint-compiler` |
+| Windows | `win-x64`, `win-arm64` | `slint_dotnet.dll` | `slint-compiler.exe` |
+| Android | `android-arm64`, `android-x64` | `libslint_dotnet.so`, from `target/<triple>/release` | none |
+
+- `-p:SlintAndroid=true` needs the .NET Android workload, from `dotnet workload install android`.
+  Leave it out, and the Android directories, for a desktop-only package.
+- These packages have the ID `Slint`.
+  For another ID, add `-p:SlintPackageId=<id> -p:SlintCommunityPackage=true` to both commands, as the workflow does for a fork.
+- Use the packages from another project through a NuGet source:
+  `dotnet nuget add source $PWD/out/packages --name slint-local`, or a `nuget.config` that lists the directory.
+  NuGet caches a version once it installed it, so give each pack a new version, or clear `~/.nuget/packages/<id>`.
+
+To generate the C# code of a `.slint` file without MSBuild, see "Generating the Code by Hand" in `api/dotnet/README.md`.
 NuGet license expressions only know SPDX licenses, so the packages carry `LICENSE.md` instead.
 
 NuGet only imports `build/<id>.targets` and `buildTransitive/<id>.props`,
