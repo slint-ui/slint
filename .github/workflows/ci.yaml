@@ -283,12 +283,13 @@ jobs:
             DOTNET_NOLOGO: 1
         steps:
             - uses: actions/checkout@v7
-            # The .NET iOS workload of the pinned .NET SDK requires this Xcode, which isn't the image's default.
-            - name: Select Xcode 27.1
+            # Each .NET iOS workload requires one Xcode version: the workload set 10.0.401 has .NET for iOS 26.5,
+            # for the Xcode 26 of the runner, while newer sets require Xcode 27.
+            - name: Select Xcode 26.5
               run: |
                   ls -d /Applications/Xcode*.app
-                  xcode=$(ls -d /Applications/Xcode_27.1*.app 2> /dev/null | tail -n 1)
-                  sudo xcode-select -s "${xcode:?Xcode 27.1 isn't on this runner}"
+                  xcode=$(ls -d /Applications/Xcode_26.5*.app 2> /dev/null | tail -n 1)
+                  if [ -n "$xcode" ]; then sudo xcode-select -s "$xcode"; fi
                   xcodebuild -version
             - uses: ./.github/actions/setup-rust
               with:
@@ -303,7 +304,7 @@ jobs:
               with:
                   dotnet-version: 10.0.401
             - name: Install the .NET iOS workload
-              run: dotnet workload install ios
+              run: dotnet workload install ios --version 10.0.401
             - name: Build the todo example for the iOS simulator
               run: dotnet build examples/todo/dotnet-ios/TodoIOS.csproj
             - name: Start the todo example in an iPhone simulator
