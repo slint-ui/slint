@@ -419,6 +419,42 @@ Done:
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
 
+- **19.** Performance compared with Rust, measured with lols and profiled on macOS and an Android emulator.
+  The generated code compiles its `.slint` files at startup: in a release build, 20 to 100 ms for the samples,
+  such as about 100 ms for `gallery` and 40 ms for `printerdemo`, plus about 50 ms for the first compile in a process.
+  Layout, rendering, and text are the same Rust code as in a Rust app; only bindings and callbacks in `.slint` run in the interpreter.
+  - The lols canvas showed that calls across the native boundary cost the most:
+    notifying a model change per row halved its rate, compared with once per frame.
+    `ListModel` has `InsertRange` and `RemoveRange`, and the elements mode of lols changes its rows once per frame with them.
+    A struct crosses with one call, `slint_dotnet_value_new_struct`, which takes the field names, the values,
+    and the numbers inline, instead of three calls per field.
+    On a Pixel 9 emulator, both together took the Slint thread's CPU time during the test from about 3050 to 2830 ms in the elements mode,
+    and from 500 to 470 ms in the canvas mode, about 6%; LOL/s is bound by the producer's sleeps in both.
+    What's left is Slint's own work: in the canvas mode, the Slint thread is busy for almost the whole test.
+  - Profiles of lols, against a Rust version with the same `.slint` file, logic, and Skia renderer,
+    with `sample` on macOS and `simpleperf` on a Pixel 9 emulator:
+    - On macOS, `canvas` keeps the Slint thread busy in both languages, 65 to 69% of it in Skia rasterizing the glyphs of rotated text.
+      The interpreter and the bindings add about 5% in C#.
+      In `elements`, the Slint thread is busy 32% of the time in C# and 21% in Rust:
+      the interpreter evaluates the row bindings and creates a `Text` per row (about 8 points),
+      and the bindings convert rows (about 3).
+    - On the emulator, the Slint thread's CPU time during the test is 450 ms in C# and 390 ms in Rust for `canvas`,
+      and 2570 ms in C# and 1690 ms in Rust for `elements`, at the same LOL/s.
+      In `elements`, the interpreter cloning expressions and allocating for each new row dominates the difference.
+    - Every export checks the Slint thread with `std::thread::current`, which costs a `pthread_getspecific` call on Android,
+      about 5% of the busy time in `canvas`.
+      Reading the thread from a register instead made no measurable difference, so the check stays.
+    - What the bindings could still save is small: a generated record converts through a `Struct` dictionary per row,
+      which the generator could replace with a direct conversion.
+      The larger share is the interpreter's, and so a matter of Slint itself, see the next item.
+  - LOL/s can't show such changes, since the producer's sleeps bound it.
+    Compare the Slint thread's CPU time during the test instead, from `/proc/thread-self/stat`, on one emulator session.
+    On a phone, the Slint thread draws frame after frame while the screen is on, so the frame rate shows the cost there,
+    and with the screen off it doesn't draw at all.
+  - Compiling `.slint` ahead of time, like the Rust and C++ generators, isn't planned:
+    every app build would need a Rust or C++ toolchain for each target, compiled components would need a C ABI and C# wrappers of their own,
+    and live reload and loading `.slint` files at run time would go.
+
 Next:
 
 - **10.** A C# tab in the pages of the documentation website that have a Python tab, and in `live-preview.mdx`,
@@ -458,41 +494,6 @@ Next:
     The first prototype checks that P/Invoke resolves into the statically linked library, and that the app starts in the simulator.
 - **18.** Rendering notifiers and textures from OpenGL or WGPU, which the samples `opengl_texture`, `opengl_underlay`,
   `wgpu_texture`, and `bevy` need, so that C# can draw into a scene or show a texture of its own.
-- **19.** Performance compared with Rust.
-  The generated code compiles its `.slint` files at startup: in a release build, 20 to 100 ms for the samples,
-  such as about 100 ms for `gallery` and 40 ms for `printerdemo`, plus about 50 ms for the first compile in a process.
-  Layout, rendering, and text are the same Rust code as in a Rust app; only bindings and callbacks in `.slint` run in the interpreter.
-  - The lols canvas showed that calls across the native boundary cost the most:
-    notifying a model change per row halved its rate, compared with once per frame.
-    `ListModel` has `InsertRange` and `RemoveRange`, and the elements mode of lols changes its rows once per frame with them.
-    A struct crosses with one call, `slint_dotnet_value_new_struct`, which takes the field names, the values,
-    and the numbers inline, instead of three calls per field.
-    On a Pixel 9 emulator, both together took the Slint thread's CPU time during the test from about 3050 to 2830 ms in the elements mode,
-    and from 500 to 470 ms in the canvas mode, about 6%; LOL/s is bound by the producer's sleeps in both.
-    What's left is Slint's own work: in the canvas mode, the Slint thread is busy for almost the whole test.
-  - Profiles of lols, against a Rust version with the same `.slint` file, logic, and Skia renderer,
-    with `sample` on macOS and `simpleperf` on a Pixel 9 emulator:
-    - On macOS, `canvas` keeps the Slint thread busy in both languages, 65 to 69% of it in Skia rasterizing the glyphs of rotated text.
-      The interpreter and the bindings add about 5% in C#.
-      In `elements`, the Slint thread is busy 32% of the time in C# and 21% in Rust:
-      the interpreter evaluates the row bindings and creates a `Text` per row (about 8 points),
-      and the bindings convert rows (about 3).
-    - On the emulator, the Slint thread's CPU time during the test is 450 ms in C# and 390 ms in Rust for `canvas`,
-      and 2570 ms in C# and 1690 ms in Rust for `elements`, at the same LOL/s.
-      In `elements`, the interpreter cloning expressions and allocating for each new row dominates the difference.
-    - Every export checks the Slint thread with `std::thread::current`, which costs a `pthread_getspecific` call on Android,
-      about 5% of the busy time in `canvas`.
-      Reading the thread from a register instead made no measurable difference, so the check stays.
-    - What the bindings could still save is small: a generated record converts through a `Struct` dictionary per row,
-      which the generator could replace with a direct conversion.
-      The larger share is the interpreter's, and so a matter of Slint itself, see the next item.
-  - LOL/s can't show such changes, since the producer's sleeps bound it.
-    Compare the Slint thread's CPU time during the test instead, from `/proc/thread-self/stat`, on one emulator session.
-    On a phone, the Slint thread draws frame after frame while the screen is on, so the frame rate shows the cost there,
-    and with the screen off it doesn't draw at all.
-  - Compiling `.slint` ahead of time, like the Rust and C++ generators, isn't planned:
-    every app build would need a Rust or C++ toolchain for each target, compiled components would need a C ABI and C# wrappers of their own,
-    and live reload and loading `.slint` files at run time would go.
 
 ## Live Reload
 
