@@ -3,9 +3,7 @@
 
 // This file exists only to expose `android_main` from the cdylib for Android's
 // NativeActivity. The viewer's command-line implementation lives in main.rs.
-
-#[cfg(all(target_os = "android", not(feature = "remote")))]
-compile_error!("The `remote` feature is required when building for Android");
+// Without the `remote` feature it's empty; build.rs warns about that.
 
 #[cfg(all(target_os = "android", feature = "remote"))]
 mod remote;

@@ -135,6 +135,20 @@ The editor compiles the `.slint` file and sends the result to the remote viewer,
 
 `--remote` doesn't take a file path, and can't be combined with `--screenshot` or `--check`.
 
+### Connecting Without an Editor
+
+Use `--connect <host:port>` to push a `.slint` file to a remote viewer from the command line.
+This works on machines without a display, such as a server over SSH or Termux on a phone, since only the remote viewer renders.
+
+```sh
+slint-viewer --connect 192.168.1.20:41234 --auto-reload app.slint
+```
+
+Type the code the remote viewer displays when asked, or pass it with `--pairing-code <code>`.
+With `--auto-reload`, saving a file updates the remote viewer.
+Compiler diagnostics from the remote viewer print to the terminal.
+The remote viewer only receives the file, the files it imports, and images and fonts from the file's directory and its include and library paths.
+
 ## Project File
 
 Pass a project directory to load the [project file](../project-file/) (`slint-project.json`) inside it.
@@ -146,6 +160,12 @@ Don't combine a project directory input with `--project-root`.
 `-I`, `-L`, and `--style` win over its settings:
 any `-I` replaces the project file's include paths, and any `-L` replaces its library paths.
 Pass `-I ""` or `-L ""` to use no include or library paths at all.
+
+In Termux, install a viewer that only connects and takes screenshots, which doesn't need the Android NDK:
+
+```sh
+cargo install slint-viewer --no-default-features --features connect,renderer-software
+```
 
 ## Command-Line Options
 
@@ -162,8 +182,9 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--check` | Compile the file, print diagnostics, and exit without opening a window. Incompatible with the options above. |
 | `--remote` | Start in remote mode and wait for the editor to connect. See [Remote Viewer](#remote-viewer). |
 | `--remote-address <address>` | Address and port to listen on in remote mode. Defaults to an auto-assigned port on all interfaces. |
-| `--pairing-code <code>` | Always require this pairing code of 4 to 12 digits instead of showing a generated one, for devices with no usable display. Use at least 8 digits on networks you don't control. |
-| `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. |
+| `--connect <host:port>` | Show the file on a remote viewer instead of opening a window. See [Connecting Without an Editor](#connecting-without-an-editor). |
+| `--pairing-code <code>` | With `--remote`, always require this pairing code of 4 to 12 digits instead of showing a generated one, for devices with no usable display. Use at least 8 digits on networks you don't control. With `--connect`, the code the remote viewer shows. |
+| `--no-pairing` | With `--remote`, accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. With `--connect`, connect to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
 | `--style <style>` | Set the widget style. Wins over the style of the project file. Defaults to `fluent`. |
 | `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |

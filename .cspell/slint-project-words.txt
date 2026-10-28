@@ -681,6 +681,7 @@ targetstruct
 Tdefmt
 tempor
 termcolor
+termux
 testdata
 texels
 texteditor
