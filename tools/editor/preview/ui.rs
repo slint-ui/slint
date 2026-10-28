@@ -345,16 +345,6 @@ pub fn initialize_editor(
     }
 }
 
-fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
-    let Some(url) = ci.defined_at.as_ref().map(|da| da.url()) else {
-        return (Default::default(), Default::default());
-    };
-
-    let file_name = SourcePath::from_url(url).file_name().unwrap_or_default().to_string();
-
-    (url.to_string().into(), file_name.into())
-}
-
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
 }
@@ -377,122 +367,44 @@ pub fn set_preview_default_fonts(api: &Api<'_>, instance: &slint_interpreter::Co
     api.set_preview_default_font_weight(font.weight.unwrap_or_default());
 }
 
-pub fn ui_set_known_components(
-    api: &Api<'_>,
-    known_components: &[i_slint_editor_preview::component_catalog::ComponentInformation],
-    current_component_index: usize,
-) {
-    let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut std_widgets_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut path_map: HashMap<String, (SharedString, Vec<ComponentItem>)> = Default::default();
-    let mut library_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-
-    for (idx, ci) in known_components.iter().enumerate() {
-        if ci.is_global {
+pub fn ui_set_project_components(api: &Api<'_>, known_components: &[ComponentInformation]) {
+    let mut files: BTreeMap<String, Vec<ElementLibraryEntry>> = BTreeMap::new();
+    for component in known_components {
+        if component.is_builtin
+            || component.is_std_widget
+            || component.is_global
+            || component.is_interface
+        {
             continue;
         }
-        let (url, pretty_location) = extract_definition_location(ci);
-        let item = ComponentItem {
-            name: ci.name.clone().into(),
-            index: idx.try_into().unwrap(),
-            defined_at: url.clone(),
-            pretty_location,
-            is_user_defined: !(ci.is_builtin || ci.is_std_widget),
-            is_currently_shown: idx == current_component_index,
-            is_exported: ci.is_exported,
+        let Some(position) = &component.defined_at else {
+            continue;
         };
-
-        if let Some(position) = &ci.defined_at {
-            if let Some(library) = position.url().path().strip_prefix("/@") {
-                library_map.entry(format!("@{library}")).or_default().push(item);
-            } else {
-                let path = SourcePath::from_url(position.url()).to_string();
-                path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
-            }
-        } else if ci.is_builtin {
-            builtins_map.entry(ci.category.clone()).or_default().push(item);
-        } else {
-            std_widgets_map.entry(ci.category.clone()).or_default().push(item);
+        if position.url().path().starts_with("/@") {
+            continue;
         }
+        files.entry(SourcePath::from_url(position.url()).to_string()).or_default().push(
+            ElementLibraryEntry {
+                label: component.name.as_str().into(),
+                kind: ElementKind::Component,
+                source_uri: position.url().as_str().into(),
+            },
+        );
     }
-
-    type ComponentModel = search_model::SearchModel<ComponentItem>;
-    fn make_component_model(vec: Vec<ComponentItem>) -> ComponentModel {
-        ComponentModel::new(VecModel::from(vec), |i, search_str| {
-            search_model::contains(i.name.as_str(), search_str)
-        })
-    }
-
-    fn sort_subset(mut input: HashMap<String, Vec<ComponentItem>>) -> Vec<ComponentListItem> {
-        let mut output = input
-            .drain()
-            .map(|(k, mut v)| {
-                v.sort_by_key(|i| i.name.clone());
-                let model = Rc::new(make_component_model(v));
-                ComponentListItem {
-                    category: k.into(),
-                    file_url: SharedString::new(),
-                    components: model.into(),
-                }
-            })
-            .collect::<Vec<_>>();
-        output.sort_by_key(|k| k.category.clone());
-        output
-    }
-
-    let builtin_components = sort_subset(builtins_map);
-    let std_widgets_components = sort_subset(std_widgets_map);
-    let library_components = sort_subset(library_map);
-
     let common_directory =
-        i_slint_editor_preview::util::common_directory(path_map.keys().map(String::as_str));
-    let mut file_components = path_map
-        .drain()
-        .map(|(p, (file_url, mut v))| {
-            v.sort_by_key(|i| i.name.clone());
-            let model = Rc::new(make_component_model(v));
-            let name = p.strip_prefix(common_directory.as_str()).unwrap_or(&p);
-            ComponentListItem { category: name.into(), file_url, components: model.into() }
+        i_slint_editor_preview::util::common_directory(files.keys().map(String::as_str));
+    let groups = files
+        .into_iter()
+        .map(|(path, mut entries)| {
+            entries.sort_by(|a, b| a.label.cmp(&b.label));
+            ElementLibraryGroup {
+                section: ElementLibrarySection::Project,
+                label: path.strip_prefix(&common_directory).unwrap_or(&path).into(),
+                entries: Rc::new(VecModel::from(entries)).into(),
+            }
         })
         .collect::<Vec<_>>();
-    file_components
-        .sort_by(|a, b| a.category.split(['/', '\\']).cmp(b.category.split(['/', '\\'])));
-
-    let mut all_components = Vec::with_capacity(
-        builtin_components.len() + library_components.len() + file_components.len(),
-    );
-    all_components.extend_from_slice(&builtin_components[..]);
-    all_components.extend_from_slice(&std_widgets_components[..]);
-    all_components.extend_from_slice(&library_components[..]);
-    all_components.extend_from_slice(&file_components[..]);
-
-    let result = Rc::new(search_model::SearchModel::new(
-        VecModel::from(all_components),
-        |category, search_str| {
-            let mut yes = search_str.is_empty();
-            if let Some(sub_filter) = category.components.as_any().downcast_ref::<ComponentModel>()
-            {
-                sub_filter.set_search_text(search_str.clone());
-                yes = yes || sub_filter.row_count() > 0;
-            }
-            yes
-        },
-    ));
-
-    let old_search_text = api
-        .get_known_components()
-        .as_any()
-        .downcast_ref::<search_model::SearchModel<ComponentListItem>>()
-        .map(|x| x.search_text())
-        .filter(|x| !x.is_empty());
-    if let Some(search_text) = old_search_text {
-        result.set_search_text(search_text.clone());
-    }
-
-    api.set_known_components(result.clone().into());
-    api.on_library_search(move |term| {
-        result.set_search_text(term);
-    });
+    api.set_project_element_library(Rc::new(VecModel::from(groups)).into());
 }
 
 fn to_ui_range(r: TextRange) -> Option<Range> {

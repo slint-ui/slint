@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { Style, Colors, Typography, ElementPaletteTabStyle } from "../style.slint";
+
+component ElementPaletteTab inherits ButtonBase {
+    in property <ElementPaletteTabStyle> style: Style.element-palette-tab;
+    private property <bool> down: root.checked || root.pressed;
+    private property <length> offset: root.pressed ? 1px : root.checked ? 0.5px : 0px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    focus-on-click: true;
+    focus-on-tab-navigation: root.checked;
+    accessible-role: tab;
+    accessible-item-selected: root.checked;
+
+    background << Rectangle {
+        background: root.style.base;
+        Rectangle {
+            y: root.offset;
+            height: root.height - root.offset;
+            background: root.checked ? root.style.selected-surface : root.style.surface;
+            inner-shadow-color: root.down ? root.style.inset-shadow : transparent;
+            inner-shadow-blur: 1.5px;
+            inner-shadow-offset-y: 0.75px;
+            if !root.down: Rectangle {
+                y: 0px;
+                height: 0.5px;
+                background: root.style.highlight;
+            }
+            Rectangle {
+                y: parent.height - 0.5px;
+                height: 0.5px;
+                background: root.down ? root.style.selected-edge : root.style.edge;
+            }
+            if root.hovered || root.pressed: Rectangle {
+                background: root.pressed ? #0000000b : Colors.foreground.with-alpha(0.025);
+            }
+        }
+        if root.focus-visible: focus-ring := Rectangle {
+            x: 2px; y: 2px;
+            width: parent.width - 4px;
+            height: parent.height - 4px;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: Colors.focus;
+        }
+    }
+    content << Text {
+        y: root.offset;
+        height: root.height;
+        text: root.text;
+        color: root.checked ? Colors.foreground : Colors.muted;
+        font-size: Typography.control.size;
+        font-weight: root.checked ? 600 : 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component ElementPaletteTabs inherits FocusScope {
+    in property <ElementPaletteTabStyle> style: Style.element-palette-tab;
+    in-out property <int> selected;
+    height: 32px;
+    focus-on-tab-navigation: false;
+    accessible-role: tab-list;
+    accessible-label: @tr("Element sources");
+
+    function select(index: int) {
+        root.selected = index;
+        if index == 0 { primitives.focus(); }
+        else if index == 1 { libraries.focus(); }
+        else { project.focus(); }
+    }
+    key-pressed(event) => {
+        if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+        if event.text == Key.LeftArrow { root.select(mod(root.selected + 2, 3)); return accept; }
+        if event.text == Key.RightArrow { root.select(mod(root.selected + 1, 3)); return accept; }
+        if event.text == Key.Home { root.select(0); return accept; }
+        if event.text == Key.End { root.select(2); return accept; }
+        return reject;
+    }
+    Rectangle {
+        border-radius: 5px;
+        background: root.style.frame;
+        Rectangle {
+            x: 0.75px; y: 0.75px;
+            width: parent.width - 1.5px;
+            height: parent.height - 1.5px;
+            border-radius: 4.25px;
+            background: root.style.separator;
+            clip: true;
+            HorizontalLayout {
+                spacing: 0.5px;
+                primitives := ElementPaletteTab {
+                    style: root.style;
+                    text: @tr("Primitives");
+                    checked: root.selected == 0;
+                    clicked => { root.selected = 0; }
+                }
+                libraries := ElementPaletteTab {
+                    style: root.style;
+                    text: @tr("Libraries");
+                    checked: root.selected == 1;
+                    clicked => { root.selected = 1; }
+                }
+                project := ElementPaletteTab {
+                    style: root.style;
+                    text: @tr("Project");
+                    checked: root.selected == 2;
+                    clicked => { root.selected = 2; }
+                }
+            }
+        }
+    }
+}
