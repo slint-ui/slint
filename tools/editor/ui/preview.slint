@@ -5,7 +5,7 @@ import { Springboard, SpringboardState, ConnectionState, PreviewEndpointKind } f
 
 export global Preview {
     in property <bool> can-run;
-    out property <bool> is-running: Springboard.state != SpringboardState.Stopped;
+    out property <bool> is-running: Springboard.state != SpringboardState.Idle;
     out property <bool> connected: root.is-running && Springboard.connection.state == ConnectionState.Connected;
     out property <bool> local: Springboard.selected-endpoint.kind == PreviewEndpointKind.Local;
     out property <string> local-name: @tr("Slint Viewer (local)");
@@ -14,7 +14,7 @@ export global Preview {
         : root.connected ? @tr("Connected")
         : Springboard.connection.state == ConnectionState.PairingRequired ? @tr("Pairing required")
         : Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Confirmation required")
-        : Springboard.connection.state == ConnectionState.Failed ? @tr("Unavailable")
+        : Springboard.connection.state == ConnectionState.Failed ? Springboard.connection.error
         : Springboard.connection.state == ConnectionState.Connecting ? @tr("Connecting…")
         : @tr("Waiting for viewer…");
     callback run();

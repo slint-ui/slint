@@ -130,8 +130,9 @@ export component DeviceManager inherits Rectangle {
                         Text { x: (58px * ViewerStyle.scale); y: (15px * ViewerStyle.scale); width: parent.width - (160px * ViewerStyle.scale); text: index == 0 ? Preview.local-name : device.name; color: (device.unavailable-reason == "") ? ViewerStyle.ink : ViewerStyle.unavailable; font-size: (16px * ViewerStyle.scale); font-weight: 500; overflow: elide; }
                         Text {
                             x: (58px * ViewerStyle.scale); y: (41px * ViewerStyle.scale); width: parent.width - (85px * ViewerStyle.scale);
-                            text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? @tr("Unavailable") : @tr("Available · {}", device.address);
+                            text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? device.unavailable-reason : @tr("Available · {}", device.address);
                             color: ViewerStyle.muted; font-size: 11px; overflow: elide;
+                            if device.unavailable-reason != "": Tooltip { text: @markdown("\{device.unavailable-reason}"); }
                         }
                         if index == 0: Text { x: parent.width - (73px * ViewerStyle.scale); y: (19px * ViewerStyle.scale); text: @tr("Built-in"); font-size: 11px; color: ViewerStyle.muted; }
                         if index > 0 && root.removing != index: trash := DeviceAction {
@@ -175,12 +176,13 @@ export component DeviceManager inherits Rectangle {
                         ViewerIcon { x: (16px * ViewerStyle.scale); y: 20px * ViewerStyle.scale; remote: true; }
                         Text { x: (58px * ViewerStyle.scale); y: (18px * ViewerStyle.scale); width: parent.width - (160px * ViewerStyle.scale); text: device.name; color: ViewerStyle.ink; font-size: (17px * ViewerStyle.scale); font-weight: 500; overflow: elide; }
                         Text {
-                            x: 58px * ViewerStyle.scale; y: 46px * ViewerStyle.scale; width: parent.width - 74px * ViewerStyle.scale;
-                            text: device.version-mismatch != "" ? @tr("Incompatible viewer version") : device.unavailable-reason != "" ? @tr("Unavailable") : device.saved ? @tr("Saved viewer") : device.address;
+                            x: 58px * ViewerStyle.scale; y: 46px * ViewerStyle.scale; width: parent.width - 160px * ViewerStyle.scale;
+                            text: device.version-mismatch != "" ? @tr("Incompatible viewer version") : device.unavailable-reason != "" ? device.unavailable-reason : device.saved ? @tr("Saved viewer") : device.address;
                             color: device.unavailable-reason != "" ? ViewerStyle.warning : ViewerStyle.muted;
                             font-size: device.version-mismatch != "" ? 12px : 11px;
                             font-weight: device.version-mismatch != "" ? 500 : 400;
                             overflow: elide;
+                            if device.unavailable-reason != "": Tooltip { text: @markdown("\{device.unavailable-reason}"); }
                         }
                         if device.version-mismatch != "": Text {
                             x: 58px * ViewerStyle.scale; y: 68px * ViewerStyle.scale; width: parent.width - 74px * ViewerStyle.scale;
@@ -252,10 +254,10 @@ export component DeviceManager inherits Rectangle {
         Text { x: (91px * ViewerStyle.scale); y: (85px * ViewerStyle.scale); width: parent.width - (115px * ViewerStyle.scale); text: Springboard.selected-endpoint.name; color: ViewerStyle.ink; font-size: (17px * ViewerStyle.scale); font-weight: 500; overflow: elide; }
         Text { x: (91px * ViewerStyle.scale); y: (112px * ViewerStyle.scale); text: Springboard.selected-endpoint.address; color: ViewerStyle.muted; font-size: 11px; }
         Text { x: (24px * ViewerStyle.scale); y: (166px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection.state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : @tr("Enter the code shown on your device."); color: ViewerStyle.muted; font-size: (15px * ViewerStyle.scale); }
-        if Springboard.connection.state == ConnectionState.PairingRequired: DeviceField { x: (24px * ViewerStyle.scale); y: (204px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text <=> root.code; placeholder: @tr("{}-digit pairing code", Springboard.connection.pairing-code-digits); numeric: true; }
+        if Springboard.connection.state == ConnectionState.PairingRequired: DeviceField { x: (24px * ViewerStyle.scale); y: (204px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text <=> root.code; placeholder: @tr("{}-digit pairing code", Springboard.connection.pairing-code-length); numeric: true; }
         Text { x: (24px * ViewerStyle.scale); y: (274px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.connection.error; wrap: word-wrap; color: ViewerStyle.error; font-size: 11px; }
         SoftButton {
-            x: (24px * ViewerStyle.scale); y: (315px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (46px * ViewerStyle.scale); label: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device"); primary: true; enabled: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection.state == ConnectionState.PairingRequired && root.code.character-count == Springboard.connection.pairing-code-digits);
+            x: (24px * ViewerStyle.scale); y: (315px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (46px * ViewerStyle.scale); label: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device"); primary: true; enabled: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection.state == ConnectionState.PairingRequired && root.code.character-count == Springboard.connection.pairing-code-length);
             activated => {
                 if Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired {
                     Springboard.accept-unpaired-connection();

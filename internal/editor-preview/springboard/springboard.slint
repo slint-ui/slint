@@ -18,7 +18,7 @@ export struct PreviewEndpoint {
 }
 
 export enum SpringboardState {
-    Stopped,
+    Idle,
     Running,
 }
 
@@ -33,7 +33,7 @@ export enum ConnectionState {
 
 export struct Connection {
     state: ConnectionState,
-    pairing-code-digits: int,
+    pairing-code-length: int,
     error: string,
 }
 

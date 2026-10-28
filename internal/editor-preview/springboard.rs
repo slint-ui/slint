@@ -9,7 +9,9 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
+use i_slint_live_preview::protocol::{
+    LspToPreviewMessage, PreviewTarget, PreviewToLspMessage, pairing,
+};
 use slint::ModelRc;
 use tokio::sync::{mpsc, oneshot};
 
@@ -21,12 +23,10 @@ use crate::{
 
 mod connection;
 mod discovery;
-mod remote;
 mod remote_connection;
 mod settings;
 use connection::{Connection, ManualProbe};
-use discovery::StatefulDiscovery;
-use remote::{Discovery, RemoteViewer};
+use discovery::{DiscoveredViewers, RemoteViewer};
 use remote_connection::ConnectionEvent;
 use settings::{SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
@@ -104,8 +104,8 @@ struct SpringboardTask {
     state: ui::SpringboardState,
     connection: Connection,
     highlight: Option<LspToPreviewMessage>,
-    discovery: StatefulDiscovery,
-    manual_probe: ManualProbe,
+    discovery: DiscoveredViewers,
+    manual_probe: Option<ManualProbe>,
     credentials: HashMap<EndpointIdentity, PairingCredentials>,
 }
 
@@ -115,14 +115,14 @@ impl Springboard {
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
         global: slint::Weak<ui::Springboard<'static>>,
     ) -> Self {
-        Self::spawn(local_preview, to_editor, global, Discovery::start())
+        Self::spawn(local_preview, to_editor, global, DiscoveredViewers::start())
     }
 
     fn spawn(
         local_preview: LocalPreviewConfig,
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
         global: slint::Weak<ui::Springboard<'static>>,
-        browse: crate::Result<Discovery>,
+        discovery: DiscoveredViewers,
     ) -> Self {
         let (task_sender, task_receiver) = mpsc::unbounded_channel::<SpringboardAction>();
         let displayed_endpoints = Arc::new(RwLock::new(DisplayedEndpoints {
@@ -130,69 +130,60 @@ impl Springboard {
             discovered: Vec::new(),
         }));
         let handle = Self { task_sender, displayed_endpoints: displayed_endpoints.clone() };
-        let close_handle = handle.clone();
-        let select_handle = handle.clone();
-        let pair_handle = handle.clone();
-        let forget_handle = handle.clone();
-        let code_handle = handle.clone();
-        let consent_handle = handle.clone();
-        let cancel_handle = handle.clone();
-        let discover_handle = handle.clone();
-        let probe_handle = handle.clone();
-        let manual_handle = handle.clone();
+        let callback_handle = handle.clone();
         let _ = global.upgrade_in_event_loop(move |global| {
-            global.on_close(move || close_handle.close());
-            global.on_discover_devices(move || {
-                let _ = discover_handle.task_sender.send(Box::new(|task| {
-                    task.discovery.restart();
-                    task.update_ui();
-                }));
-            });
+            let handle = callback_handle;
+            let bind = |action: fn(&mut SpringboardTask)| {
+                let handle = handle.clone();
+                move || {
+                    let _ = handle.task_sender.send(Box::new(action));
+                }
+            };
+            let bind_row =
+                |rows: fn(&DisplayedEndpoints, i32) -> Option<EndpointIdentity>,
+                 action: fn(&mut SpringboardTask, EndpointIdentity)| {
+                    let handle = handle.clone();
+                    move |row| {
+                        let Some(identity) = rows(&handle.displayed(), row) else { return };
+                        let _ =
+                            handle.task_sender.send(Box::new(move |task| action(task, identity)));
+                    }
+                };
+            global.on_close(bind(SpringboardTask::close));
+            global.on_discover_devices(bind(|task| {
+                task.discovery.restart();
+                task.update_ui();
+            }));
+            global.on_connect_manual_endpoint(bind(SpringboardTask::connect_manual_endpoint));
+            global.on_cancel_pairing(bind(SpringboardTask::cancel_pairing));
+            global.on_accept_unpaired_connection(bind(|task| {
+                task.connection.answer(PairingAnswer::AcceptUnpaired);
+                task.update_ui();
+            }));
+            global.on_select_endpoint(bind_row(
+                DisplayedEndpoints::saved,
+                SpringboardTask::select_endpoint,
+            ));
+            global.on_pair_endpoint(bind_row(
+                DisplayedEndpoints::discovered,
+                SpringboardTask::select_endpoint,
+            ));
+            global.on_forget_device(bind_row(
+                DisplayedEndpoints::saved,
+                SpringboardTask::forget_endpoint,
+            ));
+            let probe_handle = handle.clone();
             global.on_probe_address(move |host, port| {
                 let host = host.trim().to_owned();
                 let _ = probe_handle.task_sender.send(Box::new(move |task| {
-                    task.manual_probe.start(host, port);
+                    task.manual_probe = ManualProbe::start(host, port);
                     task.update_ui();
                 }));
-            });
-            global.on_connect_manual_endpoint(move || {
-                let _ =
-                    manual_handle.task_sender.send(Box::new(|task| task.connect_manual_endpoint()));
-            });
-            global.on_select_endpoint(move |row| {
-                if let Some(identity) = select_handle.displayed().saved(row) {
-                    let _ = select_handle
-                        .task_sender
-                        .send(Box::new(move |task| task.select_endpoint(identity)));
-                }
-            });
-            global.on_pair_endpoint(move |row| {
-                if let Some(identity) = pair_handle.displayed().discovered(row) {
-                    let _ = pair_handle
-                        .task_sender
-                        .send(Box::new(move |task| task.select_endpoint(identity)));
-                }
-            });
-            global.on_forget_device(move |row| {
-                if let Some(identity) = forget_handle.displayed().saved(row) {
-                    let _ = forget_handle
-                        .task_sender
-                        .send(Box::new(move |task| task.forget_endpoint(identity)));
-                }
             });
             global.on_submit_pairing_code(move |code| {
                 let code = code.trim().to_owned();
-                let _ = code_handle.task_sender.send(Box::new(move |task| {
+                let _ = handle.task_sender.send(Box::new(move |task| {
                     task.connection.answer(PairingAnswer::Code(code));
-                    task.update_ui();
-                }));
-            });
-            global.on_cancel_pairing(move || {
-                let _ = cancel_handle.task_sender.send(Box::new(|task| task.cancel_pairing()));
-            });
-            global.on_accept_unpaired_connection(move || {
-                let _ = consent_handle.task_sender.send(Box::new(|task| {
-                    task.connection.answer(PairingAnswer::AcceptUnpaired);
                     task.update_ui();
                 }));
             });
@@ -205,11 +196,11 @@ impl Springboard {
             displayed_endpoints,
             saved_endpoints: Vec::new(),
             selected_endpoint: EndpointIdentity::Local,
-            state: ui::SpringboardState::Stopped,
+            state: ui::SpringboardState::Idle,
             connection: Connection::default(),
             highlight: None,
-            discovery: StatefulDiscovery::new(browse),
-            manual_probe: ManualProbe::default(),
+            discovery,
+            manual_probe: None,
             credentials: HashMap::new(),
         };
         task.request_settings();
@@ -289,14 +280,19 @@ impl SpringboardTask {
                     self.connect();
                     self.update_ui();
                 }
-                () = self.manual_probe.finished() => self.update_ui(),
+                () = async {
+                    match &mut self.manual_probe {
+                        Some(probe) => probe.finished().await,
+                        None => std::future::pending().await,
+                    }
+                } => self.update_ui(),
             }
         }
         self.close();
     }
 
     fn start(&mut self) {
-        if self.state != ui::SpringboardState::Stopped {
+        if self.state != ui::SpringboardState::Idle {
             return;
         }
         self.state = ui::SpringboardState::Running;
@@ -308,10 +304,11 @@ impl SpringboardTask {
     }
 
     fn connect_manual_endpoint(&mut self) {
-        if self.manual_probe.state != ui::ManualEndpointState::Reachable {
+        let Some(ManualProbe { host, port, state: ui::ManualEndpointState::Reachable, .. }) =
+            &self.manual_probe
+        else {
             return;
-        }
-        let ManualProbe { host, port, .. } = &self.manual_probe;
+        };
         self.select_endpoint(EndpointIdentity::Manual { host: host.clone(), port: *port });
     }
 
@@ -369,7 +366,7 @@ impl SpringboardTask {
     /// Start the preview for `selected`, unless stopped, already started, or
     /// failed. A remote viewer is started once discovery reports it usable.
     fn connect(&mut self) {
-        if self.state == ui::SpringboardState::Stopped
+        if self.state == ui::SpringboardState::Idle
             || self.connection.is_started()
             || self.pending_local_launch.is_some()
             || self.connection.state == ui::ConnectionState::Failed
@@ -461,7 +458,7 @@ impl SpringboardTask {
     fn close(&mut self) {
         self.connection = Connection::default();
         self.pending_local_launch = None;
-        self.state = ui::SpringboardState::Stopped;
+        self.state = ui::SpringboardState::Idle;
         self.update_ui();
     }
 
@@ -471,7 +468,7 @@ impl SpringboardTask {
         if self.selected_endpoint == identity {
             self.selected_endpoint = EndpointIdentity::Local;
             self.connection = Connection::default();
-            self.state = ui::SpringboardState::Stopped;
+            self.state = ui::SpringboardState::Idle;
         }
         self.store_settings();
         self.update_ui();
@@ -519,15 +516,19 @@ impl SpringboardTask {
         }
     }
 
-    /// NOTE: Overwrites the saved endpoints and the selection without merging.
-    /// The editor answers once its project is loaded, so an endpoint paired
-    /// before that would be lost. Pairing takes longer than loading a project,
-    /// so this isn't handled.
+    /// NOTE: The editor answers once its project is loaded, so a preview the user
+    /// started before that is stopped, and an endpoint paired meanwhile is lost.
+    /// Pairing takes longer than loading a project, so that isn't handled.
     fn handle_settings(&mut self, contents: &str) {
         let Some(settings) = SpringboardSettings::deserialize(contents) else { return };
         self.saved_endpoints = settings.saved;
         self.selected_endpoint = settings.selected;
         self.update_ui();
+        // Only a hand-edited settings file selects an endpoint it doesn't save.
+        if self.is_unsaved(&self.selected_endpoint) {
+            self.selected_endpoint = EndpointIdentity::Local;
+        }
+        self.close();
     }
 
     fn discovered_row(&self, viewer: &RemoteViewer) -> ui::PreviewEndpoint {
@@ -592,13 +593,19 @@ impl SpringboardTask {
         let state = self.state;
         let connection = ui::Connection {
             state: self.connection.state,
-            pairing_code_digits: self.connection.pairing_code_digits.into(),
+            pairing_code_length: self
+                .connection
+                .pairing_code_length
+                .unwrap_or(pairing::CODE_DIGITS as u8)
+                .into(),
             error: self.connection.error.clone().into(),
         };
         let discovery_error = self.discovery.error.clone();
-        let manual_endpoint = ui::ManualEndpoint {
-            state: self.manual_probe.state,
-            version: self.manual_probe.version.clone().into(),
+        let manual_endpoint = match &self.manual_probe {
+            Some(probe) => {
+                ui::ManualEndpoint { state: probe.state, version: probe.version.clone().into() }
+            }
+            None => ui::ManualEndpoint::default(),
         };
         let _ = self.global.upgrade_in_event_loop(move |global| {
             *displayed.write().expect("displayed endpoints lock is poisoned") =
@@ -637,7 +644,7 @@ mod tests {
             LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_started: None },
             sender,
             Default::default(),
-            Ok(Discovery::from_receiver(discovery_receiver)),
+            DiscoveredViewers::from_receiver(discovery_receiver),
         );
         match receiver.try_recv() {
             Ok(PreviewToLspMessage::RequestState { settings, .. })
@@ -655,7 +662,7 @@ mod tests {
         controller.task_sender.send(Box::new(move |task| task.pair(index))).unwrap();
     }
 
-    /// The identity of the viewer `remote::tests::service(host, …)` announces.
+    /// The identity of the viewer `discovery::tests::service(host, …)` announces.
     fn remote(host: &str) -> EndpointIdentity {
         EndpointIdentity::Remote { host: host.into() }
     }
@@ -707,9 +714,9 @@ mod tests {
         inspect(controller, |task| task.state).await
     }
 
-    async fn wait_stopped(controller: &Springboard) {
+    async fn wait_idle(controller: &Springboard) {
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            while state(controller).await != ui::SpringboardState::Stopped {
+            while state(controller).await != ui::SpringboardState::Idle {
                 tokio::task::yield_now().await;
             }
         })
@@ -768,7 +775,7 @@ mod tests {
                         last_process = Some(process);
                         controller.shutdown().await;
                     }
-                    assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                    assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 }
             })
             .await;
@@ -782,7 +789,7 @@ mod tests {
                 // Nothing is saved or discovered, so these select nothing.
                 select_saved(&controller, 1);
                 pair(&controller, 0);
-                assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 assert!(receiver.try_recv().is_err());
                 controller.start();
                 let first_process = started(&mut receiver).await;
@@ -809,7 +816,7 @@ mod tests {
                 assert_eq!(state(&controller).await, ui::SpringboardState::Running);
                 assert!(receiver.try_recv().is_err());
                 tokio::join!(controller.shutdown(), controller.shutdown());
-                assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 controller.shutdown().await;
                 assert!(receiver.try_recv().is_err());
                 controller.start();
@@ -864,7 +871,7 @@ mod tests {
             assert!(matches!(echo(&mut receiver).await, LspToPreviewMessage::ShowPreview(_)));
             assert!(matches!(echo(&mut receiver).await, LspToPreviewMessage::HighlightFromEditor { url: None, .. }));
             controller.send(&LspToPreviewMessage::Quit);
-            assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+            assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
             controller.shutdown().await;
         }).await;
     }
@@ -948,7 +955,7 @@ mod tests {
                         task.connection.replace_local_receiver(endpoint);
                     }))
                     .unwrap();
-                wait_stopped(&controller).await;
+                wait_idle(&controller).await;
                 assert!(inspect(&controller, |task| task.connection.error.is_empty()).await);
                 assert!(receiver.try_recv().is_err());
                 controller.start();
@@ -1156,7 +1163,7 @@ mod tests {
         tokio::task::LocalSet::new().run_until(async {
             let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
             let (controller, mut upstream, discovered) = controller("echo_child");
-            discover(&controller, &discovered, remote::tests::service("Manifest", viewer.connection.local_port())).await;
+            discover(&controller, &discovered, discovery::tests::service("Manifest", viewer.connection.local_port())).await;
             pair(&controller, 0);
             controller.start();
             accept_plaintext(&controller).await;
@@ -1206,8 +1213,8 @@ mod tests {
             .run_until(async {
                 // Discovery runs before the preview is started.
                 let (controller, _upstream, discovered) = controller("echo_child");
-                let first = remote::tests::service("First", 1);
-                let mut second = remote::tests::service("Second", 1);
+                let first = discovery::tests::service("First", 1);
+                let mut second = discovery::tests::service("Second", 1);
                 let first_id = discover(&controller, &discovered, first).await;
                 discover(&controller, &discovered, second.clone()).await;
                 discover(&controller, &discovered, second.clone()).await;
@@ -1240,7 +1247,7 @@ mod tests {
                 select_saved(&controller, 0);
                 assert!(
                     inspect(&controller, |task| task.selected_endpoint == EndpointIdentity::Local
-                        && task.state == ui::SpringboardState::Stopped)
+                        && task.state == ui::SpringboardState::Idle)
                     .await
                 );
                 controller.close();
@@ -1255,7 +1262,7 @@ mod tests {
             let mut viewer = Viewer::start(PairingPolicy::Generated, 0).await;
             let (controller, mut upstream, discovered) = controller("echo_child");
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: Some(component().url), offset: 17 });
-            discover(&controller, &discovered, remote::tests::service("Paired", viewer.connection.local_port())).await;
+            discover(&controller, &discovered, discovery::tests::service("Paired", viewer.connection.local_port())).await;
             pair(&controller, 0);
             controller.start();
             let ConnectionMessage::PairingStarted { code, .. } = viewer.event(|event| matches!(event, ConnectionMessage::PairingStarted { .. })).await else { unreachable!() };
@@ -1310,8 +1317,8 @@ mod tests {
             let mut first = Viewer::start(PairingPolicy::Generated, 0).await;
             let mut second = Viewer::start(PairingPolicy::Disabled, 0).await;
             let (controller, mut upstream, discovered) = controller("echo_child");
-            let first_id = discover(&controller, &discovered, remote::tests::service("First", first.connection.local_port())).await;
-            discover(&controller, &discovered, remote::tests::service("Second", second.connection.local_port())).await;
+            let first_id = discover(&controller, &discovered, discovery::tests::service("First", first.connection.local_port())).await;
+            discover(&controller, &discovered, discovery::tests::service("Second", second.connection.local_port())).await;
             pair(&controller, 0);
             controller.start();
             let ConnectionMessage::PairingStarted { code, .. } = first.event(|event| matches!(event, ConnectionMessage::PairingStarted { .. })).await else { unreachable!() };
@@ -1342,7 +1349,7 @@ mod tests {
                 loop { if matches!(upstream.recv().await.unwrap(), PreviewToLspMessage::DebugMessage { message, .. } if message.parse::<u32>().is_ok()) { break; } }
             }).await.unwrap();
             initial_request(&mut upstream).await;
-            discover(&controller, &discovered, remote::tests::service("First", first.connection.local_port())).await;
+            discover(&controller, &discovered, discovery::tests::service("First", first.connection.local_port())).await;
             controller.task_sender.send(Box::new(move |task| task.select_endpoint(remote("First")))).unwrap();
             wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::Connected).await;
             initial_request(&mut upstream).await;
@@ -1368,7 +1375,7 @@ mod tests {
                 let port = listener.local_addr().unwrap().port();
                 drop(listener);
                 let (controller, mut upstream, discovered) = controller("echo_child");
-                discover(&controller, &discovered, remote::tests::service("Retry", port)).await;
+                discover(&controller, &discovered, discovery::tests::service("Retry", port)).await;
                 pair(&controller, 0);
                 controller.start();
                 wait_condition(&controller, |task| {
@@ -1389,7 +1396,7 @@ mod tests {
                 initial_request(&mut upstream).await;
                 compile_source(&controller, &mut viewer, 77).await;
                 drop(viewer);
-                wait_stopped(&controller).await;
+                wait_idle(&controller).await;
                 assert!(
                     inspect(&controller, |task| !task.connection.is_started()
                         && task.selected_endpoint == remote("Retry")
@@ -1398,7 +1405,7 @@ mod tests {
                     .await
                 );
                 select_saved(&controller, 0);
-                assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
             })
             .await;
     }
@@ -1444,8 +1451,12 @@ mod tests {
                     })
                     .await;
                     let (controller, mut upstream, discovered) = controller("echo_child");
-                    discover(&controller, &discovered, remote::tests::service("Interrupted", port))
-                        .await;
+                    discover(
+                        &controller,
+                        &discovered,
+                        discovery::tests::service("Interrupted", port),
+                    )
+                    .await;
                     pair(&controller, 0);
                     controller.start();
                     accept_plaintext(&controller).await;
@@ -1490,7 +1501,7 @@ mod tests {
                     discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Cancel", viewer.connection.local_port()),
+                        discovery::tests::service("Cancel", viewer.connection.local_port()),
                     )
                     .await;
                     pair(&controller, 0);
@@ -1519,7 +1530,7 @@ mod tests {
                         })
                         .await;
                     assert!(
-                        inspect(&controller, |task| task.state == ui::SpringboardState::Stopped
+                        inspect(&controller, |task| task.state == ui::SpringboardState::Idle
                             && task.saved_endpoints.is_empty())
                         .await
                     );
@@ -1540,7 +1551,7 @@ mod tests {
                     discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Restarted", first.connection.local_port()),
+                        discovery::tests::service("Restarted", first.connection.local_port()),
                     )
                     .await;
                     pair(&controller, 0);
@@ -1580,7 +1591,7 @@ mod tests {
                     discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Restarted", replacement.connection.local_port()),
+                        discovery::tests::service("Restarted", replacement.connection.local_port()),
                     )
                     .await;
                     // The kept selection connects with the token of the replaced viewer.
@@ -1642,7 +1653,7 @@ mod tests {
                 discover(
                     &controller,
                     &discovered,
-                    remote::tests::service("Silent", listener.local_addr().unwrap().port()),
+                    discovery::tests::service("Silent", listener.local_addr().unwrap().port()),
                 )
                 .await;
                 pair(&controller, 0);
@@ -1709,7 +1720,8 @@ mod tests {
                 })
                 .await;
                 let (controller, mut upstream, discovered) = controller("echo_child");
-                discover(&controller, &discovered, remote::tests::service("Expires", port)).await;
+                discover(&controller, &discovered, discovery::tests::service("Expires", port))
+                    .await;
                 pair(&controller, 0);
                 controller.start();
                 wait_condition(&controller, |task| {
@@ -1740,7 +1752,7 @@ mod tests {
                     let fullname = discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Withdrawn", port),
+                        discovery::tests::service("Withdrawn", port),
                     )
                     .await;
                     pair(&controller, 0);
@@ -1774,7 +1786,7 @@ mod tests {
                     discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Withdrawn", viewer.connection.local_port()),
+                        discovery::tests::service("Withdrawn", viewer.connection.local_port()),
                     )
                     .await;
                     accept_plaintext(&controller).await;
@@ -1810,7 +1822,7 @@ mod tests {
                 assert!(
                     inspect(&controller, move |task| task.saved_endpoints == saved
                         && task.selected_endpoint == remote("Remembered")
-                        && task.state == ui::SpringboardState::Stopped)
+                        && task.state == ui::SpringboardState::Idle)
                     .await
                 );
                 // Restoring isn't a change, so nothing is stored back.
@@ -1837,7 +1849,7 @@ mod tests {
                 discover(
                     &controller,
                     &discovered,
-                    remote::tests::service("Remembered", viewer.connection.local_port()),
+                    discovery::tests::service("Remembered", viewer.connection.local_port()),
                 )
                 .await;
                 accept_plaintext(&controller).await;
@@ -1857,7 +1869,7 @@ mod tests {
                 discover(
                     &controller,
                     &discovered,
-                    remote::tests::service("Chosen", viewer.connection.local_port()),
+                    discovery::tests::service("Chosen", viewer.connection.local_port()),
                 )
                 .await;
                 pair(&controller, 0);
@@ -1878,7 +1890,7 @@ mod tests {
                         .await;
                     assert!(
                         inspect(&controller, |task| task.selected_endpoint == remote("Chosen")
-                            && task.state == ui::SpringboardState::Stopped)
+                            && task.state == ui::SpringboardState::Idle)
                         .await
                     );
                 }
@@ -1895,7 +1907,7 @@ mod tests {
                 discover(
                     &controller,
                     &discovered,
-                    remote::tests::service("Saved", viewer.connection.local_port()),
+                    discovery::tests::service("Saved", viewer.connection.local_port()),
                 )
                 .await;
                 pair(&controller, 0);
@@ -1912,7 +1924,7 @@ mod tests {
                 assert_eq!(settings.selected, EndpointIdentity::Local);
                 assert!(
                     inspect(&controller, |task| task.selected_endpoint == EndpointIdentity::Local
-                        && task.state == ui::SpringboardState::Stopped
+                        && task.state == ui::SpringboardState::Idle
                         && task.connection.state == ui::ConnectionState::None
                         && !task.connection.is_started())
                     .await
@@ -1933,23 +1945,26 @@ mod tests {
                 let probe = |host: &'static str, port: i32| {
                     controller
                         .task_sender
-                        .send(Box::new(move |task| task.manual_probe.start(host.into(), port)))
+                        .send(Box::new(move |task| {
+                            task.manual_probe = ManualProbe::start(host.into(), port);
+                        }))
                         .unwrap();
                 };
+                let probed =
+                    |task: &SpringboardTask| task.manual_probe.as_ref().map(|probe| probe.state);
                 probe("127.0.0.1", 0);
-                assert!(
-                    inspect(&controller, |task| task.manual_probe.state
-                        == ui::ManualEndpointState::Unreachable)
-                    .await
-                );
+                wait_condition(&controller, move |task| {
+                    probed(task) == Some(ui::ManualEndpointState::Unreachable)
+                })
+                .await;
                 probe("127.0.0.1", closed_port().await.into());
-                wait_condition(&controller, |task| {
-                    task.manual_probe.state == ui::ManualEndpointState::Unreachable
+                wait_condition(&controller, move |task| {
+                    probed(task) == Some(ui::ManualEndpointState::Unreachable)
                 })
                 .await;
                 probe("127.0.0.1", port.into());
-                wait_condition(&controller, |task| {
-                    task.manual_probe.state == ui::ManualEndpointState::Reachable
+                wait_condition(&controller, move |task| {
+                    probed(task) == Some(ui::ManualEndpointState::Reachable)
                 })
                 .await;
                 controller
@@ -1966,11 +1981,7 @@ mod tests {
                 controller.close();
                 viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
                 probe("", 0);
-                assert!(
-                    inspect(&controller, |task| task.manual_probe.state
-                        == ui::ManualEndpointState::Idle)
-                    .await
-                );
+                assert!(inspect(&controller, |task| task.manual_probe.is_none()).await);
             })
             .await;
     }
@@ -1984,7 +1995,7 @@ mod tests {
                 discover(
                     &controller,
                     &discovered,
-                    remote::tests::service("Cancelled", viewer.connection.local_port()),
+                    discovery::tests::service("Cancelled", viewer.connection.local_port()),
                 )
                 .await;
                 pair(&controller, 0);
@@ -2022,10 +2033,10 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (controller, _upstream, discovered) = controller("echo_child");
-                discover(&controller, &discovered, remote::tests::service("Vanished", 1)).await;
+                discover(&controller, &discovered, discovery::tests::service("Vanished", 1)).await;
                 controller.task_sender.send(Box::new(|task| task.discovery.restart())).unwrap();
                 assert!(inspect(&controller, |task| task.discovery.discovered.is_empty()).await);
-                discover(&controller, &discovered, remote::tests::service("Answered", 1)).await;
+                discover(&controller, &discovered, discovery::tests::service("Answered", 1)).await;
                 controller.close();
             })
             .await;

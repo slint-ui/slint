@@ -13,7 +13,7 @@ use i_slint_live_preview::protocol::{
 use tokio::sync::{mpsc, oneshot};
 use tokio_tungstenite_wasm::{CloseCode, Message, WebSocketStream};
 
-use super::remote::RemoteViewer;
+use super::discovery::RemoteViewer;
 use crate::remote_authentication::{
     self, AuthenticationError, PairingAnswer, PairingCredentials, PairingPrompt,
 };

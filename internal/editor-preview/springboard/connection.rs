@@ -7,7 +7,7 @@ use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, p
 use tokio::sync::{mpsc, oneshot};
 
 use super::LocalPreviewConfig;
-use super::remote::RemoteViewer;
+use super::discovery::RemoteViewer;
 use super::remote_connection::{self, ConnectionEvent, DialError, RemoteConnection};
 use crate::{
     child_process::ChildProcessLspToPreview,
@@ -29,7 +29,8 @@ enum ActivePreview {
 #[derive(Default)]
 pub(super) struct Connection {
     pub(super) state: ui::ConnectionState,
-    pub(super) pairing_code_digits: u8,
+    /// Set while the viewer waits for its code.
+    pub(super) pairing_code_length: Option<u8>,
     pub(super) error: String,
     preview: Option<ActivePreview>,
 }
@@ -81,6 +82,7 @@ impl Connection {
 
     pub(super) fn fail(&mut self, error: String) {
         self.preview = None;
+        self.pairing_code_length = None;
         self.state = ui::ConnectionState::Failed;
         self.error = error;
     }
@@ -94,7 +96,7 @@ impl Connection {
         match prompt {
             PairingPrompt::Code { attempts_left, code_digits, .. } => {
                 self.state = ui::ConnectionState::PairingRequired;
-                self.pairing_code_digits = code_digits;
+                self.pairing_code_length = Some(code_digits);
                 self.error = if attempts_left < pairing::MAX_ATTEMPTS {
                     format!("Incorrect code. {attempts_left} attempts left")
                 } else {
@@ -103,6 +105,7 @@ impl Connection {
             }
             PairingPrompt::Unpaired => {
                 self.state = ui::ConnectionState::UnpairedConfirmationRequired;
+                self.pairing_code_length = None;
                 self.error.clear();
             }
         }
@@ -120,10 +123,9 @@ impl Connection {
     pub(super) fn answer(&mut self, answer: PairingAnswer) {
         match &answer {
             PairingAnswer::Code(code) if self.state == ui::ConnectionState::PairingRequired => {
-                if !pairing::is_valid_code(code)
-                    || code.len() != usize::from(self.pairing_code_digits)
-                {
-                    self.error = format!("Enter {} numeric digits", self.pairing_code_digits);
+                let length = self.pairing_code_length.unwrap_or(pairing::CODE_DIGITS as u8);
+                if !pairing::is_valid_code(code) || code.len() != usize::from(length) {
+                    self.error = format!("Enter {length} numeric digits");
                     return;
                 }
             }
@@ -175,44 +177,42 @@ impl Connection {
 ///
 /// Unlike [`RemoteConnection`], which runs in a spawned task, it holds the dial
 /// itself: replacing it on the next keystroke cancels the previous dial.
-#[derive(Default)]
 pub(super) struct ManualProbe {
     pub(super) host: String,
     pub(super) port: u16,
     pub(super) state: ui::ManualEndpointState,
     /// The viewer's Slint version, when it's `Incompatible`.
     pub(super) version: String,
-    pending: Option<Pin<Box<dyn std::future::Future<Output = Result<(), DialError>>>>>,
+    dial: Pin<Box<dyn std::future::Future<Output = Result<(), DialError>>>>,
 }
 
 impl ManualProbe {
-    /// Replaces the probe in flight. An empty host resets it.
-    pub(super) fn start(&mut self, host: String, port: i32) {
+    /// `None` for an empty host.
+    pub(super) fn start(host: String, port: i32) -> Option<Self> {
         if host.is_empty() {
-            *self = Self::default();
-            return;
+            return None;
         }
-        let Some(port) = u16::try_from(port).ok().filter(|port| *port != 0) else {
-            *self =
-                Self { host, state: ui::ManualEndpointState::Unreachable, ..Default::default() };
-            return;
-        };
-        let viewer = RemoteViewer::manual(&host, port);
-        self.pending = Some(Box::pin(async move {
-            crate::remote_client::close(&mut remote_connection::dial(&viewer).await?).await;
-            Ok(())
-        }));
-        self.host = host;
-        self.port = port;
-        self.state = ui::ManualEndpointState::Probing;
-        self.version.clear();
+        let port = u16::try_from(port).ok().filter(|port| *port != 0);
+        let viewer = port.map(|port| RemoteViewer::manual(&host, port));
+        Some(Self {
+            host,
+            port: port.unwrap_or_default(),
+            state: ui::ManualEndpointState::Probing,
+            version: String::new(),
+            dial: Box::pin(async move {
+                let viewer = viewer.ok_or_else(|| DialError::Unreachable("Invalid port".into()))?;
+                crate::remote_client::close(&mut remote_connection::dial(&viewer).await?).await;
+                Ok(())
+            }),
+        })
     }
 
-    /// Pending while no probe is in flight.
+    /// Pending once the probe has finished.
     pub(super) async fn finished(&mut self) {
-        let Some(pending) = &mut self.pending else { return std::future::pending().await };
-        let result = pending.await;
-        self.pending = None;
+        if self.state != ui::ManualEndpointState::Probing {
+            return std::future::pending().await;
+        }
+        let result = self.dial.as_mut().await;
         self.state = match result {
             Ok(()) => ui::ManualEndpointState::Reachable,
             Err(DialError::Incompatible { version, .. }) => {

@@ -131,8 +131,10 @@ export component ViewerControls inherits Rectangle {
                         }
                         content << Rectangle {
                             ViewerIcon { x: 15px * ViewerStyle.scale; remote: index > 0; ink: option.enabled ? ViewerStyle.strong-icon : ViewerStyle.unavailable; }
-                            Text { x: 57px * ViewerStyle.scale; width: parent.width - (option.enabled ? 100px : 182px) * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: option.text; color: option.enabled ? ViewerStyle.ink : ViewerStyle.unavailable; font-size: 18px * ViewerStyle.scale; overflow: elide; }
-                            if !option.enabled: Text { x: parent.width - 120px * ViewerStyle.scale; width: 100px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; horizontal-alignment: right; text: @tr("Unavailable"); color: ViewerStyle.unavailable; font-size: 14px * ViewerStyle.scale; }
+                            name := Text { x: 57px * ViewerStyle.scale; width: option.enabled ? parent.width - 100px * ViewerStyle.scale : min(self.preferred-width, (parent.width - 57px * ViewerStyle.scale) / 2); height: parent.height; vertical-alignment: center; text: option.text; color: option.enabled ? ViewerStyle.ink : ViewerStyle.unavailable; font-size: 18px * ViewerStyle.scale; overflow: elide; }
+                            if !option.enabled: Text { x: name.x + name.width + 12px * ViewerStyle.scale; width: parent.width - self.x - 20px * ViewerStyle.scale; height: parent.height; vertical-alignment: center; text: endpoint.unavailable-reason; color: ViewerStyle.unavailable; font-size: 14px * ViewerStyle.scale; overflow: elide;
+                                Tooltip { text: @markdown("\{endpoint.unavailable-reason}"); }
+                            }
                             if option.enabled && Springboard.selected-endpoint-index == index: Checkmark { x: parent.width - 35px * ViewerStyle.scale; }
                         }
                     }
