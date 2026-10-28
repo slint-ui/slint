@@ -11,6 +11,7 @@
 
   A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
   On Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup.
+  On iOS, they go into the app bundle as bundle resources, and the app links the static library of target/ios or the package.
 
   Properties:
     SlintCompilerPath   the slint-compiler binary; defaults to the one of the Slint.Compiler package,
@@ -27,11 +28,11 @@
   Library paths, for imports such as "@mylib/widgets.slint", relative to the project; for SlintFile items only:
     <SlintLibraryPath Include="mylib" Path="../mylib/" />
     SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
-                        a file that refers to images outside the project; not on Android, where the source isn't
+                        a file that refers to images outside the project; not on Android and iOS, where the source isn't
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
                         and reload components when the files change; for development only.
                         LivePreview metadata on a SlintFile overrides it for that file.
-                        Not on Android, where the source directory isn't on the device; the build warns with SLINT002.
+                        Not on Android and iOS, where the source directory isn't on the device; the build warns with SLINT002.
 -->
 <Project>
   <PropertyGroup>
@@ -45,9 +46,23 @@
     <SlintNamespace Condition="'$(SlintNamespace)' == ''">$(RootNamespace)</SlintNamespace>
     <!-- From TargetFramework, since a project that imports this file itself does so before the SDK sets TargetPlatformIdentifier. -->
     <_SlintPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</_SlintPlatform>
-    <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintPlatform)' != 'android'">true</_SlintFromSource>
-    <_SlintLiveAllowed Condition="'$(_SlintPlatform)' != 'android'">true</_SlintLiveAllowed>
+    <_SlintOnDevice Condition="'$(_SlintPlatform)' == 'android' or '$(_SlintPlatform)' == 'ios'">true</_SlintOnDevice>
+    <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
+    <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true'">true</_SlintLiveAllowed>
+    <!-- From the package, or else from scripts/build_dotnet_ios.sh in the repository. -->
+    <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../runtimes/ios/native/slint_dotnet.xcframework</_SlintIOSLibrary>
+    <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios' and !Exists('$(_SlintIOSLibrary)')">$(MSBuildThisFileDirectory)../../../../target/ios/slint_dotnet.xcframework</_SlintIOSLibrary>
   </PropertyGroup>
+
+  <!--
+    Slint.dll finds its exports in the app's executable on iOS, so the linker exports them.
+    The frameworks and libraries are the ones that rustc lists as native-static-libs for the static library.
+  -->
+  <ItemGroup Condition="'$(_SlintPlatform)' == 'ios' and Exists('$(_SlintIOSLibrary)')">
+    <NativeReference Include="$([System.IO.Path]::GetFullPath('$(_SlintIOSLibrary)'))" Kind="Static" ForceLoad="true" IsCxx="true"
+                     Frameworks="CoreFoundation CoreGraphics CoreText Foundation ImageIO Metal MobileCoreServices QuartzCore UIKit"
+                     LinkerFlags="-liconv -lobjc -Wl,-exported_symbol,_slint_dotnet_*" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Remove="@(SlintFile)" />
@@ -123,7 +138,7 @@
       </_SlintGenerate>
     </ItemGroup>
     <Warning Code="SLINT002"
-             Text="Live preview of .slint files isn't available on Android yet: the app loads them from the APK, so rebuild and redeploy to see a change."
+             Text="Live preview of .slint files isn't available on Android and iOS yet: the app loads them from its package, so rebuild and redeploy to see a change."
              Condition="'$(_SlintLiveAllowed)' != 'true' and ('$(SlintLivePreview)' == 'true' or '@(SlintFile->WithMetadataValue('LivePreview', 'true'))' != '' or '@(SlintProject->WithMetadataValue('LivePreview', 'true'))' != '')" />
     <!-- Changing an option, such as with -p:SlintLivePreview=true, changes no other input, so this file is one. -->
     <MakeDir Directories="$(_SlintGeneratedDir)" />
@@ -153,6 +168,29 @@
         <LogicalName>slint/$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</LogicalName>
       </_SlintProjectAsset>
       <AndroidAsset Include="@(_SlintProjectAsset)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- An iOS app bundle has the files at the paths that the generated code loads, relative to the bundle. -->
+  <Target Name="_SlintBundleResources" BeforeTargets="_CollectBundleResources" DependsOnTargets="_SlintPrepare"
+          Condition="'$(TargetPlatformIdentifier)' == 'ios'">
+    <Warning Code="SLINT003" Text="The Slint library for iOS, $(_SlintIOSLibrary), doesn't exist; run scripts/build_dotnet_ios.sh in the Slint repository." Condition="!Exists('$(_SlintIOSLibrary)')" />
+    <ItemGroup>
+      <BundleResource Include="@(_SlintAssigned)" LogicalName="%(_SlintAssigned.TargetPath)" />
+    </ItemGroup>
+    <ItemGroup Condition="'@(_SlintProjectSource)' != ''">
+      <_SlintProjectResource Include="@(_SlintProjectSource)">
+        <LogicalName>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</LogicalName>
+      </_SlintProjectResource>
+      <BundleResource Include="@(_SlintProjectResource)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Slint.csproj copies the desktop library to the apps that reference it, which an iOS app can't link. -->
+  <Target Name="_SlintSkipDesktopLibrary" BeforeTargets="_ComputePublishLocation" Condition="'$(TargetPlatformIdentifier)' == 'ios'">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)" PublishFolderType="None"
+                             Condition="'%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'libslint_dotnet.dylib'" />
     </ItemGroup>
   </Target>
 

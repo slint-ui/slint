@@ -22,8 +22,17 @@ internal static class NativeLibraryResolver
     internal static void Register() =>
         NativeLibrary.SetDllImportResolver(typeof(NativeLibraryResolver).Assembly, Resolve);
 
-    private static nint Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath) =>
-        libraryName == NativeMethods.Library && Environment.GetEnvironmentVariable(EnvironmentVariable) is { Length: > 0 } path
-            ? NativeLibrary.Load(path)
-            : 0;
+    private static nint Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName != NativeMethods.Library)
+        {
+            return 0;
+        }
+        if (Environment.GetEnvironmentVariable(EnvironmentVariable) is { Length: > 0 } path)
+        {
+            return NativeLibrary.Load(path);
+        }
+        // iOS apps link the native library statically into their executable.
+        return OperatingSystem.IsIOS() ? NativeLibrary.GetMainProgramHandle() : 0;
+    }
 }

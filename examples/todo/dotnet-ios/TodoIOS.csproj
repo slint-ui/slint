@@ -1,0 +1,30 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Todo</RootNamespace>
+    <ApplicationId>dev.slint.dotnet.todo</ApplicationId>
+    <ApplicationTitle>Slint Todo</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- The simulator on Apple Silicon; build with -r ios-arm64 for a device. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">iossimulator-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+  <ItemGroup>
+    <SlintFile Include="../ui/todo.slint" />
+    <Compile Include="../dotnet/TodoLogic.cs" />
+  </ItemGroup>
+  <!--
+    Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below.
+    In this repository, run scripts/build_dotnet_ios.sh first, see docs/development/dotnet-bindings.md.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../../../api/dotnet/Slint/Slint.csproj" />
+  </ItemGroup>
+  <Import Project="../../../api/dotnet/Slint/build/Slint.targets" />
+</Project>
