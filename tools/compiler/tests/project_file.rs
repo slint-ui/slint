@@ -35,6 +35,10 @@ impl Project {
         path
     }
 
+    fn input(&self, manifest: bool) -> PathBuf {
+        if manifest { self.root.join("slint-project.json") } else { self.root.clone() }
+    }
+
     fn compile(&self, input: &Path, extra_arguments: &[&str]) -> Output {
         Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
             .arg("-f")
@@ -59,37 +63,42 @@ const PLAIN: &str = "export component Main inherits Window { }";
 
 #[test]
 fn include_paths_come_from_the_project_file() {
-    let project = Project::new(Some(
-        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
-    ));
-    project.write("include/shared.slint", "export component Shared { }");
-    project.write("main.slint", IMPORTS_SHARED);
+    for manifest in [false, true] {
+        let project = Project::new(Some(
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+        ));
+        project.write("include/shared.slint", "export component Shared { }");
+        project.write("main.slint", IMPORTS_SHARED);
 
-    let output = project.compile(&project.root, &[]);
-    assert!(output.status.success(), "{}", stderr(&output));
+        let output = project.compile(&project.input(manifest), &[]);
+        assert!(output.status.success(), "{}", stderr(&output));
+    }
 }
 
 #[test]
 fn an_include_path_argument_comes_before_the_project_file_paths() {
-    let project = Project::new(Some(
-        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
-    ));
-    project.write("include/shared.slint", "export component Shared { }");
-    project.write("include/project-only.slint", "export component ProjectOnly { }");
-    project.write(
-        "other/shared.slint",
-        "export component Shared { in property <int> from-argument; }",
-    );
-    project.write(
-        "main.slint",
-        r#"import { Shared } from "shared.slint";
+    for manifest in [false, true] {
+        let project = Project::new(Some(
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+        ));
+        project.write("include/shared.slint", "export component Shared { }");
+        project.write("include/project-only.slint", "export component ProjectOnly { }");
+        project.write(
+            "other/shared.slint",
+            "export component Shared { in property <int> from-argument; }",
+        );
+        project.write(
+            "main.slint",
+            r#"import { Shared } from "shared.slint";
            import { ProjectOnly } from "project-only.slint";
            export component Main inherits Window { Shared { from-argument: 1; } ProjectOnly { } }"#,
-    );
+        );
 
-    let include_path = project.root.join("other");
-    let output = project.compile(&project.root, &["-I", include_path.to_str().unwrap()]);
-    assert!(output.status.success(), "{}", stderr(&output));
+        let include_path = project.root.join("other");
+        let output =
+            project.compile(&project.input(manifest), &["-I", include_path.to_str().unwrap()]);
+        assert!(output.status.success(), "{}", stderr(&output));
+    }
 }
 
 #[test]
@@ -117,48 +126,56 @@ fn a_library_path_argument_replaces_the_project_library_of_the_same_name() {
 
 #[test]
 fn library_paths_come_from_the_project_file() {
-    let project = Project::new(Some(
-        r#"{ "edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint"} }"#,
-    ));
-    project.write("widgets.slint", "export component Widget { }");
-    project.write(
-        "main.slint",
-        r#"import { Widget } from "@widgets";
+    for manifest in [false, true] {
+        let project = Project::new(Some(
+            r#"{ "edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint"} }"#,
+        ));
+        project.write("widgets.slint", "export component Widget { }");
+        project.write(
+            "main.slint",
+            r#"import { Widget } from "@widgets";
            export component Main inherits Window { Widget { } }"#,
-    );
+        );
 
-    let output = project.compile(&project.root, &[]);
-    assert!(output.status.success(), "{}", stderr(&output));
+        let output = project.compile(&project.input(manifest), &[]);
+        assert!(output.status.success(), "{}", stderr(&output));
+    }
 }
 
 #[test]
 fn an_unreadable_project_file_is_reported() {
-    let project = Project::new(Some("{"));
-    project.write("main.slint", PLAIN);
+    for manifest in [false, true] {
+        let project = Project::new(Some("{"));
+        project.write("main.slint", PLAIN);
 
-    let output = project.compile(&project.root, &[]);
-    assert!(!output.status.success());
-    assert!(stderr(&output).contains("slint-project.json"), "{}", stderr(&output));
+        let output = project.compile(&project.input(manifest), &[]);
+        assert!(!output.status.success());
+        assert!(stderr(&output).contains("slint-project.json"), "{}", stderr(&output));
+        assert!(stderr(&output).contains("EOF while parsing"), "{}", stderr(&output));
+    }
 }
 
 #[test]
 fn the_project_file_is_a_dependency_in_the_depfile() {
-    let project = Project::new(Some(
-        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
-    ));
-    project.write("main.slint", PLAIN);
-    let depfile = project.root.join("generated.d");
+    for manifest in [false, true] {
+        let project = Project::new(Some(
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+        ));
+        project.write("main.slint", PLAIN);
+        let depfile = project.root.join("generated.d");
 
-    let output = project.compile(&project.root, &["--depfile", depfile.to_str().unwrap()]);
-    assert!(output.status.success(), "{}", stderr(&output));
+        let output =
+            project.compile(&project.input(manifest), &["--depfile", depfile.to_str().unwrap()]);
+        assert!(output.status.success(), "{}", stderr(&output));
 
-    let dependencies = std::fs::read_to_string(&depfile).unwrap();
-    let project_file = project.root.join("slint-project.json");
-    assert!(
-        dependencies.contains(project_file.to_str().unwrap()),
-        "expected {} in {dependencies}",
-        project_file.display()
-    );
+        let dependencies = std::fs::read_to_string(&depfile).unwrap();
+        let project_file = project.root.join("slint-project.json");
+        assert!(
+            dependencies.contains(project_file.to_str().unwrap()),
+            "expected {} in {dependencies}",
+            project_file.display()
+        );
+    }
 }
 
 #[test]
@@ -172,54 +189,54 @@ fn compiling_without_a_project_file_works() {
 
 #[test]
 fn a_project_directory_compiles_its_main_file() {
-    let project = Project::new(Some(
-        r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["include"] }"#,
-    ));
-    project.write("include/shared.slint", "export component Shared { }");
-    let main = project.write("ui/main.slint", IMPORTS_SHARED);
-    let depfile = project.root.join("generated.d");
+    for manifest in [false, true] {
+        let project = Project::new(Some(
+            r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["include"] }"#,
+        ));
+        project.write("include/shared.slint", "export component Shared { }");
+        let main = project.write("ui/main.slint", IMPORTS_SHARED);
+        let depfile = project.root.join("generated.d");
 
-    let project_file = project.root.join("slint-project.json");
-    let output = project.compile(&project.root, &["--depfile", depfile.to_str().unwrap()]);
-    assert!(output.status.success(), "{}", stderr(&output));
+        let project_file = project.root.join("slint-project.json");
+        let output =
+            project.compile(&project.input(manifest), &["--depfile", depfile.to_str().unwrap()]);
+        assert!(output.status.success(), "{}", stderr(&output));
 
-    let dependencies = std::fs::read_to_string(&depfile).unwrap();
-    for dependency in [&main, &project_file] {
-        assert!(
-            dependencies.contains(dependency.to_str().unwrap()),
-            "expected {} in {dependencies}",
-            dependency.display()
-        );
+        let dependencies = std::fs::read_to_string(&depfile).unwrap();
+        for dependency in [&main, &project_file] {
+            assert!(
+                dependencies.contains(dependency.to_str().unwrap()),
+                "expected {} in {dependencies}",
+                dependency.display()
+            );
+        }
     }
 }
 
 #[test]
 fn a_project_directory_without_a_main_file_is_reported() {
-    let project = Project::new(Some(r#"{"edition":"1.19"}"#));
+    for manifest in [false, true] {
+        let project = Project::new(Some(r#"{"edition":"1.19"}"#));
 
-    let output = project.compile(&project.root, &[]);
-    assert!(!output.status.success());
-    assert!(stderr(&output).contains("'main'"), "{}", stderr(&output));
+        let output = project.compile(&project.input(manifest), &[]);
+        assert!(!output.status.success());
+        assert!(stderr(&output).contains("'main'"), "{}", stderr(&output));
+    }
 }
 
+#[cfg(feature = "slint-sc")]
 #[test]
-fn a_project_file_argument_is_reported() {
+fn slint_sc_rejects_project_inputs() {
     let project = Project::new(Some(r#"{"edition":"1.19","main":"main.slint"}"#));
     project.write("main.slint", PLAIN);
-
-    let argument_sets: &[&[&str]] = &[
-        &[],
-        #[cfg(feature = "slint-sc")]
-        &["--slint-sc"],
-    ];
-    for arguments in argument_sets {
-        let output = project.compile(&project.root.join("slint-project.json"), &arguments);
+    for manifest in [false, true] {
+        let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
+            .arg("--slint-sc")
+            .arg(project.input(manifest))
+            .output()
+            .unwrap();
         assert!(!output.status.success());
-        let message = format!(
-            "A `slint-project.json` cannot be compiled directly; pass its directory instead ({})",
-            project.root.display()
-        );
-        assert!(stderr(&output).contains(&message), "{}", stderr(&output));
+        assert!(stderr(&output).contains("can't compile a project"), "{}", stderr(&output));
     }
 }
 
@@ -262,21 +279,23 @@ fn generated_python_loads_the_project_directory_it_was_generated_from() {
 
 #[test]
 fn an_edition_before_a_behavior_change_warns() {
-    let project = Project::new(Some(r#"{ "edition": "1.18", "main": "main.slint" }"#));
-    project.write("main.slint", PLAIN);
+    for manifest in [false, true] {
+        let project = Project::new(Some(r#"{ "edition": "1.18", "main": "main.slint" }"#));
+        project.write("main.slint", PLAIN);
 
-    let output = project.compile(&project.root, &[]);
-    let message = stderr(&output);
-    assert!(output.status.success(), "{message}");
-    let warning = "'edition' is 1.18, so the language behavior changes up to 1.19 don't apply";
-    assert_eq!(message.matches(warning).count(), 1, "{message}");
-    assert!(message.contains("slint-project.json"), "{message}");
+        let output = project.compile(&project.input(manifest), &[]);
+        let message = stderr(&output);
+        assert!(output.status.success(), "{message}");
+        let warning = "'edition' is 1.18, so the language behavior changes up to 1.19 don't apply";
+        assert_eq!(message.matches(warning).count(), 1, "{message}");
+        assert!(message.contains("slint-project.json"), "{message}");
 
-    let project = Project::new(Some(r#"{ "edition": "1.19", "main": "main.slint" }"#));
-    project.write("main.slint", PLAIN);
-    let output = project.compile(&project.root, &[]);
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
+        let project = Project::new(Some(r#"{ "edition": "1.19", "main": "main.slint" }"#));
+        project.write("main.slint", PLAIN);
+        let output = project.compile(&project.input(manifest), &[]);
+        assert!(output.status.success(), "{}", stderr(&output));
+        assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
+    }
 }
 
 #[test]

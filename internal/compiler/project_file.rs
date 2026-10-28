@@ -1425,19 +1425,53 @@ mod tests {
     }
 
     #[test]
-    fn a_project_file_input_is_an_error() {
+    fn a_project_file_input_resolves_its_main_file() {
         with_project_file_contents(r#"{ "edition": "1.19", "main": "main.slint" }"#, |path| {
-            for (input, directory) in [
-                (path.to_path_buf(), path.parent().unwrap().display().to_string()),
-                (PathBuf::from(FILE_NAME), ".".into()),
-            ] {
-                assert_eq!(
-                    resolve_input(&input).unwrap_err(),
-                    format!(
-                        "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({directory})"
-                    )
-                );
-            }
+            let (source, project) = resolve_input(path).unwrap();
+            assert_eq!(source, path.parent().unwrap().join("main.slint"));
+            assert!(project.is_some());
+        });
+    }
+
+    #[test]
+    fn other_json_is_not_a_project_input() {
+        with_project_file_contents(r#"{ "edition": "1.19", "main": "main.slint" }"#, |path| {
+            let other = path.parent().unwrap().join("other.json");
+            fs::copy(path, &other).unwrap();
+            let (source, project) = resolve_input(&other).unwrap();
+            assert_eq!(source, other);
+            assert!(project.is_none());
+            fs::remove_file(other).unwrap();
+        });
+    }
+
+    #[test]
+    fn a_relative_project_file_input_resolves_its_main_file() {
+        const CHILD: &str = "SLINT_TEST_RELATIVE_PROJECT_INPUT";
+        if std::env::var_os(CHILD).is_some() {
+            let (source, project) = resolve_input(Path::new(FILE_NAME)).unwrap();
+            assert_eq!(source, std::env::current_dir().unwrap().join("main.slint"));
+            assert!(project.is_some());
+            return;
+        }
+        with_project_file_contents(r#"{ "edition": "1.19", "main": "main.slint" }"#, |path| {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .current_dir(path.parent().unwrap())
+                .env(CHILD, "1")
+                .args([
+                    "--exact",
+                    "project_file::tests::a_relative_project_file_input_resolves_its_main_file",
+                    "--nocapture",
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
         });
     }
 

@@ -36,9 +36,11 @@ def write_main(directory: pathlib.Path, source: str) -> pathlib.Path:
     return main
 
 
+@pytest.mark.parametrize("project_input", ["directory", "manifest"])
 def test_include_paths_come_from_the_project_file(
     tmp_path: pathlib.Path,
     no_diagnostics: None,
+    project_input: str,
 ) -> None:
     directory = project_directory(
         tmp_path, {"main": "main.slint", "include-paths": ["include"]}
@@ -52,12 +54,15 @@ def test_include_paths_come_from_the_project_file(
            export component Main inherits Window { Shared { } }""",
     )
 
-    module = load_file(directory)
+    module = load_file(
+        directory if project_input == "directory" else directory / "slint-project.json"
+    )
     assert module.Main is not None
 
 
+@pytest.mark.parametrize("project_input", ["directory", "manifest"])
 def test_library_paths_come_from_the_project_file(
-    tmp_path: pathlib.Path, no_diagnostics: None
+    tmp_path: pathlib.Path, no_diagnostics: None, project_input: str
 ) -> None:
     directory = project_directory(
         tmp_path, {"main": "main.slint", "library-paths": {"widgets": "widgets.slint"}}
@@ -70,7 +75,9 @@ def test_library_paths_come_from_the_project_file(
            export component Main inherits Window { Widget { } }""",
     )
 
-    module = load_file(directory)
+    module = load_file(
+        directory if project_input == "directory" else directory / "slint-project.json"
+    )
     assert module.Main is not None
 
 
@@ -87,9 +94,11 @@ def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
     )
 
 
+@pytest.mark.parametrize("project_input", ["directory", "manifest"])
 def test_building_the_project_directory_builds_its_main_file(
     tmp_path: pathlib.Path,
     no_diagnostics: None,
+    project_input: str,
 ) -> None:
     directory = project_directory(
         tmp_path, {"main": "ui/main.slint", "include-paths": ["include"]}
@@ -102,19 +111,11 @@ def test_building_the_project_directory_builds_its_main_file(
            export component Main inherits Window { Shared { } }"""
     )
 
-    module = load_file(directory)
-    assert module.Main is not None
-
-
-def test_building_the_project_file_is_an_error(tmp_path: pathlib.Path) -> None:
-    directory = project_directory(tmp_path, {"main": "main.slint"})
-    write_main(directory, "export component Main inherits Window { }")
-
-    with pytest.raises(CompileError) as error:
-        load_file(directory / "slint-project.json")
-    assert [diagnostic.message for diagnostic in error.value.diagnostics] == [
-        f"A `slint-project.json` cannot be compiled directly; pass its directory instead ({directory})"
-    ]
+    module = load_file(
+        directory if project_input == "directory" else directory / "slint-project.json"
+    )
+    instance = module.Main()
+    assert instance is not None
 
 
 def test_building_a_file_ignores_its_project_file(

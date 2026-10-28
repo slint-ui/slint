@@ -3610,23 +3610,14 @@ mod project_file_tests {
     }
 
     #[test]
-    fn a_project_file_path_is_an_error() {
+    fn a_project_file_path_loads_its_main_file() {
         with_project(r#"{"edition": "1.19", "main":"main.slint"}"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
             let result =
                 spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
-            assert!(result.has_errors());
-            assert_eq!(
-                result
-                    .diagnostics()
-                    .map(|diagnostic| diagnostic.message().to_string())
-                    .collect::<Vec<_>>(),
-                [format!(
-                    "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
-                    root.display()
-                )]
-            );
+            assert!(!result.has_errors(), "{result:?}");
+            assert!(result.component_names().any(|name| name == "Main"));
         });
     }
 
