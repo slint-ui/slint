@@ -249,12 +249,13 @@ See [Geometry](../../../../reference/language/geometry/) in the language referen
 
 ### Alignment
 
-Each element is sized according to their `width` or `height` if specified, otherwise it's
-set to the minimum size which is set with the min-width or min-height property, or
-the minimum size of an inner layout, whatever is bigger.
+Each element is sized according to its `width` or `height` if specified.
+Otherwise, it gets its preferred size, kept within its minimum and maximum size.
+The preferred size comes from the `preferred-width` and `preferred-height` properties, an inner layout, or the element's content, such as the text of a `Text`.
 
-The elements are placed along the layout axis according to the alignment. The size of elements
-is bigger than the minimum size only if the `alignment` property of the layout is `LayoutAlignment.stretch` (the default)
+The elements are placed along the layout axis according to the alignment.
+Elements only grow beyond their preferred size if the `alignment` property of the layout is `LayoutAlignment.stretch` (the default).
+See [Stretch Algorithm](#stretch-algorithm) for how they grow and shrink.
 
 This example show the different alignment possibilities:
 
@@ -316,13 +317,19 @@ Use the layout's `cross-axis-alignment`, or an element's `cross-axis-self-alignm
 
 ### Stretch algorithm
 
-When the `alignment` is set to stretch (the default), the elements are sized to their minimum size,
-then the extra space is shared amongst element proportional to their stretch factor set with the
-`horizontal-stretch` and `vertical-stretch` properties. The stretched size won't exceed the maximum size.
+When the `alignment` is set to stretch (the default), the elements start at their preferred size,
+kept within their minimum and maximum size.
+If the layout has extra space, it's shared amongst the elements proportional to their stretch factor,
+set with the `horizontal-stretch` and `vertical-stretch` properties.
+The stretched size won't exceed the maximum size.
+If the layout is smaller than the sum of the preferred sizes, the elements shrink proportional to their stretch factor,
+but not below their minimum size.
+So a `min-height: 0px` lets an element shrink below its preferred height, but doesn't change how extra space is shared.
+When the minimum size is bigger than the maximum size, the minimum size wins.
 The stretch factor is a floating point number. The elements that have a default content size usually defaults to 0
 while elements that default to the size of their parents defaults to 1.
-An element of a stretch factor of 0 keep its minimum size, unless all the other elements also have a stretch
-factor of 0 or reached their maximum size.
+An element with a stretch factor of 0 keeps its preferred size, unless all the other elements also have a stretch
+factor of 0 or reached their maximum (or minimum) size.
 An element's own stretch factor is the smallest among its own and the children it takes its size from.
 Set `horizontal-stretch` or `vertical-stretch` on the element to override.
 
