@@ -10,7 +10,7 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
     InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
-    InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection,
+    InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
     InspectorStandardButtonKindSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
@@ -110,6 +110,10 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-progress-selection(): InspectorProgressSection { }
 
                 if InspectorContext.has-orientation-selection(): InspectorOrientationSection {
+                    popup-bottom: root.popup-bottom;
+                }
+
+                if InspectorContext.has-scrollbar-policy-selection(): InspectorScrollBarPolicySection {
                     popup-bottom: root.popup-bottom;
                 }
 

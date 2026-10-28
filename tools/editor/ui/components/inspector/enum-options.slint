@@ -58,6 +58,11 @@ export global InspectorEnumOptions {
         { value: "horizontal", label: @tr("Horizontal") },
         { value: "vertical", label: @tr("Vertical") },
     ];
+    out property <[InspectorComboOption]> scrollbar-policy-options: [
+        { value: "as-needed", label: @tr("As needed") },
+        { value: "always-on", label: @tr("Always on") },
+        { value: "always-off", label: @tr("Always off") },
+    ];
     out property <[InspectorComboOption]> input-type-options: [
         { value: "text", label: @tr("Text") },
         { value: "password", label: @tr("Password") },
