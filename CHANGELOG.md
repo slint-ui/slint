@@ -12,7 +12,7 @@ All notable changes to this project are documented in this file.
  - Added editions: set `slint-edition` in `slint-project.json`, or `#[slint_edition]` in `slint!`,
    to the Slint release whose language behavior your project uses. (#14172)
  - `Image` plays animated GIF, PNG, and WebP images.
- - Animations respect the system's reduced-motion setting (Windows only for now).
+ - On Windows, animations respect the system's reduced-motion setting.
  - Fixed the default font family on macOS, iOS, and Windows. (#13540)
  - Faster startup: system fonts are discovered in the background.
  - `Flickable`: Flicking follows the platform convention on iOS and Android. (#13396)
@@ -21,8 +21,8 @@ All notable changes to this project are documented in this file.
  - Layout:
    - Layouts created with `if` or `for` count toward the content size of a `Flickable`. With edition
      1.19, any element created with `if` or `for` counts toward its parent's size. (#407)
-   - Reading `padding-left` and the other per-side properties returns `padding` or `spacing` when
-     they're not set. (#6320)
+   - Reading `padding-left`, `spacing-horizontal`, and similar properties returns `padding` or `spacing`
+     when they're not set. (#6320)
    - The layout's padding no longer replaces `x` or `y` on the cross axis of a box layout child.
    - An element with a fixed `width` or `height` reports its preferred size to its parent.
    - Fixed several issues with repeated elements in layouts. (#13683, #13606)
@@ -50,9 +50,9 @@ All notable changes to this project are documented in this file.
  - `ListView`: Fixed a "long callback/instantiation chain" warning with a negative height. (#14201)
  - Fixed bindings that read properties after a short-circuiting `&&` or `||`. (#13924)
  - Fixed needless repaints when comparing empty images. (#13669)
- - Fixed popups closed by moving the main window staying registered as open. (#13866)
- - Translations: Fixed a panic with non-UTF-8 locales, and `init_translations` no longer changes
-   the number formatting.
+ - Fixed a popup staying registered as open after moving the main window closed it. (#13866)
+ - Translations: Fixed a panic with non-UTF-8 locales.
+ - Translations: `init_translations` no longer changes the number formatting.
  - Custom platforms can call `update_timers_and_animations()` from a timer callback.
  - `SLINT_BACKEND=headless` reports an error when built without the `mcp` feature. (#13648)
  - winit:
@@ -73,7 +73,7 @@ All notable changes to this project are documented in this file.
    - Hiding the last window no longer ends the event loop.
    - Animations are no longer limited to about 60 FPS on high-refresh displays.
  - Windows:
-   - `BackendSelector::require_opengl()` no longer slows down the startup.
+   - `BackendSelector::require_opengl()` no longer slows down startup.
    - Fixed partial repaints with the software renderer after a scale change. (#13568)
  - Linux:
    - Fixed the `SystemTrayIcon` menu sometimes staying empty. (#13693)
@@ -84,7 +84,7 @@ All notable changes to this project are documented in this file.
  - Android:
    - Physical keyboards follow the keyboard layout.
    - The system bar icons contrast with the window background. (#13780)
-   - Text selection, its menu, and its handles behave like in native text fields.
+   - Text selection, its menu, and its handles behave as in native text fields.
    - Text inputs follow cursor moves from the keyboard.
    - The rendering notifier gets `RenderingTeardown` before the native window is destroyed.
    - Skia frees its GPU caches when the system runs low on memory.
@@ -132,12 +132,13 @@ All notable changes to this project are documented in this file.
    - The virtual console no longer receives keystrokes, and is restored on exit. (#14462)
    - Fixed the mouse cursor with the software renderer and partial rendering. (#13520)
    - Fixed Skia rejecting some display modes.
- - Node.js and Python: The Linux binaries only need the LinuxKMS libraries when that backend is used.
+ - Node.js and Python: The Linux binaries only need the LinuxKMS libraries when you use that backend.
 
 ### Slint language
 
  - Added `@deprecated("message")` to deprecate properties, callbacks, and functions. (#12639)
- - `Flickable`: Added `scroll-to()`, and every element has `ensure-visible()` to scroll it into view.
+ - `Flickable`: Added `scroll-to()`.
+ - Added `ensure-visible()` to every element, to scroll it into view.
  - `Rectangle`: Added `backdrop-blur` for translucent glass effects (Skia and FemtoVG only).
  - `Path`: Added `stroke-dash-array` and `stroke-dash-offset`. (#6008)
  - `TextInput`, `LineEdit`, `TextEdit`: Added `has-selection`. (#13810)
@@ -157,7 +158,7 @@ All notable changes to this project are documented in this file.
    - Added an "info" level for suggestions, such as removing bindings to the default value.
    - Unknown names suggest the closest valid name, or the qualified enum value. (#13963, #13936)
    - A binding loop is reported once, with a suggestion.
-   - Report more binding loops, such as through chains of two-way bindings.
+   - More binding loops are reported, such as through chains of two-way bindings.
    - Warn about a value with no effect at the end of an `if` branch.
    - Warn about `dialog-button-role` on a `StandardButton`. (#6556)
    - Warn about nested accessible text inputs.
@@ -199,9 +200,9 @@ All notable changes to this project are documented in this file.
  - winit: Added `WinitWindowAccessor::dispatch_winit_window_event()`.
  - `BackendSelector::select()` returns `AlreadySet` without building a backend.
  - Testing: Added `ElementQuery::match_accessible_label()`.
- - The `slint!` macro warns when it doesn't select an edition with `#[slint_edition = "1.19"]`.
+ - The `slint!` macro warns unless you select an edition with `#[slint_edition = "1.19"]`.
  - Faster compilation of the generated code for large UIs.
- - A struct field named `self`, `super`, or `crate` gets a trailing `_` instead of panicking. (#8923)
+ - A struct field named `self`, `super`, or `crate` gets a trailing `_` instead of the compiler panicking. (#8923)
  - Fixed `SortModel::set_row_data()` before the rows are read or after `reset()`.
  - Fixed `SortModel::row_count()` when its source changes without notifying.
  - Fixed `Image::path()` for an SVG image loaded from a file.
@@ -233,7 +234,8 @@ All notable changes to this project are documented in this file.
  - Strings that aren't valid UTF-8 no longer abort the process.
  - `SharedString`: Fixed a crash with a default-constructed `std::string_view`.
  - Fixed a crash on startup with the wgpu or Vello renderer.
- - Fixed generated code in a namespace with a nested `slint` part. (#7134)
+ - Fixed generated code in a namespace with a nested `slint` part, such as `my::slint::ui`. (#7134)
+ - **Breaking:** A namespace starting with `slint`, such as `slint::ui`, is rejected.
  - Fixed embedded fonts in generated code with MSVC.
  - Fixed `-Wtautological-compare` errors in the generated code. (#8295)
  - Fixed including `slint-testing.h` twice.
@@ -245,8 +247,8 @@ All notable changes to this project are documented in this file.
  - **Breaking:** Enum values returned by `loadFile` keep their dashes, such as `"second-thing"`. (#11769)
  - `.slint` files can be imported as ES modules, with TypeScript declarations. (#11769)
  - Added `slint-ui/esbuild`, an esbuild plugin.
- - Added `FilterModel`, `SortModel`, `ReverseModel`, and `Model.map()` and similar methods, and made
-   `MapModel` public. (#12900)
+ - Added `FilterModel`, `SortModel`, `ReverseModel`, and `Model.map()` and similar methods. (#12900)
+ - `MapModel` is public.
  - Added `Window.onCloseRequested()`.
  - Added `ImageData.loadFromPath()` and `ImageData.loadFromData()`.
  - Added live preview with `SLINT_LIVE_PREVIEW`.
@@ -266,7 +268,7 @@ All notable changes to this project are documented in this file.
 
 ### Tooling
 
- - `slint-compiler` is published to npm.
+ - You can install `slint-compiler` from npm.
  - slint-viewer: Added `--project-root`.
  - slint-viewer: `--check` accepts library files and checks every exported component.
  - MCP server: Binds to `SLINT_MCP_HOST`, defaulting to `127.0.0.1`. (#14003)
@@ -274,7 +276,7 @@ All notable changes to this project are documented in this file.
  - VS Code: Added the `slint.lsp.logLevel` setting.
  - LSP: Shows the parameter names of builtin functions.
  - LSP: Looks up project files only up to the workspace roots, and warns about conflicting settings.
- - LSP: No longer registers as formatter for Rust files.
+ - LSP: No longer registers as a formatter for Rust files.
  - LSP, slint-viewer: Fixed parse errors on attributes in `slint!`.
  - LSP: Fixed completion and imports for names containing an underscore.
  - live-preview: Reloads compile in the background, so animations keep running.
