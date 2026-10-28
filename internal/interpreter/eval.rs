@@ -426,7 +426,10 @@ pub fn invoke_callback(ctx: &EvalContext, mr: &MemberReference, args: &[Value]) 
         }
         MemberReference::Relative { parent_level, local_reference } => {
             let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
-                return Value::Void;
+                return match llr::TypeResolutionContext::property_ty(ctx, mr) {
+                    Type::Callback(callback) => default_value_for_type(&callback.return_type),
+                    _ => Value::Void,
+                };
             };
             match &local_reference.reference {
                 LocalMemberIndex::Callback(idx) => {
@@ -479,7 +482,7 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
         }
         MemberReference::Relative { parent_level, local_reference } => {
             let Some(instance) = try_walk_to(ctx, *parent_level, local_reference) else {
-                return Value::Void;
+                return default_value_for_type(llr::TypeResolutionContext::property_ty(ctx, mr));
             };
             let LocalMemberIndex::Function(idx) = &local_reference.reference else {
                 panic!("invoke_function on non-function reference")
