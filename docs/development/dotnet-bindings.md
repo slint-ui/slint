@@ -557,7 +557,10 @@ Next:
       - Native AOT works on the iPhone, with `PublishAot` in the app's project and `dotnet publish -r ios-arm64`:
         the app has no Mono runtime or assemblies, only its executable and the framework.
         The iOS SDK takes `PublishAot` only when publishing for a device, and as `-p:`, it would also reach `Slint.csproj`.
-      - Next: Hot Reload.
+      - Postponed until .NET 11, like on Android: Hot Reload on iOS.
+        `dotnet watch` needs `--device` with more than one simulator booted,
+        and the iOS SDK refuses it unless Mono's interpreter is on, with `UseInterpreter` in the project,
+        since iOS allows no JIT; `.slint` live reload would also need the changed files in the app's container.
     - Later, postponed: drawing with Metal from C#. Slint's notifier hands over Rust `wgpu` objects, and only behind an unstable feature,
       so it would need the `MTLDevice` and command queue under WGPU as raw pointers, which the `Metal` API of .NET for iOS could use,
       and a way to show a Metal texture in an `Image`, both new work in Slint.
