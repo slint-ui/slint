@@ -21,6 +21,7 @@ use crate::input::{
 };
 use crate::item_rendering::{
     CachedRenderingData, HasFont, ItemRenderer, PlainOrStyledText, RenderString, RenderText,
+    TextForWidth, resolve_line_height_factor,
 };
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
@@ -173,7 +174,6 @@ impl HasFont for ComplexText {
             self.font_weight(),
             self.font_size(),
             self.letter_spacing(),
-            self.line_height_factor(),
             self.font_italic(),
         )
     }
@@ -182,6 +182,9 @@ impl HasFont for ComplexText {
 impl RenderString for ComplexText {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.text())
+    }
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        resolve_line_height_factor(Self::FIELD_OFFSETS.line_height_factor().apply_pin(self).get())
     }
 
     fn max_lines(self: Pin<&Self>) -> i32 {
@@ -431,11 +434,24 @@ impl Item for StyledTextItem {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &InternalKeyEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        event: &InternalKeyEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
-        KeyEventResult::EventIgnored
+        if !self.selectable() || event.event_type != KeyEventType::KeyPressed {
+            return KeyEventResult::EventIgnored;
+        }
+        match event.shortcut() {
+            Some(StandardShortcut::Copy) => {
+                self.copy_clipboard(window_adapter, Clipboard::DefaultClipboard);
+                KeyEventResult::EventAccepted
+            }
+            Some(StandardShortcut::SelectAll) => {
+                self.select_all();
+                KeyEventResult::EventAccepted
+            }
+            _ => KeyEventResult::EventIgnored,
+        }
     }
 
     fn focus_event(
@@ -502,7 +518,6 @@ impl HasFont for StyledTextItem {
             Default::default(),
             self.default_font_size(),
             Default::default(),
-            1.0,
             Default::default(),
         )
     }
@@ -588,6 +603,14 @@ impl StyledTextItem {
 
     /// Copies the selected text to the clipboard, without markup.
     pub fn copy(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _self_rc: &ItemRc) {
+        self.copy_clipboard(window_adapter, Clipboard::DefaultClipboard);
+    }
+
+    fn copy_clipboard(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        clipboard: Clipboard,
+    ) {
         let Some(range) = self.selection_range() else {
             return;
         };
@@ -596,7 +619,7 @@ impl StyledTextItem {
         WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .set_clipboard_text(&text[range], Clipboard::DefaultClipboard);
+            .set_clipboard_text(&text[range], clipboard);
     }
 
     /// Selects the text between two byte offsets, clamped to the raw text.
@@ -689,7 +712,11 @@ impl StyledTextItem {
                 // in `input_event`. (A Shift-click extends the selection without moving.)
                 let clicked = self.mouse_selection.take().get() == Some(SelectionUnit::Character)
                     && !self.has_selection();
-                (!clicked).then_some(InputEventResult::EventAccepted)
+                if clicked {
+                    return None;
+                }
+                self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
+                Some(InputEventResult::EventAccepted)
             }
             MouseEvent::Exit => {
                 self.mouse_selection.take();
@@ -884,7 +911,6 @@ impl HasFont for SimpleText {
             self.font_weight(),
             self.font_size(),
             LogicalLength::default(),
-            1.0,
             false,
         )
     }
@@ -946,7 +972,10 @@ fn single_line_height(
 ) -> Option<Coord> {
     match text.text() {
         PlainOrStyledText::Plain(s) if !s.contains('\n') => {
-            window_adapter.renderer().text_line_height(text.font_request(self_rc)).map(|h| h.get())
+            let font_request = text.font_request(self_rc);
+            let line_height =
+                window_adapter.renderer().text_line_height(font_request, text.line_height_factor());
+            line_height.map(|h| h.get())
         }
         _ => None,
     }
@@ -965,14 +994,17 @@ fn text_layout_info(
     // The text layout cache holds one wrap mode per item, and an unconstrained measurement
     // doesn't need `NoWrap`: with no width to break at, the mode can't change the width.
     let wrap = text.wrap();
-    let implicit_size =
-        |max_width| window_adapter.renderer().text_size(text, self_rc, max_width, wrap);
+    let implicit_size = |text: Pin<&dyn RenderString>, max_width| {
+        window_adapter.renderer().text_size(text, self_rc, max_width, wrap)
+    };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
     // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
     // letters will be cut off, apply the ceiling here.
     match orientation {
         Orientation::Horizontal => {
+            let width_text = TextForWidth(text);
+            let width_text = Pin::new(&width_text);
             // A word-wrapping text mustn't be squeezed below its longest word. One
             // content-widths measurement gives both that minimum and the single-line
             // preferred width, so this replaces the plain measurement below.
@@ -984,10 +1016,18 @@ fn text_layout_info(
             let (min, preferred) = match word_wrap_widths {
                 Some(widths) => (widths.min.get(), widths.max.get()),
                 None => {
-                    let unwrapped_width = implicit_size(None).width;
+                    let unwrapped_width = implicit_size(width_text, None).width;
                     let min = match text.overflow() {
-                        TextOverflow::Elide => unwrapped_width
-                            .min(window_adapter.renderer().char_size(text, self_rc, '…').width),
+                        TextOverflow::Elide => unwrapped_width.min(
+                            window_adapter
+                                .renderer()
+                                .char_size(
+                                    width_text.font_request(self_rc),
+                                    width_text.line_height_factor(),
+                                    '…',
+                                )
+                                .width,
+                        ),
                         TextOverflow::Clip => match wrap {
                             TextWrap::NoWrap => unwrapped_width,
                             // char-wrap can break anywhere, so it keeps no lower bound.
@@ -1002,14 +1042,14 @@ fn text_layout_info(
         Orientation::Vertical => {
             let h = match wrap {
                 TextWrap::NoWrap => single_line_height(window_adapter, text, self_rc)
-                    .unwrap_or_else(|| implicit_size(None).height),
+                    .unwrap_or_else(|| implicit_size(text, None).height),
                 TextWrap::WordWrap | TextWrap::CharWrap => {
                     let w = if cross_axis_constraint >= 0 as Coord {
                         LogicalLength::new(cross_axis_constraint)
                     } else {
                         width.get()
                     };
-                    implicit_size(Some(w)).height
+                    implicit_size(text, Some(w)).height
                 }
             }
             .ceil();
@@ -1159,16 +1199,15 @@ impl Item for TextInput {
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
-                let implicit_size = implicit_size(None);
+                let width_text = TextForWidth(self);
+                let width_text = Pin::new(&width_text);
+                let width =
+                    window_adapter.renderer().text_size(width_text, self_rc, None, wrap).width;
                 let min = match wrap {
-                    TextWrap::NoWrap => implicit_size.width,
+                    TextWrap::NoWrap => width,
                     TextWrap::WordWrap | TextWrap::CharWrap => 0 as Coord,
                 };
-                LayoutInfo {
-                    min: min.ceil(),
-                    preferred: implicit_size.width.ceil(),
-                    ..LayoutInfo::default()
-                }
+                LayoutInfo { min: min.ceil(), preferred: width.ceil(), ..LayoutInfo::default() }
             }
             Orientation::Vertical => {
                 let h = match wrap {
@@ -1545,7 +1584,14 @@ impl Item for TextInput {
                 }
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
-                WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                window_inner.set_text_input_focused(true);
+                // Keep the IME cursor rectangle in sync when the TextInput moves, e.g. in a Flickable
+                window_inner.track_focus_item_position(self_rc, |item, window_adapter| {
+                    if let Some(text_input) = item.downcast::<TextInput>() {
+                        text_input.as_pin_ref().update_ime(window_adapter, item);
+                    }
+                });
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
                     if let Some(w) = window_adapter.internal(crate::InternalToken) {
@@ -1647,7 +1693,6 @@ impl HasFont for TextInput {
             self.font_weight(),
             self.font_size(),
             self.letter_spacing(),
-            self.line_height_factor(),
             self.font_italic(),
         )
     }
@@ -1659,6 +1704,9 @@ impl RenderString for TextInput {
         // the selection too -- see `text_with_preedit`.
         let text = self.text_with_preedit().0;
         PlainOrStyledText::Plain(if self.is_password() { mask_password(&text) } else { text })
+    }
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        resolve_line_height_factor(Self::FIELD_OFFSETS.line_height_factor().apply_pin(self).get())
     }
 }
 
@@ -1881,7 +1929,10 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window_adapter.renderer().char_size(self, self_rc, ' ').height;
+        let font_height = window_adapter
+            .renderer()
+            .char_size(self.font_request(self_rc), RenderString::line_height_factor(self), ' ')
+            .height;
 
         let mut reset_preferred_x_pos = true;
 
@@ -2084,11 +2135,7 @@ impl TextInput {
         }
     }
 
-    pub(crate) fn update_ime(
-        self: Pin<&Self>,
-        window_adapter: &Rc<dyn WindowAdapter>,
-        self_rc: &ItemRc,
-    ) {
+    fn update_ime(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         if self.read_only() || !self.has_focus() {
             return;
         }

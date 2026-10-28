@@ -604,9 +604,11 @@ pub fn generate(
     };
 
     let destination_path = destination_path.and_then(|maybe_relative_destination_path| {
-        std::fs::canonicalize(maybe_relative_destination_path)
-            .ok()
-            .and_then(|p| p.parent().map(std::path::PathBuf::from))
+        let directory = maybe_relative_destination_path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or(std::path::Path::new("."));
+        std::fs::canonicalize(directory).ok()
     });
 
     let relative_input_path = destination_path

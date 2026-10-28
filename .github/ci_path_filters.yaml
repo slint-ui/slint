@@ -40,7 +40,7 @@ compiler: &compiler
 # Compiler and runtime shared by all language APIs, without backends and renderers.
 internal: &internal
  - *compiler
- - 'internal/!({compiler,renderers,backends}/**)'
+ - 'internal/!({compiler,renderers,backends,editor-preview}/**)'
  - 'helper_crates/**'
 
 # The widget styles, which every generator has to compile.
@@ -85,6 +85,7 @@ slint:
 visual_editor:
  - *ci_config
  - 'tools/editor/**'
+ - 'internal/editor-preview/**'
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test
 qt:
@@ -236,6 +237,7 @@ vsce:
 
 slintpad:
  - *internal
+ - 'internal/editor-preview/**'
  # The wasm build compiles the winit backend and the femtovg renderer
  - 'internal/backends/winit/**'
  - 'internal/renderers/femtovg/**'

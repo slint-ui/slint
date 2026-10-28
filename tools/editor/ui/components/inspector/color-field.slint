@@ -86,6 +86,7 @@ export component InspectorColorField inherits Rectangle {
         accessible-name: root.accessible-name;
         width: parent.width;
         value: root.value;
+        focused: self.input-focused || swatch-focus.has-focus;
         commit-key: root.commit-key;
         accepted(text) => { return root.accepted(text); }
 
@@ -98,6 +99,10 @@ export component InspectorColorField inherits Rectangle {
         width: root.style.swatch-size;
         height: parent.height;
         key-pressed(event) => {
+            if event.text == Key.Escape && FillSession.open && FillSession.request.target.key == root.preview-key {
+                FillSession.close-picker(false, true);
+                return accept;
+            }
             if event.text == Key.Return || event.text == Key.Space {
                 root.show-picker();
                 return accept;
@@ -147,6 +152,10 @@ export component InspectorColorField inherits Rectangle {
     }
 
     function show-picker() {
+        if FillSession.open && FillSession.request.target.key == root.preview-key
+            && FillSession.request.target.session-key == root.session-key {
+            return;
+        }
         FillSession.begin({
             fill: root.data.fill,
             target: {
@@ -162,12 +171,14 @@ export component InspectorColorField inherits Rectangle {
             allow-gradient: root.data.allow-gradient,
             anchor-position: root.absolute-position,
             anchor-size: { width: root.width, height: root.height },
+            activation-position: root.is-gradient ? root.absolute-position : swatch-focus.absolute-position,
+            activation-size: { width: root.is-gradient ? root.width : swatch-focus.width, height: root.height },
         });
     }
 
-    private property <int> focus-generation: FillSession.focus-generation;
+    private property <int> focus-generation: FillSession.focus-generation + FillSession.anchor-focus-generation;
     changed focus-generation => {
-        if !FillSession.request.target.canvas && FillSession.request.target.key == root.preview-key {
+        if (FillSession.open || !FillSession.request.target.canvas) && FillSession.request.target.key == root.preview-key {
             if root.is-literal-color { solid-field.focus-swatch(); }
             else { swatch-focus.focus(); }
         }

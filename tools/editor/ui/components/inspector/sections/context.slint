@@ -71,6 +71,10 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "Spinner");
     }
 
+    public pure function has-scrollbar-policy-selection() -> bool {
+        return InspectorContext.has-backend-rect() && Api.has-property("horizontal-scrollbar-policy");
+    }
+
     public pure function is-resizable-selection() -> bool {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
     }
@@ -97,6 +101,12 @@ export global InspectorContext {
 
     public pure function is-lineedit-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "LineEdit";
+    }
+
+    public pure function has-placeholder-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "TextEdit");
     }
 
     public pure function is-standard-button-selection() -> bool {
