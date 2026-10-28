@@ -3,9 +3,12 @@
 
 use crate::PhysicalLength;
 use crate::fixed::Fixed;
+#[cfg(feature = "owned-bitmap-fonts")]
 use alloc::rc::Rc;
 use core::ops::Deref;
-use i_slint_core::graphics::{BitmapFont, BitmapGlyphs, OwnedStorage, StaticStorage, Storage};
+#[cfg(feature = "owned-bitmap-fonts")]
+use i_slint_core::graphics::OwnedStorage;
+use i_slint_core::graphics::{BitmapFont, BitmapGlyphs, StaticStorage, Storage};
 use i_slint_core::textlayout::{FontMetrics, Glyph, TextShaper};
 
 use super::{GlyphAlphaMap, GlyphRenderer, RenderableGlyph};
@@ -22,6 +25,7 @@ impl FontStorage for StaticStorage {
     }
 }
 
+#[cfg(feature = "owned-bitmap-fonts")]
 impl FontStorage for OwnedStorage {
     type Font = Rc<BitmapFont<OwnedStorage>>;
     fn alpha_map(font: &Self::Font, glyph_set: usize, glyph: usize) -> GlyphAlphaMap {

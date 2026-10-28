@@ -1116,6 +1116,7 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
+    #[cfg(feature = "owned-bitmap-fonts")]
     fn register_shared_bitmap_font(
         &self,
         font: &Rc<i_slint_core::graphics::BitmapFont<i_slint_core::graphics::OwnedStorage>>,
@@ -2651,8 +2652,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     },
                                 )
                             }
-                            fonts::GlyphAlphaMap::Shared { .. }
-                            | fonts::GlyphAlphaMap::Rendered(_) => {
+                            // A glyph of a font built at run time, or rendered from a vector font
+                            _ => {
                                 let buffer = SharedBufferData::AlphaMap {
                                     data: glyph.alpha_map.clone(),
                                     width: pixel_stride,
@@ -2683,7 +2684,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 ),
                             )
                         }
-                        fonts::GlyphAlphaMap::Shared { .. } | fonts::GlyphAlphaMap::Rendered(_) => {
+                        // A glyph of a font built at run time, or rendered from a vector font
+                        _ => {
                             let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                             target_pixel_buffer::TextureDataContainer::Shared {
                                 buffer: SharedBufferData::AlphaMap {
