@@ -593,6 +593,9 @@ and reference `api/dotnet/Slint/Slint.csproj` and its `build/Slint.targets`, as 
   ```
 
   Read the file back after `Create`, as [the todo example](https://github.com/yurkinh/slint/blob/dotnet_bindings/examples/todo/dotnet-ios/Program.cs) does.
+- Native AOT works on devices: set `<PublishAot>true</PublishAot>` in the project file, not with `-p:`,
+  which would also apply it to the Slint libraries, and run `dotnet publish -c Release -r ios-arm64`.
+  Builds for the simulator keep using Mono.
 
 ## Embedded Linux
 

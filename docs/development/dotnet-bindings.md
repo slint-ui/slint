@@ -554,7 +554,10 @@ Next:
       - The app lifecycle needs no bindings: UIKit's notifications, which .NET for iOS offers in C#, arrive on the main thread,
         which is the Slint thread. `examples/todo/dotnet-ios` writes its list to a file when the app enters the background,
         and reads it at startup, with `TodoState`, which the Android version now shares.
-      - Next: Hot Reload, and Native AOT.
+      - Native AOT works on the iPhone, with `PublishAot` in the app's project and `dotnet publish -r ios-arm64`:
+        the app has no Mono runtime or assemblies, only its executable and the framework.
+        The iOS SDK takes `PublishAot` only when publishing for a device, and as `-p:`, it would also reach `Slint.csproj`.
+      - Next: Hot Reload.
     - Later, postponed: drawing with Metal from C#. Slint's notifier hands over Rust `wgpu` objects, and only behind an unstable feature,
       so it would need the `MTLDevice` and command queue under WGPU as raw pointers, which the `Metal` API of .NET for iOS could use,
       and a way to show a Metal texture in an `Image`, both new work in Slint.
