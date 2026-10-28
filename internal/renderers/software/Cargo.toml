@@ -19,6 +19,9 @@ path = "lib.rs"
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
 image-owned-textures = ["i-slint-core/image-owned-textures"]
+# Bitmap fonts built at run time (`register_shared_bitmap_font`), as the interpreter does for
+# pre-rendered fonts. Without it, only the fonts that generated code keeps in statics are drawn.
+owned-bitmap-fonts = []
 systemfonts = [
   "i-slint-core/shared-fontique",
   "i-slint-common/shared-fontique",

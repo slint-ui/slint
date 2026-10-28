@@ -187,6 +187,7 @@ internal-embed-textures = [
   "i-slint-compiler/renderer-software",
   "dep:i-slint-renderer-software",
   "i-slint-renderer-software/image-owned-textures",
+  "i-slint-renderer-software/owned-bitmap-fonts",
   # This crate's core has `path`, which the renderer must match
   "i-slint-renderer-software/path",
 ]
