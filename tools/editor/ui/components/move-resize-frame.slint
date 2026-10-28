@@ -18,6 +18,12 @@ export component MoveResizeFrame inherits Rectangle {
     in property <string> accessible-prefix: @tr("Selection");
     in property <bool> active;
     in property <bool> shift-pressed;
+    in property <bool> snapping-disabled;
+    private property <Point> free-move-position;
+    changed snapping-disabled => {
+        if root.move-dragging { root.moved-to(root.free-move-position); }
+        else if root.resize-dragging { root.emit-resize-target(); }
+    }
     in property <angle> rotation;
     in property <bool> show-resize-handles: true;
     in property <bool> corner-highlighted;
@@ -348,10 +354,11 @@ export component MoveResizeFrame inherits Rectangle {
                     root.interaction-started();
                 }
                 if root.move-dragging {
-                    root.moved-to({
+                    root.free-move-position = {
                         x: self.move-start-position.x + delta.x,
                         y: self.move-start-position.y + delta.y,
-                    });
+                    };
+                    root.moved-to(root.free-move-position);
                 }
             }
 

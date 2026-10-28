@@ -25,6 +25,7 @@ export struct SnapPreview {
 }
 
 export global Snapping {
+    in-out property <bool> disabled;
     callback snap-move(parent-geometry: Geometry, zoom: float) -> SnapResult;
     callback snap-resize(parent-geometry: Geometry, handle: ResizeHandle, square: bool, zoom: float) -> SnapResult;
 
@@ -33,25 +34,27 @@ export global Snapping {
             + ":" + Api.selection.highlight-index + ":" + Hover.preview-generation;
     }
 
-    function accept-preview(result: SnapResult, identity: string) -> SnapPreview {
-        let geometry = result.parent-geometry;
+    function accept-preview(geometry: Geometry, coordinate-space: CoordinateSpace, guides: [SnapGuide], identity: string) -> SnapPreview {
         let accepted = Api.override-selected-element-geometry(
-            geometry.x, geometry.y, geometry.width, geometry.height, CoordinateSpace.Parent,
+            geometry.x, geometry.y, geometry.width, geometry.height, coordinate-space,
         );
         return accepted.valid ? {
             valid: true,
             root-geometry: accepted.geometry,
-            guides: result.guides,
+            guides: guides,
             identity: identity,
         } : {};
     }
 
     public function preview-move(root-geometry: Geometry, identity: string) -> SnapPreview {
         if identity != Snapping.selection-identity() { return {}; }
+        if Snapping.disabled {
+            return Snapping.accept-preview(root-geometry, CoordinateSpace.Root, [], identity);
+        }
         let parent = Api.root-geometry-to-parent-geometry(root-geometry);
-        return parent.valid ? Snapping.accept-preview(
-            Snapping.snap-move(parent.geometry, CanvasView.zoom), identity,
-        ) : {};
+        if !parent.valid { return {}; }
+        let result = Snapping.snap-move(parent.geometry, CanvasView.zoom);
+        return Snapping.accept-preview(result.parent-geometry, CoordinateSpace.Parent, result.guides, identity);
     }
 
     public function preview-resize(root-geometry: Geometry, handle: ResizeHandle, square: bool, identity: string) -> SnapPreview {
@@ -61,11 +64,17 @@ export global Snapping {
         if !parent.valid || parent.geometry.width <= 0px || parent.geometry.height <= 0px {
             return {};
         }
+        if Snapping.disabled {
+            if (parent.geometry.width / 1px).round() <= 0 || (parent.geometry.height / 1px).round() <= 0 {
+                return {};
+            }
+            return Snapping.accept-preview(root-geometry, CoordinateSpace.Root, [], identity);
+        }
         let result = Snapping.snap-resize(parent.geometry, handle, square, CanvasView.zoom);
         if result.parent-geometry.width <= 0px || result.parent-geometry.height <= 0px {
             return {};
         }
-        return Snapping.accept-preview(result, identity);
+        return Snapping.accept-preview(result.parent-geometry, CoordinateSpace.Parent, result.guides, identity);
     }
 }
 

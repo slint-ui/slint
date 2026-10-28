@@ -86,6 +86,7 @@ component SelectedCanvasFrame inherits Rectangle {
         accessible-prefix: Api.current-element.type-name;
         active: !root.interaction-disabled;
         shift-pressed: root.shift-pressed;
+        snapping-disabled: Snapping.disabled;
         show-resize-handles: root.primary;
         show-rotation-handles: root.primary && Api.current-element.id != "root";
         show-outline-while-moving: root.show-outline-while-moving;
@@ -237,6 +238,7 @@ component HoverCanvasFrame inherits MoveResizeFrame {
     width: root.geometry.width * CanvasView.zoom;
     height: root.geometry.height * CanvasView.zoom;
     geometry-scale: CanvasView.zoom;
+    snapping-disabled: Snapping.disabled;
     changed pointer-active => { CanvasView.manipulating = root.pointer-active; }
     rotation: root.geometry.angle;
     active: !root.gesture-active || root.move-pressed;
@@ -331,7 +333,7 @@ export component CanvasInteractionLayer inherits TouchArea {
     private property <bool> hover-enabled;
     private property <SnapPreview> accepted-preview;
     private property <bool> geometry-active;
-    private property <[SnapGuide]> active-guides: root.geometry-active
+    private property <[SnapGuide]> active-guides: root.geometry-active && !Snapping.disabled
         && root.accepted-preview.valid
         && root.accepted-preview.identity == Snapping.selection-identity()
         ? root.accepted-preview.guides : [];
