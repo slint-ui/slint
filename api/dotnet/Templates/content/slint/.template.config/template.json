@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Slint for .NET",
+  "classifications": ["Desktop", "Slint", "UI"],
+  "identity": "@SlintPackageId@.Templates.Desktop.CSharp",
+  "groupIdentity": "@SlintPackageId@.Templates.Desktop",
+  "name": "Slint App",
+  "description": "A desktop app with a Slint UI and C# logic, for macOS, Linux, and Windows. Debug builds reload the UI and the C# code with dotnet watch, and Release builds publish with Native AOT.",
+  "shortName": "slint",
+  "sourceName": "SlintApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "slint-version": {
+      "type": "parameter",
+      "datatype": "string",
+      "displayName": "Slint version",
+      "description": "The version of the Slint package that the app references.",
+      "defaultValue": "@SlintVersion@",
+      "replaces": "SLINT_VERSION"
+    },
+    "style": {
+      "type": "parameter",
+      "datatype": "choice",
+      "displayName": "Widget style",
+      "description": "The style of Slint's widgets.",
+      "defaultValue": "default",
+      "choices": [
+        { "choice": "default", "description": "The style of the platform." },
+        { "choice": "fluent", "description": "Fluent, like Windows." },
+        { "choice": "material", "description": "Material, like Android." },
+        { "choice": "cupertino", "description": "Cupertino, like macOS and iOS." },
+        { "choice": "cosmic", "description": "Cosmic, like the COSMIC desktop." }
+      ],
+      "replaces": "SLINT_STYLE"
+    },
+    "packageId": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": {
+        "value": "@SlintPackageId@"
+      },
+      "replaces": "SLINT_PACKAGE_ID"
+    }
+  },
+  "primaryOutputs": [
+    { "path": "SlintApp.csproj" },
+    { "path": "Program.cs" }
+  ],
+  "postActions": [
+    {
+      "description": "Restore NuGet packages.",
+      "manualInstructions": [{ "text": "Run 'dotnet restore'." }],
+      "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+      "continueOnError": true
+    }
+  ]
+}

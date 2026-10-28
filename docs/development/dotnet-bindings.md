@@ -580,10 +580,14 @@ Next:
   Release builds turn on `PublishAot` on the desktop and iOS, in the project, and keep .NET for Android's default AOT.
   The UI lives in `ui/`, and C# that the platforms share in `Shared/`, which each project compiles,
   since each one generates its own classes and packs its own `.slint` files.
-  - Phase 1: the package in `api/dotnet/Templates` and the desktop template.
+  - Phase 1, done: `api/dotnet/Templates/Slint.Templates.csproj`, which writes the package ID and version into each `template.json` when it packs,
+    and the desktop template `slint`, with `--style` and `--slint-version`.
+    An app from it builds and runs, live preview included, and `dotnet publish -r osx-arm64` builds it with Native AOT.
+    The template content has no license headers, since `dotnet new` copies it into the user's project; `REUSE.toml` licenses it as MIT.
   - Phase 2: the Android and iOS templates. Phase 3: `slint-xplat` with `--platforms`, and the IDE metadata.
   - Phase 4: packing and publishing, and a CI job that creates and builds each template.
   - Phase 5: the README's Quick Start with the templates, the documentation page, and the article.
+  - Later: a test project, which needs the testing backend in the packaged library.
 
 ## Live Reload
 
