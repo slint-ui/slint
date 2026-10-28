@@ -122,6 +122,7 @@ declare_units! {
 ///
 /// [`Expression::NumberLiteral`]: crate::expression_tree::Expression::NumberLiteral
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Unit {
     /// Dimension-less (`float`, `int`)
     #[default]
@@ -170,12 +171,14 @@ impl std::fmt::Display for Unit {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MinMaxOp {
     Min,
     Max,
 }
 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum EasingCurve {
     #[default]
     Linear,
@@ -194,6 +197,7 @@ pub enum EasingCurve {
 /// The compiled `mouse-cursor` value: either a built-in cursor or a custom one built from an
 /// image. Generic over the expression type so both the tree and the LLR reuse the same shape.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MouseCursorInner<E> {
     BuiltIn(Box<E>),
     CustomMouseCursor { image: Box<E>, hotspot_x: Box<E>, hotspot_y: Box<E> },
@@ -208,6 +212,7 @@ impl<E: Default> Default for MouseCursorInner<E> {
 /// The ending shape of a `@radial-gradient`, with its explicit size in the element's local
 /// coordinate space. `None` means the shape's default size.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RadialGradientShape<E> {
     /// `circle [<radius>]`
     Circle(Option<Box<E>>),
@@ -252,6 +257,7 @@ impl<E> RadialGradientShape<E> {
 // `DataUri` reference; the resource lowering pass may then replace it with
 // `EmbeddedData`/`EmbeddedTexture` if configured.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ImageReference {
     None,
     Source(crate::source_path::SourcePath),
@@ -280,6 +286,7 @@ impl ImageReference {
 }
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Orientation {
     Horizontal,
     Vertical,

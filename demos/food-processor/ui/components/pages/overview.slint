@@ -4,6 +4,7 @@
 import { Recipe } from "../../recipe-adapter.slint";
 import { Styles } from "../../styles.slint";
 import { Bubble } from "../bubble.slint";
+import { RecipePhoto } from "../recipe-photo.slint";
 
 export component OverviewPage inherits HorizontalLayout {
     in property <Recipe> recipe;
@@ -12,46 +13,44 @@ export component OverviewPage inherits HorizontalLayout {
 
     spacing: Styles.side-margin;
 
-    Rectangle {
-        width: 228px;
-        Image {
-            x: -17px;
-            y: 10px;
-            width: 266px;
-            source: recipe.photo-detail;
-        }
+    RecipePhoto {
+        width: Styles.recipe-photo-width;
+        height: Styles.recipe-photo-height;
+        border-radius: Styles.border-radius;
+        horizontal-stretch: 0;
+        vertical-stretch: 0;
+        photo: root.recipe.photo;
     }
 
     VerticalLayout {
-        alignment: space-around;
-        padding-top: Styles.side-margin / 2 ;
-        padding-bottom: Styles.side-margin / 2;
+        alignment: start;
+        spacing: Styles.spacing-md;
         title := Text {
-            overflow: elide;
-            font-size: 18px;
+            wrap: word-wrap;
+            font-size: Styles.title-font-size;
             font-weight: FontWeight.semi-bold;
             color: #171717;
             text: recipe.title;
         }
 
         rating := HorizontalLayout {
-            // y: title.y + title.height + 5px;
-            height: 14px;
-            spacing: 6px;
+            visible: root.recipe.rating != "";
+            height: Styles.compact-row-height;
+            spacing: Styles.spacing-md;
             alignment: start;
             Rectangle {
                 width: stars.preferred-width;
                 stars := HorizontalLayout {
                     for i[index] in recipe.rating.to-float().ceil(): Image {
                         source: @image-url("../../images/star.jpg");
-                        width: 10px;
+                        width: Styles.medium-icon-size;
                     }
                 }
             }
 
             Text {
                 text: recipe.rating;
-                font-size: 12px;
+                font-size: Styles.heading-font-size;
                 font-weight: FontWeight.bold;
                 color: #171717;
             }
@@ -66,7 +65,6 @@ export component OverviewPage inherits HorizontalLayout {
         }
 
         info := Rectangle {
-            // y: rating.y + rating.height + 10px;
             height: bubbles.preferred-height;
             bubbles := HorizontalLayout {
                 alignment: LayoutAlignment.space-between;
@@ -91,27 +89,25 @@ export component OverviewPage inherits HorizontalLayout {
         }
 
         about := Rectangle {
-            // y: info.y + info.height + 10px;
-            // height: parent.height - self.y - Styles.side-margin;
             background: white;
-            border-radius: 8px;
-            border-width: 1px;
+            border-radius: Styles.border-radius;
+            border-width: Styles.outline-width;
             border-color: #E5E5E5;
 
             VerticalLayout {
-                spacing: 10px;
-                padding: 10px;
+                spacing: Styles.spacing-lg;
+                padding: Styles.spacing-lg;
 
                 Text {
                     text: "About This Recipe";
-                    font-size: 9px;
+                    font-size: Styles.regular-font-size;
                     font-weight: FontWeight.bold;
                     color: #171717;
                 }
 
                 Text {
-                    text: "Start your day with this vibrant and nutritious berry smoothie bowl. Packed with antioxidants, vitamins, and natural sweetness, this recipe is perfect for a quick breakfast or post-workout snack. The creamy texture comes from frozen berries blended to perfection.";
-                    font-size: 8px;
+                    text: root.recipe.description;
+                    font-size: Styles.small-font-size;
                     color: #525252;
                     font-weight: FontWeight.normal;
                     wrap: word-wrap;

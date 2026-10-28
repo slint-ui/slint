@@ -2004,6 +2004,9 @@ name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "embedded-hal"
@@ -2246,12 +2249,13 @@ dependencies = [
 
 [[package]]
 name = "femtovg"
-version = "0.27.0"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31eebf3ab1b76359ccd5f850c07a7c6b2722c64d9127c40e02358e83f3ff9b1a"
+checksum = "bdd6dfbb6f827356c8a284b9b7ab83828d6d630fe5457aa59f56092ee49f407a"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
+ "cfg_aliases",
  "fnv",
  "glow 0.18.0",
  "imgref",
@@ -3399,6 +3403,7 @@ dependencies = [
  "objc2 0.6.5",
  "pulldown-cmark",
  "resvg",
+ "serde",
  "skrifa",
 ]
 
@@ -3412,6 +3417,7 @@ dependencies = [
  "data-url",
  "derive_more",
  "divan",
+ "either",
  "fdsm",
  "fdsm-ttf-parser",
  "flate2",
@@ -3427,6 +3433,7 @@ dependencies = [
  "nalgebra",
  "num_enum",
  "pathdiff",
+ "postcard",
  "proc-macro2",
  "quote",
  "rayon",
@@ -5279,6 +5286,7 @@ checksum = "d49e936b501e5c5bf01fda3a9452ff86dc3ea98ad5f283e1455153142d97518c"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
+ "libc",
  "objc2 0.6.5",
  "objc2-core-foundation",
  "objc2-core-graphics",

@@ -502,7 +502,6 @@ impl ImageCacheKey {
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
-            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             ImageInner::BorrowedOpenGLTexture(..) => return None,
             ImageInner::NineSlice(nine) => vtable::VRc::borrow(nine).cache_key(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -592,7 +591,6 @@ pub enum ImageInner {
     #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
     HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>) = 4,
     BackendStorage(vtable::VRc<OpaqueImageVTable>) = 5,
-    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     BorrowedOpenGLTexture(BorrowedOpenGLTexture) = 6,
     NineSlice(vtable::VRc<OpaqueImageVTable, NineSliceImage>) = 7,
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -720,7 +718,6 @@ impl ImageInner {
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
-            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
             ImageInner::NineSlice(nine) => nine.0.size(),
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
@@ -875,7 +872,6 @@ impl PartialEq for ImageInner {
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::BackendStorage(l0), Self::BackendStorage(r0)) => vtable::VRc::ptr_eq(l0, r0),
-            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
             (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
             (Self::NineSlice(l), Self::NineSlice(r)) => l.0 == r.0 && l.1 == r.1,
             (Self::AnimatedImage(l), Self::AnimatedImage(r)) => **l == **r,
@@ -1431,10 +1427,8 @@ pub enum BorrowedOpenGLTextureOrigin {
 ///
 /// let image: slint::Image = builder.build();
 /// ```
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
 
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 impl BorrowedOpenGLTextureBuilder {
     /// Generates the base configuration for a borrowed OpenGL texture.
     ///
@@ -1454,8 +1448,24 @@ impl BorrowedOpenGLTextureBuilder {
     /// [`slint::Image`](Image) objects created from borrowed OpenGL textures cannot be shared between
     /// different windows.
     #[allow(unsafe_code)]
+    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
     pub unsafe fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
         Self(BorrowedOpenGLTexture { texture_id, size, origin: Default::default() })
+    }
+
+    /// Generates the base configuration for a borrowed WebGL texture.
+    ///
+    /// The texture must be bindable against the `TEXTURE_2D` target and have `RGBA` as format
+    /// for the pixel data.
+    /// It must belong to the WebGL context passed to the callback set on
+    /// [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier),
+    /// so [`slint::Image`](Image) objects created from it cannot be shared between different windows.
+    ///
+    /// By default, Slint assumes that the origin of the texture is at the top-left.
+    /// Use [`Self::origin()`] to change this.
+    #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+    pub fn new_webgl_2d_rgba_texture(texture: web_sys::WebGlTexture, size: IntSize) -> Self {
+        Self(BorrowedOpenGLTexture { texture, size, origin: Default::default() })
     }
 
     /// Configures the texture to be rendered vertically mirrored.
@@ -2128,11 +2138,28 @@ pub(crate) mod ffi {
 /// Note that only 2D RGBA textures are supported.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 #[repr(C)]
+#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 pub struct BorrowedOpenGLTexture {
     /// The id or name of the texture, as created by [`glGenTextures`](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGenTextures.xhtml).
     pub texture_id: core::num::NonZeroU32,
+    /// The size of the texture in pixels.
+    pub size: IntSize,
+    /// Origin of the texture when rendering.
+    pub origin: BorrowedOpenGLTextureOrigin,
+}
+
+/// This structure contains fields to identify and render a WebGL texture that Slint borrows from the application code.
+///
+/// The ownership of the texture remains with the application.
+///
+/// Note that only 2D RGBA textures are supported.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+pub struct BorrowedOpenGLTexture {
+    /// The WebGL texture object.
+    pub texture: web_sys::WebGlTexture,
     /// The size of the texture in pixels.
     pub size: IntSize,
     /// Origin of the texture when rendering.

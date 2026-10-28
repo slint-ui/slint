@@ -89,49 +89,48 @@ export component ShadowOverlay inherits FocusScope {
         interval: 0ms;
         triggered => { self.stop(); root.focus-epoch += 1; }
     }
-    private property <Point> shadow-center: root.to-canvas({
-        x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px,
-        y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px,
-    });
-    private property <Point> blur-point: root.to-canvas({
-        x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px,
-        y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px
-            - max(60px / CanvasView.zoom, FillSession.selection.height / 2 + ShadowSession.direction * (ShadowSession.values.spread + ShadowSession.values.blur / 2) * 1px),
-    });
-    private property <Point> spread-point: root.to-canvas({
-        x: FillSession.selection.width / 2 + ShadowSession.values.offset-x * 1px
-            + max(60px / CanvasView.zoom, FillSession.selection.width / 2 + ShadowSession.direction * ShadowSession.values.spread * 1px),
-        y: FillSession.selection.height / 2 + ShadowSession.values.offset-y * 1px,
-    });
-    pure function to-canvas(p: Point) -> Point {
+    private property <Point> shadow-center: {
         let selection = FillSession.selection;
-        let x = p.x - selection.width / 2;
-        let y = p.y - selection.height / 2;
-        return {
+        let x = ShadowSession.values.offset-x * 1px;
+        let y = ShadowSession.values.offset-y * 1px;
+        {
             x: (selection.x + selection.width / 2 + x * cos(selection.angle) - y * sin(selection.angle)) * CanvasView.zoom,
             y: (selection.y + selection.height / 2 + x * sin(selection.angle) + y * cos(selection.angle)) * CanvasView.zoom,
-        };
+        }
+    };
+    pure function guide-expansion(blur: bool) -> length {
+        return ShadowSession.direction * (ShadowSession.values.spread + (blur ? ShadowSession.values.blur / 2 : 0)) * 1px;
     }
-    pure function to-local(p: Point) -> Point {
-        let selection = FillSession.selection;
-        let x = (p.x - root.absolute-position.x) / CanvasView.zoom - selection.x - selection.width / 2;
-        let y = (p.y - root.absolute-position.y) / CanvasView.zoom - selection.y - selection.height / 2;
-        return {
-            x: selection.width / 2 + x * cos(selection.angle) + y * sin(selection.angle),
-            y: selection.height / 2 - x * sin(selection.angle) + y * cos(selection.angle),
-        };
+    pure function guide-distance(blur: bool) -> length {
+        let expansion = root.guide-expansion(blur);
+        let half-width = max(0px, FillSession.selection.width / 2 + expansion) / 1px;
+        let half-height = max(0px, FillSession.selection.height / 2 + expansion) / 1px;
+        let angle = FillSession.selection.angle + (blur ? 90deg : 0deg);
+        let dx = abs(cos(angle));
+        let dy = abs(sin(angle));
+        let distance = min(half-width / max(0.000001, dx), half-height / max(0.000001, dy));
+        let radius = (Api.source-property-value-data("border-radius", {}).value-float + expansion / 1px)
+            .clamp(0, min(half-width, half-height));
+        let corner-x = half-width - radius;
+        let corner-y = half-height - radius;
+        if distance * dx > corner-x && distance * dy > corner-y {
+            let projection = corner-x * dx + corner-y * dy;
+            return (projection + sqrt(max(0, projection * projection - corner-x * corner-x - corner-y * corner-y + radius * radius))) * 1px;
+        }
+        return distance * 1px;
     }
     function begin(kind: ShadowGesture, p: Point) {
-        root.press = root.to-local(p);
+        root.press = p;
         root.original = ShadowSession.values;
         ShadowSession.start(kind, true);
     }
     function drag(p: Point) {
-        let local = root.to-local(p);
-        let dx = (local.x - root.press.x) / 1px;
-        let dy = (local.y - root.press.y) / 1px;
         let gesture = ShadowSession.gesture;
-        let values = ShadowSession.moved(root.original, gesture, dx, dy, 2);
+        let dx = (p.x - root.press.x) / (1px * CanvasView.zoom);
+        let dy = (p.y - root.press.y) / (1px * CanvasView.zoom);
+        let angle = gesture == ShadowGesture.offset ? FillSession.selection.angle : 0deg;
+        let values = ShadowSession.moved(root.original, gesture,
+            dx * cos(angle) + dy * sin(angle), -dx * sin(angle) + dy * cos(angle), 2);
         if values != ShadowSession.values { ShadowSession.preview(values); }
     }
     function finish() {
@@ -158,12 +157,12 @@ export component ShadowOverlay inherits FocusScope {
         return accept;
     }
     for soft in (root.show-guides ? 2 : 0): guide := Rectangle {
-        private property <float> expansion: ShadowSession.direction * (ShadowSession.values.spread + (soft == 1 ? ShadowSession.values.blur / 2 : 0));
+        private property <length> expansion: root.guide-expansion(soft == 1);
         x: root.shadow-center.x - self.width / 2;
         y: root.shadow-center.y - self.height / 2;
-        width: max(0px, FillSession.selection.width + self.expansion * 2px) * CanvasView.zoom;
-        height: max(0px, FillSession.selection.height + self.expansion * 2px) * CanvasView.zoom;
-        border-radius: max(0px, Api.source-property-value-data("border-radius", {}).value-float * 1px + self.expansion * 1px) * CanvasView.zoom;
+        width: max(0px, FillSession.selection.width + self.expansion * 2) * CanvasView.zoom;
+        height: max(0px, FillSession.selection.height + self.expansion * 2) * CanvasView.zoom;
+        border-radius: max(0px, Api.source-property-value-data("border-radius", {}).value-float * 1px + self.expansion) * CanvasView.zoom;
         border-width: Metrics.border-width;
         border-color: (soft == 0 ? Style.shadow-spread-color : Colors.focus).with-alpha(0.3);
         transform-rotation: FillSession.selection.angle;
@@ -172,9 +171,10 @@ export component ShadowOverlay inherits FocusScope {
     for kind in [ShadowGesture.offset, ShadowGesture.blur, ShadowGesture.spread]: ShadowHandle {
         kind: kind;
         focus-generation: root.focus-epoch;
-        private property <Point> point: kind == ShadowGesture.offset ? root.shadow-center : kind == ShadowGesture.blur ? root.blur-point : root.spread-point;
-        x: self.point.x - self.width / 2;
-        y: self.point.y - self.height / 2;
+        private property <length> distance: kind == ShadowGesture.offset ? 0px
+            : max(40px, root.guide-distance(kind == ShadowGesture.blur) * CanvasView.zoom);
+        x: root.shadow-center.x + (kind == ShadowGesture.spread ? self.distance : 0px) - self.width / 2;
+        y: root.shadow-center.y - (kind == ShadowGesture.blur ? self.distance : 0px) - self.height / 2;
         label: kind == ShadowGesture.offset ? @tr("Shadow offset handle") : kind == ShadowGesture.blur ? @tr("Shadow blur handle") : @tr("Shadow spread handle");
         started(p) => { root.begin(kind, p); }
         dragged(p) => { root.drag(p); }

@@ -120,11 +120,19 @@ impl SourcePath {
     }
 
     /// Resolves `relative` against `self` taken as a directory.
-    /// An absolute path or URL in `relative` replaces `self`.
+    /// A URL in `relative` replaces `self`.
+    /// A path from the root replaces the path of a `Url`, keeping its scheme and host,
+    /// and replaces any other `self`.
     ///
     /// `relative` follows the import syntax, where `\` separates directories on every host.
     pub fn join(&self, relative: &str) -> Option<Self> {
         let relative = relative.replace('\\', "/");
+        if let Self::Url(url) = self
+            && is_absolute(&relative)
+            && parse_url(&relative).is_none()
+        {
+            return Some(url.join(&format!("/{}", relative.trim_start_matches('/'))).ok()?.into());
+        }
         if is_absolute(&relative) {
             return Some(Self::new(relative));
         }
@@ -196,6 +204,25 @@ impl From<url::Url> for SourcePath {
     }
 }
 
+/// Written as a URL when it has one, so that another host reads a native path of this one
+/// the way it reads the same URL from the editor.
+#[cfg(feature = "serde")]
+impl serde::Serialize for SourcePath {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self.to_url() {
+            Some(url) => serializer.serialize_str(url.as_str()),
+            None => serializer.collect_str(self),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for SourcePath {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(Self::new(String::deserialize(deserializer)?))
+    }
+}
+
 impl Default for SourcePath {
     fn default() -> Self {
         Self::File(PathBuf::new())
@@ -253,8 +280,17 @@ mod tests {
         );
         assert_eq!(
             join("https://slint.dev/ui/main.slint", "/abs/x.slint"),
-            SourcePath::new("/abs/x.slint")
+            SourcePath::new("https://slint.dev/abs/x.slint")
         );
+        assert_eq!(
+            join("slint-file:///ui/main.slint", "C:\\abs\\x.slint"),
+            SourcePath::new("slint-file:///C:/abs/x.slint")
+        );
+        assert_eq!(
+            join("https://slint.dev/ui/main.slint", "https://example.com/x.slint"),
+            SourcePath::new("https://example.com/x.slint")
+        );
+        assert_eq!(join("/ui/main.slint", "/abs/x.slint"), SourcePath::new("/abs/x.slint"));
         assert_eq!(join("ui/main.slint", "../assets/logo.png"), SourcePath::new("assets/logo.png"));
         assert_eq!(join("main.slint", "x.slint"), SourcePath::new("x.slint"));
         let dir = SourcePath::new("https://slint.dev/lib");

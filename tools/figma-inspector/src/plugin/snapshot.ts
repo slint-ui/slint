@@ -299,7 +299,12 @@ export type Diagnostic = {
     readonly nodePath?: string;
     readonly originalValue?: string;
     readonly fallbackAction?: string;
-    readonly category?: "approximation" | "image" | "omission" | "geometry";
+    readonly category?:
+        | "approximation"
+        | "image"
+        | "omission"
+        | "geometry"
+        | "export";
     readonly message: string;
 };
 

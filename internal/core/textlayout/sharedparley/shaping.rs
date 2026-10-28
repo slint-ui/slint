@@ -313,11 +313,14 @@ pub(super) fn create_text_paragraphs(
             }
         }
         PlainOrStyledText::Styled(rich_text) => {
-            for paragraph in rich_text.paragraphs {
+            // Offsets into the text as `styled_text::get_raw_text` joins it, which a selection's
+            // offsets index.
+            let ranges: Vec<_> = crate::styled_text::raw_text_ranges(&rich_text).collect();
+            for (paragraph, range) in rich_text.paragraphs.into_iter().zip(ranges) {
                 paragraphs.push(paragraph_from_text(
                     font_context,
                     &paragraph.text,
-                    0..0,
+                    range,
                     paragraph.formatting,
                     paragraph.links,
                 ));

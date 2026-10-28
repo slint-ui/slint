@@ -300,6 +300,7 @@ impl slint::platform::Platform for EspBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
+        window.set_size(PhysicalSize::new(LCD_H_RES.into(), LCD_V_RES.into()));
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -312,10 +313,6 @@ impl slint::platform::Platform for EspBackend {
         let BoardState { mut dpi, mut dma_tx, mut pixel_box, mut touch } =
             self.state.borrow_mut().take().expect("event loop already running");
         let pixel_buf: &mut [Rgb565Pixel] = &mut *pixel_box;
-
-        // Tell Slint the window dimensions match the DPI display resolution
-        let size = PhysicalSize::new(LCD_H_RES.into(), LCD_V_RES.into());
-        self.window.borrow().as_ref().expect("Window adapter not created").set_size(size);
 
         let mut last_touch: Option<LogicalPosition> = None;
 

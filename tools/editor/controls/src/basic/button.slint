@@ -2,11 +2,112 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ButtonBase } from "../headless.slint";
-import {
-    ButtonStateStyle,
-    ButtonStyle,
-} from "button_style.slint";
-import { ButtonStyles } from "button_styles.slint";
+import { BasicTheme } from "theme.slint";
+
+export struct ButtonStateStyle {
+    background-color: brush,
+    foreground-color: brush,
+    border-color: brush,
+}
+
+export struct ButtonStyle {
+    rest: ButtonStateStyle,
+    hover: ButtonStateStyle,
+    pressed: ButtonStateStyle,
+    disabled: ButtonStateStyle,
+    focus-color: brush,
+}
+
+export global ButtonStyles {
+    out property <ButtonStyle> secondary: {
+        rest: {
+            background-color: BasicTheme.background,
+            foreground-color: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        hover: {
+            background-color: BasicTheme.hover-background,
+            foreground-color: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        pressed: {
+            background-color: BasicTheme.pressed-background,
+            foreground-color: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+        },
+        disabled: {
+            background-color: BasicTheme.disabled-background,
+            foreground-color: BasicTheme.disabled-foreground,
+            border-color: transparent,
+        },
+        focus-color: BasicTheme.focus,
+    };
+    out property <ButtonStyle> primary: {
+        rest: {
+            background-color: BasicTheme.accent,
+            foreground-color: BasicTheme.accent-foreground,
+            border-color: transparent,
+        },
+        hover: {
+            background-color: BasicTheme.accent-hover,
+            foreground-color: BasicTheme.accent-foreground,
+            border-color: transparent,
+        },
+        pressed: {
+            background-color: BasicTheme.accent-pressed,
+            foreground-color: BasicTheme.accent-foreground,
+            border-color: transparent,
+        },
+        disabled: ButtonStyles.secondary.disabled,
+        focus-color: BasicTheme.focus,
+    };
+    out property <ButtonStyle> danger: {
+        rest: {
+            background-color: BasicTheme.background,
+            foreground-color: BasicTheme.danger,
+            border-color: BasicTheme.border,
+        },
+        hover: {
+            background-color: BasicTheme.danger-hover,
+            foreground-color: BasicTheme.danger-foreground,
+            border-color: transparent,
+        },
+        pressed: {
+            background-color: BasicTheme.danger-pressed,
+            foreground-color: BasicTheme.danger-foreground,
+            border-color: transparent,
+        },
+        disabled: {
+            background-color: BasicTheme.disabled-background,
+            foreground-color: BasicTheme.danger-disabled-foreground,
+            border-color: transparent,
+        },
+        focus-color: BasicTheme.focus,
+    };
+    out property <ButtonStyle> invisible: {
+        rest: {
+            background-color: transparent,
+            foreground-color: BasicTheme.foreground,
+            border-color: transparent,
+        },
+        hover: {
+            background-color: BasicTheme.invisible-hover-background,
+            foreground-color: BasicTheme.foreground,
+            border-color: transparent,
+        },
+        pressed: {
+            background-color: BasicTheme.invisible-pressed-background,
+            foreground-color: BasicTheme.foreground,
+            border-color: transparent,
+        },
+        disabled: {
+            background-color: transparent,
+            foreground-color: BasicTheme.disabled-foreground,
+            border-color: transparent,
+        },
+        focus-color: BasicTheme.focus,
+    };
+}
 
 export component Button inherits ButtonBase {
     in property <ButtonStyle> style: root.primary || root.checked ? ButtonStyles.primary : ButtonStyles.secondary;

@@ -70,7 +70,7 @@ export type PluginToUiMessage =
           readonly revision: number;
           readonly source: string | AssetPreview;
           readonly warnings?: readonly Diagnostic[];
-          readonly exportPackage: ExportPackage;
+          readonly exportPackage?: ExportPackage;
           readonly selection?: {
               readonly nodeId: string;
               readonly nodeName: string;
@@ -196,8 +196,9 @@ export function isPluginToUiMessage(
                   (typeof value.source === "string" ||
                       isAssetPreview(value.source))) &&
             (value.type !== "preview-source" ||
-                ("exportPackage" in value &&
-                    isExportPackage(value.exportPackage))) &&
+                !("exportPackage" in value) ||
+                value.exportPackage === undefined ||
+                isExportPackage(value.exportPackage)) &&
             (!("warnings" in value) ||
                 (Array.isArray(value.warnings) &&
                     value.warnings.every(isDiagnostic))) &&
@@ -258,9 +259,13 @@ function isDiagnostic(value: unknown): value is Diagnostic {
                 typeof candidate[key] === "string",
         ) &&
         (candidate.category === undefined ||
-            ["approximation", "image", "omission", "geometry"].includes(
-                String(candidate.category),
-            )) &&
+            [
+                "approximation",
+                "image",
+                "omission",
+                "geometry",
+                "export",
+            ].includes(String(candidate.category))) &&
         (candidate.propertyPath === undefined ||
             typeof candidate.propertyPath === "string")
     );

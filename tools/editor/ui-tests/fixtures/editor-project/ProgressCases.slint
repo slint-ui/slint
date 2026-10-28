@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ProgressIndicator, Spinner } from "std-widgets.slint";
+
+export component ProgressCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    default-progress := ProgressIndicator {
+        x: 32px;
+        y: 32px;
+        width: 200px;
+    }
+
+    set-progress := ProgressIndicator {
+        x: 32px;
+        y: 96px;
+        width: 200px;
+        progress: 0.5;
+        indeterminate: true;
+    }
+
+    default-spinner := Spinner {
+        x: 32px;
+        y: 160px;
+        width: 48px;
+        height: 48px;
+    }
+}
