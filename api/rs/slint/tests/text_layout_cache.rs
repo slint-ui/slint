@@ -216,6 +216,7 @@ fn line_height_factor_change_invalidates_cache() {
 
     // A fixed size, so the redraw can't come from a layout change.
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component TestComponent inherits Window {
             in property <float> factor: 1;
             Text {
@@ -248,6 +249,7 @@ fn width_dependent_line_height() {
 
     // #13799. The window is 200px wide, so the factor is 2.
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello\nWorld";
             out property <length> spaced-height: spaced.preferred-height;
@@ -281,6 +283,7 @@ fn width_dependent_line_height_with_word_wrap_shapes_once() {
 
     // A `word-wrap` Text measures its width through the content widths cache instead.
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component TestComponent inherits Window {
             in property <string> content: "Hello\nWorld";
             HorizontalLayout {
@@ -413,6 +416,7 @@ fn width_measurement_reuses_layout_with_line_height_factor() {
     // The overflow change re-measures the width, which mustn't evict the entry shaped with the
     // factor.
     slint::slint! {
+        #[slint_edition = "1.19"]
         export component TestComponent inherits Window {
             in property <bool> use-elide: false;
             HorizontalLayout {
