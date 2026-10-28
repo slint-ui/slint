@@ -120,11 +120,19 @@ impl SourcePath {
     }
 
     /// Resolves `relative` against `self` taken as a directory.
-    /// An absolute path or URL in `relative` replaces `self`.
+    /// A URL in `relative` replaces `self`.
+    /// A path from the root replaces the path of a `Url`, keeping its scheme and host,
+    /// and replaces any other `self`.
     ///
     /// `relative` follows the import syntax, where `\` separates directories on every host.
     pub fn join(&self, relative: &str) -> Option<Self> {
         let relative = relative.replace('\\', "/");
+        if let Self::Url(url) = self
+            && is_absolute(&relative)
+            && parse_url(&relative).is_none()
+        {
+            return Some(url.join(&format!("/{}", relative.trim_start_matches('/'))).ok()?.into());
+        }
         if is_absolute(&relative) {
             return Some(Self::new(relative));
         }
@@ -272,8 +280,17 @@ mod tests {
         );
         assert_eq!(
             join("https://slint.dev/ui/main.slint", "/abs/x.slint"),
-            SourcePath::new("/abs/x.slint")
+            SourcePath::new("https://slint.dev/abs/x.slint")
         );
+        assert_eq!(
+            join("slint-file:///ui/main.slint", "C:\\abs\\x.slint"),
+            SourcePath::new("slint-file:///C:/abs/x.slint")
+        );
+        assert_eq!(
+            join("https://slint.dev/ui/main.slint", "https://example.com/x.slint"),
+            SourcePath::new("https://example.com/x.slint")
+        );
+        assert_eq!(join("/ui/main.slint", "/abs/x.slint"), SourcePath::new("/abs/x.slint"));
         assert_eq!(join("ui/main.slint", "../assets/logo.png"), SourcePath::new("assets/logo.png"));
         assert_eq!(join("main.slint", "x.slint"), SourcePath::new("x.slint"));
         let dir = SourcePath::new("https://slint.dev/lib");

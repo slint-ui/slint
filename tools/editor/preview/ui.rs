@@ -368,7 +368,6 @@ pub fn set_preview_default_fonts(api: &Api<'_>, instance: &slint_interpreter::Co
         0,
         i_slint_core::lengths::LogicalLength::default(),
         i_slint_core::lengths::LogicalLength::default(),
-        1.0,
         false,
     );
     api.set_preview_default_font_family(font.family.unwrap_or_default());
@@ -2583,6 +2582,83 @@ mod tests {
                 .unwrap();
         field.set_accessible_value("\"Settings\"");
         assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+    }
+
+    #[test]
+    fn placeholder_field_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("LineEdit", true),
+            ("TextEdit", true),
+            ("TextInput", false),
+            ("Button", false),
+            ("Text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Placeholder text"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn placeholder_field_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "LineEdit".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let field = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Placeholder text",
+        )
+        .find(|element| {
+            element.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+        })
+        .unwrap();
+        field.set_accessible_value("\"Enter a name\"");
+        assert_eq!(
+            *commits.borrow(),
+            [("placeholder-text".to_string(), "\"Enter a name\"".to_string())]
+        );
     }
 
     #[test]

@@ -10,7 +10,7 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
     InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
-    InspectorOrientationSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
+    InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
     InspectorStandardButtonKindSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
@@ -131,6 +131,8 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if InspectorContext.has-text-property-selection(): InspectorTextContentSection { }
+
+                if InspectorContext.has-placeholder-selection(): InspectorPlaceholderSection { }
 
                 if InspectorContext.is-text-selection(): InspectorTypographySection {
                     field-width: root.field-width;
