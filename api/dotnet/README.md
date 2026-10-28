@@ -244,7 +244,12 @@ app.Run();
 The notifier runs with the window's OpenGL context current, so restore the state that it changes, such as bound buffers.
 `GraphicsApi` is valid during the call only, while the function addresses stay valid with the context.
 The examples [`opengl_underlay`](https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_underlay/dotnet)
-and [`opengl_texture`](https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_texture/dotnet) show both ways.
+and [`opengl_texture`](https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/opengl_texture/dotnet) show both ways:
+
+| A shader below the scene | A cube rendered into a texture |
+| --- | --- |
+| ![The OpenGL underlay example: an animated grid of diamonds below Slint's text and checkbox](https://yurkinh.github.io/slint/images/opengl-underlay.jpg) | ![The OpenGL texture example: a lit blue cube in a Slint Image, above sliders for its color](https://yurkinh.github.io/slint/images/opengl-texture.png) |
+
 WGPU and Metal give C# no access to Slint's device, so drawing with them isn't available.
 
 ## Models
