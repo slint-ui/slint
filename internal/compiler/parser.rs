@@ -366,7 +366,9 @@ declare_syntax! {
                      *SlotDeclaration, *SlotAssignment, *SlotForwarding ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
-        ConditionalElement -> [ Expression , SubElement],
+        /// `if cond : Elem {}`, with an optional `else if` / `else` branch nested as
+        /// the trailing `ConditionalElement`. The `else` branch has no `Expression`.
+        ConditionalElement -> [ ?Expression , SubElement, ?ConditionalElement],
         /// match (foo) { 1: Elem { } }
         MatchElement -> [ Expression , *MatchCase, ?WildcardMatchCase ],
         /// 1: Elem { }

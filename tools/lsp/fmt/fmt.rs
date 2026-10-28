@@ -161,6 +161,9 @@ fn format_node(
         SyntaxKind::RepeatedElement => {
             return format_repeated_element(node, writer, state);
         }
+        SyntaxKind::ConditionalElement => {
+            return format_conditional_element(node, writer, state);
+        }
         SyntaxKind::RepeatedIndex => {
             return format_repeated_index(node, writer, state);
         }
@@ -1339,6 +1342,45 @@ fn format_repeated_element(
 
     for s in sub {
         fold(s, writer, state)?;
+    }
+    Ok(())
+}
+
+/// Format a conditional element, putting each `else` / `else if` on its own line. The
+/// branches are nested `ConditionalElement` children, so this recurses into them.
+fn format_conditional_element(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut first_keyword = true;
+    for n in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        match n.kind() {
+            // The leading `if`/`else`, and the `if` of an `else if`.
+            SyntaxKind::Identifier => {
+                if !first_keyword {
+                    state.insert_whitespace(" ");
+                }
+                first_keyword = false;
+                fold(n, writer, state)?;
+            }
+            SyntaxKind::Expression => {
+                state.insert_whitespace(" ");
+                fold(n, writer, state)?;
+            }
+            SyntaxKind::Colon => {
+                fold(n, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            // The `else` / `else if` branch starts on its own line, aligned with the `if`.
+            SyntaxKind::ConditionalElement => {
+                state.whitespace_to_add = None;
+                state.new_line();
+                format_conditional_element(n.as_node().unwrap(), writer, state)?;
+            }
+            _ => fold(n, writer, state)?,
+        }
     }
     Ok(())
 }
@@ -2811,6 +2853,22 @@ component A {  if condition : Text {  }  }
             r#"
 component A {
     if condition: Text { }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn if_else_element() {
+        assert_formatting(
+            r#"component A { if a : Text {  } else if  b: Rectangle { background: red; }else:Text{  } }
+"#,
+            r#"component A {
+    if a: Text { }
+    else if b: Rectangle {
+        background: red;
+    }
+    else: Text { }
 }
 "#,
         );

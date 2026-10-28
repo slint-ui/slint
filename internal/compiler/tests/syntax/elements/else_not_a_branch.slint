@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `else` after a conditional starts a branch only as `else if` or `else :`. Every other form
+// keeps `else` as an ordinary identifier, so here each `else` resolves as an element or a
+// property rather than attaching to the `if` as a branch.
+
+export component TestCase inherits Rectangle {
+    if true : Rectangle { }
+    else { }
+//  >   <error{Unknown element 'else'}
+
+    if true : Rectangle { }
+    else : 1px;
+//  >  <error{Unknown property else in Rectangle}
+}

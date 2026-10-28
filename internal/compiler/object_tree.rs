@@ -1308,6 +1308,9 @@ pub struct Element {
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
     pub match_elements: Vec<MatchElementInfo>,
+    /// `if`/`else if`/`else` chains, resolved later into conditional elements with
+    /// mutually exclusive conditions. A lone `if` is lowered directly instead.
+    pub conditional_chains: Vec<ConditionalChainInfo>,
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
     /// true when this item is a direct cell of a `FlexboxLayout`. Narrower
@@ -1553,6 +1556,19 @@ pub struct RepeatedElementInfo {
     pub is_listview: Option<ListViewInfo>,
 }
 
+impl RepeatedElementInfo {
+    /// Info for a conditional element: a repeater whose `model` is the boolean condition.
+    pub fn conditional(model: Expression) -> Self {
+        Self {
+            model,
+            model_data_id: SmolStr::default(),
+            index_id: SmolStr::default(),
+            is_conditional_element: true,
+            is_listview: None,
+        }
+    }
+}
+
 /// Struct for a match element that later is resolved into standard conditional elements
 pub struct MatchElementInfo {
     /// The match element node, used for diagnostics related to the match element as a whole
@@ -1599,13 +1615,7 @@ impl MatchElementInfo {
             source_location: None,
         };
         let show_when = |element: &ElementRc, condition| {
-            element.borrow_mut().repeated = Some(RepeatedElementInfo {
-                model: condition,
-                model_data_id: SmolStr::default(),
-                index_id: SmolStr::default(),
-                is_conditional_element: true,
-                is_listview: None,
-            });
+            element.borrow_mut().repeated = Some(RepeatedElementInfo::conditional(condition));
         };
 
         for case in &self.cases {
@@ -1626,6 +1636,66 @@ impl MatchElementInfo {
                 })
                 .unwrap_or(Expression::BoolLiteral(true));
             show_when(wildcard, condition);
+        }
+    }
+}
+
+/// The outcome of lowering a conditional element: either a lone `if` or a whole chain.
+enum ConditionalLowering {
+    Single(ElementRc),
+    Chain(ConditionalChainInfo),
+}
+
+/// An `if`/`else if`/`else` chain, resolved later into conditional elements with
+/// mutually exclusive conditions.
+pub struct ConditionalChainInfo {
+    /// The branches in source order. All but the optional trailing `else` have a condition.
+    pub branches: Vec<ConditionalBranchInfo>,
+}
+
+/// One branch of a [`ConditionalChainInfo`].
+pub struct ConditionalBranchInfo {
+    /// The branch condition, `None` for the trailing `else`.
+    pub condition: Option<Expression>,
+    /// The element shown when this branch is active.
+    pub element: ElementRc,
+}
+
+impl ConditionalChainInfo {
+    /// The element of every branch.
+    pub fn elements(&self) -> impl Iterator<Item = ElementRc> + '_ {
+        self.branches.iter().map(|b| b.element.clone())
+    }
+
+    /// Make every branch a conditional element. A branch is shown when its own condition holds
+    /// and every earlier condition is false, so `else if`/`else` are mutually exclusive with
+    /// the branches before them. Call after the conditions have been resolved.
+    pub fn lower_to_conditional_elements(self) {
+        fn and(lhs: Expression, rhs: Expression) -> Expression {
+            Expression::BinaryExpression {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+                op: '&',
+                source_location: None,
+            }
+        }
+        // `acc` is the conjunction of `!condition` for every earlier branch; combine it with `e`.
+        let and_opt = |acc: &Option<Expression>, e| match acc {
+            Some(prior) => and(prior.clone(), e),
+            None => e,
+        };
+        let mut earlier_are_false: Option<Expression> = None;
+        for branch in self.branches {
+            let model = match branch.condition {
+                Some(condition) => {
+                    let model = and_opt(&earlier_are_false, condition.clone());
+                    let not = Expression::UnaryOp { sub: Box::new(condition), op: '!' };
+                    earlier_are_false = Some(and_opt(&earlier_are_false, not));
+                    model
+                }
+                None => earlier_are_false.clone().unwrap_or(Expression::BoolLiteral(true)),
+            };
+            branch.element.borrow_mut().repeated = Some(RepeatedElementInfo::conditional(model));
         }
     }
 }
@@ -1749,7 +1819,7 @@ impl Element {
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ConditionalElement {
                 let mut sub_child_insertion_points = BTreeMap::new();
-                let rep = Element::from_conditional_node(
+                let lowering = Element::from_conditional_node(
                     se.into(),
                     r.borrow().base_type.clone(),
                     &mut sub_child_insertion_points,
@@ -1764,7 +1834,14 @@ impl Element {
                     sub_child_insertion_points,
                     "a conditional element",
                 );
-                r.borrow_mut().children.push(rep);
+                let mut r = r.borrow_mut();
+                match lowering {
+                    ConditionalLowering::Single(element) => r.children.push(element),
+                    ConditionalLowering::Chain(chain) => {
+                        r.children.extend(chain.elements());
+                        r.conditional_chains.push(chain);
+                    }
+                }
             } else if se.kind() == SyntaxKind::MatchElement {
                 let mut sub_child_insertion_points = BTreeMap::new();
                 let match_element = Element::from_match_node(
@@ -2167,6 +2244,9 @@ impl Element {
         e
     }
 
+    /// Lower an `if`/`else if`/`else` chain. A lone `if` gets its `repeated` set right away. A
+    /// chain with an `else`/`else if` branch is kept around so the mutually exclusive conditions
+    /// can be built once the conditions are resolved.
     fn from_conditional_node(
         node: syntax_nodes::ConditionalElement,
         parent_type: ElementType,
@@ -2175,27 +2255,42 @@ impl Element {
         is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
-    ) -> ElementRc {
+    ) -> ConditionalLowering {
         #[cfg(feature = "slint-sc")]
         diag.slint_sc_error("Conditional elements (if) are", &node);
-        let rei = RepeatedElementInfo {
-            model: Expression::Uncompiled(node.Expression().into()),
-            model_data_id: SmolStr::default(),
-            index_id: SmolStr::default(),
-            is_conditional_element: true,
-            is_listview: None,
+
+        let mut element_of = |node: &syntax_nodes::ConditionalElement| {
+            Element::from_sub_element_node(
+                node.SubElement(),
+                parent_type.clone(),
+                component_child_insertion_points,
+                declared_slots,
+                is_in_legacy_component,
+                diag,
+                tr,
+            )
         };
-        let e = Element::from_sub_element_node(
-            node.SubElement(),
-            parent_type,
-            component_child_insertion_points,
-            declared_slots,
-            is_in_legacy_component,
-            diag,
-            tr,
-        );
-        e.borrow_mut().repeated = Some(rei);
-        e
+
+        // A lone `if` keeps the simple path: its condition is the model, resolved like a `for`.
+        if node.ConditionalElement().is_none()
+            && let Some(condition) = node.Expression()
+        {
+            let element = element_of(&node);
+            let model = Expression::Uncompiled(condition.into());
+            element.borrow_mut().repeated = Some(RepeatedElementInfo::conditional(model));
+            return ConditionalLowering::Single(element);
+        }
+
+        let mut branches = Vec::new();
+        let mut branch_node = Some(node);
+        while let Some(node) = branch_node {
+            branches.push(ConditionalBranchInfo {
+                condition: node.Expression().map(|e| Expression::Uncompiled(e.into())),
+                element: element_of(&node),
+            });
+            branch_node = node.ConditionalElement();
+        }
+        ConditionalLowering::Chain(ConditionalChainInfo { branches })
     }
 
     fn from_match_node(

@@ -91,12 +91,24 @@ The `condition` must be a boolean expression.
 The element is instantiated when the condition becomes true and removed when it becomes false.
 `id :=` is optional, and the body is a single element that may contain children.
 
+An `if` may be followed by `else if` and `else` branches:
+
+```slint no-test
+if condition1 : Element { }
+else if condition2 : Element { }
+else : Element { }
+```
+
+The branches are mutually exclusive.
+Slint instantiates the first branch whose condition is true, or the `else` branch when no condition is true.
+It instantiates no branch when every condition is false and there is no `else`.
+
 ```slint
 export component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
-    if area.pressed : foo := Rectangle { background: blue; }
-    if !area.pressed : Rectangle { background: red; }
+    if area.pressed : Rectangle { background: blue; }
+    else : Rectangle { background: red; }
     area := TouchArea {}
 }
 ```

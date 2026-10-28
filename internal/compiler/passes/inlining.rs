@@ -655,6 +655,7 @@ fn duplicate_element_with_mapping(
         enclosing_component: Rc::downgrade(root_component),
         states: elem.states.clone(),
         match_elements: Default::default(),
+        conditional_chains: Default::default(),
         transitions: elem
             .transitions
             .iter()

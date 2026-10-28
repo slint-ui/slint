@@ -391,6 +391,10 @@ fn parse_repeated_element(p: &mut impl Parser) {
 /// if (foo ? bar : xx) : Elem { foo:bar; Elem {}}
 /// if (true) : foo := Elem {}
 /// if true && true : Elem {}
+/// if a : Elem { } else : Elem { }
+/// if a : Elem { } else if b : Elem { }
+/// if a : A { } else if b : B { } else if c : C { } else : D { }
+/// if a : A { } else : alias := B { }
 /// ```
 /// Must consume at least one token
 fn parse_if_element(p: &mut impl Parser) {
@@ -398,11 +402,72 @@ fn parse_if_element(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ConditionalElement);
     p.expect(SyntaxKind::Identifier); // "if"
     parse_expression(&mut *p);
-    if !p.expect(SyntaxKind::Colon) {
-        drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
+    if !expect_colon_before_sub_element(&mut *p) {
         return;
     }
     parse_sub_element(&mut *p);
+    parse_else_branch(&mut *p);
+}
+
+/// Expect the `:` that separates a conditional's condition from its sub-element. On a missing
+/// colon, emit an empty placeholder sub-element so the node keeps its shape, and return false.
+fn expect_colon_before_sub_element(p: &mut impl Parser) -> bool {
+    if p.expect(SyntaxKind::Colon) {
+        return true;
+    }
+    drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
+    false
+}
+
+/// Consume an optional `else` / `else if` branch following a conditional element's sub-element.
+/// The branch is nested as a `ConditionalElement` child of the current conditional element.
+///
+/// Slint has no reserved keywords, so `else` is a branch only when it is not an element:
+/// `else { }` and `else := E { }` instantiate a component named `else`, and `else : expr;`
+/// binds a property named `else`. The branch forms are `else if <cond> : E { }` and `else : E { }`.
+fn parse_else_branch(p: &mut impl Parser) {
+    if p.peek().as_str() != "else" {
+        return;
+    }
+    let is_else_if = p.nth(1).as_str() == "if"
+        && !matches!(p.nth(2).kind(), SyntaxKind::LBrace | SyntaxKind::ColonEqual);
+    // Treat `else : …` as a branch only when a sub-element follows, so `else : expr;`
+    // remains a binding of a property named `else`.
+    let is_else = p.nth(1).kind() == SyntaxKind::Colon && sub_element_follows(p, 2);
+    if !is_else_if && !is_else {
+        return;
+    }
+    let mut p = p.start_node(SyntaxKind::ConditionalElement);
+    p.expect(SyntaxKind::Identifier); // "else"
+    if is_else_if {
+        p.expect(SyntaxKind::Identifier); // "if"
+        parse_expression(&mut *p);
+        if !expect_colon_before_sub_element(&mut *p) {
+            return;
+        }
+        parse_sub_element(&mut *p);
+        parse_else_branch(&mut *p);
+    } else {
+        p.expect(SyntaxKind::Colon);
+        parse_sub_element(&mut *p);
+    }
+}
+
+/// Whether the tokens starting at offset `i` look like a sub-element (`[id :=] Name { … }`),
+/// as opposed to an expression. Used to tell `else : Elem { }` from `else : expr;`.
+/// Keep this in sync with the prefix that [`parse_sub_element`] accepts.
+fn sub_element_follows(p: &mut impl Parser, mut i: usize) -> bool {
+    if p.nth(i).kind() == SyntaxKind::Identifier && p.nth(i + 1).kind() == SyntaxKind::ColonEqual {
+        i += 2;
+    }
+    if p.nth(i).kind() != SyntaxKind::Identifier {
+        return false;
+    }
+    i += 1;
+    while p.nth(i).kind() == SyntaxKind::Dot && p.nth(i + 1).kind() == SyntaxKind::Identifier {
+        i += 2;
+    }
+    p.nth(i).kind() == SyntaxKind::LBrace
 }
 
 #[cfg_attr(test, parser_test)]
