@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Drawing or hit-testing a text evaluates a binding that measures another text (#14554).
+//! Drawing, measuring or hit-testing a text evaluates a binding that measures another text (#14554).
 
 mod common;
 
@@ -66,6 +66,25 @@ fn draw_text() {
     let app = App::new().unwrap();
     app.show().unwrap();
     render(&window);
+}
+
+#[test]
+fn measure_word_wrapped_text() {
+    slint::slint! {
+        #[slint_edition = "1.19"]
+        export component App inherits Window {
+            reference := Text { text: "reference"; }
+            measured := Text {
+                text: "measured";
+                wrap: word-wrap;
+                max-lines: reference.preferred-width > 0px ? 1 : 2;
+            }
+            out property <length> measured-width: measured.preferred-width;
+        }
+    }
+    let _window = common::setup(WIDTH as u32, HEIGHT as u32);
+    let app = App::new().unwrap();
+    assert!(app.get_measured_width() > 0.);
 }
 
 #[test]

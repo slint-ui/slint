@@ -164,9 +164,8 @@ use shaping::{
 ///
 /// The font context is borrowed from `window`'s Slint context for shaping and layout only,
 /// and released before `f` runs, as glyph drawing inside `f` re-enters it.
-/// Bindings that measure text borrow it too, so this evaluates the text and the link color first.
-/// Building `layout_builder` evaluated the rest of what shaping reads.
-/// `f` must not read properties, for the same reason: it runs with the cache entry checked out.
+/// `f` runs with the cache entry checked out, which keeps the whole [`TextLayoutCache`] borrowed.
+/// So `f` must not read properties: a binding that measures text would panic.
 /// The wrap mode, line-height factor and scale factor the cache entry is keyed on come from
 /// `layout_builder`, so shaping and layout cannot disagree about them.
 ///
@@ -181,9 +180,7 @@ fn with_text_layout<R>(
     f: impl FnOnce(&Layout) -> R,
 ) -> Option<R> {
     let ctx = crate::window::WindowInner::from_pub(window).try_context()?;
-    let _ = text.text();
-    let _ = text.link_color();
-    let mut font_ctx = ctx.font_context().borrow_mut();
+    let font_context = ctx.font_context();
 
     let text_wrap = layout_builder.text_wrap;
     let scale_factor = layout_builder.scale_factor;
@@ -194,14 +191,18 @@ fn with_text_layout<R>(
         layout_builder.line_height_factor,
         text.measures_width_only(),
         window,
-        &mut font_ctx,
-        &|font_context| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
+        &|| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
     );
 
     let line_breaking = guard.take_line_breaking();
-    let layout =
-        layout(layout_builder, &mut font_ctx, guard.take(), scale_factor, options, line_breaking);
-    drop(font_ctx);
+    let layout = layout(
+        layout_builder,
+        &mut font_context.borrow_mut(),
+        guard.take(),
+        scale_factor,
+        options,
+        line_breaking,
+    );
 
     if layout.broke_lines {
         #[cfg(feature = "testing")]
@@ -631,24 +632,23 @@ fn text_content_widths_impl(
     cache: Option<&TextLayoutCache>,
 ) -> Option<crate::renderer::ContentWidths> {
     let scale_factor = scale_factor?;
-
-    // See with_text_layout: evaluate properties before borrowing font_context. Afterwards they are
-    // clean, so `compute` can read them again -- now without re-entering -- inside the cache
-    // entry's dependency tracker.
-    let _ = text_item.font_request(item_rc);
-    let _ = text_item.text();
-
     let ctx = ctx?;
-    let mut font_ctx = ctx.font_context().borrow_mut();
 
     // Reads the text, the font request and the line limit, so the cache entry depends on all
     // three. Nothing else feeds the widths: the wrap mode, the width and the color don't.
-    let compute = |font_ctx: &mut FontContext| {
+    // Reads them before borrowing the font context; see `shape_paragraphs`.
+    let compute = || {
         let layout_builder =
             shaping::content_widths_builder(text_item.font_request(item_rc), scale_factor);
+        let text = text_item.text();
+        let line_limit = text_item.line_limit();
 
-        let paragraphs_without_linebreaks =
-            create_text_paragraphs(&layout_builder, font_ctx, text_item.text(), Color::default());
+        let paragraphs_without_linebreaks = create_text_paragraphs(
+            &layout_builder,
+            &mut ctx.font_context().borrow_mut(),
+            text,
+            Color::default(),
+        );
 
         // No line breaking needed: parley derives the content widths from the break
         // opportunities. Paragraphs stack vertically, so both widths are the widest.
@@ -656,7 +656,7 @@ fn text_content_widths_impl(
         // that are not drawn, from both widths.
         let (min, max) = paragraphs_without_linebreaks
             .iter()
-            .take(text_item.line_limit().unwrap_or(usize::MAX))
+            .take(line_limit.unwrap_or(usize::MAX))
             .fold((0., 0.), |(min, max), p| {
                 let w = p.layout.calculate_content_widths();
                 (f32::max(min, w.min), f32::max(max, w.max))
@@ -670,10 +670,10 @@ fn text_content_widths_impl(
     // Without a window there is no way to notice a scale factor change, and the shaped
     // advances are in physical pixels, so an entry kept across one would be wrong.
     let Some((cache, window_adapter)) = cache.zip(window_adapter) else {
-        return Some(compute(&mut font_ctx));
+        return Some(compute());
     };
     cache.clear_if_scale_factor_changed(window_adapter.window());
-    Some(cache.content_widths(item_rc, || compute(&mut font_ctx)))
+    Some(cache.content_widths(item_rc, compute))
 }
 
 pub fn char_size(
