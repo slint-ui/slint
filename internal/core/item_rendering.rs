@@ -529,6 +529,10 @@ pub trait RenderString: HasFont {
     fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
         None
     }
+    /// Whether the renderer only measures the width, so a layout shaped with any line height serves.
+    fn measures_width_only(self: Pin<&Self>) -> bool {
+        false
+    }
 }
 
 /// Maps a `line-height-factor` property value to [`RenderString::line_height_factor`].
@@ -565,6 +569,9 @@ impl RenderString for TextForWidth<'_> {
     }
     fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
         None
+    }
+    fn measures_width_only(self: Pin<&Self>) -> bool {
+        true
     }
 }
 

@@ -210,9 +210,11 @@ impl Drop for CachedParagraphsGuard<'_> {
     }
 }
 
-/// Shapes the text of `item_rc` for `wrap`, reusing the `TextLayoutCache` entry when it holds
-/// paragraphs shaped for the same wrap mode and none of the properties `shape` read have changed
-/// since. Without a cache or item it just shapes, so the caller doesn't need to special-case that.
+/// Shapes the text of `item_rc` for `wrap` and `line_height_factor`, reusing the
+/// `TextLayoutCache` entry when it holds paragraphs shaped for the same wrap mode and none of the
+/// properties `shape` read have changed since. With `width_only`, an entry shaped with any
+/// line-height factor serves, since the line height can't change the width.
+/// Without a cache or item it just shapes, so the caller doesn't need to special-case that.
 ///
 /// `shape` runs inside the entry's dependency tracker, so everything it reads (the text and the
 /// font request, at least) invalidates the entry when it changes. Properties evaluated by the
@@ -222,6 +224,7 @@ pub(super) fn cached_paragraphs<'a>(
     item_rc: Option<&crate::item_tree::ItemRc>,
     wrap: TextWrap,
     line_height_factor: Option<f32>,
+    width_only: bool,
     window: &crate::api::Window,
     font_context: &mut FontContext,
     shape: &dyn Fn(&mut FontContext) -> Vec<TextParagraph>,
@@ -246,7 +249,7 @@ pub(super) fn cached_paragraphs<'a>(
         .inner
         .with_entry(item_rc, |entry| {
             (entry.wrap != wrap
-                || entry.line_height_factor != line_height_factor
+                || (!width_only && entry.line_height_factor != line_height_factor)
                 || entry.paragraphs.is_none())
             .then_some(())
         })

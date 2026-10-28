@@ -188,6 +188,7 @@ fn with_text_layout<R>(
         item_rc,
         text_wrap,
         layout_builder.line_height_factor,
+        text.measures_width_only(),
         window,
         &mut font_ctx,
         &|font_context| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),

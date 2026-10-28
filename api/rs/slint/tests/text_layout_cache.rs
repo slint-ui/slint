@@ -407,6 +407,40 @@ fn overflow_change_does_not_reshape() {
 }
 
 #[test]
+fn width_measurement_reuses_layout_with_line_height_factor() {
+    let window = setup();
+
+    // The overflow change re-measures the width, which mustn't evict the entry shaped with the
+    // factor.
+    slint::slint! {
+        export component TestComponent inherits Window {
+            in property <bool> use-elide: false;
+            HorizontalLayout {
+                Text {
+                    text: "Hello World";
+                    line-height-factor: 1.5;
+                    overflow: use-elide ? TextOverflow.elide : TextOverflow.clip;
+                }
+            }
+        }
+    }
+
+    let ui = TestComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    ui.set_use_elide(true);
+
+    let mut miss_count = 0u64;
+    assert!(window.draw_if_needed(|renderer| {
+        miss_count = render_and_get_miss_count(renderer);
+    }));
+    assert_eq!(miss_count, 0, "Measuring the width should reuse the layout shaped with the factor");
+}
+
+#[test]
 fn color_change_does_not_reshape() {
     let window = setup();
 
