@@ -181,6 +181,7 @@ export struct Selection {
     is-interactive: bool,
     is-moveable: bool,
     is-resizable: bool,
+    is-wrappable: bool,
 }
 
 /// A mark showing where an element will show up when dropped into the current location
@@ -636,6 +637,7 @@ export global Api {
     callback override-selected-element-rotation(rotation: angle);
 
     callback selected-element-delete();
+    callback selected-element-wrap-in-layout(layout: string);
 
     // ## Element selection:
     callback selection-stack-at(x: length, y: length) -> [SelectionStackFrame];
