@@ -136,6 +136,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             return;
         };
 
+        #[cfg(startup_notify)]
+        if let WindowEvent::ActivationTokenDone { serial, token } = &event {
+            window.activation_token_done(*serial, token);
+        }
+
         let Some(winit_window) = window.winit_window() else {
             return;
         };
