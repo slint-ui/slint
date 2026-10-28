@@ -437,7 +437,7 @@ pub(super) fn type_exports(
             // A `#[deprecated] pub use` does not warn on use, but a deprecated type alias does.
             deprecated_type_exports.push(quote! {
                 #[deprecated(note = #note)]
-                #[allow(dead_code)]
+                #[allow(dead_code, non_camel_case_types)]
                 pub type #exported = #generated_mod::#internal;
             });
         } else if e.is_alias() {
