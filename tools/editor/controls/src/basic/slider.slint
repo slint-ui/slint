@@ -2,12 +2,53 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { SliderBase, LinearSliderSurface } from "../headless.slint";
-import {
-    SliderStyle,
-    SliderStateStyle,
-} from "slider_style.slint";
-import { SliderStyles } from "slider_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
+import { BasicTheme } from "theme.slint";
+
+export struct SliderStateStyle {
+    track-color: brush,
+    fill-color: brush,
+    handle-color: brush,
+    handle-border-color: brush,
+}
+
+export struct SliderStyle {
+    rest: SliderStateStyle,
+    hover: SliderStateStyle,
+    pressed: SliderStateStyle,
+    disabled: SliderStateStyle,
+    focus-color: brush,
+}
+
+export global SliderStyles {
+    out property <SliderStyle> standard: {
+        rest: {
+            track-color: BasicTheme.hover-background,
+            fill-color: BasicTheme.accent,
+            handle-color: BasicTheme.accent,
+            handle-border-color: BasicTheme.border,
+        },
+        hover: {
+            track-color: BasicTheme.hover-background,
+            fill-color: BasicTheme.accent,
+            handle-color: BasicTheme.accent-hover,
+            handle-border-color: BasicTheme.border,
+        },
+        pressed: {
+            track-color: BasicTheme.hover-background,
+            fill-color: BasicTheme.accent,
+            handle-color: BasicTheme.accent-pressed,
+            handle-border-color: BasicTheme.border,
+        },
+        disabled: {
+            track-color: BasicTheme.disabled-background,
+            fill-color: BasicTheme.disabled-foreground,
+            handle-color: BasicTheme.disabled-foreground,
+            handle-border-color: BasicTheme.border,
+        },
+        focus-color: BasicTheme.focus,
+    };
+}
 
 export component Slider inherits SliderBase {
     in property <SliderStyle> style: SliderStyles.standard;
