@@ -345,6 +345,32 @@ since a debug build makes every APK hundreds of megabytes.
 The package has them in `runtimes/android-arm64` and `runtimes/android-x64` instead.
 The ".NET Android" job of CI builds the todo example for `x86_64` and starts it in an emulator with the smoke test script.
 
+
+## iOS
+
+Slint owns the app on iOS too, as in the C++ API:
+the C# `Main` creates components and calls `Run`, where the winit backend calls `UIApplicationMain`, which doesn't return.
+There's no C# app delegate; the app's `Info.plist` names `SlintWindowSceneDelegate`, the scene delegate of the winit backend.
+
+iOS apps can't load other libraries, so `slint-dotnet` is a static library in the app's executable:
+
+- `scripts/build_dotnet_ios.sh` builds it with `cargo rustc --crate-type staticlib` for `aarch64-apple-ios` and `aarch64-apple-ios-sim`,
+  with the winit backend and Skia only, and combines them into `target/ios/slint_dotnet.xcframework`.
+- For a `net10.0-ios` app, `Slint.targets` adds it as a static `NativeReference`, with the frameworks and libraries
+  that rustc lists as `native-static-libs`, and exports `_slint_dotnet_*`, which .NET for iOS would otherwise hide.
+- `NativeLibraryResolver` maps `slint_dotnet` to `NativeLibrary.GetMainProgramHandle()` on iOS,
+  so `Slint.dll` needs no iOS build, and P/Invoke finds the exports with `dlsym`.
+- `Slint.targets` adds the `.slint` files as bundle resources, at the paths that the generated code loads relative to the bundle,
+  and keeps the desktop library that `Slint.csproj` copies out of the app.
+
+```sh
+scripts/build_dotnet_ios.sh
+dotnet build examples/todo/dotnet-ios -t:Run
+scripts/dotnet_ios_smoke_test.sh examples/todo/dotnet-ios/bin/Debug/net10.0-ios/iossimulator-arm64/TodoIOS.app dev.slint.dotnet.todo
+```
+
+The ".NET iOS" job of CI builds the library for both targets and the todo example, and starts it in an iPhone simulator with the smoke test script.
+
 ## Roadmap
 
 The numbers stay stable, so that commits and discussions can refer to them.
@@ -507,12 +533,11 @@ Next:
     `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`,
     as Slint's C++ build does; an embedded dynamic framework is the fallback.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
-    - Phase 0, a prototype, decides whether the approach works: P/Invoke into the statically linked library,
-      `UIApplicationMain` under the .NET runtime, and a window in the simulator.
-    - Phase 1, the bindings: a `net10.0-ios` build of `Slint.csproj` with `SlintIOS=true`,
-      the P/Invoke name that iOS needs, `.slint` bundle resources and the `.xcframework` in `Slint.targets`,
-      and a warning for `SlintLivePreview`.
-    - Phase 2: `examples/todo/dotnet-ios` and lols, documentation, and a simulator test in CI like the Android emulator test.
+    - Phase 0, a prototype, worked: the C# `Main` starts UIKit through `Run`, P/Invoke finds the exports in the executable,
+      and a window and its callbacks work in the simulator.
+    - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the static `NativeReference` and the bundle resources in `Slint.targets`,
+      and the resolver for the executable; `Slint.dll` needs no `net10.0-ios` build.
+    - Phase 2, in progress: `examples/todo/dotnet-ios`, documentation, and a simulator test in CI; lols next.
     - Phase 3: the `.xcframework` in the packages, built and tested by the publish workflow, and a preview.
     - Phase 4: an iPhone 13, the app lifecycle and saved state, Hot Reload, and Native AOT.
   - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,

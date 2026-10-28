@@ -177,7 +177,10 @@ api_dotnet:
  - 'tests/driver/dotnet/**'
  - 'examples/memory/dotnet/**'
  - 'examples/*/dotnet-android/**'
+ - 'examples/*/dotnet-ios/**'
  - 'scripts/dotnet_android_smoke_test.sh'
+ - 'scripts/build_dotnet_ios.sh'
+ - 'scripts/dotnet_ios_smoke_test.sh'
  - '.github/workflows/dotnet_test_reusable.yaml'
 
 api_node: &api_node

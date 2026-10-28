@@ -273,6 +273,35 @@ jobs:
                   emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
                   script: scripts/dotnet_android_smoke_test.sh examples/todo/dotnet-android/bin/Debug/net10.0-android/dev.slint.dotnet.todo-Signed.apk dev.slint.dotnet.todo 30
 
+    # Builds the iOS version of the todo example and starts it in an iPhone simulator.
+    dotnet_ios:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
+        name: ".NET iOS"
+        runs-on: macos-26
+        env:
+            DOTNET_CLI_TELEMETRY_OPTOUT: 1
+            DOTNET_NOLOGO: 1
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: "aarch64-apple-ios aarch64-apple-ios-sim"
+                  key: x-dotnet-ios-v0
+            # Both targets, so that CI also catches what only breaks the build for devices.
+            - name: Build slint-compiler, and the native library for iOS
+              run: |
+                  cargo build -p slint-compiler
+                  scripts/build_dotnet_ios.sh
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - name: Install the .NET iOS workload
+              run: dotnet workload install ios
+            - name: Build the todo example for the iOS simulator
+              run: dotnet build examples/todo/dotnet-ios/TodoIOS.csproj
+            - name: Start the todo example in an iPhone simulator
+              run: scripts/dotnet_ios_smoke_test.sh examples/todo/dotnet-ios/bin/Debug/net10.0-ios/iossimulator-arm64/TodoIOS.app dev.slint.dotnet.todo 30
+
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_python') || contains(fromJSON(inputs.changes), 'tests') }}

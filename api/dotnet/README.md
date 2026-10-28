@@ -19,7 +19,7 @@ It's community documentation, not affiliated with SixtyFPS GmbH.
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- macOS, Linux, or Windows, on x64 or arm64, [embedded Linux](#embedded-linux) without a desktop, or [Android](#android-preview) on arm64 and x86_64
+- macOS, Linux, or Windows, on x64 or arm64, [embedded Linux](#embedded-linux) without a desktop, [Android](#android-preview) on arm64 and x86_64, or [iOS](#ios-preview)
 
 ## Quick Start
 
@@ -514,6 +514,76 @@ Add the images that `.slint` files use as `<SlintFile Include="ui/images/logo.pn
 under the project directory, so that they keep their paths relative to the `.slint` files.
 `examples/todo/dotnet-android` is a complete example,
 and `examples/lols/dotnet-android` runs the [LOLs per second](https://github.com/jonathanpeppers/lols) test on Android.
+
+## iOS (Preview)
+
+Slint runs on iOS 15 and later with Skia on Metal, tested in the iPhone simulator so far.
+The packages don't have the library for iOS yet: in the Slint repository, run `scripts/build_dotnet_ios.sh`,
+and reference `api/dotnet/Slint/Slint.csproj` and its `build/Slint.targets`, as `examples/todo/dotnet-ios` does.
+
+1. Install the .NET iOS workload, and create a project for `net10.0-ios` with your `.slint` file:
+
+   ```xml
+   <Project Sdk="Microsoft.NET.Sdk">
+     <PropertyGroup>
+       <TargetFramework>net10.0-ios</TargetFramework>
+       <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+       <OutputType>Exe</OutputType>
+       <ApplicationId>com.example.myapp</ApplicationId>
+     </PropertyGroup>
+     <ItemGroup>
+       <SlintFile Include="ui/app-window.slint" />
+     </ItemGroup>
+   </Project>
+   ```
+
+2. Add an `Info.plist` that names Slint's scene delegate, which iOS 27 requires,
+   like the one of [the todo example](https://github.com/yurkinh/slint/blob/dotnet_bindings/examples/todo/dotnet-ios/Info.plist):
+
+   ```xml
+   <key>UIApplicationSceneManifest</key>
+   <dict>
+     <key>UIApplicationSupportsMultipleScenes</key>
+     <false/>
+     <key>UISceneConfigurations</key>
+     <dict>
+       <key>UIWindowSceneSessionRoleApplication</key>
+       <array>
+         <dict>
+           <key>UISceneConfigurationName</key>
+           <string>Slint</string>
+           <key>UISceneDelegateClassName</key>
+           <string>SlintWindowSceneDelegate</string>
+         </dict>
+       </array>
+     </dict>
+   </dict>
+   ```
+
+3. Create the components in `Main`, and call `Run`, where Slint starts the app and doesn't return:
+
+   ```csharp
+   internal static class Program
+   {
+       private static void Main()
+       {
+           using var app = AppWindow.Create();
+           app.OnRequestIncreaseValue(() => app.Counter++);
+           app.Run();
+       }
+   }
+   ```
+
+   There's no `AppDelegate` and no `UIApplication.Main`: Slint takes their place.
+
+4. Build and start it in the simulator, or with `-r ios-arm64` and a signing identity on a device:
+
+   ```sh
+   dotnet build -t:Run
+   ```
+
+- The build links Slint's static library into the app, and puts the `.slint` files into the app bundle.
+- `SlintLivePreview` isn't available on iOS yet; the build ignores it, with the warning `SLINT002`.
 
 ## Embedded Linux
 
