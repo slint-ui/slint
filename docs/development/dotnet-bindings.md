@@ -574,6 +574,16 @@ Next:
     - Building `slint-dotnet` without the `live-preview` feature failed, since `is_window` needs the interpreter's `internal` feature,
       which `Cargo.toml` now enables directly.
     - Next: a Raspberry Pi, for real hardware and a touchscreen, and a `vkms` job in CI for the software renderer.
+- **20.** `dotnet new` templates, in the package `yurkinh.slint.net.Templates`, with the version of the other packages:
+  `slint` for the desktop, `slint-android`, `slint-ios`, and `slint-xplat`, a solution with a project per platform.
+  Debug builds turn on `SlintLivePreview` on the desktop, for `dotnet watch`; Android and iOS wait for .NET 11, see item 17.
+  Release builds turn on `PublishAot` on the desktop and iOS, in the project, and keep .NET for Android's default AOT.
+  The UI lives in `ui/`, and C# that the platforms share in `Shared/`, which each project compiles,
+  since each one generates its own classes and packs its own `.slint` files.
+  - Phase 1: the package in `api/dotnet/Templates` and the desktop template.
+  - Phase 2: the Android and iOS templates. Phase 3: `slint-xplat` with `--platforms`, and the IDE metadata.
+  - Phase 4: packing and publishing, and a CI job that creates and builds each template.
+  - Phase 5: the README's Quick Start with the templates, the documentation page, and the article.
 
 ## Live Reload
 
