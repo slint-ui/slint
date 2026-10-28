@@ -22,7 +22,6 @@ export component InspectorBorderSection inherits InspectorSection {
             suffix-width: Metrics.icon-small;
             commit-key: InspectorContext.inspector-key;
             scrubbable: true;
-            scrub-on-suffix: true;
             scrub-value: self.border-value.value-float;
             scrub-has-minimum: true;
             scrub-preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "border-width", value); }

@@ -13,6 +13,10 @@ export component InspectorAppearanceSection inherits InspectorSection {
     title: @tr("APPEARANCE");
     use-shared-title: true;
 
+    pure function corner-property(index: int) -> string {
+        return index < 0 ? "all-corners" : ["border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius"][index];
+    }
+
     VerticalLayout {
         padding-left: root.style.padding;
         padding-right: root.style.padding;
@@ -81,9 +85,9 @@ export component InspectorAppearanceSection inherits InspectorSection {
             maximum: min(InspectorContext.selected-width(), InspectorContext.selected-height()) / 2px;
             selection-key: InspectorContext.selection-key;
             commit-key: InspectorContext.inspector-key;
-            preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "all-corners", value); }
+            preview(index, value) => { return Api.inspector-preview(InspectorContext.inspector-key, root.corner-property(index), value); }
             accepted(index, value) => {
-                return InspectorContext.commit-inspector(index < 0 ? "all-corners" : index == 0 ? "border-top-left-radius" : index == 1 ? "border-top-right-radius" : index == 2 ? "border-bottom-left-radius" : "border-bottom-right-radius", value);
+                return InspectorContext.commit-inspector(root.corner-property(index), value);
             }
             canceled => { Api.inspector-cancel(); }
         }

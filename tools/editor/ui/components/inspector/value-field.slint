@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, Typography, FieldStyle } from "../../style.slint";
-import { EditorCursors } from "../index.slint";
+import { Style, Typography, FieldStyle } from "../../style.slint";
 
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
@@ -22,7 +21,6 @@ export component InspectorValueField inherits FocusScope {
     in property <bool> muted-value: false;
     in property <bool> show-focus-border: true;
     in property <bool> scrubbable: false;
-    in property <bool> scrub-on-suffix: false;
     in property <float> scrub-value;
     in property <bool> scrub-has-minimum: false;
     in property <float> scrub-minimum;
@@ -46,10 +44,10 @@ export component InspectorValueField inherits FocusScope {
     changed commit-key => { root.cancel-scrub(); }
 
     function cancel-scrub() {
-        if root.scrubbing {
-            root.scrubbing = false;
-            root.scrub-canceled(root.scrub-initial-value);
-        }
+        let active = root.scrubbing;
+        root.scrubbing = false;
+        scrub-gesture.cancel();
+        if active { root.scrub-canceled(root.scrub-initial-value); }
     }
 
     function update-scrub(mouse-x: length) {
@@ -69,10 +67,11 @@ export component InspectorValueField inherits FocusScope {
         root.scrubbing = true;
         root.scrub-start-x = mouse-x;
         root.scrub-initial-value = root.scrub-value;
-        root.scrub-drag-value = root.scrub-value;
+        root.scrub-drag-value = root.scrub-initial-value;
     }
 
     function finish-scrub() {
+        if !root.scrubbing { return; }
         let value = root.scrub-drag-value;
         root.scrubbing = false;
         if value != root.scrub-initial-value {
@@ -92,86 +91,62 @@ export component InspectorValueField inherits FocusScope {
         return reject;
     }
 
-    field := InspectorTextFieldBase {
-        style: root.style;
-        radius: root.radius;
-        horizontal-alignment: root.horizontal-alignment;
-        suffix: root.suffix;
-        suffix-width: root.suffix-width;
-        normalize-accepted: root.normalize-accepted;
-        live-edit: root.live-edit;
-        muted-value: root.muted-value;
-        show-focus-border: root.show-focus-border;
-        accessible-name: root.accessible-name;
-        width: parent.width;
-        value: root.scrubbing ? "\{root.scrub-drag-value}" : root.value;
-        enabled: root.enabled;
-        commit-key: root.commit-key;
-        accepted(text) => {
-            return root.accepted(text);
+    scrub-gesture := SwipeGestureHandler {
+        enabled: root.enabled && root.scrubbable;
+        handle-swipe-left: true;
+        handle-swipe-right: true;
+        moved => {
+            if self.swiping {
+                if !root.scrubbing {
+                    root.begin-scrub(self.pressed-position.x + self.absolute-position.x);
+                }
+                root.update-scrub(self.current-position.x + self.absolute-position.x);
+            }
         }
-        normalized(text) => { return root.normalized(text); }
+        swiped => { root.finish-scrub(); }
+        cancelled => { root.cancel-scrub(); }
 
-        if root.corner-index >= 0: Path {
-            width: Metrics.icon-small;
-            height: Metrics.icon-small;
-            // Top-left, top-right, bottom-left, and bottom-right corner outlines.
-            commands: root.corner-index == 0 ? "M 2 11 L 2 6 Q 2 2 6 2 L 11 2"
-                : root.corner-index == 1 ? "M 1 2 L 6 2 Q 10 2 10 6 L 10 11"
-                : root.corner-index == 2 ? "M 2 1 L 2 6 Q 2 10 6 10 L 11 10"
-                : "M 1 10 L 6 10 Q 10 10 10 6 L 10 1";
-            stroke: root.style.appearance.muted;
-            stroke-width: Metrics.border-width;
+        if root.scrubbable: Rectangle {
+            accessible-role: slider;
+            accessible-label: @tr("{} scrubber", root.accessible-name);
+            accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
+            accessible-enabled: root.enabled;
         }
-        if root.corner-index < 0 && root.prefix != "": prefix-container := Rectangle {
-            width: root.style.prefix-width;
-            height: field.height;
-            prefix-text := Text {
-                width: self.preferred-width;
-                height: parent.height;
+
+        field := InspectorTextFieldBase {
+            style: root.style;
+            radius: root.radius;
+            horizontal-alignment: root.horizontal-alignment;
+            suffix: root.suffix;
+            suffix-width: root.suffix-width;
+            normalize-accepted: root.normalize-accepted;
+            live-edit: root.live-edit;
+            muted-value: root.muted-value;
+            show-focus-border: root.show-focus-border;
+            accessible-name: root.accessible-name;
+            width: parent.width;
+            value: root.scrubbing ? "\{root.scrub-drag-value}" : root.value;
+            enabled: root.enabled;
+            commit-key: root.commit-key;
+            accepted(text) => { return root.accepted(text); }
+            normalized(text) => { return root.normalized(text); }
+
+            if root.corner-index >= 0: Image {
+                width: 9px;
+                height: 9px;
+                accessible-role: none;
+                source: @image-url("../../assets/radius-rounded.svg");
+                colorize: root.style.appearance.muted;
+                transform-rotation: root.corner-index == 1 ? 90deg : root.corner-index == 2 ? 270deg : root.corner-index == 3 ? 180deg : 0deg;
+            }
+            if root.corner-index < 0 && root.prefix != "": Text {
+                width: root.style.prefix-width;
+                height: field.height;
                 text: root.prefix;
                 color: root.style.appearance.muted;
                 font-size: Typography.caption.size;
+                horizontal-alignment: center;
                 vertical-alignment: center;
-            }
-            if root.scrubbable && !root.scrub-on-suffix: TouchArea {
-                enabled: root.enabled;
-                mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
-                accessible-role: AccessibleRole.slider;
-                accessible-label: @tr("{} scrubber", root.accessible-name);
-                accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
-                pointer-event(event) => {
-                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                        root.begin-scrub(self.mouse-x);
-                    } else if event.kind == PointerEventKind.move && root.scrubbing {
-                        root.update-scrub(self.mouse-x);
-                    } else if event.kind == PointerEventKind.up && root.scrubbing {
-                        root.finish-scrub();
-                    } else if event.kind == PointerEventKind.cancel {
-                        root.cancel-scrub();
-                    }
-                }
-            }
-        }
-    }
-
-    if root.scrubbable && root.scrub-on-suffix && root.suffix != "": TouchArea {
-        x: root.width - root.style.padding-end - root.suffix-width;
-        width: root.suffix-width;
-        enabled: root.enabled;
-        mouse-cursor: MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16);
-        accessible-role: AccessibleRole.slider;
-        accessible-label: @tr("{} scrubber", root.accessible-name);
-        accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
-        pointer-event(event) => {
-            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
-                root.begin-scrub(self.mouse-x);
-            } else if event.kind == PointerEventKind.move && root.scrubbing {
-                root.update-scrub(self.mouse-x);
-            } else if event.kind == PointerEventKind.up && root.scrubbing {
-                root.finish-scrub();
-            } else if event.kind == PointerEventKind.cancel {
-                root.cancel-scrub();
             }
         }
     }
