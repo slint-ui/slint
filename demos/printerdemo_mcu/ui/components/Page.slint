@@ -4,6 +4,8 @@
 import { DemoPalette } from "../common.slint";
 
 export component Page inherits Rectangle {
+    background: DemoPalette.page-background;
+
     in property <string> header <=> h.text;
     in property <bool> has-back-button: false;
     in property header-height <=> page-header.height;
