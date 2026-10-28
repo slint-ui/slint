@@ -30,7 +30,7 @@ component ElementPaletteTab inherits ButtonBase {
                 background: root.style.highlight;
             }
             Rectangle {
-                y: parent.height - 0.5px;
+                y: parent.height - self.height;
                 height: 0.5px;
                 background: root.down ? root.style.selected-edge : root.style.edge;
             }
