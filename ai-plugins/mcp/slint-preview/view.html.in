@@ -494,11 +494,11 @@
               handlePanic(String(e));
               return;
             }
-            showStatus(`The preview failed: ${e}. Reload to try again.`, "error");
+            showStatus(`The preview failed: ${e.message ?? e}. Reload to try again.`, "error");
           })
           .then(() => publishCapture(previewId))
           .catch(async (e) => {
-            const error = `Couldn't capture the preview: ${e}`;
+            const error = `Couldn't capture the preview: ${e.message ?? e}`;
             showStatus(error, "error");
             await publish({ previewId: await previewId, error }).catch(() => {});
           });
