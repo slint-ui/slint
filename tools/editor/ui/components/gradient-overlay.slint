@@ -173,6 +173,7 @@ export component GradientOverlay inherits FocusScope {
     changed focus-request => { focus-timer.start(); }
     focus-timer := Timer {
         interval: 0ms;
+        running: false;
         triggered => {
             self.stop();
             root.focus-epoch += 1;

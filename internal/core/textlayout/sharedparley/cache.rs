@@ -14,17 +14,19 @@ use super::layout::RetainedLineBreaking;
 use super::shaping::TextParagraph;
 use super::*;
 
-/// Shaped paragraphs together with the wrap mode they were shaped with.
+/// Shaped paragraphs together with the wrap mode and line-height factor they were shaped with.
 ///
-/// The glyph geometry only depends on (text, font, wrap, scale factor): the width is applied
-/// later by `break_all_lines`, and the fill/stroke/selection brushes only change colors, not
-/// positions. So one entry serves measuring, hit-testing and drawing alike -- but only for the
-/// wrap mode it was shaped with, because parley bakes the break opportunities into the shaped
-/// layout via `WordBreak`/`OverflowWrap`/`TextWrapMode` (see `ranged_builder`). The scale factor
-/// is the other input baked into the shaping, but it applies to every entry at once and so is
-/// handled by the cache as a whole.
+/// The glyph geometry only depends on (text, font, wrap, line-height factor, scale factor): the
+/// width is applied later by `break_all_lines`, and the fill/stroke/selection brushes only change
+/// colors, not positions. So one entry serves measuring, hit-testing and drawing alike -- but
+/// only for the wrap mode and line-height factor it was shaped with, because parley bakes the
+/// break opportunities into the shaped layout via `WordBreak`/`OverflowWrap`/`TextWrapMode` (see
+/// `ranged_builder`), and the line height into the line metrics. The scale factor is the other
+/// input baked into the shaping, but it applies to every entry at once and so is handled by the
+/// cache as a whole.
 struct CachedParagraphs {
     wrap: TextWrap,
+    line_height_factor: Option<f32>,
     /// What [`super::layout::layout`] derived when it last broke these paragraphs, so an
     /// unchanged-input call can skip the breaking. `None` after a reshape (fresh entries
     /// start without one) and while checked out through the guard.
@@ -208,24 +210,26 @@ impl Drop for CachedParagraphsGuard<'_> {
     }
 }
 
-/// Shapes the text of `item_rc` for `wrap`, reusing the `TextLayoutCache` entry when it holds
-/// paragraphs shaped for the same wrap mode and none of the properties `shape` read have changed
-/// since. Without a cache or item it just shapes, so the caller doesn't need to special-case that.
+/// Shapes the text of `item_rc` for `wrap` and `line_height_factor`, reusing the
+/// `TextLayoutCache` entry when it holds paragraphs shaped for the same wrap mode and none of the
+/// properties `shape` read have changed since. With `width_only`, an entry shaped with any
+/// line-height factor serves, since the line height can't change the width.
+/// Without a cache or item it just shapes, so the caller doesn't need to special-case that.
 ///
 /// `shape` runs inside the entry's dependency tracker, so everything it reads (the text and the
-/// font request, at least) invalidates the entry when it changes. Properties evaluated by the
-/// caller before this point are clean by then and thus can't re-enter here.
+/// font request, at least) invalidates the entry when it changes.
 pub(super) fn cached_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     wrap: TextWrap,
+    line_height_factor: Option<f32>,
+    width_only: bool,
     window: &crate::api::Window,
-    font_context: &mut FontContext,
-    shape: &dyn Fn(&mut FontContext) -> Vec<TextParagraph>,
+    shape: &dyn Fn() -> Vec<TextParagraph>,
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
         return CachedParagraphsGuard {
-            paragraphs: Some(shape(font_context)),
+            paragraphs: Some(shape()),
             line_breaking: None,
             container: None,
         };
@@ -233,15 +237,19 @@ pub(super) fn cached_paragraphs<'a>(
 
     cache.clear_if_scale_factor_changed(window);
 
-    // Shaped geometry must never be mixed across wrap modes, and the entry only holds one mode
-    // at a time. Drop a mismatching one up front so the shaping below happens in the regular
-    // (vacant) path, inside a fresh dependency tracker and without the cache borrowed.
+    // Shaped geometry must never be mixed across wrap modes or line-height factors, and the
+    // entry only holds one of each at a time. Drop a mismatching one up front so the shaping
+    // below happens in the regular (vacant) path, inside a fresh dependency tracker and without
+    // the cache borrowed.
     //
     // Paragraphs that were never handed back can't be served either.
     let stale = cache
         .inner
         .with_entry(item_rc, |entry| {
-            (entry.wrap != wrap || entry.paragraphs.is_none()).then_some(())
+            (entry.wrap != wrap
+                || (!width_only && entry.line_height_factor != line_height_factor)
+                || entry.paragraphs.is_none())
+            .then_some(())
         })
         .is_some();
     if stale {
@@ -259,7 +267,8 @@ pub(super) fn cached_paragraphs<'a>(
         cache.entry_count_estimate.set(cache.entry_count_estimate.get() + 1);
         CachedParagraphs {
             wrap,
-            paragraphs: Some(shape(font_context)),
+            line_height_factor,
+            paragraphs: Some(shape()),
             line_breaking: None,
             last_used: 0, // stamped right below, for both a hit and this miss
         }

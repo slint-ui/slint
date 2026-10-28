@@ -36,7 +36,8 @@ class Color:
     - `0`: fully transparent
     - `255`: fully opaque
 
-    You can construct colors from a CSS color string, or from a dict with the red, green, blue, and optional alpha channels.
+    You can construct colors from a dict with the red, green, blue, and optional alpha channels.
+    You can also construct them from a color string as a `.slint` file writes it, such as `"#ff000080"` or `"blue"`.
     """
 
     red: int

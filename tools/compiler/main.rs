@@ -218,7 +218,7 @@ fn main() -> std::io::Result<()> {
     let (syntax_node, project_file, input_files) = parse_input(&args, &mut diag);
     //println!("{:#?}", syntax_node);
     if diag.has_errors() {
-        diag.print();
+        diag.print_styled_if_terminal();
         std::process::exit(-1);
     }
 
