@@ -17,7 +17,9 @@ import {
     SmallAppBar,
     PopupMenu,
     MenuItem,
-    MaterialStyleMetrics
+    MaterialStyleMetrics,
+    Dialog,
+    TextField
 } from "../../../../src/material.slint";
 
 export enum Views {
@@ -30,9 +32,11 @@ export global MainViewAdapter {
         { text: "Purple", enabled: true },
         { text: "Green", enabled: true },
         { text: "Red", enabled: true },
+        { text: "Custom (Dynamic)", enabled: true },
     ];
 
     callback load_palette(index: int);
+    callback apply_dynamic_color(hex: string) -> bool;
 }
 
 export component MainView {
@@ -48,6 +52,15 @@ export component MainView {
             selected_icon: FilledIcons.dashboard
         }
     ];
+
+    property <bool> invalid_color;
+
+    function apply_custom_color(hex: string) {
+        root.invalid_color = !MainViewAdapter.apply_dynamic_color(hex);
+        if !root.invalid_color {
+            color_dialog.close();
+        }
+    }
 
     VerticalLayout {
         padding-top: root.safe-area-top;
@@ -85,8 +98,57 @@ export component MainView {
             items: MainViewAdapter.palettes;
 
             activated(index) => {
-                MainViewAdapter.load_palette(index);
+                if index == 4 {
+                    root.invalid_color = false;
+                    color_dialog.show();
+                } else {
+                    MainViewAdapter.load_palette(index);
+                }
                 color_menu.close();
+            }
+        }
+
+        color_dialog := Dialog {
+            x: -root.absolute_position.x;
+            y: -root.absolute_position.y;
+            width: MainWindowAdapter.width;
+            height: MainWindowAdapter.height;
+            title: "Custom M3 Dynamic Color";
+            default_action_text: "Apply";
+            actions: ["Cancel"];
+
+            VerticalLayout {
+                min_width: min(320px, root.width - MaterialStyleMetrics.padding_24 * 2);
+                spacing: MaterialStyleMetrics.spacing_12;
+                padding_top: MaterialStyleMetrics.padding_8;
+                padding_bottom: MaterialStyleMetrics.padding_8;
+
+                MaterialText {
+                    text: "Enter a color as #RGB or #RRGGBB to generate Material 3 schemes dynamically:";
+                    wrap: word_wrap;
+                }
+
+                color_tf := TextField {
+                    text: "#2379F4";
+                    label: "Hex Color";
+                    placeholder_text: "#RRGGBB";
+                    has_error: root.invalid_color;
+                    supporting_text: root.invalid_color ? "Use 3 or 6 hexadecimal digits (0-9, A-F)." : "";
+                    edited(text) => {
+                        root.invalid_color = false;
+                    }
+                    accepted(val) => {
+                        root.apply_custom_color(val);
+                    }
+                }
+            }
+
+            default_action_clicked => {
+                root.apply_custom_color(color_tf.text);
+            }
+
+            action_clicked(idx) => {
+                color_dialog.close();
             }
         }
 
