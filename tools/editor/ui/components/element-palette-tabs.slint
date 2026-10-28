@@ -26,12 +26,12 @@ component ElementPaletteTab inherits ButtonBase {
             inner-shadow-offset-y: 0.75px;
             if !root.down: Rectangle {
                 y: 0px;
-                height: 0.5px;
+                height: 1px;
                 background: root.style.highlight;
             }
             Rectangle {
                 y: parent.height - self.height;
-                height: 0.5px;
+                height: 1px;
                 background: root.down ? root.style.selected-edge : root.style.edge;
             }
             if root.hovered || root.pressed: Rectangle {
