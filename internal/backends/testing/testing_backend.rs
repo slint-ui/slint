@@ -623,12 +623,10 @@ impl RendererSealed for TestingWindow {
 
     fn char_size(
         &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
-        item_rc: &i_slint_core::item_tree::ItemRc,
+        font_request: i_slint_core::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize {
-        let font_request = text_item.font_request(item_rc);
-        let line_height_factor = text_item.line_height_factor();
         if is_fixed_test_font(&font_request.family) {
             let pixel_size = font_request.pixel_size.map_or(10., |s| s.get());
             LogicalSize::new(

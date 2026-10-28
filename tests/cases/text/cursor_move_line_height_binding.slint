@@ -3,10 +3,15 @@
 
 // Moving the cursor panicked when the line-height factor's binding measured text
 // while the font context was borrowed.
+// The test only catches that while the cursor's font-height measurement is the first
+// to read the factor after `set_font_size` makes its binding dirty.
+
+import "../../screenshots/fonts/NotoSans-Regular.ttf";
 
 export component TestCase inherits Window {
     width: 200phx;
     height: 100phx;
+    default-font-family: "Noto Sans";
     in property <length> font-size: 10px;
     out property <int> cursor-pos: input.cursor-position-byte-offset;
 
