@@ -127,8 +127,8 @@ pub trait RendererSealed {
     #[cfg(not(feature = "shared-parley"))]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::RenderString>,
-        item_rc: &crate::item_tree::ItemRc,
+        font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize;
 
@@ -138,12 +138,10 @@ pub trait RendererSealed {
     #[cfg(feature = "shared-parley")]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::RenderString>,
-        item_rc: &crate::item_tree::ItemRc,
+        font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize {
-        let font_request = text_item.font_request(item_rc);
-        let line_height_factor = text_item.line_height_factor();
         self.slint_context()
             .and_then(|ctx| {
                 let mut font_ctx = ctx.font_context().borrow_mut();
