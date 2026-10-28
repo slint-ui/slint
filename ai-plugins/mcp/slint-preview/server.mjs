@@ -85,6 +85,11 @@ const tools = [
                     description:
                         "The .slint source. The last exported component is shown.",
                 },
+                projectRoot: {
+                    type: "string",
+                    description:
+                        "Absolute path of the directory with the slint-project.json to apply to `path`, for its library and include paths.",
+                },
                 style: {
                     type: "string",
                     enum: ["fluent", "material", "cupertino", "cosmic"],
@@ -99,6 +104,7 @@ const tools = [
         name: "read_slint_file",
         title: "Read Slint File",
         description: "Read a .slint file for the preview.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -110,6 +116,7 @@ const tools = [
         name: "read_binary_file",
         title: "Read Binary File",
         description: "Read an image or font file that the preview uses.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
         inputSchema: {
             type: "object",
             properties: { path: { type: "string" } },
@@ -127,12 +134,14 @@ const tools = [
             "If pending, call again to keep waiting for the same preview. Stop retrying on timeout. " +
             "Check it before you judge how the UI looks.",
         inputSchema: { type: "object", properties: {} },
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     },
     {
         name: "publish_preview_capture",
         title: "Publish Slint Preview Capture",
         description:
             "Report preview startup and progress, or hand the server the preview's PNG capture or why there is none.",
+        annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
         inputSchema: {
             type: "object",
             properties: {
@@ -200,6 +209,17 @@ const toolCalls = {
         }
         if (typeof args.path === "string" && !isAbsolute(args.path)) {
             throw rpcError(-32602, "'path' must be absolute");
+        }
+        if (args.projectRoot !== undefined) {
+            if (typeof args.path !== "string") {
+                throw rpcError(-32602, "'projectRoot' requires 'path'");
+            }
+            if (
+                typeof args.projectRoot !== "string" ||
+                !isAbsolute(args.projectRoot)
+            ) {
+                throw rpcError(-32602, "'projectRoot' must be absolute");
+            }
         }
         const previous = latestPreview;
         latestPreview = {

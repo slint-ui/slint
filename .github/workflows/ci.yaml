@@ -875,6 +875,34 @@ jobs:
             - name: Test the MCP servers and hooks
               run: node --test 'ai-plugins/mcp/slint-preview/test/*.test.mjs' 'ai-plugins/hooks/test/*.test.mjs'
 
+    test-slint-preview-view:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+                  package-manager-cache: false
+            - uses: pnpm/action-setup@v6.1.0
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-unknown
+                  key: slint-preview
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Build the Wasm interpreter
+              run: wasm-pack build --dev --target web -- --features console_error_panic_hook
+              working-directory: api/wasm-interpreter
+            - run: pnpm install --frozen-lockfile --filter slint-preview-mcp
+            - run: pnpm exec playwright install --with-deps chromium
+              working-directory: ai-plugins/mcp/slint-preview
+            - name: Test the preview view
+              working-directory: ai-plugins/mcp/slint-preview
+              env:
+                  SLINT_PREVIEW_INTERPRETER_DIR: ${{ github.workspace }}/api/wasm-interpreter/pkg
+              run: pnpm test:e2e
+
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
         runs-on: ubuntu-latest

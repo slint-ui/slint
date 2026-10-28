@@ -484,7 +484,14 @@ impl Layout {
         pos: PhysicalPoint,
     ) -> (usize, crate::items::TextCursorAffinity) {
         let Some(paragraph) = self.paragraph_by_y(pos.y_length()) else {
-            return (0, crate::items::TextCursorAffinity::NextCharacter);
+            // Below the lines a `max-lines` limit kept: the end of the last kept line, as a
+            // drag past the text's end lands on its last character.
+            let end = self.line_limit_cut.and_then(|(last_paragraph, last_line)| {
+                let paragraph = self.paragraphs.get(last_paragraph)?;
+                let line = paragraph.layout.lines().nth(last_line)?;
+                Some(paragraph.range.start + line.text_range().end.min(paragraph.range.len()))
+            });
+            return (end.unwrap_or(0), crate::items::TextCursorAffinity::PreviousCharacter);
         };
         let cursor = parley::editing::Cursor::from_point(
             &paragraph.layout,
