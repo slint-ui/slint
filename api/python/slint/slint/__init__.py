@@ -445,6 +445,13 @@ class SlintAutoLoader:
 
     def __getattr__(self, name: str) -> Any:
         for path in self.local_dirs or sys.path:
+            if name == "slint_project" and os.path.isfile(
+                Path(path) / "slint-project.json"
+            ):
+                type_namespace = load_file(path)
+                setattr(self, name, type_namespace)
+                return type_namespace
+
             dir_candidate = Path(path) / name
             if os.path.isdir(dir_candidate):
                 loader = SlintAutoLoader(dir_candidate)
@@ -474,6 +481,12 @@ loader = SlintAutoLoader()
 2. Any lookup in the object returned by the first stage tries to match an exported component in the loaded file, or a
    struct, or enum. For example, `loader.my_component.MyComponent` looks for an *exported* component named `MyComponent`
    in the file `my_component.slint`.
+
+To load your project file (`slint-project.json`), look up `slint_project` in its directory.
+The loader then passes the directory to `load_file`.
+For example, `loader.ui.slint_project.MainWindow` looks for `MainWindow` in the `main` file of `ui/slint-project.json`.
+
+**Note:** Other attributes load their `.slint` file without the project file, even if the directory has one.
 
 **Note:** The first entry in the module search path `sys.path` is the directory that contains the input script.
 
