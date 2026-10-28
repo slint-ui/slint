@@ -11,6 +11,7 @@ use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
+use i_slint_core::MotionPreference;
 use i_slint_core::SharedString;
 use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
@@ -47,6 +48,10 @@ bind_java_type! {
         fn accent_color {
             name = "accent_color",
             sig = () -> jint,
+        },
+        fn animators_enabled {
+            name = "animators_enabled",
+            sig = () -> jboolean,
         },
         fn color_scheme {
             name = "color_scheme",
@@ -562,6 +567,19 @@ impl JavaHelper {
 
     pub fn font_scale(&self) -> Result<f32, jni::errors::Error> {
         self.with_jni_env(|env, helper| helper.font_scale(env))
+    }
+
+    /// Reads whether Android runs animators, which "Remove animations" under
+    /// Settings > Accessibility turns off. Android sends no configuration change for this
+    /// setting, so callers read it at startup and again whenever the window gains focus.
+    pub fn set_motion_preference(&self, ctx: &i_slint_core::SlintContext) {
+        if let Ok(enabled) = self.with_jni_env(|env, helper| helper.animators_enabled(env)) {
+            ctx.set_motion_preference(if enabled {
+                MotionPreference::NoPreference
+            } else {
+                MotionPreference::Reduced
+            });
+        }
     }
 
     /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.
