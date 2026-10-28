@@ -500,12 +500,21 @@ Next:
       Live reload of `.slint` files would need the changed files on the device, since the app loads them from its files directory;
       until then, `Slint.targets` ignores `SlintLivePreview` on Android, with the warning `SLINT002`,
       instead of generating code that loads the files from the build machine's paths.
-  - iOS next, in about four to five weeks, starting with a prototype like the one for Android.
+  - iOS next, in about three to four weeks to a preview, through the winit backend and Skia on Metal, like Rust and C++.
+    Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain` and never returns,
+    instead of `UIApplication.Main` with a C# app delegate.
+    The app's `Info.plist` names Slint's `SlintWindowSceneDelegate` in its scene manifest, which iOS 27 requires.
+    `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`,
+    as Slint's C++ build does; an embedded dynamic framework is the fallback.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
-    Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain`,
-    instead of `UIApplication.Main`.
-    `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`.
-    The first prototype checks that P/Invoke resolves into the statically linked library, and that the app starts in the simulator.
+    - Phase 0, a prototype, decides whether the approach works: P/Invoke into the statically linked library,
+      `UIApplicationMain` under the .NET runtime, and a window in the simulator.
+    - Phase 1, the bindings: a `net10.0-ios` build of `Slint.csproj` with `SlintIOS=true`,
+      the P/Invoke name that iOS needs, `.slint` bundle resources and the `.xcframework` in `Slint.targets`,
+      and a warning for `SlintLivePreview`.
+    - Phase 2: `examples/todo/dotnet-ios` and lols, documentation, and a simulator test in CI like the Android emulator test.
+    - Phase 3: the `.xcframework` in the packages, built and tested by the publish workflow, and a preview.
+    - Phase 4: an iPhone 13, the app lifecycle and saved state, Hot Reload, and Native AOT.
   - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
     for samples published from the 1.19.0-preview.9 package for `linux-arm64`, run as root on the console:
     - The software renderer runs all the tested samples, including the Gallery, the printer demo, and lols,
