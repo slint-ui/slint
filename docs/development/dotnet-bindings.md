@@ -362,7 +362,7 @@ Done:
 - **6.** Publishing to nuget.org with trusted publishing, see [Packages](#packages).
   Until the Slint project publishes them, a fork publishes community packages under its own IDs,
   such as `yurkinh.slint.net` and `yurkinh.slint.net.Compiler`.
-  `api/dotnet/WHATS_NEW.md` lists what each preview added, up to 1.19.0-preview.8.
+  `api/dotnet/WHATS_NEW.md` lists what each preview added, up to 1.19.0-preview.9.
   To build packages without the workflow, such as for a fork or an unpublished change,
   follow [Building the Packages Locally](#building-the-packages-locally);
   to generate the C# code in a script, "Generating the Code by Hand" in `api/dotnet/README.md`.
@@ -416,12 +416,13 @@ Done:
   It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
   It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
 - **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
-  Its description lists what each preview added, up to the Android state events of preview.8.
+  Its description lists what each preview added, up to drawing with OpenGL in preview.9.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
 
 - **19.** Performance compared with Rust, measured with lols and profiled on macOS and an Android emulator.
+  The model ranges and the struct call below are in 1.19.0-preview.9.
   The generated code compiles its `.slint` files at startup: in a release build, 20 to 100 ms for the samples,
   such as about 100 ms for `gallery` and 40 ms for `printerdemo`, plus about 50 ms for the first compile in a process.
   Layout, rendering, and text are the same Rust code as in a Rust app; only bindings and callbacks in `.slint` run in the interpreter.
@@ -457,7 +458,7 @@ Done:
     every app build would need a Rust or C++ toolchain for each target, compiled components would need a C ABI and C# wrappers of their own,
     and live reload and loading `.slint` files at run time would go.
 
-- **18.** Drawing with OpenGL, for the samples `opengl_underlay` and `opengl_texture`.
+- **18.** Drawing with OpenGL, for the samples `opengl_underlay` and `opengl_texture`, published in 1.19.0-preview.9.
   `BackendSelector` requires a renderer that uses OpenGL, `Window.SetRenderingNotifier` passes each `RenderingState`
   and a `GraphicsApi`, whose `GetProcAddress` loads OpenGL functions, and `Image.FromBorrowedOpenGLTexture` shows a texture.
   The C# samples call OpenGL through function pointers in a small `GL` class, without a binding library,
