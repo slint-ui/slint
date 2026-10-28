@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// cspell:ignore COLR CBDT
+
+// Color glyphs (issue #3568): the same emoji from a font with bitmaps (CBDT, Noto Color Emoji)
+// and from a font with color layers (COLR version 0, Twemoji Mozilla). The two take different
+// paths to premultiplied pixels. Each row has the glyph next to a letter (to show the baseline),
+// at half the text's opacity (it applies, its color doesn't), and in italic (synthesized: the
+// layers lean, the bitmap stays upright).
+
+// The embed-assets pipeline pre-renders one-color glyph maps, so it has no color glyphs.
+//ignore:software-embed-assets
+
+// Skia font rendering is not consistent across platforms (see text.slint).
+//ignore:skia
+
+// SIZE=128x72
+export component TestCase inherits Window {
+    width: 128px;
+    height: 72px;
+    background: white;
+    VerticalLayout {
+        padding: 4px;
+        spacing: 4px;
+        for family in ["Noto Color Emoji", "Twemoji Mozilla"]: HorizontalLayout {
+            spacing: 4px;
+            alignment: start;
+            Text {
+                text: "a😀";
+                font-family: family;
+                font-size: 24px;
+                color: blue;
+            }
+            Text {
+                text: "😀";
+                font-family: family;
+                font-size: 24px;
+                color: #0000ff80;
+            }
+            Text {
+                text: "😀";
+                font-family: family;
+                // A slanted glyph reaches past its advance, and Text clips at its width.
+                width: 32px;
+                font-size: 24px;
+                font-italic: true;
+                color: blue;
+            }
+        }
+    }
+}

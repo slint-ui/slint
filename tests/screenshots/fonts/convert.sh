@@ -2,12 +2,14 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore wdth subsetting cmap NOTOSANS Bwdth Cwght
+# cSpell: ignore wdth subsetting cmap NOTOSANS Bwdth Cwght COLR CBDT
 
 # This script subsets the NotoSans variable fonts from https://fonts.google.com/noto/specimen/Noto+Sans
 # to a smaller character range for use in screenshot tests. It also subsets
 # NotoSansSymbols2 down to a single glyph (U+25CF BLACK CIRCLE) — the default
 # Slint password-input replacement character, which is not covered by NotoSans.
+# Two color emoji fonts are cut down to U+1F600 for the color glyph tests: Noto Color
+# Emoji (bitmaps in a CBDT table) and Twemoji Mozilla (layers in a COLR version 0 table).
 
 cd "$(dirname "$0")"
 
@@ -33,6 +35,11 @@ fetch "NotoSans-unhinted/NotoSans-Italic-VariableFont_wdth,wght.ttf" \
     "$sans_base/NotoSans-Italic%5Bwdth%2Cwght%5D.ttf"
 fetch "NotoSans-unhinted/NotoSansSymbols2-Regular.ttf" \
     "$symbols_base/NotoSansSymbols2-Regular.ttf"
+NOTO_EMOJI_REVISION="99701e07d3d1fe1bdbcdb14964547f0fd592966f"
+fetch "NotoSans-unhinted/NotoColorEmoji.ttf" \
+    "https://github.com/googlefonts/noto-emoji/raw/$NOTO_EMOJI_REVISION/2D/fonts/NotoColorEmoji.ttf"
+fetch "NotoSans-unhinted/Twemoji.Mozilla.ttf" \
+    "https://github.com/mozilla/twemoji-colr/releases/download/v0.7.0/Twemoji.Mozilla.ttf"
 
 # U+0020-00FF: Basic Latin + Latin-1 Supplement
 # U+2026: horizontal ellipsis (used for text truncation)
@@ -55,6 +62,21 @@ subset_font "NotoSans-unhinted/NotoSans-Italic-VariableFont_wdth,wght.ttf" \
 # character. NotoSans doesn't include it, so ship it as a separate fallback.
 subset_font NotoSans-unhinted/NotoSansSymbols2-Regular.ttf \
     NotoSansSymbols2-Regular.ttf "U+25CF"
+
+# U+1F600 GRINNING FACE, once from each color emoji font.
+subset_font NotoSans-unhinted/NotoColorEmoji.ttf NotoColorEmoji-Subset.ttf "U+1F600"
+subset_font NotoSans-unhinted/Twemoji.Mozilla.ttf TwemojiMozilla-Subset.ttf "U+1F600"
+
+cat > NotoColorEmoji-Subset.ttf.license <<'LICENSE'
+SPDX-FileCopyrightText: Google Inc. <https://github.com/googlefonts/noto-emoji>
+
+SPDX-License-Identifier: OFL-1.1
+LICENSE
+cat > TwemojiMozilla-Subset.ttf.license <<'LICENSE'
+SPDX-FileCopyrightText: Twitter, Inc and other contributors (graphics), Mozilla Foundation (font) <https://github.com/mozilla/twemoji-colr>
+
+SPDX-License-Identifier: CC-BY-4.0
+LICENSE
 
 # Generate .license files
 for f in NotoSans-Regular.ttf NotoSans-Italic.ttf NotoSansSymbols2-Regular.ttf; do
