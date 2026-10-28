@@ -347,6 +347,8 @@ Done:
     The draft [jonathanpeppers/lols#5](https://github.com/jonathanpeppers/lols/pull/5) proposes it to the original as `src/slint`,
     built from the `yurkinh.slint.net` package, next to the Java, .NET for Android, MAUI, and Flutter versions,
     updated to build today, and `scripts/compare-android.sh`, which runs them all on a phone.
+    Its review asks to drop the `dotnet6` NuGet feed of `src/android-canvas`,
+    and to build its Java helper from the Gradle project with `AndroidGradleProject`, instead of shipping `lols.aar`.
   - The ports needed `Window.DispatchEvent`, `DataTransfer.UserData`, `FilterModel` and `SortModel` with `SourceRow` and `Reset`,
     `Keys.ToParts`, the `Image` functions for pixels and data, and tray icon components without `Window` and `Run`.
   - Not ported: the samples for embedded platforms, GPU textures, and native media,
