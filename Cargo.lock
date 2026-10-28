@@ -1627,15 +1627,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "css-color-parser2"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf8ed1639f4b56ec6f31d007ff66ce4a13099dce5a9995d48368a30d62bf04bd"
-dependencies = [
- "lazy_static",
-]
-
-[[package]]
 name = "ctor"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7546,7 +7537,6 @@ name = "slint-python"
 version = "1.19.0"
 dependencies = [
  "chrono",
- "css-color-parser2",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-common",

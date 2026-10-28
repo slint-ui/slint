@@ -57,7 +57,7 @@ accessibility = ["slint-interpreter/accessibility"]
 
 [dependencies]
 i-slint-backend-selector = { workspace = true }
-i-slint-common = { workspace = true }
+i-slint-common = { workspace = true, features = ["color-parsing"] }
 i-slint-core = { workspace = true, features = ["tr"] }
 slint-interpreter = { workspace = true, default-features = false, features = ["backend-default", "renderer-femtovg", "renderer-software", "accessibility", "compat-1-18", "system-tray", "display-diagnostics", "internal", "internal-highlight"] }
 i-slint-compiler = { workspace = true, features = ["python"] }
@@ -67,7 +67,6 @@ pyo3 = { version = "=0.29.0", features = ["extension-module", "indexmap", "chron
 indexmap = { version = "2.1.0" }
 chrono = "0.4"
 spin_on = { workspace = true }
-css-color-parser2 = { workspace = true }
 smol = { version = "2.0.0" }
 
 [target.'cfg(target_os = "linux")'.dependencies]

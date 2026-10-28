@@ -4,8 +4,6 @@
 // cSpell: ignore pycol
 use pyo3::prelude::*;
 
-use crate::errors::PyColorParseError;
-
 #[pyclass]
 #[derive(FromPyObject)]
 struct RgbaColor {
@@ -61,7 +59,8 @@ enum PyColorInput {
 /// - `0`: fully transparent
 /// - `255`: fully opaque
 ///
-/// You can construct colors from a CSS color string, or from a dict with the red, green, blue, and optional alpha channels.
+/// You can construct colors from a dict with the red, green, blue, and optional alpha channels.
+/// You can also construct them from a color string as a `.slint` file writes it, such as `"#ff000080"` or `"blue"`.
 #[pyclass(name = "Color", from_py_object)]
 #[derive(Clone)]
 pub struct PyColor {
@@ -78,17 +77,13 @@ impl PyColor {
         };
 
         match value {
-            PyColorInput::ColorStr(color_str) => color_str
-                .parse::<css_color_parser2::Color>()
-                .map(|c| Self {
-                    color: slint_interpreter::Color::from_argb_u8(
-                        (c.a * 255.) as u8,
-                        c.r,
-                        c.g,
-                        c.b,
-                    ),
+            PyColorInput::ColorStr(color_str) => {
+                parse_color(&color_str).map(|color| Self { color }).ok_or_else(|| {
+                    pyo3::exceptions::PyRuntimeError::new_err(format!(
+                        "Could not convert {color_str} to Color."
+                    ))
                 })
-                .map_err(|color_err| PyColorParseError(color_err).into()),
+            }
             PyColorInput::RgbaColor { red, green, blue, alpha } => {
                 Ok(Self { color: slint_interpreter::Color::from_argb_u8(alpha, red, green, blue) })
             }
@@ -158,6 +153,15 @@ impl PyColor {
     fn __eq__(&self, other: &Self) -> bool {
         self.color == other.color
     }
+}
+
+/// Parses a color as a `.slint` file writes it, such as `#rrggbbaa` or a named color.
+fn parse_color(string: &str) -> Option<slint_interpreter::Color> {
+    use i_slint_common::color_parsing::{named_colors, parse_color_literal};
+    let string = string.trim();
+    let argb = parse_color_literal(string)
+        .or_else(|| named_colors().get(string.to_ascii_lowercase().as_str()).copied())?;
+    Some(slint_interpreter::Color::from_argb_encoded(argb))
 }
 
 impl From<slint_interpreter::Color> for PyColor {
