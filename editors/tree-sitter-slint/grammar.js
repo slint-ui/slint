@@ -14,6 +14,10 @@ module.exports = grammar({
     [$.unary_prec_operator, $.add_prec_operator],
     // `match (x)` starts either a match element or a handler for a callback named `match`.
     [$.parens_op, $.argument],
+    // After a conditional element, `else` either extends it with a branch (`else if`/`else :`)
+    // or starts a new element named `else`; the lookahead after `else` decides.
+    [$.if_statement],
+    [$.else_branch],
   ],
 
   externals: ($) => [$.block_comment],
@@ -314,17 +318,19 @@ module.exports = grammar({
         choice(";", seq("<<", field("default", $.component))),
       ),
 
-    // `slot` and `match` are contextual keywords and stay valid identifiers elsewhere.
+    // `slot`, `match`, and `else` are contextual keywords and stay valid identifiers elsewhere.
     // `slot` only introduces a slot declaration when a name or type annotation follows it.
     // `match` only introduces a match element when an expression follows it.
+    // `else` only extends a conditional element when `if` or `:` follows it.
     // As with "changed" in $.callback_event, the lexer would otherwise always prefer a
-    // keyword over the identifier regex, so alias both back to identifiers
+    // keyword over the identifier regex, so alias them back to identifiers
     // in every statement that may start with one.
     _statement_identifier: ($) =>
       choice(
         $.simple_identifier,
         alias("slot", $.simple_identifier),
         alias("match", $.simple_identifier),
+        alias("else", $.simple_identifier),
       ),
 
     _statement_type_identifier: ($) =>
@@ -332,6 +338,7 @@ module.exports = grammar({
         $.user_type_identifier,
         alias("slot", $.user_type_identifier),
         alias("match", $.user_type_identifier),
+        alias("else", $.user_type_identifier),
       ),
 
     slot_assignment: ($) =>
@@ -436,7 +443,30 @@ module.exports = grammar({
       ),
 
     if_statement: ($) =>
-      seq("if", field("condition", $.expression), ":", $.component),
+      seq(
+        "if",
+        field("condition", $.expression),
+        ":",
+        $.component,
+        optional($.else_branch),
+      ),
+
+    // `else` is not a reserved word, so a branch is only `else if …` or `else : …`;
+    // `else { }` and `else := E { }` stay a component named `else`.
+    else_branch: ($) =>
+      seq(
+        "else",
+        choice(
+          seq(
+            "if",
+            field("condition", $.expression),
+            ":",
+            $.component,
+            optional($.else_branch),
+          ),
+          seq(":", $.component),
+        ),
+      ),
 
     for_loop: ($) =>
       seq(
