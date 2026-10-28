@@ -390,7 +390,7 @@ Next:
   - Android works in preview, see [Android](#android): `SlintActivity`, generated code with `.slint` assets,
     the libraries in the package, `examples/todo/dotnet-android`, and an emulator test in CI.
     Published in 1.19.0-preview.7, and tested on a Motorola edge 60 neo.
-    - Done for the next preview: Android's activity events, such as saving and restoring state, like `init_with_event_listener` in Rust.
+    - Published in 1.19.0-preview.8: Android's activity events, such as saving and restoring state, like `init_with_event_listener` in Rust.
       Android ends the process of an app in the background when it needs memory,
       and starts a new one with the state the app saved when the user returns,
       and `SlintActivity` also ends the process when Android destroys the activity.
