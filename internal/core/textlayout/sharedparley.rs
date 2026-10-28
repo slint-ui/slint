@@ -677,12 +677,11 @@ fn text_content_widths_impl(
 
 pub fn char_size(
     font_ctx: &mut FontContext,
-    text_item: Pin<&dyn crate::item_rendering::RenderString>,
-    item_rc: &crate::item_tree::ItemRc,
+    font_request: &FontRequest,
+    line_height_factor: Option<f32>,
     ch: char,
 ) -> Option<LogicalSize> {
-    let font_request = text_item.font_request(item_rc);
-    let font = &font_ctx.query_font(&font_request)?.font;
+    let font = &font_ctx.query_font(font_request)?.font;
 
     let char_map = font.charmap()?;
 
@@ -708,7 +707,7 @@ pub fn char_size(
         &location,
     );
     let natural_line_height = font_metrics.ascent - font_metrics.descent;
-    let line_height = natural_line_height * text_item.line_height_factor().unwrap_or(1.0);
+    let line_height = natural_line_height * line_height_factor.unwrap_or(1.0);
 
     Some(LogicalSize::from_lengths(advance_width, LogicalLength::new(line_height)))
 }

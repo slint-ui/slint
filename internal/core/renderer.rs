@@ -142,10 +142,17 @@ pub trait RendererSealed {
         item_rc: &crate::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
+        let font_request = text_item.font_request(item_rc);
+        let line_height_factor = text_item.line_height_factor();
         self.slint_context()
             .and_then(|ctx| {
                 let mut font_ctx = ctx.font_context().borrow_mut();
-                crate::textlayout::sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+                crate::textlayout::sharedparley::char_size(
+                    &mut font_ctx,
+                    &font_request,
+                    line_height_factor,
+                    ch,
+                )
             })
             .unwrap_or_default()
     }
