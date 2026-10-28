@@ -636,6 +636,7 @@ fn text_content_widths_impl(
     // entry's dependency tracker.
     let _ = text_item.font_request(item_rc);
     let _ = text_item.text();
+    let _ = text_item.line_limit();
 
     let ctx = ctx?;
     let mut font_ctx = ctx.font_context().borrow_mut();
