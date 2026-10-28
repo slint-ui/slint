@@ -14,7 +14,9 @@ export component TestCase inherits Window {
         for t in tabs: Tab {
             property <string> extra: t + "!";
             title: self.extra;
+// ><error{The 'title' of a Tab in an 'if' or 'for' can't use 'self.extra' from inside the Tab, use the model data or properties outside the Tab instead"}
         }
     }
+
     property <bool> test: true;
 }
