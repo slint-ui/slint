@@ -3,9 +3,50 @@
 
 import { LineEditBase } from "../headless.slint";
 import { LineEditInterface } from "std-widget-interfaces.slint";
-import { LineEditStyle, LineEditStateStyle } from "line_edit_style.slint";
-import { LineEditStyles } from "line_edit_styles.slint";
 import { FocusOutline } from "focus_outline.slint";
+import { BasicTheme } from "theme.slint";
+
+export struct LineEditStateStyle {
+    background-color: brush,
+    foreground-color: brush,
+    border-color: brush,
+    placeholder-color: brush,
+}
+
+export struct LineEditStyle {
+    rest: LineEditStateStyle,
+    hover: LineEditStateStyle,
+    disabled: LineEditStateStyle,
+    selection-background-color: color,
+    selection-foreground-color: color,
+    focus-color: brush,
+}
+
+export global LineEditStyles {
+    out property <LineEditStyle> standard: {
+        rest: {
+            background-color: BasicTheme.background,
+            foreground-color: BasicTheme.foreground,
+            border-color: BasicTheme.border,
+            placeholder-color: BasicTheme.disabled-foreground,
+        },
+        hover: {
+            background-color: BasicTheme.background,
+            foreground-color: BasicTheme.foreground,
+            border-color: BasicTheme.foreground,
+            placeholder-color: BasicTheme.disabled-foreground,
+        },
+        disabled: {
+            background-color: BasicTheme.disabled-background,
+            foreground-color: BasicTheme.disabled-foreground,
+            border-color: BasicTheme.border,
+            placeholder-color: BasicTheme.disabled-foreground,
+        },
+        selection-background-color: BasicTheme.accent,
+        selection-foreground-color: BasicTheme.accent-foreground,
+        focus-color: BasicTheme.focus,
+    };
+}
 
 export component LineEdit {
     implement LineEditInterface <=> field;

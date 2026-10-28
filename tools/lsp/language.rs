@@ -114,7 +114,7 @@ pub fn send_requested_state_to_preview(
         if let Some(contents) = i_slint_editor_preview::settings_store::load("lsp", name) {
             ctx.session
                 .primary_preview()
-                .to_preview
+                .to_preview()
                 .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
         }
     }
@@ -161,7 +161,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
         {
             let version =
                 ctx.session.document_cache.document_version_by_path(node.source_file.path());
-            ctx.session.primary_preview().to_preview.send(&LspToPreviewMessage::SetContents {
+            ctx.session.primary_preview().to_preview().send(&LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(url.clone(), version),
                 contents: node.text().to_string().into(),
             });
@@ -169,7 +169,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
             tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
             ctx.session
                 .primary_preview()
-                .to_preview
+                .to_preview()
                 .send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
     }
@@ -479,7 +479,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         if hover.is_some() {
             let (_document, preview) =
                 get_highlights_for_position(ctx, &params.text_document_position_params);
-            ctx.session.primary_preview().to_preview.send(&preview);
+            ctx.session.primary_preview().to_preview().send(&preview);
         }
 
         Ok(hover)
@@ -583,7 +583,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 
         // Update the highlight in the live preview.
         // We do this even if there are no highlights to clear any previous highlights.
-        ctx.session.primary_preview().to_preview.send(&preview);
+        ctx.session.primary_preview().to_preview().send(&preview);
 
         let not_empty = !document_highlights.is_empty();
         Ok(not_empty.then_some(document_highlights))
@@ -717,13 +717,7 @@ pub fn show_preview_command(
             .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
         None => None,
     };
-    if *ctx.session.primary_preview().project_root.borrow() != root {
-        ctx.session.primary_preview_mut().to_show = None;
-        ctx.session.primary_preview().project_root.replace(root);
-        ctx.session.send_state_to_preview(0);
-    }
-    let c = PreviewComponent { url, component };
-    ctx.session.show_preview(0, c);
+    ctx.session.show_preview(0, PreviewComponent { url, component }, root);
 
     Ok(())
 }
@@ -732,8 +726,10 @@ pub fn show_preview_command(
     not(target_arch = "wasm32"),
     any(feature = "preview-builtin", feature = "preview-external")
 ))]
-pub fn sync_preview_project_root(session: &editor_preview::EditorSession) -> std::io::Result<()> {
-    let Some(component) = session.primary_preview().to_show.as_ref() else { return Ok(()) };
+pub fn sync_preview_project_root(
+    session: &mut editor_preview::EditorSession,
+) -> std::io::Result<()> {
+    let Some(component) = session.primary_preview().component().cloned() else { return Ok(()) };
     let source = SourcePath::from_url(&component.url);
     let root = match source.as_native_path() {
         Some(path) => session
@@ -741,9 +737,8 @@ pub fn sync_preview_project_root(session: &editor_preview::EditorSession) -> std
             .and_then(|manifest| SourcePath::File(manifest).to_url()?.join(".").ok()),
         None => None,
     };
-    if *session.primary_preview().project_root.borrow() != root {
-        session.primary_preview().project_root.replace(root);
-        session.send_state_to_preview(0);
+    if session.primary_preview().project_root() != root.as_ref() {
+        session.show_preview(0, component, root);
     }
     Ok(())
 }
@@ -1098,7 +1093,6 @@ fn show_info(server_notifier: &crate::ServerNotifier, message: impl Into<String>
     );
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 fn show_warning(server_notifier: &crate::ServerNotifier, message: impl Into<String>) {
     let _ = server_notifier.send_notification::<lsp_types::notification::ShowMessage>(
         lsp_types::ShowMessageParams {
@@ -1447,13 +1441,17 @@ pub async fn startup_lsp(ctx: &mut Context) -> editor_preview::Result<()> {
     load_configuration(ctx).await
 }
 
-fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfigOverrides {
+/// Returns the overrides and warnings about the settings it ignores.
+fn parse_configuration(
+    workspace_config: Vec<serde_json::Value>,
+) -> (SessionConfigOverrides, Vec<String>) {
     let mut hide_ui = None;
     let mut include_paths = None;
     let mut library_paths = None;
     let mut style = None;
     let mut experimental = None;
     let mut edition = None;
+    let mut warnings = Vec::new();
 
     for config_value in workspace_config {
         if let Some(config_object) = config_value.as_object() {
@@ -1490,8 +1488,25 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             }
             hide_ui =
                 config_object.get("preview").and_then(|v| v.as_object()?.get("hide_ui")?.as_bool());
-            if let Some(value) = config_object.get("experimental").and_then(|v| v.as_bool()) {
-                experimental = Some(value);
+            if let Some(value) = config_object.get("experimental") {
+                let all = i_slint_compiler::ExperimentalFeatures::all();
+                let names: Option<Vec<_>> = value
+                    .as_array()
+                    .and_then(|names| names.iter().map(serde_json::Value::as_str).collect());
+                if let Some(names) = names {
+                    let (features, unknown) =
+                        i_slint_compiler::ExperimentalFeatures::parse_names(names);
+                    warnings.extend(unknown.into_iter().map(|name| {
+                        format!(
+                            "Ignoring the unknown experimental feature '{name}'. Use one of [{all}]"
+                        )
+                    }));
+                    experimental = Some(features);
+                } else {
+                    warnings.push(format!(
+                        "Ignoring the 'experimental' setting {value}. Set it to a list of feature names from [{all}]"
+                    ));
+                }
             }
             // SlintPad sets it. Elsewhere, the project file decides, as it does for the build.
             if cfg!(any(target_arch = "wasm32", test))
@@ -1509,20 +1524,21 @@ fn parse_configuration(workspace_config: Vec<serde_json::Value>) -> SessionConfi
             }
         }
     }
-    SessionConfigOverrides {
+    let overrides = SessionConfigOverrides {
         hide_ui,
         compiler: i_slint_compiler::project_file::Overrides {
             project: i_slint_compiler::project_file::ProjectFileData {
                 include_paths,
                 library_paths,
-                enable_experimental_features: experimental,
+                experimental_features: experimental,
                 slint_edition: edition,
                 ..Default::default()
             },
             style,
             ..Default::default()
         },
-    }
+    };
+    (overrides, warnings)
 }
 
 pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()> {
@@ -1551,7 +1567,11 @@ pub async fn load_configuration(ctx: &mut Context) -> editor_preview::Result<()>
         )?
         .await?;
 
-    let config_overrides = parse_configuration(workspace_config);
+    let (config_overrides, warnings) = parse_configuration(workspace_config);
+    for message in warnings {
+        tracing::warn!("{message}");
+        show_warning(&ctx.server_notifier, message);
+    }
     tracing::debug!("Loaded configuration: {config_overrides:?}");
     let diagnostics = ctx.session.set_workspace_config_overrides(config_overrides).await?;
     crate::lsp_to_editor::publish_diagnostics(&ctx.server_notifier, diagnostics);
@@ -1624,15 +1644,36 @@ pub mod tests {
     }
 
     #[test]
-    fn configuration_parser_ignores_empty_collections_and_preserves_false() {
+    fn configuration_parser_keeps_known_experimental_features() {
+        let (overrides, warnings) =
+            parse_configuration(vec![serde_json::json!({"experimental": ["match", "interface"]})]);
+        assert_eq!(
+            overrides.compiler.project.experimental_features,
+            Some(i_slint_compiler::ExperimentalFeature::Match.into())
+        );
+        let [warning] = warnings.as_slice() else { panic!("{warnings:?}") };
+        assert!(warning.starts_with("Ignoring the unknown experimental feature 'interface'."));
+
+        for value in [serde_json::json!(true), serde_json::json!(["match", 1])] {
+            let (overrides, warnings) =
+                parse_configuration(vec![serde_json::json!({ "experimental": value })]);
+            assert_eq!(overrides.compiler.project.experimental_features, None);
+            let [warning] = warnings.as_slice() else { panic!("{warnings:?}") };
+            assert!(warning.starts_with(&format!("Ignoring the 'experimental' setting {value}.")));
+        }
+    }
+
+    #[test]
+    fn configuration_parser_ignores_empty_collections_and_preserves_empty_features() {
         for configuration in [
-            serde_json::json!({"experimental": false}),
-            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": false}),
+            serde_json::json!({"experimental": []}),
+            serde_json::json!({"includePaths": [], "libraryPaths": {}, "experimental": []}),
         ] {
-            let overrides = parse_configuration(vec![configuration]);
+            let (overrides, warnings) = parse_configuration(vec![configuration]);
+            assert!(warnings.is_empty(), "{warnings:?}");
             assert_eq!(overrides.compiler.project.include_paths, None);
             assert_eq!(overrides.compiler.project.library_paths, None);
-            assert_eq!(overrides.compiler.project.enable_experimental_features, Some(false));
+            assert_eq!(overrides.compiler.project.experimental_features, Some(Default::default()));
             for paths in ["startup", "project"] {
                 let mut compiler_configuration = i_slint_compiler::CompilerConfiguration::new(
                     i_slint_compiler::generator::OutputFormat::Interpreter,
@@ -1655,7 +1696,8 @@ pub mod tests {
         use i_slint_compiler::project_file::SlintEdition;
         let newer =
             SlintEdition { minor: SlintEdition::current().minor + 1, ..SlintEdition::current() };
-        let overrides = parse_configuration(vec![serde_json::json!({})]);
+        let (overrides, warnings) = parse_configuration(vec![serde_json::json!({})]);
+        assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(overrides.compiler.project.slint_edition, None);
         for (value, expected) in [
             (serde_json::json!("1.18"), Some(SlintEdition { major: 1, minor: 18 })),
@@ -1663,7 +1705,9 @@ pub mod tests {
             (serde_json::json!(newer.to_string()), Some(SlintEdition::current())),
             (serde_json::json!(1.18), Some(SlintEdition::current())),
         ] {
-            let overrides = parse_configuration(vec![serde_json::json!({ "edition": value })]);
+            let (overrides, warnings) =
+                parse_configuration(vec![serde_json::json!({ "edition": value })]);
+            assert!(warnings.is_empty(), "{warnings:?}");
             assert_eq!(overrides.compiler.project.slint_edition, expected, "{value}");
         }
     }
@@ -1682,7 +1726,8 @@ pub mod tests {
                 HashMap::new(),
             ),
         ] {
-            let overrides = parse_configuration(vec![configuration]);
+            let (overrides, warnings) = parse_configuration(vec![configuration]);
+            assert!(warnings.is_empty(), "{warnings:?}");
             assert_eq!(overrides.compiler.project.include_paths, Some(expected_paths));
             assert_eq!(overrides.compiler.project.library_paths, Some(expected_libraries));
         }
@@ -1862,7 +1907,7 @@ pub mod tests {
     -> (Context, crate::editor_preview::test::CapturedPreviewMessages) {
         let (capture, messages) = test::preview_capture();
         let mut ctx = test::mock_context();
-        ctx.session.primary_preview_mut().to_preview = capture;
+        ctx.session.replace_preview_transport(0, capture);
         (ctx, messages)
     }
 
@@ -2169,7 +2214,9 @@ enum {}
                         "widgets".into(),
                         PathBuf::from("/libraries/widgets"),
                     )])),
-                    enable_experimental_features: Some(true),
+                    experimental_features: Some(
+                        i_slint_compiler::ExperimentalFeature::Match.into(),
+                    ),
                     slint_edition: Some(i_slint_compiler::project_file::SlintEdition::V1_19),
                     ..Default::default()
                 },
@@ -2256,7 +2303,7 @@ enum {}
         ))
         .unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session).unwrap();
+        sync_preview_project_root(&mut context.session).unwrap();
         let outer_root_url = Url::from_directory_path(outer_root).unwrap();
         assert!(matches!(
             messages.borrow().first(),
@@ -2274,7 +2321,7 @@ enum {}
         ))
         .unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session).unwrap();
+        sync_preview_project_root(&mut context.session).unwrap();
         assert!(matches!(
             messages.borrow().first(),
             Some(LspToPreviewMessage::OpenProject { root: None })
@@ -2283,7 +2330,7 @@ enum {}
         std::fs::write(&outer_manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
         spin_on::spin_on(context.session.reload_document(source_url)).unwrap();
         messages.borrow_mut().clear();
-        sync_preview_project_root(&context.session).unwrap();
+        sync_preview_project_root(&mut context.session).unwrap();
         assert!(
             matches!(messages.borrow().first(), Some(LspToPreviewMessage::OpenProject { root: Some(root) })
             if root == &outer_root_url)
@@ -2338,14 +2385,14 @@ enum {}
         assert!(messages.borrow().is_empty());
 
         let previous_root = Url::from_directory_path(directory.path()).unwrap();
-        context.session.primary_preview().project_root.replace(Some(previous_root.clone()));
-        context.session.primary_preview_mut().to_show =
-            Some(PreviewComponent { url: source_url, component: None });
-        assert!(sync_preview_project_root(&context.session).is_err());
-        assert_eq!(
-            context.session.primary_preview().project_root.borrow().as_ref(),
-            Some(&previous_root)
+        context.session.show_preview(
+            0,
+            PreviewComponent { url: source_url, component: None },
+            Some(previous_root.clone()),
         );
+        messages.borrow_mut().clear();
+        assert!(sync_preview_project_root(&mut context.session).is_err());
+        assert_eq!(context.session.primary_preview().project_root(), Some(&previous_root));
         assert!(messages.borrow().is_empty());
     }
 

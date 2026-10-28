@@ -54,6 +54,7 @@ export global ShadowSession {
     out property <Point> anchor-position;
     out property <Size> anchor-size;
     out property <int> opening-generation;
+    out property <int> anchor-focus-generation;
 
     changed selection-key => { ShadowSession.check-selection(); }
     changed shadow-exists => { ShadowSession.check-selection(); }
@@ -91,6 +92,18 @@ export global ShadowSession {
             gesture == ShadowGesture.offset ? values.offset-x + dx
                 : gesture == ShadowGesture.blur ? values.blur - ShadowSession.direction * dy * blur-scale : values.spread + ShadowSession.direction * dx,
             values.offset-y + dy);
+    }
+
+    public function focus-anchor(position: Point) -> bool {
+        let origin = ShadowSession.anchor-position;
+        let size = ShadowSession.anchor-size;
+        if !ShadowSession.open || position.x < origin.x || position.y < origin.y
+            || position.x >= origin.x + size.width || position.y >= origin.y + size.height {
+            return false;
+        }
+        ShadowSession.canvas-focus = false;
+        ShadowSession.anchor-focus-generation += 1;
+        return true;
     }
 
     public function begin(position: Point, size: Size, inner: bool) {

@@ -24,6 +24,7 @@ export component InspectorColorField inherits Rectangle {
     in property <string> preview-key: "";
     in property <string> session-key: "";
     in property <string> property-name: "";
+    in property <float> element-rotation;
     callback accepted(string) -> bool;
     private property <ColorFieldData> data: Api.source-color-field-data(root.property-name);
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
@@ -41,10 +42,10 @@ export component InspectorColorField inherits Rectangle {
         commit-key: root.commit-key;
         accepted(color, expression) => { return root.accepted(expression); }
         preview(color) => {
-            return Api.inspector-fill-preview(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color));
+            return Api.inspector-fill-preview(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color), root.element-rotation, false);
         }
         scrub-accepted(color) => {
-            return Api.inspector-fill-commit(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color));
+            return Api.inspector-fill-commit(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color), root.element-rotation, true, false);
         }
         scrub-canceled(color) => { Api.inspector-cancel(); }
         swatch-activated => { root.show-picker(); }
@@ -73,7 +74,6 @@ export component InspectorColorField inherits Rectangle {
         }
 
         gradient-touch := TouchArea {
-            mouse-cursor: pointer;
             clicked => {
                 root.show-picker();
                 swatch-focus.focus();
@@ -86,6 +86,7 @@ export component InspectorColorField inherits Rectangle {
         accessible-name: root.accessible-name;
         width: parent.width;
         value: root.value;
+        focused: self.input-focused || swatch-focus.has-focus;
         commit-key: root.commit-key;
         accepted(text) => { return root.accepted(text); }
 
@@ -98,6 +99,10 @@ export component InspectorColorField inherits Rectangle {
         width: root.style.swatch-size;
         height: parent.height;
         key-pressed(event) => {
+            if event.text == Key.Escape && FillSession.open && FillSession.request.target.key == root.preview-key {
+                FillSession.close-picker(false, true);
+                return accept;
+            }
             if event.text == Key.Return || event.text == Key.Space {
                 root.show-picker();
                 return accept;
@@ -133,7 +138,6 @@ export component InspectorColorField inherits Rectangle {
         }
 
         TouchArea {
-            mouse-cursor: pointer;
             accessible-role: AccessibleRole.button;
             accessible-label: @tr("{} color picker", root.accessible-name);
             clicked => {
@@ -148,6 +152,10 @@ export component InspectorColorField inherits Rectangle {
     }
 
     function show-picker() {
+        if FillSession.open && FillSession.request.target.key == root.preview-key
+            && FillSession.request.target.session-key == root.session-key {
+            return;
+        }
         FillSession.begin({
             fill: root.data.fill,
             target: {
@@ -156,18 +164,21 @@ export component InspectorColorField inherits Rectangle {
                 property-name: root.property-name,
                 size: root.target-size,
                 canvas: root.property-name == "background" && Api.current-element.type-name == "Rectangle",
+                element-rotation: root.element-rotation,
             },
             expression: root.value,
             unsupported: root.data.unsupported,
             allow-gradient: root.data.allow-gradient,
             anchor-position: root.absolute-position,
             anchor-size: { width: root.width, height: root.height },
+            activation-position: root.is-gradient ? root.absolute-position : swatch-focus.absolute-position,
+            activation-size: { width: root.is-gradient ? root.width : swatch-focus.width, height: root.height },
         });
     }
 
-    private property <int> focus-generation: FillSession.focus-generation;
+    private property <int> focus-generation: FillSession.focus-generation + FillSession.anchor-focus-generation;
     changed focus-generation => {
-        if !FillSession.request.target.canvas && FillSession.request.target.key == root.preview-key {
+        if (FillSession.open || !FillSession.request.target.canvas) && FillSession.request.target.key == root.preview-key {
             if root.is-literal-color { solid-field.focus-swatch(); }
             else { swatch-focus.focus(); }
         }

@@ -267,8 +267,9 @@ fn extract_path(literal: proc_macro::Literal) -> std::path::PathBuf {
 fn extract_compiler_config(
     mut stream: proc_macro::token_stream::IntoIter,
     compiler_config: &mut CompilerConfiguration,
-) -> Result<impl Iterator<Item = TokenTree>, TokenStream> {
+) -> Result<(impl Iterator<Item = TokenTree> + use<>, TokenStream), TokenStream> {
     let mut remaining_stream;
+    let mut edition_warning = TokenStream::new();
     loop {
         remaining_stream = stream.clone();
         match (stream.next(), stream.next()) {
@@ -335,7 +336,9 @@ fn extract_compiler_config(
                                 Some(TokenTree::Punct(equal_punct)),
                                 Some(TokenTree::Literal(value)),
                             ) if equal_punct.as_char() == '=' => {
-                                compiler_config.edition = Some(parse_edition(&value)?);
+                                let edition = parse_edition(&value)?;
+                                compiler_config.edition = Some(edition);
+                                edition_warning = behavior_change_warning(edition, &value);
                             }
                             _ => break,
                         }
@@ -346,7 +349,31 @@ fn extract_compiler_config(
             _ => break,
         }
     }
-    Ok(remaining_stream)
+    if compiler_config.edition.is_none() {
+        let span =
+            remaining_stream.clone().next().map_or_else(proc_macro::Span::call_site, |t| t.span());
+        edition_warning = missing_edition_warning(span);
+    }
+    Ok((remaining_stream, edition_warning))
+}
+
+fn missing_edition_warning(span: proc_macro::Span) -> TokenStream {
+    let newer = project_file::SlintEdition::LATEST_BEHAVIOR_CHANGE;
+    let message = format!(
+        "'slint!' without '#[slint_edition]' misses the behavior changes up to {newer}: add '#[slint_edition = \"{newer}\"]' after reviewing {}",
+        project_file::SlintEdition::behavior_changes_url()
+    );
+    diagnostics::macro_warning(span.into(), &message)
+}
+
+fn behavior_change_warning(
+    edition: project_file::SlintEdition,
+    value: &proc_macro::Literal,
+) -> TokenStream {
+    let Some(message) = edition.behavior_change_warning("slint_edition") else {
+        return TokenStream::new();
+    };
+    diagnostics::macro_warning(value.span().into(), &message)
 }
 
 fn parse_edition(value: &proc_macro::Literal) -> Result<project_file::SlintEdition, TokenStream> {
@@ -403,7 +430,7 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// }
 /// ```
 ///
-/// Without it, the macro applies none of the behavior changes that depend on the edition.
+/// Without it, the macro applies none of the behavior changes that depend on the edition, and warns.
 /// The editor and the live preview don't read the attribute.
 ///
 /// ### Limitations
@@ -432,11 +459,22 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
-    let token_iter = match extract_compiler_config(token_iter, &mut compiler_config) {
-        Ok(token_iter) => token_iter,
-        Err(error) => return error,
-    };
+    let (token_iter, edition_warning) =
+        match extract_compiler_config(token_iter, &mut compiler_config) {
+            Ok(result) => result,
+            Err(error) => return error,
+        };
 
+    // Not part of the cached output, which loses the spans.
+    let mut result = expand(token_iter, compiler_config);
+    result.extend(edition_warning);
+    result
+}
+
+fn expand(
+    token_iter: impl Iterator<Item = TokenTree>,
+    mut compiler_config: CompilerConfiguration,
+) -> TokenStream {
     let mut tokens = Vec::new();
     fill_token_vec(token_iter, &mut tokens);
     // Position each token in the document the parser will see: the concatenation of the token

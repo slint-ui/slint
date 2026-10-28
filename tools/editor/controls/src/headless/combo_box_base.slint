@@ -191,7 +191,6 @@ export component ComboBoxBase {
 
     pointer := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: root.count > 0 ? MouseCursor.pointer : MouseCursor.default;
         clicked => {
             if root.expanded { root.close(); } else { root.open(); }
         }

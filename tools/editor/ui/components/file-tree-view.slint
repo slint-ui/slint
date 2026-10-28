@@ -278,7 +278,6 @@ component FileTreeRow inherits Rectangle {
 
         touch := TouchArea {
             enabled: !root.editing;
-            mouse-cursor: pointer;
             clicked => {
                 root.focus-row();
                 root.activate();

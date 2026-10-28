@@ -277,18 +277,10 @@ impl DocumentCache {
             self.source_file_versions.clone(),
         );
 
-        if self.type_loader.compiler_config.enable_experimental
-            != compiler_config.enable_experimental
-        {
-            *self.type_loader.global_type_registry.borrow_mut() =
-                Rc::into_inner(if compiler_config.enable_experimental {
-                    TypeRegister::builtin_experimental()
-                } else {
-                    TypeRegister::builtin()
-                })
-                .unwrap()
-                .into_inner();
-        }
+        self.type_loader
+            .global_type_registry
+            .borrow_mut()
+            .set_experimental_features(compiler_config.experimental_features);
 
         self.config = config.clone();
         self.open_import_callback = open_import_callback;
@@ -391,6 +383,19 @@ impl DocumentCache {
 
     pub(crate) fn configuration_with_import_callback(&self) -> CompilerConfiguration {
         self.config.clone()
+    }
+
+    pub(crate) fn set_open_import_callback(&mut self, callback: OpenImportCallback) {
+        self.config.open_import_callback = Some(callback.clone());
+        let mut compiler_config = self.type_loader.compiler_config.clone();
+        let (callback, _) = Self::wire_up_import_fallback(
+            &mut compiler_config,
+            Some(callback),
+            self.source_file_versions.clone(),
+        );
+        self.open_import_callback = callback;
+        self.type_loader.compiler_config.open_import_callback =
+            compiler_config.open_import_callback;
     }
 
     fn element_at_document_and_offset(

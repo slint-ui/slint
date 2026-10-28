@@ -1,0 +1,17 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The loop through the window layout is a warning, the inner one an error.
+export component TestCase inherits Window {
+    HorizontalLayout {
+        Rectangle {
+            VerticalLayout {
+//          >             <note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'width' at line 11}
+//          >             <^note{setting an 'x' or a 'y' here takes 'VerticalLayout' out of its parent's size, one way out of the binding loop reported for 'width' at line 11}
+                Rectangle { width: parent.width; }
+//                                 >           <warning{The binding for the property 'width' is part of a binding loop (HorizontalLayout.width -> Rectangle.width -> VerticalLayout.width -> Rectangle.width -> VerticalLayout -> Rectangle -> HorizontalLayout -> root -> HorizontalLayout.width)↵Compute 'width' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it↵This was allowed in previous version of Slint, but is deprecated and may cause panic at runtime}
+//                                 >           <^error{The binding for the property 'width' is part of a binding loop (Rectangle.width -> VerticalLayout.width -> Rectangle.width -> VerticalLayout -> Rectangle -> Rectangle.width)↵Compute 'width' without depending on a size or a position the layout produces, or set an 'x' or a 'y' on 'VerticalLayout', so its parent stops sizing itself from it}
+            }
+        }
+    }
+}

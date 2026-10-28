@@ -179,14 +179,14 @@ For example, ComboBoxBase adds `highlighted-index` and the `highlighted` callbac
 These additions aren't requirements for other standard widget implementations.
 Import these directly from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint); the control entry points don't re-export them.
 Use these interfaces for typed slots accepting styled controls or custom implementations.
-Style definitions live in `src/basic/<control>_style.slint`.
+Each `src/basic/<control>.slint` file defines the component, its style structs, and its presets.
 
 ## Gallery
 
 Run the gallery with the checkout's viewer:
 
 ```powershell
-$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"
+$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots"
 .\target\debug\slint-viewer.exe --auto-reload tools/editor/controls/examples/controls.slint
 ```
 

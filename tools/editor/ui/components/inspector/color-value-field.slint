@@ -54,7 +54,7 @@ export component InspectorColorValueField inherits Rectangle {
     segmented-field := InputSurface {
         style: root.style.field;
         enabled: root.enabled;
-        focused: root.input-focused;
+        focused: root.input-focused || swatch-focus.has-focus;
         x: 0px;
         y: 0px;
         clip: true;
@@ -155,7 +155,6 @@ export component InspectorColorValueField inherits Rectangle {
 
         TouchArea {
             enabled: root.enabled && root.swatch-enabled;
-            mouse-cursor: pointer;
             accessible-role: AccessibleRole.button;
             accessible-label: root.swatch-accessible-name;
             clicked => {

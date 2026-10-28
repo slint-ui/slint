@@ -4,45 +4,49 @@
 import { DemoPalette } from "../common.slint";
 import { MiniPopup } from "./MiniPopup.slint";
 import { ShadowBox } from "ShadowBox.slint";
+import { PressArea } from "PressArea.slint";
 
 export component ComboBox {
     in property <[string]> choices;
     in-out property <int> current-index;
     in-out property <string> label;
-    property <length> margin: 13px;
 
     height: 108px;
 
     ShadowBox { }
 
-    label := Text {
-        text <=> root.label;
-        color: DemoPalette.text-foreground-color;
-        font-size: 16px;
-        x: margin;
-        y: self.x;
-    }
-
-    Rectangle {
-        y: parent.height - self.height - margin;
-        height: 48px;
-        width: parent.width - margin * 2;
-        border-radius: 10px;
-        border-width: 2px;
-        border-color: #CAD5E2;
+    VerticalLayout {
+        padding: 13px;
+        alignment: space-between;
 
         Text {
-            vertical-alignment: center;
-            horizontal-alignment: left;
-            text: root.choices[current-index];
+            text: root.label;
             color: DemoPalette.text-foreground-color;
             font-size: 16px;
-            x: 12px;
         }
 
-        Image {
-            source: @image-url("../images/mcu/combo-arrow.svg");
-            x: parent.width - self.width - margin;
+        Rectangle {
+            height: 48px;
+            border-radius: 10px;
+            border-width: 2px;
+            border-color: #CAD5E2;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 13px;
+
+                Text {
+                    vertical-alignment: center;
+                    text: root.choices[current-index];
+                    color: DemoPalette.text-foreground-color;
+                    font-size: 16px;
+                    horizontal-stretch: 1;
+                }
+
+                Image {
+                    source: @image-url("../images/mcu/combo-arrow.svg");
+                }
+            }
         }
     }
 
@@ -61,34 +65,41 @@ export component ComboBox {
             height: 174px;
             border-radius: 14px;
 
-            Image {
-                y: current-index == 0 ? 1px : current-index == 1 ? (parent.height - self.height) / 2 : parent.height - self.height - 1px;
-                source: @image-url("../images/mcu/combo-active-background.png");
-            }
-
             VerticalLayout {
                 for choice[index] in root.choices: Rectangle {
                     border-top-left-radius: index == 0 ? frame.border-radius : 0;
                     border-top-right-radius: index == 0 ? frame.border-radius : 0;
                     border-bottom-left-radius: index == root.choices.length - 1 ? frame.border-radius : 0;
                     border-bottom-right-radius: index == root.choices.length - 1 ? frame.border-radius : 0;
-                    background: index == root.current-index ? transparent : white;
-                    height: parent.height / 3;
-                    width: 100%;
-                    Text {
-                        x: 12px;
-                        font-size: 16px;
-                        text: choice;
-                        color: index == root.current-index ? white : DemoPalette.text-foreground-color;
+                    vertical-stretch: 1;
+                    background: (index == root.current-index ? DemoPalette.selection-background : white).brighter(-choice-touch.press-progress * 12%);
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+
+                        Text {
+                            vertical-alignment: center;
+                            font-size: 16px;
+                            text: choice;
+                            color: index == root.current-index ? white : DemoPalette.text-foreground-color;
+                            horizontal-stretch: 1;
+                        }
+
+                        Image {
+                            visible: index == root.current-index;
+                            width: 20px;
+                            source: @image-url("../images/mcu/tick-combo.svg");
+                        }
                     }
 
-                    Image {
-                        x: parent.width - self.width - 12px;
-                        width: 20px;
-                        source: @image-url("../images/mcu/tick-combo.svg");
+                    if index > 0: Rectangle {
+                        y: 0px;
+                        background: #E2E8F0;
+                        height: 1px;
                     }
 
-                    TouchArea {
+                    choice-touch := PressArea {
                         pointer-event(ev) => {
                             if (ev.kind == PointerEventKind.down) {
                                 root.current-index = index;
@@ -101,12 +112,6 @@ export component ComboBox {
                 }
             }
 
-            for choice[index] in root.choices.length - 1: Rectangle {
-                background: #E2E8F0;
-                height: 1px;
-                width: 100%;
-                y: (parent.height / 3) * (1 + index);
-            }
             Rectangle {
                 border-radius: frame.border-radius;
                 border-width: 3px;

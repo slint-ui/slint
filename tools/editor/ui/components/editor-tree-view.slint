@@ -261,7 +261,6 @@ component EditorTreeRow {
                         width: parent.width;
                         y: root.content-y;
                         height: Metrics.outline-row-height;
-                        mouse-cursor: pointer;
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                                 AppState.outline-drag-background = row-highlight.background;
@@ -301,7 +300,6 @@ component EditorTreeRow {
                                 width: root.style.row.hit-size;
                                 height: root.style.row.hit-size;
                                 y: (parent.height - self.height) / 2;
-                                mouse-cursor: root.node.has-children ? MouseCursor.pointer : MouseCursor.default;
                                 clicked => {
                                     root.toggle-expanded();
                                 }

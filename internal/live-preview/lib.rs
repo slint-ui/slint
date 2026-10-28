@@ -23,5 +23,8 @@ pub mod preview_sessions;
 #[cfg(feature = "preview-session")]
 pub mod inspector;
 
+#[cfg(feature = "preview-session")]
+pub mod debug_agent;
+
 #[cfg(feature = "remote")]
 pub mod remote;

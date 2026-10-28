@@ -22,7 +22,7 @@ export global InspectorContext {
     }
 
     public pure function has-orientation-selection() -> bool {
-        return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider");
+        return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider" || InspectorContext.element-information.type-name == "TabWidget");
     }
 
     public pure function is-rectangle-selection() -> bool {
@@ -65,6 +65,12 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "SpinBox";
     }
 
+    public pure function is-progress-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "ProgressIndicator"
+                || InspectorContext.element-information.type-name == "Spinner");
+    }
+
     public pure function is-resizable-selection() -> bool {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
     }
@@ -85,11 +91,22 @@ export global InspectorContext {
     public pure function is-title-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "GroupBox"
-                || InspectorContext.element-information.type-name == "RadioGroup");
+                || InspectorContext.element-information.type-name == "RadioGroup"
+                || InspectorContext.element-information.type-name == "Tab");
     }
 
     public pure function is-lineedit-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "LineEdit";
+    }
+
+    public pure function has-placeholder-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "TextEdit");
+    }
+
+    public pure function is-standard-button-selection() -> bool {
+        return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StandardButton";
     }
 
     public pure function is-enable-selection() -> bool {
@@ -233,6 +250,13 @@ export global InspectorContext {
             return false;
         }
         return InspectorContext.commit-code(property-name, value + "px");
+    }
+
+    public function commit-size-code(property-name: string, value: string) -> bool {
+        if !value.is-float() || value.to-float() <= 0 {
+            return false;
+        }
+        return InspectorContext.commit-px-code(property-name, value);
     }
 
     public pure function field-key(property-name: string) -> string {

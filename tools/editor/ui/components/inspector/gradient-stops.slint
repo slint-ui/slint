@@ -62,8 +62,8 @@ export component InspectorGradientStops inherits Rectangle {
                 height: Metrics.control-compact;
                 border-radius: Metrics.radius-small;
                 background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
-                border-width: ramp.has-focus ? Metrics.border-width : 0px;
-                border-color: Colors.accent;
+                border-width: Metrics.border-width;
+                border-color: ramp.has-focus ? Colors.accent : Colors.border;
             }
             for stop[index] in root.value.stops: EditorGradientStopMarker {
                 style: root.style.marker;
@@ -79,7 +79,7 @@ export component InspectorGradientStops inherits Rectangle {
                 accessible-action-set-value(text) => {
                     if text.is-float() {
                         root.selected-index = index;
-                        FillSession.move-stop-position(text.to-float() / root.units);
+                        FillSession.move-stop-position((text.to-float() / root.units).clamp(0, 1));
                     }
                 }
                 accessible-action-default => {
@@ -132,7 +132,7 @@ export component InspectorGradientStops inherits Rectangle {
             InspectorSegment {
                 width: root.style.action-width; kind: "text"; label: "+";
                 accessible-label: @tr("Add gradient stop");
-                clicked => { FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops)); }
+                clicked => { FillSession.add-stop-position(Api.gradient-stop-gap(root.value.stops).clamp(0, 1)); }
             }
         }
         HorizontalLayout {
@@ -176,7 +176,7 @@ export component InspectorGradientStops inherits Rectangle {
                             accepted(text) => {
                                 if !text.is-float() { return false; }
                                 root.selected-index = index;
-                                return FillSession.move-stop-position(text.to-float() / root.units);
+                                return FillSession.move-stop-position((text.to-float() / root.units).clamp(0, 1));
                             }
                         }
                         InspectorColorValueField {

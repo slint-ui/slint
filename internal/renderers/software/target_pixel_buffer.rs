@@ -135,19 +135,17 @@ impl DrawTextureArgs {
                         stride,
                         size,
                     ),
-                    #[cfg(feature = "image-pixel-format-alpha-map")]
-                    SharedBufferData::SharedImage(SharedImageBuffer::AlphaMap {
-                        alpha, ..
-                    }) => TextureData::new(
-                        &alpha.as_bytes()[start..end],
-                        TexturePixelFormat::AlphaMap,
-                        stride,
-                        size,
-                    ),
                     SharedBufferData::AlphaMap { data, .. } => TextureData::new(
                         &data.as_slice()[start..end],
                         TexturePixelFormat::AlphaMap,
                         stride,
+                        size,
+                    ),
+                    #[cfg(feature = "image-owned-textures")]
+                    SharedBufferData::Texture { textures, texture } => TextureData::new(
+                        crate::scene::texture_pixels(&textures.data, texture, start..end),
+                        texture.format,
+                        stride * texture.format.bpp(),
                         size,
                     ),
                     SharedBufferData::SharedImage(_) => unreachable!(

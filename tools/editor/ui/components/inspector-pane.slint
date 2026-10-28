@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../style.slint";
+import { Api } from "../api.slint";
+import { CanvasPresetsSection } from "inspector/canvas-presets.slint";
 import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
     InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
-    InspectorOrientationSection, InspectorRangeSection,
+    InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection,
+    InspectorStandardButtonKindSection,
     InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
@@ -78,7 +81,9 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if InspectorContext.is-resizable-selection(): InspectorGeometrySection { }
+                if Api.selection.highlight-index < 0: CanvasPresetsSection { }
+
+                if InspectorContext.has-backend-rect(): InspectorGeometrySection { }
 
                 if (InspectorContext.is-root-selection() || InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection()): InspectorAppearanceSection {
                     pane-width: root.width;
@@ -94,9 +99,15 @@ export component InspectorPane inherits Rectangle {
                     popup-bottom: root.popup-bottom;
                 }
 
+                if InspectorContext.is-standard-button-selection(): InspectorStandardButtonKindSection {
+                    popup-bottom: root.popup-bottom;
+                }
+
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
                 if InspectorContext.is-slider-selection() || InspectorContext.is-spinbox-selection(): InspectorRangeSection { }
+
+                if InspectorContext.is-progress-selection(): InspectorProgressSection { }
 
                 if InspectorContext.has-orientation-selection(): InspectorOrientationSection {
                     popup-bottom: root.popup-bottom;
@@ -116,6 +127,8 @@ export component InspectorPane inherits Rectangle {
                 }
 
                 if InspectorContext.has-text-property-selection(): InspectorTextContentSection { }
+
+                if InspectorContext.has-placeholder-selection(): InspectorPlaceholderSection { }
 
                 if InspectorContext.is-text-selection(): InspectorTypographySection {
                     field-width: root.field-width;

@@ -292,6 +292,10 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    pub(crate) fn reduced_motion(self_rc: &ItemRc) -> bool {
+        self_rc.slint_context().motion_preference() == crate::MotionPreference::Reduced
+    }
+
     pub fn scroll_to(
         self: Pin<&Self>,
         self_rc: &ItemRc,
@@ -755,6 +759,17 @@ impl FlickableDataInner {
                     flicked =
                         self.scroll_move(flick, flick_rc, position, delta, &content_x, &content_y);
                     self.capture_events = Some(CaptureEvents::WheelMove);
+                } else if Flickable::reduced_motion(flick_rc) {
+                    // Mousewheel case with no phase, and the user asked for less motion
+                    let current_pos = LogicalPoint::from_lengths(content_x.get(), content_y.get());
+                    let target = self.scroll_to(
+                        flick,
+                        flick_rc,
+                        -(current_pos + delta),
+                        ScrollBehavior::Instant,
+                    );
+                    flicked = target != current_pos.to_vector();
+                    self.last_scroll_event = Some((crate::animations::current_tick(), position));
                 } else {
                     // Mousewheel case with no phase
                     // Add a short animation that covers the delta for smooth scrolling
@@ -764,41 +779,11 @@ impl FlickableDataInner {
                     // estimate.
                     //
                     // At the time of writing, in practice this means we must use a physics animation.
-                    let limit_x = Self::flick_limits(flick_rc, delta.x as f32, Dimension::X);
-                    let limit_y = Self::flick_limits(flick_rc, delta.y as f32, Dimension::Y);
                     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-
-                    let x_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
-                        (delta.x != Coord::default()).then(|| {
-                            Self::set_simulation(
-                                &content_x,
-                                FlickAnimation::create_animation(
-                                    FlickAnimationParameter::Distance {
-                                        delta: delta.x as f32,
-                                        duration: WHEEL_SCROLL_DURATION,
-                                    },
-                                    effective_bounce(flick, &geo, Dimension::X),
-                                    content_x.get().0 as f32,
-                                    limit_x,
-                                ),
-                            ) as Rc<RefCell<dyn PositionSimulation>>
-                        });
-
-                    let y_simulation: Option<Rc<RefCell<dyn PositionSimulation>>> =
-                        (delta.y != Coord::default()).then(|| {
-                            Self::set_simulation(
-                                &content_y,
-                                FlickAnimation::create_animation(
-                                    FlickAnimationParameter::Distance {
-                                        delta: delta.y as f32,
-                                        duration: WHEEL_SCROLL_DURATION,
-                                    },
-                                    effective_bounce(flick, &geo, Dimension::Y),
-                                    content_y.get().0 as f32,
-                                    limit_y,
-                                ),
-                            ) as Rc<RefCell<dyn PositionSimulation>>
-                        });
+                    let x_simulation =
+                        Self::wheel_simulation(flick, flick_rc, Dimension::X, delta.x, &geo);
+                    let y_simulation =
+                        Self::wheel_simulation(flick, flick_rc, Dimension::Y, delta.y, &geo);
 
                     if delta.x != 0 as Coord || delta.y != 0 as Coord {
                         self.pending_flicked = true;
@@ -970,6 +955,37 @@ impl FlickableDataInner {
         Self::move_within_limits(Some(self), flick_rc, !inside_bounds_x, !inside_bounds_y, &geo);
     }
 
+    /// Starts the animation for one axis of a wheel tick that has no phase.
+    fn wheel_simulation(
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+        dimension: Dimension,
+        delta: Coord,
+        geo: &LogicalRect,
+    ) -> Option<Rc<RefCell<dyn PositionSimulation>>> {
+        if delta == Coord::default() {
+            return None;
+        }
+        let content = flick.content(dimension);
+        let limit = Self::flick_limits(flick_rc, delta as f32, dimension);
+        let past_limit = (content.get().0 as f32 - limit.as_ref().get()) * delta as f32 > 0.;
+        if past_limit {
+            return Some(Self::spring_back(flick, flick_rc, dimension, geo, 0.));
+        }
+        Some(Self::set_simulation(
+            &content,
+            FlickAnimation::create_animation(
+                FlickAnimationParameter::Distance {
+                    delta: delta as f32,
+                    duration: WHEEL_SCROLL_DURATION,
+                },
+                effective_bounce(flick, geo, dimension),
+                content.get().0 as f32,
+                limit,
+            ),
+        ))
+    }
+
     /// Springs the content back to the limit it is beyond.
     /// `drag_velocity` is the pointer's velocity at the release.
     fn spring_back(
@@ -1014,6 +1030,15 @@ impl FlickableDataInner {
         dimension: Dimension,
         geo: &LogicalRect,
     ) {
+        if Flickable::reduced_motion(flick_rc) {
+            let current = LogicalPoint::from_lengths(flick.content_x(), flick.content_y());
+            let in_bounds = ensure_in_bound(flick, current, geo, false, false);
+            flick.content(dimension).set(match dimension {
+                Dimension::X => in_bounds.x_length(),
+                Dimension::Y => in_bounds.y_length(),
+            });
+            return;
+        }
         let simulation = Self::spring_back(flick, flick_rc, dimension, geo, 0.);
         let running = self.running_animation.get_or_insert_with(|| RunningSimulation {
             weak: flick_rc.downgrade(),
@@ -1029,7 +1054,11 @@ impl FlickableDataInner {
 
     /// `release_time` is when the pointer was released, on the clock of the tracked samples.
     fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc, release_time: Instant) {
-        if self.capture_events.is_some() {
+        if self.capture_events.is_some() && Flickable::reduced_motion(flick_rc) {
+            let released_at = LogicalPoint::from_lengths(flick.content_x(), flick.content_y());
+            let target = self.scroll_to(flick, flick_rc, -released_at, ScrollBehavior::Instant);
+            self.pending_flicked |= target != released_at.to_vector();
+        } else if self.capture_events.is_some() {
             let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
             let (inside_bounds_x, inside_bounds_y) = inside_bounds(
                 flick,
@@ -1125,7 +1154,7 @@ impl FlickableDataInner {
     ) -> LogicalVector {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
         let target = ensure_in_bound(flick, -position, &geo, false, false);
-        if scroll_behavior == ScrollBehavior::Instant {
+        if scroll_behavior == ScrollBehavior::Instant || Flickable::reduced_motion(flick_rc) {
             self.running_animation = None;
 
             flick.content_x.set(target.x_length());

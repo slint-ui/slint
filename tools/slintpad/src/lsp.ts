@@ -62,7 +62,7 @@ function configuration_from_url(): Map<string, any>[] {
     }
     const experimental = params.get("EXPERIMENTAL");
     if (experimental) {
-        obj.set("experimental", true);
+        obj.set("experimental", experimental.split(","));
     }
     obj.set("edition", edition_from_url(params));
     return [obj];

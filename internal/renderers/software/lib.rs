@@ -36,11 +36,14 @@ use euclid::Length;
 use fixed::Fixed;
 #[cfg(feature = "std")]
 use i_slint_core::api::PlatformError;
+#[cfg(feature = "image-owned-textures")]
+use i_slint_core::graphics::OwnedStorage;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
 use i_slint_core::graphics::boxshadow::{BoxShadowOptions, drop_shadow_bounding_rect};
 use i_slint_core::graphics::rendering_metrics_collector::RefreshMode;
 use i_slint_core::graphics::{BorderRadius, GradientStop, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{IntSize, StaticTexture};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, ItemRendererFeatures, PlainOrStyledText,
@@ -764,7 +767,12 @@ impl RendererSealed for SoftwareRenderer {
             }
         };
         let (longest_line_width, height) = with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                text_item.line_height_factor(),
+                scale_factor,
+            );
             layout.text_size(
                 &string,
                 max_width.map(|max_width| (max_width.cast() * scale_factor).cast()),
@@ -818,7 +826,7 @@ impl RendererSealed for SoftwareRenderer {
             }
         };
         let (min, max) = with_font!(&font, |font| {
-            fonts::text_layout_for_font(font, &font_request, scale_factor)
+            fonts::text_layout_for_font(font, &font_request, None, scale_factor)
                 .content_widths(&string, max_lines)
         });
         Some(i_slint_core::renderer::ContentWidths {
@@ -831,6 +839,7 @@ impl RendererSealed for SoftwareRenderer {
     fn text_line_height(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
+        line_height_factor: Option<f32>,
     ) -> Option<LogicalLength> {
         #[cfg(feature = "systemfonts")]
         {
@@ -839,17 +848,21 @@ impl RendererSealed for SoftwareRenderer {
             let mut font_ctx = slint_ctx.font_context().borrow_mut();
             let font = fonts::match_font(&font_request, scale_factor, &mut font_ctx);
             if uses_parley(&font) {
-                return sharedparley::text_line_height(&mut font_ctx, &font_request);
+                return sharedparley::text_line_height(
+                    &mut font_ctx,
+                    &font_request,
+                    line_height_factor,
+                );
             }
         }
         #[cfg(not(feature = "systemfonts"))]
-        let _ = font_request;
+        let _ = (font_request, line_height_factor);
         None
     }
 
     fn char_size(
         &self,
-        text_item: Pin<&dyn i_slint_core::item_rendering::HasFont>,
+        text_item: Pin<&dyn i_slint_core::item_rendering::RenderString>,
         item_rc: &i_slint_core::item_tree::ItemRc,
         ch: char,
     ) -> LogicalSize {
@@ -881,7 +894,12 @@ impl RendererSealed for SoftwareRenderer {
 
         let (longest_line_width, height) = with_font!(&font, |font| {
             let mut buf = [0u8, 0u8, 0u8, 0u8];
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                text_item.line_height_factor(),
+                scale_factor,
+            );
             layout.text_size(ch.encode_utf8(&mut buf), None, TextWrap::NoWrap, None)
         });
         (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
@@ -969,7 +987,12 @@ impl RendererSealed for SoftwareRenderer {
             .cast();
 
         let byte_offset = with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                i_slint_core::item_rendering::RenderString::line_height_factor(text_input),
+                scale_factor,
+            );
             let paragraph = text_input_query_paragraph(
                 text_input,
                 &visual_representation.text,
@@ -993,17 +1016,17 @@ impl RendererSealed for SoftwareRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         item_rc: &ItemRc,
     ) -> bool {
-        let (Some(scale_factor), Some(slint_ctx)) = (self.scale_factor(), self.slint_context())
-        else {
-            return false;
-        };
-        let font_request = text_input.font_request(item_rc);
-        let font = {
-            let mut font_ctx = slint_ctx.font_context().borrow_mut();
-            fonts::match_font(&font_request, scale_factor, &mut font_ctx)
-        };
+        self.has_parley_layout(text_input.font_request(item_rc))
+    }
 
-        uses_parley(&font)
+    // Answers for the mouse selection what `draw_text` decides for drawing.
+    #[cfg(feature = "systemfonts")]
+    fn text_has_parley_layout(
+        &self,
+        text: Pin<&dyn i_slint_core::item_rendering::RenderText>,
+        item_rc: &ItemRc,
+    ) -> bool {
+        self.has_parley_layout(text.font_request(item_rc))
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -1049,7 +1072,12 @@ impl RendererSealed for SoftwareRenderer {
         let visual_representation = text_input.visual_representation();
 
         let (cursor_position, band_offset, cursor_height) = with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                i_slint_core::item_rendering::RenderString::line_height_factor(text_input),
+                scale_factor,
+            );
             let paragraph = text_input_query_paragraph(
                 text_input,
                 &visual_representation.text,
@@ -1214,6 +1242,22 @@ fn parley_disabled() -> bool {
 #[cfg(feature = "systemfonts")]
 fn uses_parley(font: &fonts::Font) -> bool {
     matches!(font, fonts::Font::Vector(_)) && !parley_disabled()
+}
+
+#[cfg(feature = "systemfonts")]
+impl SoftwareRenderer {
+    /// Whether text in the font `font_request` asks for is laid out through parley.
+    fn has_parley_layout(&self, font_request: i_slint_core::graphics::FontRequest) -> bool {
+        let (Some(scale_factor), Some(slint_ctx)) = (self.scale_factor(), self.slint_context())
+        else {
+            return false;
+        };
+        let font = {
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(&font_request, scale_factor, &mut font_ctx)
+        };
+        uses_parley(&font)
+    }
 }
 
 /// The paragraph layout the cursor and hit-testing queries measure against.
@@ -2300,113 +2344,134 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 .cast()
                 .transformed(self.rotation);
 
-        match image_inner {
-            ImageInner::None => (),
-            ImageInner::StaticTextures(StaticTextures {
-                data,
-                textures,
-                size,
-                original_size,
-                ..
-            }) => {
-                let adjust_x = size.width as f32 / original_size.width as f32;
-                let adjust_y = size.height as f32 / original_size.height as f32;
-                let source_to_target_x = source_to_target_x / adjust_x;
-                let source_to_target_y = source_to_target_y / adjust_y;
-                let source_rect =
-                    source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().to_box2d().cast();
+        enum Pixels {
+            Static(&'static [u8]),
+            #[cfg(feature = "image-owned-textures")]
+            Owned(Rc<StaticTextures<OwnedStorage>>),
+        }
+        let mut draw_textures = |pixels: Pixels,
+                                 textures: &[StaticTexture],
+                                 size: IntSize,
+                                 original_size: IntSize| {
+            let adjust_x = size.width as f32 / original_size.width as f32;
+            let adjust_y = size.height as f32 / original_size.height as f32;
+            let source_to_target_x = source_to_target_x / adjust_x;
+            let source_to_target_y = source_to_target_y / adjust_y;
+            let source_rect =
+                source_rect.cast::<f32>().scale(adjust_x, adjust_y).round().to_box2d().cast();
 
-                for t in textures.as_slice() {
-                    let t_rect = t.rect.to_box2d();
-                    // That's the source rect in the whole image coordinate
-                    let Some(src_rect) = t_rect.intersection(&source_rect) else { continue };
+            for t in textures {
+                let t_rect = t.rect.to_box2d();
+                // That's the source rect in the whole image coordinate
+                let Some(src_rect) = t_rect.intersection(&source_rect) else { continue };
 
-                    let target_rect = if tiled.is_some() {
-                        euclid::Rect::new(offset, fit_size).round().cast::<i32>()
-                    } else {
-                        // The slice maps onto the fit rect `offset ..= offset + fit_size`;
-                        // this texture only covers `src_rect` of the slice's `source_rect`, so
-                        // inset each edge by the uncovered source amount. Edges reaching the
-                        // slice boundary keep the exact fit rect, so abutting slices share a
-                        // seamless edge (scaling each from its source extent drifted apart).
-                        let inset = |a: i32, b: i32, s2t: f32| (a - b) as f32 * s2t;
-                        euclid::Box2D::<f32, PhysicalPx>::new(
-                            euclid::point2(
-                                offset.x
-                                    + inset(src_rect.min.x, source_rect.min.x, source_to_target_x),
-                                offset.y
-                                    + inset(src_rect.min.y, source_rect.min.y, source_to_target_y),
-                            ),
-                            euclid::point2(
-                                offset.x + fit_size.width
-                                    - inset(source_rect.max.x, src_rect.max.x, source_to_target_x),
-                                offset.y + fit_size.height
-                                    - inset(source_rect.max.y, src_rect.max.y, source_to_target_y),
-                            ),
-                        )
-                        .round()
-                        .to_rect()
-                        .cast::<i32>()
-                    };
-                    let target_rect = target_rect.transformed(self.rotation).round();
-
-                    let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
-                        continue;
-                    };
-
-                    let pixel_stride = t.rect.width() as usize;
-                    let core::ops::Range { start, end } = compute_range_in_buffer(
-                        &PhysicalRect::from_untyped(
-                            &src_rect.to_rect().translate(-t.rect.origin.to_vector()).cast(),
+                let target_rect = if tiled.is_some() {
+                    euclid::Rect::new(offset, fit_size).round().cast::<i32>()
+                } else {
+                    // The slice maps onto the fit rect `offset ..= offset + fit_size`;
+                    // this texture only covers `src_rect` of the slice's `source_rect`, so
+                    // inset each edge by the uncovered source amount. Edges reaching the
+                    // slice boundary keep the exact fit rect, so abutting slices share a
+                    // seamless edge (scaling each from its source extent drifted apart).
+                    let inset = |a: i32, b: i32, s2t: f32| (a - b) as f32 * s2t;
+                    euclid::Box2D::<f32, PhysicalPx>::new(
+                        euclid::point2(
+                            offset.x + inset(src_rect.min.x, source_rect.min.x, source_to_target_x),
+                            offset.y + inset(src_rect.min.y, source_rect.min.y, source_to_target_y),
                         ),
-                        pixel_stride,
-                    );
-                    let bpp = t.format.bpp();
+                        euclid::point2(
+                            offset.x + fit_size.width
+                                - inset(source_rect.max.x, src_rect.max.x, source_to_target_x),
+                            offset.y + fit_size.height
+                                - inset(source_rect.max.y, src_rect.max.y, source_to_target_y),
+                        ),
+                    )
+                    .round()
+                    .to_rect()
+                    .cast::<i32>()
+                };
+                let target_rect = target_rect.transformed(self.rotation).round();
 
-                    let color = if colorize.alpha() > 0 { colorize } else { t.color };
-                    let alpha = if colorize.alpha() > 0 || t.format == TexturePixelFormat::AlphaMap
-                    {
-                        color.alpha() as u16 * global_alpha_u16 / 255
-                    } else {
-                        global_alpha_u16
-                    } as u8;
+                let Some(clipped_target) = physical_clip.intersection(&target_rect) else {
+                    continue;
+                };
 
-                    let tiling = tiled.map(|tile_o| {
-                        let src_o = src_rect.min - source_rect.min;
-                        let gap = (src_o) + (source_rect.max - src_rect.max);
-                        target_pixel_buffer::TilingInfo {
-                            offset_x: ((src_o.x as f32 - tile_o.x as f32) * source_to_target_x)
-                                .round() as _,
-                            offset_y: ((src_o.y as f32 - tile_o.y as f32) * source_to_target_y)
-                                .round() as _,
-                            scale_x: 1. / source_to_target_x,
-                            scale_y: 1. / source_to_target_y,
-                            gap_x: (gap.x as f32 * source_to_target_x).round() as _,
-                            gap_y: (gap.y as f32 * source_to_target_y).round() as _,
-                        }
-                    });
+                let pixel_stride = t.rect.width() as usize;
+                let texture_rect = PhysicalRect::from_untyped(
+                    &src_rect.to_rect().translate(-t.rect.origin.to_vector()).cast(),
+                );
 
-                    let t = target_pixel_buffer::DrawTextureArgs {
-                        data: target_pixel_buffer::TextureDataContainer::Static(
+                let color =
+                    if colorize.alpha() > 0 { colorize } else { Color::from_argb_encoded(t.color) };
+                let alpha = if colorize.alpha() > 0 || t.format == TexturePixelFormat::AlphaMap {
+                    color.alpha() as u16 * global_alpha_u16 / 255
+                } else {
+                    global_alpha_u16
+                } as u8;
+
+                let tiling = tiled.map(|tile_o| {
+                    let src_o = src_rect.min - source_rect.min;
+                    let gap = (src_o) + (source_rect.max - src_rect.max);
+                    target_pixel_buffer::TilingInfo {
+                        offset_x: ((src_o.x as f32 - tile_o.x as f32) * source_to_target_x).round()
+                            as _,
+                        offset_y: ((src_o.y as f32 - tile_o.y as f32) * source_to_target_y).round()
+                            as _,
+                        scale_x: 1. / source_to_target_x,
+                        scale_y: 1. / source_to_target_y,
+                        gap_x: (gap.x as f32 * source_to_target_x).round() as _,
+                        gap_y: (gap.y as f32 * source_to_target_y).round() as _,
+                    }
+                });
+
+                let t = target_pixel_buffer::DrawTextureArgs {
+                    data: match &pixels {
+                        Pixels::Static(data) => target_pixel_buffer::TextureDataContainer::Static(
                             target_pixel_buffer::TextureData::new(
-                                &data.as_slice()[t.index..][start * bpp..end * bpp],
+                                texture_pixels(
+                                    data,
+                                    t,
+                                    compute_range_in_buffer(&texture_rect, pixel_stride),
+                                ),
                                 t.format,
-                                pixel_stride * bpp,
+                                pixel_stride * t.format.bpp(),
                                 src_rect.size().cast(),
                             ),
                         ),
-                        colorize: (color.alpha() > 0).then_some(color),
-                        alpha,
-                        dst_x: target_rect.origin.x as _,
-                        dst_y: target_rect.origin.y as _,
-                        dst_width: target_rect.size.width as _,
-                        dst_height: target_rect.size.height as _,
-                        rotation: self.rotation.orientation,
-                        tiling,
-                    };
+                        #[cfg(feature = "image-owned-textures")]
+                        Pixels::Owned(textures) => {
+                            target_pixel_buffer::TextureDataContainer::Shared {
+                                buffer: SharedBufferData::Texture {
+                                    textures: textures.clone(),
+                                    texture: t.clone(),
+                                },
+                                source_rect: texture_rect,
+                            }
+                        }
+                    },
+                    colorize: (color.alpha() > 0).then_some(color),
+                    alpha,
+                    dst_x: target_rect.origin.x as _,
+                    dst_y: target_rect.origin.y as _,
+                    dst_width: target_rect.size.width as _,
+                    dst_height: target_rect.size.height as _,
+                    rotation: self.rotation.orientation,
+                    tiling,
+                };
 
-                    self.processor.process_target_texture(&t, clipped_target.cast());
-                }
+                self.processor.process_target_texture(&t, clipped_target.cast());
+            }
+        };
+
+        match image_inner {
+            ImageInner::None => (),
+            ImageInner::StaticTextures(StaticTextures { data, textures, size, original_size }) => {
+                draw_textures(Pixels::Static(data), textures, *size, *original_size)
+            }
+            #[cfg(feature = "image-owned-textures")]
+            ImageInner::OwnedTextures(owned) => {
+                let StaticTextures { textures, size, original_size, .. } = &**owned;
+                draw_textures(Pixels::Owned(owned.clone()), textures, *size, *original_size)
             }
 
             ImageInner::NineSlice(..) => unreachable!(),
@@ -2428,14 +2493,6 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
-                    #[cfg(feature = "image-pixel-format-alpha-map")]
-                    let colorize = if let SharedImageBuffer::AlphaMap { color, .. } = &buffer
-                        && colorize.alpha() == 0
-                    {
-                        *color
-                    } else {
-                        colorize
-                    };
                     let alpha = if colorize.alpha() > 0 {
                         colorize.alpha() as u16 * global_alpha_u16 / 255
                     } else {
@@ -2933,9 +2990,19 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
 
         let (horizontal_alignment, vertical_alignment) = text.alignment();
         let max_lines = text.line_limit();
+        let selection = text.selection().map(|selection| SelectionInfo {
+            selection_background: self.alpha_color(selection.background),
+            selection_color: self.alpha_color(selection.foreground),
+            selection: selection.range,
+        });
 
         with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, self.scale_factor);
+            let layout = fonts::text_layout_for_font(
+                font,
+                &font_request,
+                text.line_height_factor(),
+                self.scale_factor,
+            );
             let paragraph = TextParagraphLayout {
                 string: &string,
                 layout,
@@ -2949,7 +3016,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 max_lines,
             };
 
-            self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
+            self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
         });
     }
 
@@ -3007,7 +3074,12 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let cursor_pos_and_height = with_font!(&font, |font| {
             let paragraph = TextParagraphLayout {
                 string: &text_visual_representation.text,
-                layout: fonts::text_layout_for_font(font, &font_request, self.scale_factor),
+                layout: fonts::text_layout_for_font(
+                    font,
+                    &font_request,
+                    i_slint_core::item_rendering::RenderString::line_height_factor(text_input),
+                    self.scale_factor,
+                ),
                 max_width: max_size.width_length(),
                 max_height: max_size.height_length(),
                 horizontal_alignment: text_input.horizontal_alignment(),
@@ -3336,7 +3408,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let clip = self.current_state.clip.cast() * self.scale_factor;
 
         with_font!(&font, |font| {
-            let layout = fonts::text_layout_for_font(font, &font_request, self.scale_factor);
+            let layout = fonts::text_layout_for_font(font, &font_request, None, self.scale_factor);
 
             let paragraph = TextParagraphLayout {
                 string,

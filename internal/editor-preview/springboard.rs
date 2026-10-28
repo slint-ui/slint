@@ -29,10 +29,14 @@ use remote::{DiscoveredViewer, Discovery, DiscoveryEvent};
 use remote_connection::{ConnectionEvent, RemoteConnection};
 use settings::{NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
+pub type LocalPreviewArguments = Arc<dyn Fn() -> oneshot::Receiver<Vec<OsString>> + Send + Sync>;
+
 #[derive(Clone)]
 pub struct LocalPreviewConfig {
     pub executable: PathBuf,
     pub arguments: Vec<OsString>,
+    pub prepare_arguments: Option<LocalPreviewArguments>,
+    pub on_started: Option<crate::child_process::PreviewStartedCallback>,
 }
 
 type SpringboardAction = Box<dyn FnOnce(&mut SpringboardTask) + Send + 'static>;
@@ -66,6 +70,7 @@ enum Endpoint {
 
 struct SpringboardTask {
     local_preview: LocalPreviewConfig,
+    pending_local_launch: Option<oneshot::Receiver<Vec<OsString>>>,
     to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
     global: slint::Weak<ui::Springboard<'static>>,
     displayed_endpoints: Arc<Mutex<Vec<EndpointIdentity>>>,
@@ -118,6 +123,7 @@ impl Springboard {
         });
         let task = SpringboardTask {
             local_preview,
+            pending_local_launch: None,
             to_editor,
             global,
             displayed_endpoints,
@@ -189,6 +195,18 @@ impl SpringboardTask {
                     Some(action) => action(&mut self),
                     None => break,
                 },
+                arguments = async {
+                    match &mut self.pending_local_launch {
+                        Some(arguments) => arguments.await.ok(),
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    self.pending_local_launch = None;
+                    match arguments {
+                        Some(arguments) => self.launch_local(arguments),
+                        None => self.fail_endpoint("Cannot prepare Local preview".into()),
+                    }
+                }
                 event = receive_endpoint(&mut self.preview) => {
                     match event {
                         Some(event) => self.handle_connection(event),
@@ -326,6 +344,7 @@ impl SpringboardTask {
             }
         };
         self.preview = None;
+        self.pending_local_launch = None;
         self.selected = Some(identity.clone());
         self.store_last_selected(named);
         self.error.clear();
@@ -342,25 +361,34 @@ impl SpringboardTask {
             self.state = ui::SpringboardState::EndpointSelected;
             self.connection_state = ui::ConnectionState::Connecting;
         } else {
-            let (sender, receiver) = mpsc::unbounded_channel();
-            let preview = ChildProcessLspToPreview::new(
-                self.local_preview.executable.clone(),
-                self.local_preview.arguments.clone(),
-                sender,
-            );
-            match preview.start_preview() {
-                Ok(()) => {
-                    self.preview = Some(Endpoint::Local { preview, receiver });
-                    self.state = ui::SpringboardState::EndpointSelected;
-                }
-                Err(error) => {
-                    self.selected = None;
-                    self.state = ui::SpringboardState::Idle;
-                    self.error = format!("Failed to launch Local preview: {error}");
-                }
+            if let Some(prepare_arguments) = &self.local_preview.prepare_arguments {
+                self.pending_local_launch = Some(prepare_arguments());
+                self.state = ui::SpringboardState::Idle;
+                self.connection_state = ui::ConnectionState::Connecting;
+            } else {
+                self.launch_local(self.local_preview.arguments.clone());
             }
-            self.connection_state = ui::ConnectionState::None;
         }
+        self.update_ui();
+    }
+
+    fn launch_local(&mut self, arguments: Vec<OsString>) {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let preview =
+            ChildProcessLspToPreview::new(self.local_preview.executable.clone(), arguments, sender)
+                .with_started_callback(self.local_preview.on_started.clone());
+        match preview.start_preview() {
+            Ok(()) => {
+                self.preview = Some(Endpoint::Local { preview, receiver });
+                self.state = ui::SpringboardState::EndpointSelected;
+            }
+            Err(error) => {
+                self.selected = None;
+                self.state = ui::SpringboardState::Idle;
+                self.error = format!("Failed to launch Local preview: {error}");
+            }
+        }
+        self.connection_state = ui::ConnectionState::None;
         self.update_ui();
     }
 
@@ -483,6 +511,7 @@ impl SpringboardTask {
     fn close(&mut self) {
         self.error.clear();
         self.preview = None;
+        self.pending_local_launch = None;
         self.discovery = None;
         self.viewers.clear();
         self.advertised.clear();
@@ -669,7 +698,7 @@ mod tests {
         let (executable, arguments) = fixture_config(name);
         let (sender, receiver) = mpsc::unbounded_channel();
         let controller = Springboard::new(
-            LocalPreviewConfig { executable, arguments },
+            LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_started: None },
             sender,
             Default::default(),
         );
@@ -741,6 +770,55 @@ mod tests {
             panic!("Expected protocol echo");
         };
         serde_json::from_str(&message).unwrap()
+    }
+
+    #[tokio::test]
+    async fn local_launch_requests_fresh_arguments_and_stop_cancels_preparation() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (requests, mut preparations) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| {
+                        task.local_preview.prepare_arguments = Some(Arc::new(move || {
+                            let (sender, receiver) = oneshot::channel();
+                            requests.send(sender).unwrap();
+                            receiver
+                        }));
+                    }))
+                    .unwrap();
+                let mut last_process = None;
+                for cancelled in [true, false, false] {
+                    controller.start();
+                    assert_user_setting_request(&mut receiver).await;
+                    assert!(preparations.try_recv().is_err());
+                    select(&controller, 0);
+                    assert_user_setting_set(&mut receiver).await;
+                    let preparation = tokio::time::timeout(
+                        std::time::Duration::from_secs(5),
+                        preparations.recv(),
+                    )
+                    .await
+                    .unwrap()
+                    .unwrap();
+                    assert!(inspect(&controller, |task| task.preview.is_none()).await);
+                    assert!(receiver.try_recv().is_err());
+                    let (_, arguments) = fixture_config("echo_child");
+                    if cancelled {
+                        controller.shutdown().await;
+                        assert!(preparation.send(arguments).is_err());
+                    } else {
+                        preparation.send(arguments).unwrap();
+                        let process = started(&mut receiver).await;
+                        assert_ne!(last_process, Some(process));
+                        last_process = Some(process);
+                        controller.shutdown().await;
+                    }
+                    assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                }
+            })
+            .await;
     }
 
     #[tokio::test]
@@ -1143,16 +1221,17 @@ mod tests {
             controller.send(&LspToPreviewMessage::OpenProject { root: Some(manifest.join(".").unwrap()) });
             let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
             controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window { ComponentContainer {} }".into() });
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into() });
             controller.send(&LspToPreviewMessage::ShowPreview(target.clone()));
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ShowPreview { .. })).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)));
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","enable-experimental-features":false}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","experimental-features":[]}"#.into() });
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
-            for (enable_experimental, succeeds) in [(Some(true), true), (None, false)] {
+            let component_container = i_slint_compiler::ExperimentalFeature::ComponentContainer.into();
+            for (experimental_features, succeeds) in [(Some(component_container), true), (None, false)] {
                 let mut config = i_slint_live_preview::protocol::PreviewConfig::default();
-                config.overrides.project.enable_experimental_features = enable_experimental;
+                config.overrides.project.experimental_features = experimental_features;
                 config.overrides.debug_info = Some(true);
                 controller.send(&LspToPreviewMessage::SetConfiguration { config });
                 viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;

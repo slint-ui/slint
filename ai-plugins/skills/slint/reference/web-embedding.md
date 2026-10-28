@@ -39,14 +39,18 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
   `data-slint-auto-resize-to-preferred="true"` on the canvas follows the preferred size.
 - `std-widgets.slint` and a default font are built in.
   Page fonts don't reach the canvas: call `register_font_from_memory(bytes)` before compiling.
-- `compile_from_string_with_style(source, url, "fluent", null)` picks a style.
-  The third argument of `compile_from_string`, and the fourth of `compile_from_string_with_style`, loads imports: `(url) => Promise<string>`.
+- `compile_from_string_with_style(source, url, "fluent")` picks a style.
+- After the URL, or the style, both compile functions take optional loaders:
+  - imports: `(url) => Promise<string | null>`, with `null` for a missing file
+  - fonts: `(url) => Promise<Uint8Array>`
 - The interpreter compiles with the [edition](https://docs.slint.dev/latest/docs/slint/guide/language/concepts/editions/) of its own release.
-  The sixth argument of `compile_from_string_with_style`, such as `"1.18"`, selects another one.
-  Pass `undefined` for the fifth, the resource loader, to reach it.
-- Images don't go through that callback.
-  With a URL as the base, such as `https://…`, relative `@image-url` paths resolve to URLs that `<img>` elements load.
-  With a file path as the base, or with an absolute `@image-url` path, the image doesn't load.
+  The next argument of `compile_from_string_with_style`, such as `"1.18"`, selects another one.
+- The last argument of both is the URL of the directory with the `slint-project.json` to apply, read through the import loader.
+  Its `slint-edition` takes precedence.
+- Images don't go through the import loader.
+  With a URL as the base, such as `https://…`, `@image-url` paths resolve to URLs that `<img>` elements load.
+  A path from the root, such as `/img/logo.png`, resolves on the host of the base URL.
+  With a file path as the base, the image doesn't load.
 
 ## Pitfalls
 

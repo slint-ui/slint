@@ -15,7 +15,10 @@ pub fn setup(api: &ui::Api<'_>) {
     api.on_fill_expression(fill_expression);
     api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
     api.on_radial_gradient_axis(super::radial_gradient::editing_axis);
+    api.on_radial_gradient_y_axis(super::radial_gradient::editing_y_axis);
     api.on_remap_radial_gradient(super::radial_gradient::remap);
+    api.on_resize_radial_gradient_x(super::radial_gradient::resize_x);
+    api.on_remap_radial_gradient_y(super::radial_gradient::remap_y);
     api.on_conic_gradient_axis(super::conic_gradient::editing_axis);
     api.on_remap_conic_gradient(super::conic_gradient::remap);
     api.on_conic_gradient_point(super::conic_gradient::point);
@@ -238,7 +241,6 @@ pub fn create_brush(
     }
 }
 
-/// Returns `None` for a brush the fill editor can't represent, such as an elliptical gradient.
 pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
     let mut fill = ui::FillData::default();
     let stops: Vec<_> = match brush {
@@ -252,16 +254,16 @@ pub fn fill_from_brush(brush: slint::Brush) -> Option<ui::FillData> {
             g.stops().copied().collect()
         }
         slint::Brush::RadialGradient(g) => {
-            if !g.is_circle() {
-                return None;
-            }
             fill.kind = ui::BrushKind::Radial;
+            fill.radial_ellipse = !g.is_circle();
             let center = g.center_or_default(0., 0.);
             fill.custom_center = center == g.center_or_default(2., 2.);
             (fill.center_x, fill.center_y) = center;
-            let radius = g.explicit_radii().map(|(r, _)| r);
-            fill.custom_radius = radius.is_some();
-            fill.radius = radius.unwrap_or_default();
+            if let Some((radius_x, radius_y)) = g.explicit_radii() {
+                fill.custom_radius = true;
+                fill.radius = radius_x;
+                fill.radius_y = radius_y;
+            }
             g.stops().copied().collect()
         }
         slint::Brush::ConicGradient(g) => {
@@ -287,11 +289,18 @@ pub fn fill_brush(fill: ui::FillData) -> slint::Brush {
     let brush = create_brush(fill.kind, fill.angle, fill.color, fill.stops);
     match brush {
         slint::Brush::RadialGradient(mut g) => {
+            if fill.radial_ellipse {
+                g = i_slint_core::graphics::RadialGradientBrush::new_ellipse(g.stops().copied());
+            }
             if fill.custom_center {
                 g = g.with_center(fill.center_x, fill.center_y);
             }
             if fill.custom_radius {
-                g = g.with_radius(fill.radius);
+                g = if fill.radial_ellipse {
+                    g.with_radii(fill.radius, fill.radius_y)
+                } else {
+                    g.with_radius(fill.radius)
+                };
             }
             slint::Brush::RadialGradient(g)
         }
@@ -345,9 +354,18 @@ pub fn fill_expression(fill: ui::FillData) -> slint::SharedString {
         String::new()
     };
     if fill.kind == ui::BrushKind::Radial {
-        let radius = if fill.custom_radius { format!(" {}px", fill.radius) } else { String::new() };
+        let radius = if fill.custom_radius {
+            if fill.radial_ellipse {
+                format!(" {}px {}px", fill.radius, fill.radius_y)
+            } else {
+                format!(" {}px", fill.radius)
+            }
+        } else {
+            String::new()
+        };
+        let shape = if fill.radial_ellipse { "ellipse" } else { "circle" };
         slint::format!(
-            "@radial-gradient(circle{radius}{center}{})",
+            "@radial-gradient({shape}{radius}{center}{})",
             stops
                 .iter()
                 .map(|s| format!(
@@ -605,6 +623,37 @@ mod tests {
 
     fn make_empty_model() -> ModelRc<ui::GradientStop> {
         Rc::new(VecModel::default()).into()
+    }
+
+    #[test]
+    fn elliptical_radial_fill_preserves_both_radii() {
+        let fill = ui::FillData {
+            kind: ui::BrushKind::Radial,
+            radial_ellipse: true,
+            custom_center: true,
+            center_x: 25.,
+            center_y: 35.,
+            custom_radius: true,
+            radius: 120.,
+            radius_y: 40.,
+            stops: Rc::new(VecModel::from(vec![
+                ui::GradientStop { color: slint::Color::from_rgb_u8(255, 0, 0), position: 0. },
+                ui::GradientStop { color: slint::Color::from_rgb_u8(0, 0, 255), position: 1. },
+            ]))
+            .into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            super::fill_expression(fill.clone()).as_str(),
+            "@radial-gradient(ellipse 120px 40px at 25px 35px, #ff0000 0%, #0000ff 100%)"
+        );
+        let slint::Brush::RadialGradient(brush) = super::fill_brush(fill) else {
+            panic!("expected radial brush")
+        };
+        assert_eq!(brush.radii_or_default(200., 100.), (120., 40.));
+        let parsed = super::fill_from_brush(slint::Brush::RadialGradient(brush)).unwrap();
+        assert!(parsed.radial_ellipse);
+        assert_eq!((parsed.radius, parsed.radius_y), (120., 40.));
     }
 
     #[test]

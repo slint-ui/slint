@@ -25,11 +25,6 @@ on:
         description: "Three-part version to package instead of the slint-editor one, e.g. 1.99.0 (release channel only)"
         required: false
         type: string
-      save_if:
-        description: "Condition to save the cache"
-        required: false
-        type: boolean
-        default: true
 
   workflow_call:
     inputs:
@@ -79,7 +74,7 @@ jobs:
           key: visual-editor-windows-msix-${{ matrix.arch }}
           toolchain: stable
           target: ${{ matrix.target }}
-          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
 
       - name: Build app for Windows
         shell: pwsh

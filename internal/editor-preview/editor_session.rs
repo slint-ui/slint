@@ -6,7 +6,6 @@
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::project_file::{Overrides, ProjectFile, ProjectFileData};
-#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
@@ -23,11 +22,26 @@ use std::rc::Rc;
 pub type VersionedDiagnostics = Vec<(Url, SourceFileVersion, Vec<lsp_types::Diagnostic>)>;
 
 pub struct PreviewConnection {
-    pub to_preview: Rc<crate::LspToPreviews>,
-    pub project_root: std::cell::RefCell<Option<Url>>,
+    to_preview: Rc<crate::LspToPreviews>,
+    project_root: Option<Url>,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: Option<PreviewComponent>,
+    to_show: Option<PreviewComponent>,
+}
+
+impl PreviewConnection {
+    pub fn project_root(&self) -> Option<&Url> {
+        self.project_root.as_ref()
+    }
+
+    pub fn to_preview(&self) -> &Rc<crate::LspToPreviews> {
+        &self.to_preview
+    }
+
+    #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+    pub fn component(&self) -> Option<&PreviewComponent> {
+        self.to_show.as_ref()
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -179,7 +193,8 @@ pub struct EditorSession {
     pub preview_config: PreviewConfig,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub previews: Vec<PreviewConnection>,
+    previews: Vec<PreviewConnection>,
+    preview_destinations: Rc<std::cell::RefCell<Vec<Rc<crate::LspToPreviews>>>>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
@@ -194,12 +209,12 @@ pub struct EditorSession {
 }
 
 impl EditorSession {
-    pub fn primary_preview(&self) -> &PreviewConnection {
-        self.previews.first().expect("EditorSession must have at least one preview")
+    pub fn previews(&self) -> &[PreviewConnection] {
+        &self.previews
     }
 
-    pub fn primary_preview_mut(&mut self) -> &mut PreviewConnection {
-        self.previews.first_mut().expect("EditorSession must have at least one preview")
+    pub fn primary_preview(&self) -> &PreviewConnection {
+        self.previews.first().expect("EditorSession must have at least one preview")
     }
 
     pub fn preview(&self, preview_index: usize) -> Option<&PreviewConnection> {
@@ -213,7 +228,8 @@ impl EditorSession {
         preview
     }
 
-    pub fn preview_mut(&mut self, preview_index: usize) -> Option<&mut PreviewConnection> {
+    #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+    fn preview_mut(&mut self, preview_index: usize) -> Option<&mut PreviewConnection> {
         let preview_count = self.previews.len();
         let preview = self.previews.get_mut(preview_index);
         if preview.is_none() {
@@ -226,9 +242,6 @@ impl EditorSession {
 
     pub fn send_to_preview(&self, preview_index: usize, message: &LspToPreviewMessage) {
         let Some(preview) = self.preview(preview_index) else { return };
-        if let LspToPreviewMessage::OpenProject { root } = message {
-            preview.project_root.replace(root.clone());
-        }
         preview.to_preview.send(message);
     }
 
@@ -238,22 +251,49 @@ impl EditorSession {
         }
     }
 
-    pub fn new(document_cache: crate::DocumentCache, to_preview: Rc<crate::LspToPreviews>) -> Self {
-        Self::with_previews(
-            document_cache,
-            vec![PreviewConnection {
-                to_preview,
-                project_root: Default::default(),
-                #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-                to_show: None,
-            }],
-        )
+    pub fn new(config: crate::document_cache::CompilerConfiguration) -> Self {
+        Self::from_document_cache(crate::DocumentCache::new(config))
     }
 
-    pub fn with_previews(
-        document_cache: crate::DocumentCache,
-        previews: Vec<PreviewConnection>,
-    ) -> Self {
+    fn from_document_cache(mut document_cache: crate::DocumentCache) -> Self {
+        let preview_destinations =
+            Rc::new(std::cell::RefCell::new(Vec::<Rc<crate::LspToPreviews>>::new()));
+        let config = document_cache.configuration_with_import_callback();
+        let original_callback = config.open_import_callback;
+        let destinations = preview_destinations.clone();
+        let callback: crate::document_cache::OpenImportCallback = Rc::new(move |path| {
+            let original_callback = original_callback.clone();
+            let destinations = destinations.clone();
+            Box::pin(async move {
+                let contents = match original_callback {
+                    Some(callback) => callback(path.clone()).await,
+                    #[cfg(not(target_arch = "wasm32"))]
+                    None => path
+                        .as_native_path()
+                        .map(|_| path.read_to_string().map(|text| (None, text))),
+                    #[cfg(target_arch = "wasm32")]
+                    None => None,
+                };
+                if let Some(url) = path.to_url()
+                    && !path.is_builtin()
+                    && let Some(contents) = &contents
+                {
+                    let to_previews = destinations.borrow();
+                    for to_preview in to_previews.iter() {
+                        let message = match contents {
+                            Ok((version, text)) => &LspToPreviewMessage::SetContents {
+                                url: VersionedUrl::new(url.clone(), *version),
+                                contents: text.as_bytes().to_vec(),
+                            },
+                            Err(_) => &LspToPreviewMessage::ForgetFile { url: url.clone() },
+                        };
+                        to_preview.send(message);
+                    }
+                }
+                contents
+            })
+        });
+        document_cache.set_open_import_callback(callback);
         let compiler_config_defaults = document_cache.configuration_with_import_callback();
         let preview_config = PreviewConfig {
             format_utf8: compiler_config_defaults.format == crate::ByteFormat::Utf8,
@@ -263,7 +303,8 @@ impl EditorSession {
             document_cache,
             preview_config,
             open_urls: Default::default(),
-            previews,
+            previews: Default::default(),
+            preview_destinations,
             pending_recompile: Default::default(),
             compiler_config_defaults,
             startup_config_overrides: Default::default(),
@@ -272,6 +313,50 @@ impl EditorSession {
             active_projects: Default::default(),
             project_file_paths: Default::default(),
         }
+    }
+
+    /// Registers a preview and its initial selection without sending messages or scheduling a reload.
+    pub fn attach_preview(
+        &mut self,
+        to_preview: Rc<crate::LspToPreviews>,
+        component: Option<PreviewComponent>,
+        project_root: Option<Url>,
+    ) -> usize {
+        let preview_index = self.previews.len();
+        self.preview_destinations.borrow_mut().push(to_preview.clone());
+        self.previews.push(PreviewConnection {
+            to_preview,
+            project_root,
+            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+            to_show: component,
+        });
+        #[cfg(not(any(feature = "preview-external", feature = "preview-engine")))]
+        let _ = component;
+        preview_index
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn replace_preview_transport(
+        &mut self,
+        preview_index: usize,
+        to_preview: Rc<crate::LspToPreviews>,
+    ) {
+        if let Some(preview) = self.previews.get_mut(preview_index) {
+            preview.to_preview = to_preview.clone();
+            self.preview_destinations.borrow_mut()[preview_index] = to_preview;
+        }
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn with_previews(
+        document_cache: crate::DocumentCache,
+        to_previews: Vec<Rc<crate::LspToPreviews>>,
+    ) -> Self {
+        let mut session = Self::from_document_cache(document_cache);
+        for to_preview in to_previews {
+            session.attach_preview(to_preview, None, None);
+        }
+        session
     }
 
     pub fn set_startup_config_overrides(&mut self, overrides: SessionConfigOverrides) {
@@ -337,10 +422,11 @@ impl EditorSession {
         let ProjectFileData {
             mut include_paths,
             library_paths,
-            enable_experimental_features,
+            experimental_features,
             slint_edition,
             schema: _,
             main: _,
+            metadata: (),
         } = overrides;
         let override_source = |workspace_supplied| {
             if workspace_supplied {
@@ -360,8 +446,8 @@ impl EditorSession {
                 .map(|(name, path)| (name, (path, library_source.unwrap().to_string())))
                 .collect::<HashMap<_, _>>()
         });
-        let mut enable_experimental = enable_experimental_features.map(|value| {
-            (value, override_source(workspace.enable_experimental_features.is_some()).to_string())
+        let mut experimental_features = experimental_features.map(|value| {
+            (value, override_source(workspace.experimental_features.is_some()).to_string())
         });
         let mut edition = slint_edition
             .map(|value| (value, override_source(workspace.slint_edition.is_some()).to_string()));
@@ -376,10 +462,11 @@ impl EditorSession {
                 let ProjectFileData {
                     include_paths: project_include_paths,
                     library_paths: project_library_paths,
-                    enable_experimental_features: project_enable_experimental,
+                    experimental_features: project_experimental_features,
                     slint_edition: project_edition,
                     schema: _,
                     main: _,
+                    metadata: (),
                 } = project.resolved_data();
                 let source = format!("project file {}", project.source_path());
                 let mut warn = |setting: String, selected: String, source: &str| {
@@ -407,14 +494,16 @@ impl EditorSession {
                     &mut warn,
                 );
                 keep_first(
-                    &mut enable_experimental,
-                    project_enable_experimental,
+                    &mut experimental_features,
+                    project_experimental_features,
                     &source,
                     "experimental features",
                     &mut warn,
                 );
                 keep_first(&mut edition, project_edition, &source, "slint-edition", &mut warn);
-                if let Some(warning) = project.slint_edition().behavior_change_warning() {
+                if let Some(warning) =
+                    project.slint_edition().behavior_change_warning("slint-edition")
+                {
                     let mut edition_diagnostics = BuildDiagnostics::default();
                     edition_diagnostics.push_warning_with_span(warning, project.edition_location());
                     diagnostics.extend(edition_diagnostics.iter().map(|d| {
@@ -437,10 +526,11 @@ impl EditorSession {
                 include_paths,
                 library_paths: library_paths
                     .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
-                enable_experimental_features: enable_experimental.map(|(enabled, _)| enabled),
+                experimental_features: experimental_features.map(|(features, _)| features),
                 slint_edition: edition.map(|(version, _)| version),
                 schema: None,
                 main: None,
+                metadata: (),
             },
             project_diagnostics,
         )
@@ -701,7 +791,7 @@ impl EditorSession {
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     pub fn send_state_to_preview(&self, preview_index: usize) {
         let Some(preview) = self.preview(preview_index) else { return };
-        let root = preview.project_root.borrow().clone();
+        let root = preview.project_root.clone();
         preview.to_preview.send(&LspToPreviewMessage::OpenProject { root });
         let mut doc_count = 0;
         #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
@@ -863,12 +953,23 @@ impl EditorSession {
     }
 
     #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-    pub fn show_preview(&mut self, preview_index: usize, component: PreviewComponent) {
+    pub fn show_preview(
+        &mut self,
+        preview_index: usize,
+        component: PreviewComponent,
+        project_root: Option<Url>,
+    ) {
         let component_url =
             SourcePath::from_url(&component.url).to_url().unwrap_or_else(|| component.url.clone());
         let Some(preview) = self.preview_mut(preview_index) else { return };
+        let root_changed = preview.project_root != project_root;
+        preview.project_root = project_root;
         preview.to_show = Some(component.clone());
-        preview.to_preview.send(&LspToPreviewMessage::ShowPreview(component));
+        if root_changed {
+            self.send_state_to_preview(preview_index);
+        } else {
+            self.send_to_preview(preview_index, &LspToPreviewMessage::ShowPreview(component));
+        }
         self.pending_recompile.insert(component_url);
     }
 
@@ -1159,11 +1260,17 @@ impl EditorSession {
             tracing::trace!("Ignoring file watcher event for open document: {url}");
             return Ok(Default::default());
         }
-        if let Some(path) = SourcePath::from_url(&url).into_native_path()
-            && self.active_project_file_paths().any(|active_path| active_path == path)
-        {
-            tracing::debug!("Active project file changed: {url} (type: {typ:?})");
-            return self.reload_active_project_file(&path, typ).await;
+        if let Some(path) = SourcePath::from_url(&url).into_native_path() {
+            if self.active_project_file_paths().any(|active_path| active_path == path) {
+                tracing::debug!("Active project file changed: {url} (type: {typ:?})");
+                return self.reload_active_project_file(&path, typ).await;
+            }
+            if i_slint_compiler::project_file::is_project_file(&path)
+                && typ != FileChangeKind::Deleted
+            {
+                let contents = std::fs::read(&path)?;
+                return self.update_project_file_contents(path, contents, None).await;
+            }
         }
 
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
@@ -1225,22 +1332,23 @@ pub fn collect_diagnostics(
 #[cfg(all(test, any(feature = "preview-external", feature = "preview-engine")))]
 mod preview_tests {
     use super::*;
+    use i_slint_compiler::{ExperimentalFeature, ExperimentalFeatures};
 
     #[test]
     fn initial_preview_configuration_sends_no_implicit_overrides() {
-        for enable_experimental in [true, false] {
+        for experimental_features in [ExperimentalFeatures::all(), Default::default()] {
             let mut compiler_config = crate::document_cache::CompilerConfiguration::default();
             compiler_config.compiler_config.style = Some("fluent".into());
             compiler_config.compiler_config.include_paths = vec![PathBuf::from("/include")];
             compiler_config.compiler_config.library_paths =
                 HashMap::from([("widgets".into(), PathBuf::from("/widgets"))]);
-            compiler_config.compiler_config.enable_experimental = enable_experimental;
+            compiler_config.compiler_config.experimental_features = experimental_features;
             compiler_config.compiler_config.edition =
                 Some(i_slint_compiler::project_file::SlintEdition::V1_19);
             compiler_config.format = crate::ByteFormat::Utf16;
             let (to_preview, messages) = crate::test::preview_capture();
-            let session =
-                EditorSession::new(crate::DocumentCache::new(compiler_config), to_preview);
+            let mut session = EditorSession::new(compiler_config);
+            session.attach_preview(to_preview, None, None);
 
             session.send_state_to_preview(0);
 
@@ -1263,14 +1371,7 @@ mod preview_tests {
     fn session_with_recording_previews()
     -> (EditorSession, [crate::test::CapturedPreviewMessages; 2]) {
         let captures = std::array::from_fn(|_| crate::test::preview_capture());
-        let previews = captures
-            .iter()
-            .map(|(to_preview, _)| PreviewConnection {
-                to_preview: to_preview.clone(),
-                project_root: Default::default(),
-                to_show: None,
-            })
-            .collect();
+        let previews = captures.iter().map(|(to_preview, _)| to_preview.clone()).collect();
         let messages = captures.map(|(_, messages)| messages);
         let session = EditorSession::with_previews(crate::test::empty_document_cache(), previews);
         (session, messages)
@@ -1339,7 +1440,7 @@ mod preview_tests {
         for (version, manifest, expected) in [
             (1, r#"{"slint-edition":"1.19"}"#, true),
             (2, r#"{"slint-edition":"1.19"}"#, false),
-            (3, r#"{"slint-edition":"1.19","enable-experimental-features":false}"#, true),
+            (3, r#"{"slint-edition":"1.19","experimental-features":[]}"#, true),
         ] {
             std::fs::write(&manifest_path, manifest).unwrap();
             for messages in &messages {
@@ -1366,7 +1467,7 @@ mod preview_tests {
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
-            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#,
+            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#,
         )
         .unwrap();
         session.set_startup_config_overrides(SessionConfigOverrides {
@@ -1394,8 +1495,8 @@ mod preview_tests {
         assert_eq!(session.preview_config.hide_ui, Some(true));
         assert_eq!(session.preview_config.overrides.style, None);
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
-            true
+            session.document_cache.compiler_configuration().compiler_config.experimental_features,
+            ExperimentalFeatures::from(ExperimentalFeature::Match)
         );
         for messages in messages {
             assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::SetConfiguration { config } if config.overrides == expected.compiler)));
@@ -1421,7 +1522,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
         for (index, source) in [
-            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#,
+            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#,
             "{invalid",
             "// buffer comment\n{\"slint-edition\":\"1.19\"}",
         ]
@@ -1450,11 +1551,8 @@ mod preview_tests {
             for messages in &messages {
                 assert_project_contents(messages, &url, source, version);
             }
-            std::fs::write(
-                &path,
-                r#"{"slint-edition":"1.19","enable-experimental-features":false}"#,
-            )
-            .unwrap();
+            std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[]}"#)
+                .unwrap();
             for (preview_index, messages) in messages.iter().enumerate() {
                 messages.borrow_mut().clear();
                 session.send_state_to_preview(preview_index);
@@ -1474,7 +1572,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         assert!(!path.exists());
         assert!(SourcePath::from_url(&url).as_native_path().is_some());
-        let contents = r#"{"slint-edition":"1.19","enable-experimental-features":true}"#;
+        let contents = r#"{"slint-edition":"1.19","experimental-features":["match"]}"#;
         spin_on::spin_on(session.open_document(contents.into(), url.clone(), Some(9))).unwrap();
         let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         spin_on::spin_on(session.load_document("export component Main {}".into(), source, Some(1)))
@@ -1482,8 +1580,8 @@ mod preview_tests {
         assert!(!path.exists());
         assert_eq!(session.active_projects[&path].version, Some(9));
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
-            true
+            session.document_cache.compiler_configuration().compiler_config.experimental_features,
+            ExperimentalFeatures::from(ExperimentalFeature::Match)
         );
         assert!(session.document_cache.get_document(&url).is_none());
         for (preview_index, messages) in messages.iter().enumerate() {
@@ -1529,12 +1627,12 @@ mod preview_tests {
     fn source_discovery_transfers_known_invalid_project_contents_and_clears_settings() {
         let (mut session, messages) = session_with_recording_previews();
         let default_experimental =
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental;
+            session.document_cache.compiler_configuration().compiler_config.experimental_features;
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        std::fs::write(&path, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#)
+        std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":["match"]}"#)
             .unwrap();
         spin_on::spin_on(session.load_document(
             "export component Main {}".into(),
@@ -1543,8 +1641,8 @@ mod preview_tests {
         ))
         .unwrap();
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
-            true
+            session.document_cache.compiler_configuration().compiler_config.experimental_features,
+            ExperimentalFeatures::from(ExperimentalFeature::Match)
         );
         let invalid = "// changed on disk\n{invalid";
         std::fs::write(&path, invalid).unwrap();
@@ -1559,7 +1657,7 @@ mod preview_tests {
         .unwrap();
         assert!(session.active_projects[&path].parsed.is_none());
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
+            session.document_cache.compiler_configuration().compiler_config.experimental_features,
             default_experimental
         );
         assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
@@ -1576,15 +1674,12 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
-        let buffer = r#"{"slint-edition":"1.19","enable-experimental-features":true}"#;
+        let buffer = r#"{"slint-edition":"1.19","experimental-features":["match"]}"#;
         spin_on::spin_on(session.open_document(buffer.into(), url.clone(), Some(4))).unwrap();
-        for change in [FileChangeKind::Changed, FileChangeKind::Deleted] {
-            if matches!(change, FileChangeKind::Changed) {
-                std::fs::write(
-                    &path,
-                    r#"{"slint-edition":"1.19","enable-experimental-features":false}"#,
-                )
-                .unwrap();
+        for change in [FileChangeKind::Created, FileChangeKind::Changed, FileChangeKind::Deleted] {
+            if !matches!(change, FileChangeKind::Deleted) {
+                std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[]}"#)
+                    .unwrap();
             } else {
                 std::fs::remove_file(&path).unwrap();
             }
@@ -1602,11 +1697,15 @@ mod preview_tests {
             assert_eq!(session.active_projects[&path].contents, buffer.as_bytes());
             assert_eq!(session.active_projects[&path].version, Some(4));
             assert_eq!(
-                session.document_cache.compiler_configuration().compiler_config.enable_experimental,
-                true
+                session
+                    .document_cache
+                    .compiler_configuration()
+                    .compiler_config
+                    .experimental_features,
+                ExperimentalFeatures::from(ExperimentalFeature::Match)
             );
         }
-        let disk = r#"{"slint-edition":"1.19","enable-experimental-features":false}"#;
+        let disk = r#"{"slint-edition":"1.19","experimental-features":[]}"#;
         std::fs::write(&path, disk).unwrap();
         for messages in &messages {
             messages.borrow_mut().clear();
@@ -1615,8 +1714,8 @@ mod preview_tests {
         assert!(!session.document_is_open(&url));
         assert_eq!(session.active_projects[&path].version, None);
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
-            false
+            session.document_cache.compiler_configuration().compiler_config.experimental_features,
+            ExperimentalFeatures::default()
         );
         for messages in &messages {
             assert_project_contents(messages, &url, disk, None);
@@ -1631,7 +1730,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
         spin_on::spin_on(session.open_document(
-            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into(),
+            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#.into(),
             url.clone(),
             Some(3),
         ))
@@ -1681,11 +1780,8 @@ mod preview_tests {
             let project = directory.path().join(name);
             std::fs::create_dir(&project).unwrap();
             let path = project.join(i_slint_compiler::project_file::FILE_NAME);
-            std::fs::write(
-                &path,
-                r#"{"slint-edition":"1.19","enable-experimental-features":false}"#,
-            )
-            .unwrap();
+            std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[]}"#)
+                .unwrap();
             let document_url = Url::from_file_path(project.join("main.slint")).unwrap();
             spin_on::spin_on(session.load_document(
                 "export component Main {}".into(),
@@ -1696,7 +1792,7 @@ mod preview_tests {
             manifests.push(Url::from_file_path(path).unwrap());
         }
         let changed = spin_on::spin_on(session.open_document(
-            r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into(),
+            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#.into(),
             manifests[0].clone(),
             Some(7),
         ))
@@ -1714,8 +1810,8 @@ mod preview_tests {
                 && diagnostics.is_empty()));
         }
         assert_eq!(
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental,
-            false
+            session.document_cache.compiler_configuration().compiler_config.experimental_features,
+            ExperimentalFeatures::default()
         );
     }
 
@@ -1742,7 +1838,7 @@ mod preview_tests {
             .unwrap();
         assert!(!session.active_projects.contains_key(&path));
         assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
-        std::fs::write(&path, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#)
+        std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":["match"]}"#)
             .unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
             messages.borrow_mut().clear();
@@ -1774,10 +1870,98 @@ mod preview_tests {
             component: Some("Primary".into()),
         };
 
-        session.primary_preview_mut().to_show = Some(component.clone());
+        session.show_preview(0, component.clone(), None);
 
         assert_eq!(session.primary_preview().to_show, Some(component));
         assert!(session.preview(1).unwrap().to_show.is_none());
+    }
+
+    #[test]
+    fn attaching_preview_records_selection_without_sending_or_reloading() {
+        let mut session =
+            EditorSession::new(crate::document_cache::CompilerConfiguration::default());
+        let (to_preview, messages) = crate::test::preview_capture();
+        let component = PreviewComponent {
+            url: crate::test::test_file_name("attached.slint").to_url().unwrap(),
+            component: Some("Attached".into()),
+        };
+        let root = Url::parse("file:///attached/").unwrap();
+
+        assert!(session.previews().is_empty());
+        assert_eq!(
+            session.attach_preview(to_preview, Some(component.clone()), Some(root.clone())),
+            0
+        );
+        assert_eq!(session.primary_preview().component(), Some(&component));
+        assert_eq!(session.primary_preview().project_root(), Some(&root));
+        assert!(session.pending_recompile.is_empty());
+        assert!(messages.borrow().is_empty());
+
+        session.send_state_to_preview(0);
+        let messages = messages.borrow();
+        for message_count in [
+            messages
+                .iter()
+                .filter(|message| {
+                    matches!(message,
+                LspToPreviewMessage::OpenProject { root: Some(sent) } if sent == &root)
+                })
+                .count(),
+            messages
+                .iter()
+                .filter(|message| matches!(message, LspToPreviewMessage::SetConfiguration { .. }))
+                .count(),
+            messages
+                .iter()
+                .filter(|message| {
+                    matches!(message,
+                LspToPreviewMessage::ShowPreview(sent) if sent == &component)
+                })
+                .count(),
+        ] {
+            assert_eq!(message_count, 1);
+        }
+    }
+
+    #[test]
+    fn import_callback_forwards_versioned_contents_and_preserves_none() {
+        let directory = tempfile::tempdir().unwrap();
+        let versioned_path = directory.path().join("versioned.slint");
+        let fallback_path = directory.path().join("fallback.slint");
+        std::fs::write(&fallback_path, "export component Fallback {}").unwrap();
+        let expected_contents = "export component Versioned {}";
+        let callback_path = versioned_path.clone();
+        let config = crate::document_cache::CompilerConfiguration {
+            open_import_callback: Some(Rc::new(move |path| {
+                let callback_path = callback_path.clone();
+                Box::pin(async move {
+                    (path.as_native_path() == Some(callback_path.as_path()))
+                        .then(|| Ok((Some(7), expected_contents.into())))
+                })
+            })),
+            ..Default::default()
+        };
+        let mut session = EditorSession::new(config);
+        let (to_preview, messages) = crate::test::preview_capture();
+        session.attach_preview(to_preview, None, None);
+        let callback = session
+            .document_cache
+            .configuration_with_import_callback()
+            .open_import_callback
+            .unwrap();
+
+        let result = spin_on::spin_on(callback(SourcePath::File(versioned_path.clone())));
+        assert!(matches!(result, Some(Ok((Some(7), contents))) if contents == expected_contents));
+        assert!(matches!(messages.borrow().as_slice(),
+            [LspToPreviewMessage::SetContents { url, contents }]
+                if url.url() == &Url::from_file_path(&versioned_path).unwrap()
+                    && url.version() == &Some(7)
+                    && contents == expected_contents.as_bytes()
+        ));
+
+        messages.borrow_mut().clear();
+        assert!(spin_on::spin_on(callback(SourcePath::File(fallback_path))).is_none());
+        assert!(messages.borrow().is_empty());
     }
 
     #[test]
@@ -1793,7 +1977,7 @@ mod preview_tests {
         session.send_to_preview(2, &LspToPreviewMessage::Quit);
         session.send_state_to_preview(2);
         session.send_files_to_preview(2, &[], &[]);
-        session.show_preview(2, component);
+        session.show_preview(2, component, None);
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
         assert!(session.pending_recompile.is_empty());
@@ -1855,7 +2039,7 @@ mod preview_tests {
         let asset = temp_directory.path().join("requested.png");
         std::fs::write(&asset, []).unwrap();
 
-        session.show_preview(1, component.clone());
+        session.show_preview(1, component.clone(), None);
         for recorded_messages in &messages {
             recorded_messages.borrow_mut().clear();
         }
@@ -1922,8 +2106,7 @@ mod preview_tests {
             session.active_project_file_paths().collect::<Vec<_>>(),
             [root_manifest.as_path(), nested_manifest.as_path()]
         );
-        session.primary_preview_mut().to_show = Some(component.clone());
-        session.send_to_preview(0, &LspToPreviewMessage::OpenProject { root: Some(root.clone()) });
+        session.show_preview(0, component.clone(), Some(root.clone()));
         messages[0].borrow_mut().clear();
 
         session.send_state_to_preview(0);
@@ -1951,7 +2134,16 @@ mod preview_tests {
         assert!(configuration_index < component_index);
         drop(replay);
 
-        session.send_to_preview(0, &LspToPreviewMessage::OpenProject { root: None });
+        let next_component =
+            PreviewComponent { url: component.url.clone(), component: Some("Other".into()) };
+        messages[0].borrow_mut().clear();
+        session.show_preview(0, next_component.clone(), Some(root.clone()));
+        assert!(matches!(
+            messages[0].borrow().as_slice(),
+            [LspToPreviewMessage::ShowPreview(sent)] if sent == &next_component
+        ));
+
+        session.show_preview(0, next_component.clone(), None);
         messages[0].borrow_mut().clear();
         session.send_state_to_preview(0);
         let replay = messages[0].borrow();
@@ -1961,14 +2153,68 @@ mod preview_tests {
                 if url.url() == &root_manifest_url)
         }));
         assert!(replay.iter().any(|message| {
-            matches!(message, LspToPreviewMessage::ShowPreview(sent) if sent == &component)
+            matches!(message, LspToPreviewMessage::ShowPreview(sent) if sent == &next_component)
         }));
+    }
+
+    #[test]
+    fn changing_root_and_component_replays_only_the_new_selection() {
+        let (mut session, messages) = session_with_recording_previews();
+        let component_url = crate::test::test_file_name("selection.slint").to_url().unwrap();
+        let initial_component =
+            PreviewComponent { url: component_url.clone(), component: Some("Initial".into()) };
+        let initial_root = Url::parse("file:///initial/").unwrap();
+        session.show_preview(0, initial_component, Some(initial_root));
+
+        let next_root = Url::parse("file:///next/").unwrap();
+        for (root, name) in [(Some(next_root), "Next"), (None, "Cleared")] {
+            messages[0].borrow_mut().clear();
+            let component =
+                PreviewComponent { url: component_url.clone(), component: Some(name.into()) };
+            session.show_preview(0, component.clone(), root.clone());
+
+            let captured = messages[0].borrow();
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(message,
+                        LspToPreviewMessage::OpenProject { root: sent } if sent == &root))
+                    .count(),
+                1
+            );
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(
+                        message,
+                        LspToPreviewMessage::SetConfiguration { .. }
+                    ))
+                    .count(),
+                1
+            );
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(message,
+                        LspToPreviewMessage::ShowPreview(sent) if sent == &component))
+                    .count(),
+                1
+            );
+            assert_eq!(
+                captured
+                    .iter()
+                    .filter(|message| matches!(message, LspToPreviewMessage::ShowPreview(_)))
+                    .count(),
+                1
+            );
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use i_slint_compiler::ExperimentalFeatures;
     use i_slint_compiler::project_file::FILE_NAME;
     use tempfile::TempDir;
 
@@ -2036,10 +2282,13 @@ mod tests {
             },
             ..Default::default()
         };
-        EditorSession::new(
-            crate::DocumentCache::new(config),
+        let mut session = EditorSession::new(config);
+        session.attach_preview(
             crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
-        )
+            None,
+            None,
+        );
+        session
     }
 
     fn write_document(path: &std::path::Path) {
@@ -2338,7 +2587,7 @@ mod tests {
         let entry_url = Url::from_file_path(&entry).unwrap();
         let encoded_url =
             Url::parse(&entry_url.as_str().replace("main.slint", "main.%73lint")).unwrap();
-        session.show_preview(0, PreviewComponent { url: encoded_url, component: None });
+        session.show_preview(0, PreviewComponent { url: encoded_url, component: None }, None);
         assert!(session.pending_recompile.contains(&entry_url));
         spin_on::spin_on(session.reload_active_project_file(&project, FileChangeKind::Deleted))
             .unwrap();
@@ -2533,7 +2782,7 @@ mod tests {
             let directory = temp.path().join(name);
             std::fs::create_dir_all(&directory).unwrap();
             let path = directory.join(FILE_NAME);
-            std::fs::write(&path, r#"{"slint-edition":"1.19","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
+            std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[],"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
             session.project_file_paths.push(path.clone());
             session
                 .active_projects
@@ -2676,10 +2925,10 @@ mod tests {
         write_document(&document);
         std::fs::write(
             &outer,
-            r#"{"slint-edition":"1.19","enable-experimental-features":true,"library-paths":{"widgets":"outer"}}"#,
+            r#"{"slint-edition":"1.19","experimental-features":["match"],"library-paths":{"widgets":"outer"}}"#,
         )
         .unwrap();
-        std::fs::write(&inner, r#"{"slint-edition":"1.19","enable-experimental-features":false,"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
+        std::fs::write(&inner, r#"{"slint-edition":"1.19","experimental-features":[],"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
         let mut session = session();
         for path in [&outer, &inner] {
             session.project_file_paths.push(path.clone());
@@ -2706,7 +2955,7 @@ mod tests {
         session.set_startup_config_overrides(SessionConfigOverrides {
             compiler: Overrides {
                 project: ProjectFileData {
-                    enable_experimental_features: Some(false),
+                    experimental_features: Some(ExperimentalFeatures::default()),
                     include_paths: Some(Vec::new()),
                     library_paths: Some(HashMap::new()),
                     ..Default::default()
@@ -2801,7 +3050,7 @@ mod tests {
                 project: ProjectFileData {
                     include_paths: Some(startup_paths.clone()),
                     library_paths: Some(startup_libraries.clone()),
-                    enable_experimental_features: Some(true),
+                    experimental_features: Some(ExperimentalFeatures::all()),
                     ..Default::default()
                 },
                 style: Some("cosmic".into()),
@@ -2823,7 +3072,7 @@ mod tests {
                     project: ProjectFileData {
                         include_paths: Some(paths.clone()),
                         library_paths: Some(libraries.clone()),
-                        enable_experimental_features: Some(false),
+                        experimental_features: Some(ExperimentalFeatures::default()),
                         ..Default::default()
                     },
                     style: Some("cupertino".into()),
@@ -2851,11 +3100,12 @@ mod tests {
                 "cupertino"
             );
             assert!(
-                !session
+                session
                     .document_cache
                     .compiler_configuration()
                     .compiler_config
-                    .enable_experimental
+                    .experimental_features
+                    .is_empty()
             );
         }
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
@@ -2877,8 +3127,9 @@ mod tests {
                 .unwrap_or_default(),
             "cosmic"
         );
-        assert!(
-            session.document_cache.compiler_configuration().compiler_config.enable_experimental
+        assert_eq!(
+            session.document_cache.compiler_configuration().compiler_config.experimental_features,
+            ExperimentalFeatures::all()
         );
         session.set_startup_config_overrides(Default::default());
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
@@ -2956,7 +3207,7 @@ mod tests {
         let (merged, _) = session.merged_project_data(Default::default());
         assert_eq!(merged.schema, None);
         assert_eq!(merged.main, None);
-        assert_eq!(merged.enable_experimental_features, None);
+        assert_eq!(merged.experimental_features, None);
         assert_eq!(
             session.active_projects[&project_a.join(FILE_NAME)].parsed.as_ref().unwrap().main(),
             Some(SourcePath::new(document_a))
@@ -3109,6 +3360,30 @@ mod tests {
     }
 
     #[test]
+    fn watcher_registers_created_and_changed_project_files() {
+        for change in [FileChangeKind::Created, FileChangeKind::Changed] {
+            let directory = TempDir::new().unwrap();
+            let document = directory.path().join("main.slint");
+            write_document(&document);
+            let mut session = session();
+            open_document(&mut session, &document).unwrap();
+            assert!(session.active_project_file_paths().next().is_none());
+            let path = directory.path().join(FILE_NAME);
+            std::fs::write(&path, r#"{"slint-edition":"1.19","include-paths":["created"]}"#)
+                .unwrap();
+            spin_on::spin_on(
+                session.trigger_file_watcher(Url::from_file_path(&path).unwrap(), change),
+            )
+            .unwrap();
+            assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.include_paths,
+                [directory.path().join("created")]
+            );
+        }
+    }
+
+    #[test]
     fn a_deleted_project_file_is_dropped() {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
@@ -3142,13 +3417,13 @@ mod tests {
         );
         assert!(session.pending_recompile.contains(&document_url));
 
-        // A project file created again is found the next time the document loads.
         std::fs::write(
             &project_path,
             r#"{ "slint-edition": "1.19", "include-paths": ["second"] }"#,
         )
         .unwrap();
-        spin_on::spin_on(session.reload_document(document_url)).unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Created))
+            .unwrap();
 
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),

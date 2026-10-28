@@ -1294,6 +1294,33 @@ impl CompilationResult {
         self.components.values().cloned()
     }
 
+    /// This is an internal function without API stability guarantees.
+    /// A result holding `unit`, such as one that `i_slint_compiler::llr::serialize` read,
+    /// with neither diagnostics nor watch paths.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn from_compilation_unit(
+        unit: i_slint_compiler::llr::CompilationUnit,
+        _: i_slint_core::InternalToken,
+    ) -> Self {
+        let components = unit
+            .public_components
+            .iter_enumerated()
+            .map(|(public_index, component)| (component.name.to_string(), public_index))
+            .collect();
+        SendableCompilationResult {
+            compilation_unit: Some(unit),
+            components,
+            font_files: HashMap::new(),
+            #[cfg(feature = "internal-embed-textures")]
+            pre_rendered: Vec::new(),
+            diagnostics: Vec::new(),
+            watch_paths: Vec::new(),
+            structs_and_enums: Vec::new(),
+        }
+        .into()
+    }
+
     /// Consume the result so that it can be sent to another thread.
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
@@ -1666,7 +1693,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
     for d in diagnostics {
         build_diagnostics.push_compiler_error(d.clone())
     }
-    build_diagnostics.print();
+    build_diagnostics.print_styled_if_terminal();
 }
 
 /// This represents an instance of a dynamic component
@@ -3069,7 +3096,7 @@ mod project_file_tests {
         ] {
             for static_compilation in [false, true] {
                 let manifest = path.parent().join(FILE_NAME).unwrap();
-                let current_experimental = std::rc::Rc::new(std::cell::RefCell::new(false));
+                let current_experimental = std::rc::Rc::new(std::cell::RefCell::new("[]"));
                 let mut compiler = Compiler::default();
                 compiler.set_project_root(Some(path.parent()), i_slint_core::InternalToken);
                 let loader_experimental = current_experimental.clone();
@@ -3077,7 +3104,7 @@ mod project_file_tests {
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
                     let contents = if path == loader_manifest {
                         Ok(format!(
-                            r#"{{"slint-edition":"1.19","enable-experimental-features":{}}}"#,
+                            r#"{{"slint-edition":"1.19","experimental-features":{}}}"#,
                             loader_experimental.borrow()
                         ))
                     } else {
@@ -3093,7 +3120,9 @@ mod project_file_tests {
                     Overrides {
                         style: Some("fluent".into()),
                         project: i_slint_compiler::project_file::ProjectFileData {
-                            enable_experimental_features: Some(true),
+                            experimental_features: Some(
+                                i_slint_compiler::ExperimentalFeature::ComponentContainer.into(),
+                            ),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -3117,7 +3146,7 @@ mod project_file_tests {
                     compile_source(&compiler, path.clone(), static_compilation, source)
                         .has_errors()
                 );
-                *current_experimental.borrow_mut() = true;
+                *current_experimental.borrow_mut() = r#"["component-container"]"#;
                 let result = compile_source(&compiler, path.clone(), static_compilation, source);
                 assert!(!result.has_errors(), "{result:?}");
                 assert!(result.watch_paths.contains(&manifest));
@@ -3278,9 +3307,9 @@ mod project_file_tests {
         compiler.set_project_file_loader(
             std::rc::Rc::new(move |path| {
                 let contents = if path == enabled_manifest {
-                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into())
+                    Ok(r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into())
                 } else {
-                    Ok(r#"{"slint-edition":"1.19","enable-experimental-features":false}"#.into())
+                    Ok(r#"{"slint-edition":"1.19","experimental-features":[]}"#.into())
                 };
                 Box::pin(async move { Some(contents) })
             }),

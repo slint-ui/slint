@@ -24,6 +24,7 @@ use crate::layout::{
     repeated_element_layout_info,
 };
 use crate::object_tree::{Component, Document, Element, ElementRc};
+use crate::project_file::SlintEdition;
 use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
 use std::collections::{BTreeMap, HashSet};
@@ -32,8 +33,10 @@ pub fn default_geometry(
     root_component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
-    repeated_children_constrain_parent: bool,
+    edition: Option<SlintEdition>,
 ) {
+    // #407: an `if`/`for` child counts toward its non-layout parent's size
+    let repeated_children_constrain_parent = edition.is_some_and(|v| v >= SlintEdition::V1_19);
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &None,

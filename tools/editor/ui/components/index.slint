@@ -4,6 +4,7 @@
 import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
 import { ElementVisuals } from "element-presentation.slint";
+import { Project } from "../project.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
 export global EditorIcons {
@@ -37,8 +38,8 @@ export global EditorAngles {
 }
 
 export global PreviewMetrics {
-    out property <length> canvas-width: 390px;
-    out property <length> canvas-height: 720px;
+    out property <length> canvas-width: Project.canvas-size.width + 2 * Style.artboard.padding;
+    out property <length> canvas-height: Project.canvas-size.height + 2 * Style.artboard.padding;
 }
 
 export global EditorWindow {
@@ -261,7 +262,6 @@ export component SidebarToggleButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
         clicked => {
             root.clicked();
         }
@@ -339,7 +339,6 @@ export component ComponentPaletteRow inherits Rectangle {
 
         touch := TouchArea {
             enabled: root.enabled && root.drag-enabled;
-            mouse-cursor: self.enabled ? pointer : default;
         }
     }
 }

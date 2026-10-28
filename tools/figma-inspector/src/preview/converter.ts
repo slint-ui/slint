@@ -410,7 +410,7 @@ function nodeSource(
         definitionRoot = false,
     }: NodePlacement = {},
 ): SlintLine[] {
-    if (!node.visible) return [];
+    if (!node.visible && !definitionRoot) return [];
     const use = context.componentUses?.get(node);
     if (use && !definitionRoot) {
         const full =

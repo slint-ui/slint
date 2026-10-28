@@ -76,9 +76,9 @@ inline vtable::Layout drop_in_place(ItemTreeRef item_tree)
 // so we have a relocation to a function that returns the address we seek. That
 // relocation will be resolved to the locally linked stub library, the implementation of
 // which will be patched.
-#        define SLINT_GET_ITEM_VTABLE(VTableName) slint::private_api::slint_get_##VTableName()
+#        define SLINT_GET_ITEM_VTABLE(VTableName) ::slint::private_api::slint_get_##VTableName()
 #    else
-#        define SLINT_GET_ITEM_VTABLE(VTableName) (&slint::private_api::VTableName)
+#        define SLINT_GET_ITEM_VTABLE(VTableName) (&::slint::private_api::VTableName)
 #    endif
 #endif // !defined(DOXYGEN)
 
