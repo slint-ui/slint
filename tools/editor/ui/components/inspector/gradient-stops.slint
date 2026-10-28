@@ -62,8 +62,8 @@ export component InspectorGradientStops inherits Rectangle {
                 height: Metrics.control-compact;
                 border-radius: Metrics.radius-small;
                 background: Api.create-brush(BrushKind.linear, 90, transparent, root.value.stops);
-                border-width: ramp.has-focus ? Metrics.border-width : 0px;
-                border-color: Colors.accent;
+                border-width: Metrics.border-width;
+                border-color: ramp.has-focus ? Colors.accent : Colors.border;
             }
             for stop[index] in root.value.stops: EditorGradientStopMarker {
                 style: root.style.marker;

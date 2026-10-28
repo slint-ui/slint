@@ -540,6 +540,7 @@ export global Api {
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
     pure callback source-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback has-property(property-name: string) -> bool;
     pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
     pure callback source-property-value(property-name: string, fallback: string) -> string;
     pure callback source-color-field-data(property-name: string) -> ColorFieldData;

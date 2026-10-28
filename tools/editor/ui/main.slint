@@ -622,7 +622,12 @@ export component EditorUi inherits Window {
                 visible: ShadowSession.open;
                 enabled: ShadowSession.open;
                 pointer-event(event) => {
-                    if event.kind == PointerEventKind.down { ShadowSession.close(); }
+                    if event.kind == PointerEventKind.down {
+                        let position = { x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y };
+                        if event.button != PointerEventButton.left || !ShadowSession.focus-anchor(position) {
+                            ShadowSession.close();
+                        }
+                    }
                 }
                 scroll-event(event) => {
                     let x = self.absolute-position.x + self.mouse-x - canvas-viewport.absolute-position.x;
@@ -659,7 +664,10 @@ export component EditorUi inherits Window {
                 enabled: FillSession.open;
                 pointer-event(event) => {
                     if event.kind == PointerEventKind.down {
-                        Api.dismiss-fill-picker({ x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y }, event.button);
+                        let position = { x: self.absolute-position.x + self.mouse-x, y: self.absolute-position.y + self.mouse-y };
+                        if event.button != PointerEventButton.left || !FillSession.focus-anchor(position) {
+                            Api.dismiss-fill-picker(position, event.button);
+                        }
                     }
                 }
                 scroll-event(event) => {

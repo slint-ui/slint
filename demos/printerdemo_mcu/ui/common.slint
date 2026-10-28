@@ -1,12 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-export struct ButtonColors  {
-    base: color,
-    pressed: color,
-    hovered: color,
-}
-
 export global DemoPalette {
     out property <length> side-bar-width: 48px;
     out property <length> header-height: 45px;
@@ -27,19 +21,8 @@ export global DemoPalette {
     // as the combo box or spin box.
     out property <color> control-outline-color: #FFBF63;
     out property <color> control-secondary: #6284FF;
+    out property <brush> selection-background: @linear-gradient(135deg, #2e80ff, #503cf8);
     out property <color> control-foreground: #122F7B;  // FIXME: the night mode color was not part of the design
-    out property <color> primary-push-button-base: #6284FF;
-    out property <ButtonColors> primary-push-button-colors: {
-        base: root.primary-push-button-base,
-        pressed: root.primary-push-button-base.darker(40%),
-        hovered: root.primary-push-button-base.darker(20%),
-    };
-    out property <color> secondary-push-button-base: #FFBF63;
-    out property <ButtonColors> secondary-push-button-colors: {
-        base: root.secondary-push-button-base,
-        pressed: root.secondary-push-button-base.darker(40%),
-        hovered: root.secondary-push-button-base.darker(20%),
-    };
     out property <color> push-button-text-color: white;
     out property <length> base-font-size: 12px;
     out property <string> medium-font-family: "Inter 24pt Medium";

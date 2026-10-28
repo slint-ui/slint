@@ -45,10 +45,10 @@ hostname = { version = "0.4.1", optional = true }
 anyhow = { version = "1.0.100", optional = true }
 # remote: only the viewer generates pairing secrets, so the random source
 # stays out of the LSP's browser builds.
-rand = { version = "0.9.5", optional = true }
+rand = { version = "0.10.3", optional = true }
 
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
-mdns-sd = { version = "0.20.0", default-features = false, optional = true }
+mdns-sd = { version = "0.21.6", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 if-addrs = { version = "0.15.0", optional = true }
