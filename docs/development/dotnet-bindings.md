@@ -371,6 +371,8 @@ scripts/dotnet_ios_smoke_test.sh examples/todo/dotnet-ios/bin/Debug/net10.0-ios/
 ```
 
 The ".NET iOS" job of CI builds the library for both targets and the todo example, and starts it in an iPhone simulator with the smoke test script.
+Each .NET for iOS requires one Xcode version, so CI installs the workload set `10.0.401`, whose .NET for iOS 26.5 takes the runner's default Xcode 26.6;
+newer sets require Xcode 27, which the runner lacks.
 
 ## Roadmap
 
@@ -534,12 +536,15 @@ Next:
     `slint-dotnet` builds as a dynamic framework in an `.xcframework`, which the package embeds with a `NativeReference`;
     a static library, as Slint's C++ build makes, worked too, but was too large for a NuGet package.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
-    - Phase 0, a prototype, worked: the C# `Main` starts UIKit through `Run`, P/Invoke finds the exports in the executable,
+    - Phase 0, a prototype, worked: the C# `Main` starts UIKit through `Run`, P/Invoke finds the native library,
       and a window and its callbacks work in the simulator.
     - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the framework `NativeReference` and the bundle resources in `Slint.targets`,
       and the resolver for the framework; `Slint.dll` needs no `net10.0-ios` build.
     - Phase 2, done: `examples/todo/dotnet-ios` and `examples/lols/dotnet-ios`, documentation, and a simulator test in CI.
-    - Phase 3, in progress: the `.xcframework` in `ios/` of the package, built and tested by the publish workflow, and a preview.
+    - Phase 3, in progress: the `.xcframework` in `ios/` of the package, built by `build_ios` in the publish workflow,
+      and tested by `test_ios_package`, which builds an app from the packages and starts it in a simulator.
+      A package with it worked locally; next are a dry run of the publish workflow and a preview,
+      after which the README's note that the packages lack iOS goes.
     - Phase 4: an iPhone 13, the app lifecycle and saved state, Hot Reload, and Native AOT.
   - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
     for samples published from the 1.19.0-preview.9 package for `linux-arm64`, run as root on the console:
