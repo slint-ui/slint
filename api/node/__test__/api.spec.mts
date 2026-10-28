@@ -669,9 +669,7 @@ test("Brush read from a color property", () => {
     ) as any;
     const app = new demo.App();
 
-    // Fails to compile if the native brush lacks a member that `Brush` documents.
-    const background: Required<Brush> =
-        app.background as private_api.SlintBrush;
+    const background = app.background as private_api.SlintBrush;
 
     expect(background.color).toStrictEqual({
         red: 0x33,
