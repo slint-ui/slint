@@ -119,7 +119,7 @@ export component GalleryControls inherits Rectangle {
                     }
                     InspectorCornerEditor {
                         values: root.corners; maximum: 100; selection-key: root.reset-generation;
-                        preview(v) => { return true; }
+                        preview(i, v) => { return true; }
                         accepted(i,v) => { if i < 0 { root.corners = [v, v, v, v]; } else { root.corners[i] = v; } return true; }
                     }
                 }

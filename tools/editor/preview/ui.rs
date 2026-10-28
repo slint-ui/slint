@@ -2043,6 +2043,117 @@ mod tests {
     }
 
     #[test]
+    fn inspector_scrub_cursor_covers_the_field_and_yields_to_text_editing() {
+        use i_slint_core::{cursor::MouseCursorInner, items::BuiltInMouseCursor};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            source_uri: "file:///inspector.slint".into(),
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection {
+            highlight_index: 0,
+            is_resizable: true,
+            ..Default::default()
+        });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 160.,
+                height: 96.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_inspector_values(|_| {
+            std::rc::Rc::new(VecModel::from(vec![0., 12., 12., 12., 12.])).into()
+        });
+        api.on_inspector_preview(|_, _, _| true);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1000.));
+        slint::platform::update_timers_and_animations();
+        let image = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
+        assert_eq!((image.size().width, image.size().height), (32, 32));
+        let scrub_cursor =
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x: 16, hotspot_y: 16 };
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+
+        for separate in [false, true] {
+            if separate {
+                find_element(&editor, "Separate corners").invoke_accessible_default_action();
+            }
+            let labels = if separate {
+                &[
+                    "Top left corner radius",
+                    "Top right corner radius",
+                    "Bottom left corner radius",
+                    "Bottom right corner radius",
+                ][..]
+            } else {
+                &["Position X", "All corner radii"][..]
+            };
+            for label in labels {
+                let field = find_element(&editor, label);
+                let position = field.absolute_position();
+                let size = field.size();
+                for fraction in [0.05, 0.5, 0.95] {
+                    editor.window().dispatch_event(WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(
+                            position.x + size.width * fraction,
+                            position.y + size.height / 2.,
+                        ),
+                    });
+                    assert!(cursor() == scrub_cursor, "hovering {label} at {fraction}");
+                }
+                let start = LogicalPosition::new(
+                    position.x + size.width / 2.,
+                    position.y + size.height / 2.,
+                );
+                let click = |position| {
+                    editor.window().dispatch_event(WindowEvent::PointerPressed {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                    editor.window().dispatch_event(WindowEvent::PointerReleased {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                };
+                click(start);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerMoved {
+                    position: LogicalPosition::new(position.x + size.width * 0.05, start.y),
+                });
+                assert!(cursor() == scrub_cursor, "hovering the label while editing {label}");
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerPressed {
+                    position: start,
+                    button: PointerEventButton::Left,
+                });
+                let end = LogicalPosition::new(start.x + 12., start.y);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+                assert!(cursor() == scrub_cursor, "dragging {label}");
+                editor.window().dispatch_event(WindowEvent::PointerReleased {
+                    position: end,
+                    button: PointerEventButton::Left,
+                });
+            }
+        }
+    }
+
+    #[test]
     fn resize_cursor_rotates_and_reuses_half_turns() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
@@ -2050,15 +2161,6 @@ mod tests {
         let horizontal = cursors.invoke_resize_image(0.);
         assert_eq!(horizontal, cursors.invoke_resize_image(180.));
         assert_ne!(horizontal, cursors.invoke_resize_image(90.));
-    }
-
-    #[test]
-    fn scrub_cursor_uses_fixed_pixel_size() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::create_ui().unwrap();
-        let cursor = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
-        assert_eq!(cursor.size().width, 32);
-        assert_eq!(cursor.size().height, 32);
     }
 
     #[test]
