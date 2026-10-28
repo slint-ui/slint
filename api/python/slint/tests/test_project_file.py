@@ -2,10 +2,23 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import json
+import logging
 import pathlib
+from collections.abc import Iterator
 from typing import Any
 
-from slint import slint as native
+import pytest
+
+from slint import CompileError, load_file
+
+
+@pytest.fixture
+def no_diagnostics(caplog: pytest.LogCaptureFixture) -> Iterator[None]:
+    caplog.set_level(logging.DEBUG, logger="slint")
+    yield
+    assert not [
+        record for record in caplog.get_records("call") if record.name == "slint"
+    ]
 
 
 def project_directory(tmp_path: pathlib.Path, settings: dict[str, Any]) -> pathlib.Path:
@@ -23,12 +36,9 @@ def write_main(directory: pathlib.Path, source: str) -> pathlib.Path:
     return main
 
 
-def messages(result: native.CompilationResult) -> list[str]:
-    return [diagnostic.message for diagnostic in result.diagnostics]
-
-
 def test_include_paths_come_from_the_project_file(
     tmp_path: pathlib.Path,
+    no_diagnostics: None,
 ) -> None:
     directory = project_directory(
         tmp_path, {"main": "main.slint", "include-paths": ["include"]}
@@ -42,12 +52,13 @@ def test_include_paths_come_from_the_project_file(
            export component Main inherits Window { Shared { } }""",
     )
 
-    result = native.Compiler().build_from_path(directory)
-    assert messages(result) == []
-    assert "Main" in result.component_names
+    module = load_file(directory)
+    assert module.Main is not None
 
 
-def test_library_paths_come_from_the_project_file(tmp_path: pathlib.Path) -> None:
+def test_library_paths_come_from_the_project_file(
+    tmp_path: pathlib.Path, no_diagnostics: None
+) -> None:
     directory = project_directory(
         tmp_path, {"main": "main.slint", "library-paths": {"widgets": "widgets.slint"}}
     )
@@ -59,9 +70,8 @@ def test_library_paths_come_from_the_project_file(tmp_path: pathlib.Path) -> Non
            export component Main inherits Window { Widget { } }""",
     )
 
-    result = native.Compiler().build_from_path(directory)
-    assert messages(result) == []
-    assert "Main" in result.component_names
+    module = load_file(directory)
+    assert module.Main is not None
 
 
 def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
@@ -69,12 +79,17 @@ def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
     (directory / "slint-project.json").write_text("{")
     write_main(directory, "export component Main inherits Window { }")
 
-    result = native.Compiler().build_from_path(directory)
-    assert any("slint-project.json" in message for message in messages(result))
+    with pytest.raises(CompileError) as error:
+        load_file(directory)
+    assert any(
+        "slint-project.json" in diagnostic.message
+        for diagnostic in error.value.diagnostics
+    )
 
 
 def test_building_the_project_directory_builds_its_main_file(
     tmp_path: pathlib.Path,
+    no_diagnostics: None,
 ) -> None:
     directory = project_directory(
         tmp_path, {"main": "ui/main.slint", "include-paths": ["include"]}
@@ -87,28 +102,31 @@ def test_building_the_project_directory_builds_its_main_file(
            export component Main inherits Window { Shared { } }"""
     )
 
-    result = native.Compiler().build_from_path(directory)
-    assert messages(result) == []
-    assert "Main" in result.component_names
+    module = load_file(directory)
+    assert module.Main is not None
 
 
 def test_building_the_project_file_is_an_error(tmp_path: pathlib.Path) -> None:
     directory = project_directory(tmp_path, {"main": "main.slint"})
     write_main(directory, "export component Main inherits Window { }")
 
-    result = native.Compiler().build_from_path(directory / "slint-project.json")
-    assert messages(result) == [
+    with pytest.raises(CompileError) as error:
+        load_file(directory / "slint-project.json")
+    assert [diagnostic.message for diagnostic in error.value.diagnostics] == [
         f"A `slint-project.json` cannot be compiled directly; pass its directory instead ({directory})"
     ]
 
 
-def test_building_a_file_ignores_its_project_file(tmp_path: pathlib.Path) -> None:
+def test_building_a_file_ignores_its_project_file(
+    tmp_path: pathlib.Path, caplog: pytest.LogCaptureFixture
+) -> None:
     directory = tmp_path.resolve()
     (directory / "slint-project.json").write_text("{")
     main = write_main(directory, "export component Main inherits Window { }")
 
-    result = native.Compiler().build_from_path(main)
-    # Only the info that no edition is set
-    assert [diagnostic.level for diagnostic in result.diagnostics] == [
-        native.DiagnosticLevel.Info
+    caplog.set_level(logging.DEBUG, logger="slint")
+    module = load_file(main)
+    assert module.Main is not None
+    assert [record.levelno for record in caplog.records if record.name == "slint"] == [
+        logging.INFO
     ]
