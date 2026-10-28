@@ -5,7 +5,7 @@
 
 use super::PhysicalRect;
 use super::draw_functions::{
-    PremultipliedRgbaColor, TargetPixel, blend_with_coverage, draw_gradients_scratch_line,
+    PremultipliedRgbaColor, TargetPixel, blend_with_coverage, draw_gradients_line,
 };
 use super::{Paint, PhysicalLength};
 use alloc::vec;
@@ -156,7 +156,7 @@ fn render_path_with_style<T: TargetPixel>(
                         line,
                         run,
                         |scratch, chunk| {
-                            draw_gradients_scratch_line(
+                            draw_gradients_line(
                                 gradients,
                                 line_number,
                                 scratch,
