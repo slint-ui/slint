@@ -39,30 +39,6 @@ struct Buffer {
     _bo: gbm::BufferObject<()>,
 }
 
-/// A gbm buffer as a framebuffer without a modifier, for a display that takes none.
-struct ImplicitLayout<'a>(&'a gbm::BufferObject<()>);
-
-impl drm::buffer::PlanarBuffer for ImplicitLayout<'_> {
-    fn size(&self) -> (u32, u32) {
-        drm::buffer::PlanarBuffer::size(self.0)
-    }
-    fn format(&self) -> drm::buffer::DrmFourcc {
-        drm::buffer::PlanarBuffer::format(self.0)
-    }
-    fn modifier(&self) -> Option<drm::buffer::DrmModifier> {
-        None
-    }
-    fn pitches(&self) -> [u32; 4] {
-        drm::buffer::PlanarBuffer::pitches(self.0)
-    }
-    fn handles(&self) -> [Option<drm::buffer::Handle>; 4] {
-        drm::buffer::PlanarBuffer::handles(self.0)
-    }
-    fn offsets(&self) -> [u32; 4] {
-        drm::buffer::PlanarBuffer::offsets(self.0)
-    }
-}
-
 pub struct GbmDmabufDisplay {
     pub drm_output: DrmOutput,
     buffers: Vec<Buffer>,
@@ -286,9 +262,10 @@ impl GbmDmabufDisplay {
         let handle = if display_takes_modifiers && reported != gbm::Modifier::Invalid {
             drm_output.drm_device.add_planar_framebuffer(&bo, drm::control::FbCmd2Flags::MODIFIERS)
         } else {
-            drm_output
-                .drm_device
-                .add_planar_framebuffer(&ImplicitLayout(&bo), drm::control::FbCmd2Flags::empty())
+            drm_output.drm_device.add_planar_framebuffer(
+                &super::ImplicitLayout(&bo),
+                drm::control::FbCmd2Flags::empty(),
+            )
         }
         .map_err(|e| match &fallback_reason {
             Some(reason) => {
