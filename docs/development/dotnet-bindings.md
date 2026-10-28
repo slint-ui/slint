@@ -543,9 +543,18 @@ Next:
     - Phase 2, done: `examples/todo/dotnet-ios` and `examples/lols/dotnet-ios`, documentation, and a simulator test in CI.
     - Phase 3, in progress: the `.xcframework` in `ios/` of the package, built by `build_ios` in the publish workflow,
       and tested by `test_ios_package`, which builds an app from the packages and starts it in a simulator.
-      A package with it worked locally; next are a dry run of the publish workflow and a preview,
-      after which the README's note that the packages lack iOS goes.
-    - Phase 4: an iPhone 13, the app lifecycle and saved state, Hot Reload, and Native AOT.
+      A package with it worked locally, and the first dry run of the publish workflow built and packed it.
+      That dry run also caught a bug in `Slint.targets`, which failed every desktop build from the packages, now fixed;
+      next are a second dry run and a preview, after which the README's note that the packages lack iOS goes.
+    - Phase 4, in progress:
+      - On an iPhone 13 with iOS, signed by a free personal team, Release builds of the todo example and lols work.
+        lols reaches 202,000 to 210,000 LOL/s in canvas mode and 880 LOL/s in elements mode, like the Motorola edge 60 neo.
+      - The OpenGL samples run without their OpenGL content on iOS, as designed: Slint renders with Skia through WGPU on Metal,
+        and its rendering notifier offers no OpenGL there. The plotter, which draws 3D in C#, works.
+      - Next: the app lifecycle and saved state, Hot Reload, and Native AOT.
+    - Later, postponed: drawing with Metal from C#. Slint's notifier hands over Rust `wgpu` objects, and only behind an unstable feature,
+      so it would need the `MTLDevice` and command queue under WGPU as raw pointers, which the `Metal` API of .NET for iOS could use,
+      and a way to show a Metal texture in an `Image`, both new work in Slint.
   - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
     for samples published from the 1.19.0-preview.9 package for `linux-arm64`, run as root on the console:
     - The software renderer runs all the tested samples, including the Gallery, the printer demo, and lols,
