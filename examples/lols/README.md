@@ -3,9 +3,9 @@
 A port of [LOLs per second](https://github.com/jonathanpeppers/lols), a performance test of .NET UI frameworks, to Slint for .NET.
 It draws "lol?" in random colors, positions, and rotations, and shows how many it adds per second.
 
-| `.slint` Design | C# Source | Android |
-| --- | --- | --- |
-| [`lols.slint`](./ui/lols.slint) | [`LolsBenchmark.cs`](./dotnet/LolsBenchmark.cs), [`Program.cs`](./dotnet/Program.cs) | [`MainActivity.cs`](./dotnet-android/MainActivity.cs) |
+| `.slint` Design | C# Source | Android | iOS |
+| --- | --- | --- | --- |
+| [`lols.slint`](./ui/lols.slint) | [`LolsBenchmark.cs`](./dotnet/LolsBenchmark.cs), [`Program.cs`](./dotnet/Program.cs) | [`MainActivity.cs`](./dotnet-android/MainActivity.cs) | [`Program.cs`](./dotnet-ios/Program.cs) |
 
 It has two modes:
 
@@ -31,6 +31,15 @@ dotnet build examples/lols/dotnet-android -c Release -p:SlintAndroid=true
 adb install -r examples/lols/dotnet-android/bin/Release/net10.0-android/dev.slint.dotnet.lols-Signed.apk
 adb shell am start -n dev.slint.dotnet.lols/lols.MainActivity --es mode elements
 adb logcat -s Lols
+```
+
+Run it in the iPhone simulator, see [iOS](../../docs/development/dotnet-bindings.md#ios) for the native library.
+.NET for iOS passes no arguments to `Main`, so the mode comes from the environment variable `LOLS_MODE`:
+
+```sh
+dotnet build examples/lols/dotnet-ios -c Release
+xcrun simctl install booted examples/lols/dotnet-ios/bin/Release/net10.0-ios/iossimulator-arm64/LolsIOS.app
+SIMCTL_CHILD_LOLS_MODE=elements xcrun simctl launch --console-pty booted dev.slint.dotnet.lols
 ```
 
 The app prints the final rate when all lols are in.

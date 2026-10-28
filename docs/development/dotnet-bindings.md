@@ -537,7 +537,7 @@ Next:
       and a window and its callbacks work in the simulator.
     - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the static `NativeReference` and the bundle resources in `Slint.targets`,
       and the resolver for the executable; `Slint.dll` needs no `net10.0-ios` build.
-    - Phase 2, in progress: `examples/todo/dotnet-ios`, documentation, and a simulator test in CI; lols next.
+    - Phase 2, done: `examples/todo/dotnet-ios` and `examples/lols/dotnet-ios`, documentation, and a simulator test in CI.
     - Phase 3: the `.xcframework` in the packages, built and tested by the publish workflow, and a preview.
     - Phase 4: an iPhone 13, the app lifecycle and saved state, Hot Reload, and Native AOT.
   - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
