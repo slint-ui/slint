@@ -1693,7 +1693,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
     for d in diagnostics {
         build_diagnostics.push_compiler_error(d.clone())
     }
-    build_diagnostics.print();
+    build_diagnostics.print_styled_if_terminal();
 }
 
 /// This represents an instance of a dynamic component
