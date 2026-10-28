@@ -19,8 +19,7 @@ export component InspectorSegmentIcon inherits Rectangle {
             border-radius: 1px;
         }
     }
-
-    if root.kind == "vertical": Rectangle {
+    else if root.kind == "vertical": Rectangle {
         Rectangle {
             x: 8.5px;
             y: root.index == 0 ? 3.5px : root.index == 1 ? 6px : 9px;

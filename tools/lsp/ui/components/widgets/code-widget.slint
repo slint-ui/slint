@@ -31,8 +31,7 @@ export component CodeWidget inherits GridLayout {
                 text: @tr("Not Set");
                 font-italic: true;
             }
-
-            if property-value.code != "": HorizontalLayout {
+            else : HorizontalLayout {
                 spacing: EditorSpaceSettings.default-spacing;
 
                 ResetButton {

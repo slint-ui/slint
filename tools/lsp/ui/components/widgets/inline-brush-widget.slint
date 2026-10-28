@@ -242,7 +242,7 @@ component ColorCode {
             y: (parent.height - self.height) / 2;
             color: root.brush;
         }
-        if root.brush-kind != BrushKind.solid: GradientIndicator {
+        else : GradientIndicator {
             x: (main.height - 15px) / 2;
             y: (parent.height - self.height) / 2;
             brush: root.brush;

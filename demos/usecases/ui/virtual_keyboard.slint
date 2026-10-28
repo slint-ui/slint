@@ -36,8 +36,7 @@ component VirtualKeyboardButton {
                 vertical-alignment: center;
                 horizontal-alignment: center;
             }
-
-            if (root.key == "") : Image {
+            else : Image {
                 source: root.icon;
                 height: 18px;
                 colorize: Palette.color-scheme == ColorScheme.dark ? #ffffff : #000000;
@@ -187,17 +186,15 @@ export component VirtualKeyboard  {
                     VirtualKeyboardHandler.key-pressed(Key.Escape);
                 }
             }
-
-            if (index == 1) : VirtualKeyboardButton {
+            else if (index == 1) : VirtualKeyboardButton {
                 key: "Tab";
 
                 key-pressed => {
                     VirtualKeyboardHandler.key-pressed(Key.Tab);
                 }
             }
-
             // shift
-            if (index == 2) : VirtualKeyboardButton {
+            else if (index == 2) : VirtualKeyboardButton {
                 icon: Icons.arrow-up;
 
                 key-pressed => {
@@ -221,17 +218,15 @@ export component VirtualKeyboard  {
                     VirtualKeyboardHandler.key-pressed(Key.Backspace);
                 }
             }
-
-            if (index == 1) : VirtualKeyboardButton {
+            else if (index == 1) : VirtualKeyboardButton {
                 icon: Icons.arrow-circle-o-left;
 
                 key-pressed => {
                     VirtualKeyboardHandler.key-pressed(Key.Return);
                 }
             }
-
             // shift
-            if (index == 2) : VirtualKeyboardButton {
+            else if (index == 2) : VirtualKeyboardButton {
                 icon: Icons.arrow-up;
 
                 key-pressed => {

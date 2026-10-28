@@ -75,8 +75,7 @@ export component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                                         border_radius: self.width / 2;
                                         background: root.color;
                                     }
-
-                                    if root.has_icon || root.has_selected_icon : Icon {
+                                    else : Icon {
                                         source: root.icon;
                                         colorize: root.color;
 

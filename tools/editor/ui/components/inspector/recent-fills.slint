@@ -26,7 +26,7 @@ export component InspectorRecentFills inherits Rectangle {
             font-size: Typography.caption.size - 1px;
             horizontal-alignment: right; vertical-alignment: center;
         }
-        if root.fills.length > 0: EditorScrollView {
+        else: EditorScrollView {
             horizontal-stretch: 1;
             content-height: root.style.recent-swatch-size;
             content-width: swatches.preferred-width;

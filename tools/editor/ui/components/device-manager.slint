@@ -149,8 +149,7 @@ export component DeviceManager inherits Rectangle {
             activated => { root.page = 1; Springboard.discover-devices(); }
         }
     }
-
-    if root.page == 1: Rectangle {
+    else if root.page == 1: Rectangle {
         Text { x: (24px * ViewerStyle.scale); y: (64px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: @tr("Open Slint Preview on your phone or tablet.\nUse the same Wi-Fi network as this computer."); color: ViewerStyle.muted; font-size: (14px * ViewerStyle.scale); wrap: word-wrap; }
         Rectangle { x: (25px * ViewerStyle.scale); y: (117px * ViewerStyle.scale); width: (6px * ViewerStyle.scale); height: (6px * ViewerStyle.scale); border-radius: (3px * ViewerStyle.scale); background: ViewerStyle.connected; }
         Text { x: (40px * ViewerStyle.scale); y: (112px * ViewerStyle.scale); text: @tr("Looking for nearby viewers"); color: ViewerStyle.muted; font-size: 11px; }
@@ -200,8 +199,7 @@ export component DeviceManager inherits Rectangle {
             Chevron { x: parent.width - (28px * ViewerStyle.scale); transform-rotation: -90deg; }
         }
     }
-
-    if root.page == 2: Rectangle {
+    else if root.page == 2: Rectangle {
         Text { x: (24px * ViewerStyle.scale); y: (76px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: @tr("Enter the address shown in Slint Preview\non your device."); color: ViewerStyle.muted; font-size: (15px * ViewerStyle.scale); }
         Text { x: (24px * ViewerStyle.scale); y: (150px * ViewerStyle.scale); text: @tr("IP address"); color: ViewerStyle.muted; font-size: 11px; }
         Text { x: parent.width - (122px * ViewerStyle.scale); y: (150px * ViewerStyle.scale); text: @tr("Port"); color: ViewerStyle.muted; font-size: 11px; }
@@ -237,8 +235,7 @@ export component DeviceManager inherits Rectangle {
             }
         }
     }
-
-    if root.page == 3: Rectangle {
+    else if root.page == 3: Rectangle {
         Rectangle {
             x: (24px * ViewerStyle.scale); y: (80px * ViewerStyle.scale); width: (52px * ViewerStyle.scale); height: (52px * ViewerStyle.scale); border-radius: (13px * ViewerStyle.scale);
             background: ViewerStyle.pill-face; border-width: (1px * ViewerStyle.scale); border-color: ViewerStyle.title-border;

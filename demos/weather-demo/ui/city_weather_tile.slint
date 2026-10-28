@@ -83,7 +83,7 @@ export component CityWeatherTile inherits TouchArea {
                 show-animations: root.show-animations;
             }
         }
-        if !WindowInfo.is-portrait: HorizontalLayout {
+        else : HorizontalLayout {
             spacing: 5% * self.width;
 
             TileBaseInfo {

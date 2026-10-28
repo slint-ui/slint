@@ -60,8 +60,7 @@ export component AppWindow inherits Window {
             z: self.in-front ? 10 : -10;
         }
     }
-
-    if cb.current-value == "Demo 2": Rectangle {
+    else if cb.current-value == "Demo 2": Rectangle {
         Image {
             source: @image-url("images/sphere.png");
             width: 200px;
@@ -75,8 +74,7 @@ export component AppWindow inherits Window {
             z: self.in-front ? 10 : -10;
         }
     }
-
-    if cb.current-value == "Demo 3": Rectangle {
+    else if cb.current-value == "Demo 3": Rectangle {
         Image {
             source: @image-url("images/sphere.png");
             width: 200px;
@@ -90,8 +88,7 @@ export component AppWindow inherits Window {
             z: self.in-front ? 10 : -10;
         }
     }
-
-    if cb.current-value == "Demo 4": Rectangle {
+    else if cb.current-value == "Demo 4": Rectangle {
         Image {
             source: slint-logo;
             width: 200px;

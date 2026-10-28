@@ -48,8 +48,7 @@ component NavigationItemTemplate inherits BaseNavigationItemTemplate {
                             background: root.color;
                         }
                     }
-
-                    if root.has_icon || root.has_selected_icon : Icon {
+                    else : Icon {
                         source: root.icon;
                         colorize: root.color;
 

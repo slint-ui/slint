@@ -65,8 +65,7 @@ export component RecipeDetail inherits Rectangle {
         if active-tab == 0: overview-page := OverviewPage {
             recipe: root.recipe;
         }
-
-        if active-tab != 0: ScrollView {
+        else : ScrollView {
             content-width: self.visible-width;
             horizontal-scrollbar-policy: always-off;
             mouse-drag-pan-enabled: true;
@@ -76,13 +75,13 @@ export component RecipeDetail inherits Rectangle {
                     recipe: root.recipe;
                     portions-changed(portions) => { root.portions-changed(portions); }
                 }
-                if active-tab == 2: PreparationPage {
+                else if active-tab == 2: PreparationPage {
                     recipe: root.recipe;
                 }
-                if active-tab == 3: TipsPage {
+                else if active-tab == 3: TipsPage {
                     recipe: root.recipe;
                 }
-                if active-tab == 4: MoreInfoPage {
+                else if active-tab == 4: MoreInfoPage {
                     recipe: root.recipe;
                 }
             }

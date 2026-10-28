@@ -50,8 +50,7 @@ export component OutlinePane inherits Rectangle {
                 vertical-alignment: center;
             }
         }
-
-        if !root.image-mode && root.outline-data.length > 0: Rectangle {
+        else: Rectangle {
             vertical-stretch: 1;
             clip: true;
 

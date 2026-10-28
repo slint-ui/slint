@@ -28,8 +28,7 @@ export component InspectorSection inherits Rectangle {
                 label: root.title;
                 vertical-alignment: center;
             }
-
-            if !root.use-shared-title: Text {
+            else: Text {
                 x: Style.inspector-layout.padding;
                 height: parent.height;
                 text: root.title;

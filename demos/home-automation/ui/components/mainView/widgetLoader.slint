@@ -119,57 +119,52 @@ export component WidgetLoader {
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.appliance: Appliance {
+    else if root.type == WidgetType.appliance: Appliance {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.overhead: Overhead {
+    else if root.type == WidgetType.overhead: Overhead {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.info: Info {
+    else if root.type == WidgetType.info: Info {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.graph: Graph {
+    else if root.type == WidgetType.graph: Graph {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.control: Control {
+    else if root.type == WidgetType.control: Control {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         index: root.index;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.music: MusicPlayer {
+    else if root.type == WidgetType.music: MusicPlayer {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         index: root.index;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.camera: Camera {
+    else if root.type == WidgetType.camera: Camera {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         index: root.index;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.hvac: HVAC {
+    else if root.type == WidgetType.hvac: HVAC {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
@@ -177,36 +172,35 @@ export component WidgetLoader {
         height: root.height;
         full-screen: root.full-screen;
     }
-    if root.type == WidgetType.microwave: Microwave {
+    else if root.type == WidgetType.microwave: Microwave {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.dishwasher: Dishwasher {
+    else if root.type == WidgetType.dishwasher: Dishwasher {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.weatherInfo: WeatherInfo {
+    else if root.type == WidgetType.weatherInfo: WeatherInfo {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.powerInfo: PowerInfo {
+    else if root.type == WidgetType.powerInfo: PowerInfo {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.alarm: Alarm {
+    else if root.type == WidgetType.alarm: Alarm {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;

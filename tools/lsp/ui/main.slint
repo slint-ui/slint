@@ -274,8 +274,7 @@ export component PreviewUi inherits Window {
                 }
 
                 if root.remote-mode: RemotePreviewView { }
-
-                if !root.remote-mode: HorizontalLayout {
+                else : HorizontalLayout {
 
                     if root.library-widget: LibraryView {
                         known-components: Api.known-components;

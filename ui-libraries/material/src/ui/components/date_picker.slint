@@ -448,8 +448,7 @@ export component DatePickerPopup inherits PopupWindow {
                         root.select_date(date);
                     }
                 }
-
-                if root.year_selection : YearSelection {
+                else : YearSelection {
                     min_width: root.calendar_min_width;
                     min_height: root.calendar_min_height;
                     column_count: root.year_selection_column_count;

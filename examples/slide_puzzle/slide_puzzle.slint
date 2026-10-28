@@ -328,8 +328,7 @@ export component MainWindow inherits Window {
                     background: is-correct ? #0008 : #fff8;
                 }
             }
-
-            if (!root.current-theme.game-use-background-image) : Rectangle {
+            else : Rectangle {
                 background: i >= 8 ? root.current-theme.piece-background-2 : root.current-theme.piece-background-1;
                 border-color: i >= 8 ? root.current-theme.piece-border-color-2 : root.current-theme.piece-border-color-1;
                 border-width: root.current-theme.piece-border;

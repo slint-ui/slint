@@ -43,7 +43,7 @@ component CssColorIndicator {
             border-radius: 5px;
             border-width: 1px;
         }
-        if brush-kind != BrushKind.solid: GradientIndicator {
+        else : GradientIndicator {
             width: 100%;
             height: 100%;
             brush: root.brush;
