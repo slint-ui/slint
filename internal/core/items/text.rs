@@ -1552,7 +1552,14 @@ impl Item for TextInput {
                 }
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
-                WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                window_inner.set_text_input_focused(true);
+                // Keep the IME cursor rectangle in sync when the TextInput moves, e.g. in a Flickable
+                window_inner.track_focus_item_position(self_rc, |item, window_adapter| {
+                    if let Some(text_input) = item.downcast::<TextInput>() {
+                        text_input.as_pin_ref().update_ime(window_adapter, item);
+                    }
+                });
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
                     if let Some(w) = window_adapter.internal(crate::InternalToken) {
@@ -2093,11 +2100,7 @@ impl TextInput {
         }
     }
 
-    pub(crate) fn update_ime(
-        self: Pin<&Self>,
-        window_adapter: &Rc<dyn WindowAdapter>,
-        self_rc: &ItemRc,
-    ) {
+    fn update_ime(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         if self.read_only() || !self.has_focus() {
             return;
         }
