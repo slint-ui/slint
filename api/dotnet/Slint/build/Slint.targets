@@ -11,7 +11,7 @@
 
   A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
   On Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup.
-  On iOS, they go into the app bundle as bundle resources, and the app links the static library of target/ios or the package.
+  On iOS, they go into the app bundle as bundle resources, and the app embeds the framework of the package or of target/ios.
 
   Properties:
     SlintCompilerPath   the slint-compiler binary; defaults to the one of the Slint.Compiler package,
@@ -49,19 +49,13 @@
     <_SlintOnDevice Condition="'$(_SlintPlatform)' == 'android' or '$(_SlintPlatform)' == 'ios'">true</_SlintOnDevice>
     <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
     <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true'">true</_SlintLiveAllowed>
-    <!-- From the package, or else from scripts/build_dotnet_ios.sh in the repository. -->
-    <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../runtimes/ios/native/slint_dotnet.xcframework</_SlintIOSLibrary>
+    <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
+    <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../ios/slint_dotnet.xcframework</_SlintIOSLibrary>
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios' and !Exists('$(_SlintIOSLibrary)')">$(MSBuildThisFileDirectory)../../../../target/ios/slint_dotnet.xcframework</_SlintIOSLibrary>
   </PropertyGroup>
 
-  <!--
-    Slint.dll finds its exports in the app's executable on iOS, so the linker exports them.
-    The frameworks and libraries are the ones that rustc lists as native-static-libs for the static library.
-  -->
   <ItemGroup Condition="'$(_SlintPlatform)' == 'ios' and Exists('$(_SlintIOSLibrary)')">
-    <NativeReference Include="$([System.IO.Path]::GetFullPath('$(_SlintIOSLibrary)'))" Kind="Static" ForceLoad="true" IsCxx="true"
-                     Frameworks="CoreFoundation CoreGraphics CoreText Foundation ImageIO Metal MobileCoreServices QuartzCore UIKit"
-                     LinkerFlags="-liconv -lobjc -Wl,-exported_symbol,_slint_dotnet_*" />
+    <NativeReference Include="$([System.IO.Path]::GetFullPath('$(_SlintIOSLibrary)'))" Kind="Framework" />
   </ItemGroup>
 
   <ItemGroup>

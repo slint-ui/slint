@@ -352,14 +352,15 @@ Slint owns the app on iOS too, as in the C++ API:
 the C# `Main` creates components and calls `Run`, where the winit backend calls `UIApplicationMain`, which doesn't return.
 There's no C# app delegate; the app's `Info.plist` names `SlintWindowSceneDelegate`, the scene delegate of the winit backend.
 
-iOS apps can't load other libraries, so `slint-dotnet` is a static library in the app's executable:
+An iOS app embeds `slint-dotnet` as a dynamic framework, like SkiaSharp and the .NET runtime's own libraries:
 
-- `scripts/build_dotnet_ios.sh` builds it with `cargo rustc --crate-type staticlib` for `aarch64-apple-ios` and `aarch64-apple-ios-sim`,
-  with the winit backend and Skia only, and combines them into `target/ios/slint_dotnet.xcframework`.
-- For a `net10.0-ios` app, `Slint.targets` adds it as a static `NativeReference`, with the frameworks and libraries
-  that rustc lists as `native-static-libs`, and exports `_slint_dotnet_*`, which .NET for iOS would otherwise hide.
-- `NativeLibraryResolver` maps `slint_dotnet` to `NativeLibrary.GetMainProgramHandle()` on iOS,
-  so `Slint.dll` needs no iOS build, and P/Invoke finds the exports with `dlsym`.
+- `scripts/build_dotnet_ios.sh` builds it with `cargo rustc --crate-type cdylib` for `aarch64-apple-ios` and `aarch64-apple-ios-sim`,
+  with the winit backend and Skia only, as `slint_dotnet.framework`, and combines them into `target/ios/slint_dotnet.xcframework`.
+- A static library would be 216 MB for the two, since it keeps all the code of Rust's standard library and Skia,
+  and stripping it breaks the link; the frameworks, already linked and stripped, are 43 MB, 21 MB in a package.
+- For a `net10.0-ios` app, `Slint.targets` adds it as a `NativeReference` of kind `Framework`,
+  from `ios/` in the package, outside `runtimes/` so that NuGet doesn't treat it as native assets.
+- `NativeLibraryResolver` loads `@rpath/slint_dotnet.framework/slint_dotnet` on iOS, so `Slint.dll` needs no iOS build.
 - `Slint.targets` adds the `.slint` files as bundle resources, at the paths that the generated code loads relative to the bundle,
   and keeps the desktop library that `Slint.csproj` copies out of the app.
 
@@ -530,15 +531,15 @@ Next:
     Like a C++ `main`, the C# `Main` creates components and calls `Run`, where winit calls `UIApplicationMain` and never returns,
     instead of `UIApplication.Main` with a C# app delegate.
     The app's `Info.plist` names Slint's `SlintWindowSceneDelegate` in its scene manifest, which iOS 27 requires.
-    `slint-dotnet` builds as a static library in an `.xcframework`, which the package links with a `NativeReference`,
-    as Slint's C++ build does; an embedded dynamic framework is the fallback.
+    `slint-dotnet` builds as a dynamic framework in an `.xcframework`, which the package embeds with a `NativeReference`;
+    a static library, as Slint's C++ build makes, worked too, but was too large for a NuGet package.
     An app bundle has files, so the `.slint` files can be bundle resources, without extracting them.
     - Phase 0, a prototype, worked: the C# `Main` starts UIKit through `Run`, P/Invoke finds the exports in the executable,
       and a window and its callbacks work in the simulator.
-    - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the static `NativeReference` and the bundle resources in `Slint.targets`,
-      and the resolver for the executable; `Slint.dll` needs no `net10.0-ios` build.
+    - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the framework `NativeReference` and the bundle resources in `Slint.targets`,
+      and the resolver for the framework; `Slint.dll` needs no `net10.0-ios` build.
     - Phase 2, done: `examples/todo/dotnet-ios` and `examples/lols/dotnet-ios`, documentation, and a simulator test in CI.
-    - Phase 3: the `.xcframework` in the packages, built and tested by the publish workflow, and a preview.
+    - Phase 3, in progress: the `.xcframework` in `ios/` of the package, built and tested by the publish workflow, and a preview.
     - Phase 4: an iPhone 13, the app lifecycle and saved state, Hot Reload, and Native AOT.
   - `linuxkms` works on an arm64 Kali Linux VM in UTM on macOS, with its `virtio-gpu` display and virgl,
     for samples published from the 1.19.0-preview.9 package for `linux-arm64`, run as root on the console:

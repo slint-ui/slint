@@ -36,6 +36,8 @@
     <None Include="../README.md" Pack="true" PackagePath="/" />
     <!-- Pass SlintNativeRuntimesDir to pack, a directory with one sub-directory per runtime identifier. -->
     <None Include="$(SlintNativeRuntimesDir)/**/*" Pack="true" PackagePath="runtimes/%(RecursiveDir)native/%(Filename)%(Extension)" Condition="'$(SlintNativeRuntimesDir)' != ''" />
+    <!-- Pass SlintIOSFramework to pack, the slint_dotnet.xcframework of scripts/build_dotnet_ios.sh, which Slint.targets finds in ios/. -->
+    <None Include="$(SlintIOSFramework)/**/*" Pack="true" PackagePath="ios/slint_dotnet.xcframework/" Condition="'$(SlintIOSFramework)' != ''" />
     <!-- Becomes the dependency on the compiler package. -->
     <ProjectReference Include="../Slint.Compiler/Slint.Compiler.csproj" PrivateAssets="none" />
   </ItemGroup>

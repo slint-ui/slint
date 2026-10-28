@@ -93,8 +93,27 @@ jobs:
                   name: dotnet-binaries-${{ matrix.rid }}
                   path: artifacts
 
+    # The framework for iOS devices and the simulator, which the package has in ios/.
+    build_ios:
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: "aarch64-apple-ios aarch64-apple-ios-sim"
+                  key: dotnet-ios
+            - name: Build the framework
+              run: |
+                  scripts/build_dotnet_ios.sh
+                  mkdir -p artifacts/ios
+                  cp -R target/ios/slint_dotnet.xcframework artifacts/ios/
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: dotnet-binaries-ios
+                  path: artifacts
+
     pack:
-        needs: build_binaries
+        needs: [build_binaries, build_ios]
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
@@ -146,7 +165,7 @@ jobs:
                       mv README.community.md README.md
                   fi
                   dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
-                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native" -p:SlintAndroid=true
+                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native" -p:SlintAndroid=true -p:SlintIOSFramework="$GITHUB_WORKSPACE/artifacts/ios/slint_dotnet.xcframework"
             - uses: actions/upload-artifact@v7
               with:
                   name: nuget-packages
@@ -250,8 +269,67 @@ jobs:
                   done
                   echo ok
 
+    test_ios_package:
+        needs: pack
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            # The workload set with the .NET for iOS that the runner's Xcode supports, see the ".NET iOS" job of ci.yaml.
+            - name: Install the .NET iOS workload
+              run: dotnet workload install ios --version 10.0.401
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            - name: Build an iOS app with the packages and start it in a simulator
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  mkdir -p app/ui && cd app
+                  cat > app.csproj <<'EOF'
+                  <Project Sdk="Microsoft.NET.Sdk">
+                    <PropertyGroup>
+                      <TargetFramework>net10.0-ios</TargetFramework>
+                      <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+                      <OutputType>Exe</OutputType>
+                      <ApplicationId>dev.slint.dotnet.packagetest</ApplicationId>
+                      <RuntimeIdentifier>iossimulator-arm64</RuntimeIdentifier>
+                    </PropertyGroup>
+                    <ItemGroup>
+                      <SlintFile Include="ui/app.slint" />
+                    </ItemGroup>
+                  </Project>
+                  EOF
+                  cp "$GITHUB_WORKSPACE/examples/todo/dotnet-ios/Info.plist" .
+                  printf 'export component App inherits Window { in-out property <int> counter: 41; Text { text: "\{root.counter}"; } }\n' > ui/app.slint
+                  cat > Program.cs <<'EOF'
+                  internal static class Program
+                  {
+                      private static void Main()
+                      {
+                          using var a = app.App.Create();
+                          a.Counter++;
+                          a.Run();
+                      }
+                  }
+                  EOF
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet add package "$SLINT_PACKAGE_ID" --version "$version"
+                  dotnet build
+                  bundle=bin/Debug/net10.0-ios/iossimulator-arm64/app.app
+                  for file in Frameworks/slint_dotnet.framework/slint_dotnet ui/app.slint; do
+                      [ -e "$bundle/$file" ] || { echo "::error::$file is missing from $bundle"; exit 1; }
+                  done
+                  "$GITHUB_WORKSPACE/scripts/dotnet_ios_smoke_test.sh" "$bundle" dev.slint.dotnet.packagetest 30
+
     publish:
-        needs: [test_packages, test_android_package]
+        needs: [test_packages, test_android_package, test_ios_package]
         if: ${{ inputs.publish }}
         runs-on: ubuntu-22.04
         environment:

@@ -32,7 +32,7 @@ internal static class NativeLibraryResolver
         {
             return NativeLibrary.Load(path);
         }
-        // iOS apps link the native library statically into their executable.
-        return OperatingSystem.IsIOS() ? NativeLibrary.GetMainProgramHandle() : 0;
+        // iOS apps embed the native library as a framework, which the default probing doesn't look into.
+        return OperatingSystem.IsIOS() ? NativeLibrary.Load("@rpath/slint_dotnet.framework/slint_dotnet") : 0;
     }
 }

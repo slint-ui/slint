@@ -582,7 +582,7 @@ and reference `api/dotnet/Slint/Slint.csproj` and its `build/Slint.targets`, as 
    dotnet build -t:Run
    ```
 
-- The build links Slint's static library into the app, and puts the `.slint` files into the app bundle.
+- The build embeds Slint's framework into the app, and puts the `.slint` files into the app bundle.
 - `SlintLivePreview` isn't available on iOS yet; the build ignores it, with the warning `SLINT002`.
 
 ## Embedded Linux
