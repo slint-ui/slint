@@ -93,7 +93,7 @@ internal static unsafe partial class NativeMethods
     public static partial nint slint_dotnet_value_new_enum(Utf8Str enumName, Utf8Str value);
 
     [LibraryImport(Library)]
-    public static partial nint slint_dotnet_value_new_struct();
+    public static partial nint slint_dotnet_value_new_struct(Utf8Str* names, nint* values, double* numbers, nuint count);
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_value_new_image();
@@ -143,10 +143,6 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_value_struct_get_field(nint value, Utf8Str name);
-
-    [LibraryImport(Library)]
-    [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_value_struct_set_field(nint value, Utf8Str name, nint field);
 
     // interpreter.rs
 

@@ -464,7 +464,12 @@ Next:
   Layout, rendering, and text are the same Rust code as in a Rust app; only bindings and callbacks in `.slint` run in the interpreter.
   - The lols canvas showed that calls across the native boundary cost the most:
     notifying a model change per row halved its rate, compared with once per frame.
-    Look for more such calls to batch, and make each cheaper, such as a `RemoveRange` on `ListModel`.
+    `ListModel` has `InsertRange` and `RemoveRange`, and the elements mode of lols changes its rows once per frame with them.
+    A struct crosses with one call, `slint_dotnet_value_new_struct`, which takes the field names, the values,
+    and the numbers inline, instead of three calls per field.
+    On a Pixel 9 emulator, both together took the Slint thread's CPU time during the test from about 3050 to 2830 ms in the elements mode,
+    and from 500 to 470 ms in the canvas mode, about 6%; LOL/s is bound by the producer's sleeps in both.
+    What's left is Slint's own work: in the canvas mode, the Slint thread is busy for almost the whole test.
   - Compiling `.slint` ahead of time, like the Rust and C++ generators, isn't planned:
     every app build would need a Rust or C++ toolchain for each target, compiled components would need a C ABI and C# wrappers of their own,
     and live reload and loading `.slint` files at run time would go.

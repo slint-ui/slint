@@ -1,5 +1,12 @@
 # What's New in Slint for .NET
 
+## Next Preview
+
+- `ListModel.InsertRange` and `ListModel.RemoveRange` change several rows with one notification.
+- Structs, and so records, cross into Slint in one call per struct instead of three per field,
+  with numbers passed inline and field names encoded once.
+  This takes about 6% off the Slint thread's work in the lols example on an Android emulator.
+
 ## 1.19.0-preview.8
 
 - On Android, keep what the user was doing when Android ends the process in the background:

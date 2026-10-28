@@ -65,6 +65,73 @@ public sealed class ModelTests
     });
 
     [TestMethod]
+    public void BindingsFollowRangeChanges() => SlintThread.Run(() =>
+    {
+        using var app = Create();
+        var names = new ListModel<string>(["Ada", "Grace", "Linus"]);
+        app.SetProperty("names", names);
+
+        names.InsertRange(1, ["Alan", "Barbara"]);
+        CollectionAssert.AreEqual(new[] { "Ada", "Alan", "Barbara", "Grace", "Linus" }, names.ToArray());
+        Assert.AreEqual(5.0, app.GetProperty("name-count"));
+
+        names.RemoveRange(0, 2);
+        Assert.AreEqual("Barbara", app.GetProperty("first-name"));
+        Assert.AreEqual(3.0, app.GetProperty("name-count"));
+
+        names.RemoveRange(1, 0);
+        names.InsertRange(3, []);
+        Assert.AreEqual(3.0, app.GetProperty("name-count"));
+    });
+
+    [TestMethod]
+    public void StructFieldsKeepTheirValues() => SlintThread.Run(() =>
+    {
+        using var app = Create("""
+            export struct Inner { label: string }
+            export struct Fields { count: int, ratio: float, delay: duration, name: string, tint: color, flag: bool, inner: Inner }
+            export struct Wide { f0: int, f1: int, f2: int, f3: int, f4: int, f5: int, f6: int, f7: int, f8: int, f9: int,
+                f10: int, f11: int, f12: int, f13: int, f14: int, f15: int, f16: int, f17: int, f18: int, f19: int }
+            export component App {
+                in-out property <Fields> fields;
+                in-out property <Wide> wide;
+            }
+            """);
+        app.SetProperty("fields", new Struct
+        {
+            ["count"] = 7,
+            ["ratio"] = 0.5f,
+            ["delay"] = TimeSpan.FromMilliseconds(250),
+            ["name"] = "lol",
+            ["tint"] = Color.FromArgb(0xFF336699),
+            ["flag"] = true,
+            ["inner"] = new Struct { ["label"] = "nested" },
+        });
+        var fields = (Struct)app.GetProperty("fields")!;
+        Assert.AreEqual(7.0, fields["count"]);
+        Assert.AreEqual(0.5, fields["ratio"]);
+        Assert.AreEqual(250.0, fields["delay"]);
+        Assert.AreEqual("lol", fields["name"]);
+        Assert.AreEqual(Color.FromArgb(0xFF336699), fields["tint"]);
+        Assert.IsTrue((bool)fields["flag"]!);
+        Assert.AreEqual("nested", ((Struct)fields["inner"]!)["label"]);
+        Assert.ThrowsExactly<ArgumentException>(() => app.SetProperty("fields", new Struct { ["name"] = "kept", ["inner"] = new object() }));
+        Assert.AreEqual("lol", ((Struct)app.GetProperty("fields")!)["name"]);
+
+        var wide = new Struct();
+        for (var i = 0; i < 20; i++)
+        {
+            wide[$"f{i}"] = i;
+        }
+        app.SetProperty("wide", wide);
+        var read = (Struct)app.GetProperty("wide")!;
+        for (var i = 0; i < 20; i++)
+        {
+            Assert.AreEqual((double)i, read[$"f{i}"]);
+        }
+    });
+
+    [TestMethod]
     public void SlintWritesRowsBack() => SlintThread.Run(() =>
     {
         using var app = Create();

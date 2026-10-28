@@ -303,6 +303,27 @@ public class ListModel<T> : Model<T>, IList<T>
         }
     }
 
+    /// <summary>Inserts <paramref name="items"/> at <paramref name="index"/> with a single notification.</summary>
+    public void InsertRange(int index, IEnumerable<T> items)
+    {
+        var count = _rows.Count;
+        _rows.InsertRange(index, items);
+        if (_rows.Count > count)
+        {
+            NotifyRowAdded(index, _rows.Count - count);
+        }
+    }
+
+    /// <summary>Removes <paramref name="count"/> rows at <paramref name="index"/> with a single notification.</summary>
+    public void RemoveRange(int index, int count)
+    {
+        _rows.RemoveRange(index, count);
+        if (count > 0)
+        {
+            NotifyRowRemoved(index, count);
+        }
+    }
+
     /// <inheritdoc/>
     public override bool InsertRow(int row, T value)
     {

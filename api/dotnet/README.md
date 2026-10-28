@@ -226,6 +226,8 @@ app.Todos = todos;
 todos.Add(new TodoItem { Title = "Write the docs" });
 ```
 
+`AddRange`, `InsertRange`, and `RemoveRange` change several rows with one notification.
+
 To show your own data, derive from `Model<T>`,
 and call `NotifyRowChanged`, `NotifyRowAdded`, `NotifyRowRemoved`, or `NotifyReset` when it changes.
 Override `InsertRow` and `RemoveRow` to let `.slint` code add and remove rows, as `ListModel` does.

@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using Slint.Interop;
 
 namespace Slint;
@@ -304,30 +307,113 @@ internal static unsafe class ValueConverter
         }
     }
 
+    private const int MaxCachedFieldNames = 4096;
+
+    /// <summary>UTF-8 field names on the pinned object heap, so that a struct passes them without copying.</summary>
+    private static readonly ConcurrentDictionary<string, byte[]> s_fieldNames = new();
+
     private static nint StructToNative(IEnumerable<KeyValuePair<string, object?>> fields)
     {
-        var result = NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_struct());
+        if (!fields.TryGetNonEnumeratedCount(out var count))
+        {
+            var copy = fields.ToList();
+            fields = copy;
+            count = copy.Count;
+        }
+        List<byte[]>? uncachedNames = null;
+        Span<Utf8Str> names = count <= 16 ? stackalloc Utf8Str[count] : new Utf8Str[count];
+        Span<nint> values = count <= 16 ? stackalloc nint[count] : new nint[count];
+        Span<double> numbers = count <= 16 ? stackalloc double[count] : new double[count];
+        var filled = 0;
         try
         {
-            foreach (var (name, fieldValue) in fields)
+            foreach (var (name, value) in fields)
             {
-                var field = ToNative(fieldValue);
-                try
+                if (filled == count)
                 {
-                    using var fieldName = new PinnedUtf8(name);
-                    NativeError.Check(NativeMethods.slint_dotnet_value_struct_set_field(result, fieldName.Str, field));
+                    throw new InvalidOperationException("The struct's fields changed while converting it");
                 }
-                finally
+                if (!TryGetCachedFieldName(name, out var bytes))
                 {
-                    NativeMethods.slint_dotnet_value_free(field);
+                    (uncachedNames ??= []).Add(bytes);
                 }
+                names[filled] = new Utf8Str((byte*)Unsafe.AsPointer(ref MemoryMarshal.GetArrayDataReference(bytes)), (nuint)bytes.Length);
+                if (TryGetNumber(value, out var number))
+                {
+                    values[filled] = 0;
+                    numbers[filled] = number;
+                }
+                else
+                {
+                    values[filled] = ToNative(value);
+                    numbers[filled] = 0;
+                }
+                filled++;
             }
-            return result;
         }
         catch
         {
-            NativeMethods.slint_dotnet_value_free(result);
+            foreach (var value in values[..filled])
+            {
+                if (value != 0)
+                {
+                    NativeMethods.slint_dotnet_value_free(value);
+                }
+            }
             throw;
+        }
+        fixed (Utf8Str* namesPtr = names)
+        fixed (nint* valuesPtr = values)
+        fixed (double* numbersPtr = numbers)
+        {
+            // The struct takes ownership of the values.
+            var result = NativeMethods.slint_dotnet_value_new_struct(namesPtr, valuesPtr, numbersPtr, (nuint)filled);
+            GC.KeepAlive(uncachedNames);
+            return NativeError.CheckValue(result);
+        }
+    }
+
+    /// <summary>Returns the pinned UTF-8 name, and whether the cache keeps it alive.</summary>
+    private static bool TryGetCachedFieldName(string name, out byte[] bytes)
+    {
+        if (s_fieldNames.TryGetValue(name, out bytes!))
+        {
+            return true;
+        }
+        bytes = GC.AllocateUninitializedArray<byte>(Encoding.UTF8.GetByteCount(name), pinned: true);
+        Encoding.UTF8.GetBytes(name, bytes);
+        // Structs built from data, such as with a key per user, don't fill the cache.
+        if (s_fieldNames.Count >= MaxCachedFieldNames)
+        {
+            return false;
+        }
+        bytes = s_fieldNames.GetOrAdd(name, bytes);
+        return true;
+    }
+
+    /// <summary>The numbers that <see cref="ToNative"/> converts to a number, which a struct takes without a value.</summary>
+    private static bool TryGetNumber(object? value, out double number)
+    {
+        switch (value)
+        {
+            case float f:
+                number = f;
+                return true;
+            case double d:
+                number = d;
+                return true;
+            case int i:
+                number = i;
+                return true;
+            case TimeSpan duration:
+                number = duration.TotalMilliseconds;
+                return true;
+            case sbyte or byte or short or ushort or uint or long or ulong or decimal:
+                number = Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
+                return true;
+            default:
+                number = 0;
+                return false;
         }
     }
 

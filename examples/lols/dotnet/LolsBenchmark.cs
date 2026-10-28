@@ -53,6 +53,7 @@ internal sealed class LolsBenchmark : IDisposable
         }, TaskCreationOptions.LongRunning);
 
         var next = 0;
+        var added = new List<Lol>();
         // Applies the queued lols about once per frame, like Invalidate() on Android.
         _drain.Start(TimerMode.Repeated, TimeSpan.FromMilliseconds(16), () =>
         {
@@ -60,11 +61,7 @@ internal sealed class LolsBenchmark : IDisposable
             {
                 if (mode == "elements")
                 {
-                    if (model.Count >= Max)
-                    {
-                        model.RemoveAt(0);
-                    }
-                    model.Add(lol);
+                    added.Add(lol);
                 }
                 else
                 {
@@ -76,6 +73,14 @@ internal sealed class LolsBenchmark : IDisposable
             }
             // Tells Slint once per frame which rows changed, like a canvas that draws once per frame.
             rows.NotifyChanges();
+            if (added.Count > 0)
+            {
+                // Keeps the newest Max lols, with one removal and one insertion per frame.
+                var newest = added.Count > Max ? added.GetRange(added.Count - Max, Max) : added;
+                model.RemoveRange(0, Math.Max(0, model.Count + newest.Count - Max));
+                model.AddRange(newest);
+                added.Clear();
+            }
             if (_count == total && _stopwatch.IsRunning)
             {
                 _stopwatch.Stop();

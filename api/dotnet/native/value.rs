@@ -4,7 +4,7 @@
 use i_slint_core::model::{Model, ModelRc, VecModel};
 use slint_interpreter::{Brush, Color, Image, Value, ValueType};
 
-use crate::{NameList, OwnedString, Utf8Str, guard, guard_bool, into_raw, release};
+use crate::{NameList, OwnedString, Utf8Str, guard, guard_bool, into_raw, release, utf8_slice};
 
 /// Matches `Slint.ValueType` in C#.
 pub fn value_type_tag(ty: ValueType) -> i32 {
@@ -83,9 +83,35 @@ pub unsafe extern "C" fn slint_dotnet_value_new_enum(
     })
 }
 
+/// A struct with a field per name in `names`, in one call per struct.
+/// Takes ownership of every value in `values`; a null value stands for the number at the same index of `numbers`,
+/// so that numeric fields need no value of their own.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_dotnet_value_new_struct() -> *mut Value {
-    guard(std::ptr::null_mut(), || Ok(into_raw(Value::Struct(Default::default()))))
+pub unsafe extern "C" fn slint_dotnet_value_new_struct(
+    names: *const Utf8Str,
+    values: *const *mut Value,
+    numbers: *const f64,
+    count: usize,
+) -> *mut Value {
+    let fields: Vec<Value> = if count == 0 {
+        Vec::new()
+    } else {
+        let values = unsafe { std::slice::from_raw_parts(values, count) };
+        let numbers = unsafe { std::slice::from_raw_parts(numbers, count) };
+        values
+            .iter()
+            .zip(numbers)
+            .map(
+                |(v, n)| {
+                    if v.is_null() { Value::Number(*n) } else { *unsafe { Box::from_raw(*v) } }
+                },
+            )
+            .collect()
+    };
+    guard(std::ptr::null_mut(), || {
+        let names = unsafe { utf8_slice(names, count) }?;
+        Ok(into_raw(Value::Struct(names.into_iter().map(String::from).zip(fields).collect())))
+    })
 }
 
 /// Takes ownership of every value in `values`.
@@ -318,20 +344,5 @@ pub unsafe extern "C" fn slint_dotnet_value_struct_get_field(
             .cloned()
             .map_or(std::ptr::null_mut(), into_raw)),
         _ => Ok(std::ptr::null_mut()),
-    })
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_dotnet_value_struct_set_field(
-    value: &mut Value,
-    name: Utf8Str,
-    field: &Value,
-) -> bool {
-    guard_bool(|| match value {
-        Value::Struct(s) => {
-            s.set_field(unsafe { name.as_str() }?.into(), field.clone());
-            Ok(())
-        }
-        _ => Err("value isn't a struct".into()),
     })
 }
