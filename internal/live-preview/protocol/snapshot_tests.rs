@@ -89,7 +89,8 @@ fn wire_format_matches_snapshots() {
     }));
     snapshots.assert_roundtrip(L::HighlightFromEditor { url: Some(url()), offset: 1000 });
     snapshots.assert_roundtrip(L::Ping);
-    snapshots.assert_roundtrip(L::OpenProject { root: Url::parse("file:///project/").unwrap() });
+    snapshots
+        .assert_roundtrip(L::OpenProject { root: Some(Url::parse("file:///project/").unwrap()) });
     snapshots.assert_roundtrip(L::PairingHello { token: Some(TokenId::for_test(8)) });
     snapshots.assert_roundtrip(L::PairingResponse {
         element: Element::for_test(vec![1, 2, 3]),

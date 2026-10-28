@@ -13,8 +13,8 @@ HighlightFromEditor { url: Some(Url { scheme: "file", cannot_be_a_base: false, u
 InvalidateContents { url: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None } }
 001966696c653a2f2f2f70726f6a6563742f6170702e736c696e74
 
-OpenProject { root: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/", query: None, fragment: None } }
-0a1066696c653a2f2f2f70726f6a6563742f
+OpenProject { root: Some(Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/", query: None, fragment: None }) }
+0a011066696c653a2f2f2f70726f6a6563742f
 
 PairingAccepted
 14
