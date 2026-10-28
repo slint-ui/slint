@@ -52,7 +52,6 @@ export component LinearSliderSurface {
 
     pointer := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: MouseCursor.pointer;
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                 let coordinate = root.linear-vertical ? self.mouse-y : self.mouse-x;
