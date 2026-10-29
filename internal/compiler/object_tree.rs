@@ -76,6 +76,22 @@ pub struct Document {
 
     /// The popup_menu_impl
     pub popup_menu_impl: Option<Rc<Component>>,
+
+    /// The `@actor` components used by this document, recorded by the
+    /// `lower_actor` pass.
+    pub actor_interfaces: RefCell<Vec<ActorInterface>>,
+}
+
+/// The interface of an `@actor` component, for the generated facade and
+/// message types.
+#[derive(Clone, Debug)]
+pub struct ActorInterface {
+    pub name: SmolStr,
+    /// The identity of the defining file, see [`crate::generator::actor_file_identity`].
+    pub identity: String,
+    /// The callbacks with their argument types.
+    pub callbacks: Vec<(SmolStr, Vec<Type>)>,
+    pub properties: Vec<(SmolStr, Type)>,
 }
 
 impl Document {
@@ -305,6 +321,7 @@ impl Document {
             translation_builder: None,
             used_types: Default::default(),
             popup_menu_impl: None,
+            actor_interfaces: Default::default(),
         }
     }
 
@@ -635,6 +652,9 @@ impl Component {
         let mut child_insertion_points = BTreeMap::new();
         let mut declared_slots = Vec::new();
         let is_legacy_syntax = node.child_token(SyntaxKind::ColonEqual).is_some();
+        if let Some(at_actor) = node.AtActor() {
+            reject_experimental_feature(diag, tr, ExperimentalFeature::Actors, "@actor", &at_actor);
+        }
         let c = Component {
             node: Some(node.clone()),
             id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),

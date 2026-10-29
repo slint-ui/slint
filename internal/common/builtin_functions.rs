@@ -245,6 +245,10 @@ macro_rules! for_each_builtin_function {
             RestartTimer: impure fn(timer: ElementReference) -> ()
             OpenUrl: impure fn open_url(&context, url: SharedString) -> bool { crate::open_url(&url, context).is_ok() }
             MacosBringAllWindowsToFront: impure fn() -> ()
+            /// Creates the actor of an `@actor` component instance.
+            /// Arguments: the component name, its file identity, then pairs of a `"cb:name"`
+            /// or `"prop:name"` tag and a reference to that callback or property.
+            CreateActor: impure fn() -> ()
             ParseMarkdown: pure fn(format: SharedString, arguments: [StyledText]) -> StyledText
             StringToStyledText: pure fn string_to_styled_text(s: SharedString) -> StyledText { crate::styled_text::string_to_styled_text(s.into()) }
             /// Converts a color to a hex string wrapped in StyledText.

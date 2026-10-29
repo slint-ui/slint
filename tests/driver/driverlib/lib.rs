@@ -9,7 +9,7 @@ pub mod fork_harness;
 use regex::Regex;
 
 /// The value of `SLINT_ENABLE_EXPERIMENTAL_FEATURES` that enables every experimental feature.
-pub const ALL_EXPERIMENTAL_FEATURES: &str = "interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,internal-types";
+pub const ALL_EXPERIMENTAL_FEATURES: &str = "interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,actors,internal-types";
 
 #[test]
 fn all_experimental_features_are_listed() {

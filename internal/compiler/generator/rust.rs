@@ -23,7 +23,7 @@ use crate::llr::{
     EvaluationScope, Expression, GRID_MEASURE_CHILD_INDEX_LOCAL, GRID_MEASURE_REPEATER_INDEX_LOCAL,
     MEASURE_KNOWN_W_LOCAL, ParentScope, RadialGradientShape, TypeResolutionContext as _,
 };
-use crate::object_tree::Document;
+use crate::object_tree::{ActorInterface, Document};
 use crate::source_path::SourcePath;
 use crate::typeloader::LibraryInfo;
 use itertools::Either;
@@ -135,6 +135,168 @@ pub(super) fn library_symbol_path(library_info: &LibraryInfo, symbol: Ident) -> 
 /// callback handler is changed from native code.
 fn callback_tracker_ident(callback_name: &str) -> proc_macro2::Ident {
     format_ident!("callback_tracker_{}", callback_name.replace('-', "_"))
+}
+
+/// The name of the generated facade type for a `@actor` component: what the
+/// actor registered with `SlintContext::register_actor()` receives.
+fn actor_facade_id(component_name: &str) -> proc_macro2::Ident {
+    format_ident!("{}Facade", component_name.replace('-', "_"))
+}
+
+/// The name of the generated message enum for a `@actor` component.
+fn actor_message_id(component_name: &str) -> proc_macro2::Ident {
+    format_ident!("{}Message", component_name.replace('-', "_"))
+}
+
+/// The message enum variant for a callback: `play-clicked` becomes `PlayClicked`.
+fn actor_message_variant(callback_name: &str) -> proc_macro2::Ident {
+    format_ident!("{}", crate::names::to_pascal_case(&callback_name.replace('_', "-")))
+}
+
+/// The modules that hold the generated types of the `@actor` components of the
+/// file with the given identity, see [`super::actor_file_identity`]. Like all
+/// generated names they are raw identifiers, except for the ones that can't
+/// be: these get a trailing `_`.
+fn actor_module(identity: &str) -> Vec<proc_macro2::Ident> {
+    super::actor_identity_module_segments(identity)
+        .into_iter()
+        .map(|segment| match segment.as_str() {
+            "self" | "super" | "crate" | "Self" | "_" => format_ident!("{}_", segment),
+            _ => format_ident!("r#{}", segment),
+        })
+        .collect()
+}
+
+/// The component name and its file identity, for error messages.
+fn actor_display(interface: &ActorInterface) -> String {
+    if interface.identity.is_empty() {
+        interface.name.to_string()
+    } else {
+        format!("{} ({})", interface.name, interface.identity)
+    }
+}
+
+/// Whether the init code of the sub-component creates actors, which the
+/// sub-component instance then owns.
+fn creates_actors(sc: &llr::SubComponent) -> bool {
+    let mut found = false;
+    for init in &sc.init_code {
+        init.borrow().visit_recursive(&mut |e| {
+            found |= matches!(
+                e,
+                llr::Expression::BuiltinFunctionCall { function: BuiltinFunction::CreateActor, .. }
+            );
+        });
+    }
+    found
+}
+
+/// The facade type and the message enum of a `@actor` component.
+fn generate_actor_types(interface: &ActorInterface) -> TokenStream {
+    let name = &interface.name;
+    let facade_id = actor_facade_id(name);
+    let msg_id = actor_message_id(name);
+    let variants = interface.callbacks.iter().map(|(cb_name, args)| {
+        let variant = actor_message_variant(cb_name);
+        if args.is_empty() {
+            quote!(#variant)
+        } else {
+            let args = args.iter().map(|ty| rust_primitive_type(ty).unwrap());
+            quote!(#variant(#(#args),*))
+        }
+    });
+    let mut fields = Vec::new();
+    let mut methods = Vec::new();
+    for (prop_name, ty) in &interface.properties {
+        let rust_ty = rust_primitive_type(ty).unwrap();
+        let prop_ident = prop_name.replace('-', "_");
+        let field_get = format_ident!("actor_get_{}", prop_ident);
+        let field_set = format_ident!("actor_set_{}", prop_ident);
+        let getter = format_ident!("get_{}", prop_ident);
+        let setter = format_ident!("set_{}", prop_ident);
+        fields.push(quote!(
+            #[doc(hidden)]
+            pub #field_get: sp::Rc<dyn Fn() -> #rust_ty>,
+            #[doc(hidden)]
+            pub #field_set: sp::Rc<dyn Fn(#rust_ty)>,
+        ));
+        methods.push(quote!(
+            /// Read the property of the component instance. Returns the
+            /// default value once the instance is gone.
+            #[allow(dead_code)]
+            pub fn #getter(&self) -> #rust_ty {
+                (self.#field_get)()
+            }
+            /// Set the property of the component instance. Does nothing once
+            /// the instance is gone.
+            #[allow(dead_code)]
+            pub fn #setter(&self, value: #rust_ty) {
+                (self.#field_set)(value)
+            }
+        ));
+    }
+    quote!(
+        /// The messages that an instance of the `@actor` component sends to its
+        /// actor: one variant per callback.
+        #[allow(dead_code)]
+        #[derive(Debug, Clone)]
+        pub enum #msg_id { #(#variants,)* }
+        /// The facade of an instance of the `@actor` component: the actor's
+        /// access to the instance's properties. Register the actor for the
+        /// component with `ctx.register_actor(|facade: &ThisType| ...)` on a
+        /// `slint::SlintContext`.
+        #[derive(Clone)]
+        pub struct #facade_id {
+            #(#fields)*
+        }
+        impl #facade_id {
+            #(#methods)*
+        }
+        impl sp::ActorFacade for #facade_id {
+            type Message = #msg_id;
+        }
+    )
+}
+
+/// The types of all `@actor` components, grouped by the module path of their
+/// defining file: main-file components stay at the top level, every other file
+/// contributes one nested module per path segment, shared between files with a
+/// common directory prefix.
+fn generate_actor_modules(interfaces: &[ActorInterface]) -> TokenStream {
+    #[derive(Default)]
+    struct ModuleTree {
+        defs: Vec<TokenStream>,
+        children: BTreeMap<String, (proc_macro2::Ident, ModuleTree)>,
+    }
+    fn emit(tree: ModuleTree) -> TokenStream {
+        let defs = tree.defs;
+        let children = tree.children.into_values().map(|(module, child)| {
+            let inner = emit(child);
+            quote!(
+                /// The generated types of the `@actor` components defined
+                /// under the correspondingly named path.
+                pub mod #module {
+                    #[allow(unused_imports)]
+                    use super::*;
+                    #inner
+                }
+            )
+        });
+        quote!(#(#defs)* #(#children)*)
+    }
+    let mut root = ModuleTree::default();
+    for interface in interfaces {
+        let mut node = &mut root;
+        for segment in actor_module(&interface.identity) {
+            node = &mut node
+                .children
+                .entry(segment.to_string())
+                .or_insert_with(|| (segment, ModuleTree::default()))
+                .1;
+        }
+        node.defs.push(generate_actor_types(interface));
+    }
+    emit(root)
 }
 
 impl quote::ToTokens for Orientation {
@@ -305,6 +467,31 @@ pub fn generate(
         return Ok(Default::default());
     }
 
+    let actor_interfaces = doc.actor_interfaces.borrow();
+    let actor_type_defs = generate_actor_modules(&actor_interfaces);
+    // The types of main-file components are re-exported at the top level, the
+    // ones of other files are reachable through their root module.
+    let actor_type_ids = actor_interfaces
+        .iter()
+        .filter(|interface| interface.identity.is_empty())
+        .flat_map(|interface| [actor_facade_id(&interface.name), actor_message_id(&interface.name)])
+        .chain(actor_interfaces.iter().filter_map(|i| actor_module(&i.identity).first().cloned()))
+        .map(|id| (id.to_string(), id))
+        .collect::<BTreeMap<_, _>>()
+        .into_values()
+        .collect::<Vec<_>>();
+    // Creating a component without a registered actor for one of its `@actor`
+    // components fails.
+    let actor_checks = (!actor_interfaces.is_empty()).then(|| {
+        let checks = actor_interfaces.iter().map(|interface| {
+            let module = actor_module(&interface.identity);
+            let facade_id = actor_facade_id(&interface.name);
+            let display = actor_display(interface);
+            quote!((::core::any::TypeId::of::<#(#module::)* #facade_id>(), #display))
+        });
+        quote!(&[#(#checks),*])
+    });
+
     let inner_module = generate_types(&doc.used_types.borrow().structs_and_enums, &llr);
 
     // Each sub-component in its own module: rustc doesn't split a module into several codegen
@@ -318,8 +505,10 @@ pub fn generate(
             quote!(mod #module { use super::*; #code } use #module::*;)
         })
         .collect::<Vec<_>>();
-    let public_components =
-        llr.public_components.iter().map(|p| generate_public_component(p, &llr, compiler_config));
+    let public_components = llr
+        .public_components
+        .iter()
+        .map(|p| generate_public_component(p, &llr, compiler_config, actor_checks.as_ref()));
 
     let popup_menu =
         llr.popup_menu.as_ref().map(|p| generate_item_tree(&p.item_tree, &llr, None, None, true));
@@ -373,9 +562,10 @@ pub fn generate(
             #shared_globals
             #(#resource_symbols)*
             #translations
+            #actor_type_defs
         }
         #[allow(unused_imports)]
-        pub use #generated_mod::{#(#compo_ids,)* #(#type_reexports,)* #(#globals_ids,)* #(#global_exports,)*};
+        pub use #generated_mod::{#(#compo_ids,)* #(#type_reexports,)* #(#globals_ids,)* #(#global_exports,)* #(#actor_type_ids,)*};
         #(#deprecated_type_exports)*
         #[allow(unused_imports)]
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
@@ -453,6 +643,7 @@ fn generate_public_component(
     llr: &llr::PublicComponent,
     unit: &llr::CompilationUnit,
     compiler_config: &CompilerConfiguration,
+    actor_checks: Option<&TokenStream>,
 ) -> TokenStream {
     let public_component_id = ident(&llr.name);
     let inner_component_id = inner_component_id(&unit.sub_components[llr.item_tree.root]);
@@ -516,12 +707,28 @@ fn generate_public_component(
     let new_with_existing_window_enabled = compiler_config
         .experimental_features
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
+    // A component that contains `@actor` components needs `new_with_context`,
+    // so the `actors` feature enables it for that component.
+    let new_with_context_enabled = new_with_existing_window_enabled || actor_checks.is_some();
+
+    // Actors are registered on an explicit Slint context, so the constructors
+    // that use the default context fail.
+    let require_context = actor_checks.map(|_| {
+        let name = llr.name.as_str();
+        quote!(sp::actors_require_context(#name)?;)
+    });
+    let validate_actors_in_ctx =
+        actor_checks.map(|checks| quote!(sp::actor_validate(&ctx, #checks)?;));
+    let validate_actors_in_window = actor_checks.map(
+        |checks| quote!(sp::actor_validate(sp::WindowInner::from_pub(window).context(), #checks)?;),
+    );
 
     let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
             #[cfg(#new_with_existing_window_enabled)]
             pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
                 slint::private_unstable_api::ensure_context()?;
+                #validate_actors_in_window
                 let inner = #inner_component_id::new(sp::WindowInner::from_pub(window).context().clone())?;
                 inner.globals.get().unwrap().create_window_from_existing(window)?;
                 #init_bundle_translations
@@ -619,6 +826,7 @@ fn generate_public_component(
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
+                #require_context
                 let context = slint::private_unstable_api::ensure_context()?;
                 let inner = #inner_component_id::new(context)?;
                 #eager_create_window
@@ -628,8 +836,10 @@ fn generate_public_component(
                 ::core::result::Result::Ok(Self(inner))
             }
 
-            #[cfg(#new_with_existing_window_enabled)]
-            pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
+            #[cfg(#new_with_context_enabled)]
+            pub fn new_with_context(ctx: impl ::core::convert::Into<sp::SlintContext>) -> ::core::result::Result<Self, slint::PlatformError> {
+                let ctx: sp::SlintContext = ctx.into();
+                #validate_actors_in_ctx
                 let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
                 #init_bundle_translations
@@ -2025,6 +2235,10 @@ fn generate_sub_component_body(
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
+    // The actors created by the init code: dropped with the instance.
+    let actors_field = creates_actors(component)
+        .then(|| quote!(actors: ::core::cell::RefCell<sp::Vec<sp::Rc<dyn ::core::any::Any>>>,));
+
     quote!(
         #[derive(sp::FieldOffsets, Default)]
         #[const_field_offset(sp::const_field_offset)]
@@ -2040,6 +2254,7 @@ fn generate_sub_component_body(
             #(pub(super) #repeated_element_components,)*
             #(pub(super) #change_tracker_names : sp::ChangeTracker,)*
             #(pub(super) #timer_names : sp::Timer,)*
+            #actors_field
             pub(super) self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(pub(super) parent : #parent_component_type,)*
             pub(super) globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
@@ -5375,6 +5590,100 @@ fn compile_builtin_function_call(
         })(),
         BuiltinFunction::MacosBringAllWindowsToFront => {
             quote!(sp::macos_bring_all_windows_to_front())
+        }
+        BuiltinFunction::CreateActor => {
+            let [
+                Expression::StringLiteral(name),
+                Expression::StringLiteral(identity),
+                interface_args @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: invalid args to CreateActor {arguments:?}")
+            };
+            let module = actor_module(identity);
+            let facade_id = actor_facade_id(name);
+            let msg_id = actor_message_id(name);
+            let facade_id = quote!(#(#module::)* #facade_id);
+            let msg_id = quote!(#(#module::)* #msg_id);
+            let mut handler_installs = Vec::new();
+            let mut facade_fields = Vec::new();
+            for pair in interface_args.chunks(2) {
+                let [Expression::StringLiteral(tag), Expression::PropertyReference(pr)] = pair
+                else {
+                    panic!("internal error: invalid args to CreateActor {arguments:?}")
+                };
+                let Some((kind, member_name)) = tag.split_once(':') else {
+                    panic!("internal error: invalid tag in CreateActor args: {tag}")
+                };
+                if kind == "cb" {
+                    let Type::Callback(function) = ctx.property_ty(pr) else {
+                        panic!(
+                            "internal error: CreateActor callback {member_name} is not a callback"
+                        )
+                    };
+                    let variant = actor_message_variant(member_name);
+                    let message = if function.args.is_empty() {
+                        quote!(#msg_id::#variant)
+                    } else {
+                        let args_index =
+                            (0..function.args.len()).map(proc_macro2::Literal::usize_unsuffixed);
+                        quote!(#msg_id::#variant(#(args.#args_index.clone()),*))
+                    };
+                    let set_dirty = access_callback_tracker(pr, ctx)
+                        .map(|t| t.then(|t| quote!(#t.mark_dirty();)));
+                    let install = access_member(pr, ctx).then(|callback| {
+                        quote!({
+                            let actor_dispatcher = sp::Rc::downgrade(&actor_dispatcher);
+                            #callback.set_handler(move |args| {
+                                let _ = &args;
+                                if let Some(actor_dispatcher) = actor_dispatcher.upgrade() {
+                                    actor_dispatcher.send(#message);
+                                }
+                            });
+                        })
+                    });
+                    handler_installs.push(quote!(#install #set_dirty));
+                } else {
+                    let prop_ident = member_name.replace('-', "_");
+                    let field_get = format_ident!("actor_get_{}", prop_ident);
+                    let field_set = format_ident!("actor_set_{}", prop_ident);
+                    let getter =
+                        primitive_property_value(ctx.property_ty(pr), access_member(pr, ctx));
+                    let setter = property_set_value_tokens(pr, quote!(value), ctx);
+                    facade_fields.push(quote!(#field_get: sp::Rc::new({
+                        let self_weak = actor_self_weak.clone();
+                        move || {
+                            let Some(self_rc) = self_weak.upgrade() else {
+                                return ::core::default::Default::default();
+                            };
+                            let _self = self_rc.as_pin_ref();
+                            #getter
+                        }
+                    }),));
+                    facade_fields.push(quote!(#field_set: sp::Rc::new({
+                        let self_weak = actor_self_weak.clone();
+                        move |value| {
+                            let Some(self_rc) = self_weak.upgrade() else { return };
+                            let _self = self_rc.as_pin_ref();
+                            #setter;
+                        }
+                    }),));
+                }
+            }
+            quote!({
+                // The public constructors check up front that an actor is
+                // registered on the instance's Slint context.
+                if let Some(actor_factory) = _self.globals().context().actor_factory::<#facade_id>() {
+                    let actor_self_weak = _self.self_weak.get().unwrap().clone();
+                    let actor_dispatcher =
+                        sp::ActorDispatcher::new(#facade_id { #(#facade_fields)* });
+                    // The callback handlers only hold weak references: the
+                    // instance owns the dispatcher, and with it the actor.
+                    #(#handler_installs)*
+                    _self.actors.borrow_mut().push(actor_dispatcher.clone());
+                    actor_dispatcher.start(&*actor_factory);
+                }
+            })
         }
         BuiltinFunction::ParseMarkdown => (|| {
             let format_string = a.next().unwrap();

@@ -470,3 +470,96 @@ fn case_conversions() {
     assert_eq!(to_kebab_case("HelloWorld"), "hello-world");
     assert_eq!(to_pascal_case("hello-world"), "HelloWorld");
 }
+
+/// The identity of the file that defines an `@actor` component. Two components
+/// with the same name are different components if they are defined in different
+/// files, so the generated types are named after the identity, too.
+///
+/// The identity is empty for the main file, and otherwise relative to the main
+/// file's directory, a library (`@library/...`), or an include path, in that order.
+/// Returns `true` as the second value when none of these contain the file; the
+/// identity is then relative to the main file's directory with `..` segments.
+pub fn actor_file_identity(
+    defining_file: &std::path::Path,
+    main_file: &std::path::Path,
+    config: &CompilerConfiguration,
+) -> (String, bool) {
+    use crate::source_path::clean_path;
+    use std::path::{Component as PathComponent, Path, PathBuf};
+    let defining_file = clean_path(defining_file);
+    let main_file = clean_path(main_file);
+    if defining_file == main_file {
+        return (String::new(), false);
+    }
+    let to_identity = |path: &Path| {
+        path.components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("/")
+    };
+    let inside =
+        |base: &Path| defining_file.strip_prefix(clean_path(base)).ok().map(Path::to_path_buf);
+    let main_dir = main_file.parent().map(Path::to_path_buf).unwrap_or_default();
+    if let Some(relative) = inside(&main_dir) {
+        return (to_identity(&relative), false);
+    }
+    let mut libraries = config.library_paths.iter().collect::<Vec<_>>();
+    libraries.sort();
+    for (name, library_path) in libraries {
+        if clean_path(library_path) == defining_file {
+            return (format!("@{name}"), false);
+        }
+        if let Some(relative) = inside(library_path) {
+            return (format!("@{name}/{}", to_identity(&relative)), false);
+        }
+    }
+    for include_path in &config.include_paths {
+        let candidates = if include_path.is_relative() {
+            vec![main_dir.join(include_path), include_path.clone()]
+        } else {
+            vec![include_path.clone()]
+        };
+        for candidate in candidates {
+            if let Some(relative) = inside(&candidate) {
+                return (to_identity(&relative), false);
+            }
+        }
+    }
+    let defining_components = defining_file.components().collect::<Vec<_>>();
+    let base_components = main_dir.components().collect::<Vec<_>>();
+    let common =
+        defining_components.iter().zip(&base_components).take_while(|(a, b)| a == b).count();
+    let mut relative = PathBuf::new();
+    for _ in common..base_components.len() {
+        relative.push(PathComponent::ParentDir);
+    }
+    for component in &defining_components[common..] {
+        relative.push(component);
+    }
+    (to_identity(&relative), true)
+}
+
+/// The module or namespace names for an `@actor` file identity: one sanitized
+/// identifier per path segment. Main-file components (empty identity) get none.
+pub fn actor_identity_module_segments(identity: &str) -> Vec<String> {
+    identity
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .map(|segment| {
+            if segment == ".." {
+                return "parent_".to_string();
+            }
+            let segment = segment.strip_prefix('@').unwrap_or(segment);
+            let stem = segment
+                .strip_suffix(".slint")
+                .or_else(|| segment.strip_suffix(".60"))
+                .unwrap_or(segment);
+            let mut sanitized =
+                stem.chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect::<String>();
+            if sanitized.is_empty() || sanitized.starts_with(|c: char| c.is_ascii_digit()) {
+                sanitized.insert(0, '_');
+            }
+            sanitized
+        })
+        .collect()
+}

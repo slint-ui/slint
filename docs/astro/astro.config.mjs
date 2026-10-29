@@ -324,6 +324,10 @@ export default defineSlintDocsConfig({
                                                   label: "Custom Mouse Cursor",
                                                   slug: "guide/experimental/custom-mouse-cursor",
                                               },
+                                              {
+                                                  label: "Actors",
+                                                  slug: "guide/experimental/actors",
+                                              },
                                           ],
                                       },
                                   ]

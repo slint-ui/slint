@@ -43,6 +43,8 @@ pub enum ExperimentalFeature {
     NewWithExistingWindow,
     /// `@testable`
     Testable,
+    /// `@actor` components, backed by Rust code registered on a `SlintContext`
+    Actors,
     /// The internal builtin types, such as the `SlintInternal` namespace,
     /// to preview the sources of the builtin styles
     InternalTypes,
