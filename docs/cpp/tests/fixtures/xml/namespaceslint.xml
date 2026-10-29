@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- cSpell:ignore compounddef compoundname namespaceslint classslint refid kindref -->
 <!-- cSpell:ignore innerclass briefdescription detaileddescription computeroutput -->
-<!-- cSpell:ignore argsstring enumvalue memberdef sectiondef aeventloopmode arun -->
+<!-- cSpell:ignore argsstring enumvalue memberdef sectiondef aeventloopmode arun aquit -->
 <doxygen version="1.9.8">
   <compounddef id="namespaceslint" kind="namespace" language="C++">
     <compoundname>slint</compoundname>
@@ -26,6 +26,17 @@
         <name>run_event_loop</name>
         <briefdescription><para>Enters the main event loop.</para></briefdescription>
         <detaileddescription></detaileddescription>
+      </memberdef>
+      <memberdef kind="function" id="namespaceslint_1aquit_event_loop" prot="public" static="no" const="no">
+        <type>void</type>
+        <definition>void slint::quit_event_loop</definition>
+        <argsstring>()</argsstring>
+        <name>quit_event_loop</name>
+        <briefdescription></briefdescription>
+        <detaileddescription>
+          <para><ref refid="namespaceslint_1aquit_event_loop" kindref="member">quit_event_loop()</ref> stops the loop of <ref refid="namespaceslint_1arun_event_loop" kindref="member">run_event_loop()</ref>, e.g. from a button. Pending events still run.</para>
+          <para>Call it from any thread.</para>
+        </detaileddescription>
       </memberdef>
     </sectiondef>
     <briefdescription>
