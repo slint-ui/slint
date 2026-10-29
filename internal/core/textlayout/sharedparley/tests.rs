@@ -311,6 +311,96 @@ fn test_max_lines_caps_height() {
     assert_eq!(limited.height, first_line_bottom);
 }
 
+type XRange = (f32, f32);
+
+/// Lays out `text` on one line, elided to 100px, and returns the kept glyph x ranges and
+/// the ellipsis x range of each run on that line.
+fn elided_line(text: &str) -> Vec<(Vec<XRange>, Option<XRange>)> {
+    let layout = layout_text_with_options(
+        text,
+        LayoutOptions {
+            max_width: Some(LogicalLength::new(100.)),
+            text_overflow: TextOverflow::Elide,
+            ..Default::default()
+        },
+    );
+    let paragraph = &layout.paragraphs[0];
+    let line = paragraph.layout.lines().next().unwrap();
+    let metrics = line.metrics();
+    line.items()
+        .filter_map(|item| match item {
+            parley::PositionedLayoutItem::GlyphRun(run) => Some(run),
+            _ => None,
+        })
+        .map(|run| {
+            let (glyphs, ellipsis) = layout.glyphs_with_elision(
+                &run,
+                paragraph.layout.is_rtl(),
+                metrics.inline_min_coord + metrics.offset,
+                false,
+                metrics.hanging_advance,
+            );
+            (
+                glyphs.map(|glyph| (glyph.x, glyph.x + glyph.advance)).collect(),
+                ellipsis.map(|(glyph, ..)| (glyph.x, glyph.x + glyph.advance)),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn test_elide_left_to_right_line() {
+    let runs = elided_line(&"abc ".repeat(20));
+    let (glyphs, ellipsis) = &runs[0];
+    let (ellipsis_start, ellipsis_end) = ellipsis.expect("the line overflows");
+    assert!(ellipsis_end <= 100.);
+    assert!(!glyphs.is_empty());
+    assert!(glyphs.iter().all(|&(start, end)| start >= 0. && end <= ellipsis_start));
+}
+
+#[test]
+fn test_elide_right_to_left_line() {
+    // An overflowing right-to-left line spills out on the left, so it's cut off there (#14434).
+    // The right-to-left mark makes a paragraph of Latin text right-to-left, like a file name that
+    // starts with Arabic and ends in ".docx". The test font has no Hebrew, so those glyphs are
+    // missing-glyph boxes, which still have an advance.
+    for text in
+        ["\u{5d0}\u{5d1}\u{5d2} ".repeat(20), alloc::format!("\u{200f}{}", "abc ".repeat(20))]
+    {
+        let runs = elided_line(&text);
+        let ellipses: Vec<_> = runs.iter().filter_map(|(_, ellipsis)| *ellipsis).collect();
+        assert_eq!(ellipses.len(), 1, "expected one ellipsis on the line of {text:?}");
+        let (ellipsis_start, ellipsis_end) = ellipses[0];
+        assert!(ellipsis_start >= 0.);
+        let glyphs: Vec<_> = runs.iter().flat_map(|(glyphs, _)| glyphs).collect();
+        assert!(!glyphs.is_empty());
+        assert!(
+            glyphs.iter().all(|&&(start, end)| start >= ellipsis_end - 0.01 && end <= 100.01),
+            "glyphs outside the box or under the ellipsis: {glyphs:?}"
+        );
+        let left = glyphs.iter().map(|&&(start, _)| start).fold(f32::MAX, f32::min);
+        assert!(
+            left - ellipsis_end < 0.01,
+            "the ellipsis ends at {ellipsis_end}, not at the first kept glyph at {left}"
+        );
+        let max_advance = glyphs.iter().map(|&&(start, end)| end - start).fold(0., f32::max);
+        assert!(
+            ellipsis_start < max_advance + 0.01,
+            "more than one glyph was cut before the ellipsis at {ellipsis_start}"
+        );
+        let right = glyphs.iter().map(|&&(_, end)| end).fold(f32::MIN, f32::max);
+        assert!(right > 99., "the kept text of {text:?} ends at {right}, not at the right edge");
+    }
+}
+
+#[test]
+fn test_elide_right_to_left_line_that_fits() {
+    // parley hangs the trailing space past the left edge, which isn't an overflow.
+    let runs = elided_line("\u{5d0}\u{5d1}\u{5d2} ");
+    assert!(runs.iter().all(|(_, ellipsis)| ellipsis.is_none()));
+    assert_eq!(runs.iter().map(|(glyphs, _)| glyphs.len()).sum::<usize>(), 4);
+}
+
 #[test]
 fn test_control_glyphs() {
     // Fonts have no glyph for a tab, which rendered as a missing-glyph box (#10177)
