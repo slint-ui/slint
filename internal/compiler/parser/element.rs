@@ -77,8 +77,11 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 {
                     parse_slot_declaration(&mut *p)
                 }
+                SyntaxKind::Equal if is_sub_element_after_operator(&mut *p, false) => {
+                    had_parse_error |= !parse_sub_element(&mut *p);
+                }
                 SyntaxKind::Colon | SyntaxKind::Equal => parse_property_binding(&mut *p),
-                SyntaxKind::ColonEqual if !is_sub_element_after_colon_equal(&mut *p) => {
+                SyntaxKind::ColonEqual if !is_sub_element_after_operator(&mut *p, true) => {
                     parse_property_binding(&mut *p)
                 }
                 SyntaxKind::DoubleLess => {
@@ -233,20 +236,23 @@ pub fn parse_element_content(p: &mut impl Parser) {
     }
 }
 
-// An incomplete element, as typed in an editor, counts as an element.
-fn is_sub_element_after_colon_equal(p: &mut impl Parser) -> bool {
+// With `incomplete`, an element as typed in an editor also counts, so that completion works.
+fn is_sub_element_after_operator(p: &mut impl Parser, incomplete: bool) -> bool {
     let mut i = 2;
-    if matches!(p.nth(i).kind(), SyntaxKind::LBrace | SyntaxKind::RBrace | SyntaxKind::Eof) {
+    if incomplete
+        && matches!(p.nth(i).kind(), SyntaxKind::LBrace | SyntaxKind::RBrace | SyntaxKind::Eof)
+    {
         return true;
     }
     while p.nth(i).kind() == SyntaxKind::Identifier && p.nth(i + 1).kind() == SyntaxKind::Dot {
         i += 2;
     }
     p.nth(i).kind() == SyntaxKind::Identifier
-        && matches!(
-            p.nth(i + 1).kind(),
-            SyntaxKind::LBrace | SyntaxKind::Identifier | SyntaxKind::RBrace | SyntaxKind::Eof
-        )
+        && match p.nth(i + 1).kind() {
+            SyntaxKind::LBrace => true,
+            SyntaxKind::Identifier | SyntaxKind::RBrace | SyntaxKind::Eof => incomplete,
+            _ => false,
+        }
 }
 
 #[cfg_attr(test, parser_test)]
@@ -258,9 +264,14 @@ fn is_sub_element_after_colon_equal(p: &mut impl Parser) -> bool {
 /// Must consume at least one token
 fn parse_sub_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::SubElement);
-    if p.nth(1).kind() == SyntaxKind::ColonEqual {
+    if matches!(p.nth(1).kind(), SyntaxKind::ColonEqual | SyntaxKind::Equal) {
         p.expect(SyntaxKind::Identifier);
-        p.expect(SyntaxKind::ColonEqual);
+        if p.peek().kind() == SyntaxKind::Equal {
+            p.error("Parse error: unexpected '='. Use ':=' instead of '=' to name an element");
+            p.consume();
+        } else {
+            p.expect(SyntaxKind::ColonEqual);
+        }
     }
     parse_element(&mut *p)
 }
@@ -857,7 +868,7 @@ fn parse_property_animation(p: &mut impl Parser) {
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
                 SyntaxKind::Colon | SyntaxKind::Equal => parse_property_binding(&mut *p),
-                SyntaxKind::ColonEqual if !is_sub_element_after_colon_equal(&mut *p) => {
+                SyntaxKind::ColonEqual if !is_sub_element_after_operator(&mut *p, true) => {
                     parse_property_binding(&mut *p)
                 }
                 _ => {

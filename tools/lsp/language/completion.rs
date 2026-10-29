@@ -1723,6 +1723,21 @@ mod tests {
     }
 
     #[test]
+    fn element_after_colon_equal() {
+        // While typing `id := Element { }`, the parser must still see an element (#106).
+        for source in [
+            "component Foo { Rectangle { foo := Rect🔺 } }",
+            "component Foo { Rectangle { foo := Rect🔺\n width: 5px; } }",
+            "component Foo { Rectangle { foo := Rect🔺",
+        ] {
+            let res = get_completions(source).unwrap_or_default();
+            assert!(res.iter().any(|ci| ci.label == "Rectangle"), "{source}");
+        }
+        let res = get_completions("component Foo { foo := Text { te🔺 } }").unwrap();
+        assert!(res.iter().any(|ci| ci.label == "text"));
+    }
+
+    #[test]
     fn in_element() {
         let source = r#"
             component Bar inherits TouchArea {

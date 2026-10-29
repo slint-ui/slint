@@ -16,4 +16,12 @@ export component A inherits Window {
 //        ^error{Parse error: unexpected '='. Use ':' instead of '=' to set a binding}
     r := Rectangle { }
     t := Text { text: r.width / 1px; }
+    r2 = Rectangle { }
+//     ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
+    t2 = Text { text: r2.width / 1px; }
+//     ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
+    for i in 2 : item = Rectangle { }
+//                    ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
+    if true : cond = Rectangle { }
+//                 ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
 }
