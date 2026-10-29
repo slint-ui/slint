@@ -18,8 +18,6 @@ export component InspectorBorderSection inherits InspectorSection {
             property <PropertyValue> border-value: Api.source-property-value-data("border-width", {});
             accessible-name: @tr("Border width");
             value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : InspectorContext.property-length-label("border-width", "0");
-            suffix: "px";
-            suffix-width: Metrics.icon-small;
             commit-key: InspectorContext.inspector-key;
             scrubbable: true;
             scrub-value: self.border-value.value-float;
