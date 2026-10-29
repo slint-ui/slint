@@ -239,6 +239,51 @@ mod tests {
     }
 
     #[test]
+    fn input_palette_matches_interactive_selection_filter() {
+        use slint::{Model, ModelRc, VecModel};
+        let (cache, _, _) = i_slint_editor_preview::test::loaded_document_cache(String::new());
+        let mut components = Vec::new();
+        i_slint_editor_preview::component_catalog::builtin_components(&cache, &mut components);
+        let frames: ModelRc<crate::preview::ui::SelectionStackFrame> =
+            std::rc::Rc::new(VecModel::from(
+                PRIMITIVES
+                    .iter()
+                    .map(|entry| {
+                        let component = components
+                            .iter()
+                            .find(|component| component.name == entry.type_name)
+                            .unwrap();
+                        crate::preview::ui::SelectionStackFrame {
+                            type_name: entry.type_name.into(),
+                            is_interactive: component.is_interactive,
+                            is_layout: component.is_layout,
+                            ..Default::default()
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            ))
+            .into();
+        for entry in PRIMITIVES.iter().filter(|entry| entry.group == Group::InputInteraction) {
+            for (filter, expected) in [
+                (crate::preview::ui::SelectionStackFilter::Interactive, true),
+                (crate::preview::ui::SelectionStackFilter::Others, false),
+            ] {
+                let filtered = crate::preview::element_selection::filter_sort_selection_stack(
+                    frames.clone(),
+                    Default::default(),
+                    filter,
+                );
+                assert_eq!(
+                    filtered.iter().any(|frame| frame.type_name == entry.type_name),
+                    expected,
+                    "{}",
+                    entry.type_name
+                );
+            }
+        }
+    }
+
+    #[test]
     fn primitives_resolve_and_insert_with_canvas_geometry() {
         use crate::preview::drop_location;
         use i_slint_editor_preview::{

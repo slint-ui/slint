@@ -295,6 +295,7 @@ export struct ColorValueData {
 /// Data about the property value for use in "simple" mode
 // cSpell: ignore dataonly
 export struct PropertyValue {
+    is-number-literal: bool,
     display-string: string, // ALWAYS, its a string description of what is there
     fill: FillData,
     value-resolved: bool, // Whether value-brush/value-* came from a successful evaluation

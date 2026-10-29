@@ -16,6 +16,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     press_shortcut,
+    query,
     select_outline_row,
 )
 
@@ -114,6 +115,80 @@ def test_layout_scrub_previews_and_reverts(
                 external if outcome == "source" else baseline, layout_scene.name
             )
             expect.poll(lambda: child.absolute_position.x).to_equal(before)
+
+
+@pytest.mark.parametrize("name,initial", [("padding", 8), ("spacing", 6)])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "root.base-value",
+        "(root.base-value)",
+        "root.width / 40",
+        "8px + 4px",
+        "1cm",
+        "{ return root.base-value; }",
+    ],
+)
+def test_layout_bindings_are_editable_without_scrubbing(
+    editor_binary,
+    editor_environment,
+    fixture_project,
+    layout_scene,
+    name,
+    initial,
+    expression,
+):
+    baseline = replace_once(
+        layout_scene.read_bytes(),
+        b"    height: 480px;\n",
+        b"    height: 480px;\n    in-out property <length> base-value: 18px;\n",
+    )
+    binding = expression if expression.startswith("{") else expression + ";"
+    baseline = replace_once(
+        baseline, f"{name}: {initial}px;".encode(), f"{name}: {binding}".encode()
+    )
+    layout_scene.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, layout_scene) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "layout")
+        label = f"Layout {name}"
+        field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
+        expect(field).to_have_value(expression)
+        expect(
+            query(window, label + " scrubber", role=slint_testing.AccessibleRole.Slider)
+        ).to_be_hidden()
+        child = element(window, id="LayoutSpacing::second")
+        before = child.absolute_position.x
+        start = center(field)
+        end = slint_testing.LogicalPosition(x=start.x + 12, y=start.y)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
+        snapshot.assert_unchanged()
+        assert child.absolute_position.x == before
+
+        replacement = (
+            "{ return root.base-value + 5px; }"
+            if expression.startswith("{")
+            else "root.base-value + 5px"
+        )
+        replacement_binding = (
+            replacement if replacement.startswith("{") else replacement + ";"
+        )
+        expected = replace_once(
+            baseline,
+            f"{name}: {binding}".encode(),
+            f"{name}: {replacement_binding}".encode(),
+        )
+        edit_field(window, label, replacement, slint_testing.AccessibleRole.TextInput)
+        snapshot.wait_for_applied(expected, layout_scene.name)
+        select_outline_row(window, "layout").single_click(button)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, layout_scene.name)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(expected, layout_scene.name)
 
 
 @pytest.mark.parametrize("name,initial", [("padding", 8), ("spacing", 6)])

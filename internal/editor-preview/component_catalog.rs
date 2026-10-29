@@ -118,8 +118,18 @@ impl TypeInformation {
 fn builtin_component_info(name: &str) -> ComponentInformation {
     let is_layout =
         matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout");
-    let is_interactive =
-        matches!(name, "Flickable" | "FocusScope" | "SwipeGestureHandler" | "TouchArea");
+    let is_interactive = matches!(
+        name,
+        "Flickable"
+            | "FocusScope"
+            | "SwipeGestureHandler"
+            | "TouchArea"
+            | "DragArea"
+            | "DropArea"
+            | "ScaleRotateGestureHandler"
+            | "WindowMoveArea"
+            | "TextInput"
+    );
 
     let default_properties = match name {
         "Text" | "TextInput" => vec![PropertyChange::new("text", format!("\"{name}\""))],
@@ -452,9 +462,22 @@ mod tests {
         assert!(result.iter().all(|ci| ci.is_exported));
         assert!(result.iter().all(|ci| ci.is_builtin));
         assert!(result.iter().all(|ci| !ci.is_global));
-        assert!(
-            result.iter().any(|ci| &ci.name == "TouchArea" && ci.is_interactive && !ci.is_layout)
-        );
+        for name in [
+            "TouchArea",
+            "Flickable",
+            "FocusScope",
+            "SwipeGestureHandler",
+            "DragArea",
+            "DropArea",
+            "ScaleRotateGestureHandler",
+            "WindowMoveArea",
+            "TextInput",
+        ] {
+            assert!(
+                result.iter().any(|ci| ci.name == name && ci.is_interactive && !ci.is_layout),
+                "{name} must be interactive"
+            );
+        }
         assert!(
             result
                 .iter()
