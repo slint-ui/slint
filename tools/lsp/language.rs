@@ -2222,6 +2222,7 @@ enum {}
                 },
                 ..Default::default()
             },
+            rust_macro_editions: Default::default(),
             format_utf8: false,
         };
 

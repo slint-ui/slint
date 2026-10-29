@@ -20,6 +20,9 @@ pub struct PreviewConfig {
     pub hide_ui: Option<bool>,
     #[serde(default, with = "named_overrides")]
     pub overrides: i_slint_compiler::project_file::Overrides,
+    #[serde(default)]
+    pub rust_macro_editions:
+        std::collections::BTreeMap<Url, i_slint_compiler::project_file::SlintEdition>,
     pub format_utf8: bool,
 }
 
@@ -215,11 +218,13 @@ mod configuration_tests {
         struct FutureConfig {
             hide_ui: Option<bool>,
             overrides: Vec<u8>,
+            rust_macro_editions: std::collections::BTreeMap<String, String>,
             format_utf8: bool,
         }
         let encoded = postcard::to_allocvec(&FutureConfig {
             hide_ui: Some(true),
             overrides: serde_json::to_vec(&future_overrides()).unwrap(),
+            rust_macro_editions: [("file:///main.rs".into(), "1.18".into())].into(),
             format_utf8: true,
         })
         .unwrap();
@@ -227,6 +232,10 @@ mod configuration_tests {
         assert_eq!(decoded.overrides.style.as_deref(), Some("fluent"));
         assert_eq!(decoded.overrides.embed_resources, None);
         assert_eq!(decoded.overrides.default_translation_context, None);
+        assert_eq!(
+            decoded.rust_macro_editions.values().copied().collect::<Vec<_>>(),
+            [i_slint_compiler::project_file::SlintEdition { major: 1, minor: 18 }]
+        );
         let encoded = postcard::to_allocvec(&decoded).unwrap();
         assert_eq!(postcard::from_bytes::<PreviewConfig>(&encoded).unwrap(), decoded);
     }

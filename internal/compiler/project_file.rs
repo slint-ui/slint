@@ -85,6 +85,21 @@ impl SlintEdition {
         s.parse::<Self>()?.supported()
     }
 
+    /// Parses the value of the `#[edition]` attribute of `slint!`, such as `"1.19"` with its quotes.
+    pub fn parse_rust_macro_attribute(value: &str) -> Result<Self, String> {
+        let current = Self::current();
+        let edition: Self = value
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+            .ok_or_else(|| format!("'edition' takes a string, such as \"{current}\""))?
+            .parse()?;
+        edition.supported().map_err(|_| {
+            format!(
+                "'edition' is {edition}, newer than Slint {current}: upgrade Slint, or set '#[edition = \"{current}\"]'"
+            )
+        })
+    }
+
     /// The edition of this compiler's release.
     pub fn current() -> Self {
         Self {
@@ -154,6 +169,8 @@ pub struct ProjectFile {
     source_path: SourcePath,
     data: ProjectFileData,
     edition: SlintEdition,
+    /// The file and byte range of the `#[edition]` of a `slint!` macro that sets `edition`.
+    rust_macro_edition: Option<(SourcePath, core::ops::Range<usize>)>,
 }
 
 pub const FILE_NAME: &str = "slint-project.json";
@@ -287,21 +304,46 @@ pub async fn load_input(
                 attempted_paths.borrow_mut().push(project_file.source_path().clone());
             }
             let source_code = if source == *input { source_code } else { None };
+            let is_rust = source.extension() == Some("rs");
+            let mut rust_macro_edition = None;
+            let mut extract_rust_macro = |source_code: String| {
+                if !is_rust {
+                    return Ok(source_code);
+                }
+                rust_macro_edition = crate::lexer::extract_rust_macro_edition(&source_code)
+                    .map(|(value, range)| (value.to_owned(), range));
+                crate::lexer::extract_rust_macro(source_code)
+                    .ok_or_else(|| "No `slint!` macro".to_string())
+            };
             let source_code = match source_code {
                 Some(source_code) => Ok(source_code),
                 None => match (file_loader(source.clone()).await, source.as_native_path()) {
                     (Some(source_code), _) => source_code
                         .map_err(|error| error.to_string())
-                        .and_then(|source_code| match source.extension() {
-                            Some("rs") => crate::lexer::extract_rust_macro(source_code)
-                                .ok_or_else(|| "No `slint!` macro".into()),
-                            _ => Ok(source_code),
-                        }),
+                        .and_then(&mut extract_rust_macro),
+                    (None, Some(path)) if is_rust => std::fs::read_to_string(path)
+                        .map_err(|error| format!("Could not load {}: {error}", path.display()))
+                        .and_then(&mut extract_rust_macro),
                     (None, Some(path)) => crate::diagnostics::load_from_path(path)
                         .map_err(|diagnostic| diagnostic.message().to_string()),
                     (None, None) => source
                         .read_to_string()
                         .map_err(|error| format!("Could not load {source}: {error}")),
+                },
+            };
+            let project_file = match rust_macro_edition {
+                None => project_file,
+                Some((value, range)) => match SlintEdition::parse_rust_macro_attribute(&value) {
+                    Ok(edition) => Some(ProjectFile::with_rust_macro_edition(
+                        project_file,
+                        edition,
+                        source.clone(),
+                        range,
+                    )),
+                    Err(message) => {
+                        let span = crate::diagnostics::Span::new(range.start, range.len());
+                        return (error(message, &source, span), attempted_paths.take());
+                    }
                 },
             };
             match source_code {
@@ -347,7 +389,7 @@ impl ProjectFile {
         let data: ProjectFileData = serde_json::from_slice(&source)?;
         let Some(edition) = data.edition else { return Err(missing()) };
 
-        Ok(Self { source_path, data, edition })
+        Ok(Self { source_path, data, edition, rust_macro_edition: None })
     }
 
     pub async fn load_with_file_loader(
@@ -389,15 +431,36 @@ impl ProjectFile {
         self.edition
     }
 
-    /// The project file itself, for diagnostics about its `edition`.
+    /// Where `edition` is set, for diagnostics about it.
     pub fn edition_location(&self) -> crate::diagnostics::SourceLocation {
-        crate::diagnostics::SourceLocation {
-            source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(
-                self.source_path.clone(),
-            )),
+        let (path, span) = match &self.rust_macro_edition {
+            Some((path, range)) => (path, crate::diagnostics::Span::new(range.start, range.len())),
             // `slint!` shows a diagnostic at offset 0 on the first token of the macro.
-            span: crate::diagnostics::Span::new(0, 0),
+            None => (&self.source_path, crate::diagnostics::Span::new(0, 0)),
+        };
+        crate::diagnostics::SourceLocation {
+            source_file: Some(crate::diagnostics::SourceFileInner::from_path_only(path.clone())),
+            span,
         }
+    }
+
+    /// `project_file`, or one without other settings, with the edition of a `slint!` macro.
+    fn with_rust_macro_edition(
+        project_file: Option<Self>,
+        edition: SlintEdition,
+        rust_file: SourcePath,
+        range: core::ops::Range<usize>,
+    ) -> Self {
+        let mut project_file = project_file.unwrap_or_else(|| Self {
+            source_path: rust_file.clone(),
+            data: Default::default(),
+            edition,
+            rust_macro_edition: None,
+        });
+        project_file.data.edition = Some(edition);
+        project_file.edition = edition;
+        project_file.rust_macro_edition = Some((rust_file, range));
+        project_file
     }
 
     /// The `.slint` file to compile when a tool is given this project file.

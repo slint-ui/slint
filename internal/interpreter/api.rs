@@ -3078,6 +3078,26 @@ mod project_file_tests {
         });
     }
 
+    #[test]
+    fn a_rust_file_uses_the_edition_of_its_macro() {
+        let directory = tempfile::TempDir::new().unwrap();
+        let main = directory.path().join("main.rs");
+        let build = |attribute: &str| {
+            let source = format!("slint::slint! {{ {attribute} {EDITION_DEPENDENT_BODY} }}");
+            std::fs::write(&main, source).unwrap();
+            spin_on::spin_on(Compiler::default().build_from_path(&main))
+        };
+        assert!(!build("").has_errors());
+        assert!(!build(r#"#[edition = "1.18"]"#).has_errors());
+        assert!(build(r#"#[style = "fluent"] #[edition = "1.19"]"#).has_errors());
+        let invalid = build(r#"#[edition = "1.19.0"]"#);
+        let messages = invalid.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+        assert!(
+            messages.iter().any(|m| m.starts_with("'1.19.0' is not a Slint edition")),
+            "{messages:?}"
+        );
+    }
+
     #[cfg(feature = "internal")]
     fn compile_source(
         compiler: &Compiler,

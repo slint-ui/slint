@@ -377,22 +377,10 @@ fn behavior_change_warning(
 }
 
 fn parse_edition(value: &proc_macro::Literal) -> Result<project_file::SlintEdition, TokenStream> {
-    let current = project_file::SlintEdition::current();
-    let text = value.to_string();
-    let edition = text
-        .strip_prefix('"')
-        .and_then(|text| text.strip_suffix('"'))
-        .ok_or_else(|| format!("'edition' takes a string, such as \"{current}\""))
-        .and_then(str::parse);
-    let message = match edition {
-        Ok(edition) if edition > current => format!(
-            "'edition' is {edition}, newer than this Slint {current}: upgrade Slint, or set '#[edition = \"{current}\"]'"
-        ),
-        Ok(edition) => return Ok(edition),
-        Err(message) => message,
-    };
-    let span = proc_macro2::Span::from(value.span());
-    Err(quote::quote_spanned!(span => compile_error!{ #message }).into())
+    project_file::SlintEdition::parse_rust_macro_attribute(&value.to_string()).map_err(|message| {
+        let span = proc_macro2::Span::from(value.span());
+        quote::quote_spanned!(span => compile_error!{ #message }).into()
+    })
 }
 
 /// The external files whose changes should invalidate this expansion: the loaded
@@ -431,7 +419,6 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 /// ```
 ///
 /// Without it, the macro applies none of the behavior changes that depend on the edition, and warns.
-/// The editor and the live preview don't read the attribute.
 ///
 /// ### Limitations
 ///
