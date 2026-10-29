@@ -53,7 +53,7 @@ Before you connect the live preview, quit the serial monitor.
 
 **Note:** Build the Slint language server from the same checkout as the firmware,
 and point your editor at it, such as with the `slint.lspBinaryPath` setting in VS Code.
-The firmware can only read designs compiled from the same sources.
+The firmware can only read designs compiled by the exact same Slint version.
 
 To show a design on your device, follow these steps:
 
