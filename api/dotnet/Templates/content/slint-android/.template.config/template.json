@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Slint for .NET",
+  "classifications": ["Android", "Mobile", "Slint", "UI"],
+  "identity": "@SlintPackageId@.Templates.Android.CSharp",
+  "groupIdentity": "@SlintPackageId@.Templates.Android",
+  "name": "Slint Android App",
+  "description": "An Android app with a Slint UI and C# logic, for Android 8 and later on arm64 and x86_64. Needs the .NET Android workload.",
+  "shortName": "slint-android",
+  "sourceName": "SlintApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "symbols": {
+    "slint-version": {
+      "type": "parameter",
+      "datatype": "string",
+      "displayName": "Slint version",
+      "description": "The version of the Slint package that the app references.",
+      "defaultValue": "@SlintVersion@",
+      "replaces": "SLINT_VERSION"
+    },
+    "style": {
+      "type": "parameter",
+      "datatype": "choice",
+      "displayName": "Widget style",
+      "description": "The style of Slint's widgets.",
+      "defaultValue": "default",
+      "choices": [
+        { "choice": "default", "description": "The style of the platform." },
+        { "choice": "fluent", "description": "Fluent, like Windows." },
+        { "choice": "material", "description": "Material, like Android." },
+        { "choice": "cupertino", "description": "Cupertino, like macOS and iOS." },
+        { "choice": "cosmic", "description": "Cosmic, like the COSMIC desktop." }
+      ],
+      "replaces": "SLINT_STYLE"
+    },
+    "app-id": {
+      "type": "parameter",
+      "datatype": "string",
+      "displayName": "Application ID",
+      "description": "The Android package name, such as com.example.myapp; com.companyname.<name> by default."
+    },
+    "lowerName": {
+      "type": "generated",
+      "generator": "casing",
+      "parameters": {
+        "source": "name",
+        "toLower": true
+      }
+    },
+    "defaultAppId": {
+      "type": "generated",
+      "generator": "join",
+      "parameters": {
+        "symbols": [
+          { "type": "const", "value": "com.companyname" },
+          { "type": "ref", "value": "lowerName" }
+        ],
+        "separator": "."
+      }
+    },
+    "appId": {
+      "type": "generated",
+      "generator": "coalesce",
+      "parameters": {
+        "sourceVariableName": "app-id",
+        "fallbackVariableName": "defaultAppId"
+      },
+      "replaces": "SLINT_APP_ID"
+    },
+    "packageId": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": {
+        "value": "@SlintPackageId@"
+      },
+      "replaces": "SLINT_PACKAGE_ID"
+    }
+  },
+  "primaryOutputs": [
+    { "path": "SlintApp.csproj" },
+    { "path": "MainActivity.cs" }
+  ],
+  "postActions": [
+    {
+      "description": "Restore NuGet packages.",
+      "manualInstructions": [{ "text": "Run 'dotnet restore'." }],
+      "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+      "continueOnError": true
+    }
+  ]
+}

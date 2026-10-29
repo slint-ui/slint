@@ -584,7 +584,10 @@ Next:
     and the desktop template `slint`, with `--style` and `--slint-version`.
     An app from it builds and runs, live preview included, and `dotnet publish -r osx-arm64` builds it with Native AOT.
     The template content has no license headers, since `dotnet new` copies it into the user's project; `REUSE.toml` licenses it as MIT.
-  - Phase 2: the Android and iOS templates. Phase 3: `slint-xplat` with `--platforms`, and the IDE metadata.
+  - Phase 2, done: `slint-android`, with `SlintActivity`, and `slint-ios`, with the `Info.plist` for Slint's scene delegate and Native AOT in Release builds.
+    Both take `--app-id`, which is `com.companyname.<name>` by default.
+    An Android app from preview.9 runs on the Pixel 9 emulator, and an iOS app from a local package with the framework in the simulator.
+  - Phase 3: `slint-xplat` with `--platforms`, and the IDE metadata.
   - Phase 4: packing and publishing, and a CI job that creates and builds each template.
   - Phase 5: the README's Quick Start with the templates, the documentation page, and the article.
   - Later: a test project, which needs the testing backend in the packaged library.
