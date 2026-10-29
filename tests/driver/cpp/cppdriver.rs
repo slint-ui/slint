@@ -211,10 +211,6 @@ namespace slint_testing = slint::private_api::testing;
     } else {
         cmd = std::process::Command::new(binary_path.deref());
     }
-    // In live-preview mode, the test case compiles its .slint file again at run time.
-    if let Some(edition) = test_driver_lib::extract_edition(&source) {
-        cmd.env("SLINT_EDITION", edition);
-    }
 
     let output = cmd
         .envs(library_search_path_env_with(&slint_cpp.lib_dir))
