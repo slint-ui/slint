@@ -157,7 +157,7 @@ async fn receive(
                 };
                 match message {
                     PreviewToLspMessage::Pong => last_pong.set(tokio::time::Instant::now()),
-                    message if remote_client::is_allowed_message(&message) => {
+                    message if message.is_allowed_from_remote_viewer() => {
                         let _ = events.send(ConnectionEvent::Message(message));
                     }
                     message => tracing::warn!(
