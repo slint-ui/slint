@@ -10,7 +10,7 @@ import { OutlinePane } from "outline-pane.slint";
 import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
     InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorInteractionSection, InspectorLayoutAlignmentSection,
-    InspectorLayoutSection,
+    InspectorLayoutSection, InspectorMouseCursorSection,
     InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
     InspectorStandardButtonKindSection, InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
@@ -94,6 +94,10 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-interaction-selection(): InspectorInteractionSection { }
 
                 if InspectorContext.is-checked-selection(): InspectorCheckedSection { }
+
+                if InspectorContext.is-touch-area-selection(): InspectorMouseCursorSection {
+                    popup-bottom: root.popup-bottom;
+                }
 
                 if InspectorContext.is-lineedit-selection(): InspectorInputTypeSection {
                     popup-bottom: root.popup-bottom;

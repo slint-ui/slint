@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cspell:ignore nesw
+
 import { Api } from "../../api.slint";
 import { InspectorComboOption } from "control-data.slint";
 
@@ -82,6 +84,37 @@ export global InspectorEnumOptions {
         { value: "number", label: @tr("Number") },
         { value: "decimal", label: @tr("Decimal") },
         { value: "search", label: @tr("Search") },
+    ];
+    out property <[InspectorComboOption]> mouse-cursor-options: [
+        { value: "default", label: @tr("Default") },
+        { value: "none", label: @tr("None") },
+        { value: "help", label: @tr("Help") },
+        { value: "pointer", label: @tr("Pointer") },
+        { value: "progress", label: @tr("Progress") },
+        { value: "wait", label: @tr("Wait") },
+        { value: "crosshair", label: @tr("Crosshair") },
+        { value: "text", label: @tr("Text") },
+        { value: "alias", label: @tr("Alias") },
+        { value: "copy", label: @tr("Copy") },
+        { value: "move", label: @tr("Move") },
+        { value: "no-drop", label: @tr("No drop") },
+        { value: "not-allowed", label: @tr("Not allowed") },
+        { value: "grab", label: @tr("Grab") },
+        { value: "grabbing", label: @tr("Grabbing") },
+        { value: "col-resize", label: @tr("Column resize") },
+        { value: "row-resize", label: @tr("Row resize") },
+        { value: "n-resize", label: @tr("North resize") },
+        { value: "e-resize", label: @tr("East resize") },
+        { value: "s-resize", label: @tr("South resize") },
+        { value: "w-resize", label: @tr("West resize") },
+        { value: "ne-resize", label: @tr("North-east resize") },
+        { value: "nw-resize", label: @tr("North-west resize") },
+        { value: "se-resize", label: @tr("South-east resize") },
+        { value: "sw-resize", label: @tr("South-west resize") },
+        { value: "ew-resize", label: @tr("East-west resize") },
+        { value: "ns-resize", label: @tr("North-south resize") },
+        { value: "nesw-resize", label: @tr("North-east-south-west resize") },
+        { value: "nwse-resize", label: @tr("North-west-south-east resize") },
     ];
     out property <[InspectorComboOption]> standard-button-kind-options: [
         { value: "ok", label: @tr("OK") },
