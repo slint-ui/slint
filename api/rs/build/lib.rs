@@ -170,6 +170,18 @@ impl CompilerConfiguration {
         self
     }
 
+    /// Create a new configuration that selects the
+    #[doc = concat!("[edition](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/guide/language/concepts/editions/)")]
+    /// whose language behavior to use, as its major and minor version, such as `(1, 19)`.
+    ///
+    /// This wins over the edition of the project file.
+    /// If the edition is newer than this version of Slint, compilation fails.
+    #[must_use]
+    pub fn with_edition(mut self, edition: (u32, u32)) -> Self {
+        self.overrides.project.edition = Some(edition.into());
+        self
+    }
+
     /// Selects how the resources such as images and font are processed.
     ///
     /// See [`EmbedResourcesKind`]
@@ -725,7 +737,7 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
         fs::write(
             &project_file,
             r#"{
-                "edition": "1.19",
+                "edition": "1.18",
                 "main": "main.slint",
                 "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint"}
@@ -776,6 +788,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
                 PathBuf::from("build-lib.slint"),
             )]))
             .with_style("build-style".into())
+            .with_edition((1, 19))
             .with_absolute_paths(&test_root)
             .resolve_project_file(&test_root)
             .unwrap();
@@ -792,6 +805,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
             ])
         );
         assert_eq!(config.style.as_deref(), Some("build-style"));
+        assert_eq!(config.edition, Some(project_file::SlintEdition::V1_19));
     });
 }
 

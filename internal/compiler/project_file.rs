@@ -69,14 +69,20 @@ impl SlintEdition {
         )
     }
 
-    /// Parses an edition that this Slint supports: one that isn't newer than [`Self::current()`].
-    pub fn parse_supported(s: &str) -> Result<Self, String> {
+    /// Returns `self` if this Slint supports it: if it isn't newer than [`Self::current()`].
+    pub fn supported(self) -> Result<Self, String> {
         let current = Self::current();
-        let edition: Self = s.parse()?;
-        if edition > current {
-            return Err(format!("{edition} is newer than this Slint {current}"));
+        if self > current {
+            return Err(format!(
+                "The edition {self} is newer than Slint {current}: upgrade Slint, or use edition {current}"
+            ));
         }
-        Ok(edition)
+        Ok(self)
+    }
+
+    /// Parses an edition that this Slint supports, see [`Self::supported()`].
+    pub fn parse_supported(s: &str) -> Result<Self, String> {
+        s.parse::<Self>()?.supported()
     }
 
     /// The edition of this compiler's release.
@@ -85,6 +91,12 @@ impl SlintEdition {
             major: env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
             minor: env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
         }
+    }
+}
+
+impl From<(u32, u32)> for SlintEdition {
+    fn from((major, minor): (u32, u32)) -> Self {
+        Self { major, minor }
     }
 }
 
