@@ -8,7 +8,7 @@ import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
-    InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
+    InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorCurrentIndexSection, InspectorEffectsSection,
     InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutAlignmentSection, InspectorLayoutSection,
     InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
     InspectorStandardButtonKindSection,
@@ -94,6 +94,8 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
 
                 if InspectorContext.is-checkbox-selection(): InspectorCheckedSection { }
+
+                if InspectorContext.has-current-index-selection(): InspectorCurrentIndexSection { }
 
                 if InspectorContext.is-lineedit-selection(): InspectorInputTypeSection {
                     popup-bottom: root.popup-bottom;
