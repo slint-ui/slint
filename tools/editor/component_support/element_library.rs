@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn library_is_alphabetical_and_search_preserves_order() {
         let groups = catalog();
-        assert_eq!(groups.row_count(), 3);
+        assert_eq!(groups.row_count(), 4);
         let group = groups.row_data(0).unwrap();
         assert_eq!(group.label, "Visual");
         for (query, expected) in [
@@ -94,12 +94,38 @@ mod tests {
         }
         let interaction = groups.row_data(1).unwrap();
         assert_eq!(interaction.label, "Input & interaction");
-        assert_eq!(interaction.entries.row_data(0).unwrap().kind, ElementKind::TouchArea);
+        assert_eq!(interaction.entries.row_data(0).unwrap().kind, ElementKind::DragArea);
         for (query, expected) in [
-            ("", vec!["TouchArea"]),
-            ("  ", vec!["TouchArea"]),
+            (
+                "",
+                vec![
+                    "DragArea",
+                    "DropArea",
+                    "Flickable",
+                    "FocusScope",
+                    "ScaleRotateGestureHandler",
+                    "SwipeGestureHandler",
+                    "TextInput",
+                    "TouchArea",
+                    "WindowMoveArea",
+                ],
+            ),
+            (
+                "  ",
+                vec![
+                    "DragArea",
+                    "DropArea",
+                    "Flickable",
+                    "FocusScope",
+                    "ScaleRotateGestureHandler",
+                    "SwipeGestureHandler",
+                    "TextInput",
+                    "TouchArea",
+                    "WindowMoveArea",
+                ],
+            ),
             (" tOuCh ", vec!["TouchArea"]),
-            ("AREA", vec!["TouchArea"]),
+            ("AREA", vec!["DragArea", "DropArea", "TouchArea", "WindowMoveArea"]),
             ("image", vec![]),
             ("missing", vec![]),
         ] {
@@ -111,7 +137,7 @@ mod tests {
                 expected
             );
         }
-        let widgets = groups.row_data(2).unwrap();
+        let widgets = groups.row_data(3).unwrap();
         assert_eq!(widgets.label, "std-widgets");
         assert_eq!(widgets.entries.row_data(0).unwrap().kind, ElementKind::Widget);
         assert_eq!(

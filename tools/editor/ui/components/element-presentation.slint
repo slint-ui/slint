@@ -15,6 +15,16 @@ export struct ElementPresentation {
 
 // Primitive identity and grouping are defined in preview/element_catalog.rs.
 export global ElementVisuals {
+    pure function primitive(icon: image, label: string) -> ElementPresentation {
+        return {
+            icon: icon,
+            preview-size: { width: 160px, height: 96px },
+            corner-radius: 0px,
+            show-thumbnail: false,
+            label: label,
+        };
+    }
+
     public pure function for-kind(kind: ElementKind) -> ElementPresentation {
         if kind == ElementKind.rectangle {
             return {
@@ -36,7 +46,7 @@ export global ElementVisuals {
         }
         if kind == ElementKind.styled-text {
             return {
-                icon: EditorTreeIcons.text,
+                icon: EditorTreeIcons.styled-text,
                 preview-size: {},
                 corner-radius: 8px,
                 show-thumbnail: false,
@@ -60,6 +70,42 @@ export global ElementVisuals {
                 show-thumbnail: false,
                 label: "TouchArea",
             };
+        }
+        if kind == ElementKind.flickable {
+            return root.primitive(EditorTreeIcons.flickable, "Flickable");
+        }
+        if kind == ElementKind.swipe-gesture-handler {
+            return root.primitive(EditorTreeIcons.swipe-gesture-handler, "SwipeGestureHandler");
+        }
+        if kind == ElementKind.scale-rotate-gesture-handler {
+            return root.primitive(EditorTreeIcons.scale-rotate-gesture-handler, "ScaleRotateGestureHandler");
+        }
+        if kind == ElementKind.drag-area {
+            return root.primitive(EditorTreeIcons.drag-area, "DragArea");
+        }
+        if kind == ElementKind.drop-area {
+            return root.primitive(EditorTreeIcons.drop-area, "DropArea");
+        }
+        if kind == ElementKind.focus-scope {
+            return root.primitive(EditorTreeIcons.focus-scope, "FocusScope");
+        }
+        if kind == ElementKind.text-input {
+            return root.primitive(EditorTreeIcons.text-input, "TextInput");
+        }
+        if kind == ElementKind.horizontal-layout {
+            return root.primitive(EditorTreeIcons.horizontal-layout, "HorizontalLayout");
+        }
+        if kind == ElementKind.vertical-layout {
+            return root.primitive(EditorTreeIcons.vertical-layout, "VerticalLayout");
+        }
+        if kind == ElementKind.grid-layout {
+            return root.primitive(EditorTreeIcons.grid-layout, "GridLayout");
+        }
+        if kind == ElementKind.flexbox-layout {
+            return root.primitive(EditorTreeIcons.flexbox-layout, "FlexboxLayout");
+        }
+        if kind == ElementKind.window-move-area {
+            return root.primitive(EditorTreeIcons.window-move-area, "WindowMoveArea");
         }
         if kind == ElementKind.widget {
             return {
