@@ -8,9 +8,9 @@
 // together with its instance, that each context has its own actors, and that
 // same-named components from other files get their own types.
 
-// @actor is only supported in Rust. The Node.js and Python drivers don't
-// resolve include paths for imports.
-//ignore: cpp, js, pyi
+// @actor is only supported in Rust, and not by its live preview. The Node.js
+// and Python drivers don't resolve include paths for imports.
+//ignore: cpp, js, pyi, live-preview
 
 //include_path: ../../helper_components
 import { Player as SiblingPlayer } from "actor_player.slint";

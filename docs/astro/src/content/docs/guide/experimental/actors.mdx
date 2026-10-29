@@ -135,6 +135,8 @@ To give a type a shorter name, rename it with `use`, like `import { VideoPlayer 
 - Actors only work in Rust.
   The generated C++ code of an actor component fails to compile.
   In Node.js, Python, `slint-viewer`, and the live preview, an actor component behaves like a regular component.
+- The `live-preview` feature of the `slint` crate doesn't support actors yet.
+  With it, the generated code has no facade or message types.
 - Callbacks of an actor component can't return a value, since the actor only receives messages.
   To return a result, let the actor set a property.
 - The facade isn't `Send`, and your handler runs on the thread of the event loop.

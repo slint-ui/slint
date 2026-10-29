@@ -90,6 +90,7 @@ fn generated_file_for_test<'a>(
 }
 
 fn main() -> std::io::Result<()> {
+    println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
     let live_preview = std::env::var("SLINT_LIVE_PREVIEW").is_ok();
 
     let mut generated_file = make_generator_file(
@@ -166,8 +167,6 @@ fn process_case(
         "#[ignore = \"translation bundle not working with the macro\"]"
     } else if live_preview && testcase.is_ignored("js") {
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
-    } else if live_preview && testcase.is_ignored("live-preview") {
-        "#[ignore = \"testcase ignored in live-preview mode\"]"
     } else if live_preview && test_driver_lib::extract_slint_edition(&source).is_some() {
         "#[ignore = \"live preview takes the edition from SLINT_EDITION, for all test cases\"]"
     } else if live_preview && module_name.contains("write_to_model") {
@@ -191,6 +190,16 @@ fn process_case(
         writeln!(
             output,
             "{test_attribute} #[ignore = \"testcase ignored for rust\"] fn ignored_for_rust() {{}}"
+        )?;
+        output.flush()?;
+        return Ok(module_line);
+    }
+
+    // Not even built: the live-preview generator may not support what the case uses.
+    if live_preview && testcase.is_ignored("live-preview") {
+        writeln!(
+            output,
+            "{test_attribute} #[ignore = \"testcase ignored in live-preview mode\"] fn ignored_in_live_preview() {{}}"
         )?;
         output.flush()?;
         return Ok(module_line);
@@ -315,8 +324,6 @@ fn generate_source(
     output: &mut impl Write,
     testcase: &test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
-    println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
-
     let generated = compile_and_generate(source, testcase)?;
 
     println!("cargo::rerun-if-env-changed=SLINT_TEST_DETERMINISTIC_OUTPUT");
