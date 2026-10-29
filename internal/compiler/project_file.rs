@@ -55,10 +55,19 @@ impl SlintEdition {
         let newer = Self::LATEST_BEHAVIOR_CHANGE;
         (self < newer).then(|| {
             format!(
-                "'{setting}' {self} misses the language behavior changes up to {newer}: raise it to {newer} after reviewing the changes at {}",
+                "'{setting}' is {self}, so the language behavior changes up to {newer} don't apply: review them at {}, then raise it to {newer}",
                 Self::behavior_changes_url()
             )
         })
+    }
+
+    /// The info for a compilation that selects no edition.
+    pub fn missing_edition_info() -> String {
+        let newer = Self::LATEST_BEHAVIOR_CHANGE;
+        format!(
+            "No edition is set, so the language behavior changes up to {newer} don't apply: review them at {}, then set the edition to {newer} in slint-project.json or your build settings",
+            Self::behavior_changes_url()
+        )
     }
 
     /// The documentation of the behavior changes that depend on the edition.
@@ -1222,7 +1231,9 @@ mod tests {
     fn an_edition_before_the_latest_behavior_change_gets_a_warning() {
         let parse = |s: &str| s.parse::<SlintEdition>().unwrap();
         let warning = parse("1.18").behavior_change_warning("edition").unwrap();
-        assert!(warning.contains("'edition' 1.18 misses the language behavior changes up to 1.19"));
+        assert!(warning.contains(
+            "'edition' is 1.18, so the language behavior changes up to 1.19 don't apply"
+        ));
         assert_eq!(SlintEdition::current().behavior_change_warning("edition"), None);
     }
 

@@ -484,6 +484,9 @@ function createGlobal(
 }
 
 function formatDiagnostic(d: napi.Diagnostic): string {
+    if (!d.fileName) {
+        return d.message;
+    }
     return `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`;
 }
 
@@ -622,7 +625,7 @@ function loadSlint(loadData: LoadData): Object {
                         console.warn(`Warning: ${formatDiagnostic(d)}`);
                         break;
                     case napi.DiagnosticLevel.Info:
-                        console.info(`Info: ${formatDiagnostic(d)}`);
+                        console.warn(`Info: ${formatDiagnostic(d)}`);
                         break;
                     case napi.DiagnosticLevel.Note:
                         console.warn(`Note: ${formatDiagnostic(d)}`);

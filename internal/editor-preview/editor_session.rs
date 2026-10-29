@@ -2930,7 +2930,7 @@ mod tests {
         let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &inner_url).unwrap();
         assert_eq!(warnings.len(), 2, "{warnings:?}");
         assert!(warnings[0].message.contains("edition '1.18'"), "{warnings:?}");
-        assert!(warnings[1].message.contains("'edition' 1.18 misses"), "{warnings:?}");
+        assert!(warnings[1].message.contains("'edition' is 1.18, so"), "{warnings:?}");
         let outer_url = Url::from_file_path(&outer).unwrap();
         let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &outer_url).unwrap();
         assert!(warnings.is_empty(), "{warnings:?}");

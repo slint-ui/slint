@@ -336,12 +336,12 @@ fn an_old_project_file_edition_warns() {
     std::fs::write(&main, "export component App { }\n").unwrap();
     let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
     assert_eq!(code, 0, "stderr was:\n{stderr}");
-    assert!(stderr.contains("'edition' 1.18 misses"), "stderr was:\n{stderr}");
+    assert!(stderr.contains("'edition' is 1.18, so"), "stderr was:\n{stderr}");
 
     let (code, _stdout, stderr) =
         run(&["--check", "--edition", "1.19", project.path().to_str().unwrap()]);
     assert_eq!(code, 0, "stderr was:\n{stderr}");
-    assert!(!stderr.contains("misses"), "stderr was:\n{stderr}");
+    assert!(!stderr.contains("don't apply"), "stderr was:\n{stderr}");
 
     let (code, _stdout, stderr) =
         run(&["--check", "--edition", "999.0", project.path().to_str().unwrap()]);

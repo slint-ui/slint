@@ -108,4 +108,7 @@ def test_building_a_file_ignores_its_project_file(tmp_path: pathlib.Path) -> Non
     main = write_main(directory, "export component Main inherits Window { }")
 
     result = native.Compiler().build_from_path(main)
-    assert messages(result) == []
+    # Only the info that no edition is set
+    assert [diagnostic.level for diagnostic in result.diagnostics] == [
+        native.DiagnosticLevel.Info
+    ]

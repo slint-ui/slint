@@ -360,7 +360,7 @@ fn extract_compiler_config(
 fn missing_edition_warning(span: proc_macro::Span) -> TokenStream {
     let newer = project_file::SlintEdition::LATEST_BEHAVIOR_CHANGE;
     let message = format!(
-        "'slint!' without '#[edition]' misses the behavior changes up to {newer}: add '#[edition = \"{newer}\"]' after reviewing {}",
+        "'slint!' has no '#[edition]', so the language behavior changes up to {newer} don't apply: review them at {}, then add '#[edition = \"{newer}\"]'",
         project_file::SlintEdition::behavior_changes_url()
     );
     diagnostics::macro_warning(span.into(), &message)
