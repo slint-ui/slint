@@ -73,7 +73,7 @@ cmake -B build -DSLINT_BUILD_EXAMPLES=ON -DSLINT_FEATURE_RENDERER_SKIA=ON
 cmake --build build --target vulkan_texture
 ```
 
-On Windows add `-DSLINT_FEATURE_RENDERER_SKIA_VULKAN=ON`, for the same reason the Rust version
+On Windows and macOS add `-DSLINT_FEATURE_RENDERER_SKIA_VULKAN=ON`, for the same reason the Rust version
 enables `renderer-skia-vulkan`: without it wgpu has no Vulkan backend to hand the example.
 
 which leaves the binary in `build/examples/vulkan_texture/vulkan_texture`. `SLINT_BUILD_EXAMPLES`
@@ -130,9 +130,8 @@ env SLINT_BACKEND=winit-skia-wgpu WGPU_BACKEND=vulkan \
     build/examples/vulkan_texture/vulkan_texture
 ```
 
-On macOS and iOS Vulkan runs on MoltenVK, through wgpu's `vulkan-portability` feature, which the
-`slint/wgpu-30-vulkan-portability` feature in `Cargo.toml` turns on for Rust, and `renderer-skia`
-turns on for C++. It needs the [Vulkan SDK](https://vulkan.lunarg.com/) installed, and the loader
+On macOS and iOS Vulkan runs on MoltenVK, through wgpu's `vulkan-portability` feature, which
+`renderer-skia-vulkan` turns on. It needs the [Vulkan SDK](https://vulkan.lunarg.com/) installed, and the loader
 has to be findable: `ash` opens a bare `libvulkan.dylib`, which dyld doesn't look for in
 `/usr/local/lib` on its own.
 
