@@ -168,8 +168,6 @@ fn process_case(
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
     } else if live_preview && testcase.is_ignored("live-preview") {
         "#[ignore = \"testcase ignored in live-preview mode\"]"
-    } else if live_preview && test_driver_lib::extract_edition(&source).is_some() {
-        "#[ignore = \"live preview takes the edition from SLINT_EDITION, for all test cases\"]"
     } else if live_preview && module_name.contains("write_to_model") {
         "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
     } else {
