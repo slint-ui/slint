@@ -337,6 +337,16 @@ fn an_old_project_file_edition_warns() {
     let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
     assert_eq!(code, 0, "stderr was:\n{stderr}");
     assert!(stderr.contains("'edition' 1.18 misses"), "stderr was:\n{stderr}");
+
+    let (code, _stdout, stderr) =
+        run(&["--check", "--edition", "1.19", project.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    assert!(!stderr.contains("misses"), "stderr was:\n{stderr}");
+
+    let (code, _stdout, stderr) =
+        run(&["--check", "--edition", "999.0", project.path().to_str().unwrap()]);
+    assert_ne!(code, 0, "stderr was:\n{stderr}");
+    assert!(stderr.contains("is newer than"), "stderr was:\n{stderr}");
 }
 
 #[test]

@@ -146,7 +146,7 @@ To view a specific `.slint` file with a project root, pass `--project-root <dire
 The viewer loads that directory's project file if it exists and uses the specified `.slint` file, even when the project file sets `main`.
 A `.slint` file without `--project-root` doesn't load a project file.
 Don't combine a project directory input with `--project-root`.
-`--style` wins over its settings, while `-I` and `-L` add to its include and library paths,
+`--style` and `--edition` win over its settings, while `-I` and `-L` add to its include and library paths,
 as described in [Which Setting Wins](../project-file/#which-setting-wins).
 
 ## Command-Line Options
@@ -168,6 +168,7 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
 | `--style <style>` | Set the widget style. Wins over the style of the project file. Defaults to `fluent`. |
+| `--edition <edition>` | Set the [edition](../../language/concepts/editions/), such as `1.19`. Wins over the edition of the project file. |
 | `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |
 | `-I <path>` | Add an include path for imported `.slint` files or images. Comes before the include paths of the project file. |
 | `-L <library=path>` | Add a library path for `@library` imports. Replaces the project file's library of the same name. |

@@ -301,6 +301,35 @@ fn an_edition_before_a_behavior_change_warns() {
 }
 
 #[test]
+fn the_edition_option_wins_over_the_project_file() {
+    // Edition 1.19 reports the inner binding loop as an error, 1.18 only warns.
+    let project = Project::new(Some(r#"{ "edition": "1.18", "main": "main.slint" }"#));
+    project.write(
+        "main.slint",
+        "export component Main inherits Window {
+            HorizontalLayout { Rectangle { VerticalLayout { Rectangle { width: parent.width; } } } }
+        }",
+    );
+
+    let output = project.compile(&project.root, &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let output = project.compile(&project.root, &["--edition", "1.19"]);
+    assert!(!output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+}
+
+#[test]
+fn an_invalid_edition_option_is_rejected() {
+    let project = Project::new(None);
+    let main = project.write("main.slint", PLAIN);
+    for (edition, message) in [("1.19.0", "is not a Slint edition"), ("999.0", "is newer than")] {
+        let output = project.compile(&main, &["--edition", edition]);
+        assert!(!output.status.success(), "{}", stderr(&output));
+        assert!(stderr(&output).contains(message), "{}", stderr(&output));
+    }
+}
+
+#[test]
 fn the_slint_edition_variable_does_not_warn() {
     let project = Project::new(None);
     let main = project.write("main.slint", PLAIN);
