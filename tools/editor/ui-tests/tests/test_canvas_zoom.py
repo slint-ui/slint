@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore getpixel
+# cspell:ignore getpixel AZERTY
 
 
 import math
@@ -19,6 +19,7 @@ from canvas_interactions import (
     zoom_canvas,
 )
 from editor_sync import wait_for_source
+from inspector_interactions import inspector_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
 from ui_assertions import expect
@@ -97,6 +98,7 @@ def test_zoom_scales_content_and_preserves_controls(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("modifiers", [(keys.Control,), (keys.Control, keys.Shift)])
 @pytest.mark.parametrize(
     ("file_name", "row", "width", "height", "angle_degrees"),
     [
@@ -113,6 +115,7 @@ def test_zoom_to_selection_uses_largest_fitting_level(
     width,
     height,
     angle_degrees,
+    modifiers,
 ):
     source = fixture_project / file_name
     original = SourceSnapshot.capture(fixture_project)
@@ -125,12 +128,66 @@ def test_zoom_to_selection_uses_largest_fitting_level(
         bounds_width = width * abs(math.cos(angle)) + height * abs(math.sin(angle))
         bounds_height = width * abs(math.sin(angle)) + height * abs(math.cos(angle))
         expected = expected_fit_zoom(canvas, bounds_width, bounds_height)
-        press_shortcut(window, keys.Shift, "2")
+        press_shortcut(window, *modifiers, "2")
         expect(canvas).to_have_value(f"{expected}%")
         frame = element(window, "Selected Rectangle")
         assert center(frame).x == pytest.approx(center(canvas).x)
         assert center(frame).y == pytest.approx(center(canvas).y)
         original.assert_unchanged()
+
+
+@pytest.mark.parametrize("shift", [keys.Shift, keys.ShiftR])
+@pytest.mark.parametrize(
+    ("row", "label", "prefix", "suffix", "old", "new"),
+    [
+        (
+            "root-rectangle",
+            "Width",
+            "",
+            "",
+            b"width: 180px;\n        height: 120px;",
+            b"width: 2px;\n        height: 120px;",
+        ),
+        (
+            "root-text",
+            "Text content",
+            '"',
+            '"',
+            b'text: "Fixture text";',
+            b'text: "2";',
+        ),
+    ],
+)
+def test_shift_two_types_in_inspector_without_zooming(
+    editor_binary,
+    editor_environment,
+    fixture_project,
+    shift,
+    row,
+    label,
+    prefix,
+    suffix,
+    old,
+    new,
+):
+    source = fixture_project / "Main.slint"
+    baseline = source.read_bytes()
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_outline_row(window, row)
+        field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
+        field.single_click(slint_testing.PointerEventButton.Left)
+        press_shortcut(window, keys.Control, "a")
+        press_keys(window, prefix)
+        # Belgian AZERTY produces "2" with Shift held.
+        press_shortcut(window, shift, "2")
+        press_keys(window, suffix)
+        expect(field).to_have_value(prefix + "2" + suffix)
+        expect(element(window, "Editor canvas")).to_have_value("100%")
+        press_key(window, keys.Return)
+        original.wait_for_applied(replace_once(baseline, old, new))
 
 
 def test_zoom_to_selection_centers_canvas_when_unselected(
@@ -159,7 +216,7 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         assert center(artboard).x != pytest.approx(target.x)
         assert center(artboard).y != pytest.approx(target.y)
-        press_shortcut(window, keys.Shift, "2")
+        press_shortcut(window, keys.Control, "2")
         wait_until(
             lambda: (
                 center(artboard).x == pytest.approx(target.x)
@@ -168,7 +225,7 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         )
         assert canvas.accessible_value == "100%"
         zoom_canvas(window, 125)
-        press_shortcut(window, keys.Shift, "2")
+        press_shortcut(window, keys.Control, "2")
         assert canvas.accessible_value == "125%"
         original.assert_unchanged()
 
@@ -405,7 +462,7 @@ def test_zoom_is_blocked_during_resize(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         press_shortcut(window, keys.Control, "+")
-        press_shortcut(window, keys.Shift, "2")
+        press_shortcut(window, keys.Control, "2")
         assert element(window, "Editor canvas").accessible_value == "100%"
         window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
         zoom_canvas(window, 125)
