@@ -153,6 +153,13 @@ The types map as follows:
 Create an `Image` from a file with `Image.Load`, from a file in memory with `Image.LoadFromData`,
 or from pixels that you computed with `Image.FromRgba8` and `Image.FromRgb8`.
 For pixels whose colors are already multiplied by their alpha, as SkiaSharp draws them, use `Image.FromPremultipliedRgba8`.
+
+### Charts With Microcharts
+
+[Microcharts](https://github.com/microcharts-dotnet/Microcharts) draws bar, line, point, donut, pie, radar, and gauge charts with SkiaSharp.
+Its `Microcharts.Slint`, in the `slint` branch of [the fork](https://github.com/yurkinh/Microcharts/tree/slint) until Microcharts takes it in,
+shows them in a Slint `Image` with a `ChartRenderer`, on the desktop, Android, and iOS.
+Its README has the code, and `Sources/Microcharts.Samples.Slint` a gallery; both need the next preview, after 1.19.0-preview.9.
 `ToRgba8` returns the pixels.
 
 The build copies the `.slint` files to the output directory, and the generated code loads them at run time.
