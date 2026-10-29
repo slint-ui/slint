@@ -1,0 +1,169 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that the actor registered for an @actor component on a Slint context
+// is created once per instance (including inlined and repeated ones), that
+// callbacks arrive as typed messages - also while the actor handles one - that
+// the actor can access the instance's properties, that the actor is dropped
+// together with its instance, that each context has its own actors, and that
+// same-named components from other files get their own types.
+
+// @actor is only supported in Rust. The Node.js and Python drivers don't
+// resolve include paths for imports.
+//ignore: cpp, js, pyi
+
+//include_path: ../../helper_components
+import { Player as SiblingPlayer } from "actor_player.slint";
+import { Player as NestedPlayer } from "media_kit/actor_player.slint";
+
+@actor
+component Player {
+    in-out property <string> source;
+    in-out property <int> position;
+    out property <string> status;
+    callback play();
+    callback seek(int);
+}
+
+@actor
+component Inline {
+    @children // forces inlining
+}
+
+export component TestCase inherits Rectangle {
+    in property <int> rows: 2;
+    callback trigger-play();
+    callback trigger-seek(int);
+    callback trigger-stop();
+
+    p := Player { source: "intro.mp4"; }
+    Inline { }
+    for i in rows: Player { source: "row-" + i; }
+    sibling := SiblingPlayer { }
+    nested := NestedPlayer { }
+
+    trigger-play => { p.play(); }
+    trigger-seek(pos) => { p.seek(pos); }
+    trigger-stop => {
+        sibling.stop();
+        nested.stop();
+    }
+    out property <string> status: p.status;
+    out property <int> position: p.position;
+}
+
+/*
+```rust
+use std::cell::RefCell;
+use std::rc::Rc;
+
+// The actors are registered on an explicit Slint context: creating the
+// component without one fails, as does creating it in a context without
+// registrations.
+let error = TestCase::new().err().unwrap().to_string();
+assert!(error.contains("new_with_context"), "{error}");
+let new_context = || {
+    slint::SlintContext::new_with_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        Default::default(),
+    )))
+};
+let ctx = new_context();
+let error = TestCase::new_with_context(ctx.clone()).err().unwrap().to_string();
+assert!(error.contains("No actor is registered"), "{error}");
+
+#[derive(Default)]
+struct Log {
+    created: Vec<String>,
+    messages: Vec<String>,
+    dropped: usize,
+}
+let log = Rc::new(RefCell::new(Log::default()));
+
+// Lets the actor call back into the instance while it handles a message.
+let instance_weak = Rc::new(RefCell::new(None::<slint::Weak<TestCase>>));
+
+// The actor state lives as long as the handler, which the instance owns.
+struct DropCounter(Rc<RefCell<Log>>);
+impl Drop for DropCounter {
+    fn drop(&mut self) {
+        self.0.borrow_mut().dropped += 1;
+    }
+}
+
+ctx.register_actor({
+    let log = log.clone();
+    let instance_weak = instance_weak.clone();
+    move |player: &PlayerFacade| {
+        let instance_weak = instance_weak.clone();
+        log.borrow_mut().created.push(player.get_source().to_string());
+        let counter = DropCounter(log.clone());
+        move |player: &PlayerFacade, message| {
+            let log = &counter.0;
+            log.borrow_mut().messages.push(format!("{message:?}"));
+            match message {
+                PlayerMessage::Play => {
+                    player.set_status(format!("playing {}", player.get_source()).into());
+                    // A message sent while the handler runs is delivered after
+                    // it returns.
+                    if let Some(instance) = instance_weak.borrow().as_ref().and_then(|w| w.upgrade()) {
+                        instance.invoke_trigger_seek(7);
+                    }
+                    assert_eq!(player.get_position(), 0);
+                }
+                PlayerMessage::Seek(pos) => player.set_position(pos),
+            }
+        }
+    }
+});
+ctx.register_actor({
+    let log = log.clone();
+    move |_: &InlineFacade| {
+        log.borrow_mut().created.push("inline".into());
+        |_: &InlineFacade, message: InlineMessage| match message {}
+    }
+});
+
+// The same-named components from other files have their own types, in one
+// module per path segment of their file.
+ctx.register_actor({
+    let log = log.clone();
+    move |_: &actor_player::PlayerFacade| {
+        let log = log.clone();
+        move |_: &actor_player::PlayerFacade, message| {
+            log.borrow_mut().messages.push(format!("sibling {message:?}"))
+        }
+    }
+});
+let error = TestCase::new_with_context(ctx.clone()).err().unwrap().to_string();
+assert!(error.contains("'Player (media_kit/actor_player.slint)'"), "{error}");
+ctx.register_actor({
+    let log = log.clone();
+    move |_: &media_kit::actor_player::PlayerFacade| {
+        let log = log.clone();
+        move |_: &media_kit::actor_player::PlayerFacade, message| {
+            log.borrow_mut().messages.push(format!("nested {message:?}"))
+        }
+    }
+});
+
+let instance = TestCase::new_with_context(ctx.clone()).unwrap();
+*instance_weak.borrow_mut() = Some(instance.as_weak());
+assert_eq!(log.borrow().created, ["intro.mp4", "inline", "row-0", "row-1"]);
+
+instance.invoke_trigger_play();
+assert_eq!(instance.get_status(), "playing intro.mp4");
+assert_eq!(instance.get_position(), 7);
+instance.invoke_trigger_seek(42);
+assert_eq!(instance.get_position(), 42);
+instance.invoke_trigger_stop();
+assert_eq!(log.borrow().messages, ["Play", "Seek(7)", "Seek(42)", "sibling Stop", "nested Stop"]);
+
+// Dropping the instance drops the actors of its three main-file players.
+drop(instance);
+assert_eq!(log.borrow().dropped, 3);
+
+// The registrations belong to `ctx`: another context has none.
+let error = TestCase::new_with_context(new_context()).err().unwrap().to_string();
+assert!(error.contains("No actor is registered"), "{error}");
+```
+*/
