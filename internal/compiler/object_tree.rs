@@ -57,6 +57,9 @@ pub struct Document {
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
 
+    /// The files the `@image-url()`s of the document resolve to, also the ones that aren't embedded.
+    pub referenced_file_resources: RefCell<HashSet<SourcePath>>,
+
     /// Resources to embed in the generated code.
     ///
     /// The [`crate::embedded_resources::EmbeddedResourcesIdx`] is the identifier used by code generators.
@@ -300,6 +303,7 @@ impl Document {
             imports,
             exports,
             library_exports: Default::default(),
+            referenced_file_resources: Default::default(),
             embedded_file_resources: Default::default(),
             #[cfg(feature = "bundle-translations")]
             translation_builder: None,
