@@ -16,6 +16,7 @@ export component EditorInput inherits InputSurface {
     in property <bool> show-focus-border: true;
     in property <string> placeholder;
     in property <InputType> input-type: InputType.text;
+    in property <MouseCursor> unfocused-cursor: MouseCursor.text;
     callback keyboard(KeyEvent) -> EventResult;
     callback focus-lost();
     keyboard(event) => { return reject; }
@@ -84,7 +85,7 @@ export component EditorInput inherits InputSurface {
 
     touch := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: text;
+        mouse-cursor: root.unfocused-cursor;
         clicked => { input.focus(); }
 
         HorizontalLayout {
@@ -137,7 +138,7 @@ export component EditorInput inherits InputSurface {
 
                 TouchArea {
                     enabled: root.enabled && !input.has-focus;
-                    mouse-cursor: text;
+                    mouse-cursor: root.unfocused-cursor;
                     clicked => { input.focus(); }
                     pointer-event(event) => {
                         if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {

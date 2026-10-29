@@ -24,6 +24,7 @@ pub struct PreviewConfig {
 }
 
 #[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum LspToPreviewMessage {
     InvalidateContents {
         url: lsp_types::Url,
@@ -59,7 +60,8 @@ pub enum LspToPreviewMessage {
         state: RemoteConnectionState,
         /// Human-readable `address:port` of the attempted target.
         target: String,
-        /// Set on `Failed` to describe the cause.
+        /// On `Failed`, the cause. On `Connected`, why the device doesn't show the
+        /// current design, if it doesn't.
         error: Option<String>,
     },
     Quit,

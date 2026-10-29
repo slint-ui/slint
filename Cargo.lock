@@ -2147,6 +2147,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1a05365e3b1c6d1650318537c7460c6923f1abdd272ad6842baa2b509957a06"
 dependencies = [
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -3254,7 +3255,7 @@ dependencies = [
  "libudev-sys",
  "log",
  "memmap2",
- "nix",
+ "nix 0.31.3",
  "pkg-config",
  "raw-window-handle",
  "slint",
@@ -3276,6 +3277,7 @@ dependencies = [
  "pin-project",
  "pin-weak",
  "qttypes",
+ "swash",
  "vtable",
 ]
 
@@ -3417,6 +3419,7 @@ dependencies = [
  "lyon_path",
  "nalgebra",
  "num_enum",
+ "once_cell",
  "pathdiff",
  "postcard",
  "proc-macro2",
@@ -3526,7 +3529,9 @@ dependencies = [
  "flume",
  "futures-util",
  "i-slint-backend-testing",
+ "i-slint-common",
  "i-slint-compiler",
+ "i-slint-core",
  "i-slint-live-preview",
  "itertools 0.15.0",
  "lsp-types",
@@ -3535,6 +3540,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "serde_json",
+ "serialport",
  "slint",
  "slint-build",
  "slint-interpreter",
@@ -3555,6 +3561,8 @@ dependencies = [
  "anyhow",
  "base64 0.23.1",
  "chacha20poly1305",
+ "cobs",
+ "crc32fast",
  "derive_more",
  "futures-util",
  "getrandom 0.2.17",
@@ -3567,9 +3575,11 @@ dependencies = [
  "if-addrs",
  "lsp-types",
  "mdns-sd",
+ "miniz_oxide 0.8.9",
  "notify",
  "postcard",
  "rand 0.10.3",
+ "rand_core 0.6.4",
  "scopeguard",
  "serde",
  "serde_json",
@@ -4032,6 +4042,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "io-kit-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "617ee6cf8e3f66f3b4ea67a4058564628cde41901316e19f559e14c7c72c5e7b"
+dependencies = [
+ "core-foundation-sys",
+ "mach2",
 ]
 
 [[package]]
@@ -4575,6 +4595,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "mach2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d640282b302c0bb0a2a8e0233ead9035e3bed871f0b7e81fe4a1ec829765db44"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4987,6 +5016,17 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
+
+[[package]]
+name = "nix"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
+dependencies = [
+ "bitflags 1.3.2",
+ "cfg-if",
+ "libc",
+]
 
 [[package]]
 name = "nix"
@@ -7055,6 +7095,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "serialport"
+version = "4.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba5f8f29aa20853c4e3e85a33ec580eb66be1f057142e77a333834a318bacf2"
+dependencies = [
+ "bitflags 2.13.2",
+ "cfg-if",
+ "core-foundation 0.10.1",
+ "core-foundation-sys",
+ "io-kit-sys",
+ "mach2",
+ "nix 0.26.4",
+ "scopeguard",
+ "unescaper",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7381,6 +7439,7 @@ dependencies = [
  "derive_more",
  "document-features",
  "either",
+ "hashbrown 0.16.1",
  "i-slint-backend-linuxkms",
  "i-slint-backend-qt",
  "i-slint-backend-selector",
@@ -7393,6 +7452,8 @@ dependencies = [
  "i-slint-renderer-software",
  "js-sys",
  "lyon_path",
+ "num-traits",
+ "once_cell",
  "raw-window-handle",
  "serde_json",
  "smol_str 0.3.7",
@@ -8668,6 +8729,15 @@ dependencies = [
  "memoffset",
  "tempfile",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "unescaper"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7285e83a80ce76f5e7bce79fa41f68d78ba62d1003cf27bf748ab24413808cf4"
+dependencies = [
+ "thiserror 2.0.21",
 ]
 
 [[package]]

@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use alloc::string::String;
+use alloc::vec::Vec;
+
 #[cfg(feature = "renderer-software")]
 use i_slint_common::bitmapfont::OwnedStorage;
 #[cfg(feature = "renderer-software")]
@@ -11,6 +14,28 @@ pub type BitmapGlyph = i_slint_common::bitmapfont::BitmapGlyph<OwnedStorage>;
 pub type BitmapGlyphs = i_slint_common::bitmapfont::BitmapGlyphs<OwnedStorage>;
 #[cfg(feature = "renderer-software")]
 pub type BitmapFont = i_slint_common::bitmapfont::BitmapFont<OwnedStorage>;
+
+/// The resources of `document` that the compiler pre-rendered, by [`EmbeddedResourcesIdx`].
+#[cfg(feature = "std")]
+pub fn pre_rendered_resources(
+    document: &crate::object_tree::Document,
+) -> Vec<Option<i_slint_common::pre_rendered::PreRenderedResource>> {
+    let resources = document.embedded_file_resources.borrow();
+    resources
+        .iter()
+        .map(|resource| match &resource.kind {
+            #[cfg(feature = "renderer-software")]
+            EmbeddedResourcesKind::TextureData(texture) => {
+                Some(i_slint_common::pre_rendered::PreRenderedResource::Texture(texture.clone()))
+            }
+            #[cfg(feature = "renderer-software")]
+            EmbeddedResourcesKind::BitmapFontData(font) => {
+                Some(i_slint_common::pre_rendered::PreRenderedResource::BitmapFont(font.clone()))
+            }
+            _ => None,
+        })
+        .collect()
+}
 
 #[derive(Debug, Clone)]
 pub enum EmbeddedResourcesKind {

@@ -83,6 +83,7 @@ pub enum Role {
 
 /// One side's public element, sent to the peer.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Element(Vec<u8>);
 
 #[cfg(test)]
@@ -97,6 +98,7 @@ impl Element {
 /// comparing with `==` gives away where two proofs first differ, so
 /// [`Confirmation::matches`] is the only way to compare.
 #[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Confirmation([u8; 32]);
 
 impl Confirmation {
@@ -105,6 +107,14 @@ impl Confirmation {
         use subtle::ConstantTimeEq as _;
 
         self.0.ct_eq(&other.0).into()
+    }
+}
+
+#[cfg(test)]
+impl Confirmation {
+    /// A proof no exchange derived.
+    pub fn for_test(byte: u8) -> Self {
+        Self([byte; 32])
     }
 }
 
@@ -183,9 +193,42 @@ impl Secrets {
     }
 }
 
+#[cfg(test)]
+impl Handshake {
+    /// [`Handshake::with_code`], drawing its random scalar from `rng`.
+    pub fn with_code_from<R>(rng: R, role: Role, code: &str) -> Self
+    where
+        R: rand_core::CryptoRng + rand_core::RngCore + Copy,
+    {
+        Self::start(
+            role,
+            b"code:",
+            code.as_bytes(),
+            |password, a, b| Spake2::start_a_with_rng(password, a, b, rng),
+            |password, a, b| Spake2::start_b_with_rng(password, a, b, rng),
+        )
+    }
+
+    /// [`Handshake::with_token`], drawing its random scalar from `rng`.
+    pub fn with_token_from<R>(rng: R, role: Role, token: &Token) -> Self
+    where
+        R: rand_core::CryptoRng + rand_core::RngCore + Copy,
+    {
+        Self::start(
+            role,
+            b"token:",
+            &token.0,
+            |password, a, b| Spake2::start_a_with_rng(password, a, b, rng),
+            |password, a, b| Spake2::start_b_with_rng(password, a, b, rng),
+        )
+    }
+}
+
+type Spake2 = spake2::Spake2<spake2::Ed25519Group>;
+
 /// One side of the SPAKE2 exchange, mid-flight.
 pub struct Handshake {
-    state: spake2::Spake2<spake2::Ed25519Group>,
+    state: Spake2,
     role: Role,
     element: Element,
 }
@@ -193,7 +236,7 @@ pub struct Handshake {
 impl Handshake {
     /// Begin a first pairing, with the on-screen code as the secret.
     pub fn with_code(role: Role, code: &str) -> Self {
-        Self::start(role, b"code:", code.as_bytes())
+        Self::start(role, b"code:", code.as_bytes(), Spake2::start_a, Spake2::start_b)
     }
 
     /// Begin a reconnect, with an issued token as the secret.
@@ -203,12 +246,16 @@ impl Handshake {
     /// secrecy: the session keys come out of the fresh exchange, so someone
     /// who records the traffic and later steals the token opens nothing.
     pub fn with_token(role: Role, token: &Token) -> Self {
-        Self::start(role, b"token:", &token.0)
+        Self::start(role, b"token:", &token.0, Spake2::start_a, Spake2::start_b)
     }
 
     /// The prefix keeps the two secret spaces apart, so a code exchange
     /// and a token exchange can never agree with each other.
-    fn start(role: Role, prefix: &[u8], secret: &[u8]) -> Self {
+    fn start<A, B>(role: Role, prefix: &[u8], secret: &[u8], start_a: A, start_b: B) -> Self
+    where
+        A: FnOnce(&spake2::Password, &spake2::Identity, &spake2::Identity) -> (Spake2, Vec<u8>),
+        B: FnOnce(&spake2::Password, &spake2::Identity, &spake2::Identity) -> (Spake2, Vec<u8>),
+    {
         let mut keyed = Vec::with_capacity(prefix.len() + secret.len());
         keyed.extend_from_slice(prefix);
         keyed.extend_from_slice(secret);
@@ -216,12 +263,8 @@ impl Handshake {
         let viewer = spake2::Identity::new(b"slint-preview-viewer");
         let editor = spake2::Identity::new(b"slint-preview-editor");
         let (state, element) = match role {
-            Role::Viewer => {
-                spake2::Spake2::<spake2::Ed25519Group>::start_a(&password, &viewer, &editor)
-            }
-            Role::Editor => {
-                spake2::Spake2::<spake2::Ed25519Group>::start_b(&password, &viewer, &editor)
-            }
+            Role::Viewer => start_a(&password, &viewer, &editor),
+            Role::Editor => start_b(&password, &viewer, &editor),
         };
         Self { state, role, element: Element(element) }
     }
@@ -375,9 +418,10 @@ impl std::fmt::Display for PairingRejection {
             Self::Expired => f.write_str("The pairing code expired before it was entered"),
             Self::TooManyAttempts => f.write_str("Too many incorrect pairing codes"),
             Self::Busy => f.write_str("Another computer is pairing with the viewer"),
-            Self::TooSoon { retry_after_seconds: 1 } => f.write_str("Try again in a second"),
+            // The number is from when the viewer refused, so it only bounds the wait.
+            // TODO: count down the real seconds in the editor instead.
             Self::TooSoon { retry_after_seconds } => {
-                write!(f, "Try again in {retry_after_seconds} seconds")
+                write!(f, "Try again in less than {retry_after_seconds}s")
             }
         }
     }
@@ -552,12 +596,7 @@ mod tests {
     fn the_cool_down_says_how_long_is_left() {
         assert_eq!(
             PairingRejection::TooSoon { retry_after_seconds: 18 }.to_string(),
-            "Try again in 18 seconds"
-        );
-        // One second reads badly in the plural form.
-        assert_eq!(
-            PairingRejection::TooSoon { retry_after_seconds: 1 }.to_string(),
-            "Try again in a second"
+            "Try again in less than 18s"
         );
     }
 }

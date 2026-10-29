@@ -50,6 +50,7 @@ Sources: [styled](src/basic/button.slint), [headless](src/headless/button_base.s
 | `in` | `focus-on-click` | `bool` | `false`; takes focus on a left-button press when enabled |
 | `in` | `focus-on-tab-navigation` | `bool` | `true`; participates in Tab navigation |
 | `out` | `hovered` | `bool` | Pointer is over the enabled control |
+| `out` | `focus-visible` | `bool` | Focus came from Tab navigation; pointer presses clear it |
 
 Public function: `activate()` toggles `checked` when checkable, then emits `clicked()` when enabled.
 ButtonBase slots: `background`, `content`.

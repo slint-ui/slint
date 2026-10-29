@@ -441,8 +441,8 @@ fn drop_edit(
                 document_cache.format,
             )?
         }
-        DragItem::NewComponent { kind, type_name } => {
-            let component = super::palette_component(type_name)?;
+        DragItem::NewComponent { kind, type_name, source_uri } => {
+            let component = super::palette_component(&type_name, &source_uri)?;
             let size = super::PREVIEW_STATE.with_borrow(|state| {
                 state
                     .editor_ui
@@ -452,7 +452,10 @@ fn drop_edit(
             let mut properties = Vec::new();
             if !matches!(
                 kind,
-                ui::ElementKind::Text | ui::ElementKind::StyledText | ui::ElementKind::Widget
+                ui::ElementKind::Text
+                    | ui::ElementKind::StyledText
+                    | ui::ElementKind::Widget
+                    | ui::ElementKind::Component
             ) && !i_slint_compiler::layout::is_layout(
                 &drop_info.target_element_node.as_element().borrow().base_type,
             ) {

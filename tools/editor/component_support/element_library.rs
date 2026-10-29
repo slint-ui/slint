@@ -3,7 +3,7 @@
 
 use slint::{Model, ModelExt, ModelRc, SharedString};
 
-use crate::ui::{Api, ElementLibraryEntry, ElementLibraryGroup};
+use crate::ui::{Api, ElementLibraryEntry, ElementLibraryGroup, ElementLibrarySection};
 
 fn catalog() -> ModelRc<ElementLibraryGroup> {
     use super::element_catalog::{GROUPS, entries};
@@ -16,11 +16,17 @@ fn catalog() -> ModelRc<ElementLibraryGroup> {
                     .map(|entry| ElementLibraryEntry {
                         label: entry.type_name.into(),
                         kind: entry.kind,
+                        source_uri: SharedString::default(),
                     })
                     .collect();
                 entries.sort_by(|a, b| a.label.cmp(&b.label));
                 ElementLibraryGroup {
                     label: group.label().into(),
+                    section: if *group == super::element_catalog::Group::Widgets {
+                        ElementLibrarySection::Libraries
+                    } else {
+                        ElementLibrarySection::Primitives
+                    },
                     entries: ModelRc::new(slint::VecModel::from(entries)),
                 }
             })
@@ -43,8 +49,14 @@ fn filter(
     ModelRc::new(entries.filter(move |entry| matches_query(entry, &query)))
 }
 
-fn has_matches(groups: ModelRc<ElementLibraryGroup>, query: SharedString) -> bool {
-    groups.iter().any(|group| group.entries.iter().any(|entry| matches_query(&entry, &query)))
+fn has_matches(
+    groups: ModelRc<ElementLibraryGroup>,
+    query: SharedString,
+    section: ElementLibrarySection,
+) -> bool {
+    groups.iter().any(|group| {
+        group.section == section && group.entries.iter().any(|entry| matches_query(&entry, &query))
+    })
 }
 
 pub fn setup(api: &Api<'_>) {
@@ -62,7 +74,7 @@ mod tests {
     #[test]
     fn library_is_alphabetical_and_search_preserves_order() {
         let groups = catalog();
-        assert_eq!(groups.row_count(), 3);
+        assert_eq!(groups.row_count(), 4);
         let group = groups.row_data(0).unwrap();
         assert_eq!(group.label, "Visual");
         for (query, expected) in [
@@ -82,12 +94,38 @@ mod tests {
         }
         let interaction = groups.row_data(1).unwrap();
         assert_eq!(interaction.label, "Input & interaction");
-        assert_eq!(interaction.entries.row_data(0).unwrap().kind, ElementKind::TouchArea);
+        assert_eq!(interaction.entries.row_data(0).unwrap().kind, ElementKind::DragArea);
         for (query, expected) in [
-            ("", vec!["TouchArea"]),
-            ("  ", vec!["TouchArea"]),
+            (
+                "",
+                vec![
+                    "DragArea",
+                    "DropArea",
+                    "Flickable",
+                    "FocusScope",
+                    "ScaleRotateGestureHandler",
+                    "SwipeGestureHandler",
+                    "TextInput",
+                    "TouchArea",
+                    "WindowMoveArea",
+                ],
+            ),
+            (
+                "  ",
+                vec![
+                    "DragArea",
+                    "DropArea",
+                    "Flickable",
+                    "FocusScope",
+                    "ScaleRotateGestureHandler",
+                    "SwipeGestureHandler",
+                    "TextInput",
+                    "TouchArea",
+                    "WindowMoveArea",
+                ],
+            ),
             (" tOuCh ", vec!["TouchArea"]),
-            ("AREA", vec!["TouchArea"]),
+            ("AREA", vec!["DragArea", "DropArea", "TouchArea", "WindowMoveArea"]),
             ("image", vec![]),
             ("missing", vec![]),
         ] {
@@ -99,8 +137,8 @@ mod tests {
                 expected
             );
         }
-        let widgets = groups.row_data(2).unwrap();
-        assert_eq!(widgets.label, "Widgets");
+        let widgets = groups.row_data(3).unwrap();
+        assert_eq!(widgets.label, "std-widgets");
         assert_eq!(widgets.entries.row_data(0).unwrap().kind, ElementKind::Widget);
         assert_eq!(
             filter(widgets.entries.clone(), normalize_query("box".into()))
@@ -122,12 +160,30 @@ mod tests {
     #[test]
     fn library_has_matches_in_any_group() {
         let groups = ModelRc::new(slint::VecModel::from(vec![
-            ElementLibraryGroup { label: "Empty".into(), entries: ModelRc::default() },
+            ElementLibraryGroup { label: "Empty".into(), ..Default::default() },
             catalog().row_data(0).unwrap(),
         ]));
-        assert!(has_matches(groups.clone(), normalize_query("  tEx  ".into())));
-        assert!(!has_matches(groups, normalize_query("missing".into())));
-        assert!(!has_matches(ModelRc::default(), "".into()));
+        assert!(has_matches(
+            groups.clone(),
+            normalize_query("  tEx  ".into()),
+            ElementLibrarySection::Primitives
+        ));
+        assert!(!has_matches(
+            groups,
+            normalize_query("missing".into()),
+            ElementLibrarySection::Primitives
+        ));
+        assert!(!has_matches(ModelRc::default(), "".into(), ElementLibrarySection::Primitives));
+    }
+
+    #[test]
+    fn search_is_scoped_to_the_selected_section() {
+        let groups = catalog();
+        assert!(has_matches(groups.clone(), "button".into(), ElementLibrarySection::Libraries));
+        assert!(!has_matches(groups.clone(), "button".into(), ElementLibrarySection::Primitives));
+        assert!(has_matches(groups.clone(), "image".into(), ElementLibrarySection::Primitives));
+        assert!(!has_matches(groups.clone(), "image".into(), ElementLibrarySection::Libraries));
+        assert!(!has_matches(groups, "".into(), ElementLibrarySection::Project));
     }
 
     #[test]
@@ -135,10 +191,15 @@ mod tests {
         let entries = std::rc::Rc::new(slint::VecModel::from(vec![ElementLibraryEntry {
             label: "Rectangle".into(),
             kind: ElementKind::Rectangle,
+            ..Default::default()
         }]));
         let filtered = filter(entries.clone().into(), "text".into());
         assert_eq!(filtered.row_count(), 0);
-        entries.push(ElementLibraryEntry { label: "Text".into(), kind: ElementKind::Text });
+        entries.push(ElementLibraryEntry {
+            label: "Text".into(),
+            kind: ElementKind::Text,
+            ..Default::default()
+        });
         assert_eq!(filtered.row_data(0).unwrap().label, "Text");
         entries.remove(1);
         assert_eq!(filtered.row_count(), 0);

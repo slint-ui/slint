@@ -471,6 +471,8 @@ fn format_element(
     state.new_line();
     let ins_ctn = state.insertion_count;
     let mut inserted_newline = false;
+    let mut empty_line_before = false;
+    let mut previous_kind = None;
 
     let mut sub = sub.peekable();
     while let Some(n) = sub.next() {
@@ -481,6 +483,7 @@ fn format_element(
             if is_empty_line && !inserted_newline {
                 state.new_line();
             }
+            empty_line_before |= is_empty_line;
         }
         if n.kind() == SyntaxKind::Whitespace {
             if state.after_comment {
@@ -504,10 +507,12 @@ fn format_element(
                     if !inserted_newline {
                         state.new_line();
                     }
+                    empty_line_before = true;
                     continue;
                 }
             }
         }
+        let separated = std::mem::take(&mut empty_line_before);
         inserted_newline = false;
 
         if n.kind() == SyntaxKind::RBrace {
@@ -522,6 +527,24 @@ fn format_element(
             state.new_line();
         } else {
             let put_newline_after = n.kind() == SyntaxKind::SubElement;
+
+            if n.kind() == SyntaxKind::SubElement
+                && !separated
+                && previous_kind.is_some_and(|k| {
+                    !matches!(
+                        k,
+                        SyntaxKind::SubElement
+                            | SyntaxKind::RepeatedElement
+                            | SyntaxKind::ConditionalElement
+                            | SyntaxKind::Comment
+                    )
+                })
+            {
+                state.new_line();
+            }
+            if n.kind() != SyntaxKind::Whitespace {
+                previous_kind = Some(n.kind());
+            }
 
             fold(n, writer, state)?;
 
@@ -2480,11 +2503,11 @@ mod tests {
         );
         assert_formatting(
             "component Host { slot input; inner:=Child{control << input;} }",
-            "component Host {\n    slot input;\n    inner := Child {\n        control << input;\n    }\n}\n",
+            "component Host {\n    slot input;\n\n    inner := Child {\n        control << input;\n    }\n}\n",
         );
         assert_formatting(
             "component Host { slot<Interaction> input; inner := Child { first << input; second << input; enabled: true; } }",
-            "component Host {\n    slot <Interaction> input;\n    inner := Child {\n        first << input;\n        second << input;\n        enabled: true;\n    }\n}\n",
+            "component Host {\n    slot <Interaction> input;\n\n    inner := Child {\n        first << input;\n        second << input;\n        enabled: true;\n    }\n}\n",
         );
         assert_formatting(
             "component Host { inner := Child { control << input; // comment\n } }",
@@ -2508,11 +2531,11 @@ mod tests {
     fn slot_declaration_default() {
         assert_formatting(
             "component Host { slot content<<Text{text:\"Default\";} content{} }",
-            "component Host {\n    slot content << Text {\n        text: \"Default\";\n    }\n    content { }\n}\n",
+            "component Host {\n    slot content << Text {\n        text: \"Default\";\n    }\n\n    content { }\n}\n",
         );
         assert_formatting(
             "component Host { slot header << label:=Text{}\nslot footer; header{} footer{} }",
-            "component Host {\n    slot header << label := Text { }\n    slot footer;\n    header { }\n\n    footer { }\n}\n",
+            "component Host {\n    slot header << label := Text { }\n    slot footer;\n\n    header { }\n\n    footer { }\n}\n",
         );
     }
 
@@ -2572,6 +2595,7 @@ Main := Window {
     callback some-fn(string, string) -> bool;
     some-fn(a, b) => { a <= b }
     property <bool> prop-x;
+
     VerticalBox {
         combo := ComboBox { }
     }
@@ -2738,6 +2762,7 @@ import { Some } from "./here.slint";
 
 A := Some {
     padding-left: 10px;
+
     Text {
         x: 3px;
     }
@@ -2966,6 +2991,7 @@ component ABC {
             root.a: 1;
         }
     ]
+
     foo := Rectangle { }
 }
 "#,
@@ -3190,6 +3216,7 @@ export component MainWindow inherits Window {
         duration: 600ms;
         angle-interpolation: shorter;
     }
+
     Rectangle { }
 }
 "#,
@@ -3729,6 +3756,23 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
+    fn empty_line_before_first_sub_element() {
+        // #9221
+        assert_formatting(
+            "component Foo { property<int> foo;\nwidth: 5px;\nRectangle {}\nRectangle {}\n}",
+            r#"component Foo {
+    property <int> foo;
+    width: 5px;
+
+    Rectangle { }
+
+    Rectangle { }
+}
+"#,
+        );
+    }
+
+    #[test]
     fn callback_connection() {
         assert_formatting(
             "export component Foobar{ init=>{  debug (1 );} \n\nfoo=>{}  clicked =>   debug(2) ; TouchArea { clicked => root.clicked(); moved=>{debug(3)};\n\n//some comment\n        bar=>{} }  }",
@@ -3737,6 +3781,7 @@ export component MainWindow2 inherits Rectangle {
 
     foo => {}
     clicked => debug(2);
+
     TouchArea {
         clicked => root.clicked();
         moved => { debug(3) };

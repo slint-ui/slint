@@ -21,8 +21,10 @@ FIELDS = {
     "value": "Range value",
     "minimum": "Range minimum",
     "maximum": "Range maximum",
+    "step": "Range step",
 }
 WIDGETS = pytest.mark.parametrize("widget", ("Slider", "SpinBox"))
+STEP_PROPERTIES = {"Slider": b"step", "SpinBox": b"step-size"}
 
 
 def source_name(widget: str) -> str:
@@ -38,8 +40,11 @@ def select_widget(window: slint_testing.Window, widget: str, row: str) -> None:
 @pytest.mark.parametrize(
     ("row", "values"),
     [
-        ("default", {"value": "0", "minimum": "0", "maximum": "100"}),
-        ("ranged", {"value": "20", "minimum": "10", "maximum": "50"}),
+        ("default", {"value": "0", "minimum": "0", "maximum": "100", "step": "1"}),
+        (
+            "ranged",
+            {"value": "20", "minimum": "10", "maximum": "50", "step": "5"},
+        ),
     ],
     ids=("default", "ranged"),
 )
@@ -94,8 +99,15 @@ def test_range_fields_show_source_values(
             b"        maximum: 50;",
             b"        maximum: 80;",
         ),
+        (
+            "ranged",
+            "step",
+            "2",
+            b"        {step}: 5;",
+            b"        {step}: 2;",
+        ),
     ],
-    ids=("add-value", "value", "minimum", "maximum"),
+    ids=("add-value", "value", "minimum", "maximum", "step"),
 )
 def test_range_field_writes_exact_source(
     editor_binary: Path,
@@ -111,7 +123,10 @@ def test_range_field_writes_exact_source(
     source = source_name(widget)
     source_file = fixture_project / source
     baseline = source_file.read_bytes()
-    expected = replace_once(baseline, old, new)
+    step = STEP_PROPERTIES[widget]
+    expected = replace_once(
+        baseline, old.replace(b"{step}", step), new.replace(b"{step}", step)
+    )
     snapshot = SourceSnapshot.capture(fixture_project)
 
     with launch_editor(editor_binary, editor_environment, source_file) as editor:

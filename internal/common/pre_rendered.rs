@@ -6,7 +6,7 @@
 //! The same [`StaticTextures`] holds its data in statics when generated code embeds it,
 //! or in `Vec`s when the compiler builds it, see [`Storage`].
 
-use crate::bitmapfont::Storage;
+use crate::bitmapfont::{BitmapFont, OwnedStorage, Storage};
 
 /// 2D Rectangle with integer coordinates
 pub type IntRect = euclid::default::Rect<i32>;
@@ -15,6 +15,7 @@ pub type IntSize = euclid::default::Size2D<u32>;
 
 #[repr(u8)]
 #[derive(Clone, PartialEq, Debug, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// The pixel format used for textures.
 pub enum TexturePixelFormat {
     /// red, green, blue. 24bits.
@@ -61,6 +62,7 @@ impl TexturePixelFormat {
 
 #[repr(C)]
 #[derive(Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Some raw pixel data which is typically stored in the binary
 pub struct StaticTexture {
     /// The position and size of the texture within the image
@@ -76,6 +78,7 @@ pub struct StaticTexture {
 /// A texture is stored in read-only memory and may be composed of sub-textures.
 #[repr(C)]
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StaticTextures<S: Storage> {
     /// The total size of the image (this might not be the size of the full image
     /// as some transparent part are not part of any texture)
@@ -86,4 +89,12 @@ pub struct StaticTextures<S: Storage> {
     pub data: S::Slice<u8>,
     /// The list of textures
     pub textures: S::Slice<StaticTexture>,
+}
+
+/// A texture or a font that the compiler pre-rendered, as an interpreter takes it.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum PreRenderedResource {
+    Texture(StaticTextures<OwnedStorage>),
+    BitmapFont(BitmapFont<OwnedStorage>),
 }
