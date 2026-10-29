@@ -591,7 +591,7 @@ Next:
       and a `kmsgrab` screenshot of the `vkms` display showed the UI.
       Ubuntu 22.04 has `vkms` in `linux-modules-extra`, which the step installs, and 24.04 has it already.
       The runners also have a Hyper-V display; `linuxkms` takes the first card with a connected output, which is `vkms`'s `card0`.
-      The step's first run in the job itself is pending.
+      The step passed its first run in the job itself.
     - Next: a Raspberry Pi, for real hardware and a touchscreen.
 - **20.** `dotnet new` templates, in the package `yurkinh.slint.net.Templates`, with the version of the other packages:
   `slint` for the desktop, `slint-android`, `slint-ios`, and `slint-xplat`, a solution with a project per platform.
