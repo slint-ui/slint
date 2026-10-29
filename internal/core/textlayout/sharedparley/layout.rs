@@ -528,12 +528,18 @@ impl Layout {
         )
     }
 
-    /// Returns an iterator over the run's glyphs, truncated if necessary to fit within the max width,
+    /// Returns an iterator over the run's glyphs, truncated if necessary to fit within the box,
     /// plus an optional ellipsis glyph with its font and size to be drawn separately.
     /// Call this function only for the last line of the layout.
     pub(super) fn glyphs_with_elision<'a>(
         &'a self,
         glyph_run: &'a parley::layout::GlyphRun<Brush>,
+        // parley right-aligns an overflowing right-to-left line whatever the alignment,
+        // so it overflows on the left.
+        is_rtl: bool,
+        // Left edge of the line, including the trailing whitespace that parley hangs past the
+        // left edge of a right-to-left line.
+        line_left: f32,
         // When set, place an ellipsis even if the run fits the width. Used when lines below were
         // dropped for the height, so the last visible line signals the vertical truncation.
         force_elision: bool,
@@ -552,34 +558,67 @@ impl Layout {
             .as_ref()
             .map(|info| info.max_physical_width)
             .unwrap_or(PhysicalLength::new(f32::MAX));
+        let min_x = if self.elision_info.is_some() {
+            PhysicalLength::zero()
+        } else {
+            PhysicalLength::new(f32::MIN)
+        };
 
         let run_start = PhysicalLength::new(glyph_run.offset());
         let run_end = PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
 
-        // Run starts after where the ellipsis would go - skip entirely
-        let run_beyond_elision = run_start > max_width;
-        // Run extends beyond max width (or the lines below it were dropped) and needs an ellipsis
-        let needs_elision = !run_beyond_elision
-            && (force_elision || run_end.get().floor() > max_width.get().ceil());
+        let (run_beyond_elision, run_overflows) = if is_rtl {
+            let line_overflows = (line_left + trailing_whitespace).ceil() < min_x.get().floor();
+            (run_end < min_x, line_overflows && run_start < min_x)
+        } else {
+            (run_start > max_width, run_end.get().floor() > max_width.get().ceil())
+        };
+        // Run overflows the box (or the lines below it were dropped) and needs an ellipsis
+        let needs_elision = !run_beyond_elision && (force_elision || run_overflows);
+        let cut_left = needs_elision && is_rtl;
+        let cut_right = needs_elision && !is_rtl;
 
-        let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
-            !run_beyond_elision
-                && (!needs_elision
-                    || PhysicalLength::new(glyph.x + glyph.advance + ellipsis_advance) <= max_width)
-        });
+        // positioned_glyphs() yields the glyphs in visual order, left to right.
+        let truncated_glyphs = glyph_run
+            .positioned_glyphs()
+            .skip_while(move |glyph| {
+                cut_left && PhysicalLength::new(glyph.x - ellipsis_advance) < min_x
+            })
+            .take_while(move |glyph| {
+                !run_beyond_elision
+                    && (!cut_right
+                        || PhysicalLength::new(glyph.x + glyph.advance + ellipsis_advance)
+                            <= max_width)
+            });
 
         let ellipsis = if needs_elision {
             self.elision_info.as_ref().map(|info| {
-                let ellipsis_x = glyph_run
-                    .positioned_glyphs()
-                    .find(|glyph| {
-                        PhysicalLength::new(glyph.x + glyph.advance + info.ellipsis_glyph.advance)
-                            > info.max_physical_width
-                    })
-                    .map(|g| g.x)
-                    // Nothing overflows horizontally (force_elision): put the ellipsis right after
-                    // the run's last non-whitespace glyph, i.e. before any trailing whitespace.
-                    .unwrap_or(run_end.get() - trailing_whitespace);
+                let ellipsis_x = if is_rtl {
+                    let first_kept_x = if run_start.get() < info.ellipsis_glyph.advance {
+                        glyph_run
+                            .positioned_glyphs()
+                            .find(|glyph| glyph.x >= info.ellipsis_glyph.advance)
+                            .map_or(run_end.get(), |glyph| glyph.x)
+                    } else {
+                        // Nothing is cut (force_elision): the trailing whitespace hangs on the
+                        // left, so put the ellipsis left of the last non-whitespace glyph.
+                        run_start.get() + trailing_whitespace
+                    };
+                    first_kept_x - info.ellipsis_glyph.advance
+                } else {
+                    glyph_run
+                        .positioned_glyphs()
+                        .find(|glyph| {
+                            PhysicalLength::new(
+                                glyph.x + glyph.advance + info.ellipsis_glyph.advance,
+                            ) > info.max_physical_width
+                        })
+                        .map(|g| g.x)
+                        // Nothing overflows horizontally (force_elision): put the ellipsis right
+                        // after the run's last non-whitespace glyph, i.e. before any trailing
+                        // whitespace.
+                        .unwrap_or(run_end.get() - trailing_whitespace)
+                };
 
                 let mut ellipsis_glyph = info.ellipsis_glyph;
                 ellipsis_glyph.x = ellipsis_x;

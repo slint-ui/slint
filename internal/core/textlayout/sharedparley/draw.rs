@@ -244,6 +244,8 @@ impl TextParagraph {
                         let ellipsis = if last_line {
                             let (truncated_glyphs, ellipsis) = layout.glyphs_with_elision(
                                 &glyph_run,
+                                self.layout.is_rtl(),
+                                metrics.inline_min_coord + metrics.offset,
                                 vertically_truncated,
                                 metrics.hanging_advance,
                             );
