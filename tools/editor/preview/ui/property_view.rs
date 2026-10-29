@@ -200,6 +200,7 @@ fn map_property_to_ui(
     let expression = code_block_or_expression.as_ref().and_then(|cbe| cbe.expression());
 
     if let Some(expression) = &expression {
+        value.is_number_literal = convert_number_literal(expression).is_some();
         value.code = SharedString::from(expression.text().to_string());
 
         if let Some(qualified_name) = expression.QualifiedName() {
@@ -324,6 +325,11 @@ fn map_property_to_ui(
         }
     }
 
+    if let Some(code) = code_block_or_expression.as_ref().filter(|code| code.expression().is_none())
+    {
+        value.code = code.text().to_string().into();
+        value.kind = ui::PropertyValueKind::Code;
+    }
     if is_complex(expression, &property_info.ty) {
         value.kind = ui::PropertyValueKind::Code;
     }

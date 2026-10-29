@@ -422,10 +422,18 @@ def _load_file_checked(
     path: str | os.PathLike[Any] | pathlib.Path,
     expected_api_base64_compressed: str,
     generated_file: str | os.PathLike[Any] | pathlib.Path,
+    include_paths: list[str] | None = None,
+    library_paths: dict[str, str] | None = None,
 ) -> types.SimpleNamespace:
     """@private"""
 
-    module, compilation_result = _load_file(path)
+    module, compilation_result = _load_file(
+        path,
+        include_paths=[Path(p) for p in include_paths] if include_paths else None,
+        library_paths={k: Path(v) for k, v in library_paths.items()}
+        if library_paths
+        else None,
+    )
 
     expected_api = gzip.decompress(
         base64.standard_b64decode(expected_api_base64_compressed)
