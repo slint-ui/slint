@@ -88,8 +88,10 @@ preview-builtin = ["preview-engine", "i-slint-editor-preview/preview-builtin"]
 preview-external = ["i-slint-editor-preview/preview-external"]
 ## Support the remote preview via a WebSocket connection
 preview-remote = ["preview-engine", "preview-builtin", "i-slint-editor-preview/preview-remote"]
+## Support the remote preview on a microcontroller connected to a serial port
+preview-serial = ["preview-remote", "i-slint-editor-preview/serial"]
 
-default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
+default = ["backend-default", "renderer-femtovg", "renderer-software", "preview", "preview-serial"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["display-diagnostics", "builtin-docs"] }

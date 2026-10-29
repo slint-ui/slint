@@ -8,11 +8,11 @@ import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
-    InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorCurrentIndexSection, InspectorEffectsSection,
-    InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutAlignmentSection, InspectorLayoutSection,
+    InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorCurrentIndexSection,
+    InspectorEffectsSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorInteractionSection,
+    InspectorLayoutAlignmentSection, InspectorLayoutSection,
     InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
-    InspectorStandardButtonKindSection,
-    InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
+    InspectorStandardButtonKindSection, InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
@@ -91,9 +91,9 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.is-title-selection(): InspectorTitleSection { }
 
-                if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
+                if InspectorContext.is-interaction-selection(): InspectorInteractionSection { }
 
-                if InspectorContext.is-checkbox-selection(): InspectorCheckedSection { }
+                if InspectorContext.is-checked-selection(): InspectorCheckedSection { }
 
                 if InspectorContext.has-current-index-selection(): InspectorCurrentIndexSection { }
 

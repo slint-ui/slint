@@ -27,6 +27,21 @@ fn default_cc() -> i_slint_compiler::CompilerConfiguration {
     cc
 }
 
+/// Sets the options of a live preview of `component`, or of the last exported component.
+pub fn configure_preview(
+    config: &mut i_slint_compiler::CompilerConfiguration,
+    component: Option<String>,
+) {
+    config.components_to_generate = match component {
+        Some(name) => i_slint_compiler::ComponentSelection::Named(name),
+        None => i_slint_compiler::ComponentSelection::LastExported,
+    };
+    config.no_native_menu = true;
+    // Otherwise this may cause a runtime panic because of the recursion
+    config.error_on_binding_loop_with_window_layout = true;
+    config.is_preview = true;
+}
+
 /// This is i_slint_compiler::OpenImportCallback with version information
 pub type OpenImportCallback = Rc<
     dyn Fn(

@@ -1426,6 +1426,39 @@ fn delete_selected_element() {
     send_workspace_edit("Delete element".to_string(), edit, true);
 }
 
+fn wrap_selected_element_in_layout(layout: SharedString) {
+    let Some(selected) = selected_element() else {
+        return;
+    };
+    let Some(selected_node) = selected.as_element_node() else {
+        return;
+    };
+    let Some(document_cache) = document_cache() else { return };
+
+    let import_file =
+        get_component_info(&layout).and_then(|info| info.import_file_name(&selected.path.to_url()));
+    let Some((edit, drop_data)) = drop_location::create_wrap_in_layout_workspace_edit(
+        &document_cache,
+        &selected_node,
+        &layout,
+        &import_file,
+    ) else {
+        return;
+    };
+
+    if send_workspace_edit(format!("Wrap in {layout}"), edit, true) {
+        set_selected_element(
+            Some(ElementSelection {
+                path: drop_data.path,
+                offset: drop_data.selection_offset,
+                instance_index: 0,
+                editing_text: false,
+            }),
+            SelectionNotification::AfterUpdate,
+        );
+    }
+}
+
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     let Some(element_selection) = &selected_element() else {
         return;
@@ -2508,17 +2541,9 @@ async fn parse_source(
     let named_component = component.is_some();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
-    cc.components_to_generate = if let Some(name) = component {
-        i_slint_compiler::ComponentSelection::Named(name)
-    } else {
-        i_slint_compiler::ComponentSelection::LastExported
-    };
+    i_slint_editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
-    cc.no_native_menu = true;
-    // Otherwise this may cause a runtime panic because of the recursion
-    cc.error_on_binding_loop_with_window_layout = true;
-    cc.is_preview = true;
     cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
@@ -2945,6 +2970,7 @@ fn set_selected_element(
                 is_interactive,
                 is_moveable: !is_in_layout && !is_root,
                 is_resizable: !is_in_layout && !is_layout,
+                is_wrappable: !is_root,
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)

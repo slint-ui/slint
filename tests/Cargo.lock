@@ -1561,6 +1561,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1a05365e3b1c6d1650318537c7460c6923f1abdd272ad6842baa2b509957a06"
 dependencies = [
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -2323,6 +2324,7 @@ dependencies = [
  "lyon_extra",
  "lyon_path",
  "num_enum",
+ "once_cell",
  "pathdiff",
  "postcard",
  "proc-macro2",
@@ -4819,6 +4821,7 @@ version = "1.19.0"
 dependencies = [
  "derive_more",
  "either",
+ "hashbrown 0.16.1",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-winit",
@@ -4829,6 +4832,8 @@ dependencies = [
  "i-slint-renderer-software",
  "js-sys",
  "lyon_path",
+ "num-traits",
+ "once_cell",
  "smol_str 0.3.7",
  "typed-index-collections",
  "vtable",

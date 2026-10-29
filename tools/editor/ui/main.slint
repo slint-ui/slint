@@ -200,6 +200,27 @@ export component EditorUi inherits Window {
                 enabled: Api.redo-enabled;
                 activated => { root.apply-history(true); }
             }
+            MenuSeparator { }
+            Menu {
+                title: @tr("Wrap in Layout");
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0 && Api.selection.is-wrappable;
+
+                for layout in ["HorizontalLayout", "VerticalLayout", "GridLayout", "FlexboxLayout"]: MenuItem {
+                    title: layout;
+                    activated => {
+                        Api.selected-element-wrap-in-layout(layout);
+                        root.focus-editor();
+                    }
+                }
+                MenuSeparator { }
+                for layout in ["HorizontalBox", "VerticalBox", "GridBox"]: MenuItem {
+                    title: layout;
+                    activated => {
+                        Api.selected-element-wrap-in-layout(layout);
+                        root.focus-editor();
+                    }
+                }
+            }
         }
         Menu {
             title: @tr("View");
@@ -217,7 +238,7 @@ export component EditorUi inherits Window {
             }
             MenuItem {
                 title: @tr("Zoom to Selection");
-                shortcut: @keys(Shift + "2");
+                shortcut: @keys(Control + Digit2);
                 enabled: root.canvas-zoom-enabled;
                 activated => {
                     CanvasView.zoom-to-selection(

@@ -2778,10 +2778,22 @@ pub mod ffi {
     /// by the renderer.
     #[repr(u8)]
     pub enum GraphicsAPI {
-        /// The rendering is done using OpenGL.
-        NativeOpenGL,
         /// The rendering is done using APIs inaccessible from C++, such as WGPU.
         Inaccessible,
+        /// The rendering is done using OpenGL.
+        OpenGL,
+        #[cfg(cbindgen)]
+        /// \deprecated Use OpenGL instead.
+        #[deprecated(note = "Use OpenGL instead")]
+        NativeOpenGL = OpenGL,
+        /// The rendering is done using OpenGL ES.
+        OpenGLES,
+        /// The rendering is done using Apple's Metal framework.
+        Metal,
+        /// The rendering is done using Vulkan.
+        Vulkan,
+        /// The rendering is done using Direct3D.
+        Direct3D,
     }
 
     struct WithUserData<T> {
@@ -3081,7 +3093,7 @@ pub mod ffi {
                     graphics_api: &crate::api::GraphicsAPI,
                 ) {
                     let cpp_graphics_api = match graphics_api {
-                        crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
+                        crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::OpenGL,
                         crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
                         #[cfg(feature = "unstable-wgpu-29")]
                         crate::api::GraphicsAPI::WGPU29 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
