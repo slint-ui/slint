@@ -1591,6 +1591,10 @@ async fn parse_source(
     if !style.is_empty() {
         overrides.style = Some(style);
     }
+    if overrides.project.edition.is_none() {
+        overrides.project.edition =
+            path.to_url().and_then(|url| config.rust_macro_editions.get(&url).copied());
+    }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
     builder.set_project_root(
         PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
