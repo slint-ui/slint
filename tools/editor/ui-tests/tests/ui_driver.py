@@ -36,7 +36,8 @@ def screenshot(window: slint_testing.Window, *, settle: bool = True) -> Image.Im
 
 
 WIDGET_KINDS = ("Button", "CheckBox")
-PALETTE_KINDS = ("Image", "Rectangle", "StyledText", "Text", "TouchArea", *WIDGET_KINDS)
+PRIMITIVE_KINDS = ("Image", "Rectangle", "StyledText", "Text", "TouchArea")
+PALETTE_KINDS = (*PRIMITIVE_KINDS, *WIDGET_KINDS)
 
 
 def press_key(window: slint_testing.Window, key: str) -> None:
@@ -200,6 +201,11 @@ def palette_row(window: slint_testing.Window, kind: str) -> slint_testing.Elemen
     from canvas_interactions import center
 
     pane = element(window, "Element library")
+    if not elements(pane, kind, role=slint_testing.AccessibleRole.ListItem):
+        source = "Primitives" if kind in PRIMITIVE_KINDS else "Libraries"
+        element(
+            window, source, role=slint_testing.AccessibleRole.Tab
+        ).invoke_accessible_default_action()
     role = slint_testing.AccessibleRole.ListItem
     rect = pane.absolute_rect
     top = rect.y

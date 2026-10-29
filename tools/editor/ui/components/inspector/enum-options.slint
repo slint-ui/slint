@@ -63,6 +63,15 @@ export global InspectorEnumOptions {
         { value: "always-on", label: @tr("Always on") },
         { value: "always-off", label: @tr("Always off") },
     ];
+    out property <[InspectorComboOption]> layout-alignment-options: [
+        { value: "stretch", label: @tr("Stretch") },
+        { value: "center", label: @tr("Center") },
+        { value: "start", label: @tr("Start") },
+        { value: "end", label: @tr("End") },
+        { value: "space-between", label: @tr("Space between") },
+        { value: "space-around", label: @tr("Space around") },
+        { value: "space-evenly", label: @tr("Space evenly") },
+    ];
     out property <[InspectorComboOption]> input-type-options: [
         { value: "text", label: @tr("Text") },
         { value: "password", label: @tr("Password") },

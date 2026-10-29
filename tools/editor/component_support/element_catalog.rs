@@ -27,7 +27,7 @@ impl Group {
         match self {
             Self::Visual => tr::tr!("Visual"),
             Self::InputInteraction => tr::tr!("Input & interaction"),
-            Self::Widgets => tr::tr!("Widgets"),
+            Self::Widgets => "std-widgets".into(),
         }
     }
 }

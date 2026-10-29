@@ -9,7 +9,7 @@ mod ui {
         export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
         export {
             Api, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode,
-            ColorValueData, ElementKind, ElementLibraryEntry, ElementLibraryGroup, FillData,
+            ColorValueData, ElementKind, ElementLibraryEntry, ElementLibraryGroup, ElementLibrarySection, FillData,
             GradientStop, GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind
         } from "../ui/api.slint";
     }

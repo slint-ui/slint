@@ -954,7 +954,7 @@ pub fn drop_at_with_geometry(
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
     let mut extra_properties =
         geometry_properties_for_drop(&component_instance, position, &drop_info, geometry)?;
-    if component.is_std_widget || matches!(component.name.as_str(), "Text" | "StyledText") {
+    if !component.is_builtin || matches!(component.name.as_str(), "Text" | "StyledText") {
         extra_properties.retain(|property| !matches!(property.name.as_str(), "width" | "height"));
     }
     extend_with_new_properties(
@@ -1019,6 +1019,9 @@ fn geometry_properties_for_drop(
 pub(super) fn visual_properties_for_drop(
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
 ) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
+    if !component.is_builtin && !component.is_std_widget {
+        return Vec::new();
+    }
     match component.name.as_str() {
         "Rectangle" => vec![
             i_slint_editor_preview::editing::PropertyChange::new(

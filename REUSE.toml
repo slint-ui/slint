@@ -736,6 +736,7 @@ path = [
   "tools/editor/ui/assets/lucide/check.svg",
   "tools/editor/ui/assets/lucide/chevron-down.svg",
   "tools/editor/ui/assets/lucide/monitor.svg",
+  "tools/editor/ui/assets/lucide/plus.svg",
   "tools/editor/ui/assets/lucide/smartphone.svg",
   "tools/editor/ui/assets/lucide/square.svg",
   "tools/editor/ui/assets/lucide/square-filled.svg",

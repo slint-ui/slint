@@ -33,9 +33,12 @@ def slider_track_position(
     slider: slint_testing.Element, progress: float
 ) -> slint_testing.LogicalPosition:
     track = element(slider, id="InspectorSlider::track")
+    thumb = element(slider, id="InspectorSlider::thumb")
     rect = track.absolute_rect
+    inset = thumb.size.width / 2
     return slint_testing.LogicalPosition(
-        x=rect.x + rect.width * progress, y=rect.y + rect.height / 2
+        x=rect.x + inset + (rect.width - 2 * inset) * progress,
+        y=rect.y + rect.height / 2,
     )
 
 

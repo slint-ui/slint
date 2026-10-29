@@ -217,8 +217,7 @@ impl Drop for CachedParagraphsGuard<'_> {
 /// Without a cache or item it just shapes, so the caller doesn't need to special-case that.
 ///
 /// `shape` runs inside the entry's dependency tracker, so everything it reads (the text and the
-/// font request, at least) invalidates the entry when it changes. Properties evaluated by the
-/// caller before this point are clean by then and thus can't re-enter here.
+/// font request, at least) invalidates the entry when it changes.
 pub(super) fn cached_paragraphs<'a>(
     cache: Option<&'a TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
@@ -226,12 +225,11 @@ pub(super) fn cached_paragraphs<'a>(
     line_height_factor: Option<f32>,
     width_only: bool,
     window: &crate::api::Window,
-    font_context: &mut FontContext,
-    shape: &dyn Fn(&mut FontContext) -> Vec<TextParagraph>,
+    shape: &dyn Fn() -> Vec<TextParagraph>,
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
         return CachedParagraphsGuard {
-            paragraphs: Some(shape(font_context)),
+            paragraphs: Some(shape()),
             line_breaking: None,
             container: None,
         };
@@ -270,7 +268,7 @@ pub(super) fn cached_paragraphs<'a>(
         CachedParagraphs {
             wrap,
             line_height_factor,
-            paragraphs: Some(shape(font_context)),
+            paragraphs: Some(shape()),
             line_breaking: None,
             last_used: 0, // stamped right below, for both a hit and this miss
         }
