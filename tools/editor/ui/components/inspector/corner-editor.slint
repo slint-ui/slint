@@ -74,7 +74,7 @@ export component InspectorCornerEditor inherits Rectangle {
                 accepted(text) => { return text.is-float() && text.to-float() >= 0 && root.accepted(-1, text.to-float()); }
             }
         }
-        if root.separate: VerticalLayout {
+        else: VerticalLayout {
             spacing: root.style.gap;
             for row in 2: HorizontalLayout {
                 spacing: root.style.gap;

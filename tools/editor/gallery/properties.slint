@@ -52,7 +52,7 @@ export component GalleryProperties inherits Rectangle {
             if Gallery.page == GalleryPage.palette || Gallery.page == GalleryPage.outline: NumberProperty {
                 label: "Panel width"; value <=> Gallery.panel-width; minimum: 200; maximum: 600;
             }
-            if Gallery.page == GalleryPage.controls: VerticalLayout {
+            else if Gallery.page == GalleryPage.controls: VerticalLayout {
                 spacing: 12px;
                 SectionTitle { label: "COMPONENT"; }
                 MutedLabel { text: "Input text"; }
@@ -60,7 +60,7 @@ export component GalleryProperties inherits Rectangle {
                 MutedLabel { text: "Selected segment"; }
                 ComboBox { model: ["One", "Two", "Three"]; current-index <=> Gallery.segment; }
             }
-            if Gallery.page == GalleryPage.inspector-controls: VerticalLayout {
+            else if Gallery.page == GalleryPage.inspector-controls: VerticalLayout {
                 spacing: 12px;
                 SectionTitle { label: "COMPONENT"; }
                 MutedLabel { text: "Text"; }
@@ -69,7 +69,7 @@ export component GalleryProperties inherits Rectangle {
                 NumberProperty { label: "Slider value"; value <=> Gallery.slider; maximum: 100; }
                 NumberProperty { label: "Rotation value"; value <=> Gallery.rotation; minimum: -360; maximum: 360; }
             }
-            if Gallery.page == GalleryPage.picker: VerticalLayout {
+            else if Gallery.page == GalleryPage.picker: VerticalLayout {
                 spacing: 12px;
                 SectionTitle { label: "FILL"; }
                 if Gallery.fill.kind == BrushKind.solid: VerticalLayout {

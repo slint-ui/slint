@@ -56,13 +56,11 @@ export component MainWindow inherits Window {
             preferred-height: 100%;
         }
     }
-
-    if root.screen-size == ScreenSize.EmbeddedMedium: MidMain {
+    else if root.screen-size == ScreenSize.EmbeddedMedium: MidMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
-
-    if root.screen-size == ScreenSize.EmbeddedSmall: SmallMain {
+    else if root.screen-size == ScreenSize.EmbeddedSmall: SmallMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }

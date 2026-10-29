@@ -57,16 +57,16 @@ export component GalleryWindow inherits Window {
                     background: Colors.surface;
                     accessible-role: AccessibleRole.region; accessible-label: "Gallery preview";
                     if Gallery.page == GalleryPage.foundations: GalleryFoundations { }
-                    if Gallery.page == GalleryPage.controls || Gallery.page == GalleryPage.inspector-controls: GalleryControls { inspector: Gallery.page == GalleryPage.inspector-controls; }
-                    if Gallery.page == GalleryPage.palette: HorizontalLayout {
+                    else if Gallery.page == GalleryPage.controls || Gallery.page == GalleryPage.inspector-controls: GalleryControls { inspector: Gallery.page == GalleryPage.inspector-controls; }
+                    else if Gallery.page == GalleryPage.palette: HorizontalLayout {
                         ElementPalette { width: Gallery.panel-width * 1px; image-mode: Api.editor-surface-mode == EditorSurfaceMode.image; }
                         Rectangle { horizontal-stretch: 1; }
                     }
-                    if Gallery.page == GalleryPage.outline: HorizontalLayout {
+                    else if Gallery.page == GalleryPage.outline: HorizontalLayout {
                         OutlinePane { width: Gallery.panel-width * 1px; }
                         Rectangle { horizontal-stretch: 1; }
                     }
-                    if Gallery.page == GalleryPage.picker: VerticalLayout {
+                    else if Gallery.page == GalleryPage.picker: VerticalLayout {
                         padding: 24px; spacing: 16px; alignment: start;
                         Rectangle {
                             width: 240px; height: 160px;

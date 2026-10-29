@@ -100,8 +100,7 @@ export component MainView {
                     horizontal_stretch: 1;
                 }
             }
-
-            if MainWindowAdapter.break_layout : VerticalLayout {
+            else : VerticalLayout {
                 padding-bottom: root.safe-area-bottom;
 
                 if root.current_view == Views.components : ComponentsView {

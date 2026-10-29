@@ -28,36 +28,29 @@ export component MainWindow inherits Window {
 
         main-view := Rectangle {
             if PrinterState.active-subpage == SubPage.none: Rectangle {
-
                 if PrinterState.active-page == Pages.home: HomePage { }
-
                 // Positioned by hand, so the page doesn't contribute to the view's
                 // size -- it must not, since it sizes its own content from the
                 // width the view gives it.
-                if PrinterState.active-page == Pages.ink: InkPage { x: 0; y: 0; }
-
-                if PrinterState.active-page == Pages.settings: SettingsPage { }
+                else if PrinterState.active-page == Pages.ink: InkPage { x: 0; y: 0; }
+                else if PrinterState.active-page == Pages.settings: SettingsPage { }
             }
-
-            if PrinterState.active-subpage == SubPage.scan: ScanPage {
+            else if PrinterState.active-subpage == SubPage.scan: ScanPage {
                 back => {
                     PrinterState.active-subpage = SubPage.none;
                 }
             }
-
-            if PrinterState.active-subpage == SubPage.scan-position: ScanPagePosition {
+            else if PrinterState.active-subpage == SubPage.scan-position: ScanPagePosition {
                 back => {
                     PrinterState.active-subpage = SubPage.none;
                 }
             }
-
-            if PrinterState.active-subpage == SubPage.copy: CopyPage {
+            else if PrinterState.active-subpage == SubPage.copy: CopyPage {
                 back => {
                     PrinterState.active-subpage = SubPage.none;
                 }
             }
-
-            if PrinterState.active-subpage == SubPage.copy-position: CopyPagePosition {
+            else if PrinterState.active-subpage == SubPage.copy-position: CopyPagePosition {
                 back => {
                     PrinterState.active-subpage = SubPage.none;
                 }

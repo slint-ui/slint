@@ -202,6 +202,35 @@ fn resolve_match_elements(
     }
 }
 
+/// Resolve the condition of each `if`/`else if` branch, then build the mutually exclusive
+/// conditional elements.
+fn resolve_conditional_chains(
+    elem: &ElementRc,
+    scope: &[ElementRc],
+    type_register: &TypeRegister,
+    type_loader: &crate::typeloader::TypeLoader,
+    diag: &mut BuildDiagnostics,
+) {
+    let chains = std::mem::take(&mut elem.borrow_mut().conditional_chains);
+    for mut chain in chains {
+        for branch in &mut chain.branches {
+            if let Some(condition) = &mut branch.condition {
+                resolve_expression(
+                    elem,
+                    condition,
+                    None,
+                    Type::Bool,
+                    scope,
+                    type_register,
+                    type_loader,
+                    diag,
+                );
+            }
+        }
+        chain.lower_to_conditional_elements();
+    }
+}
+
 /// Confirms that each case is a literal value and matches the type of the subject
 fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagnostics) {
     let is_literal = as_number_literal(value).is_some()
@@ -388,6 +417,8 @@ pub fn resolve_expressions(
                 }
 
                 resolve_match_elements(elem, &scope.0, &doc.local_registry, type_loader, diag);
+
+                resolve_conditional_chains(elem, &scope.0, &doc.local_registry, type_loader, diag);
 
                 resolve_two_way_bindings_for_element(elem, &scope.0, &doc.local_registry, diag);
 

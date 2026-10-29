@@ -1,0 +1,133 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 200px;
+
+    in-out property <int> var1: 20;
+    in-out property <int> var2: 50;
+    in-out property <int> var3: 70;
+
+    in-out property <bool> cond1;
+    in-out property <bool> cond2;
+
+    if cond1 : TouchArea {
+        x: 0px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+        property <int> xx: var1;
+        clicked => { var1 += self.xx; }
+    } else if cond2 : TouchArea {
+        x: 150px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+        property <int> xx: var2;
+        clicked => { var2 += self.xx; }
+    } else : TouchArea {
+        x: 300px;
+        y: 0px;
+        width: 100px;
+        height: 100px;
+        property <int> xx: var3;
+        clicked => { var3 += self.xx; }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// cond1 == cond2 == false: only the `else` branch exists.
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 200., 50.);
+assert_eq!(instance.get_var1(), 20);
+assert_eq!(instance.get_var2(), 50);
+assert_eq!(instance.get_var3(), 70);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq!(instance.get_var3(), 140);
+
+// cond2 == true: only the `else if` branch exists.
+instance.set_cond2(true);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq!(instance.get_var1(), 20);
+assert_eq!(instance.get_var3(), 140);
+slint_testing::send_mouse_click(&instance, 200., 50.);
+assert_eq!(instance.get_var2(), 100);
+
+// cond1 == true wins over cond2: only the `if` branch exists.
+instance.set_cond1(true);
+slint_testing::send_mouse_click(&instance, 200., 50.);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq!(instance.get_var2(), 100);
+assert_eq!(instance.get_var3(), 140);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_var1(), 40);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// cond1 == cond2 == false: only the `else` branch exists.
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 200., 50.);
+assert_eq(instance.get_var1(), 20);
+assert_eq(instance.get_var2(), 50);
+assert_eq(instance.get_var3(), 70);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq(instance.get_var3(), 140);
+
+// cond2 == true: only the `else if` branch exists.
+instance.set_cond2(true);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq(instance.get_var1(), 20);
+assert_eq(instance.get_var3(), 140);
+slint_testing::send_mouse_click(&instance, 200., 50.);
+assert_eq(instance.get_var2(), 100);
+
+// cond1 == true wins over cond2: only the `if` branch exists.
+instance.set_cond1(true);
+slint_testing::send_mouse_click(&instance, 200., 50.);
+slint_testing::send_mouse_click(&instance, 350., 50.);
+assert_eq(instance.get_var2(), 100);
+assert_eq(instance.get_var3(), 140);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_var1(), 40);
+```
+
+```js
+var instance = new slint.TestCase();
+
+// cond1 == cond2 == false: only the `else` branch exists.
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+slintlib.private_api.send_mouse_click(instance, 200., 50.);
+assert.equal(instance.var1, 20);
+assert.equal(instance.var2, 50);
+assert.equal(instance.var3, 70);
+slintlib.private_api.send_mouse_click(instance, 350., 50.);
+assert.equal(instance.var3, 140);
+
+// cond2 == true: only the `else if` branch exists.
+instance.cond2 = true;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+slintlib.private_api.send_mouse_click(instance, 350., 50.);
+assert.equal(instance.var1, 20);
+assert.equal(instance.var3, 140);
+slintlib.private_api.send_mouse_click(instance, 200., 50.);
+assert.equal(instance.var2, 100);
+
+// cond1 == true wins over cond2: only the `if` branch exists.
+instance.cond1 = true;
+slintlib.private_api.send_mouse_click(instance, 200., 50.);
+slintlib.private_api.send_mouse_click(instance, 350., 50.);
+assert.equal(instance.var2, 100);
+assert.equal(instance.var3, 140);
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.var1, 40);
+```
+*/

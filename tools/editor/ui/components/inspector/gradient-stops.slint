@@ -198,7 +198,7 @@ export component InspectorGradientStops inherits Rectangle {
                             accessible-label: @tr("Remove stop {}", index + 1);
                             clicked => { FillSession.remove-stop(index); }
                         }
-                        if root.value.stops.length <= 1: Rectangle { width: root.style.action-width; }
+                        else: Rectangle { width: root.style.action-width; }
                     }
                 }
             }

@@ -28,8 +28,7 @@ export component Page inherits Rectangle {
             subtitle: root.subtitle;
             back => { root.back(); }
         }
-
-        if header-type == Header.plain : PlainHeader {
+        else if header-type == Header.plain : PlainHeader {
             title: root.header;
         }
 

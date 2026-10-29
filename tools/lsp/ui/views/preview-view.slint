@@ -72,8 +72,7 @@ component SelectionFrame {
         border-color: root.selection-color;
         border-width: 1px;
     }
-
-    if root.interactive && is-primary: Resizer {
+    else : Resizer {
         clicked(x, y, modifiers) => {
             key-handler.focus();
         }

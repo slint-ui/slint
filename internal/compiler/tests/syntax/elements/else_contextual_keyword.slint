@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// `else` is a contextual keyword: it starts a branch only as `else if` or `else :`
+// right after a conditional element. Everywhere else it is an ordinary identifier.
+
+component else inherits Rectangle { }
+
+export component TestCase inherits Rectangle {
+    // `else` as a property name, bound with `else : …;`.
+    property <length> else;
+    else: 3px;
+
+    // `else` as an element id and as a component instantiation.
+    alias := else { }
+    else := Rectangle { }
+
+    // Right after a conditional element, `else { }` instantiates the component
+    // named `else`; it is not a branch, because the branch forms are `else if`/`else :`.
+    if true : Rectangle { }
+    else { }
+
+    // The branch forms.
+    if root.width > 1px : Rectangle { }
+    else if root.width > 2px : Rectangle { }
+    else : Rectangle { }
+}

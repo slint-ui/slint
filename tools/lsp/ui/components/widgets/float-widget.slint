@@ -100,7 +100,7 @@ export component FloatWidget inherits GridLayout {
                     root.set-binding();
                 }
             }
-            if property-value.visual-items.length == 1: Text {
+            else if property-value.visual-items.length == 1: Text {
                 text: property-value.visual-items[0];
                 vertical-alignment: center;
 

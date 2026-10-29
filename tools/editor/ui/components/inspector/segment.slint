@@ -43,7 +43,7 @@ export component InspectorSegment inherits Rectangle {
         horizontal-alignment: center;
         vertical-alignment: center;
     }
-    if root.kind != "text": InspectorSegmentIcon {
+    else: InspectorSegmentIcon {
         style: root.style;
         kind: root.kind;
         index: root.index;

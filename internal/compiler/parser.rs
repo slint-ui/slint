@@ -366,7 +366,9 @@ declare_syntax! {
                      *SlotDeclaration, *SlotAssignment, *SlotForwarding ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
-        ConditionalElement -> [ Expression , SubElement],
+        /// `if cond : Elem {}`, with an optional `else if` / `else` branch nested as
+        /// the trailing `ConditionalElement`. The `else` branch has no `Expression`.
+        ConditionalElement -> [ ?Expression , SubElement, ?ConditionalElement],
         /// match (foo) { 1: Elem { } }
         MatchElement -> [ Expression , *MatchCase, ?WildcardMatchCase ],
         /// 1: Elem { }
@@ -587,6 +589,11 @@ mod parser_trait {
         }
         /// Peek the `n`th token, not including whitespace and comments
         fn nth(&mut self, n: usize) -> Token;
+        /// Like [`nth`](Self::nth), but without the `consume_ws` side effect, so the skipped
+        /// whitespace and comments stay pending instead of attaching to the current node.
+        /// Use it to look past a node that must not own the trailing trivia, such as when checking
+        /// whether an `else` branch follows a conditional element's sub-element.
+        fn nth_no_consume_ws(&self, n: usize) -> Token;
         /// Consume the token and point to the next token
         fn consume(&mut self);
         fn error(&mut self, e: impl Into<String>);
@@ -762,17 +769,24 @@ impl Parser for DefaultParser<'_> {
     }
 
     /// Peek the `n`th token starting from the cursor position, not including whitespace and comments
-    fn nth(&mut self, mut n: usize) -> Token {
+    fn nth(&mut self, n: usize) -> Token {
         self.consume_ws();
+        self.nth_no_consume_ws(n)
+    }
+
+    fn nth_no_consume_ws(&self, mut n: usize) -> Token {
         let mut c = self.cursor;
-        while n > 0 {
-            n -= 1;
-            c += 1;
+        loop {
             while c < self.tokens.len()
                 && matches!(self.tokens[c].kind, SyntaxKind::Whitespace | SyntaxKind::Comment)
             {
                 c += 1;
             }
+            if n == 0 {
+                break;
+            }
+            n -= 1;
+            c += 1;
         }
         self.tokens.get(c).cloned().unwrap_or_default()
     }

@@ -128,8 +128,7 @@ export component InspectorColorField inherits Rectangle {
                 checker-light: root.style.checker.light;
                 checker-dark: root.style.checker.dark;
             }
-
-            if root.data.fill.kind != BrushKind.solid: Rectangle {
+            else: Rectangle {
                 background: root.swatch;
                 border-radius: parent.border-radius;
                 border-width: Metrics.border-width;

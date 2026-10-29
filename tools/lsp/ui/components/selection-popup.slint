@@ -288,8 +288,7 @@ component PopupInner inherits Rectangle {
                         text: @tr("No match");
                     }
                 }
-
-                if filtered-model.length >= 1: ScrollView {
+                else : ScrollView {
                     height: (root.visible-frames * root.frame-height);
 
                     list-view := VerticalLayout {
@@ -379,8 +378,7 @@ component PopupInner inherits Rectangle {
                                                                 background: EditorPalette.layout-element-selection-primary;
                                                             }
                                                         }
-
-                                                        if (frame.type-name == "VerticalLayout" || frame.type-name == "VerticalBox"): VerticalLayout {
+                                                        else if (frame.type-name == "VerticalLayout" || frame.type-name == "VerticalBox"): VerticalLayout {
                                                             spacing: 1.5px;
                                                             padding: 1.5px;
 
@@ -392,7 +390,7 @@ component PopupInner inherits Rectangle {
                                                                 background: EditorPalette.layout-element-selection-primary;
                                                             }
                                                         }
-                                                        if (frame.type-name == "GridLayout" || frame.type-name == "GridBox"): VerticalLayout {
+                                                        else if (frame.type-name == "GridLayout" || frame.type-name == "GridBox"): VerticalLayout {
                                                             spacing: 1px;
                                                             HorizontalLayout {
                                                                 spacing: 1.5px;

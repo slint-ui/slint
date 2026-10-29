@@ -468,8 +468,7 @@ export component EditorUi inherits Window {
                                 shift-pressed: editor.shift-pressed;
                                 real-element-selected => { editor.focus(); }
                             }
-
-                            if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
+                            else if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
                                 sidebars-collapsed: root.sidebars-collapsed;
                                 displayed-left-pane-width: root.displayed-left-width;
                             }

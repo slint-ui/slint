@@ -52,57 +52,52 @@ export component WidgetLoaderSoftwareRenderer {
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.appliance && root.is-visible: Appliance {
+    else if root.type == WidgetType.appliance && root.is-visible: Appliance {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.overhead && root.is-visible: Overhead {
+    else if root.type == WidgetType.overhead && root.is-visible: Overhead {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.info && root.is-visible: Info {
+    else if root.type == WidgetType.info && root.is-visible: Info {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.graph && root.is-visible: Graph {
+    else if root.type == WidgetType.graph && root.is-visible: Graph {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.control && root.is-visible: Control {
+    else if root.type == WidgetType.control && root.is-visible: Control {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         index: root.index;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.music && root.is-visible: MusicPlayer {
+    else if root.type == WidgetType.music && root.is-visible: MusicPlayer {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         index: root.index;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.camera && root.is-visible: Camera {
+    else if root.type == WidgetType.camera && root.is-visible: Camera {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         index: root.index;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.hvac && root.is-visible: HVAC {
+    else if root.type == WidgetType.hvac && root.is-visible: HVAC {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
@@ -110,36 +105,35 @@ export component WidgetLoaderSoftwareRenderer {
         height: root.height;
         full-screen: root.full-screen;
     }
-    if root.type == WidgetType.microwave && root.is-visible: Microwave {
+    else if root.type == WidgetType.microwave && root.is-visible: Microwave {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.dishwasher && root.is-visible: Dishwasher {
+    else if root.type == WidgetType.dishwasher && root.is-visible: Dishwasher {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.weatherInfo && root.is-visible: WeatherInfo {
+    else if root.type == WidgetType.weatherInfo && root.is-visible: WeatherInfo {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-
-    if root.type == WidgetType.powerInfo && root.is-visible: PowerInfo {
+    else if root.type == WidgetType.powerInfo && root.is-visible: PowerInfo {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.alarm && root.is-visible: Alarm {
+    else if root.type == WidgetType.alarm && root.is-visible: Alarm {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
