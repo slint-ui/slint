@@ -1104,18 +1104,25 @@ impl WindowInner {
                     popup_to_close = Some(popup.popup_id);
                 }
 
-                menubar_item = popup.parent_item.upgrade();
+                menubar_item = popup.parent_item.upgrade().filter(|item| {
+                    item.downcast::<crate::items::ContextMenu>()
+                        .is_some_and(|menu| menu.as_pin_ref().is_menu_bar())
+                });
             }
 
-            let root = match menubar_item {
-                None => item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())),
+            let (root, menu_owner_path) = match menubar_item {
+                None => {
+                    (item_tree.map(|item_tree| ItemRc::new_root(item_tree.clone())), Vec::new())
+                }
                 Some(menubar_item) => {
-                    event.translate(
-                        menubar_item
-                            .map_to_item_tree(Default::default(), &self.component())
-                            .to_vector(),
-                    );
-                    menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups)
+                    let mut ancestors: Vec<ItemRc> = core::iter::successors(
+                        menubar_item.parent_item(ParentItemTraversalMode::StopAtPopups),
+                        |item| item.parent_item(ParentItemTraversalMode::StopAtPopups),
+                    )
+                    .collect();
+                    let root = ancestors.pop();
+                    let menu_owner_path = ancestors.iter().rev().map(ItemRc::downgrade).collect();
+                    (root, menu_owner_path)
                 }
             };
 
@@ -1124,6 +1131,7 @@ impl WindowInner {
                 let crate::input::MouseInputResult { mut state, accepted } =
                     crate::input::process_mouse_input(
                         root,
+                        &menu_owner_path,
                         &event,
                         &window_adapter,
                         mouse_input_state,

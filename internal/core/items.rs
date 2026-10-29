@@ -1559,6 +1559,9 @@ pub struct ContextMenu {
     pub cached_rendering_data: CachedRenderingData,
     pub popup_id: Cell<Option<NonZeroU32>>,
     pub enabled: Property<bool>,
+    /// Set for the menus of a `MenuBar`: pointer events outside them still reach the menu bar,
+    /// so that hovering another entry switches menus. Other menus block them, like native menus.
+    pub is_menu_bar: Property<bool>,
     #[cfg(target_os = "android")]
     long_press_timer: crate::timers::Timer,
 }
