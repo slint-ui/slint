@@ -25,6 +25,18 @@ export enum ElementKind {
     styled-text,
     image,
     touch-area,
+    flickable,
+    swipe-gesture-handler,
+    scale-rotate-gesture-handler,
+    drag-area,
+    drop-area,
+    focus-scope,
+    text-input,
+    horizontal-layout,
+    vertical-layout,
+    grid-layout,
+    flexbox-layout,
+    window-move-area,
     widget,
 }
 
@@ -283,6 +295,7 @@ export struct ColorValueData {
 /// Data about the property value for use in "simple" mode
 // cSpell: ignore dataonly
 export struct PropertyValue {
+    is-number-literal: bool,
     display-string: string, // ALWAYS, its a string description of what is there
     fill: FillData,
     value-resolved: bool, // Whether value-brush/value-* came from a successful evaluation

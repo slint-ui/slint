@@ -633,7 +633,7 @@ impl ComponentCompiler {
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     ///
-    /// This wins over the include paths of the project file.
+    /// These paths come before the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.overrides.project.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
@@ -646,7 +646,8 @@ impl ComponentCompiler {
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
     ///
-    /// This wins over the library paths of the project file.
+    /// A library here replaces the project file's library of the same name.
+    /// The project file's other libraries stay available.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
         self.overrides.project.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
@@ -874,7 +875,7 @@ impl Compiler {
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     ///
-    /// This wins over the include paths of the project file.
+    /// These paths come before the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.overrides.project.include_paths = Some(include_paths);
     }
@@ -886,7 +887,8 @@ impl Compiler {
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
     ///
-    /// This wins over the library paths of the project file.
+    /// A library here replaces the project file's library of the same name.
+    /// The project file's other libraries stay available.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
         self.overrides.project.library_paths = Some(library_paths);
     }

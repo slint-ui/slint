@@ -432,7 +432,33 @@ impl ProjectFile {
     }
 }
 
+/// Appends the `paths` that `include_paths` doesn't contain yet.
+pub fn append_include_paths(include_paths: &mut Vec<PathBuf>, paths: Vec<PathBuf>) {
+    for path in paths {
+        if !include_paths.contains(&path) {
+            include_paths.push(path);
+        }
+    }
+}
+
 impl ProjectFileData {
+    fn merged_with(&self, project: ProjectFileData) -> ProjectFileData {
+        let mut merged = self.clone();
+        if let (Some(include_paths), Some(project_paths)) =
+            (&mut merged.include_paths, project.include_paths)
+        {
+            append_include_paths(include_paths, project_paths);
+        }
+        if let (Some(library_paths), Some(project_paths)) =
+            (&mut merged.library_paths, project.library_paths)
+        {
+            for (name, path) in project_paths {
+                library_paths.entry(name).or_insert(path);
+            }
+        }
+        merged
+    }
+
     pub fn apply_to(&self, compiler_config: &mut crate::CompilerConfiguration) {
         let Self {
             schema: _,
@@ -493,6 +519,9 @@ fn deserialize_supported_enum<'de, D: serde::Deserializer<'de>, T: serde::de::De
 impl Overrides {
     /// Applies `project_file` to `config`, then these overrides.
     /// Experimental features set here replace the project file's.
+    /// Include paths and library paths add to those of the project file.
+    /// An include path comes before the project file's,
+    /// and a library path replaces the project file's library of the same name.
     pub fn apply(
         &self,
         project_file: Option<&ProjectFile>,
@@ -519,7 +548,8 @@ impl Overrides {
         if project.experimental_features.is_some() {
             config.experimental_features = features_without_project;
         }
-        project.apply_to(config);
+        let project_data = project_file.map(ProjectFile::resolved_data).unwrap_or_default();
+        project.merged_with(project_data).apply_to(config);
         if let Some(style) = style {
             config.style = Some(style.clone());
         }
@@ -687,7 +717,7 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 mod tests {
     use super::{
         FILE_NAME, Overrides, ProjectFile, ProjectFileData, SlintEdition, is_project_file,
-        resolve_input, resolve_relative_path,
+        resolve_input, resolve_relative_path, resolve_source_relative_path,
     };
     use crate::{ExperimentalFeature, ExperimentalFeatures};
     use crate::{generator::OutputFormat, source_path::SourcePath};
@@ -731,12 +761,56 @@ mod tests {
                     ..Default::default()
                 };
                 overrides.apply(Some(&project), &mut config);
-                assert!(config.include_paths.is_empty());
-                assert!(config.library_paths.is_empty());
+                let project_directory = project.source_path().parent();
+                assert_eq!(
+                    config.include_paths,
+                    vec![resolve_source_relative_path(&project_directory, "include".into())]
+                );
+                assert_eq!(
+                    config.library_paths,
+                    HashMap::from([(
+                        "widgets".into(),
+                        resolve_source_relative_path(&project_directory, "lib".into())
+                    )])
+                );
                 assert_eq!(config.style.as_deref(), Some(""));
                 assert_eq!(config.experimental_features, ExperimentalFeature::Closures.into());
                 assert!(!config.debug_info);
                 assert_eq!(config.const_scale_factor, Some(0.));
+            },
+        );
+    }
+
+    #[test]
+    fn override_paths_add_to_the_project_paths() {
+        with_project_file_contents(
+            r#"{"slint-edition":"1.19","include-paths":["include","shared"],"library-paths":{"widgets":"lib","icons":"icons"}}"#,
+            |path| {
+                let project = ProjectFile::load(path).unwrap();
+                let project_directory = project.source_path().parent();
+                let resolve =
+                    |path: &str| resolve_source_relative_path(&project_directory, path.into());
+                let mut config = crate::CompilerConfiguration::new(OutputFormat::Interpreter);
+                let overrides = super::Overrides {
+                    project: super::ProjectFileData {
+                        include_paths: Some(vec![PathBuf::from("/api"), resolve("shared")]),
+                        library_paths: Some(HashMap::from([("widgets".into(), "/api-lib".into())])),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                };
+                overrides.apply(Some(&project), &mut config);
+                assert_eq!(
+                    config.include_paths,
+                    vec![PathBuf::from("/api"), resolve("shared"), resolve("include")]
+                );
+                assert_eq!(
+                    config.library_paths,
+                    HashMap::from([
+                        ("widgets".into(), PathBuf::from("/api-lib")),
+                        ("icons".into(), resolve("icons")),
+                    ])
+                );
             },
         );
     }

@@ -8,10 +8,11 @@ import slint_testing
 from canvas_interactions import begin_palette_drag, center, zoom_canvas
 from editor_sync import wait_for_source
 from slint_testing import keys
-from source_snapshot import SourceSnapshot
+from source_snapshot import SourceSnapshot, wait_for_source_change
 from ui_assertions import expect
 from ui_driver import (
     PALETTE_KINDS,
+    PRIMITIVE_GROUPS,
     PRIMITIVE_KINDS,
     element,
     elements,
@@ -46,6 +47,32 @@ def canvas_drop_position(
         x=artboard.absolute_position.x + 195 * scale,
         y=artboard.absolute_position.y + 360 * scale,
     )
+
+
+@pytest.mark.parametrize(
+    "kind", [kind for kind in PRIMITIVE_KINDS if kind not in PALETTE_KINDS]
+)
+def test_new_primitives_insert_and_undo(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+) -> None:
+    source = fixture_project / "Palette.slint"
+    snapshot = SourceSnapshot.capture(fixture_project)
+    baseline = source.read_bytes()
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        target = canvas_drop_position(window)
+        begin_palette_drag(window, kind, target)
+        release_palette_drag(window, target)
+        inserted = wait_for_source_change(source, baseline)
+        assert f"{kind} {{".encode() in inserted
+        snapshot.wait_for_applied(inserted, source.name)
+        element(window, f"Selected {kind}", role=slint_testing.AccessibleRole.Region)
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, source.name)
 
 
 @pytest.mark.parametrize("percent", [50, 100, 200])
@@ -182,7 +209,7 @@ def test_palette_drop_outside_canvas_does_not_edit_source(
         snapshot.assert_unchanged()
 
 
-@pytest.mark.parametrize("kind", PALETTE_KINDS)
+@pytest.mark.parametrize("kind", (*PRIMITIVE_KINDS, "Button", "CheckBox"))
 def test_escape_cancels_palette_drag_without_source_edit(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -219,9 +246,33 @@ def library_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
 
 
 def expect_library(window: slint_testing.Window, labels: list[str]) -> None:
+    def all_labels() -> list[str]:
+        pane = element(
+            window, "Element library", role=slint_testing.AccessibleRole.List
+        )
+        position = center(pane)
+        found = []
+        previous = None
+        for delta in [10000] + [-max(1, pane.size.height / 2)] * 32:
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=delta)
+            )
+            rows = library_rows(window)
+            current = [(row.accessible_label, row.absolute_position.y) for row in rows]
+            for label, _ in current:
+                if label not in found:
+                    found.append(label)
+            if current == previous:
+                break
+            previous = current
+        window.dispatch_event(
+            slint_testing.PointerScrolledEvent(position, delta_x=0, delta_y=10000)
+        )
+        return found
+
     expect.poll(
-        lambda: [row.accessible_label for row in library_rows(window)],
-        message="visible element library rows",
+        all_labels,
+        message="element library rows across the scroll area",
     ).to_equal(labels)
 
 
@@ -237,7 +288,7 @@ def test_tabs_separate_sources_and_preserve_primitive_collapse_state(
         element(
             window, "Visual", role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
-        expect_library(window, ["TouchArea"])
+        expect_library(window, list(PRIMITIVE_KINDS[4:]))
         element(
             window, "Libraries", role=slint_testing.AccessibleRole.Tab
         ).invoke_accessible_default_action()
@@ -255,7 +306,7 @@ def test_tabs_separate_sources_and_preserve_primitive_collapse_state(
         expect_library(window, [])
         element(window, "No Results")
         search.accessible_value = ""
-        expect_library(window, ["TouchArea"])
+        expect_library(window, list(PRIMITIVE_KINDS[4:]))
         element(
             window, "Visual", role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
@@ -402,10 +453,12 @@ def test_library_search_restores_independent_collapse_states(
             assert not elements(window, label, role=slint_testing.AccessibleRole.Button)
         search.accessible_value = ""
         expect_library(window, list(PRIMITIVE_KINDS))
-        for label, collapsed_labels in [
-            ("Visual", ["TouchArea"]),
-            ("Input & interaction", []),
-        ]:
+        collapsed = set()
+        for label, kinds in PRIMITIVE_GROUPS.items():
+            collapsed.update(kinds)
+            collapsed_labels = [
+                kind for kind in PRIMITIVE_KINDS if kind not in collapsed
+            ]
             element(
                 window, label, role=slint_testing.AccessibleRole.Button
             ).invoke_accessible_default_action()
@@ -413,7 +466,7 @@ def test_library_search_restores_independent_collapse_states(
             search.accessible_value = "t"
             expect_library(
                 window,
-                ["Rectangle", "StyledText", "Text", "TouchArea"],
+                [kind for kind in PRIMITIVE_KINDS if "t" in kind.lower()],
             )
             search.accessible_value = "missing"
             expect_library(window, [])
@@ -422,12 +475,12 @@ def test_library_search_restores_independent_collapse_states(
         element(
             window, "Visual", role=slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
-        expect_library(window, ["Image", "Rectangle", "StyledText", "Text"])
+        expect_library(window, list(PRIMITIVE_GROUPS["Visual"]))
         search.accessible_value = "touch"
         expect_library(window, ["TouchArea"])
         assert not elements(window, "Visual", role=slint_testing.AccessibleRole.Button)
         search.accessible_value = ""
-        expect_library(window, ["Image", "Rectangle", "StyledText", "Text"])
+        expect_library(window, list(PRIMITIVE_GROUPS["Visual"]))
         snapshot.assert_unchanged()
 
 
@@ -479,10 +532,10 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
         assert rows[2].absolute_position.y > rows[0].absolute_position.y
         assert rows[3].absolute_position.y == rows[2].absolute_position.y
         assert rows[4].absolute_position.y > rows[3].absolute_position.y
-        for label, remaining in [
-            ("Visual", ["TouchArea"]),
-            ("Input & interaction", []),
-        ]:
+        collapsed = set()
+        for label, kinds in PRIMITIVE_GROUPS.items():
+            collapsed.update(kinds)
+            remaining = [kind for kind in PRIMITIVE_KINDS if kind not in collapsed]
             element(
                 window, label, role=slint_testing.AccessibleRole.Button
             ).invoke_accessible_default_action()
@@ -510,7 +563,7 @@ def test_library_search_keyboard_does_not_delete_selection(
         search = element(window, "Search elements")
         search.single_click(slint_testing.PointerEventButton.Left)
         press_keys(window, "Text")
-        expect_library(window, ["StyledText", "Text"])
+        expect_library(window, ["StyledText", "Text", "TextInput"])
         for _ in range(5):
             press_key(window, keys.Backspace)
         expect_library(window, list(PRIMITIVE_KINDS))
@@ -550,15 +603,14 @@ def test_toucharea_drag_preview(
 @pytest.mark.parametrize(
     ("group_label", "tab_count", "remaining"),
     [
-        ("Visual", 1, ["TouchArea"]),
+        ("Visual", 1, list(PRIMITIVE_KINDS[4:])),
         (
             "Input & interaction",
             2,
             [
-                "Image",
-                "Rectangle",
-                "StyledText",
-                "Text",
+                kind
+                for kind in PRIMITIVE_KINDS
+                if kind not in PRIMITIVE_GROUPS["Input & interaction"]
             ],
         ),
     ],
