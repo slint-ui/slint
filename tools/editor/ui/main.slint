@@ -217,7 +217,7 @@ export component EditorUi inherits Window {
             }
             MenuItem {
                 title: @tr("Zoom to Selection");
-                shortcut: @keys(Shift + "2");
+                shortcut: @keys(Control + Digit2);
                 enabled: root.canvas-zoom-enabled;
                 activated => {
                     CanvasView.zoom-to-selection(
