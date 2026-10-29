@@ -561,10 +561,10 @@ impl SkiaRenderer {
     /// Returns true if the current surface will be presented with transparency enabled
     /// See [`Surface::presentation_may_use_transparency`].
     pub fn presentation_may_use_transparency(&self) -> bool {
-        self.surface
-            .borrow()
-            .as_ref()
-            .is_some_and(|surface| surface.presentation_may_use_transparency())
+        // Called from the window procedure, which Windows can enter while the surface is borrowed.
+        self.surface.try_borrow().ok().is_some_and(|surface| {
+            surface.as_ref().is_some_and(|surface| surface.presentation_may_use_transparency())
+        })
     }
 
     /// Releases every cache that holds a GPU-backed resource.

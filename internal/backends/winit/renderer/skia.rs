@@ -198,6 +198,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
         }
     }
 
+    #[cfg(target_os = "windows")]
     fn presentation_may_use_transparency(&self) -> bool {
         self.renderer.presentation_may_use_transparency()
     }

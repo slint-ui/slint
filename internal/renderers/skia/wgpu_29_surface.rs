@@ -537,10 +537,11 @@ impl crate::Surface for WGPUSurface {
 
     fn presentation_may_use_transparency(&self) -> bool {
         use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
-        self.surface_config
-            .borrow()
-            .as_ref()
-            .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+        self.surface_config.try_borrow().ok().is_some_and(|config| {
+            config
+                .as_ref()
+                .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+        })
     }
 
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
