@@ -3,51 +3,28 @@
 
 use super::EndpointIdentity;
 
-/// File the springboard stores its last selection in. The springboard itself
+/// File the springboard stores its saved endpoints and last selection in. The springboard itself
 /// has no filesystem access (it must also work when it is not hosted by the
 /// editor process), so the setting travels over the preview protocol and the
 /// editor persists it, exactly like the preview UI's own settings.
 pub(super) const SPRINGBOARD_SETTINGS_FILE: &str = "springboard-settings.json";
 
-const SPRINGBOARD_SETTINGS_VERSION: u32 = 1;
+const SPRINGBOARD_SETTINGS_VERSION: u32 = 2;
 
-/// The endpoint a session last connected to, mirroring [`EndpointIdentity`] but
-/// additionally remembering the display name it had at the time.
-///
-/// The name cannot be recovered from the identity alone: it comes from the
-/// discovery report (the mDNS fullname without the service type, or the host as
-/// a fallback, see `remote::normalize`). At startup there is no discovery report
-/// yet, so without the stored name the springboard could not say which endpoint
-/// it is waiting for.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub(super) enum NamedEndpointIdentity {
-    Local,
-    Remote { fullname: String, name: String },
-}
-
-impl From<NamedEndpointIdentity> for EndpointIdentity {
-    fn from(named: NamedEndpointIdentity) -> Self {
-        match named {
-            NamedEndpointIdentity::Local => Self::Local,
-            NamedEndpointIdentity::Remote { fullname, .. } => Self::Remote(fullname),
-        }
-    }
-}
-
-/// Persisted springboard state: the endpoint the user last connected to, so it
-/// can be preselected once it shows up on the network again.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub(super) struct SpringboardSettings {
     version: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(super) last_selected: Option<NamedEndpointIdentity>,
+    /// Without Local, which is always available.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(super) saved: Vec<EndpointIdentity>,
+    #[serde(default)]
+    pub(super) selected: EndpointIdentity,
 }
 
 impl SpringboardSettings {
-    pub(super) fn new(last_selected: Option<NamedEndpointIdentity>) -> Self {
-        Self { version: SPRINGBOARD_SETTINGS_VERSION, last_selected }
+    pub(super) fn new(saved: Vec<EndpointIdentity>, selected: EndpointIdentity) -> Self {
+        Self { version: SPRINGBOARD_SETTINGS_VERSION, saved, selected }
     }
 
     pub(super) fn serialize(&self) -> String {
@@ -88,24 +65,48 @@ mod tests {
     #[test]
     fn settings_of_another_version_are_still_used() {
         let contents = format!(
-            r#"{{"version":{},"last_selected":"local"}}"#,
+            r#"{{"version":{},"selected":{{"remote":{{"host":"fw12"}}}}}}"#,
             SPRINGBOARD_SETTINGS_VERSION + 1
         );
         assert_eq!(
-            SpringboardSettings::deserialize(&contents).unwrap().last_selected,
-            Some(NamedEndpointIdentity::Local)
+            SpringboardSettings::deserialize(&contents).unwrap().selected,
+            EndpointIdentity::Remote { host: "fw12".into() }
         );
     }
 
     #[test]
     fn unknown_fields_are_ignored() {
         let contents = format!(
-            r#"{{"version":{SPRINGBOARD_SETTINGS_VERSION},"last_selected":"local","added_later":42}}"#
+            r#"{{"version":{SPRINGBOARD_SETTINGS_VERSION},"selected":"local","added_later":42}}"#
         );
         assert_eq!(
-            SpringboardSettings::deserialize(&contents).unwrap().last_selected,
-            Some(NamedEndpointIdentity::Local)
+            SpringboardSettings::deserialize(&contents).unwrap().selected,
+            EndpointIdentity::Local
         );
+    }
+
+    #[test]
+    fn a_missing_selection_is_local() {
+        let contents = format!(r#"{{"version":{SPRINGBOARD_SETTINGS_VERSION}}}"#);
+        assert_eq!(
+            SpringboardSettings::deserialize(&contents).unwrap().selected,
+            EndpointIdentity::Local
+        );
+    }
+
+    #[test]
+    fn saved_endpoints_round_trip() {
+        let saved = vec![
+            EndpointIdentity::Remote { host: "Pixel 8".into() },
+            EndpointIdentity::Manual { host: "192.168.1.5".into(), port: 9000 },
+        ];
+        let selected = saved[1].clone();
+        let settings = SpringboardSettings::deserialize(
+            &SpringboardSettings::new(saved.clone(), selected.clone()).serialize(),
+        )
+        .unwrap();
+        assert_eq!(settings.saved, saved);
+        assert_eq!(settings.selected, selected);
     }
 
     #[test]
