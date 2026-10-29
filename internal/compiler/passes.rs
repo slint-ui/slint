@@ -35,6 +35,7 @@ mod key_bindings;
 mod listview;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
+mod lower_actor;
 mod lower_component_container;
 pub(crate) mod lower_layout;
 mod lower_menus;
@@ -137,6 +138,7 @@ pub async fn run_passes(
     lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
+    lower_actor::lower_actor(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
 
     doc.visit_all_used_components(|component| {
@@ -186,6 +188,7 @@ pub async fn run_passes(
     });
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);
+    lower_actor::protect_actor_references(doc);
     doc.visit_all_used_components(|component| {
         listview::lower_ensure_row_visible(component, diag);
     });
@@ -282,6 +285,7 @@ pub async fn run_passes(
     if type_loader.compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
         doc.used_types.borrow_mut().sub_components.clear();
+        lower_actor::protect_actor_references(doc);
     }
     default_geometry::adjust_image_clip_rects(doc);
 

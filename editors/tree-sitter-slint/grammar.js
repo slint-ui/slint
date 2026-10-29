@@ -26,7 +26,7 @@ module.exports = grammar({
     sourcefile: ($) => repeat($._definition),
 
     _definition: ($) =>
-      choice($.import_statement, $._export, $._local_type, $.rust_attr),
+      choice($.import_statement, $._export, $._local_type, $.rust_attr, $.actor),
 
     _local_type: ($) =>
       choice(
@@ -61,6 +61,8 @@ module.exports = grammar({
     _rust_attr_args: ($) => seq("(", repeat(choice(/[^()"]+/, $.string_value, $._rust_attr_args)), ")"),
 
     rust_attr: ($) => seq(repeat1(seq("@rust-attr", $._rust_attr_args)), choice($.exported_definition, $._local_type)),
+
+    actor: ($) => seq("@actor", choice($.exported_definition, $.component_definition)),
 
     import_statement: ($) =>
       seq(

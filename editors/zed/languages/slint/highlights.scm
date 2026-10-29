@@ -190,6 +190,9 @@
 (rust_attr
   "@rust-attr" @attribute)
 
+(actor
+  "@actor" @attribute)
+
 (keys
   "@keys" @attribute)
 

@@ -30,6 +30,7 @@ pub use crate::unsafe_single_threaded::thread_local;
 pub use std::thread_local;
 
 pub mod accessibility;
+pub mod actor;
 pub mod animations;
 pub mod api;
 pub mod builtin_functions;

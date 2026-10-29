@@ -179,6 +179,11 @@ pub(crate) struct SlintContextInner {
     /// The timers registered on this context. Shared, so that `Timer` handles can hold a
     /// `Weak` to the list they registered in without knowing which context owns it.
     pub(crate) timers: crate::timers::TimerListRc,
+
+    /// The actors registered with [`SlintContext::register_actor`], keyed by
+    /// the facade type's `TypeId`. Each value is an `Rc<ActorFactory<F>>`.
+    actor_factories:
+        RefCell<alloc::collections::BTreeMap<core::any::TypeId, Rc<dyn core::any::Any>>>,
 }
 
 /// This context is meant to hold the state and the backend.
@@ -257,6 +262,7 @@ impl SlintContext {
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
             timers,
+            actor_factories: Default::default(),
         }));
         // The list's deadlines are measured on this context's clock from now on. Done after
         // construction because it needs a handle to the context that owns it.
@@ -270,6 +276,38 @@ impl SlintContext {
     /// Setting a platform creates the context, and creating a component needs a platform.
     pub fn current() -> Option<Self> {
         GLOBAL_CONTEXT.try_with(|slot| slot.get().cloned()).ok().flatten()
+    }
+
+    /// Register the actor for the `@actor` component whose generated facade type
+    /// is `F`. For every instance of the component created in this context,
+    /// `factory` is called with the instance's facade; it returns the handler
+    /// that receives the instance's messages. Replaces a previous registration
+    /// for `F`.
+    pub fn register_actor<F, H>(&self, factory: impl Fn(&F) -> H + 'static)
+    where
+        F: crate::actor::ActorFacade,
+        H: FnMut(&F, F::Message) + 'static,
+    {
+        let factory: Rc<crate::actor::ActorFactory<F>> =
+            Rc::new(move |facade: &F| Box::new(factory(facade)) as Box<_>);
+        self.0
+            .actor_factories
+            .borrow_mut()
+            .insert(core::any::TypeId::of::<F>(), Rc::new(factory) as Rc<dyn core::any::Any>);
+    }
+
+    /// The actor registered for the facade type `F`, if any.
+    pub fn actor_factory<F: crate::actor::ActorFacade>(
+        &self,
+    ) -> Option<Rc<crate::actor::ActorFactory<F>>> {
+        let factories = self.0.actor_factories.borrow();
+        let factory = factories.get(&core::any::TypeId::of::<F>())?;
+        factory.downcast_ref::<Rc<crate::actor::ActorFactory<F>>>().cloned()
+    }
+
+    /// Whether an actor is registered for the facade type with the given `TypeId`.
+    pub fn has_actor_factory(&self, facade_type: core::any::TypeId) -> bool {
+        self.0.actor_factories.borrow().contains_key(&facade_type)
     }
 
     /// Return a reference to the platform abstraction

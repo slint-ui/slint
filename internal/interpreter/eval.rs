@@ -2186,6 +2186,9 @@ fn call_builtin_function(
             i_slint_core::macos_bring_all_windows_to_front();
             Value::Void
         }
+        // Actors are only supported in generated Rust code: an `@actor`
+        // component behaves like a plain component in the interpreter.
+        BuiltinFunction::CreateActor => Value::Void,
         BuiltinFunction::SetupSystemTrayIcon => {
             crate::popup::setup_system_tray_icon(ctx, arguments)
         }

@@ -1,0 +1,145 @@
+---
+title: Actors
+description: Experimental actors that back Slint components with Rust code.
+---
+
+An *actor* is Rust code that backs a Slint component.
+Annotate the component with `@actor`, then register the actor on a `SlintContext`.
+For every instance of the component that you create in that context, Slint creates the actor.
+The actor receives the instance's callback invocations as messages, and can read and set the instance's properties.
+
+Use actors to keep the logic of a component with that component, instead of connecting the callbacks of each instance from your top-level window.
+
+:::note
+Actors are experimental and only available in Rust.
+They're subject to change.
+:::
+
+## Enable Actors
+
+To use actors, enable two things:
+
+1. Enable the `actors` [experimental feature](../overview/) of the Slint compiler, such as with `SLINT_ENABLE_EXPERIMENTAL_FEATURES=actors` when you build your application.
+   It also generates `new_with_context()` for the components that contain actor components.
+2. In your `Cargo.toml`, enable the `experimental-actors` feature of the `slint` crate:
+
+   ```toml
+   [dependencies]
+   slint = { version = "~1.19", features = ["experimental-actors"] }
+   ```
+
+   The feature gives you access to `slint::SlintContext` and `slint::ActorFacade`.
+   We recommend the tilde requirement, since this API may change in any release.
+
+## Declare an Actor Component
+
+To give a component an actor, write `@actor` before its declaration:
+
+```slint no-test
+import { Button, VerticalBox } from "std-widgets.slint";
+
+@actor
+export component VideoPlayer {
+    in property <string> source;
+    out property <string> status;
+    callback play();
+    callback seek(position: int);
+
+    Text { text: root.status; }
+}
+
+export component MainWindow inherits Window {
+    VerticalBox {
+        player := VideoPlayer { source: "intro.mp4"; }
+        Button {
+            text: "Play";
+            clicked => { player.play(); }
+        }
+    }
+}
+```
+
+## Write the Actor
+
+For each actor component, the Slint compiler generates two types:
+
+- `VideoPlayerFacade`: your actor's access to one instance, with a getter and a setter for each property that the component declares, such as `get_source()` and `set_status()`
+- `VideoPlayerMessage`: an enum with one variant per callback, such as `Play` and `Seek(i32)`
+
+In the method names, dashes become underscores; the variant names use PascalCase, so `play-clicked` becomes `PlayClicked`.
+
+To run your actor, follow these steps:
+
+1. Create a `SlintContext` with `SlintContext::new()`, which selects the platform like Slint does by default.
+   To use your own platform, call `SlintContext::new_with_platform()` instead.
+2. Call `register_actor()` with a factory.
+   Slint calls the factory once per instance with the instance's facade; the factory returns the handler for that instance's messages.
+3. Create your window in the same context with `new_with_context()`.
+   If you call `new()` instead, or the context has no actor for one of the actor components, creating the window fails with an error.
+4. Run the context's event loop.
+
+The following example implements these steps:
+
+```rust
+slint::include_modules!();
+
+fn main() -> Result<(), slint::PlatformError> {
+    let ctx = slint::SlintContext::new()?;
+
+    ctx.register_actor(|player: &VideoPlayerFacade| {
+        println!("New player for {}", player.get_source());
+        let mut position = 0;
+        move |player: &VideoPlayerFacade, message| match message {
+            VideoPlayerMessage::Play => {
+                player.set_status(format!("Playing from {position}s").into());
+            }
+            VideoPlayerMessage::Seek(new_position) => position = new_position,
+        }
+    });
+
+    let window = MainWindow::new_with_context(ctx.clone())?;
+    window.show()?;
+    ctx.run_event_loop()
+}
+```
+
+Each instance of `VideoPlayer`, including instances that a `for` or `if` creates, gets its own handler with its own state, such as `position` above.
+Each context has its own registrations; for example, a test can register a mock actor on its own context.
+
+## Receive Messages
+
+Slint delivers messages synchronously, on the thread that runs the event loop.
+When a callback of the instance is invoked, your handler runs before the invocation returns.
+
+If a message arrives while your handler is still running, such as when your handler calls back into the instance, Slint delivers it after your handler returns.
+
+When Slint destroys an instance, it drops the instance's handler together with the state that the handler captures.
+If your actor keeps a clone of the facade elsewhere, such as in a timer, the getters of that clone return default values once the instance is gone, and its setters do nothing.
+
+## Use Actor Components from Other Files
+
+Two components with the same name from different files are different components.
+For a component from a file other than your main file, the generated types live in one nested module per segment of the file's path:
+
+| Component defined in           | Generated facade type                          |
+| ------------------------------ | ---------------------------------------------- |
+| Your main file                 | `VideoPlayerFacade`                            |
+| `media/player.slint`           | `media::player::VideoPlayerFacade`             |
+| `@mywidgets/video.slint`       | `mywidgets::video::VideoPlayerFacade`          |
+
+The compiler takes the path relative to the directory of your main file, a library, or an include path, in that order; if none of them contains the file, it warns.
+To give a type a shorter name, rename it with `use`, like `import { VideoPlayer as Player }` does in Slint.
+
+## Current Limitations
+
+- Actors only work in Rust.
+  The generated C++ code of an actor component fails to compile.
+  In Node.js, Python, `slint-viewer`, and the live preview, an actor component behaves like a regular component.
+- The `live-preview` feature of the `slint` crate doesn't support actors yet.
+  With it, the generated code has no facade or message types.
+- Callbacks of an actor component can't return a value, since the actor only receives messages.
+  To return a result, let the actor set a property.
+- The facade isn't `Send`, and your handler runs on the thread of the event loop.
+  Keep your handler short; while it runs, the UI doesn't respond.
+- `slint::invoke_from_event_loop()` and `slint::quit_event_loop()` only reach the event loop of the default platform, not your context's.
+- If two files map to the same modules, such as `a-b.slint` and `a_b.slint`, the compiler reports an error; rename one of the files.

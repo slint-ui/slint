@@ -219,6 +219,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ScrollTo => isize::MAX,
         BuiltinFunction::EnsureVisible => isize::MAX,
         BuiltinFunction::ListViewEnsureRowVisible => isize::MAX,
+        BuiltinFunction::CreateActor => isize::MAX,
     }
 }
 

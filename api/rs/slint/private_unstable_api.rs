@@ -153,6 +153,9 @@ pub mod re_exports {
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
+    pub use i_slint_core::actor::{
+        ActorDispatcher, ActorFacade, actor_validate, actors_require_context,
+    };
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
     pub use i_slint_core::builtin_functions;

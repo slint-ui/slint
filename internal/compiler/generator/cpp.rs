@@ -5668,6 +5668,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::MacosBringAllWindowsToFront => {
             "::slint::private_api::macos_bring_all_windows_to_front()".to_owned()
         }
+        BuiltinFunction::CreateActor => {
+            "[] { static_assert(false, \"@actor components are only supported in Rust\"); }()"
+                .into()
+        }
         BuiltinFunction::ParseMarkdown => (|| {
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();

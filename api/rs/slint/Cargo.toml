@@ -273,6 +273,13 @@ backend-android-activity-05 = [
   "i-slint-backend-android-activity/aa-05",
 ]
 
+## Enable the experimental API for `@actor` components: `SlintContext`, on which
+## actors are registered, and `ActorFacade`. The `@actor` annotation itself also
+## requires the `actors` experimental feature of the Slint compiler.
+## This API is *NOT* subject to the usual Slint API stability guarantees and may
+## change or be removed in any release.
+experimental-actors = []
+
 #! ### Unstable features
 
 #! The following features expose APIs built on top of third-party crates that release new major

@@ -363,6 +363,80 @@ pub fn spawn_local<F: core::future::Future + 'static>(
         .map_err(|_| EventLoopError::NoEventLoopProvider)?
 }
 
+#[cfg(feature = "experimental-actors")]
+pub use i_slint_core::actor::ActorFacade;
+
+/// A Slint context: the platform, the event loop, and the state that the
+/// component instances created in it share - such as the actors registered for
+/// `@actor` components (experimental: requires the `experimental-actors` feature).
+///
+/// Create instances in a context with the generated `new_with_context()`
+/// function of a component.
+///
+/// ```rust,ignore
+/// let ctx = slint::SlintContext::new()?;
+/// ctx.register_actor(|_player: &VideoPlayerFacade| {
+///     let mut position = 0;
+///     move |player: &VideoPlayerFacade, message| match message {
+///         VideoPlayerMessage::Seek(pos) => position = pos,
+///         VideoPlayerMessage::Play => player.set_status(format!("playing at {position}").into()),
+///     }
+/// });
+/// let ui = MainWindow::new_with_context(ctx.clone())?;
+/// ui.show()?;
+/// ctx.run_event_loop()?;
+/// ```
+#[cfg(feature = "experimental-actors")]
+#[derive(Clone)]
+pub struct SlintContext(i_slint_core::SlintContext);
+
+#[cfg(feature = "experimental-actors")]
+impl SlintContext {
+    /// Create a context with a new platform, selected like the default one
+    /// (honoring `SLINT_BACKEND`).
+    pub fn new() -> Result<Self, PlatformError> {
+        Ok(Self::new_with_platform(i_slint_backend_selector::create_backend()?))
+    }
+
+    /// Create a context with the given platform.
+    pub fn new_with_platform(platform: alloc::boxed::Box<dyn platform::Platform>) -> Self {
+        Self(i_slint_core::SlintContext::new(platform))
+    }
+
+    /// Register the actor for the `@actor` component whose generated facade
+    /// type is `F`: `VideoPlayerFacade` for `@actor component VideoPlayer`.
+    ///
+    /// For every instance of the component created in this context, `factory`
+    /// is called with the instance's facade and returns the handler for the
+    /// instance's messages. Every invocation of one of the component's
+    /// callbacks becomes a message, delivered to the handler synchronously. The
+    /// handler, and whatever state it captures, is dropped together with the
+    /// instance.
+    ///
+    /// Register the actors before creating components in this context:
+    /// creating a component that contains an `@actor` component without a
+    /// registered actor fails.
+    pub fn register_actor<F, H>(&self, factory: impl Fn(&F) -> H + 'static)
+    where
+        F: ActorFacade,
+        H: FnMut(&F, F::Message) + 'static,
+    {
+        self.0.register_actor(factory)
+    }
+
+    /// Run this context's event loop until the last window is closed.
+    pub fn run_event_loop(&self) -> Result<(), PlatformError> {
+        self.0.run_event_loop()
+    }
+}
+
+#[cfg(feature = "experimental-actors")]
+impl From<SlintContext> for i_slint_core::SlintContext {
+    fn from(ctx: SlintContext) -> Self {
+        ctx.0
+    }
+}
+
 #[i_slint_core_macros::slint_doc]
 /// Include the code generated with the slint-build crate from the build script. After calling `slint_build::compile`
 /// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
