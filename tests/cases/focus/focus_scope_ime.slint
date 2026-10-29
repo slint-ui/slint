@@ -13,9 +13,9 @@ export component TestCase inherits Window {
         scope.clear-focus();
     }
 
-    callback change_ime_text();
-    change_ime_text => {
-        scope.ime-text = "world";
+    callback change_cursor_rect();
+    change_cursor_rect => {
+        scope.ime-cursor-rect-x = 30px;
     }
 
     callback focus_scope2();
@@ -62,6 +62,7 @@ export component TestCase inherits Window {
 /*
 ```rust
 use i_slint_core::input::{InternalKeyEvent, KeyEventType};
+use slint::LogicalPosition;
 use slint::private_unstable_api::re_exports::InputMethodRequest;
 
 let instance = TestCase::new().unwrap();
@@ -89,17 +90,34 @@ assert_eq!(p.text, "hello");
 assert_eq!(p.cursor_position, 5);
 assert!(p.anchor_position.is_none());
 
-// Changing an ime-* property while focused automatically sends an Update,
-// without requiring a manual update-input-method-properties() call.
+// Changing an ime-* property while focused automatically sends an Update
+// with the mapped cursor rectangle, without requiring a manual call.
 clear_ime_requests(&instance);
-instance.invoke_change_ime_text();
+instance.invoke_change_cursor_rect();
 slint_testing::mock_elapsed_time(0);
 let requests = ime_requests(&instance);
 assert_eq!(requests.len(), 1, "expected one Update request: {:?}", requests);
 let InputMethodRequest::Update(p) = &requests[0] else {
     panic!("expected Update, got {:?}", requests[0]);
 };
-assert_eq!(p.text, "world");
+assert_eq!(p.cursor_rect_origin, LogicalPosition::new(30., 20.), "cursor rectangle origin should be mapped to window coordinates");
+
+// A preedit update reaches composition-update
+let mut event = InternalKeyEvent::default();
+event.event_type = KeyEventType::UpdateComposition;
+event.preedit_text = "he".into();
+event.preedit_selection = Some(1..2);
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(event));
+assert_eq!(instance.get_preedit(), "he");
+assert_eq!(instance.get_preedit_selection_start(), 1);
+assert_eq!(instance.get_preedit_selection_end(), 2);
+
+// A commit reaches composition-commit
+let mut event = InternalKeyEvent::default();
+event.event_type = KeyEventType::CommitComposition;
+event.key_event.text = "世界".into();
+instance.window().dispatch_event(slint::platform::WindowEvent::internal(event));
+assert_eq!(instance.get_committed(), "世界");
 
 // Leaving focus disables the input method
 clear_ime_requests(&instance);

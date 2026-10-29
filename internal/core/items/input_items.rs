@@ -571,15 +571,18 @@ pub struct FocusScope {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-/// A snapshot of every dynamic `ime-*` property plus `accepts-text-input`.
+/// A snapshot of every dynamic `ime-*` property.
 ///
 /// Used as the tracked value of [`FocusScope::ime_properties_tracker`]. Including
 /// every property means that changing any of them triggers an automatic
 /// `InputMethodRequest::Update`, matching how [`TextInput`](crate::items::TextInput)
 /// keeps the input method in sync without requiring a manual call.
+///
+/// Note that `accepts-text-input` is deliberately not part of this snapshot: toggling
+/// it while the scope already has focus has no effect on the IME state, matching the
+/// public API documentation.
 #[derive(Clone)]
 struct ImeSnapshot {
-    accepts_text_input: bool,
     text: SharedString,
     cursor_position: i32,
     anchor_position: i32,
@@ -597,7 +600,6 @@ struct ImeSnapshot {
 impl Default for ImeSnapshot {
     fn default() -> Self {
         Self {
-            accepts_text_input: false,
             text: Default::default(),
             cursor_position: 0,
             anchor_position: 0,
@@ -620,8 +622,7 @@ impl Default for ImeSnapshot {
 
 impl PartialEq for ImeSnapshot {
     fn eq(&self, other: &Self) -> bool {
-        self.accepts_text_input == other.accepts_text_input
-            && self.text == other.text
+        self.text == other.text
             && self.cursor_position == other.cursor_position
             && self.anchor_position == other.anchor_position
             && self.has_anchor == other.has_anchor
@@ -907,7 +908,6 @@ impl Item for FocusScope {
                                 Some(scope) => {
                                     let s = scope.as_pin_ref();
                                     ImeSnapshot {
-                                        accepts_text_input: s.accepts_text_input(),
                                         text: s.ime_text(),
                                         cursor_position: s.ime_cursor_position(),
                                         anchor_position: s.ime_anchor_position(),
