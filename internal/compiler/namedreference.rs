@@ -92,7 +92,7 @@ impl NamedReference {
         let e = elem.borrow();
         if let Some(decl) = e.property_declarations.get(self.name())
             && decl.expose_in_public_api
-            && decl.visibility != PropertyVisibility::Input
+            && decl.visibility != PropertyVisibility::Output
         {
             // could be set by the public API
             return false;
