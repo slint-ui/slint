@@ -679,19 +679,13 @@ impl RemoteLspToPreview {
 struct RemotePreviewSender(mpsc::UnboundedSender<PreviewToLspMessage>);
 
 impl RemotePreviewSender {
-    /// A remote viewer runs on someone else's machine: it may report what it
-    /// compiled and ask for the files it needs, and nothing else. That, not
-    /// "does it reach the editor", is where the line is — a viewer's whole job
-    /// is to send back diagnostics.
-    ///
-    /// Listed positively on purpose: a new variant stays refused until it is
-    /// deliberately allowed.
+    /// Passes on what [`PreviewToLspMessage::is_allowed_from_remote_viewer`] allows.
     ///
     /// Refused messages are dropped rather than taken as grounds to hang up:
     /// the reconnect loop would only dial it again, and by then
     /// the peer already has everything the connection was going to give it.
     fn send(&self, message: PreviewToLspMessage) {
-        if !remote_client::is_allowed_message(&message) {
+        if !message.is_allowed_from_remote_viewer() {
             tracing::warn!(
                 "Ignoring message that a remote preview server may not send: {message:?}"
             );

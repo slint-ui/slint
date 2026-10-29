@@ -50,9 +50,14 @@ Slint resolves relative paths against the directory that contains the project fi
 
 A setting can come from three places, listed from highest to lowest priority:
 
-1. An option passed to the API or the command line, such as an include path.
+1. An option passed to the API or the command line, such as a style.
 2. The project file.
 3. A compiler default.
+
+Include paths and library paths combine instead:
+Slint searches the include paths passed to the API or the command line first, then those of the project file.
+A library path passed to the API or the command line replaces the project file's library of the same name,
+and the project file's other libraries stay available.
 
 :::note
 You can't set `slint-edition` through the API or the command line; it only comes from the project file.

@@ -533,13 +533,14 @@ export interface LoadFileOptions {
 
     /**
      * Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
-     * This wins over the include paths of the project file.
+     * These paths come before the include paths of the project file.
      */
     includePaths?: Array<string>;
 
     /**
      * Sets library paths used for looking up `@library` imports to the specified map of library names to paths.
-     * This wins over the library paths of the project file.
+     * A library here replaces the project file's library of the same name.
+     * The project file's other libraries stay available.
      */
     libraryPaths?: Record<string, string>;
 
