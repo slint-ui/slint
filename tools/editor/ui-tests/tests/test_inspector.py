@@ -844,6 +844,42 @@ def test_each_image_fit_value_writes_exact_source(
         assert_rendered_element(window, "InspectorCases::inspect-image")
 
 
+@pytest.mark.parametrize(
+    ("initial", "rendering"), (("smooth", "pixelated"), ("pixelated", "smooth"))
+)
+def test_each_image_rendering_value_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    initial: str,
+    rendering: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    starting_source = replace_once(
+        source_file.read_bytes(),
+        b"        image-fit: contain;",
+        f"        image-fit: contain;\n        image-rendering: {initial};".encode(),
+    )
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Image")
+        edit_field(
+            window, "Image rendering", rendering, slint_testing.AccessibleRole.Combobox
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                starting_source,
+                f"        image-rendering: {initial};".encode(),
+                f"        image-rendering: {rendering};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        assert_rendered_element(window, "InspectorCases::inspect-image")
+
+
 def test_image_alignment_grid_writes_both_properties(
     editor_binary: Path,
     editor_environment: dict[str, str],
