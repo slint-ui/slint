@@ -71,6 +71,12 @@
       },
       "replaces": "SLINT_APP_ID"
     },
+    "skipRestore": {
+      "type": "parameter",
+      "datatype": "bool",
+      "description": "Skips restoring the packages after creating the project.",
+      "defaultValue": "false"
+    },
     "packageId": {
       "type": "generated",
       "generator": "constant",
@@ -86,6 +92,7 @@
   ],
   "postActions": [
     {
+      "condition": "(!skipRestore)",
       "description": "Restore NuGet packages.",
       "manualInstructions": [{ "text": "Run 'dotnet restore'." }],
       "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",

@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json.schemastore.org/ide.host",
+  "symbolInfo": [
+    { "id": "style", "isVisible": true },
+    { "id": "slint-version", "isVisible": true }
+  ]
+}

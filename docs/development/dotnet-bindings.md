@@ -587,7 +587,11 @@ Next:
   - Phase 2, done: `slint-android`, with `SlintActivity`, and `slint-ios`, with the `Info.plist` for Slint's scene delegate and Native AOT in Release builds.
     Both take `--app-id`, which is `com.companyname.<name>` by default.
     An Android app from preview.9 runs on the Pixel 9 emulator, and an iOS app from a local package with the framework in the simulator.
-  - Phase 3: `slint-xplat` with `--platforms`, and the IDE metadata.
+  - Phase 3, done: `slint-xplat`, a `.slnx` with `<name>.Desktop`, `<name>.Android`, and `<name>.iOS`,
+    and a `Directory.Build.props` that gives each one the package, the style, `ui/`, and `Shared/`.
+    `--platforms` picks the projects, for a machine without the Android or iOS workload.
+    Each template has `--no-restore`, and an `ide.host.json` that shows its options in Visual Studio.
+    All three projects run: on the desktop, on the Pixel 9 emulator, and in the iOS simulator.
   - Phase 4: packing and publishing, and a CI job that creates and builds each template.
   - Phase 5: the README's Quick Start with the templates, the documentation page, and the article.
   - Later: a test project, which needs the testing backend in the packaged library.

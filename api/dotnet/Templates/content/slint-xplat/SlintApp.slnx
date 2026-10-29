@@ -1,0 +1,11 @@
+<Solution>
+<!--#if (platforms == "desktop") -->
+  <Project Path="SlintApp.Desktop/SlintApp.Desktop.csproj" />
+<!--#endif -->
+<!--#if (platforms == "android") -->
+  <Project Path="SlintApp.Android/SlintApp.Android.csproj" />
+<!--#endif -->
+<!--#if (platforms == "ios") -->
+  <Project Path="SlintApp.iOS/SlintApp.iOS.csproj" />
+<!--#endif -->
+</Solution>
