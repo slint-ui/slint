@@ -3,6 +3,9 @@ title: Editions
 description: Choose the Slint release whose language behavior your project uses, so that a newer Slint doesn't break it.
 ---
 
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+
 An edition is the Slint release whose language behavior your project uses, such as `1.19`.
 
 When a Slint release changes the behavior of the language,
@@ -13,10 +16,14 @@ You can use new features with any edition.
 
 ## Choosing the Edition
 
-Set `edition` in the [project file](../../../tooling/project-file/) to the major and minor version of the Slint release you write your project for.
-Write it as a string, such as `"1.19"`, not as the number `1.19`.
-Use the version of Slint you build with, or an older one.
-If the edition is newer than your version of Slint, Slint refuses to compile your project.
+Choose the major and minor version of the Slint release you write your project for, such as `1.19`.
+It can be the version of Slint you build with, or an older one.
+If your edition is newer than your version of Slint, Slint refuses to compile your project.
+
+### In the Project File
+
+Set `edition` in the [project file](../../../tooling/project-file/), which Slint tools read when you pass them the project directory.
+Write it as a string, such as `"1.19"`, not as the number `1.19`:
 
 ```json
 {
@@ -24,13 +31,16 @@ If the edition is newer than your version of Slint, Slint refuses to compile you
 }
 ```
 
-When you compile or load `.slint` files, the edition comes from the project file.
-To select it without a project file, pass `--edition` to `slint-compiler` or `slint-viewer`,
-or `EDITION` to `slint_target_sources` in CMake.
-You can also set it through the API that compiles your files, such as `CompilerConfiguration::with_edition()` in `slint-build`.
-These settings win over the project file.
-The Rust `slint!` macro doesn't load a project file.
-Set its edition with an attribute at the start of the macro body, or the macro warns:
+### In Your Build
+
+In Rust and C++, you can also set the edition where you compile your `.slint` files.
+In Node.js and Python, set it in the project file.
+An edition set there wins over the one in the project file.
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust" icon="seti:rust">
+The `slint!` macro doesn't load a project file.
+To set its edition, add an attribute at the start of the macro body; otherwise, the macro warns:
 
 ```rust
 slint::slint! {
@@ -39,10 +49,44 @@ slint::slint! {
 }
 ```
 
-:::note
-Without an edition, Slint applies none of the behavior changes that depend on the edition, and the compiler reports that no edition is set.
-To opt in, set `edition` in a project file, on the command line, through the API, or with `#[edition]` in the `slint!` macro.
-:::
+The Slint extension for your editor and `slint-viewer` also read this attribute when you open the `.rs` file.
+
+In `build.rs`, pass the edition to <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration">`CompilerConfiguration::with_edition()`</LangRefLink>:
+
+```rust
+// build.rs
+fn main() {
+    let config = slint_build::CompilerConfiguration::new().with_edition((1, 19));
+    slint_build::compile_with_config("ui/main.slint", config).unwrap();
+}
+```
+
+With `slint-interpreter`, call <LangRefLink lang="rust-slint-interpreter" relpath="struct.Compiler">`Compiler::set_edition()`</LangRefLink>.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
+Pass `EDITION` to <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>:
+
+```cmake
+slint_target_sources(my_application ui/main.slint EDITION 1.19)
+```
+</TabItem>
+</Tabs>
+
+### On the Command Line
+
+To set the edition on the command line, pass `--edition` to `slint-compiler` or `slint-viewer`:
+
+```bash
+slint-viewer --edition 1.19 ui/main.slint
+```
+
+### Without an Edition
+
+Without an edition, Slint applies none of the behavior changes that depend on the edition.
+The compiler reports that no edition is set.
+To opt in, choose an edition as described above.
+
+### In SlintPad
 
 SlintPad and the previews in this documentation use the edition of their own release.
 To select another one in [SlintPad](https://slintpad.com/), add it to the URL, such as `?edition=1.18`.
