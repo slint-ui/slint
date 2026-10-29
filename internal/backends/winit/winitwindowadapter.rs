@@ -180,6 +180,94 @@ fn test_round_up_logical() {
     assert_eq!(round_up_logical(21., 0.1), 25.);
 }
 
+/// Clears the window's redirection bitmap to transparent black on `WM_ERASEBKGND`
+/// while the renderer presents with alpha.
+///
+/// GDI, OpenGL, and software rendering present into the redirection bitmap,
+/// and DirectComposition visuals are composited on top of it.
+/// winit's window class has no background brush (see <https://github.com/rust-windowing/winit/issues/2570>),
+/// so Windows never clears the bitmap and it shows through transparent pixels, as white or as resize artifacts.
+/// Creating the window with `no_redirection_bitmap` would avoid that, but only suits DirectX,
+/// and the renderer picks its graphics API after the window exists.
+#[cfg(target_os = "windows")]
+fn subclass_window_for_transparent_erase(
+    winit_window: &winit::window::Window,
+    adapter: Weak<WinitWindowAdapter>,
+) {
+    use raw_window_handle::{HasWindowHandle as _, RawWindowHandle};
+    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
+    use windows::Win32::Graphics::Gdi::{BLACK_BRUSH, FillRect, GetStockObject, HBRUSH, HDC};
+    use windows::Win32::System::Threading::GetCurrentThreadId;
+    use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetClientRect, GetWindowThreadProcessId, WM_ERASEBKGND, WM_NCDESTROY,
+    };
+
+    unsafe extern "system" fn erase_background(
+        hwnd: HWND,
+        msg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        id: usize,
+        adapter: usize,
+    ) -> LRESULT {
+        let adapter = adapter as *mut Weak<WinitWindowAdapter>;
+        match msg {
+            // SAFETY: `adapter` lives until WM_NCDESTROY, the last message the window receives.
+            WM_ERASEBKGND
+                if unsafe { &*adapter }.upgrade().is_some_and(|adapter| {
+                    adapter.renderer().presentation_may_use_transparency()
+                }) =>
+            {
+                let mut rect = RECT::default();
+                // SAFETY: for WM_ERASEBKGND, `wparam` is the device context to draw into.
+                // <https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-erasebkgnd>
+                unsafe {
+                    if GetClientRect(hwnd, &mut rect).is_ok() {
+                        FillRect(
+                            HDC(wparam.0 as *mut _),
+                            &rect,
+                            HBRUSH(GetStockObject(BLACK_BRUSH).0),
+                        );
+                    }
+                }
+                LRESULT(1)
+            }
+            WM_NCDESTROY => {
+                // SAFETY: WM_NCDESTROY is the last message the window receives, so nothing uses
+                // `adapter` afterwards.
+                // <https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-ncdestroy>
+                unsafe {
+                    let _ = RemoveWindowSubclass(hwnd, Some(erase_background), id);
+                    drop(Box::from_raw(adapter));
+                    DefSubclassProc(hwnd, msg, wparam, lparam)
+                }
+            }
+            // SAFETY: forwards the message unchanged.
+            _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
+        }
+    }
+
+    let Ok(handle) = winit_window.window_handle() else { return };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else { return };
+    let hwnd = HWND(handle.hwnd.get() as *mut _);
+    // SAFETY: neither of these functions have preconditions
+    if unsafe { GetWindowThreadProcessId(hwnd, None) } != unsafe { GetCurrentThreadId() } {
+        i_slint_core::debug_log!(
+            "Slint: not subclassing window for transparency: \
+            called from a different thread than the one that created the window"
+        );
+        return;
+    }
+    let adapter = Box::into_raw(Box::new(adapter));
+    // SAFETY: SetWindowSubclass must run on the thread that created the hwnd, which
+    // is enforced by the thread ID comparison above
+    if !unsafe { SetWindowSubclass(hwnd, Some(erase_background), 0, adapter as usize) }.as_bool() {
+        // SAFETY: the subclass wasn't installed, so it doesn't own `adapter`.
+        drop(unsafe { Box::from_raw(adapter) });
+    }
+}
+
 /// Whether the platform assigns the window its size, so requesting one is pointless.
 ///
 /// On iOS and friends the window covers whatever the system hands it, and winit's UIKit
@@ -688,6 +776,9 @@ impl WinitWindowAdapter {
         let winit_window =
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
         self.first_frame_presented.set(false);
+
+        #[cfg(target_os = "windows")]
+        subclass_window_for_transparent_erase(&winit_window, self.self_weak.clone());
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in

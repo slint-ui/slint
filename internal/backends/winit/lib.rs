@@ -86,6 +86,11 @@ mod renderer {
         // Got WindowEvent::Occluded
         fn occluded(&self, _: bool) {}
 
+        #[cfg(target_os = "windows")]
+        fn presentation_may_use_transparency(&self) -> bool {
+            false
+        }
+
         fn suspend(&self) -> Result<(), PlatformError>;
 
         // The window's transparency changed after the window was created. Renderers that pick
@@ -1321,13 +1326,17 @@ fn create_renderer(
         }
         #[cfg(feature = "renderer-femtovg-wgpu")]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
-            if let Some(_api) = maybe_graphics_api {
+            match maybe_graphics_api {
+                None
+                | Some(
+                    RequestedGraphicsAPI::Metal
+                    | RequestedGraphicsAPI::Vulkan
+                    | RequestedGraphicsAPI::Direct3D,
+                ) => {}
                 #[cfg(feature = "unstable-wgpu-30")]
-                if !matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
-                    return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU30 graphics API selection"
-                            .into(),
-                    );
+                Some(RequestedGraphicsAPI::WGPU30(..)) => {}
+                Some(_) => {
+                    return Err("The FemtoVG WGPU renderer supports only the Metal, Vulkan, Direct3D, or WGPU30 graphics API selection".into());
                 }
             }
             renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
