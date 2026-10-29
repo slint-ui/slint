@@ -356,11 +356,11 @@ impl FemtoVGRenderer<WGPUBackend> {
     /// transparent parts of the scene show whatever is behind the window.
     pub fn presentation_may_use_transparency(&self) -> bool {
         use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
-        self.graphics_backend
-            .surface_config
-            .borrow()
-            .as_ref()
-            .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+        self.graphics_backend.surface_config.try_borrow().ok().is_some_and(|config| {
+            config
+                .as_ref()
+                .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+        })
     }
 
     /// Synchronously initialize the WGPU surface. This uses the blocking init path
