@@ -19,11 +19,6 @@ fn main() -> std::io::Result<()> {
         "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
         test_driver_lib::ALL_EXPERIMENTAL_FEATURES
     );
-    println!(
-        "cargo:rustc-env=SLINT_EDITION={}.{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR")
-    );
 
     let mut generated_file = BufWriter::new(std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),

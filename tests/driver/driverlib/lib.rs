@@ -257,15 +257,29 @@ fn test_extract_ignores() {
     assert_eq!(r, ["cpp", "rust", "nodejs"]);
 }
 
-pub fn extract_edition(source: &str) -> Option<&str> {
+fn extract_edition(source: &str) -> Option<&str> {
     static RX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap());
     RX.captures(source).map(|mat| mat.get(1).unwrap().as_str())
 }
 
-/// Parses the edition that `extract_edition` finds.
-/// Generic because this crate doesn't depend on the compiler, which defines `SlintEdition`.
-pub fn parse_edition<T: std::str::FromStr>(source: &str) -> Result<Option<T>, T::Err> {
-    extract_edition(source).map(str::parse).transpose()
+/// The edition that `source` selects, or the one of this Slint release.
+pub fn edition_or_current(source: &str) -> &str {
+    extract_edition(source).unwrap_or(concat!(
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        ".",
+        env!("CARGO_PKG_VERSION_MINOR")
+    ))
+}
+
+/// Writes a `slint-project.json` into `directory` that compiles `main`
+/// with the edition that `source` selects.
+pub fn write_project_file(
+    directory: &std::path::Path,
+    main: &std::path::Path,
+    source: &str,
+) -> std::io::Result<()> {
+    let contents = serde_json::json!({ "edition": edition_or_current(source), "main": main });
+    std::fs::write(directory.join("slint-project.json"), contents.to_string())
 }
 
 #[test]
