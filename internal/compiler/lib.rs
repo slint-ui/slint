@@ -466,7 +466,7 @@ fn prepare_for_compile(
     }
     if let Some(location) = &compiler_config.edition_location
         && let Some(warning) =
-            compiler_config.edition.and_then(|e| e.behavior_change_warning("slint-edition"))
+            compiler_config.edition.and_then(|e| e.behavior_change_warning("edition"))
     {
         diagnostics.push_warning_with_span(warning, location.clone());
     }

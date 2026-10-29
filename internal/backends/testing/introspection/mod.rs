@@ -1153,7 +1153,7 @@ fn window_adapter_for_test(app: &impl slint::ComponentHandle) -> std::rc::Rc<dyn
 fn test_element_handle_is_interned() {
     crate::init_no_event_loop();
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window { width: 100px; height: 50px; }
     }
     let app = App::new().unwrap();
@@ -1177,7 +1177,7 @@ fn test_query_element_descendants_by_accessible_label() {
 
     crate::init_no_event_loop();
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             VerticalLayout {
                 Text { text: "hello"; }
@@ -1198,7 +1198,7 @@ fn test_query_element_descendants_by_accessible_label() {
 fn test_element_handle_differs_per_element() {
     crate::init_no_event_loop();
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window { width: 100px; height: 50px; }
     }
     let first = App::new().unwrap();
@@ -1218,7 +1218,7 @@ fn test_element_handle_differs_per_element() {
 fn test_element_handle_is_recreated_after_eviction() {
     crate::init_no_event_loop();
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window { width: 100px; height: 50px; }
     }
     let app = App::new().unwrap();
@@ -1316,7 +1316,7 @@ fn mention_window(state: &IntrospectionState, app: &hundred_rectangles::App) -> 
 #[cfg(test)]
 mod hundred_rectangles {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 50px;
@@ -1344,7 +1344,7 @@ fn test_dispatch_find_elements_by_id_stale_window() {
 fn test_held_modifiers_apply_to_pointer_events() {
     crate::init_no_event_loop();
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;
@@ -1653,7 +1653,7 @@ mod dispatch_result_tests {
     fn pointer_pressed_over_touch_area_is_accepted() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1675,7 +1675,7 @@ mod dispatch_result_tests {
     fn pointer_pressed_with_no_handler_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1697,7 +1697,7 @@ mod dispatch_result_tests {
     fn pointer_scrolled_over_flickable_is_accepted() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1728,7 +1728,7 @@ mod dispatch_result_tests {
         // is Accepted even though no child has yet received the event.
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1755,7 +1755,7 @@ mod dispatch_result_tests {
         // Teardown event — Accepted unconditionally even when no item is under the cursor.
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1774,7 +1774,7 @@ mod dispatch_result_tests {
     fn backend_pointer_event_is_recorded_as_public_event() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1806,7 +1806,7 @@ mod dispatch_result_tests {
     fn backend_pointer_exit_is_recorded_as_accepted() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1823,7 +1823,7 @@ mod dispatch_result_tests {
     fn backend_key_event_is_recorded_with_its_result() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1852,7 +1852,7 @@ mod dispatch_result_tests {
         // The public API can't express input method composition, so there is nothing to report.
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1877,7 +1877,7 @@ mod dispatch_result_tests {
         // Touch has no public representation either, but it must still be dispatched.
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1906,7 +1906,7 @@ mod dispatch_result_tests {
     fn pointer_scrolled_over_empty_area_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1929,7 +1929,7 @@ mod dispatch_result_tests {
     fn pointer_moved_over_empty_area_is_rejected() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1948,7 +1948,7 @@ mod dispatch_result_tests {
     fn pointer_moved_while_touch_area_is_pressed_is_accepted() {
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -1975,7 +1975,7 @@ mod dispatch_result_tests {
         // even though it lands outside the item's geometry — Accepted via the grab path.
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 200px;
                 height: 200px;
@@ -2006,7 +2006,7 @@ mod dispatch_result_tests {
         // public PointerReleased dispatch reports Accepted.
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export global Api {
                 pure callback make-data() -> data-transfer;
             }
@@ -2051,7 +2051,7 @@ mod dispatch_result_tests {
         // DragMove); the public PointerReleased reports Rejected.
         crate::init_no_event_loop();
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export global Api {
                 pure callback make-data() -> data-transfer;
             }

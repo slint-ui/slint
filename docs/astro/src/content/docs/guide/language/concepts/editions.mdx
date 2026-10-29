@@ -13,14 +13,14 @@ You can use new features with any edition.
 
 ## Choosing the Edition
 
-Set `slint-edition` in the [project file](../../../tooling/project-file/) to the major and minor version of the Slint release you write your project for.
+Set `edition` in the [project file](../../../tooling/project-file/) to the major and minor version of the Slint release you write your project for.
 Write it as a string, such as `"1.19"`, not as the number `1.19`.
 Use the version of Slint you build with, or an older one.
 If the edition is newer than your version of Slint, Slint refuses to compile your project.
 
 ```json
 {
-    "slint-edition": "1.19"
+    "edition": "1.19"
 }
 ```
 
@@ -30,14 +30,14 @@ Set its edition with an attribute at the start of the macro body, or the macro w
 
 ```rust
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component App inherits Window { }
 }
 ```
 
 :::note
-Without a project file or `#[slint_edition]`, Slint applies none of the behavior changes that depend on the edition.
-To opt in, set `slint-edition` in a project file, or `#[slint_edition]` in the `slint!` macro.
+Without a project file or `#[edition]`, Slint applies none of the behavior changes that depend on the edition.
+To opt in, set `edition` in a project file, or `#[edition]` in the `slint!` macro.
 :::
 
 SlintPad and the previews in this documentation use the edition of their own release.

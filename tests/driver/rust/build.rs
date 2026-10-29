@@ -168,7 +168,7 @@ fn process_case(
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
     } else if live_preview && testcase.is_ignored("live-preview") {
         "#[ignore = \"testcase ignored in live-preview mode\"]"
-    } else if live_preview && test_driver_lib::extract_slint_edition(&source).is_some() {
+    } else if live_preview && test_driver_lib::extract_edition(&source).is_some() {
         "#[ignore = \"live preview takes the edition from SLINT_EDITION, for all test cases\"]"
     } else if live_preview && module_name.contains("write_to_model") {
         "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
@@ -293,8 +293,8 @@ fn generate_macro(
         output.write_all(b"\"#]\n")?;
     }
 
-    if let Some(edition) = test_driver_lib::extract_slint_edition(source) {
-        output.write_all(b"#[slint_edition=\"")?;
+    if let Some(edition) = test_driver_lib::extract_edition(source) {
+        output.write_all(b"#[edition=\"")?;
         output.write_all(edition.as_bytes())?;
         output.write_all(b"\"]\n")?;
     }
@@ -359,7 +359,7 @@ fn compile_and_generate(
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
     compiler_config.edition = Some(
-        test_driver_lib::parse_slint_edition(source)
+        test_driver_lib::parse_edition(source)
             .unwrap()
             .unwrap_or_else(i_slint_compiler::project_file::SlintEdition::current),
     );

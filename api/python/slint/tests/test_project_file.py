@@ -12,7 +12,7 @@ def project_directory(tmp_path: pathlib.Path, settings: dict[str, Any]) -> pathl
     # resolve() so the directory matches the paths the compiler reports back.
     directory = tmp_path.resolve()
     (directory / "slint-project.json").write_text(
-        json.dumps({"slint-edition": "1.19", **settings})
+        json.dumps({"edition": "1.19", **settings})
     )
     return directory
 

@@ -55,7 +55,7 @@ fn main() {
 }
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     struct TileData {
         image: image,
         image_visible: bool,

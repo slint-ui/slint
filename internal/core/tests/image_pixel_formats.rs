@@ -21,7 +21,7 @@ impl slint::platform::Platform for TestPlatform {
 }
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component TestCase inherits Window {
         in property <image> source;
         in property <brush> tint;

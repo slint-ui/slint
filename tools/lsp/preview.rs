@@ -2346,7 +2346,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#,
+            r#"{"edition":"1.19","experimental-features":["component-container"]}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -2359,11 +2359,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"slint-edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#,
+                    r#"{"edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
                 if let Some(contents) = contents {
@@ -2440,8 +2440,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),
