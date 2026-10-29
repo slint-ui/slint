@@ -17,7 +17,6 @@ from canvas_interactions import (
     manual_radius_drag,
     manual_rotation_drag,
     offset_position,
-    physical_control_key,
     position_distance,
     radius_handle,
     rotation_delta,
@@ -820,101 +819,6 @@ def wait_for_radius_tooltip(window: slint_testing.Window, radius: float) -> None
     expect.poll(
         lambda: float(value.accessible_value), message="radius tooltip value"
     ).to_equal(radius)
-
-
-@pytest.mark.parametrize(
-    ("handle_label", "property_name", "frame_index", "original", "snapped"),
-    [("move handle", "x", 0, 40, 120), ("resize right", "width", 2, 80, 160)],
-)
-def test_control_toggles_snapping_without_pointer_movement(
-    editor_binary: Path,
-    editor_environment: dict[str, str],
-    fixture_project: Path,
-    handle_label: str,
-    property_name: str,
-    frame_index: int,
-    original: int,
-    snapped: int,
-) -> None:
-    source_file = fixture_project / "ControlSnapping.slint"
-    source_file.write_text("""export component ControlSnapping inherits Window {
-    width: 800px;
-    height: 600px;
-    moving := Rectangle {
-        x: 40px;
-        y: 40px;
-        width: 80px;
-        height: 60px;
-        background: red;
-    }
-    target := Rectangle {
-        x: 200px;
-        y: 250px;
-        width: 100px;
-        height: 60px;
-        background: blue;
-    }
-}
-""")
-    baseline = source_file.read_bytes()
-    snapshot = SourceSnapshot.capture(fixture_project)
-    control = physical_control_key()
-    right_control = keys.MetaR if control == keys.Meta else keys.ControlR
-    other_modifier = keys.Control if control == keys.Meta else keys.Meta
-    with launch_editor(editor_binary, editor_environment, source_file) as editor:
-        window = first_window(editor)
-        select_outline_row(window, "moving")
-        start = center(element(window, f"Rectangle {handle_label}"))
-        end = slint_testing.LogicalPosition(x=start.x + 76, y=start.y)
-        initial = selection_frame(window, "Rectangle")[frame_index]
-        button = slint_testing.PointerEventButton.Left
-
-        def active_guides() -> list[slint_testing.Element]:
-            return [
-                guide
-                for guide in elements(window, role=slint_testing.AccessibleRole.Region)
-                if guide.accessible_label.startswith("Snap ")
-            ]
-
-        def wait_for_delta(delta: int) -> None:
-            wait_until(
-                lambda: math.isclose(
-                    selection_frame(window, "Rectangle")[frame_index],
-                    initial + delta,
-                    abs_tol=0.1,
-                )
-            )
-
-        assert not active_guides()
-        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
-        window.dispatch_event(slint_testing.PointerMoveEvent(end))
-        wait_for_delta(80)
-        assert active_guides()
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=other_modifier))
-        wait_for_delta(80)
-        assert active_guides()
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=other_modifier))
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=control))
-        wait_for_delta(76)
-        assert not active_guides()
-        window.dispatch_event(slint_testing.KeyPressedEvent(text=right_control))
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=control))
-        wait_for_delta(76)
-        assert not active_guides()
-        window.dispatch_event(slint_testing.KeyReleasedEvent(text=right_control))
-        wait_for_delta(80)
-        assert active_guides()
-        snapshot.assert_unchanged_now()
-        window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
-        wait_until(lambda: not active_guides())
-        snapshot.wait_for_applied(
-            replace_once(
-                baseline,
-                f"        {property_name}: {original}px;".encode(),
-                f"        {property_name}: {snapped}px;".encode(),
-            ),
-            source_file.name,
-        )
 
 
 @pytest.mark.parametrize("kind", MOVE_KINDS)

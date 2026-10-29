@@ -1731,7 +1731,7 @@ fn override_selected_element_geometry_impl(
                     CoreLogicalSize::new(rect.width().round(), rect.height().round()),
                 )
             };
-            (round_geometry(new_rect), round_geometry(geometry.local_rect))
+            (round_geometry(new_rect), geometry.local_rect)
         }
         ui::CoordinateSpace::Parent => (rect, geometry.local_rect),
     };

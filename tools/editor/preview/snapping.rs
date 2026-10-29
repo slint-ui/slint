@@ -567,3 +567,188 @@ fn target_guide(
         .into(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::preview::{PREVIEW_STATE, element_selection::ElementSelection};
+
+    const SOURCE: &str = r#"
+component Tile inherits Rectangle {}
+export component Main inherits Window {
+    width: 600px;
+    height: 400px;
+    container := Rectangle {
+        x: 40px; y: 50px; width: 300px; height: 200px;
+        selected := Rectangle {
+            x: 20px; y: 30px; width: 40px; height: 30px;
+            descendant := Rectangle { x: 2px; y: 3px; width: 4px; height: 5px; }
+        }
+        sibling := Rectangle { x: 90px; y: 60px; width: 50px; height: 20px; }
+        for index in 2: repeated := Rectangle {
+            x: 10px + index * 60px; y: 120px; width: 30px; height: 20px;
+        }
+        tile := Tile { x: 180px; y: 80px; width: 40px; height: 30px; }
+        other_tile := Tile { x: 240px; y: 30px; width: 20px; height: 40px; }
+    }
+    unrelated := Rectangle { x: 400px; y: 20px; width: 50px; height: 60px; }
+}
+"#;
+
+    fn offset(id: &str) -> u32 {
+        let declaration = SOURCE.find(&format!("{id} := ")).expect("element declaration");
+        (declaration + format!("{id} := ").len()) as u32
+    }
+
+    fn install_selection(id: &str, instance_index: usize) -> slint_interpreter::ComponentInstance {
+        let instance = crate::preview::test::interpret_test("fluent", SOURCE);
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state = Default::default();
+            state.handle.replace(Some(instance.clone_strong()));
+            state.selected = Some(ElementSelection {
+                path: i_slint_editor_preview::test::main_test_file_name(),
+                offset: offset(id).into(),
+                instance_index,
+                editing_text: false,
+            });
+        });
+        instance
+    }
+
+    fn assert_rectangle(targets: &[&SnapTarget], origin: (f32, f32), size: (f32, f32)) {
+        assert_eq!(targets.len(), 6, "{targets:?}");
+        for (axis, position, extent, features) in [
+            (
+                SnapAxis::X,
+                origin.0,
+                origin.1..=origin.1 + size.1,
+                vec![SnapFeature::TopLeft, SnapFeature::BottomLeft],
+            ),
+            (
+                SnapAxis::X,
+                origin.0 + size.0,
+                origin.1..=origin.1 + size.1,
+                vec![SnapFeature::TopRight, SnapFeature::BottomRight],
+            ),
+            (
+                SnapAxis::Y,
+                origin.1,
+                origin.0..=origin.0 + size.0,
+                vec![SnapFeature::TopLeft, SnapFeature::TopRight],
+            ),
+            (
+                SnapAxis::Y,
+                origin.1 + size.1,
+                origin.0..=origin.0 + size.0,
+                vec![SnapFeature::BottomRight, SnapFeature::BottomLeft],
+            ),
+            (
+                SnapAxis::X,
+                origin.0 + size.0 / 2.,
+                origin.1 + size.1 / 2. - 1. ..=origin.1 + size.1 / 2. + 1.,
+                vec![SnapFeature::Center],
+            ),
+            (
+                SnapAxis::Y,
+                origin.1 + size.1 / 2.,
+                origin.0 + size.0 / 2. - 1. ..=origin.0 + size.0 / 2. + 1.,
+                vec![SnapFeature::Center],
+            ),
+        ] {
+            let target = targets
+                .iter()
+                .find(|target| target.axis == axis && target.position == position)
+                .expect("rectangle target");
+            assert_eq!(target.extent, extent);
+            assert_eq!(target.features, features);
+        }
+    }
+
+    #[test]
+    fn targets_include_only_parent_and_siblings() {
+        let _instance = install_selection("selected", 0);
+        let targets = selected_targets().expect("selected targets");
+        assert_eq!(targets.targets.len(), 36);
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        assert!(targets.targets.iter().all(|target| target.path == path));
+        for (id, origin, size) in
+            [("container", (0., 0.), (300., 200.)), ("sibling", (90., 60.), (50., 20.))]
+        {
+            let rectangle = targets
+                .targets
+                .iter()
+                .filter(|target| target.offset == offset(id))
+                .collect::<Vec<_>>();
+            assert_rectangle(&rectangle, origin, size);
+        }
+        for id in ["selected", "descendant", "unrelated"] {
+            assert!(targets.targets.iter().all(|target| target.offset != offset(id)), "{id}");
+        }
+        assert_eq!(
+            targets.parent_to_root.transform_point(LogicalPoint::zero().cast()).cast::<f32>(),
+            LogicalPoint::new(40., 50.)
+        );
+    }
+
+    #[test]
+    fn repeated_targets_have_live_coordinates_and_exclude_all_selected_occurrences() {
+        let _instance = install_selection("selected", 0);
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        let targets = collect_targets(&path, offset("selected"), 0).expect("targets");
+        for instance_index in 0..2 {
+            let rectangle = targets
+                .targets
+                .iter()
+                .filter(|target| {
+                    target.offset == offset("repeated") && target.instance_index == instance_index
+                })
+                .collect::<Vec<_>>();
+            assert_rectangle(&rectangle, (10. + instance_index as f32 * 60., 120.), (30., 20.));
+            let selected = collect_targets(&path, offset("repeated"), instance_index)
+                .expect("repeated selection targets");
+            assert!(selected.targets.iter().all(|target| target.offset != offset("repeated")));
+            assert_eq!(selected.targets.len(), 30);
+        }
+    }
+
+    #[test]
+    fn component_source_and_use_site_share_one_runtime_target() {
+        let instance = install_selection("selected", 0);
+        let path = i_slint_editor_preview::test::main_test_file_name();
+        let definition_offset = SOURCE.find("Rectangle {}").unwrap() as u32;
+        let geometries = instance.component_positions(&path, definition_offset);
+        assert_eq!(geometries.len(), 2);
+        let targets = selected_targets().expect("targets");
+        for (instance_index, id, origin, size) in
+            [(0, "tile", (180., 80.), (40., 30.)), (1, "other_tile", (240., 30.), (20., 40.))]
+        {
+            assert_eq!(
+                geometries[instance_index].local_rect.origin,
+                LogicalPoint::new(origin.0, origin.1)
+            );
+            assert_eq!(instance.component_positions(&path, offset(id)).len(), 1);
+            let rectangle = targets
+                .targets
+                .iter()
+                .filter(|target| {
+                    target.offset == offset(id)
+                        || target.offset == definition_offset
+                            && target.instance_index == instance_index
+                })
+                .collect::<Vec<_>>();
+            assert_rectangle(&rectangle, origin, size);
+            let selected =
+                collect_targets(&path, offset(id), 0).expect("use site selection targets");
+            assert!(selected.targets.iter().all(|target| target.offset != offset(id)
+                && !(target.offset == definition_offset
+                    && target.instance_index == instance_index)));
+            assert_eq!(selected.targets.len(), 36);
+            let selected = collect_targets(&path, definition_offset, instance_index)
+                .expect("component source selection targets");
+            assert!(selected.targets.iter().all(|target| {
+                ![definition_offset, offset("tile"), offset("other_tile")].contains(&target.offset)
+            }));
+            assert_eq!(selected.targets.len(), 30);
+        }
+    }
+}
