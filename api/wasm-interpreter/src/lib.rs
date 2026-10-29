@@ -115,7 +115,6 @@ pub async fn compile_from_string_with_style(
         None => SlintEdition::current(),
         Some(Ok(edition)) => edition,
         Some(Err(message)) => {
-            let message = format!("edition: {message}");
             let error =
                 diagnostic_object(&message, (0, 0), "", slint_interpreter::DiagnosticLevel::Error)?;
             return Ok(CompilationResult {

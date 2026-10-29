@@ -932,6 +932,16 @@ impl Compiler {
         self.overrides.style.as_ref().or(self.config.style.as_ref())
     }
 
+    #[i_slint_core_macros::slint_doc]
+    /// Selects the [edition](slint:Editions) whose language behavior to use,
+    /// as its major and minor version, such as `(1, 19)`.
+    ///
+    /// This wins over the edition of the project file.
+    /// If the edition is newer than this version of Slint, compilation fails.
+    pub fn set_edition(&mut self, edition: (u32, u32)) {
+        self.overrides.project.edition = Some(edition.into());
+    }
+
     /// The domain used for translations
     pub fn set_translation_domain(&mut self, domain: String) {
         self.config.translation_domain = Some(domain);
@@ -3038,6 +3048,33 @@ mod project_file_tests {
                 assert_eq!(diagnostics[0].source_file(), Some(source.as_path()));
                 assert_eq!(diagnostics[0].line_column(), (0, 0));
             }
+        });
+    }
+
+    /// Edition 1.19 reports the inner binding loop as an error, 1.18 only warns.
+    const EDITION_DEPENDENT_BODY: &str = "export component Main inherits Window {
+        HorizontalLayout { Rectangle { VerticalLayout { Rectangle { width: parent.width; } } } }
+    }";
+
+    #[test]
+    fn set_edition_wins_over_the_project_file() {
+        with_project(r#"{"edition":"1.18","main":"main.slint"}"#, |root| {
+            std::fs::write(root.join("main.slint"), EDITION_DEPENDENT_BODY).unwrap();
+            let build = |edition: Option<(u32, u32)>| {
+                let mut compiler = Compiler::default();
+                if let Some(edition) = edition {
+                    compiler.set_edition(edition);
+                }
+                spin_on::spin_on(compiler.build_from_path(root))
+            };
+            assert!(!build(None).has_errors());
+            assert!(build(Some((1, 19))).has_errors());
+            let newer = build(Some((999, 0)));
+            let messages = newer.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+            assert!(
+                messages.iter().any(|m| m.starts_with("The edition 999.0 is newer than Slint")),
+                "{messages:?}"
+            );
         });
     }
 

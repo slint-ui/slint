@@ -74,6 +74,9 @@
     "enum": {
         "href": "reference/property-types/builtin-enums/"
     },
+    "Editions": {
+        "href": "guide/language/concepts/editions/"
+    },
     "EventResult": {
         "href": "reference/property-types/builtin-enums/#eventresult"
     },

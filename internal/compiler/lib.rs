@@ -464,6 +464,9 @@ fn prepare_for_compile(
     if let Some(message) = &compiler_config.invalid_edition_env {
         diagnostics.push_error_with_span(message.clone(), Default::default());
     }
+    if let Some(Err(message)) = compiler_config.edition.map(project_file::SlintEdition::supported) {
+        diagnostics.push_error_with_span(message, Default::default());
+    }
     if let Some(location) = &compiler_config.edition_location
         && let Some(warning) =
             compiler_config.edition.and_then(|e| e.behavior_change_warning("edition"))
