@@ -3662,8 +3662,6 @@ pub fn visit_element_expressions(
     visit_element_expressions_excluding_repeater_model(elem, &mut vis);
 }
 
-/// Like [`visit_element_expressions`], with the location of the innermost source construct
-/// around each sub-expression, else `fallback`.
 /// Two-way bindings, and the properties that states and transitions change, come as a
 /// `PropertyReference`.
 pub fn visit_element_expressions_with_location(
@@ -3695,7 +3693,7 @@ pub fn visit_element_expressions_with_location(
             Expression::Condition { condition, true_expr, false_expr, source_location } => {
                 vis(expr, location);
                 let (condition_location, true_location) = match source_location {
-                    Some(ConditionLocation::StateSelection { when, .. }) => (when, location),
+                    Some(ConditionLocation::StateSelection { name, .. }) => (name, location),
                     Some(ConditionLocation::StateChange(change)) => (location, change),
                     _ => (location, location),
                 };
@@ -3759,7 +3757,7 @@ pub fn visit_element_expressions_with_location(
     for state in &elem.states {
         if let Some(condition) = &state.condition {
             let location = match &state.selection {
-                Some(ConditionLocation::StateSelection { when, .. }) => when,
+                Some(ConditionLocation::StateSelection { name, .. }) => name,
                 _ => fallback,
             };
             visit(condition, location, vis);
