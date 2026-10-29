@@ -709,6 +709,7 @@ toucharea
 toupper
 trunc
 tungstenite
+Twemoji
 typedoc
 typeregister
 Tzimabazafi
