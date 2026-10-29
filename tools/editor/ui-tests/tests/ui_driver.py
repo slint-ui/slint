@@ -36,8 +36,28 @@ def screenshot(window: slint_testing.Window, *, settle: bool = True) -> Image.Im
 
 
 WIDGET_KINDS = ("Button", "CheckBox")
-PRIMITIVE_KINDS = ("Image", "Rectangle", "StyledText", "Text", "TouchArea")
-PALETTE_KINDS = (*PRIMITIVE_KINDS, *WIDGET_KINDS)
+PRIMITIVE_GROUPS = {
+    "Visual": ("Image", "Rectangle", "StyledText", "Text"),
+    "Input & interaction": (
+        "DragArea",
+        "DropArea",
+        "Flickable",
+        "FocusScope",
+        "ScaleRotateGestureHandler",
+        "SwipeGestureHandler",
+        "TextInput",
+        "TouchArea",
+        "WindowMoveArea",
+    ),
+    "Layouts": (
+        "FlexboxLayout",
+        "GridLayout",
+        "HorizontalLayout",
+        "VerticalLayout",
+    ),
+}
+PRIMITIVE_KINDS = tuple(kind for group in PRIMITIVE_GROUPS.values() for kind in group)
+PALETTE_KINDS = ("Image", "Rectangle", "StyledText", "Text", "TouchArea", *WIDGET_KINDS)
 
 
 def press_key(window: slint_testing.Window, key: str) -> None:

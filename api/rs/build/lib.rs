@@ -117,7 +117,7 @@ impl CompilerConfiguration {
     /// Create a new configuration that includes sets the include paths used for looking up
     /// `.slint` imports to the specified vector of paths.
     ///
-    /// This wins over the include paths of the project file.
+    /// These paths come before the include paths of the project file.
     #[must_use]
     pub fn with_include_paths(mut self, include_paths: Vec<std::path::PathBuf>) -> Self {
         self.overrides.project.include_paths = Some(include_paths);
@@ -151,7 +151,8 @@ impl CompilerConfiguration {
     /// import { Example } from "@example";
     /// ```
     ///
-    /// This wins over the library paths of the project file.
+    /// A library here replaces the project file's library of the same name.
+    /// The project file's other libraries stay available.
     #[must_use]
     pub fn with_library_paths(
         mut self,
@@ -751,7 +752,7 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
 }
 
 #[test]
-fn project_file_defaults_are_overridden_by_explicit_settings() {
+fn explicit_settings_add_to_the_project_file_paths() {
     use std::{collections::HashMap, fs, path::PathBuf};
 
     with_temp_test_dir("override-precedence", |test_root| {
@@ -762,7 +763,7 @@ fn project_file_defaults_are_overridden_by_explicit_settings() {
                 "slint-edition": "1.19",
                 "main": "main.slint",
                 "include-paths": ["project-include"],
-                "library-paths": {"widgets": "project-lib.slint"}
+                "library-paths": {"widgets": "project-lib.slint", "icons": "icons.slint"}
             }"#,
         )
         .unwrap();
@@ -779,10 +780,16 @@ fn project_file_defaults_are_overridden_by_explicit_settings() {
             .resolve_project_file(&test_root)
             .unwrap();
 
-        assert_eq!(config.include_paths, vec![test_root.join("build-include")]);
+        assert_eq!(
+            config.include_paths,
+            vec![test_root.join("build-include"), test_root.join("project-include")]
+        );
         assert_eq!(
             config.library_paths,
-            HashMap::from([("widgets".to_string(), test_root.join("build-lib.slint"))])
+            HashMap::from([
+                ("widgets".to_string(), test_root.join("build-lib.slint")),
+                ("icons".to_string(), test_root.join("icons.slint")),
+            ])
         );
         assert_eq!(config.style.as_deref(), Some("build-style"));
     });
@@ -807,8 +814,9 @@ fn explicit_build_settings_preserve_empty_values_and_false() {
             .with_default_translation_context(DefaultTranslationContext::None)
             .with_debug_info(false)
             .resolve(Some(&project));
-        assert!(config.include_paths.is_empty());
-        assert!(config.library_paths.is_empty());
+        let project_data = project.resolved_data();
+        assert_eq!(Some(config.include_paths), project_data.include_paths);
+        assert_eq!(Some(config.library_paths), project_data.library_paths);
         assert_eq!(config.style.as_deref(), Some(""));
         assert_eq!(config.const_scale_factor, Some(0.));
         assert_eq!(config.bundled_translations_path, Some(PathBuf::new()));
