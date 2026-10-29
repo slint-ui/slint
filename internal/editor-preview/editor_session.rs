@@ -880,8 +880,12 @@ impl EditorSession {
                 preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 continue;
             };
-            let file_access = file_access
-                .get_or_init(|| crate::preview_files::PreviewFileAccess::new(&self.document_cache));
+            let file_access = file_access.get_or_init(|| {
+                crate::preview_files::PreviewFileAccess::new(
+                    &self.document_cache,
+                    &self.document_roots(),
+                )
+            });
             if !file_access.allows(&path) {
                 tracing::warn!(
                     "Refusing to send {} to the preview: not a file of the project being previewed",
