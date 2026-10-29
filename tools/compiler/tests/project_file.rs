@@ -316,3 +316,50 @@ fn the_slint_edition_variable_does_not_warn() {
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
 }
+
+#[cfg(feature = "python")]
+#[test]
+fn generated_python_passes_include_and_library_paths_to_the_run_time_compiler() {
+    let project = Project::new(None);
+    project.write("include/shared.slint", "export component Shared { }");
+    project.write("widgets.slint", "export component Widget { }");
+    let main = project.write(
+        "ui/main.slint",
+        r#"import { Shared } from "shared.slint";
+           import { Widget } from "@widgets";
+           export component Main inherits Window { Shared { } Widget { } }"#,
+    );
+    let generated = project.write("generated/app_window.py", "");
+    let parent = Path::new("..");
+    let include_path = parent.join("include");
+    let library_path = parent.join("widgets.slint");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
+        .current_dir(&project.root)
+        .args(["-f", "python", "-I"])
+        .arg(&include_path)
+        .arg("-I")
+        .arg(project.root.join("include"))
+        .args(["-L", "widgets=widgets.slint", "-o"])
+        .arg(&generated)
+        .arg(&main)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", stderr(&output));
+
+    let code = std::fs::read_to_string(&generated).unwrap();
+    let expected = [
+        format!(
+            "include_paths=[r'{}', os.path.join(os.path.dirname(__file__), r'{}')]",
+            include_path.display(),
+            include_path.display()
+        ),
+        format!(
+            "library_paths={{r'widgets': os.path.join(os.path.dirname(__file__), r'{}')}}",
+            library_path.display()
+        ),
+    ];
+    for expected in expected {
+        assert!(code.contains(&expected), "{expected} not in {code}");
+    }
+}
