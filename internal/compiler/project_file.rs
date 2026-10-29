@@ -1210,7 +1210,7 @@ mod tests {
     }
 
     #[test]
-    fn the_project_file_edition_wins_over_slint_edition() {
+    fn the_project_file_edition_wins_over_the_configuration() {
         with_project_file_contents(r#"{ "edition": "1.19" }"#, |path| {
             let mut config = crate::CompilerConfiguration::new(OutputFormat::Llr);
             config.edition = Some(SlintEdition { major: 1, minor: 10 });

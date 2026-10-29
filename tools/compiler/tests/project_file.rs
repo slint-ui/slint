@@ -171,27 +171,6 @@ fn compiling_without_a_project_file_works() {
 }
 
 #[test]
-fn an_invalid_slint_edition_variable_is_reported() {
-    let project = Project::new(None);
-    let main = project.write("main.slint", PLAIN);
-    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
-        .env("SLINT_EDITION", "999.0")
-        .arg("-f")
-        .arg("cpp")
-        .arg("-o")
-        .arg(project.root.join("generated.h"))
-        .arg(&main)
-        .output()
-        .unwrap();
-    assert!(!output.status.success(), "{}", stderr(&output));
-    assert!(
-        stderr(&output).contains("SLINT_EDITION is 999.0, newer than this Slint"),
-        "{}",
-        stderr(&output)
-    );
-}
-
-#[test]
 fn a_project_directory_compiles_its_main_file() {
     let project = Project::new(Some(
         r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["include"] }"#,
@@ -330,18 +309,10 @@ fn an_invalid_edition_option_is_rejected() {
 }
 
 #[test]
-fn the_slint_edition_variable_does_not_warn() {
+fn an_old_edition_option_does_not_warn() {
     let project = Project::new(None);
     let main = project.write("main.slint", PLAIN);
-    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
-        .env("SLINT_EDITION", "1.18")
-        .arg("-f")
-        .arg("cpp")
-        .arg("-o")
-        .arg(project.root.join("generated.h"))
-        .arg(&main)
-        .output()
-        .unwrap();
+    let output = project.compile(&main, &["--edition", "1.18"]);
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
 }
