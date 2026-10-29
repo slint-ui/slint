@@ -30,8 +30,10 @@ use i_slint_live_preview::{REBUILD_DEBOUNCE, SLINT_VERSION};
 use lsp_types::Url;
 use tokio::sync::mpsc as tokio_mpsc;
 
-/// How long a device may take to answer the handshake, and to show a design.
-const READY_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a device may take to answer the handshake: the viewer firmware answers between
+/// two frames, so a port that stays silent longer doesn't run it.
+const READY_TIMEOUT: Duration = Duration::from_secs(1);
+/// How long a device may take to show a design.
 const LOAD_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long a write may wait for the device to read, which it does between its other work.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -620,7 +622,7 @@ fn handshake(
                 }
                 if protocol != PROTOCOL_VERSION {
                     return Err(format!(
-                        "The device speaks protocol {protocol}, not {PROTOCOL_VERSION}: flash the firmware built from these Slint sources"
+                        "The device speaks protocol {protocol}, not {PROTOCOL_VERSION}: flash the viewer firmware of this exact Slint version"
                     ));
                 }
                 log(format!("Connected to {board}"));
@@ -636,7 +638,7 @@ fn handshake(
             Ok(Input::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(None),
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 return Err(
-                    "The device didn't answer: is it running the Slint viewer firmware built from these Slint sources?".into()
+                    "The device didn't answer: does it run the viewer firmware of this exact Slint version?".into()
                 );
             }
         }
