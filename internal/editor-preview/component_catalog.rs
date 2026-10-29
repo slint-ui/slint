@@ -116,7 +116,8 @@ impl TypeInformation {
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str) -> ComponentInformation {
-    let is_layout = matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout");
+    let is_layout =
+        matches!(name, "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout");
     let is_interactive =
         matches!(name, "Flickable" | "FocusScope" | "SwipeGestureHandler" | "TouchArea");
 

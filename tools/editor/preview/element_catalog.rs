@@ -211,12 +211,104 @@ mod tests {
 
     #[test]
     fn fallback_kinds_cannot_create_palette_drops() {
-        for name in ["", "Window", "CustomComponent"] {
+        for name in [
+            "",
+            "Timer",
+            "KeyBinding",
+            "Path",
+            "MoveTo",
+            "Row",
+            "PopupWindow",
+            "Tooltip",
+            "ContextMenuArea",
+            "MenuBar",
+            "Menu",
+            "MenuItem",
+            "MenuSeparator",
+            "SystemTrayIcon",
+            "Window",
+            "Dialog",
+            "CustomComponent",
+        ] {
             assert_eq!(kind_for_type(name), ElementKind::Component);
             assert!(entry(name).is_none());
             assert!(
                 DragItem::try_from(new_component_data(name.into(), Default::default())).is_err()
             );
         }
+    }
+
+    #[test]
+    fn primitives_resolve_and_insert_with_canvas_geometry() {
+        use crate::preview::drop_location;
+        use i_slint_editor_preview::{
+            component_catalog::builtin_components,
+            editing::{PropertyChange, text_edit},
+            test,
+        };
+
+        i_slint_backend_testing::init_no_event_loop();
+        let source = "export component Main inherits Window { target := Rectangle { } }";
+        let url = test::main_test_file_name().to_url().unwrap();
+        let document_cache = test::recompile_test_with_sources(
+            "fluent",
+            std::collections::HashMap::from([(url.clone(), source.into())]),
+            true,
+            i_slint_compiler::ExperimentalFeatures::all(),
+        );
+        let mut components = Vec::new();
+        builtin_components(&document_cache, &mut components);
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.known_components = components;
+            state.source_code.insert(
+                url.clone(),
+                crate::preview::SourceCodeCacheEntry { version: Some(1), code: source.into() },
+            );
+        });
+        let target = document_cache
+            .element_at_offset(&url, (source.find("Rectangle").unwrap() as u32).into())
+            .unwrap();
+        let drop = drop_location::DropInformation {
+            insert_info: drop_location::insert_position_at_end(&target).unwrap(),
+            target_element_node: target,
+            drop_mark: None,
+            child_index: 0,
+        };
+        for entry in PRIMITIVES {
+            let component =
+                crate::preview::palette_component(entry.type_name, "").unwrap_or_else(|| {
+                    panic!("{} must resolve in the built-in catalog", entry.type_name)
+                });
+            let mut properties = vec![
+                PropertyChange::new("x", "20px".into()),
+                PropertyChange::new("y", "24px".into()),
+                PropertyChange::new("width", "160px".into()),
+                PropertyChange::new("height", "96px".into()),
+            ];
+            drop_location::extend_with_new_properties(
+                &mut properties,
+                &component.default_properties,
+                drop_location::visual_properties_for_drop(&component),
+            );
+            let (edit, _) = drop_location::create_drop_element_workspace_edit_with_properties(
+                &document_cache,
+                &component,
+                &drop,
+                &properties,
+            )
+            .unwrap();
+            let edited = text_edit::apply_workspace_edit(&document_cache, &edit).unwrap();
+            assert_eq!(
+                drop_location::workspace_edit_compiles(&document_cache, &edit),
+                crate::preview::CompilationResult::ChangeCompiles,
+                "{}: {}",
+                entry.type_name,
+                edited[0].contents
+            );
+        }
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.source_code.clear();
+            state.known_components.clear();
+        });
     }
 }
