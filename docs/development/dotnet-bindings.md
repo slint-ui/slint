@@ -592,7 +592,11 @@ Next:
     `--platforms` picks the projects, for a machine without the Android or iOS workload.
     Each template has `--no-restore`, and an `ide.host.json` that shows its options in Visual Studio.
     All three projects run: on the desktop, on the Pixel 9 emulator, and in the iOS simulator.
-  - Phase 4: packing and publishing, and a CI job that creates and builds each template.
+  - Phase 4, in progress: `pack` of the publish workflow packs the templates with the README of the other packages, and `publish` pushes them.
+    The package tests create an app from each template and build it with the packages:
+    `slint` also publishes with Native AOT on each desktop runner, and `slint-ios` starts in a simulator.
+    The .NET job of CI only instantiates each template, since it has no packages to build them with.
+    Next: a dry run of the publish workflow.
   - Phase 5: the README's Quick Start with the templates, the documentation page, and the article.
   - Later: a test project, which needs the testing backend in the packaged library.
 

@@ -1,8 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Builds the Slint and Slint.Compiler NuGet packages with the native binaries of every platform,
-# checks that a project can build and run with them, and optionally publishes them to nuget.org.
+# Builds the Slint and Slint.Compiler NuGet packages with the native binaries of every platform, and the templates package,
+# checks that projects, and apps from the templates, can build and run with them, and optionally publishes them to nuget.org.
 
 name: Build and publish the NuGet packages
 
@@ -166,6 +166,7 @@ jobs:
                   fi
                   dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
                   dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native" -p:SlintAndroid=true -p:SlintIOSFramework="$GITHUB_WORKSPACE/artifacts/ios/slint_dotnet.xcframework"
+                  dotnet pack Templates -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}"
             - uses: actions/upload-artifact@v7
               with:
                   name: nuget-packages
@@ -211,6 +212,21 @@ jobs:
                   # An explicit Main, since Windows needs [STAThread], like the README says.
                   printf 'static class Program\n{\n    [System.STAThread]\n    static int Main()\n    {\n        using var a = app.App.Create();\n        a.Counter++;\n        if (a.Counter != 42) return 1;\n        System.Console.WriteLine("ok");\n        return 0;\n    }\n}\n' > Program.cs
                   dotnet run
+            - name: Build apps from the templates with the packages
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  dotnet new install "packages/$SLINT_PACKAGE_ID.Templates.$version.nupkg"
+                  mkdir templates && cd templates
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet new slint -o Desktop --no-restore
+                  dotnet build Desktop
+                  dotnet publish Desktop -c Release --use-current-runtime
+                  dotnet new slint-xplat -o XPlat --platforms desktop --no-restore
+                  dotnet build XPlat/XPlat.slnx
 
     test_android_package:
         needs: pack
@@ -268,6 +284,24 @@ jobs:
                       grep -q "$file" <<<"$contents" || { echo "::error::$file is missing from $apk"; exit 1; }
                   done
                   echo ok
+            - name: Build apps from the templates with the packages
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  dotnet new install "packages/$SLINT_PACKAGE_ID.Templates.$version.nupkg"
+                  mkdir templates && cd templates
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet new slint-android -o Android --no-restore
+                  dotnet build Android
+                  contents=$(unzip -l "$(find Android/bin -name '*-Signed.apk' | head -1)")
+                  for file in lib/arm64-v8a/libslint_dotnet.so lib/x86_64/libslint_dotnet.so assets/slint/ui/app-window.slint; do
+                      grep -q "$file" <<<"$contents" || { echo "::error::$file is missing from the APK of slint-android"; exit 1; }
+                  done
+                  dotnet new slint-xplat -o XPlat --platforms android --no-restore
+                  dotnet build XPlat/XPlat.slnx
 
     test_ios_package:
         needs: pack
@@ -327,6 +361,21 @@ jobs:
                       [ -e "$bundle/$file" ] || { echo "::error::$file is missing from $bundle"; exit 1; }
                   done
                   "$GITHUB_WORKSPACE/scripts/dotnet_ios_smoke_test.sh" "$bundle" dev.slint.dotnet.packagetest 30
+            - name: Build apps from the templates with the packages and start one in a simulator
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  dotnet new install "packages/$SLINT_PACKAGE_ID.Templates.$version.nupkg"
+                  mkdir templates && cd templates
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet new slint-ios -o IOSApp --app-id dev.slint.dotnet.templatetest --no-restore
+                  dotnet build IOSApp -r iossimulator-arm64
+                  "$GITHUB_WORKSPACE/scripts/dotnet_ios_smoke_test.sh" IOSApp/bin/Debug/net10.0-ios/iossimulator-arm64/IOSApp.app dev.slint.dotnet.templatetest 30
+                  dotnet new slint-xplat -o XPlat --platforms ios --no-restore
+                  dotnet build XPlat/XPlat.slnx
 
     publish:
         needs: [test_packages, test_android_package, test_ios_package]

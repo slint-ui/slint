@@ -11,6 +11,7 @@
     <PackageType>Template</PackageType>
     <Description>$(SlintDescriptionPrefix)Templates that create Slint apps with C#: dotnet new slint -o MyApp.</Description>
     <PackageTags>$(PackageTags);dotnet-new;templates</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <IncludeSymbols>false</IncludeSymbols>
     <EnableDefaultItems>false</EnableDefaultItems>
@@ -23,6 +24,7 @@
   <ItemGroup>
     <_SlintTemplateJson Include="content/*/.template.config/template.json" />
     <Content Include="content/**/*" Exclude="@(_SlintTemplateJson);content/**/bin/**;content/**/obj/**" Pack="true" PackagePath="content/" />
+    <None Include="../README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <Target Name="_SlintTemplateJson" BeforeTargets="_GetPackageFiles">

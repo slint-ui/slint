@@ -51,5 +51,25 @@ jobs:
               run: dotnet format examples/dotnet.slnx --verify-no-changes
             - name: Start the examples
               run: dotnet run examples/dotnet-smoke-test.cs -- examples/dotnet.slnx
+            # The publish workflow builds apps from the templates, since they need the packages; this checks that each one instantiates.
+            - name: Check the dotnet new templates
+              if: runner.os == 'Linux'
+              shell: bash
+              run: |
+                  dotnet pack api/dotnet/Templates -o "$RUNNER_TEMP/templates" -p:Version=0.0.0-ci
+                  dotnet new install "$RUNNER_TEMP/templates/Slint.Templates.0.0.0-ci.nupkg"
+                  cd "$RUNNER_TEMP"
+                  dotnet new slint -o Desktop --no-restore
+                  dotnet new slint-android -o Android --no-restore
+                  dotnet new slint-ios -o IOSApp --no-restore
+                  dotnet new slint-xplat -o XPlat --no-restore
+                  dotnet new slint-xplat -o Two --platforms desktop --platforms android --style fluent --app-id com.example.two --no-restore
+                  if grep -rnE 'SLINT_[A-Z_]+|@Slint[A-Za-z]+@' Desktop Android IOSApp XPlat Two; then
+                      echo "::error::A template left a placeholder in the app"
+                      exit 1
+                  fi
+                  [ ! -e Two/Two.iOS ] && ! grep -q iOS Two/Two.slnx || { echo "::error::slint-xplat created the iOS project without --platforms ios"; exit 1; }
+                  grep -q '<SlintStyle>fluent</SlintStyle>' Two/Directory.Build.props || { echo "::error::slint-xplat ignored --style"; exit 1; }
+                  grep -q '<ApplicationId>com.example.two</ApplicationId>' Two/Two.Android/Two.Android.csproj || { echo "::error::slint-xplat ignored --app-id"; exit 1; }
             - name: Run the .NET test driver
               run: cargo test --manifest-path tests/Cargo.toml -p test-driver-dotnet
