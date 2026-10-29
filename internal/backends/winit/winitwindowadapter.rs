@@ -1238,6 +1238,18 @@ impl WinitWindowAdapter {
         // that we only update the internal maximized state when the window is
         // not minimized. Otherwise, the window would be restored in a
         // non-maximized state even if it was maximized before being minimized.
+        //
+        // On macOS, winit's `is_maximized` temporarily makes a window titled and resizable.
+        // AppKit then moves the window below the menu bar and emits another resize
+        // (rust-windowing/winit#4071).
+        // The user can't zoom a window that lacks either, so the last requested state is accurate.
+        #[cfg(target_os = "macos")]
+        let maximized = if winit_window.is_decorated() && winit_window.is_resizable() {
+            winit_window.is_maximized()
+        } else {
+            self.maximized.get()
+        };
+        #[cfg(not(target_os = "macos"))]
         let maximized = winit_window.is_maximized();
         if !self.window().is_minimized() {
             self.maximized.set(maximized);
