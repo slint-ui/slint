@@ -4,7 +4,7 @@
 //! Snapshots of what the connection to a remote viewer carries, kept in `snapshots.txt`.
 //!
 //! All patch releases of a minor version connect to each other, see [`super::PROTOCOL_SUBPROTOCOL`].
-//! So a changed snapshot needs a new protocol version.
+//! So changed snapshot bytes need a new protocol version.
 //! Run the test with `SLINT_PROTOCOL_SNAPSHOT_UPDATE=1` to rewrite the snapshots.
 
 use std::{collections::BTreeMap, fmt::Debug, path::PathBuf};
@@ -113,8 +113,6 @@ fn wire_format_matches_snapshots() {
         "SHA-256 of a code and a token exchange",
         &sha2::Sha256::digest([code_exchange, token_exchange].concat()),
     );
-
-    snapshots.finish();
 }
 
 fn run_exchange(viewer: Handshake, editor: Handshake) -> (Vec<u8>, Token) {
@@ -203,10 +201,7 @@ impl Snapshots {
         assert!(self.taken.insert(name.into(), hex.clone()).is_none(), "two snapshots of {name}");
         match self.stored.get(name) {
             _ if self.update => bytes.to_vec(),
-            None => {
-                self.problems.push(format!("{name}\n    has no snapshot"));
-                bytes.to_vec()
-            }
+            None => bytes.to_vec(),
             Some(stored) => {
                 if *stored != hex {
                     self.problems.push(format!("{name}\n    was {stored}\n    is  {hex}"));
@@ -218,21 +213,44 @@ impl Snapshots {
             }
         }
     }
+}
 
-    fn finish(mut self) {
+impl Drop for Snapshots {
+    fn drop(&mut self) {
+        // Don't report secondary failures or write partial snapshots while unwinding.
+        if std::thread::panicking() {
+            return;
+        }
         if self.update {
             let file: String =
                 self.taken.iter().map(|(name, hex)| format!("{name}\n{hex}\n\n")).collect();
             std::fs::write(SNAPSHOTS, file).unwrap();
         } else {
-            for name in self.stored.keys().filter(|name| !self.taken.contains_key(*name)) {
+            let mut unchecked: BTreeMap<_, _> =
+                self.stored.iter().filter(|(name, _)| !self.taken.contains_key(*name)).collect();
+            for (name, hex) in
+                self.taken.iter().filter(|(name, _)| !self.stored.contains_key(*name))
+            {
+                if let Some(old_name) = unchecked
+                    .iter()
+                    .find_map(|(old_name, old_hex)| (*old_hex == hex).then_some(*old_name))
+                {
+                    unchecked.remove(old_name);
+                    self.problems.push(format!(
+                        "{name}\n    has the same bytes as the unchecked snapshot {old_name}; only the name differs"
+                    ));
+                } else {
+                    self.problems.push(format!("{name}\n    has no snapshot"));
+                }
+            }
+            for name in unchecked.keys() {
                 self.problems.push(format!("{name}\n    has a snapshot but no check"));
             }
         }
         assert!(
             self.problems.is_empty(),
             "{}\n\nRun with SLINT_PROTOCOL_SNAPSHOT_UPDATE=1 to update the snapshots, \
-             and bump the protocol version if a released version sends or reads these bytes.",
+             and bump the protocol version if the bytes changed for a released version.",
             self.problems.join("\n")
         );
     }
