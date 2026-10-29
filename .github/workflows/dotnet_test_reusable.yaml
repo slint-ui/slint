@@ -51,6 +51,26 @@ jobs:
               run: dotnet format examples/dotnet.slnx --verify-no-changes
             - name: Start the examples
               run: dotnet run examples/dotnet-smoke-test.cs -- examples/dotnet.slnx
+            # The kernel's virtual display driver, vkms, stands in for the display of a device without a desktop.
+            # The kernel of Ubuntu 22.04 has it in linux-modules-extra.
+            - name: Start the todo example on linuxkms
+              if: runner.os == 'Linux'
+              shell: bash
+              run: |
+                  if ! sudo modprobe vkms; then
+                      sudo apt-get install -y -q "linux-modules-extra-$(uname -r)"
+                      sudo modprobe vkms
+                  fi
+                  # linuxkms opens the DRM device and the input devices, which needs root without a seat manager.
+                  sudo env "PATH=$PATH" "DOTNET_ROOT=$DOTNET_ROOT" SLINT_BACKEND=linuxkms-software \
+                      SLINT_DEBUG_PERFORMANCE=console,refresh_full_speed \
+                      timeout 10 examples/todo/dotnet/bin/Debug/net10.0/Todo > linuxkms.log 2>&1 || [ $? = 124 ]
+                  cat linuxkms.log
+                  if grep -qE 'panicked|Unhandled exception|Error' linuxkms.log; then
+                      echo "::error::The todo example failed on linuxkms"
+                      exit 1
+                  fi
+                  grep -q 'frames per second' linuxkms.log || { echo "::error::The todo example rendered no frame on linuxkms"; exit 1; }
             # The publish workflow builds apps from the templates, since they need the packages; this checks that each one instantiates.
             - name: Check the dotnet new templates
               if: runner.os == 'Linux'
