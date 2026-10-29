@@ -597,7 +597,9 @@ Next:
     `slint` also publishes with Native AOT on each desktop runner, and `slint-ios` starts in a simulator.
     The .NET job of CI only instantiates each template, since it has no packages to build them with.
     Next: a dry run of the publish workflow.
-  - Phase 5: the README's Quick Start with the templates, the documentation page, and the article.
+  - Phase 5, done: the README's Quick Start lists the four templates, and its Android and iOS sections start from them.
+    The documentation page and the article have them too, and What's New lists them for the next preview.
+    After the publish of preview.10, "next preview" in these turns into the version.
   - Later: a test project, which needs the testing backend in the packaged library.
 
 ## Live Reload

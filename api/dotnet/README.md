@@ -35,6 +35,22 @@ dotnet run
 The app has the counter below, live preview in Debug builds for `dotnet watch`, and Native AOT in Release builds.
 `--style fluent`, `material`, `cupertino`, or `cosmic` picks the widget style.
 
+| Template        | Creates                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| `slint`         | A desktop app for macOS, Linux, and Windows.                                               |
+| `slint-android` | An [Android](#android-preview) app.                                                        |
+| `slint-ios`     | An [iOS](#ios-preview) app.                                                                |
+| `slint-xplat`   | A solution with a desktop, an Android, and an iOS project that share the UI and the logic. |
+
+`--app-id com.example.myapp` sets the Android package name and the iOS bundle ID.
+`dotnet new slint-xplat` puts the UI in `ui/`, the C# that the platforms share in `Shared/`,
+and the settings that they share in `Directory.Build.props`.
+Without the Android or iOS workload, pick the projects with `--platforms`:
+
+```sh
+dotnet new slint-xplat -o MyApp --platforms desktop --platforms android
+```
+
 Or set up the project yourself:
 
 1. Create a project and add the `yurkinh.slint.net` package:
@@ -423,6 +439,10 @@ For asynchronous code, call `EventLoop.Run(async () => { ... })` from a synchron
 
 The package also runs on Android 8 (API level 26) and later, on `arm64-v8a` and `x86_64` devices and emulators.
 
+From the next preview, after 1.19.0-preview.9, `dotnet new slint-android -o MyApp` creates the app in one step.
+Then `dotnet build -t:Run` installs it on the running emulator or the connected device.
+To set up the project yourself:
+
 1. Install the .NET Android workload, then create a project and add the package:
 
    ```sh
@@ -531,9 +551,11 @@ and `examples/lols/dotnet-android` runs the [LOLs per second](https://github.com
 
 ## iOS (Preview)
 
-Slint runs on iOS 15 and later with Skia on Metal, tested in the iPhone simulator so far.
+Slint runs on iOS 15 and later with Skia on Metal, tested in the iPhone simulator and on an iPhone 13.
 The packages don't have the library for iOS yet: in the Slint repository, run `scripts/build_dotnet_ios.sh`,
 and reference `api/dotnet/Slint/Slint.csproj` and its `build/Slint.targets`, as `examples/todo/dotnet-ios` does.
+From the next preview, after 1.19.0-preview.9, the package has the library,
+and `dotnet new slint-ios -o MyApp --app-id com.example.myapp` creates the app with the steps below already done.
 
 1. Install the .NET iOS workload, and create a project for `net10.0-ios` with your `.slint` file:
 

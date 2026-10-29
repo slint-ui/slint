@@ -8,8 +8,11 @@
 - iOS: the package embeds Slint as a framework into `net10.0-ios` apps, which run on devices and in the simulator.
   The C# `Main` creates the components and calls `Run`, and the app's `Info.plist` names Slint's `SlintWindowSceneDelegate`.
   Native AOT works with `PublishAot` in the project; see the README for keeping state when iOS ends the app.
-- Templates: `dotnet new install yurkinh.slint.net.Templates`, then `dotnet new slint -o MyApp` creates a desktop app
-  with live preview in Debug builds and Native AOT in Release builds.
+- Templates: `dotnet new install yurkinh.slint.net.Templates` installs four of them.
+  `dotnet new slint` creates a desktop app, with live preview in Debug builds and Native AOT in Release builds.
+  `slint-android` and `slint-ios` create mobile apps, with `--app-id` for the package name or bundle ID.
+  `slint-xplat` creates a solution with a desktop, an Android, and an iOS project that share the UI and the C# logic;
+  `--platforms` picks the projects.
 
 ## 1.19.0-preview.9
 
