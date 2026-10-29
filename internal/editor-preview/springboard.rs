@@ -998,19 +998,11 @@ mod tests {
             .run_until(async {
                 let (controller, mut receiver, _discovery) = controller("echo_child");
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                select(&controller, 0);
-                assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
                 let (sender, endpoint) = mpsc::unbounded_channel();
                 controller
                     .task_sender
-                    .send(Box::new(move |task| {
-                        let Some(Endpoint::Local { receiver, .. }) = &mut task.preview else {
-                            panic!("Expected Local preview");
-                        };
-                        *receiver = endpoint;
-                    }))
+                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
                     .unwrap();
                 for message in local_only_messages() {
                     sender.send(message).unwrap();
@@ -1371,14 +1363,14 @@ mod tests {
             .run_until(async {
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
                 let (controller, mut upstream, discovered) = controller("echo_child");
-                controller.start();
                 discover(
                     &controller,
                     &discovered,
-                    remote::tests::service("Policy", viewer.connection.local_port()),
+                    discovery::tests::service("Policy", viewer.connection.local_port()),
                 )
                 .await;
-                select(&controller, 1);
+                pair(&controller, 0);
+                controller.start();
                 accept_plaintext(&controller).await;
                 initial_request(&mut upstream).await;
                 let refused = local_only_messages().into_iter().chain([
@@ -1407,8 +1399,10 @@ mod tests {
                     viewer.connection.send(message).unwrap();
                 }
                 assert_forwarded(&mut upstream, &allowed).await;
-                let (connection, error) =
-                    inspect(&controller, |task| (task.connection_state, task.error.clone())).await;
+                let (connection, error) = inspect(&controller, |task| {
+                    (task.connection.state, task.connection.error.clone())
+                })
+                .await;
                 assert_eq!(connection, ui::ConnectionState::Connected, "{error}");
                 controller.close();
                 viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
