@@ -18,11 +18,17 @@ export component InspectorSlider inherits FocusScope {
     callback canceled();
     out property <float> visual-value: root.dragging ? root.drag-value : root.value;
     private property <bool> dragging;
+    private property <bool> focus-visible;
     private property <float> drag-value;
     private property <float> initial-value;
     private property <length> grab-offset;
     private property <float> progress: root.progress-for(root.visual-value);
     private property <float> origin: root.progress-for(0);
+    private property <length> travel-start: root.style.thumb-width / 2;
+    private property <length> travel-width: max(0px, root.width - root.style.thumb-width);
+    private property <length> value-position: root.travel-start + root.travel-width * root.progress;
+    private property <length> origin-position: root.origin == 0 ? 0px : root.origin == 1 ? root.width
+        : root.travel-start + root.travel-width * root.origin;
     height: root.style.height;
     min-width: root.style.min-width;
     horizontal-stretch: 1;
@@ -36,6 +42,9 @@ export component InspectorSlider inherits FocusScope {
         if value.is-float() { root.accepted(root.clamped(value.to-float())); }
     }
     changed commit-key => { root.cancel(); }
+    focus-changed-event(reason) => {
+        root.focus-visible = root.has-focus && reason == FocusReason.tab-navigation;
+    }
 
     pure function progress-for(value: float) -> float {
         return root.maximum > root.minimum ? ((value - root.minimum) / (root.maximum - root.minimum)).clamp(0, 1) : 0;
@@ -48,8 +57,8 @@ export component InspectorSlider inherits FocusScope {
         if root.dragging { root.dragging = false; root.canceled(); }
     }
     function update() {
-        let progress = ((touch.mouse-x - root.grab-offset - track.x) / max(1px, track.width)).clamp(0, 1);
-        root.drag-value = touch.mouse-x - root.grab-offset >= track.x + track.width - 1phx
+        let progress = ((touch.mouse-x - root.grab-offset - root.travel-start) / max(1px, root.travel-width)).clamp(0, 1);
+        root.drag-value = touch.mouse-x - root.grab-offset >= root.travel-start + root.travel-width - 1phx
             && root.clamp-maximum ? root.maximum
             : progress == 0 ? root.minimum
             : root.clamped(root.minimum + progress * (root.maximum - root.minimum));
@@ -66,24 +75,27 @@ export component InspectorSlider inherits FocusScope {
     }
 
     track := Rectangle {
-        x: root.style.thumb-width / 2;
+        x: 0px;
         y: (root.height - self.height) / 2;
-        width: max(0px, root.width - root.style.thumb-width);
+        width: root.width;
         height: root.style.track-height;
         border-radius: self.height / 2;
         background: root.style.track;
         border-width: Metrics.hairline-width;
         border-color: root.style.track-border;
+        inner-shadow-color: root.style.track-shadow.color;
+        inner-shadow-blur: root.style.track-shadow.blur;
+        inner-shadow-offset-y: root.style.track-shadow.offset-y;
         Rectangle {
-            x: parent.width * min(root.origin, root.progress);
+            x: min(root.origin-position, root.value-position);
             y: (parent.height - self.height) / 2;
-            width: parent.width * abs(root.progress - root.origin);
+            width: abs(root.value-position - root.origin-position);
             height: root.style.fill-height;
             border-radius: self.height / 2;
             background: root.style.fill;
         }
         if root.minimum < 0 && root.maximum > 0: Rectangle {
-            x: parent.width * root.origin - self.width / 2;
+            x: root.travel-start + root.travel-width * root.origin - self.width / 2;
             y: (parent.height - self.height) / 2;
             width: Metrics.border-width;
             height: root.style.zero-height;
@@ -91,13 +103,13 @@ export component InspectorSlider inherits FocusScope {
         }
     }
     thumb := Rectangle {
-        x: track.x + track.width * root.progress - self.width / 2;
+        x: root.value-position - self.width / 2;
         y: (root.height - self.height) / 2;
         width: root.style.thumb-width;
         height: root.style.thumb-height;
         border-radius: self.height / 2;
         border-width: Metrics.border-width;
-        border-color: root.has-focus || root.dragging ? root.style.dial.focus-border : touch.has-hover ? root.style.hover-border : root.style.dial.ring-border;
+        border-color: root.focus-visible ? root.style.dial.focus-border : touch.has-hover ? root.style.hover-border : root.style.dial.ring-border;
         background: root.style.dial.ring;
         drop-shadow-color: root.style.dial.shadow.color;
         drop-shadow-blur: root.style.dial.shadow.blur;
@@ -120,6 +132,7 @@ export component InspectorSlider inherits FocusScope {
     touch := TouchArea {
         pointer-event(event) => {
             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.focus-visible = false;
                 root.focus();
                 root.started();
                 root.initial-value = root.value;

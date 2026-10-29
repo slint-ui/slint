@@ -345,16 +345,6 @@ pub fn initialize_editor(
     }
 }
 
-fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
-    let Some(url) = ci.defined_at.as_ref().map(|da| da.url()) else {
-        return (Default::default(), Default::default());
-    };
-
-    let file_name = SourcePath::from_url(url).file_name().unwrap_or_default().to_string();
-
-    (url.to_string().into(), file_name.into())
-}
-
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
 }
@@ -377,122 +367,44 @@ pub fn set_preview_default_fonts(api: &Api<'_>, instance: &slint_interpreter::Co
     api.set_preview_default_font_weight(font.weight.unwrap_or_default());
 }
 
-pub fn ui_set_known_components(
-    api: &Api<'_>,
-    known_components: &[i_slint_editor_preview::component_catalog::ComponentInformation],
-    current_component_index: usize,
-) {
-    let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut std_widgets_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut path_map: HashMap<String, (SharedString, Vec<ComponentItem>)> = Default::default();
-    let mut library_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-
-    for (idx, ci) in known_components.iter().enumerate() {
-        if ci.is_global {
+pub fn ui_set_project_components(api: &Api<'_>, known_components: &[ComponentInformation]) {
+    let mut files: BTreeMap<String, Vec<ElementLibraryEntry>> = BTreeMap::new();
+    for component in known_components {
+        if component.is_builtin
+            || component.is_std_widget
+            || component.is_global
+            || component.is_interface
+        {
             continue;
         }
-        let (url, pretty_location) = extract_definition_location(ci);
-        let item = ComponentItem {
-            name: ci.name.clone().into(),
-            index: idx.try_into().unwrap(),
-            defined_at: url.clone(),
-            pretty_location,
-            is_user_defined: !(ci.is_builtin || ci.is_std_widget),
-            is_currently_shown: idx == current_component_index,
-            is_exported: ci.is_exported,
+        let Some(position) = &component.defined_at else {
+            continue;
         };
-
-        if let Some(position) = &ci.defined_at {
-            if let Some(library) = position.url().path().strip_prefix("/@") {
-                library_map.entry(format!("@{library}")).or_default().push(item);
-            } else {
-                let path = SourcePath::from_url(position.url()).to_string();
-                path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
-            }
-        } else if ci.is_builtin {
-            builtins_map.entry(ci.category.clone()).or_default().push(item);
-        } else {
-            std_widgets_map.entry(ci.category.clone()).or_default().push(item);
+        if position.url().path().starts_with("/@") {
+            continue;
         }
+        files.entry(SourcePath::from_url(position.url()).to_string()).or_default().push(
+            ElementLibraryEntry {
+                label: component.name.as_str().into(),
+                kind: ElementKind::Component,
+                source_uri: position.url().as_str().into(),
+            },
+        );
     }
-
-    type ComponentModel = search_model::SearchModel<ComponentItem>;
-    fn make_component_model(vec: Vec<ComponentItem>) -> ComponentModel {
-        ComponentModel::new(VecModel::from(vec), |i, search_str| {
-            search_model::contains(i.name.as_str(), search_str)
-        })
-    }
-
-    fn sort_subset(mut input: HashMap<String, Vec<ComponentItem>>) -> Vec<ComponentListItem> {
-        let mut output = input
-            .drain()
-            .map(|(k, mut v)| {
-                v.sort_by_key(|i| i.name.clone());
-                let model = Rc::new(make_component_model(v));
-                ComponentListItem {
-                    category: k.into(),
-                    file_url: SharedString::new(),
-                    components: model.into(),
-                }
-            })
-            .collect::<Vec<_>>();
-        output.sort_by_key(|k| k.category.clone());
-        output
-    }
-
-    let builtin_components = sort_subset(builtins_map);
-    let std_widgets_components = sort_subset(std_widgets_map);
-    let library_components = sort_subset(library_map);
-
     let common_directory =
-        i_slint_editor_preview::util::common_directory(path_map.keys().map(String::as_str));
-    let mut file_components = path_map
-        .drain()
-        .map(|(p, (file_url, mut v))| {
-            v.sort_by_key(|i| i.name.clone());
-            let model = Rc::new(make_component_model(v));
-            let name = p.strip_prefix(common_directory.as_str()).unwrap_or(&p);
-            ComponentListItem { category: name.into(), file_url, components: model.into() }
+        i_slint_editor_preview::util::common_directory(files.keys().map(String::as_str));
+    let groups = files
+        .into_iter()
+        .map(|(path, mut entries)| {
+            entries.sort_by(|a, b| a.label.cmp(&b.label));
+            ElementLibraryGroup {
+                section: ElementLibrarySection::Project,
+                label: path.strip_prefix(&common_directory).unwrap_or(&path).into(),
+                entries: Rc::new(VecModel::from(entries)).into(),
+            }
         })
         .collect::<Vec<_>>();
-    file_components
-        .sort_by(|a, b| a.category.split(['/', '\\']).cmp(b.category.split(['/', '\\'])));
-
-    let mut all_components = Vec::with_capacity(
-        builtin_components.len() + library_components.len() + file_components.len(),
-    );
-    all_components.extend_from_slice(&builtin_components[..]);
-    all_components.extend_from_slice(&std_widgets_components[..]);
-    all_components.extend_from_slice(&library_components[..]);
-    all_components.extend_from_slice(&file_components[..]);
-
-    let result = Rc::new(search_model::SearchModel::new(
-        VecModel::from(all_components),
-        |category, search_str| {
-            let mut yes = search_str.is_empty();
-            if let Some(sub_filter) = category.components.as_any().downcast_ref::<ComponentModel>()
-            {
-                sub_filter.set_search_text(search_str.clone());
-                yes = yes || sub_filter.row_count() > 0;
-            }
-            yes
-        },
-    ));
-
-    let old_search_text = api
-        .get_known_components()
-        .as_any()
-        .downcast_ref::<search_model::SearchModel<ComponentListItem>>()
-        .map(|x| x.search_text())
-        .filter(|x| !x.is_empty());
-    if let Some(search_text) = old_search_text {
-        result.set_search_text(search_text.clone());
-    }
-
-    api.set_known_components(result.clone().into());
-    api.on_library_search(move |term| {
-        result.set_search_text(term);
-    });
+    api.set_project_element_library(Rc::new(VecModel::from(groups)).into());
 }
 
 fn to_ui_range(r: TextRange) -> Option<Range> {
@@ -2043,6 +1955,117 @@ mod tests {
     }
 
     #[test]
+    fn inspector_scrub_cursor_covers_the_field_and_yields_to_text_editing() {
+        use i_slint_core::{cursor::MouseCursorInner, items::BuiltInMouseCursor};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            source_uri: "file:///inspector.slint".into(),
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection {
+            highlight_index: 0,
+            is_resizable: true,
+            ..Default::default()
+        });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 160.,
+                height: 96.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_inspector_values(|_| {
+            std::rc::Rc::new(VecModel::from(vec![0., 12., 12., 12., 12.])).into()
+        });
+        api.on_inspector_preview(|_, _, _| true);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1000.));
+        slint::platform::update_timers_and_animations();
+        let image = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
+        assert_eq!((image.size().width, image.size().height), (32, 32));
+        let scrub_cursor =
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x: 16, hotspot_y: 16 };
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+
+        for separate in [false, true] {
+            if separate {
+                find_element(&editor, "Separate corners").invoke_accessible_default_action();
+            }
+            let labels = if separate {
+                &[
+                    "Top left corner radius",
+                    "Top right corner radius",
+                    "Bottom left corner radius",
+                    "Bottom right corner radius",
+                ][..]
+            } else {
+                &["Position X", "All corner radii"][..]
+            };
+            for label in labels {
+                let field = find_element(&editor, label);
+                let position = field.absolute_position();
+                let size = field.size();
+                for fraction in [0.05, 0.5, 0.95] {
+                    editor.window().dispatch_event(WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(
+                            position.x + size.width * fraction,
+                            position.y + size.height / 2.,
+                        ),
+                    });
+                    assert!(cursor() == scrub_cursor, "hovering {label} at {fraction}");
+                }
+                let start = LogicalPosition::new(
+                    position.x + size.width / 2.,
+                    position.y + size.height / 2.,
+                );
+                let click = |position| {
+                    editor.window().dispatch_event(WindowEvent::PointerPressed {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                    editor.window().dispatch_event(WindowEvent::PointerReleased {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                };
+                click(start);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerMoved {
+                    position: LogicalPosition::new(position.x + size.width * 0.05, start.y),
+                });
+                assert!(cursor() == scrub_cursor, "hovering the label while editing {label}");
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerPressed {
+                    position: start,
+                    button: PointerEventButton::Left,
+                });
+                let end = LogicalPosition::new(start.x + 12., start.y);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+                assert!(cursor() == scrub_cursor, "dragging {label}");
+                editor.window().dispatch_event(WindowEvent::PointerReleased {
+                    position: end,
+                    button: PointerEventButton::Left,
+                });
+            }
+        }
+    }
+
+    #[test]
     fn resize_cursor_rotates_and_reuses_half_turns() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
@@ -2050,15 +2073,6 @@ mod tests {
         let horizontal = cursors.invoke_resize_image(0.);
         assert_eq!(horizontal, cursors.invoke_resize_image(180.));
         assert_ne!(horizontal, cursors.invoke_resize_image(90.));
-    }
-
-    #[test]
-    fn scrub_cursor_uses_fixed_pixel_size() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::create_ui().unwrap();
-        let cursor = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
-        assert_eq!(cursor.size().width, 32);
-        assert_eq!(cursor.size().height, 32);
     }
 
     #[test]
@@ -3092,6 +3106,54 @@ mod tests {
             slint::platform::update_timers_and_animations();
             for (label, expected) in
                 [("Horizontal Alignment", horizontal), ("Vertical Alignment", vertical)]
+            {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn layout_alignment_rows_follow_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 200.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+        for (type_name, alignment, line_alignment) in [
+            ("HorizontalLayout", true, false),
+            ("VerticalLayout", true, false),
+            ("FlexboxLayout", true, true),
+            ("GridLayout", false, false),
+            ("Rectangle", false, false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            for (label, expected) in
+                [("Layout Alignment", alignment), ("Cross Axis Line Alignment", line_alignment)]
             {
                 assert_eq!(
                     i_slint_backend_testing::ElementHandle::find_by_accessible_label(

@@ -376,7 +376,7 @@ impl PreviewState {
             api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
             api.set_inspector_fill_refresh_pending(false);
-            ui::ui_set_known_components(&api, &[], usize::MAX);
+            ui::ui_set_project_components(&api, &[]);
             ui::ui_set_preview_data(&api, Default::default(), None);
             outline::reset_outline(&api, None);
         }
@@ -1213,14 +1213,22 @@ enum DragItem {
     /// An existing element instance to be moved.
     MoveElementInstance { uri: SharedString, offset: u32 },
     /// A new component from the palette to be instantiated.
-    NewComponent { kind: ui::ElementKind, type_name: &'static str },
+    NewComponent { kind: ui::ElementKind, type_name: SharedString, source_uri: SharedString },
 }
 
-fn new_component_data(type_name: SharedString) -> DataTransfer {
-    let Some(entry) = element_catalog::entry(&type_name) else {
-        return Default::default();
+fn new_component_data(type_name: SharedString, source_uri: SharedString) -> DataTransfer {
+    let (kind, type_name) = if source_uri.is_empty() {
+        let Some(entry) = element_catalog::entry(&type_name) else {
+            return Default::default();
+        };
+        (entry.kind, entry.type_name.into())
+    } else {
+        if palette_component(&type_name, &source_uri).is_none() {
+            return Default::default();
+        }
+        (ui::ElementKind::Component, type_name)
     };
-    DragItem::NewComponent { kind: entry.kind, type_name: entry.type_name }.into()
+    DragItem::NewComponent { kind, type_name, source_uri }.into()
 }
 
 /// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
@@ -1254,7 +1262,7 @@ impl From<DragItem> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
-    let Ok(DragItem::NewComponent { type_name, .. }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { type_name, source_uri, .. }) = data.try_into() else {
         return false;
     };
 
@@ -1269,27 +1277,37 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(type_name) else {
+    let Some(component) = palette_component(&type_name, &source_uri) else {
         return false;
     };
 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn palette_component(type_name: &str) -> Option<ComponentInformation> {
+fn palette_component(type_name: &str, source_uri: &str) -> Option<ComponentInformation> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
             .find(|component| {
-                component.name == type_name && (component.is_builtin || component.is_std_widget)
+                component.name == type_name
+                    && !component.is_global
+                    && !component.is_interface
+                    && if source_uri.is_empty() {
+                        component.is_builtin || component.is_std_widget
+                    } else {
+                        component
+                            .defined_at
+                            .as_ref()
+                            .is_some_and(|position| position.url().as_str() == source_uri)
+                    }
             })
             .cloned()
     })
 }
 
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
-    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name, source_uri }) = data.try_into() else {
         return;
     };
 
@@ -1299,7 +1317,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(type_name) else {
+    let Some(component) = palette_component(&type_name, &source_uri) else {
         return;
     };
 
@@ -1317,7 +1335,7 @@ fn drop_component_with_geometry(
     position: LogicalPosition,
     size: LogicalSize,
 ) {
-    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name, source_uri }) = data.try_into() else {
         return;
     };
 
@@ -1331,7 +1349,7 @@ fn drop_component_with_geometry(
         CoreLogicalSize::new(size.width, size.height),
     );
 
-    let Some(component) = palette_component(type_name) else {
+    let Some(component) = palette_component(&type_name, &source_uri) else {
         return;
     };
 
@@ -2151,18 +2169,6 @@ fn previewed_component_changed() {
             component_catalog::file_local_components(&document_cache, &url, &mut components);
         }
 
-        let index = if let Some(component) = preview_component.as_ref() {
-            components
-                .iter()
-                .position(|ci| {
-                    &ci.name == component
-                        && ci.defined_at.as_ref().map(|da| da.url()) == Some(&previewed_url)
-                })
-                .unwrap_or(usize::MAX)
-        } else {
-            usize::MAX
-        };
-
         apply_live_preview_data();
 
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2187,7 +2193,7 @@ fn previewed_component_changed() {
                     ui::palette::set_palette(&api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
-                ui::ui_set_known_components(&api, &preview_state.known_components, index);
+                ui::ui_set_project_components(&api, &preview_state.known_components);
                 let component = document_cache.get_document(&previewed_url).and_then(|doc| {
                     match preview_component.as_ref() {
                         Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),

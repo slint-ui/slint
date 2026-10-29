@@ -28,37 +28,20 @@ export enum ElementKind {
     widget,
 }
 
+export enum ElementLibrarySection { primitives, libraries, project }
+
 /// A palette item whose kind selects its icon and drag payload.
 export struct ElementLibraryEntry {
     label: string,
     kind: ElementKind,
+    source-uri: string,
 }
 
 /// A named palette group with entries sorted by label.
 export struct ElementLibraryGroup {
+    section: ElementLibrarySection,
     label: string,
     entries: [ElementLibraryEntry],
-}
-
-// cSpell: ignore dataonly
-/// Basic information on a known component
-export struct ComponentItem {
-    name: string,
-    index: int,
-    defined-at: string,
-    pretty-location: string,
-    is-user-defined: bool,
-    is-currently-shown: bool,
-    is-exported: bool,
-}
-
-/// A `category` with a lost of `ComponentItem`s that belong into it.
-///
-/// File url is either an empty string or a URL to some document
-export struct ComponentListItem {
-    category: string,
-    file_url: string,
-    components: [ComponentItem]
 }
 
 export struct InspectorNumberChange {
@@ -298,6 +281,7 @@ export struct ColorValueData {
 }
 
 /// Data about the property value for use in "simple" mode
+// cSpell: ignore dataonly
 export struct PropertyValue {
     display-string: string, // ALWAYS, its a string description of what is there
     fill: FillData,
@@ -497,11 +481,6 @@ export global Api {
     in property <int> preview-default-font-weight;
     callback check-for-update();
 
-    // ## Component Data for ComponentList:
-    // All the components
-    in property <[ComponentListItem]> known-components;
-    callback library-search(string);
-
     // ## Style:
     // All the known styles
     in property <[string]> known-styles;
@@ -512,7 +491,8 @@ export global Api {
 
     // ## Element library
     in property <[ElementLibraryGroup]> element-library;
-    pure callback element-library-has-matches(groups: [ElementLibraryGroup], query: string) -> bool;
+    in property <[ElementLibraryGroup]> project-element-library;
+    pure callback element-library-has-matches(groups: [ElementLibraryGroup], query: string, section: ElementLibrarySection) -> bool;
     pure callback element-library-normalize-query(query: string) -> string;
     pure callback element-library-filter-entries(entries: [ElementLibraryEntry], query: string) -> [ElementLibraryEntry];
 
@@ -524,7 +504,7 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
-    pure callback new-component-data(type-name: string) -> data-transfer;
+    pure callback new-component-data(type-name: string, source-uri: string) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize

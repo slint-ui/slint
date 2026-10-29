@@ -325,6 +325,8 @@ def _load_file(
     The project file provides the settings that are not given here.
     It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     A `.slint` file path does not load a project file.
+    `include_paths` come before the project file's include paths,
+    and `library_paths` replace the project file's libraries of the same name.
 
     """
 
@@ -406,6 +408,8 @@ def load_file(
     The project file provides the settings that are not given here.
     It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     A `.slint` file path does not load a project file.
+    `include_paths` come before the project file's include paths,
+    and `library_paths` replace the project file's libraries of the same name.
 
     """
 

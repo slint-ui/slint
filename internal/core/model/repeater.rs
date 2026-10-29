@@ -415,7 +415,7 @@ fn update_visible_instances(
         // Jumping more than 1.5 screens: random seek.
         ops.splice(0, ops.len(), 0);
         state.offset = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
-        (state.offset, 0 as Coord)
+        (state.offset, content_y_value + element_height * state.offset as Coord)
     } else if content_y_value < state.previous_content_y {
         // Scrolled down: find the new offset by walking existing instances.
         let mut it_y = first_item_y + content_y_value;

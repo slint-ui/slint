@@ -81,17 +81,21 @@ mod tests {
             (ElementKind::Text, "Text", "Visual"),
             (ElementKind::StyledText, "StyledText", "Visual"),
             (ElementKind::TouchArea, "TouchArea", "Input & interaction"),
-            (ElementKind::Widget, "Button", "Widgets"),
-            (ElementKind::Widget, "CheckBox", "Widgets"),
-            (ElementKind::Widget, "LineEdit", "Widgets"),
+            (ElementKind::Widget, "Button", "std-widgets"),
+            (ElementKind::Widget, "CheckBox", "std-widgets"),
+            (ElementKind::Widget, "LineEdit", "std-widgets"),
         ] {
             let entry = entry(name).unwrap();
             assert_eq!(entry.kind, kind);
             assert_eq!(entry.group.label(), group);
             assert_eq!(kind_for_type(&format!(" {name} ")), kind);
             assert_eq!(
-                DragItem::try_from(new_component_data(name.into())).unwrap(),
-                DragItem::NewComponent { kind, type_name: name }
+                DragItem::try_from(new_component_data(name.into(), Default::default())).unwrap(),
+                DragItem::NewComponent {
+                    kind,
+                    type_name: name.into(),
+                    source_uri: Default::default()
+                }
             );
         }
     }
@@ -153,11 +157,66 @@ mod tests {
     }
 
     #[test]
+    fn palette_names_are_normalized_in_drag_payloads() {
+        assert_eq!(
+            DragItem::try_from(new_component_data(" Text ".into(), Default::default())).unwrap(),
+            DragItem::NewComponent {
+                kind: ElementKind::Text,
+                type_name: "Text".into(),
+                source_uri: Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn project_drag_payloads_keep_the_definition_uri_and_reject_stale_entries() {
+        use i_slint_editor_preview::component_catalog::{Position, std_widgets_info};
+        let mut first = std_widgets_info("Button", false);
+        first.name = "SharedCard".into();
+        first.is_std_widget = false;
+        first.defined_at =
+            Some(Position::new(lsp_types::Url::parse("file:///one/Card.slint").unwrap(), 0.into()));
+        let mut second = first.clone();
+        second.defined_at =
+            Some(Position::new(lsp_types::Url::parse("file:///two/Card.slint").unwrap(), 0.into()));
+        let saved = crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            std::mem::replace(&mut state.known_components, vec![first, second])
+        });
+        for uri in ["file:///one/Card.slint", "file:///two/Card.slint"] {
+            assert_eq!(
+                DragItem::try_from(new_component_data("SharedCard".into(), uri.into())).unwrap(),
+                DragItem::NewComponent {
+                    kind: ElementKind::Component,
+                    type_name: "SharedCard".into(),
+                    source_uri: uri.into()
+                },
+            );
+            let component = crate::preview::palette_component("SharedCard", uri).unwrap();
+            assert_eq!(component.defined_at.unwrap().url().as_str(), uri);
+        }
+        assert!(
+            DragItem::try_from(new_component_data(
+                "SharedCard".into(),
+                "file:///missing/Card.slint".into()
+            ))
+            .is_err()
+        );
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.known_components = saved;
+        });
+        assert!(
+            crate::preview::palette_component("SharedCard", "file:///one/Card.slint").is_none()
+        );
+    }
+
+    #[test]
     fn fallback_kinds_cannot_create_palette_drops() {
         for name in ["", "Window", "CustomComponent"] {
             assert_eq!(kind_for_type(name), ElementKind::Component);
             assert!(entry(name).is_none());
-            assert!(DragItem::try_from(new_component_data(name.into())).is_err());
+            assert!(
+                DragItem::try_from(new_component_data(name.into(), Default::default())).is_err()
+            );
         }
     }
 }

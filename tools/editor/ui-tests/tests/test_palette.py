@@ -12,12 +12,15 @@ from source_snapshot import SourceSnapshot
 from ui_assertions import expect
 from ui_driver import (
     PALETTE_KINDS,
+    PRIMITIVE_KINDS,
     element,
     elements,
     first_window,
     launch_editor,
     press_key,
     press_keys,
+    press_shortcut,
+    query,
     select_fixture_element,
     wait_until,
 )
@@ -203,16 +206,14 @@ def test_escape_cancels_palette_drag_without_source_edit(
 
 
 def library_rows(window: slint_testing.Window) -> list[slint_testing.Element]:
-    pane = element(
-        window, "Project and elements", role=slint_testing.AccessibleRole.Navigation
-    )
+    pane = element(window, "Element library", role=slint_testing.AccessibleRole.List)
     rows = (
         pane.query_descendants()
         .match_accessible_role(slint_testing.AccessibleRole.ListItem)
         .find_all()
     )
     return sorted(
-        [row for row in rows if row.accessible_label in PALETTE_KINDS],
+        rows,
         key=lambda row: (row.absolute_position.y, row.absolute_position.x),
     )
 
@@ -222,6 +223,158 @@ def expect_library(window: slint_testing.Window, labels: list[str]) -> None:
         lambda: [row.accessible_label for row in library_rows(window)],
         message="visible element library rows",
     ).to_equal(labels)
+
+
+def test_tabs_separate_sources_and_preserve_primitive_collapse_state(
+    editor_binary, editor_environment, fixture_project
+):
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        expect_library(window, list(PRIMITIVE_KINDS))
+        element(
+            window, "Visual", role=slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        expect_library(window, ["TouchArea"])
+        element(
+            window, "Libraries", role=slint_testing.AccessibleRole.Tab
+        ).invoke_accessible_default_action()
+        element(window, "std-widgets", role=slint_testing.AccessibleRole.Button)
+        assert not elements(window, "Material")
+        labels = [row.accessible_label for row in library_rows(window)]
+        assert "Button" in labels and "CheckBox" in labels
+        assert not set(PRIMITIVE_KINDS) & set(labels)
+        search = element(window, "Search elements")
+        search.accessible_value = "  bUtToN  "
+        expect_library(window, ["Button", "StandardButton"])
+        element(
+            window, "Primitives", role=slint_testing.AccessibleRole.Tab
+        ).invoke_accessible_default_action()
+        expect_library(window, [])
+        element(window, "No Results")
+        search.accessible_value = ""
+        expect_library(window, ["TouchArea"])
+        element(
+            window, "Visual", role=slint_testing.AccessibleRole.Button
+        ).invoke_accessible_default_action()
+        expect_library(window, list(PRIMITIVE_KINDS))
+        snapshot.assert_unchanged()
+
+
+@pytest.mark.parametrize("label", ["Visual", "Input & interaction", "std-widgets"])
+def test_category_focus_ring_requires_keyboard_navigation(
+    editor_binary, editor_environment, fixture_project, label
+):
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        if label == "std-widgets":
+            element(
+                window, "Libraries", role=slint_testing.AccessibleRole.Tab
+            ).invoke_accessible_default_action()
+        header = element(window, label, role=slint_testing.AccessibleRole.Button)
+        ring = query(header, id="ElementPaletteGroup::category-focus-ring")
+        header.single_click(slint_testing.PointerEventButton.Left)
+        expect(ring).to_be_hidden()
+        press_key(window, keys.Space)
+        expect(ring).to_be_hidden()
+        press_key(window, keys.Tab)
+        press_shortcut(window, keys.Shift, keys.Tab)
+        expect(ring).to_be_visible()
+        press_key(window, keys.Space)
+        expect(ring).to_be_visible()
+        header.single_click(slint_testing.PointerEventButton.Left)
+        expect(ring).to_be_hidden()
+        snapshot.assert_unchanged()
+
+
+def test_element_tabs_support_arrow_home_and_end_navigation(
+    editor_binary, editor_environment, fixture_project
+):
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / "Palette.slint"
+    ) as editor:
+        window = first_window(editor)
+        element(
+            window, "Primitives", role=slint_testing.AccessibleRole.Tab
+        ).single_click(slint_testing.PointerEventButton.Left)
+        for key, label in [
+            (keys.RightArrow, "Libraries"),
+            (keys.RightArrow, "Project"),
+            (keys.RightArrow, "Primitives"),
+            (keys.LeftArrow, "Project"),
+            (keys.Home, "Primitives"),
+            (keys.End, "Project"),
+        ]:
+            press_key(window, key)
+            expect.poll(
+                lambda label=label: (
+                    element(
+                        window, label, role=slint_testing.AccessibleRole.Tab
+                    ).accessible_item_selected
+                )
+            ).to_equal(True)
+        snapshot.assert_unchanged()
+
+
+def test_project_component_drop_preserves_definition_and_undo(
+    editor_binary, editor_environment, fixture_project
+):
+    source_file = fixture_project / "Palette.slint"
+    baseline = source_file.read_bytes().replace(
+        b"export component Palette",
+        b'import { Reusable } from "components/Reusable.slint";\nexport component Palette',
+    )
+    source_file.write_bytes(baseline)
+    reusable = fixture_project / "components" / "Reusable.slint"
+    reusable.write_text("""export component Reusable inherits Rectangle {
+    width: 84px;
+    height: 40px;
+    background: #ff0000;
+}
+export global ProjectState { out property <int> value: 1; }
+""")
+    snapshot = SourceSnapshot.capture(fixture_project)
+    expected = baseline.replace(
+        b"    background: #f8fafc;\n",
+        b"    background: #f8fafc;\n    Reusable {\n        x: 147px;\n        y: 336px;\n    }\n",
+    )
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        element(
+            window, "Project", role=slint_testing.AccessibleRole.Tab
+        ).invoke_accessible_default_action()
+        expect.poll(
+            lambda: "Reusable" in [row.accessible_label for row in library_rows(window)]
+        ).to_equal(True)
+        labels = [row.accessible_label for row in library_rows(window)]
+        assert "Palette" in labels and "Reusable" in labels
+        assert "ProjectState" not in labels
+        target = canvas_drop_position(window)
+        begin_palette_drag(window, "Reusable", target)
+        snapshot.assert_unchanged_now()
+        release_palette_drag(window, target)
+        snapshot.wait_for_applied(expected, relative_path="Palette.slint")
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, relative_path="Palette.slint")
+        reusable.write_text(reusable.read_text().replace("Reusable", "Renamed"))
+        source_file.write_bytes(baseline.replace(b"{ Reusable }", b"{ Renamed }"))
+        wait_for_source(source_file, source_file.read_bytes())
+        expect.poll(
+            lambda: "Renamed" in [row.accessible_label for row in library_rows(window)]
+        ).to_equal(True)
+        expect(
+            query(
+                element(window, "Element library"),
+                "Reusable",
+                role=slint_testing.AccessibleRole.ListItem,
+            )
+        ).to_be_hidden()
 
 
 def test_library_search_restores_independent_collapse_states(
@@ -237,7 +390,7 @@ def test_library_search_restores_independent_collapse_states(
         search = element(window, "Search elements")
         search.accessible_value = "  tOuCh  "
         expect_library(window, ["TouchArea"])
-        for label in ("Visual", "Input & interaction", "Widgets"):
+        for label in ("Visual", "Input & interaction"):
             for header in elements(
                 window, label, role=slint_testing.AccessibleRole.Button
             ):
@@ -245,14 +398,13 @@ def test_library_search_restores_independent_collapse_states(
         search.accessible_value = "missing"
         expect_library(window, [])
         element(window, "No Results")
-        for label in ("Visual", "Input & interaction", "Widgets"):
+        for label in ("Visual", "Input & interaction"):
             assert not elements(window, label, role=slint_testing.AccessibleRole.Button)
         search.accessible_value = ""
-        expect_library(window, list(PALETTE_KINDS))
+        expect_library(window, list(PRIMITIVE_KINDS))
         for label, collapsed_labels in [
-            ("Visual", ["TouchArea", "Button", "CheckBox"]),
-            ("Input & interaction", ["Button", "CheckBox"]),
-            ("Widgets", []),
+            ("Visual", ["TouchArea"]),
+            ("Input & interaction", []),
         ]:
             element(
                 window, label, role=slint_testing.AccessibleRole.Button
@@ -261,7 +413,7 @@ def test_library_search_restores_independent_collapse_states(
             search.accessible_value = "t"
             expect_library(
                 window,
-                ["Rectangle", "StyledText", "Text", "TouchArea", "Button"],
+                ["Rectangle", "StyledText", "Text", "TouchArea"],
             )
             search.accessible_value = "missing"
             expect_library(window, [])
@@ -288,8 +440,10 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
     with launch_editor(editor_binary, editor_environment, source_file) as editor:
         wait_for_source(source_file, source_file.read_bytes())
         window = first_window(editor)
-        expect_library(window, list(PALETTE_KINDS))
-        heading = element(window, "ELEMENTS")
+        expect_library(window, list(PRIMITIVE_KINDS))
+        heading = element(
+            window, "Element sources", role=slint_testing.AccessibleRole.TabList
+        )
         search = element(window, "Search elements")
         library = element(
             window, "Element library", role=slint_testing.AccessibleRole.List
@@ -326,9 +480,8 @@ def test_library_layout_stays_anchored_during_search_and_collapse(
         assert rows[3].absolute_position.y == rows[2].absolute_position.y
         assert rows[4].absolute_position.y > rows[3].absolute_position.y
         for label, remaining in [
-            ("Visual", ["TouchArea", "Button", "CheckBox"]),
-            ("Input & interaction", ["Button", "CheckBox"]),
-            ("Widgets", []),
+            ("Visual", ["TouchArea"]),
+            ("Input & interaction", []),
         ]:
             element(
                 window, label, role=slint_testing.AccessibleRole.Button
@@ -360,7 +513,7 @@ def test_library_search_keyboard_does_not_delete_selection(
         expect_library(window, ["StyledText", "Text"])
         for _ in range(5):
             press_key(window, keys.Backspace)
-        expect_library(window, list(PALETTE_KINDS))
+        expect_library(window, list(PRIMITIVE_KINDS))
         element(window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region)
         snapshot.assert_unchanged()
 
@@ -397,7 +550,7 @@ def test_toucharea_drag_preview(
 @pytest.mark.parametrize(
     ("group_label", "tab_count", "remaining"),
     [
-        ("Visual", 1, ["TouchArea", "Button", "CheckBox"]),
+        ("Visual", 1, ["TouchArea"]),
         (
             "Input & interaction",
             2,
@@ -406,8 +559,6 @@ def test_toucharea_drag_preview(
                 "Rectangle",
                 "StyledText",
                 "Text",
-                "Button",
-                "CheckBox",
             ],
         ),
     ],
@@ -434,5 +585,5 @@ def test_group_header_keyboard_activation(
         expect_library(window, remaining)
         element(window, group_label, role=slint_testing.AccessibleRole.Button)
         press_key(window, activation_key)
-        expect_library(window, list(PALETTE_KINDS))
+        expect_library(window, list(PRIMITIVE_KINDS))
         snapshot.assert_unchanged()
