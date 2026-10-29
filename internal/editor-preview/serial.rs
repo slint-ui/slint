@@ -869,7 +869,7 @@ mod tests {
             },
             set_contents(
                 "slint-project.json",
-                r#"{ "slint-edition": "1.19", "include-paths": ["include"] }"#,
+                r#"{ "edition": "1.19", "include-paths": ["include"] }"#,
             ),
         ];
         // The compiler looks for imports in include paths on disk only

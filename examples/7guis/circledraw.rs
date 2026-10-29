@@ -8,7 +8,7 @@ use slint::VecModel;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-slint::slint!(#[slint_edition = "1.19"] export { MainWindow } from "circledraw.slint";);
+slint::slint!(#[edition = "1.19"] export { MainWindow } from "circledraw.slint";);
 
 #[allow(clippy::enum_variant_names)]
 enum Change {

@@ -14,7 +14,7 @@ use std::sync::{
 #[satchel::test]
 fn multiple_quit_event_loop_calls() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             Text { text: "Hello"; }
         }

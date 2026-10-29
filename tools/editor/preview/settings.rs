@@ -468,7 +468,7 @@ mod tests {
         let nested = root.join("ui");
         std::fs::create_dir(&nested).unwrap();
         let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
-        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"ui/missing.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.19","main":"ui/missing.slint"}"#).unwrap();
         let source = nested.join("missing.slint");
         let standalone = Project::from_input(&source, None, None).unwrap();
         assert_eq!(standalone.root, nested);
@@ -493,14 +493,14 @@ mod tests {
         std::fs::create_dir(source.parent().unwrap()).unwrap();
         std::fs::write(&source, "export component Main inherits Window {}").unwrap();
         let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
-        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"ui/main.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.19","main":"ui/main.slint"}"#).unwrap();
 
         let project = Project::from_selected_file(&manifest, None).unwrap();
         assert_eq!(project.root, root);
         assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
         assert!(Project::from_input(&manifest, None, None).is_err());
 
-        std::fs::write(&manifest, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.19"}"#).unwrap();
         assert!(Project::from_selected_file(&manifest, None).is_err());
         assert!(Project::from_selected_file(root.join("other.json"), None).is_err());
     }

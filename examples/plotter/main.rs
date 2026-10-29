@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 mod wasm_backend;
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export { MainWindow } from "plotter.slint";
 }
 

@@ -14,7 +14,7 @@ use slint::{ComponentHandle, Image, Rgba8Pixel, SharedPixelBuffer};
 use wgpu_30 as wgpu;
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component TestCase inherits Window {
         width: 40px;
         height: 40px;

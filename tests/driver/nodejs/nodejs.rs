@@ -97,7 +97,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", test_driver_lib::ALL_EXPERIMENTAL_FEATURES)
         .env(
             "SLINT_EDITION",
-            test_driver_lib::extract_slint_edition(&source).unwrap_or(env!("SLINT_EDITION")),
+            test_driver_lib::extract_edition(&source).unwrap_or(env!("SLINT_EDITION")),
         )
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

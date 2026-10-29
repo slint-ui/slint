@@ -3024,7 +3024,7 @@ mod project_file_tests {
     #[test]
     #[allow(deprecated)]
     fn missing_source_files_have_no_line_or_column() {
-        with_project(r#"{"slint-edition":"1.19"}"#, |root| {
+        with_project(r#"{"edition":"1.19"}"#, |root| {
             let source = root.join("missing.slint");
             let result = spin_on::spin_on(Compiler::default().build_from_path(&source));
             assert!(result.has_errors());
@@ -3072,7 +3072,7 @@ mod project_file_tests {
         let source =
             r#"import { Shared } from "lib.slint"; export component Main inherits Shared {}"#;
         std::fs::write(&main, source).unwrap();
-        std::fs::write(directory.path().join(FILE_NAME), r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(directory.path().join(FILE_NAME), r#"{"edition":"1.19"}"#).unwrap();
         for remote in [false, true] {
             let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
             let loader_calls = calls.clone();
@@ -3110,7 +3110,7 @@ mod project_file_tests {
         let directory = tempfile::TempDir::new().unwrap();
         let manifest = directory.path().join(FILE_NAME);
         let entry = directory.path().join("main.slint");
-        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
         let loader_entry = entry.clone();
         let mut compiler = Compiler::default();
         compiler.set_project_file_loader(
@@ -3151,7 +3151,7 @@ mod project_file_tests {
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
                     let contents = if path == loader_manifest {
                         Ok(format!(
-                            r#"{{"slint-edition":"1.19","experimental-features":{}}}"#,
+                            r#"{{"edition":"1.19","experimental-features":{}}}"#,
                             loader_experimental.borrow()
                         ))
                     } else {
@@ -3236,7 +3236,7 @@ mod project_file_tests {
         let main = directory.path().join("main.slint");
         let compiler = Compiler::default();
         let source = "export component Main inherits Window {}";
-        for contents in [None, Some(r#"{"slint-edition":"1.19"}"#), Some("{")] {
+        for contents in [None, Some(r#"{"edition":"1.19"}"#), Some("{")] {
             if let Some(contents) = contents {
                 std::fs::write(&manifest, contents).unwrap();
             }
@@ -3311,7 +3311,7 @@ mod project_file_tests {
             let main = root.join("ui/main.slint").unwrap();
             let manifest = root.join(FILE_NAME).unwrap();
             for manifest_contents in
-                [r#"{"slint-edition":"1.19"}"#, r#"{"slint-edition":"1.19","main":"other.slint"}"#]
+                [r#"{"edition":"1.19"}"#, r#"{"edition":"1.19","main":"other.slint"}"#]
             {
                 for static_compilation in [false, true] {
                     let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
@@ -3354,9 +3354,10 @@ mod project_file_tests {
         compiler.set_project_file_loader(
             std::rc::Rc::new(move |path| {
                 let contents = if path == enabled_manifest {
-                    Ok(r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into())
+                    Ok(r#"{"edition":"1.19","experimental-features":["component-container"]}"#
+                        .into())
                 } else {
-                    Ok(r#"{"slint-edition":"1.19","experimental-features":[]}"#.into())
+                    Ok(r#"{"edition":"1.19","experimental-features":[]}"#.into())
                 };
                 Box::pin(async move { Some(contents) })
             }),
@@ -3374,7 +3375,7 @@ mod project_file_tests {
     #[test]
     fn the_project_file_include_paths_are_used() {
         with_project(
-            r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
             |root| {
                 let include = root.join("include");
                 std::fs::create_dir_all(&include).unwrap();
@@ -3393,7 +3394,7 @@ mod project_file_tests {
 
     #[test]
     fn explicit_empty_include_paths_win_for_both_interpreter_compilers() {
-        with_project(r#"{"slint-edition":"1.19","include-paths":["include"]}"#, |root| {
+        with_project(r#"{"edition":"1.19","include-paths":["include"]}"#, |root| {
             let include = root.join("include");
             std::fs::create_dir_all(&include).unwrap();
             std::fs::write(include.join("shared.slint"), "export component Shared {}").unwrap();
@@ -3431,7 +3432,7 @@ mod project_file_tests {
     #[cfg(feature = "internal")]
     #[test]
     fn explicit_empty_include_paths_apply_to_source_path_compilation() {
-        with_project(r#"{ "slint-edition": "1.19" }"#, |root| {
+        with_project(r#"{ "edition": "1.19" }"#, |root| {
             let include_directory = root.join("include");
             std::fs::create_dir(&include_directory).unwrap();
             std::fs::write(include_directory.join("shared.slint"), "export component Shared {}")
@@ -3489,7 +3490,7 @@ mod project_file_tests {
     #[test]
     fn the_deprecated_compiler_reads_the_project_file() {
         with_project(
-            r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
             |root| {
                 std::fs::create_dir(root.join("include")).unwrap();
                 std::fs::write(root.join("include/shared.slint"), "export component Shared {}")
@@ -3508,7 +3509,7 @@ mod project_file_tests {
 
     #[test]
     fn a_project_directory_compiles_its_main_file() {
-        with_project(r#"{ "slint-edition": "1.19", "main": "ui/main.slint" }"#, |root| {
+        with_project(r#"{ "edition": "1.19", "main": "ui/main.slint" }"#, |root| {
             std::fs::create_dir_all(root.join("ui")).unwrap();
             std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
                 .unwrap();
@@ -3521,7 +3522,7 @@ mod project_file_tests {
 
     #[test]
     fn a_project_directory_without_an_entry_is_an_error() {
-        with_project(r#"{"slint-edition":"1.19"}"#, |root| {
+        with_project(r#"{"edition":"1.19"}"#, |root| {
             let result = spin_on::spin_on(Compiler::default().build_from_path(root));
             assert!(result.has_errors());
             assert!(
@@ -3535,7 +3536,7 @@ mod project_file_tests {
 
     #[test]
     fn a_project_file_path_is_an_error() {
-        with_project(r#"{"slint-edition": "1.19", "main":"main.slint"}"#, |root| {
+        with_project(r#"{"edition": "1.19", "main":"main.slint"}"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
             let result =
@@ -3556,7 +3557,7 @@ mod project_file_tests {
 
     #[test]
     fn the_deprecated_compiler_compiles_the_main_file_of_a_project_directory() {
-        with_project(r#"{ "slint-edition": "1.19", "main": "main.slint" }"#, |root| {
+        with_project(r#"{ "edition": "1.19", "main": "main.slint" }"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
@@ -3596,7 +3597,7 @@ mod project_file_tests {
         std::fs::create_dir(project_directory.path().join("ui")).unwrap();
         std::fs::write(
             project_directory.path().join(FILE_NAME),
-            r#"{"slint-edition":"1.19","main":"main.slint"}"#,
+            r#"{"edition":"1.19","main":"main.slint"}"#,
         )
         .unwrap();
         std::fs::write(

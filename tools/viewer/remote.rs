@@ -15,7 +15,7 @@ use slint::ComponentHandle as _;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
     export { AttributionItem } from "remote/licenses.slint";
 }

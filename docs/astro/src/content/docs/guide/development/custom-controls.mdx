@@ -86,7 +86,7 @@ an external `.slint` file together with a build script.
 
 
 ```rust
-slint::slint!(#[slint_edition = "1.19"] export { Recipe } from "button_native.slint";);
+slint::slint!(#[edition = "1.19"] export { Recipe } from "button_native.slint";);
 
 fn main() {
     let recipe = Recipe::new().unwrap();

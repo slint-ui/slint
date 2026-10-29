@@ -95,7 +95,7 @@ pub async fn compile_from_string(
 /// `optional_edition` is the edition to compile with, such as `"1.18"`.
 /// Without it, it compiles with the edition of its own release.
 /// An edition that this interpreter doesn't support is a compilation error.
-/// The `slint-edition` of a project file under `optional_project_root` takes precedence.
+/// The `edition` of a project file under `optional_project_root` takes precedence.
 #[wasm_bindgen]
 pub async fn compile_from_string_with_style(
     source: String,
