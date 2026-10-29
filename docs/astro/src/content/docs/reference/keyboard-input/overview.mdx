@@ -2,10 +2,11 @@
 title: Key Handling Overview
 description: Key Handling Overview
 ---
+
 {/* cSpell: ignore Backtab */}
 
-import Link from '@slint/common-files/src/components/Link.astro';
-import SpecialKeys from "/src/content/docs/generated/reference/enums/_keys.md"
+import Link from "@slint/common-files/src/components/Link.astro";
+import SpecialKeys from "/src/content/docs/generated/reference/enums/_keys.md";
 
 To handle keyboard input in Slint, use the `FocusScope` with `KeyBinding` elements or individual `key-pressed` and `key-released` callbacks in various elements.
 Keyboard input is delivered via [`KeyEvent`](#keyevent) data structures.
@@ -67,7 +68,12 @@ export component Example inherits Window {
 }
 ```
 
-Focusing such a `FocusScope` enables the platform's input method and reports `TextInputInterface.text-input-focused: true`; leaving focus disables it. After changing any of the `ime-*` properties, call `update-input-method-properties()` to forward them to the input method.
+Focusing such a `FocusScope` enables the platform's input method and reports `TextInputInterface.text-input-focused: true`; leaving focus disables it.
+Changes to the `ime-*` properties are forwarded to the input method automatically.
+
+Note that on some platforms (Android, wasm) the backend only handles IME features such as selection updates, cursor handles and clipboard actions when the focused item is a `TextInput`.
+With a `FocusScope` as the IME client, those platform-specific IME actions are silently dropped.
+Composition events and the `ime-*` property synchronization work on all platforms.
 
 ## Key Bindings
 

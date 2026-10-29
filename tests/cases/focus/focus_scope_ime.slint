@@ -8,10 +8,26 @@ export component TestCase inherits Window {
         scope.focus();
     }
 
+    callback unfocus();
+    unfocus => {
+        scope.clear-focus();
+    }
+
+    callback change_ime_text();
+    change_ime_text => {
+        scope.ime-text = "world";
+    }
+
+    callback focus_scope2();
+    focus_scope2 => {
+        scope2.focus();
+    }
+
     out property <string> preedit;
     out property <string> committed;
     out property <int> preedit-selection-start;
     out property <int> preedit-selection-end;
+    out property <string> scope2-preedit;
 
     scope := FocusScope {
         accepts-text-input: true;
@@ -33,6 +49,14 @@ export component TestCase inherits Window {
             accept
         }
     }
+
+    scope2 := FocusScope {
+        accepts-text-input: false;
+        composition-update(event) => {
+            root.scope2-preedit = event.text;
+            accept
+        }
+    }
 }
 
 /*
@@ -44,6 +68,10 @@ let instance = TestCase::new().unwrap();
 
 fn ime_requests(instance: &TestCase) -> Vec<InputMethodRequest> {
     slint_testing::access_testing_window(instance.window(), |w| w.ime_requests())
+}
+
+fn clear_ime_requests(instance: &TestCase) {
+    slint_testing::access_testing_window(instance.window(), |w| w.clear_ime_requests())
 }
 
 // No input method requests before the scope is focused
@@ -61,21 +89,36 @@ assert_eq!(p.text, "hello");
 assert_eq!(p.cursor_position, 5);
 assert!(p.anchor_position.is_none());
 
-// A preedit update reaches composition-update
+// Changing an ime-* property while focused automatically sends an Update,
+// without requiring a manual update-input-method-properties() call.
+clear_ime_requests(&instance);
+instance.invoke_change_ime_text();
+slint_testing::mock_elapsed_time(0);
+let requests = ime_requests(&instance);
+assert_eq!(requests.len(), 1, "expected one Update request: {:?}", requests);
+let InputMethodRequest::Update(p) = &requests[0] else {
+    panic!("expected Update, got {:?}", requests[0]);
+};
+assert_eq!(p.text, "world");
+
+// Leaving focus disables the input method
+clear_ime_requests(&instance);
+instance.invoke_unfocus();
+let requests = ime_requests(&instance);
+assert_eq!(requests.len(), 1, "expected one Disable request: {:?}", requests);
+let InputMethodRequest::Disable = &requests[0] else {
+    panic!("expected Disable, got {:?}", requests[0]);
+};
+
+// A FocusScope without accepts-text-input does not enable the IME nor
+// forward composition events while focused
+clear_ime_requests(&instance);
+instance.invoke_focus_scope2();
+assert!(ime_requests(&instance).is_empty(), "expected no IME request for scope without accepts-text-input");
 let mut event = InternalKeyEvent::default();
 event.event_type = KeyEventType::UpdateComposition;
-event.preedit_text = "he".into();
-event.preedit_selection = Some(1..2);
+event.preedit_text = "xyz".into();
 instance.window().dispatch_event(slint::platform::WindowEvent::internal(event));
-assert_eq!(instance.get_preedit(), "he");
-assert_eq!(instance.get_preedit_selection_start(), 1);
-assert_eq!(instance.get_preedit_selection_end(), 2);
-
-// A commit reaches composition-commit
-let mut event = InternalKeyEvent::default();
-event.event_type = KeyEventType::CommitComposition;
-event.key_event.text = "世界".into();
-instance.window().dispatch_event(slint::platform::WindowEvent::internal(event));
-assert_eq!(instance.get_committed(), "世界");
+assert_eq!(instance.get_scope2_preedit(), "", "composition-update must not fire when accepts-text-input is false");
 ```
 */

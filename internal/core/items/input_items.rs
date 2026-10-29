@@ -13,7 +13,8 @@ use crate::input::{
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::items::{
-    CompositionEvent, InputMethodHints, InputType, ItemTreeVTable, MouseCursorInner,
+    CapitalizationMode, CompositionEvent, InputMethodHints, InputType, ItemTreeVTable,
+    MouseCursorInner,
 };
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths};
@@ -552,6 +553,10 @@ pub struct FocusScope {
     /// True while this scope holds an enabled input method (set on focus-in when
     /// `accepts_text_input`, cleared on focus-out/deinit).
     ime_active: Cell<bool>,
+    /// Tracks changes to the dynamic `ime-*` properties so the input method is kept
+    /// in sync automatically, without requiring a manual `update-input-method-properties()`
+    /// call after every text or caret change. Only initialized while `ime_active` is true.
+    ime_properties_tracker: crate::properties::ChangeTracker,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
     pub capture_key_pressed: Callback<KeyEventArg, EventResult>,
@@ -564,6 +569,71 @@ pub struct FocusScope {
     pub key_bindings: OnceBox<KeyBindingList>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
+}
+
+/// A snapshot of every dynamic `ime-*` property plus `accepts-text-input`.
+///
+/// Used as the tracked value of [`FocusScope::ime_properties_tracker`]. Including
+/// every property means that changing any of them triggers an automatic
+/// `InputMethodRequest::Update`, matching how [`TextInput`](crate::items::TextInput)
+/// keeps the input method in sync without requiring a manual call.
+#[derive(Clone)]
+struct ImeSnapshot {
+    accepts_text_input: bool,
+    text: SharedString,
+    cursor_position: i32,
+    anchor_position: i32,
+    has_anchor: bool,
+    preedit_text: SharedString,
+    preedit_offset: i32,
+    cursor_rect_x: LogicalLength,
+    cursor_rect_y: LogicalLength,
+    cursor_rect_width: LogicalLength,
+    cursor_rect_height: LogicalLength,
+    input_type: InputType,
+    input_method_hints: InputMethodHints,
+}
+
+impl Default for ImeSnapshot {
+    fn default() -> Self {
+        Self {
+            accepts_text_input: false,
+            text: Default::default(),
+            cursor_position: 0,
+            anchor_position: 0,
+            has_anchor: false,
+            preedit_text: Default::default(),
+            preedit_offset: 0,
+            cursor_rect_x: Default::default(),
+            cursor_rect_y: Default::default(),
+            cursor_rect_width: Default::default(),
+            cursor_rect_height: Default::default(),
+            input_type: Default::default(),
+            input_method_hints: InputMethodHints {
+                capitalization: CapitalizationMode::Sentences,
+                auto_correct: true,
+                auto_complete: true,
+            },
+        }
+    }
+}
+
+impl PartialEq for ImeSnapshot {
+    fn eq(&self, other: &Self) -> bool {
+        self.accepts_text_input == other.accepts_text_input
+            && self.text == other.text
+            && self.cursor_position == other.cursor_position
+            && self.anchor_position == other.anchor_position
+            && self.has_anchor == other.has_anchor
+            && self.preedit_text == other.preedit_text
+            && self.preedit_offset == other.preedit_offset
+            && self.cursor_rect_x == other.cursor_rect_x
+            && self.cursor_rect_y == other.cursor_rect_y
+            && self.cursor_rect_width == other.cursor_rect_width
+            && self.cursor_rect_height == other.cursor_rect_height
+            && self.input_type == other.input_type
+            && self.input_method_hints == other.input_method_hints
+    }
 }
 
 impl FocusScope {
@@ -637,6 +707,7 @@ impl Item for FocusScope {
         // Mirror `focus_event(FocusOut)` when a focused scope is destroyed.
         if self.ime_active.replace(false) {
             WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
+            self.ime_properties_tracker.clear();
         }
     }
 
@@ -826,6 +897,40 @@ impl Item for FocusScope {
                             self.input_method_properties(self_rc),
                         ));
                     }
+
+                    self.ime_properties_tracker.init(
+                        self_rc.downgrade(),
+                        |scope_weak| {
+                            let scope = scope_weak.upgrade();
+                            let scope = scope.and_then(|rc| rc.downcast::<FocusScope>());
+                            match scope {
+                                Some(scope) => {
+                                    let s = scope.as_pin_ref();
+                                    ImeSnapshot {
+                                        accepts_text_input: s.accepts_text_input(),
+                                        text: s.ime_text(),
+                                        cursor_position: s.ime_cursor_position(),
+                                        anchor_position: s.ime_anchor_position(),
+                                        has_anchor: s.ime_has_anchor(),
+                                        preedit_text: s.ime_preedit_text(),
+                                        preedit_offset: s.ime_preedit_offset(),
+                                        cursor_rect_x: s.ime_cursor_rect_x(),
+                                        cursor_rect_y: s.ime_cursor_rect_y(),
+                                        cursor_rect_width: s.ime_cursor_rect_width(),
+                                        cursor_rect_height: s.ime_cursor_rect_height(),
+                                        input_type: s.ime_input_type(),
+                                        input_method_hints: s.ime_input_method_hints(),
+                                    }
+                                }
+                                None => Default::default(),
+                            }
+                        },
+                        |scope_weak, _props| {
+                            let Some(scope_rc) = scope_weak.upgrade() else { return };
+                            let Some(scope) = scope_rc.downcast::<FocusScope>() else { return };
+                            scope.as_pin_ref().update_input_method_properties(&scope_rc);
+                        },
+                    );
                 }
             }
             FocusEvent::FocusOut(reason) => {
@@ -835,6 +940,7 @@ impl Item for FocusScope {
                 // `set_text_input_focused(false)` sends `InputMethodRequest::Disable`.
                 if self.ime_active.replace(false) {
                     WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
+                    self.ime_properties_tracker.clear();
                 }
             }
         }

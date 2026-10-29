@@ -1530,10 +1530,13 @@ fn build(l: &mut Loader) {
         callback focus-gained(reason: FocusReason);
         /// Invoked when the `FocusScope` loses focus. The argument is a a <Link type="FocusReason" /> enum containing the reason for focus loss.
         callback focus-lost(reason: FocusReason);
-        /// When true, this scope acts as an input method client: focusing it enables the IME,
-        /// composition events arrive via `composition-update`/`composition-commit`, and
-        /// `TextInputInterface.text-input-focused` becomes true. Keep the `ime-*` properties
-        /// up to date and call `update-input-method-properties()` when they change.
+        /// When true, this scope acts as an input method client.
+        /// Focusing it enables the IME, composition events arrive via
+        /// `composition-update`/`composition-commit`, and
+        /// `TextInputInterface.text-input-focused` becomes true while focused.
+        /// The `ime-*` properties are synchronized with the input method automatically.
+        /// This property only takes effect when focus changes; toggling it while
+        /// the scope already has focus has no effect until focus is lost and regained.
         in property <bool> accepts-text-input;
         /// The text surrounding the caret, without pre-edit text.
         in property <string> ime-text;
@@ -1541,6 +1544,7 @@ fn build(l: &mut Loader) {
         in property <int> ime-cursor-position;
         /// The selection anchor in bytes, used when `ime-has-anchor` is true.
         in property <int> ime-anchor-position;
+        /// Whether a selection anchor is set (see `ime-anchor-position`).
         in property <bool> ime-has-anchor;
         /// The pre-edit text, as reported by `composition-update`.
         in property <string> ime-preedit-text;
@@ -1548,21 +1552,16 @@ fn build(l: &mut Loader) {
         in property <int> ime-preedit-offset;
         /// The caret rectangle in local coordinates, used to place the IME candidate window.
         in property <length> ime-cursor-rect-x;
+        /// The y coordinate of the caret rectangle (see `ime-cursor-rect-x`).
         in property <length> ime-cursor-rect-y;
+        /// The width of the caret rectangle (see `ime-cursor-rect-x`).
         in property <length> ime-cursor-rect-width;
+        /// The height of the caret rectangle (see `ime-cursor-rect-x`).
         in property <length> ime-cursor-rect-height;
+        /// The type of input (text, number, password, …) to show on the input method.
         in property <InputType> ime-input-type;
+        /// Hints about the expected input, such as capitalization and auto-correction.
         in property <InputMethodHints> ime-input-method-hints;
-        //! ## Functions
-        //!
-        //! ### update-input-method-properties()
-        //! Sends the `ime-*` properties to the input method. Call when text or caret changes.
-        function update-input-method-properties() { BuiltinFunction.FocusScopeUpdateIme }
-        //! ## Callbacks
-        //! ### composition-update(event: CompositionEvent)
-        //! Called when the input method updates the pre-edit text.
-        //! ### composition-commit(event: CompositionEvent)
-        //! Called when the input method commits text.
         /// Called when the input method updates the pre-edit text. Return `accept` if handled.
         callback composition-update(event: CompositionEvent) -> EventResult;
         /// Called when the input method commits composed text. Return `accept` if handled.
