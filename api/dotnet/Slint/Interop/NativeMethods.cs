@@ -625,7 +625,7 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_value_new_image_from_pixels(
-        byte* pixels, nuint len, uint width, uint height, [MarshalAs(UnmanagedType.U1)] bool alpha);
+        byte* pixels, nuint len, uint width, uint height, PixelFormat format);
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_value_new_image_from_data(byte* data, nuint len, Utf8Str format);

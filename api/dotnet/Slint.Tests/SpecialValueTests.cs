@@ -103,6 +103,11 @@ public sealed class SpecialValueTests
         Assert.AreEqual(2, fromRgba.Width);
         CollectionAssert.AreEqual(rgba, fromRgba.ToRgba8());
 
+        // Alpha 51 is a fifth, so the colors come back five times larger, without rounding.
+        using var premultiplied = Image.FromPremultipliedRgba8(1, 1, [10, 20, 40, 51]);
+        CollectionAssert.AreEqual(new byte[] { 50, 100, 200, 51 }, premultiplied.ToRgba8());
+        Assert.ThrowsExactly<SlintException>(() => Image.FromPremultipliedRgba8(2, 2, rgba));
+
         using var fromRgb = Image.FromRgb8(1, 1, [10, 20, 30]);
         CollectionAssert.AreEqual(new byte[] { 10, 20, 30, 255 }, fromRgb.ToRgba8());
 

@@ -142,6 +142,14 @@ public sealed class Struct : Dictionary<string, object?>
     }
 }
 
+/// <summary>The pixel formats of <c>slint_dotnet_value_new_image_from_pixels</c>.</summary>
+internal enum PixelFormat : byte
+{
+    Rgb8,
+    Rgba8,
+    Rgba8Premultiplied,
+}
+
 /// <summary>An image, such as one loaded from a file with <see cref="Load"/>.</summary>
 public sealed unsafe class Image : IDisposable
 {
@@ -181,11 +189,19 @@ public sealed unsafe class Image : IDisposable
 
     /// <summary>Creates an image from pixels of 4 bytes each, red, green, blue, and alpha, row by row.</summary>
     /// <exception cref="SlintException"><paramref name="pixels"/> doesn't have <c>width * height * 4</c> bytes.</exception>
-    public static Image FromRgba8(int width, int height, ReadOnlySpan<byte> pixels) => FromPixels(width, height, pixels, alpha: true);
+    public static Image FromRgba8(int width, int height, ReadOnlySpan<byte> pixels) => FromPixels(width, height, pixels, PixelFormat.Rgba8);
+
+    /// <summary>
+    /// Creates an image from pixels of 4 bytes each, red, green, blue, and alpha, row by row,
+    /// with the colors already multiplied by the alpha, as SkiaSharp and other renderers draw them.
+    /// </summary>
+    /// <exception cref="SlintException"><paramref name="pixels"/> doesn't have <c>width * height * 4</c> bytes.</exception>
+    public static Image FromPremultipliedRgba8(int width, int height, ReadOnlySpan<byte> pixels) =>
+        FromPixels(width, height, pixels, PixelFormat.Rgba8Premultiplied);
 
     /// <summary>Creates an opaque image from pixels of 3 bytes each, red, green, and blue, row by row.</summary>
     /// <exception cref="SlintException"><paramref name="pixels"/> doesn't have <c>width * height * 3</c> bytes.</exception>
-    public static Image FromRgb8(int width, int height, ReadOnlySpan<byte> pixels) => FromPixels(width, height, pixels, alpha: false);
+    public static Image FromRgb8(int width, int height, ReadOnlySpan<byte> pixels) => FromPixels(width, height, pixels, PixelFormat.Rgb8);
 
     /// <summary>
     /// Creates an image that shows an OpenGL texture, which stays yours to delete.
@@ -206,14 +222,14 @@ public sealed unsafe class Image : IDisposable
             textureId, (uint)width, (uint)height, origin == BorrowedOpenGLTextureOrigin.BottomLeft))));
     }
 
-    private static Image FromPixels(int width, int height, ReadOnlySpan<byte> pixels, bool alpha)
+    private static Image FromPixels(int width, int height, ReadOnlySpan<byte> pixels, PixelFormat format)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(width);
         ArgumentOutOfRangeException.ThrowIfNegative(height);
         fixed (byte* ptr = pixels)
         {
             return new Image(new ValueHandle(NativeError.CheckValue(NativeMethods.slint_dotnet_value_new_image_from_pixels(
-                ptr, (nuint)pixels.Length, (uint)width, (uint)height, alpha))));
+                ptr, (nuint)pixels.Length, (uint)width, (uint)height, format))));
         }
     }
 

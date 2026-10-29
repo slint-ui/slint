@@ -8,6 +8,8 @@
 - iOS: the package embeds Slint as a framework into `net10.0-ios` apps, which run on devices and in the simulator.
   The C# `Main` creates the components and calls `Run`, and the app's `Info.plist` names Slint's `SlintWindowSceneDelegate`.
   Native AOT works with `PublishAot` in the project; see the README for keeping state when iOS ends the app.
+- `Image.FromPremultipliedRgba8` creates an image from pixels with premultiplied alpha, as SkiaSharp draws them,
+  without converting them to straight alpha first.
 - Templates: `dotnet new install yurkinh.slint.net.Templates` installs four of them.
   `dotnet new slint` creates a desktop app, with live preview in Debug builds and Native AOT in Release builds.
   `slint-android` and `slint-ios` create mobile apps, with `--app-id` for the package name or bundle ID.

@@ -629,7 +629,7 @@ Next:
     Each platform view, about 80 lines, is a Skia canvas view that calls `Draw`, and redraws on the chart's `Invalidated` event.
     `AnimationProgress` drives the entrance animation, stepped by an `ITimer` that `Microcharts.Timer.Create` makes.
   - The port keeps that drawing: `Microcharts.Slint` draws a chart into an `SKBitmap` at the view's size in physical pixels,
-    and hands the pixels to a Slint `Image` with `Image.FromRgba8`.
+    and hands the pixels to a Slint `Image` with `Image.FromPremultipliedRgba8`.
     Slint draws no chart itself, so the charts look the same as on MAUI, on every platform and renderer that Slint has,
     including `linuxkms` with the software renderer.
     The cost is a CPU draw and a copy per frame, which matters only while a chart animates.
@@ -647,14 +647,14 @@ Next:
       With an opaque background, the default, the two are the same.
       With a transparent one, the light tops of the bars came out much darker, such as 5, 13, 17 instead of 40, 104, 135 at alpha 32.
       Converting with Skia's `ReadPixels` fixes it, at 3 ms more per frame.
-      An `Image.FromPremultipliedRgba8` in Slint.NET, on Slint's `Rgba8Premultiplied` buffers, would avoid the conversion.
+      Instead, Slint.NET now has `Image.FromPremultipliedRgba8`, for the next preview, on Slint's `RGBA8Premultiplied` buffers,
+      which Skia, FemtoVG, and the software renderer each draw; the prototype ran with each of them.
   - Phase 1: the library, `Sources/Microcharts.Slint` in the fork.
     - A `ChartView` component in `.slint`: an `Image` that reports its size and the window's scale factor to C# with a callback on `changed`.
     - A C# class that binds a `Chart` to a `ChartView`, draws it again when the chart invalidates, or the size or scale factor changes,
       and drops its subscription when the component goes away.
     - An `ITimer` on Slint's `Timer`, so animations step on the Slint thread, as Slint's objects require.
-    - Straight alpha for a chart with a transparent background, with `ReadPixels`,
-      or with `Image.FromPremultipliedRgba8`, if Slint.NET adds it first.
+    - `Image.FromPremultipliedRgba8` for Skia's pixels, so that it needs the version of Slint.NET after 1.19.0-preview.9.
   - Phase 2: samples, with the charts of `Microcharts.Samples`.
     A gallery of every chart type, as a `slint-xplat` solution, run on the desktop, the Pixel 9 emulator, and the iPhone 13.
   - Phase 3: a NuGet package with the library and the `.slint` file.

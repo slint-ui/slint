@@ -146,18 +146,22 @@ pub unsafe extern "C" fn slint_dotnet_value_new_image_from_path(path: Utf8Str) -
     })
 }
 
-/// `pixels` has `width * height` pixels of 4 bytes, RGBA, or with `alpha` false 3 bytes, RGB.
+/// `pixels` has `width * height` pixels in the format of `PixelFormat` in `Values.cs`:
+/// 0 is RGB of 3 bytes, 1 RGBA of 4 bytes, and 2 RGBA with premultiplied alpha.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_dotnet_value_new_image_from_pixels(
     pixels: *const u8,
     len: usize,
     width: u32,
     height: u32,
-    alpha: bool,
+    format: u8,
 ) -> *mut Value {
     use i_slint_core::graphics::{Rgb8Pixel, Rgba8Pixel, SharedPixelBuffer};
     guard(std::ptr::null_mut(), || {
-        let bytes_per_pixel = if alpha { 4 } else { 3 };
+        if format > 2 {
+            return Err(format!("{format} isn't a pixel format"));
+        }
+        let bytes_per_pixel = if format == 0 { 3 } else { 4 };
         if len != width as usize * height as usize * bytes_per_pixel {
             return Err(format!(
                 "{len} bytes don't make {width}×{height} pixels of {bytes_per_pixel} bytes"
@@ -165,14 +169,16 @@ pub unsafe extern "C" fn slint_dotnet_value_new_image_from_pixels(
         }
         let pixels =
             if len == 0 { &[][..] } else { unsafe { std::slice::from_raw_parts(pixels, len) } };
-        let image = if alpha {
-            Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+        let image = match format {
+            0 => Image::from_rgb8(SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
                 pixels, width, height,
-            ))
-        } else {
-            Image::from_rgb8(SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+            )),
+            1 => Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
                 pixels, width, height,
-            ))
+            )),
+            _ => Image::from_rgba8_premultiplied(
+                SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(pixels, width, height),
+            ),
         };
         Ok(into_raw(Value::Image(image)))
     })
