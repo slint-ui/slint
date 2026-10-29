@@ -97,8 +97,6 @@ pub struct PreviewSession {
     /// Taken for the duration of a compilation, which is how a second one is refused.
     compiler: RefCell<Option<slint_interpreter::Compiler>>,
     project_root: RefCell<Option<SourcePath>>,
-    /// The files the running compilation read, with the version it read.
-    compiled_versions: RefCell<HashMap<Url, SourceFileVersion>>,
     configuration: RefCell<Option<PreviewConfig>>,
     to_editor: Rc<dyn PreviewToLsp>,
 }
@@ -138,7 +136,6 @@ impl PreviewSession {
             dependencies: Default::default(),
             compiler: Default::default(),
             project_root: Default::default(),
-            compiled_versions: Default::default(),
             configuration: Default::default(),
             to_editor,
         });
@@ -336,7 +333,6 @@ impl PreviewSession {
         self.dependencies.borrow_mut().insert(url.clone());
         match self.file_cache.borrow().get(&url) {
             Some(CacheEntry::Ready(file_content)) => {
-                self.compiled_versions.borrow_mut().insert(url, file_content.version);
                 Ok(String::from_utf8_lossy(&file_content.contents).to_string())
             }
             _ => Err(std::io::ErrorKind::NotFound.into()),
@@ -375,8 +371,7 @@ impl PreviewSession {
                             format!("Not an absolute file path: {path}"),
                         )));
                     };
-                    Some(session.request_file(url.clone()).await.map(|file_content| {
-                        session.compiled_versions.borrow_mut().insert(url, file_content.version);
+                    Some(session.request_file(url).await.map(|file_content| {
                         String::from_utf8_lossy(&file_content.contents).to_string()
                     }))
                 })
@@ -431,8 +426,6 @@ impl PreviewSession {
             tracing::error!("Preview session is already compiling a component");
             return PreviewCompilation::Unavailable;
         };
-        *self.compiled_versions.borrow_mut() =
-            path.to_url().map(|url| (url, file.version)).into_iter().collect();
         // A dropped compilation must not take the compiler with it: a session without one
         // refuses every build that follows.
         let mut compiler = compiler;
@@ -442,7 +435,6 @@ impl PreviewSession {
         let compilation_result =
             compiler.build_from_source_path(Some(source_code), path, InternalToken).await;
         drop(compiler);
-        let compiled_versions = self.compiled_versions.take();
         // Set even on errors so edits to imported files still trigger a rebuild.
         *self.dependencies.borrow_mut() = compilation_result
             .watch_paths(InternalToken)
@@ -451,7 +443,7 @@ impl PreviewSession {
             .collect();
 
         if compilation_result.has_errors() {
-            self.send_diagnostics(&compilation_result, compiled_versions);
+            self.send_diagnostics(&compilation_result);
             let message = compilation_result
                 .diagnostics()
                 .inspect(|diagnostic| tracing::warn!("Compiler diagnostic: {diagnostic}"))
@@ -474,7 +466,7 @@ impl PreviewSession {
             return PreviewCompilation::ComponentNotFound;
         };
 
-        self.send_diagnostics(&compilation_result, compiled_versions);
+        self.send_diagnostics(&compilation_result);
         PreviewCompilation::Ready(CompiledPreview {
             compilation: Box::new(compilation_result.into_send()),
             component_name,
@@ -492,11 +484,7 @@ impl PreviewSession {
         self.to_editor.send(message)
     }
 
-    fn send_diagnostics(
-        &self,
-        compilation_result: &slint_interpreter::CompilationResult,
-        compiled_versions: HashMap<Url, SourceFileVersion>,
-    ) {
+    fn send_diagnostics(&self, compilation_result: &slint_interpreter::CompilationResult) {
         use i_slint_compiler::diagnostics::ByteFormat;
         let format = if self.configuration.borrow().as_ref().is_none_or(|config| config.format_utf8)
         {
@@ -505,8 +493,14 @@ impl PreviewSession {
             ByteFormat::Utf16
         };
         let diagnostics: Vec<_> = compilation_result.diagnostics().collect();
-        let diagnostics =
-            crate::protocol::diagnostics_by_url(&diagnostics, compiled_versions, format);
+        let diagnostics = crate::protocol::diagnostics_by_url(
+            &diagnostics,
+            self.file_cache.borrow().iter().filter_map(|(url, entry)| match entry {
+                CacheEntry::Ready(file_content) => Some((url.clone(), file_content.version)),
+                CacheEntry::Loading(_) => None,
+            }),
+            format,
+        );
         self.to_editor.notify_diagnostics(diagnostics).ok();
     }
 }
@@ -642,6 +636,22 @@ mod tests {
         }
     }
 
+    fn take_diagnostics(
+        editor: &CaptureToEditor,
+    ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+        editor
+            .0
+            .take()
+            .into_iter()
+            .filter_map(|message| match message {
+                PreviewToLspMessage::Diagnostics { uri, version, diagnostics } => {
+                    Some((uri, (version, diagnostics)))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Used to send every diagnostic under the previewed file, with UTF-8 columns and no version.
     #[tokio::test]
     async fn diagnostics_go_to_the_file_and_version_they_are_in() {
@@ -688,17 +698,7 @@ mod tests {
                     PreviewCompilation::CompilationError { .. }
                 ));
 
-                let diagnostics: HashMap<_, _> = editor
-                    .0
-                    .take()
-                    .into_iter()
-                    .filter_map(|message| match message {
-                        PreviewToLspMessage::Diagnostics { uri, version, diagnostics } => {
-                            Some((uri, (version, diagnostics)))
-                        }
-                        _ => None,
-                    })
-                    .collect();
+                let diagnostics = take_diagnostics(&editor);
                 assert_eq!(diagnostics[&main], (Some(3), Vec::new()));
                 let (version, imported_diagnostics) = &diagnostics[&imported];
                 assert_eq!(*version, Some(7));
@@ -718,6 +718,50 @@ mod tests {
             .await;
     }
 
+    /// Used to leave the errors of a dropped import in the editor.
+    #[tokio::test]
+    async fn a_file_the_build_no_longer_reads_gets_its_diagnostics_cleared() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let editor = Rc::new(CaptureToEditor::default());
+                let (session, _handle) = PreviewSession::start(editor.clone(), |_| {});
+                let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
+                let imported =
+                    Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
+                let set_contents = |url: &Url, version, contents: &str| {
+                    session.process_message(
+                        LspToPreviewMessage::SetContents {
+                            url: VersionedUrl::new(url.clone(), Some(version)),
+                            contents: contents.into(),
+                        },
+                        &|_| {},
+                        &mut None,
+                    );
+                };
+                let component = PreviewComponent { url: main.clone(), component: None };
+                set_contents(
+                    &main,
+                    1,
+                    r#"
+                        import { Imported } from "imported.slint";
+                        export component App inherits Window { Imported {} }
+                    "#,
+                );
+                set_contents(&imported, 7, "export component Imported { foo: 1; }");
+                session.compile_component(&component).await;
+                assert_eq!(take_diagnostics(&editor)[&imported].1.len(), 1);
+
+                set_contents(&main, 2, "export component App inherits Window {}");
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::Ready(_)
+                ));
+                assert_eq!(take_diagnostics(&editor)[&imported], (Some(7), Vec::new()));
+            })
+            .await;
+    }
+
     #[tokio::test]
     async fn prepare_only_the_primary_window_before_showing_it() {
         i_slint_backend_testing::init_no_event_loop();
@@ -727,7 +771,6 @@ mod tests {
             dependencies: Default::default(),
             compiler: Default::default(),
             project_root: Default::default(),
-            compiled_versions: Default::default(),
             configuration: Default::default(),
             to_editor: capture,
         });
@@ -781,7 +824,6 @@ mod tests {
                     dependencies: Default::default(),
                     compiler: Default::default(),
                     project_root: Default::default(),
-                    compiled_versions: Default::default(),
                     configuration: Default::default(),
                     to_editor: capture,
                 });
@@ -877,7 +919,6 @@ mod tests {
             dependencies: Default::default(),
             compiler: Default::default(),
             project_root: Default::default(),
-            compiled_versions: Default::default(),
             configuration: Default::default(),
             to_editor: capture.clone(),
         });
