@@ -621,7 +621,8 @@ Next:
     After the publish of preview.10, "next preview" in these turns into the version.
   - Later: a test project, which needs the testing backend in the packaged library.
 - **21.** Microcharts for Slint, in the fork [yurkinh/Microcharts](https://github.com/yurkinh/Microcharts), MIT licensed:
-  a `ChartView` for Slint next to its views for MAUI, iOS, and Android.
+  a `ChartView` for Slint next to its views for MAUI, iOS, and Android, on the fork's branch `slint`.
+  It's the package `yurkinh.Microcharts.Slint` until Microcharts takes it in, see phase 4.
   - What there is: `Microcharts.Core`, about 4,300 lines, draws eight chart types onto an `SKCanvas` with SkiaSharp,
     through `Chart.Draw(canvas, width, height)`:
     bar, line, point, donut, pie, radar, radial gauge, and half radial gauge, and legacy versions of the first three.
@@ -635,16 +636,25 @@ Next:
   - Not chosen, for now: charts in `.slint` with `Path` and repeaters, drawn by Slint's renderer without SkiaSharp.
     They'd follow Slint's styles and live preview, and leave out SkiaSharp's native library, about 10 MB per platform,
     but would rewrite every chart type and its text measurement.
-  - Phase 0, a prototype: a desktop app with one bar chart, drawn by SkiaSharp into an `Image`, animated, and resized with the window.
-    It answers the questions of the later phases:
-    the draw and copy time per frame for a large chart on a 2x display,
-    and whether `FromRgba8` needs straight alpha, which a chart with a transparent background would need converting to.
+  - Phase 0, done: a prototype on macOS with one bar chart, drawn by SkiaSharp into an `Image`, animated, and resized with the window.
+    - A `net10.0` app that references `Microcharts.Core` gets no MAUI package or assembly, despite `UseMaui` in its project,
+      so the core needs no change; the app gets SkiaSharp's native library, 15 MB on macOS.
+    - The chart draws at the view's size in physical pixels, with the canvas scaled by the window's scale factor,
+      so its sizes, which are in pixels, scale like the rest of the UI. At 2x, the labels are sharp.
+    - At 1920 by 934 pixels and 2x, a frame takes 1.4 ms to draw and copy on average, and 12 ms for the first one;
+      the animation of 1.5 s has about 45 frames. `Microcharts.Timer.Create` makes a timer on Slint's `Timer`.
+    - Skia draws premultiplied pixels, and `FromRgba8` takes straight alpha.
+      With an opaque background, the default, the two are the same.
+      With a transparent one, the light tops of the bars came out much darker, such as 5, 13, 17 instead of 40, 104, 135 at alpha 32.
+      Converting with Skia's `ReadPixels` fixes it, at 3 ms more per frame.
+      An `Image.FromPremultipliedRgba8` in Slint.NET, on Slint's `Rgba8Premultiplied` buffers, would avoid the conversion.
   - Phase 1: the library, `Sources/Microcharts.Slint` in the fork.
     - A `ChartView` component in `.slint`: an `Image` that reports its size and the window's scale factor to C# with a callback on `changed`.
     - A C# class that binds a `Chart` to a `ChartView`, draws it again when the chart invalidates, or the size or scale factor changes,
       and drops its subscription when the component goes away.
     - An `ITimer` on Slint's `Timer`, so animations step on the Slint thread, as Slint's objects require.
-    - `Microcharts.Core` sets `UseMaui` only for its platform target frameworks, so that a `net10.0` app gets no MAUI packages.
+    - Straight alpha for a chart with a transparent background, with `ReadPixels`,
+      or with `Image.FromPremultipliedRgba8`, if Slint.NET adds it first.
   - Phase 2: samples, with the charts of `Microcharts.Samples`.
     A gallery of every chart type, as a `slint-xplat` solution, run on the desktop, the Pixel 9 emulator, and the iPhone 13.
   - Phase 3: a NuGet package with the library and the `.slint` file.
@@ -652,6 +662,10 @@ Next:
     The generated code passes library paths to the compiler at run time;
     Android's assets and iOS's bundle resources need the library's file too, which `Slint.targets` doesn't add for library paths yet.
     The package's version follows Microcharts, and it depends on `yurkinh.slint.net` and `SkiaSharp`.
+  - Phase 4: a pull request to [microcharts-dotnet/Microcharts](https://github.com/microcharts-dotnet/Microcharts)
+    with `Microcharts.Slint` and its samples, so that Microcharts publishes it with its other packages,
+    and `yurkinh.Microcharts.Slint` points to it and stops.
+    It needs Slint.NET on nuget.org under the ID that Microcharts can depend on.
   - Risks: two copies of Skia in one app, Slint's and SkiaSharp's, which keep their symbols apart on the desktop,
     but need a check where both link into one executable, as with Native AOT on iOS.
     On embedded Linux, SkiaSharp needs fontconfig and the fonts that the labels use.
