@@ -1,0 +1,74 @@
+import { Button, CheckBox, LineEdit, ListView, VerticalBox } from "std-widgets.slint";
+
+struct Todo {
+    title: string,
+    done: bool,
+}
+
+component Card inherits Rectangle {
+    in property <string> title;
+    @testable in-out property <bool> selected;
+    @testable property <int> click-count;
+    background: selected ? #ddf : #fff;
+    height: 30px;
+    Text { text: root.title; }
+    TouchArea {
+        clicked => {
+            root.selected = !root.selected;
+            root.click-count += 1;
+        }
+    }
+}
+
+component TodoRow inherits Rectangle {
+    in property <string> title;
+    @testable in-out property <bool> done;
+    height: 26px;
+    CheckBox {
+        text: root.title;
+        checked <=> root.done;
+    }
+}
+
+export component App inherits Window {
+    @testable in-out property <int> counter: 0;
+    out property <string> status: counter > 3 ? "many" : "few";
+    in property <[string]> names: ["a", "b", "c"];
+    in-out property <[Todo]> todos: [
+        { title: "Buy milk" },
+        { title: "Walk the dog", done: true },
+        { title: "Water the plants" },
+        { title: "Pay the rent" },
+        { title: "Call grandma" },
+        { title: "Fix the bike" },
+        { title: "Book the flight" },
+        { title: "Renew the passport" },
+    ];
+    @testable property <string> last-submitted;
+    @testable out property <length> todo-scroll: todo-list.content-y;
+    @testable property <bool> unused-flag;
+    callback submitted(string);
+
+    VerticalBox {
+        label := Text { text: "Count: \{root.counter}"; }
+        ok-button := Button {
+            text: "Increment";
+            clicked => { root.counter += 1; }
+        }
+        input := LineEdit {
+            placeholder-text: "Name";
+            accepted(t) => {
+                root.last-submitted = t;
+                root.submitted(t);
+            }
+        }
+        for name[i] in root.names : Card { title: name; }
+        todo-list := ListView {
+            height: 100px;
+            for todo in root.todos : TodoRow {
+                title: todo.title;
+                done <=> todo.done;
+            }
+        }
+    }
+}
