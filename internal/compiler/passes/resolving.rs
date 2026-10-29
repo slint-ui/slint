@@ -412,6 +412,17 @@ pub fn resolve_expressions(
                 );
             },
         );
+        visit_all_expressions(component, |expression, _| {
+            expression.visit_recursive(&mut |expression| {
+                if let Expression::ImageReference {
+                    resource_ref: ImageReference::Source(path),
+                    ..
+                } = expression
+                {
+                    doc.referenced_file_resources.borrow_mut().insert(path.clone());
+                }
+            });
+        });
     }
 }
 

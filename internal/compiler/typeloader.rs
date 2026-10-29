@@ -339,6 +339,7 @@ impl Snapshotter {
             imports: document.imports.clone(),
             exports,
             library_exports: document.library_exports.clone(),
+            referenced_file_resources: document.referenced_file_resources.clone(),
             embedded_file_resources: document.embedded_file_resources.clone(),
             #[cfg(feature = "bundle-translations")]
             translation_builder: document.translation_builder.clone(),
@@ -2001,22 +2002,24 @@ impl TypeLoader {
 
     /// Returns all file paths whose on-disk changes can affect the current document graph.
     ///
-    /// This includes loaded documents and unresolved import targets that are kept in the
-    /// dependency graph so newly created files can invalidate their dependents.
+    /// This includes loaded documents, the resources they reference, and unresolved import
+    /// targets that are kept in the dependency graph so newly created files can invalidate
+    /// their dependents.
     pub fn all_files_to_watch(&self) -> HashSet<SourcePath> {
-        // Note: This only works if the full set of passes have run (e.g. in load_root_file, but not
-        // in load_file).
-        //
-        // TODO: the LSP will only run the import passes, which do not yet
-        // detect embedded file resources, so we won't know about them until we
-        // run the full pass pipeline (e.g. in the editor binary).
         fn resource_paths(document: &LoadedDocument) -> Vec<SourcePath> {
             match document {
                 LoadedDocument::Document(document) => document
-                    .embedded_file_resources
+                    .referenced_file_resources
                     .borrow()
                     .iter()
-                    .flat_map(|resource| resource.path.clone())
+                    .cloned()
+                    .chain(
+                        document
+                            .embedded_file_resources
+                            .borrow()
+                            .iter()
+                            .flat_map(|resource| resource.path.clone()),
+                    )
                     .collect(),
                 LoadedDocument::Invalidated(_document) => vec![],
             }
@@ -2638,17 +2641,64 @@ export component Main inherits Window {
 
 #[test]
 fn test_load_root_file_tracks_missing_resources() {
+    for embed_resources in
+        [crate::EmbedResourcesKind::Nothing, crate::EmbedResourcesKind::ListAllResources]
+    {
+        let mut compiler_config =
+            CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        compiler_config.style = Some("fluent".into());
+        compiler_config.embed_resources = embed_resources;
+        let mut build_diagnostics = BuildDiagnostics::default();
+        let main_path = SourcePath::new(std::env::temp_dir().join("main.slint"));
+        let resource_path = SourcePath::new(std::env::temp_dir().join("icon.svg"));
+
+        let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+        let raw_loader = spin_on::spin_on(
+            loader.load_root_file(
+                &main_path,
+                r#"
+    export component Main inherits Window {
+        Image {
+            source: @image-url("icon.svg");
+        }
+    }
+    "#
+                .into(),
+                true,
+                &mut build_diagnostics,
+            ),
+        );
+
+        // The image is not embedded, so it doesn't cause an error
+        assert!(!build_diagnostics.has_errors());
+        assert!(
+            loader.all_files_to_watch().contains(&main_path),
+            "watch paths: {:?}",
+            loader.all_files_to_watch()
+        );
+        assert!(
+            loader.all_files_to_watch().contains(&resource_path),
+            "watch paths: {:?}",
+            loader.all_files_to_watch()
+        );
+        let raw_loader = raw_loader.unwrap();
+        assert!(raw_loader.all_files_to_watch().contains(&main_path));
+        assert!(raw_loader.all_files_to_watch().contains(&resource_path));
+    }
+}
+
+#[test]
+fn test_load_file_tracks_missing_resources() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
-    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
     let mut build_diagnostics = BuildDiagnostics::default();
     let main_path = SourcePath::new(std::env::temp_dir().join("main.slint"));
     let resource_path = SourcePath::new(std::env::temp_dir().join("icon.svg"));
 
     let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
     spin_on::spin_on(
-        loader.load_root_file(
+        loader.load_file(
             &main_path,
             r#"
 export component Main inherits Window {
@@ -2663,17 +2713,50 @@ export component Main inherits Window {
         ),
     );
 
-    // The image is not embedded, so it doesn't cause an error
-    assert!(!build_diagnostics.has_errors());
-    assert!(
-        loader.all_files_to_watch().contains(&main_path),
-        "watch paths: {:?}",
-        loader.all_files_to_watch()
+    assert!(!build_diagnostics.has_errors(), "{:?}", build_diagnostics.to_string_vec());
+    let watch_files = loader.all_files_to_watch();
+    assert!(watch_files.contains(&resource_path), "watch paths: {watch_files:?}");
+    assert!(loader.get_document(&main_path).unwrap().embedded_file_resources.borrow().is_empty());
+}
+
+#[test]
+fn test_embedding_only_includes_used_images() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let image = SourcePath::new(manifest_dir.join("../../logo/slint-logo-square-light.png"));
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::EmbedAllResources;
+    let mut diagnostics = BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+component Unused {
+    Image { source: @image-url("unused.png"); }
+}
+export component Main inherits Window {
+    Image {
+        source: @image-url("../../logo/slint-logo-square-light.png");
+    }
+}
+"#
+        .into(),
+        Some(SourcePath::new(manifest_dir.join("main.slint"))),
+        &mut diagnostics,
     );
+    let (document, diagnostics, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, diagnostics, compiler_config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+
+    let resources = document.embedded_file_resources.borrow();
+    assert_eq!(resources.len(), 1);
+    let kinds: Vec<_> = resources
+        .iter()
+        .filter(|resource| resource.path.as_ref() == Some(&image))
+        .map(|resource| &resource.kind)
+        .collect();
     assert!(
-        loader.all_files_to_watch().contains(&resource_path),
-        "watch paths: {:?}",
-        loader.all_files_to_watch()
+        matches!(kinds.as_slice(), [crate::embedded_resources::EmbeddedResourcesKind::FileData]),
+        "{kinds:?}"
     );
 }
 
