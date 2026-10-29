@@ -1824,6 +1824,7 @@ impl ComponentInstance {
     ///     }
     /// "#;
     /// let mut compiler = Compiler::default();
+    /// compiler.set_edition((1, 19));
     /// let result = spin_on::spin_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
@@ -1858,8 +1859,10 @@ impl ComponentInstance {
     ///         in-out property <int> my_prop: 12;
     ///     }
     /// "#;
+    /// let mut compiler = Compiler::default();
+    /// compiler.set_edition((1, 19));
     /// let result = spin_on::spin_on(
-    ///     Compiler::default().build_from_source(code.into(), Default::default()));
+    ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
     /// let instance_weak = instance.as_weak();
@@ -1908,6 +1911,7 @@ impl ComponentInstance {
     ///     }
     /// "#;
     /// let mut compiler = Compiler::default();
+    /// compiler.set_edition((1, 19));
     /// let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
@@ -2615,8 +2619,10 @@ fn lang_type_to_value_type() {
 #[test]
 fn test_multi_components() {
     i_slint_backend_testing::init_no_event_loop();
+    let mut compiler = Compiler::default();
+    compiler.set_edition((1, 19));
     let result = spin_on::spin_on(
-        Compiler::default().build_from_source(
+        compiler.build_from_source(
             r#"
         export struct Settings {
             string_value: string,

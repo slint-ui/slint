@@ -289,7 +289,7 @@ fn an_edition_before_a_behavior_change_warns() {
     let output = project.compile(&project.root, &[]);
     let message = stderr(&output);
     assert!(output.status.success(), "{message}");
-    let warning = "'edition' 1.18 misses the language behavior changes up to 1.19";
+    let warning = "'edition' is 1.18, so the language behavior changes up to 1.19 don't apply";
     assert_eq!(message.matches(warning).count(), 1, "{message}");
     assert!(message.contains("slint-project.json"), "{message}");
 
@@ -297,7 +297,7 @@ fn an_edition_before_a_behavior_change_warns() {
     project.write("main.slint", PLAIN);
     let output = project.compile(&project.root, &[]);
     assert!(output.status.success(), "{}", stderr(&output));
-    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
 }
 
 #[test]
@@ -315,7 +315,7 @@ fn the_edition_option_wins_over_the_project_file() {
     assert!(output.status.success(), "{}", stderr(&output));
     let output = project.compile(&project.root, &["--edition", "1.19"]);
     assert!(!output.status.success(), "{}", stderr(&output));
-    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
 }
 
 #[test]
@@ -343,7 +343,7 @@ fn the_slint_edition_variable_does_not_warn() {
         .output()
         .unwrap();
     assert!(output.status.success(), "{}", stderr(&output));
-    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
 }
 
 #[cfg(feature = "python")]

@@ -2190,6 +2190,14 @@ pub mod test {
 
     use crate::editor_preview::test::main_test_file_name;
 
+    /// The configuration that the LSP sends, with the edition of this Slint.
+    pub fn preview_config() -> super::PreviewConfig {
+        let mut config = super::PreviewConfig::default();
+        config.overrides.project.edition =
+            Some(i_slint_compiler::project_file::SlintEdition::current());
+        config
+    }
+
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
@@ -2209,7 +2217,7 @@ pub mod test {
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            Default::default(),
+            crate::preview::test::preview_config(),
             path,
             Some(24),
             Some(source_code.to_string()),
@@ -2279,7 +2287,7 @@ mod tests {
         let source = r#"import { Button } from "std-widgets.slint";
             export component Main inherits Window { Button {} }"#;
         let (diagnostics, compiled, imports, versions) = spin_on::spin_on(parse_source(
-            Default::default(),
+            crate::preview::test::preview_config(),
             SourcePath::from_url(&target.url),
             None,
             Some(source.into()),
@@ -2322,7 +2330,7 @@ mod tests {
             });
             let switched_target = replacement.clone();
             let (diagnostics, _, _, _) = spin_on::spin_on(parse_source(
-                Default::default(), SourcePath::from_url(&original.url), None,
+                crate::preview::test::preview_config(), SourcePath::from_url(&original.url), None,
                 Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
                 move |path| {
@@ -2380,7 +2388,7 @@ mod tests {
                 }
             });
             let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
-                Default::default(),
+                crate::preview::test::preview_config(),
                 source.clone(),
                 Some(2),
                 Some(code.into()),
@@ -2408,7 +2416,7 @@ mod tests {
         for file_name in ["main.slint", "main.rs"] {
             let path = SourcePath::new(directory.path().join(file_name));
             let (diagnostics, compiled, _, versions) = spin_on::spin_on(parse_source(
-                Default::default(),
+                crate::preview::test::preview_config(),
                 path.clone(),
                 None,
                 None,
