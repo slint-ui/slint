@@ -3,7 +3,7 @@
 
 import { EditorInput } from "editor-input.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
-import { Springboard, ConnectionState, ViewerSearchState } from "@springboard";
+import { Springboard, ConnectionState, ManualEndpointState } from "@springboard";
 import { Preview } from "../preview.slint";
 import { ViewerStyle, Chevron, ViewerIcon } from "viewer-style.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
@@ -52,16 +52,17 @@ component DeviceField inherits EditorInput {
 export component DeviceManager inherits Rectangle {
     callback closed();
     private property <int> page;
-    private property <string> removing;
+    // Index into `Springboard.saved-endpoints`, or -1.
+    private property <int> removing: -1;
     private property <length> confirm-x;
     private property <length> confirm-y;
     private property <string> host;
     private property <string> port: "9000";
     private property <string> code;
     private property <string> message;
-    private property <bool> pairing-required: Springboard.connection-state == ConnectionState.PairingRequired
-        || Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired;
-    private property <bool> connected: Springboard.connection-state == ConnectionState.Connected;
+    private property <bool> pairing-required: Springboard.connection.state == ConnectionState.PairingRequired
+        || Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired;
+    private property <bool> connected: Springboard.connection.state == ConnectionState.Connected;
     init => {
         root.page = root.pairing-required ? 3 : 0;
         Springboard.discover-devices();
@@ -73,11 +74,17 @@ export component DeviceManager inherits Rectangle {
             root.page = 0;
         }
     }
-    changed host => { root.search(); }
-    changed port => { root.search(); }
-    changed page => { root.search(); root.removing = ""; }
-    function search() {
-        Springboard.search-address(root.page == 2 && root.host != "" && root.port != "" ? root.host + ":" + root.port : "");
+    changed host => { root.probe(); }
+    changed port => { root.probe(); }
+    changed page => { root.probe(); root.removing = -1; }
+    // TODO: only probe once the host is a complete IP address or looks like a
+    // host name, not on every keystroke.
+    function probe() {
+        if root.page == 2 && root.host != "" && root.port != "" {
+            Springboard.probe-address(root.host, root.port.to-float());
+        } else {
+            Springboard.probe-address("", 0);
+        }
     }
     function begin-pairing(index: int) {
         root.code = "";
@@ -117,28 +124,28 @@ export component DeviceManager inherits Rectangle {
                 content-width: self.width; content-height: saved-list.preferred-height;
                 saved-list := VerticalLayout {
                     width: parent.width;
-                    for device[index] in Springboard.endpoints: Rectangle {
-                        height: device.saved ? (75px * ViewerStyle.scale) : (0px * ViewerStyle.scale);
-                        visible: device.saved;
+                    for device[index] in Springboard.saved-endpoints: Rectangle {
+                        height: 75px * ViewerStyle.scale;
                         ViewerIcon { x: (16px * ViewerStyle.scale); y: (23px * ViewerStyle.scale); height: (28px * ViewerStyle.scale); remote: index > 0; ink: device.unavailable-reason == "" ? ViewerStyle.strong-icon : ViewerStyle.unavailable; }
                         Text { x: (58px * ViewerStyle.scale); y: (15px * ViewerStyle.scale); width: parent.width - (160px * ViewerStyle.scale); text: index == 0 ? Preview.local-name : device.name; color: (device.unavailable-reason == "") ? ViewerStyle.ink : ViewerStyle.unavailable; font-size: (16px * ViewerStyle.scale); font-weight: 500; overflow: elide; }
                         Text {
                             x: (58px * ViewerStyle.scale); y: (41px * ViewerStyle.scale); width: parent.width - (85px * ViewerStyle.scale);
-                            text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? @tr("Unavailable") : @tr("Available · {}", device.address);
+                            text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? device.unavailable-reason : @tr("Available · {}", device.address);
                             color: ViewerStyle.muted; font-size: 11px; overflow: elide;
+                            if device.unavailable-reason != "": Tooltip { text: @markdown("\{device.unavailable-reason}"); }
                         }
                         if index == 0: Text { x: parent.width - (73px * ViewerStyle.scale); y: (19px * ViewerStyle.scale); text: @tr("Built-in"); font-size: 11px; color: ViewerStyle.muted; }
-                        if index > 0 && root.removing != device.id: trash := DeviceAction {
+                        if index > 0 && root.removing != index: trash := DeviceAction {
                             x: parent.width - (45px * ViewerStyle.scale); y: (14px * ViewerStyle.scale); width: (32px * ViewerStyle.scale); height: (32px * ViewerStyle.scale); label: @tr("Remove {}", device.name);
                             activated => {
                                 root.confirm-x = trash.absolute-position.x - root.absolute-position.x - (46px * ViewerStyle.scale);
                                 root.confirm-y = trash.absolute-position.y - root.absolute-position.y;
-                                root.removing = device.id;
+                                root.removing = index;
                             }
                             Rectangle { border-radius: (8px * ViewerStyle.scale); background: trash.hovered ? ViewerStyle.pill-hover : transparent; }
                             Image { width: (22px * ViewerStyle.scale); height: (22px * ViewerStyle.scale); source: @image-url("../assets/lucide/trash.svg"); colorize: ViewerStyle.muted; }
                         }
-                        if index < Springboard.endpoints.length - 1: Rectangle { x: (58px * ViewerStyle.scale); y: parent.height - (1px * ViewerStyle.scale); width: parent.width - (74px * ViewerStyle.scale); height: (1px * ViewerStyle.scale); background: ViewerStyle.title-border.with-alpha(0.5); }
+                        if index < Springboard.saved-endpoints.length - 1: Rectangle { x: (58px * ViewerStyle.scale); y: parent.height - (1px * ViewerStyle.scale); width: parent.width - (74px * ViewerStyle.scale); height: (1px * ViewerStyle.scale); background: ViewerStyle.title-border.with-alpha(0.5); }
                     }
                 }
             }
@@ -164,18 +171,18 @@ export component DeviceManager inherits Rectangle {
                 content-width: self.width; content-height: nearby-list.preferred-height;
                 nearby-list := VerticalLayout {
                     width: parent.width;
-                    for device[index] in Springboard.endpoints: Rectangle {
-                        height: device.nearby ? ((device.version-mismatch != "" ? 120px : 80px) * ViewerStyle.scale) : 0px;
-                        visible: device.nearby;
+                    for device[index] in Springboard.discovered-endpoints: Rectangle {
+                        height: (device.version-mismatch != "" ? 120px : 80px) * ViewerStyle.scale;
                         ViewerIcon { x: (16px * ViewerStyle.scale); y: 20px * ViewerStyle.scale; remote: true; }
                         Text { x: (58px * ViewerStyle.scale); y: (18px * ViewerStyle.scale); width: parent.width - (160px * ViewerStyle.scale); text: device.name; color: ViewerStyle.ink; font-size: (17px * ViewerStyle.scale); font-weight: 500; overflow: elide; }
                         Text {
-                            x: 58px * ViewerStyle.scale; y: 46px * ViewerStyle.scale; width: parent.width - 74px * ViewerStyle.scale;
-                            text: device.version-mismatch != "" ? @tr("Incompatible viewer version") : device.unavailable-reason != "" ? @tr("Unavailable") : device.saved ? @tr("Saved viewer") : device.address;
+                            x: 58px * ViewerStyle.scale; y: 46px * ViewerStyle.scale; width: parent.width - 160px * ViewerStyle.scale;
+                            text: device.version-mismatch != "" ? @tr("Incompatible viewer version") : device.unavailable-reason != "" ? device.unavailable-reason : device.saved ? @tr("Saved viewer") : device.address;
                             color: device.unavailable-reason != "" ? ViewerStyle.warning : ViewerStyle.muted;
                             font-size: device.version-mismatch != "" ? 12px : 11px;
                             font-weight: device.version-mismatch != "" ? 500 : 400;
                             overflow: elide;
+                            if device.unavailable-reason != "": Tooltip { text: @markdown("\{device.unavailable-reason}"); }
                         }
                         if device.version-mismatch != "": Text {
                             x: 58px * ViewerStyle.scale; y: 68px * ViewerStyle.scale; width: parent.width - 74px * ViewerStyle.scale;
@@ -186,7 +193,7 @@ export component DeviceManager inherits Rectangle {
                             text: @tr("Update Slint Preview on this device."); color: ViewerStyle.muted; font-size: 11px;
                         }
                         SoftButton { x: parent.width - (86px * ViewerStyle.scale); y: (22px * ViewerStyle.scale); width: (70px * ViewerStyle.scale); height: (36px * ViewerStyle.scale); label: device.saved ? @tr("Saved") : @tr("Pair"); primary: true; enabled: !device.saved && device.unavailable-reason == ""; activated => { root.begin-pairing(index); } }
-                        if index < Springboard.endpoints.length - 1: Rectangle { x: (58px * ViewerStyle.scale); y: parent.height - (1px * ViewerStyle.scale); width: parent.width - (74px * ViewerStyle.scale); height: (1px * ViewerStyle.scale); background: ViewerStyle.title-border.with-alpha(0.5); }
+                        if index < Springboard.discovered-endpoints.length - 1: Rectangle { x: (58px * ViewerStyle.scale); y: parent.height - (1px * ViewerStyle.scale); width: parent.width - (74px * ViewerStyle.scale); height: (1px * ViewerStyle.scale); background: ViewerStyle.title-border.with-alpha(0.5); }
                     }
                 }
             }
@@ -209,31 +216,31 @@ export component DeviceManager inherits Rectangle {
         DeviceField { x: parent.width - (122px * ViewerStyle.scale); y: (175px * ViewerStyle.scale); width: (98px * ViewerStyle.scale); text <=> root.port; placeholder: "9000"; numeric: true; }
         Text {
             x: 24px * ViewerStyle.scale; y: 242px * ViewerStyle.scale; width: parent.width - 48px * ViewerStyle.scale;
-            text: Springboard.search-state == ViewerSearchState.Idle ? @tr("Enter an address and port")
-                : Springboard.search-state == ViewerSearchState.Searching ? @tr("Looking for Slint Preview…")
-                : Springboard.search-state == ViewerSearchState.Failed ? @tr("Couldn’t connect to this address")
-                : Springboard.search-state == ViewerSearchState.Incompatible ? @tr("Incompatible Slint version") : @tr("Slint Preview found");
-            color: Springboard.search-state == ViewerSearchState.Failed || Springboard.search-state == ViewerSearchState.Incompatible ? ViewerStyle.warning : ViewerStyle.ink;
+            text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Enter an address and port")
+                : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Looking for Slint Preview…")
+                : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Couldn’t connect to this address")
+                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? @tr("Incompatible Slint version") : @tr("Slint Preview found");
+            color: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable || Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? ViewerStyle.warning : ViewerStyle.ink;
             font-size: 12px; font-weight: 500;
         }
         Text {
             x: 24px * ViewerStyle.scale; y: 268px * ViewerStyle.scale; width: parent.width - 48px * ViewerStyle.scale; height: 54px * ViewerStyle.scale;
-            text: Springboard.search-state == ViewerSearchState.Idle ? @tr("Use the address shown on your device.")
-                : Springboard.search-state == ViewerSearchState.Searching ? @tr("Checking the viewer at this address.")
-                : Springboard.search-state == ViewerSearchState.Failed ? @tr("Check the IP address and port, and make sure\nSlint Preview is open on your device.")
-                : Springboard.search-state == ViewerSearchState.Incompatible ? Springboard.version-description(Springboard.search-viewer-version) + "\n" + @tr("Update Slint Preview on this device.") : @tr("Connect to pair with this device.");
+            text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Use the address shown on your device.")
+                : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Checking the viewer at this address.")
+                : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Check the IP address and port, and make sure\nSlint Preview is open on your device.")
+                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? Springboard.version-description(Springboard.manual-endpoint.version) + "\n" + @tr("Update Slint Preview on this device.") : @tr("Connect to pair with this device.");
             color: ViewerStyle.muted; font-size: 11px; wrap: word-wrap;
         }
         SoftButton {
             x: (24px * ViewerStyle.scale); y: (344px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (46px * ViewerStyle.scale);
-            label: Springboard.search-state == ViewerSearchState.Failed ? @tr("Search again") : Springboard.search-state == ViewerSearchState.Searching ? @tr("Searching…") : @tr("Connect"); primary: true;
-            enabled: Springboard.search-state == ViewerSearchState.Found || Springboard.search-state == ViewerSearchState.Failed;
+            label: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Search again") : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Searching…") : @tr("Connect"); primary: true;
+            enabled: Springboard.manual-endpoint.state == ManualEndpointState.Reachable || Springboard.manual-endpoint.state == ManualEndpointState.Unreachable;
             activated => {
-                if Springboard.search-state == ViewerSearchState.Found {
+                if Springboard.manual-endpoint.state == ManualEndpointState.Reachable {
                     if !Preview.is-running { Preview.run(); }
-                    Springboard.connect-found-device();
+                    Springboard.connect-manual-endpoint();
                     root.page = 3;
-                } else { root.search(); }
+                } else { root.probe(); }
             }
         }
     }
@@ -246,24 +253,24 @@ export component DeviceManager inherits Rectangle {
         }
         Text { x: (91px * ViewerStyle.scale); y: (85px * ViewerStyle.scale); width: parent.width - (115px * ViewerStyle.scale); text: Springboard.selected-endpoint.name; color: ViewerStyle.ink; font-size: (17px * ViewerStyle.scale); font-weight: 500; overflow: elide; }
         Text { x: (91px * ViewerStyle.scale); y: (112px * ViewerStyle.scale); text: Springboard.selected-endpoint.address; color: ViewerStyle.muted; font-size: 11px; }
-        Text { x: (24px * ViewerStyle.scale); y: (166px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection-state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : @tr("Enter the code shown on your device."); color: ViewerStyle.muted; font-size: (15px * ViewerStyle.scale); }
-        if Springboard.connection-state == ConnectionState.PairingRequired: DeviceField { x: (24px * ViewerStyle.scale); y: (204px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text <=> root.code; placeholder: @tr("{}-digit pairing code", Springboard.pairing-code-digits); numeric: true; }
-        Text { x: (24px * ViewerStyle.scale); y: (274px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.error-message; wrap: word-wrap; color: ViewerStyle.error; font-size: 11px; }
+        Text { x: (24px * ViewerStyle.scale); y: (166px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection.state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : @tr("Enter the code shown on your device."); color: ViewerStyle.muted; font-size: (15px * ViewerStyle.scale); }
+        if Springboard.connection.state == ConnectionState.PairingRequired: DeviceField { x: (24px * ViewerStyle.scale); y: (204px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text <=> root.code; placeholder: @tr("{}-digit pairing code", Springboard.connection.pairing-code-length); numeric: true; }
+        Text { x: (24px * ViewerStyle.scale); y: (274px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: Springboard.connection.error; wrap: word-wrap; color: ViewerStyle.error; font-size: 11px; }
         SoftButton {
-            x: (24px * ViewerStyle.scale); y: (315px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (46px * ViewerStyle.scale); label: Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device"); primary: true; enabled: Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection-state == ConnectionState.PairingRequired && root.code.character-count == Springboard.pairing-code-digits);
+            x: (24px * ViewerStyle.scale); y: (315px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (46px * ViewerStyle.scale); label: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device"); primary: true; enabled: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection.state == ConnectionState.PairingRequired && root.code.character-count == Springboard.connection.pairing-code-length);
             activated => {
-                if Springboard.connection-state == ConnectionState.UnpairedConfirmationRequired {
+                if Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired {
                     Springboard.accept-unpaired-connection();
                 } else { Springboard.submit-pairing-code(root.code); root.code = ""; }
             }
         }
         Text { x: (24px * ViewerStyle.scale); y: (385px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: @tr("A restart may require a new pairing code."); color: ViewerStyle.muted; font-size: 11px; horizontal-alignment: center; }
     }
-    if root.removing != "": Rectangle {
-        TouchArea { clicked => { root.removing = ""; } }
+    if root.removing >= 0: Rectangle {
+        TouchArea { clicked => { root.removing = -1; } }
         SoftButton {
             x: root.confirm-x; y: root.confirm-y; width: (78px * ViewerStyle.scale); height: (32px * ViewerStyle.scale); label: @tr("Confirm");
-            activated => { Springboard.forget-device(root.removing); root.removing = ""; }
+            activated => { Springboard.forget-device(root.removing); root.removing = -1; }
         }
     }
 }

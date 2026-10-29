@@ -162,11 +162,12 @@ use shaping::{
 /// back: `f` only borrows the [`Layout`], so no caller can lose the shaped paragraphs and cost the
 /// next use of the entry a reshape.
 ///
-/// The font context is borrowed from `window`'s Slint context for shaping and layout only, and
-/// released before `f` runs -- glyph drawing inside `f` re-enters it, and property bindings
-/// evaluated under `f` must not find it borrowed. The wrap mode, line-height factor and scale
-/// factor the cache entry is keyed on come from `layout_builder`, so shaping and layout cannot
-/// disagree about them.
+/// The font context is borrowed from `window`'s Slint context for shaping and layout only,
+/// and released before `f` runs, as glyph drawing inside `f` re-enters it.
+/// `f` runs with the cache entry checked out, which keeps the whole [`TextLayoutCache`] borrowed.
+/// So `f` must not read properties: a binding that measures text would panic.
+/// The wrap mode, line-height factor and scale factor the cache entry is keyed on come from
+/// `layout_builder`, so shaping and layout cannot disagree about them.
 ///
 /// Returns `None` only when `window` has no Slint context yet.
 fn with_text_layout<R>(
@@ -179,7 +180,7 @@ fn with_text_layout<R>(
     f: impl FnOnce(&Layout) -> R,
 ) -> Option<R> {
     let ctx = crate::window::WindowInner::from_pub(window).try_context()?;
-    let mut font_ctx = ctx.font_context().borrow_mut();
+    let font_context = ctx.font_context();
 
     let text_wrap = layout_builder.text_wrap;
     let scale_factor = layout_builder.scale_factor;
@@ -190,14 +191,18 @@ fn with_text_layout<R>(
         layout_builder.line_height_factor,
         text.measures_width_only(),
         window,
-        &mut font_ctx,
-        &|font_context| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
+        &|| shape_paragraphs(text, item_rc, text_wrap, scale_factor, font_context),
     );
 
     let line_breaking = guard.take_line_breaking();
-    let layout =
-        layout(layout_builder, &mut font_ctx, guard.take(), scale_factor, options, line_breaking);
-    drop(font_ctx);
+    let layout = layout(
+        layout_builder,
+        &mut font_context.borrow_mut(),
+        guard.take(),
+        scale_factor,
+        options,
+        line_breaking,
+    );
 
     if layout.broke_lines {
         #[cfg(feature = "testing")]
@@ -255,6 +260,7 @@ pub fn draw_text(
 
     let text_overflow = text.overflow();
     let text_color = text.color().color();
+    let text_selection = text.selection();
 
     let _ = with_render_text_layout(
         scale_factor,
@@ -285,7 +291,7 @@ pub fn draw_text(
 
             if render {
                 let mut selection_spans = SelectionSpans::default();
-                let selection = text.selection().and_then(|selection| {
+                let selection = text_selection.and_then(|selection| {
                     draw_selection_background(
                         item_renderer,
                         layout,
@@ -476,6 +482,12 @@ pub fn draw_text_input(
 
     let scale_factor = item_renderer.scale_factor();
 
+    let selection_background = text_input.selection_background_color();
+    let selection_foreground = text_input.selection_foreground_color();
+    let cursor = visual_representation
+        .cursor_position
+        .map(|cursor_pos| (cursor_pos, text_input.text_cursor_width() * scale_factor));
+
     let layout_builder =
         shaping_builder(text_input, Some(item_rc), text_input.wrap(), scale_factor);
 
@@ -509,8 +521,8 @@ pub fn draw_text_input(
                     item_renderer,
                     layout,
                     selection_range,
-                    text_input.selection_background_color(),
-                    text_input.selection_foreground_color(),
+                    selection_background,
+                    selection_foreground,
                     &mut selection_spans,
                 );
 
@@ -522,11 +534,11 @@ pub fn draw_text_input(
                     selection.as_ref(),
                 );
 
-                if let Some(cursor_pos) = visual_representation.cursor_position {
+                if let Some((cursor_pos, cursor_width)) = cursor {
                     let cursor_rect = layout.cursor_rect_for_byte_offset(
                         cursor_pos,
                         visual_representation.cursor_affinity,
-                        text_input.text_cursor_width() * scale_factor,
+                        cursor_width,
                     );
                     item_renderer
                         .fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
@@ -571,16 +583,6 @@ fn text_size_impl(
     cache: Option<&TextLayoutCache>,
 ) -> Option<LogicalSize> {
     let scale_factor = scale_factor?;
-
-    // Evaluate the properties that `shape_paragraphs` reads before borrowing font_context: they
-    // can trigger property bindings that re-enter text_size for other elements, which would panic
-    // on a second borrow_mut(). Afterwards they are clean, so shaping can read them again -- now
-    // without re-entering -- inside the cache entry's dependency tracker.
-    let _ = text_item.font_request(item_rc);
-    let _ = text_item.stroke();
-    let _ = text_item.link_color();
-    let _ = text_item.text();
-
     let window_adapter = window_adapter?;
 
     // Only `layout()`'s elision glyph reads this, and `TextOverflow::Clip` never asks for one.
@@ -630,24 +632,23 @@ fn text_content_widths_impl(
     cache: Option<&TextLayoutCache>,
 ) -> Option<crate::renderer::ContentWidths> {
     let scale_factor = scale_factor?;
-
-    // See text_size(): evaluate properties before borrowing font_context. Afterwards they are
-    // clean, so `compute` can read them again -- now without re-entering -- inside the cache
-    // entry's dependency tracker.
-    let _ = text_item.font_request(item_rc);
-    let _ = text_item.text();
-
     let ctx = ctx?;
-    let mut font_ctx = ctx.font_context().borrow_mut();
 
     // Reads the text, the font request and the line limit, so the cache entry depends on all
     // three. Nothing else feeds the widths: the wrap mode, the width and the color don't.
-    let compute = |font_ctx: &mut FontContext| {
+    // Reads them before borrowing the font context; see `shape_paragraphs`.
+    let compute = || {
         let layout_builder =
             shaping::content_widths_builder(text_item.font_request(item_rc), scale_factor);
+        let text = text_item.text();
+        let line_limit = text_item.line_limit();
 
-        let paragraphs_without_linebreaks =
-            create_text_paragraphs(&layout_builder, font_ctx, text_item.text(), Color::default());
+        let paragraphs_without_linebreaks = create_text_paragraphs(
+            &layout_builder,
+            &mut ctx.font_context().borrow_mut(),
+            text,
+            Color::default(),
+        );
 
         // No line breaking needed: parley derives the content widths from the break
         // opportunities. Paragraphs stack vertically, so both widths are the widest.
@@ -655,7 +656,7 @@ fn text_content_widths_impl(
         // that are not drawn, from both widths.
         let (min, max) = paragraphs_without_linebreaks
             .iter()
-            .take(text_item.line_limit().unwrap_or(usize::MAX))
+            .take(line_limit.unwrap_or(usize::MAX))
             .fold((0., 0.), |(min, max), p| {
                 let w = p.layout.calculate_content_widths();
                 (f32::max(min, w.min), f32::max(max, w.max))
@@ -669,10 +670,10 @@ fn text_content_widths_impl(
     // Without a window there is no way to notice a scale factor change, and the shaped
     // advances are in physical pixels, so an entry kept across one would be wrong.
     let Some((cache, window_adapter)) = cache.zip(window_adapter) else {
-        return Some(compute(&mut font_ctx));
+        return Some(compute());
     };
     cache.clear_if_scale_factor_changed(window_adapter.window());
-    Some(cache.content_widths(item_rc, || compute(&mut font_ctx)))
+    Some(cache.content_widths(item_rc, compute))
 }
 
 pub fn char_size(

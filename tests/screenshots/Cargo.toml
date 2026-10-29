@@ -49,12 +49,15 @@ anyrender = [
 # pre-decoded textures (the MCU-style `EmbedTextures` path).
 software-embed-assets = ["software"]
 # Render the embed-assets cases through the interpreter too, with its compiler pre-rendering
-# images and fonts. Compares against the `software_embed_assets` references.
+# images and fonts, both as compiled and after sending the compiled unit through
+# `i_slint_compiler::llr::serialize`, as a microcontroller receives it.
+# Compares against the `software_embed_assets` references.
 interpreter-embed-assets = [
   "software",
   "dep:slint-interpreter",
   "slint-interpreter/internal",
   "slint-interpreter/internal-embed-textures",
+  "i-slint-compiler/serde",
   "dep:spin_on",
 ]
 

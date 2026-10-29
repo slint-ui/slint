@@ -5,8 +5,10 @@ use i_slint_live_preview::protocol::{
     PROTOCOL_SUBPROTOCOL, SERVICE_TYPE, SLINT_VERSION, TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY,
 };
 
+use super::EndpointIdentity;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct DiscoveredViewer {
+pub(super) struct RemoteViewer {
     pub fullname: String,
     pub name: String,
     pub addresses: Vec<String>,
@@ -15,18 +17,18 @@ pub(super) struct DiscoveredViewer {
 }
 
 #[derive(Debug)]
-pub(super) enum DiscoveryEvent {
-    Updated(DiscoveredViewer),
+enum DiscoveryEvent {
+    Updated(RemoteViewer),
     Removed(String),
 }
 
-pub(super) struct Discovery {
+struct Discovery {
     daemon: Option<mdns_sd::ServiceDaemon>,
     receiver: mdns_sd::Receiver<mdns_sd::ServiceEvent>,
 }
 
 impl Discovery {
-    pub fn start() -> crate::Result<Self> {
+    fn start() -> crate::Result<Self> {
         let daemon = mdns_sd::ServiceDaemon::new()?;
         match daemon.browse(SERVICE_TYPE) {
             Ok(receiver) => Ok(Self { daemon: Some(daemon), receiver }),
@@ -37,7 +39,17 @@ impl Discovery {
         }
     }
 
-    pub async fn next_event(&self) -> crate::Result<DiscoveryEvent> {
+    /// Query again right away, instead of waiting out mDNS's query backoff.
+    fn restart(&mut self) -> crate::Result<()> {
+        let Some(daemon) = &self.daemon else { return Ok(()) };
+        // Calling `browse` again without stopping keeps the old query schedule
+        // running next to the new one.
+        daemon.stop_browse(SERVICE_TYPE)?;
+        self.receiver = daemon.browse(SERVICE_TYPE)?;
+        Ok(())
+    }
+
+    async fn next_event(&self) -> crate::Result<DiscoveryEvent> {
         loop {
             match self.receiver.recv_async().await? {
                 mdns_sd::ServiceEvent::ServiceResolved(viewer) => {
@@ -52,7 +64,7 @@ impl Discovery {
     }
 
     #[cfg(test)]
-    pub(super) fn from_receiver(receiver: mdns_sd::Receiver<mdns_sd::ServiceEvent>) -> Self {
+    fn from_receiver(receiver: mdns_sd::Receiver<mdns_sd::ServiceEvent>) -> Self {
         Self { daemon: None, receiver }
     }
 }
@@ -66,7 +78,32 @@ impl Drop for Discovery {
     }
 }
 
-fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
+impl RemoteViewer {
+    /// A viewer the user entered by address, dialed like a discovered one.
+    // NOTE: a scoped IPv6 address such as `fe80::1%eth0` doesn't parse, so it
+    // isn't bracketed and can't be dialed.
+    pub(super) fn manual(host: &str, port: u16) -> Self {
+        let address = match host.parse::<std::net::Ipv6Addr>() {
+            Ok(_) => format!("[{host}]"),
+            Err(_) => host.to_owned(),
+        };
+        Self {
+            fullname: String::new(),
+            name: host.to_owned(),
+            addresses: vec![address],
+            port,
+            unavailable_reason: String::new(),
+        }
+    }
+
+    // TODO: use the host the viewer advertises in its TXT record, which survives
+    // conflict renaming, once viewers advertise one.
+    pub(super) fn identity(&self) -> EndpointIdentity {
+        EndpointIdentity::Remote { host: self.name.clone() }
+    }
+}
+
+fn normalize(viewer: mdns_sd::ResolvedService) -> RemoteViewer {
     let name = viewer
         .fullname
         .strip_suffix(&format!(".{}", viewer.ty_domain))
@@ -106,7 +143,7 @@ fn normalize(viewer: mdns_sd::ResolvedService) -> DiscoveredViewer {
             unavailable_reason = "Viewer has no usable address".into();
         }
     }
-    DiscoveredViewer {
+    RemoteViewer {
         fullname: viewer.fullname,
         name,
         addresses,
@@ -120,6 +157,104 @@ fn usable_ipv6(address: &std::net::Ipv6Addr, scope_index: u32) -> Option<String>
         (scope_index != 0).then(|| format!("[{address}%{scope_index}]"))
     } else {
         Some(format!("[{address}]"))
+    }
+}
+
+#[derive(Default)]
+pub(super) struct DiscoveredViewers {
+    mdns: Option<Discovery>,
+    pub(super) error: String,
+    pub(super) discovered: Vec<RemoteViewer>,
+}
+
+impl DiscoveredViewers {
+    pub(super) fn start() -> Self {
+        let mut viewers = Self::default();
+        viewers.set_mdns(Discovery::start());
+        viewers
+    }
+
+    fn set_mdns(&mut self, mdns: crate::Result<Discovery>) {
+        match mdns {
+            Ok(mdns) => {
+                self.mdns = Some(mdns);
+                self.error.clear();
+            }
+            Err(error) => {
+                self.mdns = None;
+                self.discovered.clear();
+                self.error = format!("Cannot discover viewers: {error}");
+            }
+        }
+    }
+
+    /// Start browsing again, or restart it to reset mDNS's query backoff.
+    pub(super) fn restart(&mut self) {
+        // mdns-sd drops its cache without reporting the removals, so a viewer
+        // that vanished meanwhile would stay listed.
+        self.discovered.clear();
+        let mdns = match self.mdns.take() {
+            Some(mut mdns) => mdns.restart().map(|()| mdns),
+            None => Discovery::start(),
+        };
+        self.set_mdns(mdns);
+    }
+
+    /// Wait until `discovered` or `error` changes. Pending while not browsing.
+    pub(super) async fn changed(&mut self) {
+        loop {
+            let Some(mdns) = &self.mdns else { return std::future::pending().await };
+            let event = mdns.next_event().await;
+            match event {
+                Ok(event) => {
+                    if self.update(event) {
+                        return;
+                    }
+                }
+                Err(error) => {
+                    self.mdns = None;
+                    self.discovered.clear();
+                    self.error = format!("Viewer discovery stopped: {error}");
+                    return;
+                }
+            }
+        }
+    }
+
+    fn update(&mut self, event: DiscoveryEvent) -> bool {
+        match event {
+            DiscoveryEvent::Updated(viewer) => {
+                match self
+                    .discovered
+                    .iter_mut()
+                    .find(|existing| existing.fullname == viewer.fullname)
+                {
+                    Some(existing) if *existing == viewer => return false,
+                    Some(existing) => *existing = viewer,
+                    None => self.discovered.push(viewer),
+                }
+            }
+            DiscoveryEvent::Removed(fullname) => {
+                let count = self.discovered.len();
+                self.discovered.retain(|viewer| viewer.fullname != fullname);
+                return self.discovered.len() != count;
+            }
+        }
+        true
+    }
+
+    pub(super) fn find(&self, identity: &EndpointIdentity) -> Option<&RemoteViewer> {
+        self.discovered.iter().find(|viewer| &viewer.identity() == identity)
+    }
+
+    #[cfg(test)]
+    pub(super) fn from_receiver(receiver: mdns_sd::Receiver<mdns_sd::ServiceEvent>) -> Self {
+        Self { mdns: Some(Discovery::from_receiver(receiver)), ..Default::default() }
+    }
+
+    #[cfg(test)]
+    pub(super) fn is_browsing(&self) -> bool {
+        self.mdns.is_some()
     }
 }
 

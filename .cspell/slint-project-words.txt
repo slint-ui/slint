@@ -600,6 +600,7 @@ segmenteditem
 semihosting
 Segoe
 serde
+serialport
 setattr
 SETFL
 Shaderiv
@@ -777,6 +778,7 @@ WNDCLASS
 wordlike
 WQXGA
 writeback
+wrappable
 WRONLY
 Wtautological
 xbuild

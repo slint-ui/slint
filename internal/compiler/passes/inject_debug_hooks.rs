@@ -277,6 +277,16 @@ fn add_hooks_for_non_existent_bindings(
 ) {
     let elem = element.borrow();
     let mut properties: Vec<_> = property_defaults(&elem).collect();
+    if crate::layout::is_layout(&elem.base_type) {
+        for name in ["padding", "spacing"] {
+            properties.retain(|(property, _, _)| property.as_str() != name);
+            properties.push((
+                name.into(),
+                Expression::default_value_for_type(&crate::langtype::Type::LogicalLength),
+                false,
+            ));
+        }
+    }
 
     // Elements that are (or will become) the root of a component are never wrapped by the
     // property-to-element lowerings, and their geometry is managed specially (runtime-managed
@@ -440,6 +450,34 @@ mod tests {
         let e = elem.borrow();
         let Some(be) = e.binding_cell_including_synthetic(name) else { return false };
         matches!(be.borrow().expression, Expression::DebugHook { synthetic: true, .. })
+    }
+
+    #[test]
+    fn unbound_layout_spacing_and_padding_keep_runtime_hooks() {
+        for layout in ["HorizontalLayout", "VerticalLayout", "GridLayout", "FlexboxLayout"] {
+            let doc = compile(&format!(
+                "export component Win inherits Window {{ layout := {layout} {{ Rectangle {{}} Rectangle {{}} }} }}"
+            ));
+            let root = component(&doc, "Win").root_element.clone();
+            let layout = child(&root, "layout");
+            for name in ["padding", "spacing"] {
+                let id = property_id(layout.borrow().debug[0].element_hash, &name.into());
+                let mut found = false;
+                object_tree::recurse_elem(&root, &(), &mut |element, &()| {
+                    for (_, binding) in element.borrow().bindings_including_synthetic() {
+                        binding.borrow().expression.visit_recursive(&mut |expression| {
+                            if let Expression::DebugHook { id: hook_id, synthetic, .. } = expression
+                                && hook_id == &id
+                            {
+                                assert!(!synthetic, "layout lowering must consume {name}");
+                                found = true;
+                            }
+                        });
+                    }
+                });
+                assert!(found, "{name} must retain a runtime hook");
+            }
+        }
     }
 
     #[test]

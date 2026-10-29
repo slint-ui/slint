@@ -20,6 +20,7 @@ export global EditorCursors {
     pure callback rotation-image(angle) -> image;
     pure callback resize-image(angle) -> image;
     pure callback scrub-horizontal-image() -> image;
+    scrub-horizontal-image => { return @image-url("../assets/cursors/scrub-horizontal.svg"); }
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),
         14,
@@ -272,6 +273,7 @@ export component ComponentPaletteRow inherits Rectangle {
     in property <PaletteRowStyle> style: Style.palette-row;
     in property <ElementKind> kind;
     in property <string> label;
+    in property <string> source-uri;
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
     callback drag-started();
@@ -323,7 +325,7 @@ export component ComponentPaletteRow inherits Rectangle {
 
     dragger := DragArea {
         enabled: root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled;
-        data: Api.new-component-data(root.label);
+        data: Api.new-component-data(root.label, root.source-uri);
         allow-copy: true;
 
         changed dragging => {

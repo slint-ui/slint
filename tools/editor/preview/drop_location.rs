@@ -954,7 +954,7 @@ pub fn drop_at_with_geometry(
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
     let mut extra_properties =
         geometry_properties_for_drop(&component_instance, position, &drop_info, geometry)?;
-    if component.is_std_widget || matches!(component.name.as_str(), "Text" | "StyledText") {
+    if !component.is_builtin || matches!(component.name.as_str(), "Text" | "StyledText") {
         extra_properties.retain(|property| !matches!(property.name.as_str(), "width" | "height"));
     }
     extend_with_new_properties(
@@ -1019,6 +1019,9 @@ fn geometry_properties_for_drop(
 pub(super) fn visual_properties_for_drop(
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
 ) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
+    if !component.is_builtin && !component.is_std_widget {
+        return Vec::new();
+    }
     match component.name.as_str() {
         "Rectangle" => vec![
             i_slint_editor_preview::editing::PropertyChange::new(
@@ -1356,6 +1359,70 @@ pub fn create_swap_element_workspace_edit(
         &document_cache,
         source_file.path(),
         lsp_types::TextEdit { range: lsp_types::Range::new(start_pos, end_pos), new_text },
+    )?);
+
+    Some((
+        i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
+        DropData { selection_offset, path },
+    ))
+}
+
+/// Replaces `element` with a new `layout` element that contains it.
+/// The `x` and `y` bindings of `element` move to the layout, so that it stays in place.
+pub fn create_wrap_in_layout_workspace_edit(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    element: &i_slint_editor_preview::ElementRcNode,
+    layout: &str,
+    import_file: &Option<String>,
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    element.parent()?;
+
+    let (path, _) = element.path_and_offset();
+    let doc = document_cache.get_document_by_path(&path)?;
+    let source_file = doc.node.as_ref()?.source_file.clone();
+    let format = document_cache.format;
+
+    let position_bindings = element.with_element_node(|node| {
+        node.Binding()
+            .filter(|b| b.first_token().is_some_and(|t| matches!(t.text(), "x" | "y")))
+            .map(|b| b.text().to_string().trim().to_string())
+            .collect::<Vec<_>>()
+    });
+    let element_lines = extract_text_of_element(element, &["x", "y"]);
+    let indent = util::find_element_indent(element).unwrap_or_default();
+    let child_indent = format!("{indent}    ");
+
+    let mut new_text = format!("{layout} {{\n");
+    for line in position_bindings.iter().chain(element_lines.iter()) {
+        if !line.trim().is_empty() {
+            new_text.push_str(&child_indent);
+            new_text.push_str(line);
+        }
+        new_text.push('\n');
+    }
+    new_text.push_str(&indent);
+    new_text.push('}');
+
+    let range = element.with_decorated_node(|node| node.text_range());
+    let mut selection_offset = range.start();
+
+    let mut edits = Vec::with_capacity(2);
+    if let Some(edit) = import_edit::create_import_edit(doc, layout, import_file, format) {
+        selection_offset = text_edit::TextOffsetAdjustment::new(&edit, &source_file, format)
+            .adjust(selection_offset);
+        edits.push(i_slint_editor_preview::editing::SingleTextEdit::from_path(
+            document_cache,
+            source_file.path(),
+            edit,
+        )?);
+    }
+    edits.push(i_slint_editor_preview::editing::SingleTextEdit::from_path(
+        document_cache,
+        source_file.path(),
+        lsp_types::TextEdit {
+            range: util::text_range_to_lsp_range(&source_file, range, format),
+            new_text,
+        },
     )?);
 
     Some((
@@ -1763,5 +1830,87 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             "struct S { }  \n\ncomponent TestComponent { }\n\ncomponent C { }",
             26,
         );
+    }
+
+    const WRAP_CODE: &str = r#"import { Button } from "std-widgets.slint";
+
+export component Main inherits Window {
+    width: 200px;
+    height: 200px;
+
+    ok := Button {
+        x: 20px;
+        y: 40px;
+        text: "OK";
+    }
+
+    HorizontalLayout {
+        Text {
+            text: "In layout";
+        }
+    }
+}
+"#;
+
+    fn wrap_in_layout(
+        line: u32,
+        character: u32,
+        layout: &str,
+        import_file: Option<&str>,
+    ) -> Option<String> {
+        let url = test::main_test_file_name().to_url().unwrap();
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(url.clone(), WRAP_CODE.to_string())]),
+            false,
+        );
+        let element = document_cache
+            .element_at_position(&url, &lsp_types::Position::new(line, character))
+            .unwrap();
+
+        let (workspace_edit, drop_data) = super::create_wrap_in_layout_workspace_edit(
+            &document_cache,
+            &element,
+            layout,
+            &import_file.map(String::from),
+        )?;
+
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
+        let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(drop_data.path, test::main_test_file_name());
+        let contents = result[0].contents.clone();
+        assert!(contents[usize::from(drop_data.selection_offset)..].starts_with(layout));
+        Some(contents)
+    }
+
+    #[test]
+    fn test_wrap_in_layout_moves_position_to_layout() {
+        assert_eq!(
+            wrap_in_layout(6, 10, "VerticalLayout", None).unwrap(),
+            WRAP_CODE.replace(
+                "    ok := Button {\n        x: 20px;\n        y: 40px;\n        text: \"OK\";\n    }\n",
+                "    VerticalLayout {\n        x: 20px;\n        y: 40px;\n        ok := Button {\n            text: \"OK\";\n        }\n    }\n",
+            )
+        );
+    }
+
+    #[test]
+    fn test_wrap_in_layout_adds_import() {
+        assert_eq!(
+            wrap_in_layout(13, 8, "HorizontalBox", Some("std-widgets.slint")).unwrap(),
+            WRAP_CODE.replace("{ Button }", "{ Button, HorizontalBox }").replace(
+                "        Text {\n            text: \"In layout\";\n        }\n",
+                "        HorizontalBox {\n            Text {\n                text: \"In layout\";\n            }\n        }\n",
+            )
+        );
+    }
+
+    #[test]
+    fn test_wrap_in_layout_rejects_root() {
+        assert!(wrap_in_layout(2, 30, "VerticalLayout", None).is_none());
     }
 }

@@ -272,7 +272,12 @@ def test_pane_sizes_persist_across_relaunch(
         drag_divider(window, outline_divider, -64)
 
         assert element(window, "FILES").accessible_label == "FILES"
-        assert element(window, "ELEMENTS").accessible_label == "ELEMENTS"
+        assert (
+            element(
+                window, "Element sources", role=slint_testing.AccessibleRole.TabList
+            ).accessible_label
+            == "Element sources"
+        )
         assert element(window, "OUTLINE").accessible_label == "OUTLINE"
         assert elements_divider.absolute_position.y > initial_elements_y
         assert outline_divider.absolute_position.y < initial_outline_y

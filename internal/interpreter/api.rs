@@ -8,20 +8,23 @@ use alloc::sync::Arc;
 use core::future::Future;
 use core::time::Duration;
 use i_slint_compiler::langtype::Type as LangType;
+#[cfg(any(feature = "std", feature = "internal"))]
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::Coord;
-use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
+use i_slint_core::graphics::PathData;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "std")]
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
@@ -30,7 +33,12 @@ pub use i_slint_core::api::*;
 
 /// Argument of [`Compiler::set_default_translation_context()`]
 ///
+#[cfg(feature = "std")]
 pub use i_slint_compiler::DefaultTranslationContext;
+
+#[doc(hidden)]
+#[cfg(all(feature = "internal", feature = "internal-mcu-interpreter"))]
+pub use crate::static_resources::LoadedResource;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -529,7 +537,7 @@ fn value_model_conversion() {
 }
 
 pub(crate) fn normalize_identifier(ident: &str) -> SmolStr {
-    i_slint_compiler::parser::normalize_identifier(ident)
+    i_slint_compiler::names::normalize_identifier(ident)
 }
 
 /// This type represents a runtime instance of structure in `.slint`.
@@ -558,7 +566,7 @@ pub struct Struct(pub(crate) HashMap<SmolStr, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
-        if i_slint_compiler::parser::is_identifier_normalized(name) {
+        if i_slint_compiler::names::is_identifier_normalized(name) {
             self.0.get(name)
         } else {
             self.0.get(&*normalize_identifier(name))
@@ -593,6 +601,7 @@ fn struct_field_name_normalization() {
     assert_eq!(s.get_field("cross_axis_self_alignment"), Some(&Value::Number(2.)));
 }
 
+#[cfg(feature = "std")]
 /// ComponentCompiler is deprecated, use [`Compiler`] instead
 #[deprecated(note = "Use slint_interpreter::Compiler instead")]
 pub struct ComponentCompiler {
@@ -601,6 +610,7 @@ pub struct ComponentCompiler {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[cfg(feature = "std")]
 #[allow(deprecated)]
 impl Default for ComponentCompiler {
     fn default() -> Self {
@@ -612,6 +622,7 @@ impl Default for ComponentCompiler {
     }
 }
 
+#[cfg(feature = "std")]
 #[allow(deprecated)]
 impl ComponentCompiler {
     /// Returns a new ComponentCompiler.
@@ -633,7 +644,7 @@ impl ComponentCompiler {
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     ///
-    /// This wins over the include paths of the project file.
+    /// These paths come before the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.overrides.project.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
@@ -646,7 +657,8 @@ impl ComponentCompiler {
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
     ///
-    /// This wins over the library paths of the project file.
+    /// A library here replaces the project file's library of the same name.
+    /// The project file's other libraries stay available.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
         self.overrides.project.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
@@ -797,6 +809,7 @@ impl ComponentCompiler {
     }
 }
 
+#[cfg(feature = "std")]
 /// This is the entry point of the crate, it can be used to load a `.slint` file and
 /// compile it into a [`CompilationResult`].
 pub struct Compiler {
@@ -807,6 +820,7 @@ pub struct Compiler {
     resource_loader: Option<crate::component::ResourceLoader>,
 }
 
+#[cfg(feature = "std")]
 impl Default for Compiler {
     fn default() -> Self {
         let config = i_slint_compiler::CompilerConfiguration::new(
@@ -822,6 +836,7 @@ impl Default for Compiler {
     }
 }
 
+#[cfg(feature = "std")]
 impl Compiler {
     /// Returns a new Compiler.
     pub fn new() -> Self {
@@ -874,7 +889,7 @@ impl Compiler {
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     ///
-    /// This wins over the include paths of the project file.
+    /// These paths come before the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.overrides.project.include_paths = Some(include_paths);
     }
@@ -886,7 +901,8 @@ impl Compiler {
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
     ///
-    /// This wins over the library paths of the project file.
+    /// A library here replaces the project file's library of the same name.
+    /// The project file's other libraries stay available.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
         self.overrides.project.library_paths = Some(library_paths);
     }
@@ -1117,6 +1133,7 @@ impl Compiler {
     }
 }
 
+#[cfg(feature = "std")]
 pub(crate) enum AnimationMode {
     /// In static mode, all timers & animations are disabled.
     /// The item tree should not update anything without interaction.
@@ -1125,6 +1142,7 @@ pub(crate) enum AnimationMode {
     Running,
 }
 
+#[cfg(feature = "std")]
 async fn build_compilation_result(
     source_code: String,
     path: SourcePath,
@@ -1179,12 +1197,13 @@ async fn build_compilation_result(
 /// ```
 pub struct SendableCompilationResult {
     /// `None` when the compilation produced no component.
-    compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
+    pub(crate) compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     font_files: crate::component::FontFiles,
-    #[cfg(feature = "internal-embed-textures")]
-    pre_rendered: Vec<Option<crate::static_resources::SendableResource>>,
+    #[cfg(feature = "internal-mcu-interpreter")]
+    pub(crate) pre_rendered: Vec<Option<i_slint_common::pre_rendered::PreRenderedResource>>,
+    #[cfg(feature = "std")]
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     watch_paths: Vec<SourcePath>,
@@ -1198,13 +1217,33 @@ const _: () = {
 };
 
 impl From<SendableCompilationResult> for CompilationResult {
-    fn from(sent: SendableCompilationResult) -> Self {
+    #[cfg_attr(not(feature = "internal-mcu-interpreter"), allow(unused_mut))]
+    fn from(mut sent: SendableCompilationResult) -> Self {
+        #[cfg(feature = "internal-mcu-interpreter")]
+        let pre_rendered = crate::static_resources::PreRendered::from_sendable(core::mem::take(
+            &mut sent.pre_rendered,
+        ));
+        Self::from_sendable(
+            sent,
+            #[cfg(feature = "internal-mcu-interpreter")]
+            pre_rendered,
+        )
+    }
+}
+
+impl CompilationResult {
+    fn from_sendable(
+        sent: SendableCompilationResult,
+        #[cfg(feature = "internal-mcu-interpreter")]
+        pre_rendered: crate::static_resources::PreRendered,
+    ) -> Self {
         let SendableCompilationResult {
             compilation_unit,
             components,
             font_files,
-            #[cfg(feature = "internal-embed-textures")]
-            pre_rendered,
+            #[cfg(feature = "internal-mcu-interpreter")]
+                pre_rendered: _,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1214,8 +1253,8 @@ impl From<SendableCompilationResult> for CompilationResult {
         let compilation_unit = compilation_unit.map(Rc::new);
         let resources = Rc::new(crate::component::Resources {
             font_files,
-            #[cfg(feature = "internal-embed-textures")]
-            pre_rendered: crate::static_resources::PreRendered::from_sendable(pre_rendered),
+            #[cfg(feature = "internal-mcu-interpreter")]
+            pre_rendered,
         });
         let components = components
             .into_iter()
@@ -1231,6 +1270,7 @@ impl From<SendableCompilationResult> for CompilationResult {
             .collect();
         Self {
             components,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1249,6 +1289,7 @@ impl From<SendableCompilationResult> for CompilationResult {
 #[derive(Clone)]
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
+    #[cfg(feature = "std")]
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     pub(crate) watch_paths: Vec<SourcePath>,
@@ -1257,17 +1298,19 @@ pub struct CompilationResult {
 }
 
 impl core::fmt::Debug for CompilationResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CompilationResult")
-            .field("components", &self.components.keys())
-            .field("diagnostics", &self.diagnostics)
-            .finish()
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut f = f.debug_struct("CompilationResult");
+        f.field("components", &self.components.keys());
+        #[cfg(feature = "std")]
+        f.field("diagnostics", &self.diagnostics);
+        f.finish()
     }
 }
 
 impl CompilationResult {
     /// Returns true if the compilation failed.
     /// The errors can be retrieved using the [`Self::diagnostics()`] function.
+    #[cfg(feature = "std")]
     pub fn has_errors(&self) -> bool {
         self.diagnostics().any(|diag| diag.level() == DiagnosticLevel::Error)
     }
@@ -1275,6 +1318,7 @@ impl CompilationResult {
     /// Return an iterator over the diagnostics.
     ///
     /// You can also call [`Self::print_diagnostics()`] to output the diagnostics to stderr
+    #[cfg(feature = "std")]
     pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
         self.diagnostics.iter().cloned()
     }
@@ -1296,11 +1340,12 @@ impl CompilationResult {
 
     /// This is an internal function without API stability guarantees.
     /// A result holding `unit`, such as one that `i_slint_compiler::llr::serialize` read,
-    /// with neither diagnostics nor watch paths.
+    /// and its `resources`, with neither diagnostics nor watch paths.
     #[doc(hidden)]
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "internal-mcu-interpreter"))]
     pub fn from_compilation_unit(
         unit: i_slint_compiler::llr::CompilationUnit,
+        resources: impl IntoIterator<Item = LoadedResource>,
         _: i_slint_core::InternalToken,
     ) -> Self {
         let components = unit
@@ -1308,23 +1353,24 @@ impl CompilationResult {
             .iter_enumerated()
             .map(|(public_index, component)| (component.name.to_string(), public_index))
             .collect();
-        SendableCompilationResult {
+        let sent = SendableCompilationResult {
             compilation_unit: Some(unit),
             components,
             font_files: HashMap::new(),
-            #[cfg(feature = "internal-embed-textures")]
             pre_rendered: Vec::new(),
+            #[cfg(feature = "std")]
             diagnostics: Vec::new(),
             watch_paths: Vec::new(),
             structs_and_enums: Vec::new(),
-        }
-        .into()
+        };
+        Self::from_sendable(sent, crate::static_resources::PreRendered::from_loaded(resources))
     }
 
     /// Consume the result so that it can be sent to another thread.
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
             components,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1360,8 +1406,9 @@ impl CompilationResult {
             compilation_unit,
             components,
             font_files: resources.font_files,
-            #[cfg(feature = "internal-embed-textures")]
+            #[cfg(feature = "internal-mcu-interpreter")]
             pre_rendered: resources.pre_rendered.into_sendable(),
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1644,7 +1691,7 @@ impl ComponentDefinition {
     }
 
     /// This gives access to the tree of Elements.
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "std"))]
     #[doc(hidden)]
     pub fn root_component(&self) -> Rc<i_slint_compiler::object_tree::Component> {
         self.inner

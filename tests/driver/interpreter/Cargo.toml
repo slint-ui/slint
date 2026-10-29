@@ -25,7 +25,7 @@ name = "test-driver-interpreter"
 inject-debug-hooks = []
 # Run every test once more on a unit that went through serialization, as the remote viewer
 # receives it. Catches any part of the LLR that doesn't survive the trip.
-llr-serialization = ["dep:i-slint-compiler"]
+llr-serialization = ["dep:i-slint-compiler", "slint-interpreter/internal-embed-textures"]
 
 [dependencies]
 i-slint-compiler = { workspace = true, features = ["serde"], optional = true }

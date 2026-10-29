@@ -394,15 +394,25 @@ pub(super) fn wrap_builder_for_tests() -> LayoutWithoutLineBreaksBuilder {
 
 /// Shapes `text` the way both the drawing and the measuring paths need it, so that they can share
 /// one cache entry.
+///
+/// Reads the item's properties before borrowing `font_context`,
+/// because their bindings may measure other text, which borrows it too.
 pub(super) fn shape_paragraphs(
     text: Pin<&dyn crate::item_rendering::RenderString>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     text_wrap: TextWrap,
     scale_factor: ScaleFactor,
-    font_context: &mut FontContext,
+    font_context: &RefCell<FontContext>,
 ) -> Vec<TextParagraph> {
     let builder = shaping_builder(text, item_rc, text_wrap, scale_factor);
-    create_text_paragraphs(&builder, font_context, text.text(), text.link_color())
+    let plain_or_styled_text = text.text();
+    let link_color = text.link_color();
+    create_text_paragraphs(
+        &builder,
+        &mut font_context.borrow_mut(),
+        plain_or_styled_text,
+        link_color,
+    )
 }
 
 pub(super) struct TextParagraph {

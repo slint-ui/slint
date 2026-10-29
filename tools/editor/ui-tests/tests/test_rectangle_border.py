@@ -204,8 +204,7 @@ def test_border_defaults_and_rectangle_selection(
         suffixes = (
             width.query_descendants().match_id("EditorInput::fixed-suffix").find_all()
         )
-        assert len(suffixes) == 1
-        assert suffixes[0].accessible_label == "px"
+        assert not suffixes
         inspector_field(
             window, "Border color opacity", slint_testing.AccessibleRole.TextInput
         )
