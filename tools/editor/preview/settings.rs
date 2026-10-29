@@ -115,13 +115,7 @@ impl Project {
         path: impl AsRef<Path>,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path = path.as_ref();
-        let input = if i_slint_compiler::project_file::is_project_file(path) {
-            path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
-        } else {
-            path
-        };
-        Self::from_input(input, component, None)
+        Self::from_input(path, component, None)
     }
 
     pub(crate) fn from_input(
@@ -129,8 +123,8 @@ impl Project {
         component: Option<String>,
         project_root: Option<&Path>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path =
-            std::fs::canonicalize(path.as_ref()).unwrap_or(std::path::absolute(path.as_ref())?);
+        let path = i_slint_compiler::project_file::project_root(path.as_ref());
+        let path = std::fs::canonicalize(path).unwrap_or(std::path::absolute(path)?);
         if path.is_dir() {
             if project_root.is_some() {
                 return Err("A project directory cannot be combined with --project-root".into());
@@ -138,8 +132,9 @@ impl Project {
             let (main, _) = i_slint_compiler::project_file::resolve_input(&path)?;
             return Self::from_root(&path, &main, component);
         }
-        let root =
-            project_root.unwrap_or(path.parent().ok_or("Project input has no parent directory")?);
+        let root = project_root
+            .map(i_slint_compiler::project_file::project_root)
+            .unwrap_or(path.parent().ok_or("Project input has no parent directory")?);
         Self::from_root(root, &path, component)
     }
 

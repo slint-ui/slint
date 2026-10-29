@@ -856,7 +856,7 @@ impl Compiler {
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub fn set_project_root(&mut self, root: Option<SourcePath>, _: i_slint_core::InternalToken) {
-        self.project_root = root;
+        self.project_root = root.map(i_slint_compiler::project_file::normalize_project_root);
     }
 
     #[doc(hidden)]

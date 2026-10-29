@@ -189,6 +189,24 @@ pub fn is_project_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == FILE_NAME)
 }
 
+pub fn project_root(path: &Path) -> &Path {
+    if is_project_file(path) {
+        path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
+    } else {
+        path
+    }
+}
+
+pub fn normalize_project_root(root: SourcePath) -> SourcePath {
+    if let Some(path) = root.as_native_path() {
+        SourcePath::File(project_root(path).to_path_buf())
+    } else if root.file_name() == Some(FILE_NAME) {
+        root.parent()
+    } else {
+        root
+    }
+}
+
 fn project_file_input_error(input: &SourcePath) -> String {
     let project_directory = input.parent();
     let project_directory =
@@ -207,9 +225,7 @@ fn project_file_input_error(input: &SourcePath) -> String {
 /// A directory resolves to the main file specified by its `slint-project.json`.
 /// A source file resolves to itself without loading a project file.
 pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
-    if is_project_file(input) {
-        return Err(project_file_input_error(&SourcePath::File(input.to_path_buf())));
-    }
+    let input = project_root(input);
     if !input.is_dir() {
         return Ok((input.to_path_buf(), None));
     }
@@ -282,7 +298,9 @@ pub async fn load_input(
             },
         ) as crate::OpenImportCallback
     };
-    let resolved = if input.file_name() == Some(FILE_NAME) {
+    let resolved = if input.file_name() == Some(FILE_NAME)
+        && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
+    {
         Err(project_file_input_error(input))
     } else if let Some(root) = project_root {
         load_from_root_with_file_loader(root, Some(&file_loader))
