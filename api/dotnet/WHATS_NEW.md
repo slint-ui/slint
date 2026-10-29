@@ -1,6 +1,6 @@
 # What's New in Slint for .NET
 
-## Next Preview
+## 1.19.0-preview.10
 
 - On embedded Linux, the OpenGL renderers of the `linuxkms` backend work with display drivers without modifier support,
   such as `virtio-gpu` in virtual machines, instead of failing with "Error adding gbm buffer as framebuffer".

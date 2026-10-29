@@ -457,7 +457,7 @@ Done:
 - **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
   Its description lists what each preview added, up to drawing with OpenGL in preview.9,
   and the manual `linuxkms` test with its `GbmDisplay` change.
-  Next, it needs iOS and the templates, items 17 and 20, once they're in a preview.
+  Next, it needs iOS and the templates, items 17 and 20, published in 1.19.0-preview.10.
   That change in `internal/backends/linuxkms` fixes Slint itself, so it can also go upstream as a pull request of its own, before this one.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
@@ -552,12 +552,12 @@ Next:
     - Phase 1, done, see [iOS](#ios): `scripts/build_dotnet_ios.sh`, the framework `NativeReference` and the bundle resources in `Slint.targets`,
       and the resolver for the framework; `Slint.dll` needs no `net10.0-ios` build.
     - Phase 2, done: `examples/todo/dotnet-ios` and `examples/lols/dotnet-ios`, documentation, and a simulator test in CI.
-    - Phase 3, in progress: the `.xcframework` in `ios/` of the package, built by `build_ios` in the publish workflow,
+    - Phase 3, done: the `.xcframework` in `ios/` of the package, built by `build_ios` in the publish workflow,
       and tested by `test_ios_package`, which builds an app from the packages and starts it in a simulator.
       A package with it worked locally, and the first dry run of the publish workflow built and packed it.
       That dry run also caught a bug in `Slint.targets`, which failed every desktop build from the packages, now fixed,
       and a second dry run passed every job.
-      Next is preview.10, with the templates of item 20, after which the README's note that the packages lack iOS goes.
+      Published in 1.19.0-preview.10, with the templates of item 20.
     - Phase 4, in progress:
       - On an iPhone 13 with iOS, signed by a free personal team, Release builds of the todo example and lols work.
         lols reaches 202,000 to 210,000 LOL/s in canvas mode and 880 LOL/s in elements mode, like the Motorola edge 60 neo.
@@ -611,14 +611,13 @@ Next:
     `--platforms` picks the projects, for a machine without the Android or iOS workload.
     Each template has `--no-restore`, and an `ide.host.json` that shows its options in Visual Studio.
     All three projects run: on the desktop, on the Pixel 9 emulator, and in the iOS simulator.
-  - Phase 4, in progress: `pack` of the publish workflow packs the templates with the README of the other packages, and `publish` pushes them.
+  - Phase 4, done: `pack` of the publish workflow packs the templates with the README of the other packages, and `publish` pushes them.
     The package tests create an app from each template and build it with the packages:
     `slint` also publishes with Native AOT on each desktop runner, and `slint-ios` starts in a simulator.
     The .NET job of CI only instantiates each template, since it has no packages to build them with.
-    Next: a dry run of the publish workflow.
+    The dry run passed every job, Native AOT on the Linux and Windows runners included, and 1.19.0-preview.10 published the templates.
   - Phase 5, done: the README's Quick Start lists the four templates, and its Android and iOS sections start from them.
-    The documentation page and the article have them too, and What's New lists them for the next preview.
-    After the publish of preview.10, "next preview" in these turns into the version.
+    The documentation page and the article have them too, and What's New lists them in 1.19.0-preview.10.
   - Later: a test project, which needs the testing backend in the packaged library.
 - **21.** Microcharts for Slint, in the branch [`slint`](https://github.com/yurkinh/Microcharts/tree/slint) of the fork yurkinh/Microcharts, MIT licensed:
   `Microcharts.Slint` next to its views for MAUI, iOS, and Android, for a pull request to Microcharts.
@@ -647,7 +646,7 @@ Next:
       With an opaque background, the default, the two are the same.
       With a transparent one, the light tops of the bars came out much darker, such as 5, 13, 17 instead of 40, 104, 135 at alpha 32.
       Converting with Skia's `ReadPixels` fixes it, at 3 ms more per frame.
-      Instead, Slint.NET now has `Image.FromPremultipliedRgba8`, for the next preview, on Slint's `RGBA8Premultiplied` buffers,
+      Instead, Slint.NET now has `Image.FromPremultipliedRgba8`, in 1.19.0-preview.10, on Slint's `RGBA8Premultiplied` buffers,
       which Skia, FemtoVG, and the software renderer each draw; the prototype ran with each of them.
   - Phase 1, done: `Sources/Microcharts.Slint`, for `net10.0`, `net10.0-android`, and `net10.0-ios`, like `Microcharts.Core`,
     so that an Android app gets the Android build of Slint, with `SlintActivity`.

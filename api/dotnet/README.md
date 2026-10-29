@@ -23,7 +23,7 @@ It's community documentation, not affiliated with SixtyFPS GmbH.
 
 ## Quick Start
 
-From the next preview, after 1.19.0-preview.9, a template creates the app in one step:
+From 1.19.0-preview.10, a template creates the app in one step:
 
 ```sh
 dotnet new install yurkinh.slint.net.Templates
@@ -159,7 +159,7 @@ For pixels whose colors are already multiplied by their alpha, as SkiaSharp draw
 [Microcharts](https://github.com/microcharts-dotnet/Microcharts) draws bar, line, point, donut, pie, radar, and gauge charts with SkiaSharp.
 Its `Microcharts.Slint`, in the `slint` branch of [the fork](https://github.com/yurkinh/Microcharts/tree/slint) until Microcharts takes it in,
 shows them in a Slint `Image` with a `ChartRenderer`, on the desktop, Android, and iOS.
-Its README has the code, and `Sources/Microcharts.Samples.Slint` a gallery; both need the next preview, after 1.19.0-preview.9.
+Its README has the code, and `Sources/Microcharts.Samples.Slint` a gallery; both need 1.19.0-preview.10 or later.
 `ToRgba8` returns the pixels.
 
 The build copies the `.slint` files to the output directory, and the generated code loads them at run time.
@@ -447,7 +447,7 @@ For asynchronous code, call `EventLoop.Run(async () => { ... })` from a synchron
 
 The package also runs on Android 8 (API level 26) and later, on `arm64-v8a` and `x86_64` devices and emulators.
 
-From the next preview, after 1.19.0-preview.9, `dotnet new slint-android -o MyApp` creates the app in one step.
+From 1.19.0-preview.10, `dotnet new slint-android -o MyApp` creates the app in one step.
 Then `dotnet build -t:Run` installs it on the running emulator or the connected device.
 To set up the project yourself:
 
@@ -560,9 +560,7 @@ and `examples/lols/dotnet-android` runs the [LOLs per second](https://github.com
 ## iOS (Preview)
 
 Slint runs on iOS 15 and later with Skia on Metal, tested in the iPhone simulator and on an iPhone 13.
-The packages don't have the library for iOS yet: in the Slint repository, run `scripts/build_dotnet_ios.sh`,
-and reference `api/dotnet/Slint/Slint.csproj` and its `build/Slint.targets`, as `examples/todo/dotnet-ios` does.
-From the next preview, after 1.19.0-preview.9, the package has the library,
+From 1.19.0-preview.10, the package has the library for iOS,
 and `dotnet new slint-ios -o MyApp --app-id com.example.myapp` creates the app with the steps below already done.
 
 1. Install the .NET iOS workload, and create a project for `net10.0-ios` with your `.slint` file:
@@ -658,7 +656,7 @@ SLINT_BACKEND=linuxkms ./MyApp
 - The device needs libinput and libudev, and for OpenGL, GBM and EGL, which the app loads at run time.
 - In 1.19.0-preview.9 and earlier, the OpenGL renderers fail with "Error adding gbm buffer as framebuffer"
   on display drivers without modifier support, such as `virtio-gpu` in virtual machines.
-  Use `linuxkms-software` there, or the next preview.
+  Use `linuxkms-software` there, or 1.19.0-preview.10 and later.
 
 See [Slint's LinuxKMS guide](https://docs.slint.dev/latest/docs/slint/guide/backends-and-renderers/backend_linuxkms/) for the renderers and the display settings.
 
