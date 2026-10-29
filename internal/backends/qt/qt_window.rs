@@ -1744,8 +1744,18 @@ thread_local! {
 #[derive(Default)]
 struct ColorBitmapGlyphs {
     context: swash::scale::ScaleContext,
-    /// Whether a font is one, by the same key as [`FontCache`]'s.
-    fonts: HashMap<(HashedBlob, u32), bool>,
+    /// Whether a font is one, by the font's blob id and index.
+    fonts: HashMap<(u64, u32), bool>,
+    glyphs: HashMap<ColorBitmapGlyphKey, Option<ColorBitmapGlyph>>,
+}
+
+/// A font, a glyph, and the bits of the font size.
+type ColorBitmapGlyphKey = (u64, u32, u16, u32);
+
+struct ColorBitmapGlyph {
+    pixmap: qttypes::QPixmap,
+    left: i32,
+    top: i32,
 }
 
 thread_local! {
@@ -1753,6 +1763,9 @@ thread_local! {
 }
 
 impl ColorBitmapGlyphs {
+    /// Glyphs kept before the cache starts over. A glyph is about 100 KiB at the strike's size.
+    const MAX_GLYPHS: usize = 256;
+
     /// Draws `glyphs` if `font` is a color bitmap font, and says whether it is. Their stroke
     /// draws nothing: the fill draws each glyph once.
     fn draw(
@@ -1764,43 +1777,65 @@ impl ColorBitmapGlyphs {
         stroke: bool,
         glyphs: &mut dyn Iterator<Item = parley::layout::Glyph>,
     ) -> bool {
+        let font_id = [font.data.id(), font.index as u64];
         let font_ref = || swash::FontRef::from_index(font.data.as_ref(), font.index as usize);
-        let is_color =
-            *self.fonts.entry((font.data.clone().into(), font.index)).or_insert_with(|| {
-                font_ref().is_some_and(|font_ref| {
-                    self.context.builder(font_ref).build().has_color_bitmaps()
-                })
-            });
+        let is_color = *self.fonts.entry((font_id[0], font.index)).or_insert_with(|| {
+            font_ref().is_some_and(|font_ref| {
+                self.context.builder_with_id(font_ref, font_id).build().has_color_bitmaps()
+            })
+        });
         if !is_color || stroke {
             return is_color;
         }
         let Some(font_ref) = font_ref() else { return true };
-        let mut scaler = self.context.builder(font_ref).size(font_size.get()).build();
-        use swash::scale::{StrikeWith, image::Content};
-        for glyph in glyphs {
-            // Skipped, not drawn with the QRawFont: in Noto Color Emoji these draw nothing (the
-            // space, the zero-width joiner, the tags of a subdivision flag), and it has no
-            // outlines (`glyf`, `CFF`) to fall back on.
-            let Some(image) = scaler.scale_color_bitmap(glyph.id as u16, StrikeWith::BestFit)
-            else {
-                continue;
-            };
-            if image.content != Content::Color || image.placement.width == 0 {
-                continue;
-            }
-            let x = glyph.x + image.placement.left as f32;
-            let y = glyph.y + y_offset.get() - image.placement.top as f32;
-            let width = image.placement.width as i32;
-            let height = image.placement.height as i32;
-            let data = image.data.as_ptr();
-            // swash decodes the strikes' PNGs to RGBA with straight alpha.
-            cpp! { unsafe [painter as "QPainterPtr*", data as "const uchar*", width as "int",
-                           height as "int", x as "float", y as "float"] {
-                QImage img(data, width, height, width * 4, QImage::Format_RGBA8888);
-                (*painter)->drawImage(QPointF(x, y), img);
+        let glyphs: Vec<_> = glyphs.collect();
+        let key = |glyph: &parley::layout::Glyph| {
+            (font_id[0], font.index, glyph.id as u16, font_size.get().to_bits())
+        };
+        if self.glyphs.len() + glyphs.len() > Self::MAX_GLYPHS {
+            self.glyphs.clear();
+        }
+        let mut scaler = glyphs
+            .iter()
+            .any(|glyph| !self.glyphs.contains_key(&key(glyph)))
+            .then(|| self.context.builder_with_id(font_ref, font_id).size(font_size.get()).build());
+        for glyph in &glyphs {
+            let cached = self.glyphs.entry(key(glyph)).or_insert_with(|| {
+                Self::render(
+                    scaler.as_mut().expect("built for the missing glyphs"),
+                    glyph.id as u16,
+                )
+            });
+            // Glyphs without a bitmap are skipped, not drawn with the QRawFont: in Noto Color
+            // Emoji these draw nothing (the space, the zero-width joiner, the tags of a
+            // subdivision flag), and it has no outlines (`glyf`, `CFF`) to fall back on.
+            let Some(ColorBitmapGlyph { pixmap, left, top }) = cached else { continue };
+            let x = glyph.x + *left as f32;
+            let y = glyph.y + y_offset.get() - *top as f32;
+            cpp! { unsafe [painter as "QPainterPtr*", pixmap as "const QPixmap*", x as "float",
+                           y as "float"] {
+                (*painter)->drawPixmap(QPointF(x, y), *pixmap);
             }}
         }
         true
+    }
+
+    fn render(scaler: &mut swash::scale::Scaler, glyph_id: u16) -> Option<ColorBitmapGlyph> {
+        use swash::scale::{StrikeWith, image::Content};
+        let image = scaler.scale_color_bitmap(glyph_id, StrikeWith::BestFit)?;
+        if image.content != Content::Color || image.placement.width == 0 {
+            return None;
+        }
+        let width = image.placement.width as i32;
+        let height = image.placement.height as i32;
+        let data = image.data.as_ptr();
+        // swash decodes the strikes' PNGs to RGBA with straight alpha.
+        let pixmap = cpp! { unsafe [data as "const uchar*", width as "int", height as "int"]
+                -> qttypes::QPixmap as "QPixmap" {
+            QImage img(data, width, height, width * 4, QImage::Format_RGBA8888);
+            return QPixmap::fromImage(img);
+        }};
+        Some(ColorBitmapGlyph { pixmap, left: image.placement.left, top: image.placement.top })
     }
 }
 
