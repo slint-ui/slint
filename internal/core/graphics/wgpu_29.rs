@@ -184,6 +184,18 @@ pub fn mask_backends(
     if masked.is_empty() { requested } else { masked }
 }
 
+fn backends_for_request(
+    native_api: Option<&RequestedGraphicsAPI>,
+    backends_to_avoid: wgpu::Backends,
+) -> wgpu::Backends {
+    match native_api {
+        Some(RequestedGraphicsAPI::Metal) => wgpu::Backends::METAL & !backends_to_avoid,
+        Some(RequestedGraphicsAPI::Vulkan) => wgpu::Backends::VULKAN & !backends_to_avoid,
+        Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12 & !backends_to_avoid,
+        _ => mask_backends(wgpu::Backends::from_env().unwrap_or_default(), backends_to_avoid),
+    }
+}
+
 /// Internal helper to see if there are any GPU adapters for hardware accelerated rendering.
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
 /// software rendering, such as DX12's Warp adapter).
@@ -228,9 +240,13 @@ pub fn any_wgpu29_adapters_with_gpu(
                 backends,
             )
         }
-        None => {
-            let backends =
-                mask_backends(wgpu::Backends::from_env().unwrap_or_default(), backends_to_avoid);
+        maybe_native_api @ (None
+        | Some(
+            RequestedGraphicsAPI::Metal
+            | RequestedGraphicsAPI::Vulkan
+            | RequestedGraphicsAPI::Direct3D,
+        )) => {
+            let backends = backends_for_request(maybe_native_api.as_ref(), backends_to_avoid);
 
             (
                 wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -390,17 +406,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
             | RequestedGraphicsAPI::Vulkan
             | RequestedGraphicsAPI::Direct3D,
         )) => {
-            let requested_backends = match &maybe_native_api {
-                Some(RequestedGraphicsAPI::Metal) => wgpu::Backends::METAL,
-                Some(RequestedGraphicsAPI::Vulkan) => wgpu::Backends::VULKAN,
-                Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12,
-                _ => wgpu::Backends::from_env().unwrap_or_default(),
-            };
-            let backends = if maybe_native_api.is_none() {
-                mask_backends(requested_backends, backends_to_avoid)
-            } else {
-                requested_backends & !backends_to_avoid
-            };
+            let backends = backends_for_request(maybe_native_api.as_ref(), backends_to_avoid);
             if backends.is_empty() {
                 return Err(alloc::format!(
                     "The requested graphics API ({maybe_native_api:?}) is not supported under wgpu on this platform"
