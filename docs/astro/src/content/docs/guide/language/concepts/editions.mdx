@@ -25,6 +25,9 @@ If the edition is newer than your version of Slint, Slint refuses to compile you
 ```
 
 When you compile or load `.slint` files, the edition comes from the project file.
+To select it without a project file, pass `--edition` to `slint-compiler` or `slint-viewer`,
+or set it through the API that compiles your files, such as `CompilerConfiguration::with_edition()` in `slint-build`.
+These settings win over the project file.
 The Rust `slint!` macro doesn't load a project file.
 Set its edition with an attribute at the start of the macro body, or the macro warns:
 
@@ -37,7 +40,7 @@ slint::slint! {
 
 :::note
 Without a project file or `#[edition]`, Slint applies none of the behavior changes that depend on the edition.
-To opt in, set `edition` in a project file, or `#[edition]` in the `slint!` macro.
+To opt in, set `edition` in a project file, on the command line, through the API, or with `#[edition]` in the `slint!` macro.
 :::
 
 SlintPad and the previews in this documentation use the edition of their own release.
