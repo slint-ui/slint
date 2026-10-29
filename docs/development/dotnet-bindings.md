@@ -158,23 +158,28 @@ The runner is the assembly `Slint.TestDriver`, which sees the internal `Slint.Te
 
 ## Packages
 
-There are two packages.
-`Slint` has the library, `build/Slint.targets`, and the native library of each platform in `runtimes/<rid>/native/`.
+There are three packages.
+`Slint` has the library, `build/Slint.targets`, and the native library of each platform in `runtimes/<rid>/native/`,
+and the iOS framework in `ios/slint_dotnet.xcframework`, outside `runtimes/` so that NuGet leaves it alone.
 It depends on `Slint.Compiler`, which has `slint-compiler` in `tools/<rid>/`,
 and a `buildTransitive` props file that tells `Slint.targets` where to look.
 `Slint.targets` picks the binary for the runtime identifier of the SDK, and restores its executable bit,
 since NuGet doesn't keep it.
+`Slint.Templates` has the `dotnet new` templates in `content/`, see roadmap item 20;
+its pack writes the IDs and the version of the other two into each `template.json`.
 
 Pack them with directories that have one sub-directory per runtime identifier:
 
 ```sh
 dotnet pack api/dotnet/Slint.Compiler -c Release -p:Version=<version> -p:SlintCompilerBinariesDir=<dir>
-dotnet pack api/dotnet/Slint -c Release -p:Version=<version> -p:SlintNativeRuntimesDir=<dir>
+dotnet pack api/dotnet/Slint -c Release -p:Version=<version> -p:SlintNativeRuntimesDir=<dir> -p:SlintIOSFramework=<xcframework>
+dotnet pack api/dotnet/Templates -c Release -p:Version=<version>
 ```
 
-`.github/workflows/publish_nuget_package.yaml` builds the binaries on each platform,
-packs them, builds and runs a project with the packages on macOS, Linux, and Windows,
-and publishes them to nuget.org when asked to.
+`.github/workflows/publish_nuget_package.yaml` builds the binaries on each platform, packs them,
+and builds projects, and apps from each template, with the packages on macOS, Linux, Windows, Android, and iOS.
+It runs the desktop projects and starts the iOS ones in a simulator,
+and publishes the packages to nuget.org when asked to.
 
 ### Building the Packages Locally
 
@@ -199,6 +204,7 @@ dotnet pack Slint.Compiler -c Release -o ../../out/packages -p:Version=1.19.0-lo
     -p:SlintCompilerBinariesDir=$PWD/../../out/compiler
 dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
     -p:SlintNativeRuntimesDir=$PWD/../../out/native -p:SlintAndroid=true
+dotnet pack Templates -o ../../out/packages -p:Version=1.19.0-local.1
 ```
 
 | Platform | Runtime identifiers | Native library | Compiler |
@@ -211,7 +217,11 @@ dotnet pack Slint -c Release -o ../../out/packages -p:Version=1.19.0-local.1 \
 - `-p:SlintAndroid=true` needs the .NET Android workload, from `dotnet workload install android`.
   Leave it out, and the Android directories, for a desktop-only package.
 - These packages have the ID `Slint`.
-  For another ID, add `-p:SlintPackageId=<id> -p:SlintCommunityPackage=true` to both commands, as the workflow does for a fork.
+  For another ID, add `-p:SlintPackageId=<id> -p:SlintCommunityPackage=true` to each command, as the workflow does for a fork.
+- Try the templates with `dotnet new install out/packages/Slint.Templates.1.19.0-local.1.nupkg`;
+  an app from them references the packages of the same version, through the NuGet source below.
+  Uninstall them before installing another pack of the same version,
+  since `dotnet new install --force` over the same version leaves two registrations that break `dotnet new`.
 - Use the packages from another project through a NuGet source:
   `dotnet nuget add source $PWD/out/packages --name slint-local`, or a `nuget.config` that lists the directory.
   NuGet caches a version once it installed it, so give each pack a new version, or clear `~/.nuget/packages/<id>`.
@@ -447,6 +457,7 @@ Done:
 - **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
   Its description lists what each preview added, up to drawing with OpenGL in preview.9,
   and the manual `linuxkms` test with its `GbmDisplay` change.
+  Next, it needs iOS and the templates, items 17 and 20, once they're in a preview.
   That change in `internal/backends/linuxkms` fixes Slint itself, so it can also go upstream as a pull request of its own, before this one.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
@@ -544,8 +555,9 @@ Next:
     - Phase 3, in progress: the `.xcframework` in `ios/` of the package, built by `build_ios` in the publish workflow,
       and tested by `test_ios_package`, which builds an app from the packages and starts it in a simulator.
       A package with it worked locally, and the first dry run of the publish workflow built and packed it.
-      That dry run also caught a bug in `Slint.targets`, which failed every desktop build from the packages, now fixed;
-      next are a second dry run and a preview, after which the README's note that the packages lack iOS goes.
+      That dry run also caught a bug in `Slint.targets`, which failed every desktop build from the packages, now fixed,
+      and a second dry run passed every job.
+      Next is preview.10, with the templates of item 20, after which the README's note that the packages lack iOS goes.
     - Phase 4, in progress:
       - On an iPhone 13 with iOS, signed by a free personal team, Release builds of the todo example and lols work.
         lols reaches 202,000 to 210,000 LOL/s in canvas mode and 880 LOL/s in elements mode, like the Motorola edge 60 neo.
