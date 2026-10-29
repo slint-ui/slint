@@ -585,7 +585,14 @@ Next:
       and Skia, FemtoVG, and both OpenGL samples render; that change in `internal/backends/linuxkms` goes upstream on its own.
     - Building `slint-dotnet` without the `live-preview` feature failed, since `is_window` needs the interpreter's `internal` feature,
       which `Cargo.toml` now enables directly.
-    - Next: a Raspberry Pi, for real hardware and a touchscreen, and a `vkms` job in CI for the software renderer.
+    - The Linux .NET job of CI loads `vkms`, the kernel's virtual display driver, and starts the todo example
+      on `linuxkms-software` as root, failing on an error or when no frame was rendered.
+      A probe on GitHub's runners rendered it at 60 frames per second on Ubuntu 22.04 and 24.04,
+      and a `kmsgrab` screenshot of the `vkms` display showed the UI.
+      Ubuntu 22.04 has `vkms` in `linux-modules-extra`, which the step installs, and 24.04 has it already.
+      The runners also have a Hyper-V display; `linuxkms` takes the first card with a connected output, which is `vkms`'s `card0`.
+      The step's first run in the job itself is pending.
+    - Next: a Raspberry Pi, for real hardware and a touchscreen.
 - **20.** `dotnet new` templates, in the package `yurkinh.slint.net.Templates`, with the version of the other packages:
   `slint` for the desktop, `slint-android`, `slint-ios`, and `slint-xplat`, a solution with a project per platform.
   Debug builds turn on `SlintLivePreview` on the desktop, for `dotnet watch`; Android and iOS wait for .NET 11, see item 17.
