@@ -457,7 +457,8 @@ Done:
 - **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
   Its description lists what each preview added, up to drawing with OpenGL in preview.9,
   and the manual `linuxkms` test with its `GbmDisplay` change.
-  Next, it needs iOS and the templates, items 17 and 20, published in 1.19.0-preview.10.
+  Next, it needs what 1.19.0-preview.10 published: iOS, the templates, and `Image.FromPremultipliedRgba8`, items 17, 20, and 21,
+  and the `linuxkms` job of CI.
   That change in `internal/backends/linuxkms` fixes Slint itself, so it can also go upstream as a pull request of its own, before this one.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
@@ -514,7 +515,9 @@ Next:
   once the bindings are part of a Slint release.
   The tutorial needs its C# code next to the other languages in `docs/astro/src/content/code/`.
   Until then, a community page on the fork's `gh-pages` branch, at <https://yurkinh.github.io/slint/>,
-  extends the README with deployment, troubleshooting, and samples.
+  extends the README with deployment, troubleshooting, and samples, and has sections for iOS and for charts with Microcharts.
+  It also hosts the article "Slint ♥ .NET", at <https://yurkinh.github.io/slint/slint-loves-dotnet/>,
+  a tour of the bindings up to preview.10, which the documentation's overview links to.
   It says it isn't affiliated with SixtyFPS, links to `docs.slint.dev` for the language, and doesn't use the Slint logo.
   The branch shares no history with `dotnet_bindings`, so it stays out of the upstream pull request.
 - **17.** Platforms beyond the desktop: packages for Android and iOS, and the `linuxkms` backend on embedded Linux,
@@ -664,8 +667,9 @@ Next:
     which share the UI and `Gallery.cs`. It runs on macOS, the Pixel 9 emulator, and the iPhone simulator,
     where SkiaSharp's framework and Slint's framework sit side by side without a conflict.
     The fork's README has a Slint section with the code and screenshots.
-  - Phase 3: the pull request to [microcharts-dotnet/Microcharts](https://github.com/microcharts-dotnet/Microcharts),
-    after preview.10 is on nuget.org, which `Microcharts.Slint` needs for `Image.FromPremultipliedRgba8`.
+  - Phase 3, next: the pull request to [microcharts-dotnet/Microcharts](https://github.com/microcharts-dotnet/Microcharts),
+    now that 1.19.0-preview.10, which `Microcharts.Slint` needs for `Image.FromPremultipliedRgba8`, is on nuget.org.
+    Microcharts asks for an issue before a pull request, and for whoever adds a framework to support it.
     It adds the projects to `Microcharts.slnx` and a `Microcharts.Slint` package to the publish workflow,
     which depends on `yurkinh.slint.net`, until Slint.NET has an official package ID.
   - Risks: on embedded Linux, SkiaSharp needs fontconfig and the fonts that the labels use.
