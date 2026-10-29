@@ -138,7 +138,7 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.has-placeholder-selection(): InspectorPlaceholderSection { }
 
-                if InspectorContext.is-text-selection(): InspectorTypographySection {
+                if InspectorContext.has-typography-selection(): InspectorTypographySection {
                     field-width: root.field-width;
                     popup-bottom: root.popup-bottom;
                 }

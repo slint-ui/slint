@@ -92,6 +92,14 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "TextInput");
     }
 
+    public pure function has-typography-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "Text"
+                || InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "TextEdit"
+                || InspectorContext.element-information.type-name == "SpinBox");
+    }
+
     public pure function is-title-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "GroupBox"
