@@ -208,7 +208,12 @@ fn main() -> Result<()> {
     #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
 
-    if args.project_root.is_some() && args.path.as_ref().is_some_and(|path| path.is_dir()) {
+    if args.project_root.is_some()
+        && args
+            .path
+            .as_ref()
+            .is_some_and(|path| i_slint_compiler::project_file::project_root(path).is_dir())
+    {
         eprintln!("A project directory cannot be combined with --project-root");
         std::process::exit(2);
     }
