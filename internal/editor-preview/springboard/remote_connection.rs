@@ -20,11 +20,19 @@ use crate::remote_authentication::{
 use crate::remote_client::{self, CONNECT_TIMEOUT, PING_INTERVAL, PONG_TIMEOUT};
 
 pub(super) enum ConnectionEvent {
-    Pairing { prompt: PairingPrompt, answer: oneshot::Sender<PairingAnswer> },
+    Pairing {
+        prompt: PairingPrompt,
+        answer: oneshot::Sender<PairingAnswer>,
+    },
     CredentialsChanged(Option<PairingCredentials>),
-    Connected,
+    /// Also sent again while connected: `problem` keeps the preview from showing the current design.
+    Connected {
+        problem: Option<String>,
+    },
     Message(PreviewToLspMessage),
-    Ended { error: Option<String> },
+    Ended {
+        error: Option<String>,
+    },
 }
 
 pub(super) struct RemoteConnection {
@@ -96,7 +104,7 @@ async fn run(
         }
     };
     let (mut sender, receiver) = socket.split();
-    let _ = events.send(ConnectionEvent::Connected);
+    let _ = events.send(ConnectionEvent::Connected { problem: None });
     if let Some(request) = authenticated.initial_request {
         let _ = events.send(ConnectionEvent::Message(request));
     }
@@ -327,7 +335,7 @@ mod tests {
                         assert!(answer.send(PairingAnswer::AcceptUnpaired).is_ok());
                         assert!(matches!(
                             connection.next_event().await,
-                            Some(ConnectionEvent::Connected)
+                            Some(ConnectionEvent::Connected { .. })
                         ));
                     }
                     drop(connection);
@@ -360,7 +368,7 @@ mod tests {
                 loop {
                     match connection.next_event().await.unwrap() {
                         ConnectionEvent::Pairing { prompt: PairingPrompt::Unpaired, answer } => { let _ = answer.send(PairingAnswer::AcceptUnpaired); }
-                        ConnectionEvent::Connected => break,
+                        ConnectionEvent::Connected { .. } => break,
                         _ => panic!("Unexpected event before connection"),
                     }
                 }

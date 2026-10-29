@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell:ignore dialable undialable usbmodem COMX
+// cSpell:ignore dialable undialable
 
 //! Remote-preview discovery, run inside the preview process: viewers on the
 //! network, and microcontrollers connected over USB.
@@ -74,7 +74,8 @@ pub fn setup(app_window: &AppWindow, to_lsp: &Rc<dyn editor_preview::PreviewToLs
     let lsp = to_lsp.clone();
     let api_weak_for_validate = app_window.api_weak();
     api.on_remote_connect_manual(move |host_port| match parse_host_port(host_port.as_str()) {
-        _ if cfg!(feature = "preview-serial") && is_serial_port_name(host_port.as_str()) => {
+        #[cfg(feature = "preview-serial")]
+        _ if editor_preview::serial::is_serial_port_name(host_port.as_str()) => {
             connect_serial(&lsp, host_port.trim().into())
         }
         Ok((host, port)) => {
@@ -131,15 +132,6 @@ fn connect_serial(lsp: &Rc<dyn editor_preview::PreviewToLsp>, port: String) {
     if let Err(err) = lsp.send(&PreviewToLspMessage::ConnectSerial { port }) {
         tracing::error!("Failed sending ConnectSerial to LSP: {err}");
     }
-}
-
-/// Whether the manual entry names a serial port rather than a `host:port`.
-fn is_serial_port_name(input: &str) -> bool {
-    let input = input.trim();
-    let is_com_port = input.get(..3).is_some_and(|com| com.eq_ignore_ascii_case("COM"))
-        && input.len() > 3
-        && input[3..].bytes().all(|b| b.is_ascii_digit());
-    input.starts_with("/dev/") || input.starts_with(r"\\.\") || is_com_port
 }
 
 /// Surface a manual-entry / discovery error in the dialog. Skipped when
@@ -662,15 +654,5 @@ mod parse_host_port_tests {
     fn accepts_bracketed_ipv6() {
         assert_eq!(parse_host_port("[::1]:1234"), Ok(("[::1]".to_owned(), 1234)));
         assert_eq!(parse_host_port("[fe80::1]:9000"), Ok(("[fe80::1]".to_owned(), 9000)));
-    }
-
-    #[test]
-    fn recognizes_serial_port_names() {
-        for name in ["/dev/ttyACM0", " /dev/cu.usbmodem1101 ", "COM3", "com12", r"\\.\COM10"] {
-            assert!(is_serial_port_name(name), "{name}");
-        }
-        for name in ["192.168.1.42:9000", "phone.local:1234", "COM", "COMX", "computer:80"] {
-            assert!(!is_serial_port_name(name), "{name}");
-        }
     }
 }
