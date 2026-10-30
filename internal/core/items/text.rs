@@ -1586,6 +1586,8 @@ impl Item for TextInput {
                 self.show_cursor(window_adapter);
                 let window_inner = WindowInner::from_pub(window_adapter.window());
                 window_inner.set_text_input_focused(true);
+                window_inner.set_text_input_type(self.input_type.get_internal());
+                window_inner.set_text_input_method_hints(self.input_method_hints.get_internal());
                 // Keep the IME cursor rectangle in sync when the TextInput moves, e.g. in a Flickable
                 window_inner.track_focus_item_position(self_rc, |item, window_adapter| {
                     if let Some(text_input) = item.downcast::<TextInput>() {
