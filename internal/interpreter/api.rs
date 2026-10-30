@@ -734,8 +734,8 @@ impl ComponentCompiler {
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-    /// The project file provides the settings that were not set on this compiler.
+    /// If the path points to a project file (`slint-project.json`) or to a directory containing
+    /// a project file, Slint loads the project file and applies the settings not set on this compiler.
     /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
@@ -1020,8 +1020,8 @@ impl Compiler {
     /// [`CompilationResult::component()`].
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-    /// The project file provides the settings that were not set on this compiler.
+    /// If the path points to a project file (`slint-project.json`) or to a directory containing
+    /// a project file, Slint loads the project file and applies the settings not set on this compiler.
     /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted

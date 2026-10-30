@@ -11,8 +11,8 @@ The generated code must be included in your crate by using the `slint::include_m
 
 ## Project File
 
-If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-The project file provides settings not specified through [`CompilerConfiguration`].
+If the path points to a project file (`slint-project.json`) or to a directory containing
+a project file, Slint loads the project file and applies settings not specified through [`CompilerConfiguration`].
 It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 Passing a `.slint` file compiles it without loading a project file.
 
@@ -401,7 +401,8 @@ fn project_file_path_in(manifest_dir: impl AsRef<Path>) -> PathBuf {
 ///
 /// This function can only be called within a build script run by cargo.
 ///
-/// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+/// If the path points to a project file (`slint-project.json`) or to a directory containing
+/// a project file, Slint loads the project file.
 /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 /// A `.slint` file path compiles without loading a project file.
 ///
@@ -502,8 +503,8 @@ pub fn compile_with_config(
 ///
 /// Doesn't print any cargo messages.
 ///
-/// If the input path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-/// The project file provides the settings that `config` does not specify.
+/// If the input path points to a project file (`slint-project.json`) or to a directory containing
+/// a project file, Slint loads the project file and applies the settings that `config` does not specify.
 /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 ///
 /// Returns a list of all input files that were used to generate the output file. (dependencies)
