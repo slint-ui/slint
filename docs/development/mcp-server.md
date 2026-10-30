@@ -87,6 +87,8 @@ through `ItemTreeVTable::element_testable_properties` and `element_testable_prop
 Values cross the vtable as strings in the `i_slint_core::debug_info` encoding;
 `mcp_server.rs::convert_testable_property_values` retypes them into JSON booleans and
 numbers for both `get_element_properties` and `get_element_tree`.
+`query_element_descendants` compares against the same strings,
+so `stringify_testable_property_matches` turns typed `matchElementTestableProperty` values back into them.
 The table exists only when the application was compiled with debug info.
 An item tree whose generator doesn't implement the entries reports "unsupported",
 which surfaces as a `note` instead of an empty list.
@@ -128,7 +130,39 @@ Tool calls arrive as `tools/call` JSON-RPC methods. The `handle_tool_call()` fun
 
 ### MCP Instructions
 
-The `initialize` response includes a detailed `instructions` field that guides MCP clients through the workflow, handle format, enum values, and query syntax. This is the primary documentation that AI clients see when connecting.
+The `initialize` response includes a detailed `instructions` field that guides MCP clients through the workflow, handle format, and enum values. This is the primary documentation that AI clients see when connecting.
+The query syntax is in `query_element_descendants`' input schema, so a client that lists the tools reads it once.
+`QUERY_STACK_FIELD_DESCRIPTIONS` adds only what the schema's field names and enums don't say, such as the id format.
+
+### Scrolling Into View
+
+`query_element_descendants` with `scrollIntoView` also searches content clipped by Flickables.
+For virtualized lists, it pages through each Flickable and searches nested lists before advancing the outer page.
+This keeps off-screen inner lists instantiated while their rows are searched.
+A search without a match restores scroll positions in surviving Flickables.
+Paging can recreate virtualized rows, invalidating their handles and resetting state stored in those rows.
+
+### Snapshot
+
+`get_element_snapshot` lists every window, or the subtree of an element, as text, one line per element, so an agent can explore without the token cost of `get_element_tree`.
+It lists the elements on screen that have an accessible role or `@testable` properties.
+The std widgets set `accessible-role: none` on their inner elements, so a `Button` is one line, not the elements it's built from.
+An input handler, such as a `TouchArea` or `Flickable`, is listed only when no element with a role contains it.
+That's what a hand-made control looks like.
+Its caption, a `Text` that repeats the label of the element it's listed under, is left out.
+The compiler binds `accessible-enabled` to `enabled` only for `TextInput`,
+so the snapshot reads `enabled` of a `TouchArea` or gesture handler itself to mark it `disabled`.
+
+Lines are indented under their nearest listed ancestor, found the same way as `get_element_tree`'s `parentHandle`.
+The walk visits a popup's contents before the element it's attached to, so the listing is reordered to follow these links.
+Only listed elements get a handle, so a snapshot evicts far fewer handles than a large `get_element_tree`.
+
+The action tools take an MCP-only `snapshot` argument, marked by `ToolDef::offers_snapshot`,
+and `get_element_snapshot` takes an MCP-only `rectangles` argument.
+Both are removed before decoding the proto request.
+After an action, `snapshot` appends a snapshot of every window as a second text block.
+`rectangles` ends each line in the element's rectangle.
+It's opt-in, since agents act by handle and rectangles make up a large part of a snapshot.
 
 ## Proto Build Pipeline (`build.rs`)
 
@@ -154,6 +188,7 @@ Also confirm the state change you're checking for actually reached the applicati
 
 1. Add request and response message types to `slint_systest.proto`. The build pipeline will auto-generate the JSON schema for the MCP tool's `inputSchema`.
 2. Add a `ToolDef` entry to the `TOOLS` table in `mcp_server.rs` with name, description, proto request type, and optional fields.
+   Set `offers_snapshot` if the tool acts on the UI.
 3. Add a match arm in `handle_tool_call()`.
 4. If the tool needs new introspection capabilities, add methods to `IntrospectionState` in `introspection/mod.rs` so both transports can use them.
 5. Update the `instructions` string in the `initialize` response if the new tool changes the recommended workflow.

@@ -169,6 +169,32 @@ enum RecordedEventResult {
     Rejected = 2;
 }
 
+enum TextMatchMode {
+    Exact = 0;
+    ContainsIgnoringCase = 1;
+}
+
+enum AccessibleStringProperty {
+    Label = 0;
+    Value = 1;
+    Description = 2;
+    PlaceholderText = 3;
+    Id = 4;
+}
+
+message AccessiblePropertyMatch {
+    AccessibleStringProperty property = 1;
+    string value = 2;
+    TextMatchMode mode = 3;
+}
+
+// Compares with the value in the encoding of TestableProperty.value.
+message TestablePropertyMatch {
+    string name = 1;
+    string value = 2;
+    TextMatchMode mode = 3;
+}
+
 message ElementQueryInstruction {
     oneof instruction {
         bool match_descendants = 1; // boolean value ignored
@@ -177,6 +203,8 @@ message ElementQueryInstruction {
         string match_element_type_name_or_base = 4;
         AccessibleRole match_element_accessible_role = 5;
         string match_element_accessible_label = 6;
+        AccessiblePropertyMatch match_element_accessible_property = 7;
+        TestablePropertyMatch match_element_testable_property = 8;
     }
 }
 
@@ -287,6 +315,14 @@ message RequestQueryElementDescendants {
     Handle element_handle = 1;
     repeated ElementQueryInstruction query_stack = 2;
     bool find_all = 3;
+    // Also searches content scrolled out of view, and scrolls the first match into view.
+    // The response then holds at most that match, whatever find_all says.
+    // See ElementQuery::scroll_into_view() for how the search pages through Flickables.
+    bool scroll_into_view = 4;
+}
+
+message RequestScrollElementIntoView {
+    Handle element_handle = 1;
 }
 
 message RequestEventLog {
@@ -324,6 +360,7 @@ message RequestToAUT {
         RequestClearEventLog request_clear_event_log = 15;
         RequestStartEventRecording request_start_event_recording = 16;
         RequestStopEventRecording request_stop_event_recording = 17;
+        RequestScrollElementIntoView request_scroll_element_into_view = 18;
     }
 }
 
@@ -451,6 +488,9 @@ message ElementQueryResponse {
     repeated Handle element_handles = 1;
 }
 
+message ScrollElementIntoViewResponse {
+}
+
 message RecordedEvent {
     reserved 4;
     reserved "source";
@@ -506,5 +546,6 @@ message AUTResponse {
         ClearEventLogResponse clear_event_log_response = 16;
         StartEventRecordingResponse start_event_recording_response = 17;
         StopEventRecordingResponse stop_event_recording_response = 18;
+        ScrollElementIntoViewResponse scroll_element_into_view_response = 19;
     }
 }
