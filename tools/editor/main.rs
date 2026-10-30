@@ -944,6 +944,29 @@ mod tests {
         );
     }
 
+    #[test]
+    fn initial_source_loads_with_an_invalid_project_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let project_directory = std::fs::canonicalize(directory.path()).unwrap();
+        let source = project_directory.join("main.slint");
+        std::fs::write(&source, "export component Main {}").unwrap();
+        std::fs::write(project_directory.join("slint-project.json"), "{").unwrap();
+        let project = Project::from_input(&source, None, None).unwrap();
+        let (to_previews, _) = recording_previews();
+        let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
+        let mut root = PathBuf::new();
+        let session = spin_on::spin_on(activate_project(
+            &mut watcher,
+            &mut tokio::sync::mpsc::unbounded_channel().1,
+            &mut root,
+            project,
+            &to_previews,
+        ));
+        assert!(
+            session.document_cache.get_document(&Url::from_file_path(source).unwrap()).is_some()
+        );
+    }
+
     fn recording_previews()
     -> (Vec<Rc<LspToPreviews>>, [editor_preview::test::CapturedPreviewMessages; 2]) {
         let captures = std::array::from_fn(|_| editor_preview::test::preview_capture());
