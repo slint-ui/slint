@@ -1372,6 +1372,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
         let image = item.source();
         let cached_image = loop {
             let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
+                let image = item.source();
                 let image_inner: &ImageInner = (&image).into();
                 let tiling = item.tiling();
 
