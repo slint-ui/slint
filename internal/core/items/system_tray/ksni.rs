@@ -22,9 +22,10 @@ enum MenuNode {
     Standard { label: std::string::String, enabled: bool, entry_index: usize },
 }
 
+/// A click, with the XDG activation token the host sent for it.
 enum Event {
-    Activate(i32, i32),
-    Menu(usize),
+    Activate(Option<std::string::String>),
+    Menu(usize, Option<std::string::String>),
 }
 
 struct KsniTray {
@@ -41,9 +42,9 @@ impl ::ksni::Tray for KsniTray {
         "slint-tray".into()
     }
 
-    fn activate(&mut self, x: i32, y: i32) {
-        keep_activation_token();
-        let _ = self.event_tx.try_send(Event::Activate(x, y));
+    fn activate(&mut self, _x: i32, _y: i32) {
+        let token = ::ksni::current_xdg_activation_token();
+        let _ = self.event_tx.try_send(Event::Activate(token));
     }
 
     // Slint's `tooltip` is the hover text — it goes into SNI `ToolTip.title`,
@@ -90,39 +91,14 @@ fn node_to_ksni(
                 activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
                     // ksni runs the callback on its own thread; the channel hands the
                     // click off to the dispatcher task living on the Slint event loop.
-                    keep_activation_token();
-                    let _ = tx.try_send(Event::Menu(entry_index));
+                    let token = ::ksni::current_xdg_activation_token();
+                    let _ = tx.try_send(Event::Menu(entry_index, token));
                 }),
                 ..Default::default()
             }
             .into()
         }
     }
-}
-
-/// How long a click's activation token waits for a window. A window that shows for the click is
-/// created right after it; one created later, for something else, must not take the token.
-const ACTIVATION_TOKEN_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(1);
-
-/// The activation token of the last click and when it came, until a window takes it.
-static ACTIVATION_TOKEN: std::sync::Mutex<Option<(std::time::Instant, std::string::String)>> =
-    std::sync::Mutex::new(None);
-
-/// Keeps the XDG activation token the host sent with the click being handled. Plasma shows a launch
-/// entry on its task bar for each token it hands out, until a window uses that token. ksni runs
-/// this on the thread that also takes the host's `ProvideXdgActivationToken` call, so waiting here
-/// for a token that comes late cannot work.
-fn keep_activation_token() {
-    if let Some(token) = ::ksni::current_xdg_activation_token() {
-        *ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
-            Some((std::time::Instant::now(), token));
-    }
-}
-
-pub fn take_activation_token() -> Option<std::string::String> {
-    let kept = ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take();
-    kept.filter(|(kept_at, _)| kept_at.elapsed() <= ACTIVATION_TOKEN_MAX_AGE)
-        .map(|(_, token)| token)
 }
 
 pub struct PlatformTray {
@@ -160,7 +136,7 @@ impl PlatformTray {
             spawn_tray(icon.clone(), tooltip.clone(), title.clone(), menu.clone(), &event_tx)?;
 
         let dispatcher = context
-            .spawn_local(dispatch_loop(event_rx, self_weak))
+            .spawn_local(dispatch_loop(event_rx, self_weak, context.downgrade()))
             .map_err(Error::EventLoopError)?;
 
         Ok(Self {
@@ -309,21 +285,32 @@ static IN_SANDBOX: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         })
 });
 
-async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::item_tree::ItemWeak) {
+async fn dispatch_loop(
+    rx: async_channel::Receiver<Event>,
+    self_weak: crate::item_tree::ItemWeak,
+    context: crate::SlintContextWeak,
+) {
     while let Ok(event) = rx.recv().await {
         let Some(item_rc) = self_weak.upgrade() else { continue };
         let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { continue };
         let tray = tray.as_pin_ref();
 
+        // Plasma shows a launch entry on its task bar for each token it hands out, until a window
+        // uses that token.
+        let (Event::Activate(token) | Event::Menu(_, token)) = &event;
+        if let (Some(token), Some(context)) = (token, context.upgrade()) {
+            context.platform().set_xdg_activation_token(token.clone(), crate::InternalToken);
+        }
+
         match event {
-            Event::Menu(entry_index) => {
+            Event::Menu(entry_index, _) => {
                 let menu_borrow = tray.data.menu.borrow();
                 let Some(state) = menu_borrow.as_ref() else { continue };
                 if let Some(entry) = state.entries.get(entry_index) {
                     vtable::VRc::borrow(&state.menu_vrc).activate(entry);
                 }
             }
-            Event::Activate(_x, _y) => {
+            Event::Activate(_) => {
                 tray.clicked.call(&());
             }
         }
@@ -371,23 +358,5 @@ fn entry_to_node(
             enabled: entry.enabled,
             entry_index,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_token_is_taken_once_and_not_when_stale() {
-        let keep = |age: std::time::Duration| {
-            let kept_at = std::time::Instant::now().checked_sub(age).unwrap();
-            *ACTIVATION_TOKEN.lock().unwrap() = Some((kept_at, "token".into()));
-        };
-        keep(std::time::Duration::ZERO);
-        assert_eq!(take_activation_token().as_deref(), Some("token"));
-        assert_eq!(take_activation_token(), None);
-        keep(ACTIVATION_TOKEN_MAX_AGE * 2);
-        assert_eq!(take_activation_token(), None);
     }
 }

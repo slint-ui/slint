@@ -160,6 +160,11 @@ pub trait Platform {
         Err(PlatformError::Unsupported)
     }
 
+    #[doc(hidden)]
+    /// Gives the platform the XDG activation token that came with a click on a tray icon, before
+    /// the click's callback runs, so a window that callback shows may come to the front.
+    fn set_xdg_activation_token(&self, _token: String, _: crate::InternalToken) {}
+
     #[cfg(target_os = "android")]
     #[doc(hidden)]
     /// The long press interval before showing a context menu

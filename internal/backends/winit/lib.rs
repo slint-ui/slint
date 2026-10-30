@@ -464,6 +464,9 @@ pub(crate) struct SharedBackendData {
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
+    /// The XDG activation token of a click on a tray icon and when it came, for the next window.
+    #[cfg(all(target_os = "linux", any(feature = "wayland", feature = "x11")))]
+    xdg_activation_token: RefCell<Option<(std::time::Instant, String)>>,
     /// Desktop settings read from the XDG portal (cursor blink, appearance query).
     #[cfg(xdg_desktop_settings)]
     desktop_settings: xdg_desktop_settings::DesktopSettings,
@@ -476,6 +479,15 @@ pub(crate) struct SharedBackendData {
 }
 
 impl SharedBackendData {
+    /// Takes the token of the last click on a tray icon, unless it came too long ago: a window
+    /// that shows for the click is created right after it, and one created later must not take it.
+    #[cfg(all(target_os = "linux", any(feature = "wayland", feature = "x11")))]
+    pub(crate) fn take_xdg_activation_token(&self) -> Option<String> {
+        const MAX_AGE: std::time::Duration = std::time::Duration::from_secs(1);
+        let kept = self.xdg_activation_token.borrow_mut().take();
+        kept.filter(|(kept_at, _)| kept_at.elapsed() <= MAX_AGE).map(|(_, token)| token)
+    }
+
     /// Panics if the backend is not bound: an event loop only runs inside a live context.
     pub(crate) fn context(&self) -> i_slint_core::SlintContext {
         self.context
@@ -572,6 +584,8 @@ impl SharedBackendData {
             event_loop_proxy,
             event_loop_generation: Default::default(),
             is_wayland,
+            #[cfg(all(target_os = "linux", any(feature = "wayland", feature = "x11")))]
+            xdg_activation_token: Default::default(),
             #[cfg(xdg_desktop_settings)]
             desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
@@ -1123,6 +1137,12 @@ impl i_slint_core::platform::Platform for Backend {
     #[cfg(xdg_desktop_settings)]
     fn cursor_flash_cycle(&self) -> core::time::Duration {
         self.shared_data.desktop_settings.cursor_flash_cycle()
+    }
+
+    #[cfg(all(target_os = "linux", any(feature = "wayland", feature = "x11")))]
+    fn set_xdg_activation_token(&self, token: String, _: i_slint_core::InternalToken) {
+        *self.shared_data.xdg_activation_token.borrow_mut() =
+            Some((std::time::Instant::now(), token));
     }
 
     fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
