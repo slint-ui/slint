@@ -428,7 +428,7 @@ fn blend_coverage<T: TargetPixel>(pix: &mut T, opaque: T, color: Color, coverage
 /// This is an integer shifted by 4 bits.
 /// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
 /// the shifted integer
-#[derive(Clone, Copy, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
+#[derive(Clone, Copy, Default, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
 struct Shifted(u32);
 impl Shifted {
     const ONE: Self = Shifted(1 << 4);
@@ -492,7 +492,7 @@ fn corner_radii_on_line(
 /// Where a pixel line crosses a corner arc, approximated by the arc's tangent
 /// at the line's vertical center, and measured from the corner's vertical edge.
 /// A pixel's coverage is 0.5 plus the distance of its center inside the tangent, clamped.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 struct ArcEdge {
     /// Where the tangent crosses the line's vertical center, in 1/16 pixel.
     center: i32,
@@ -705,7 +705,7 @@ pub(super) fn draw_rounded_rectangle_line(
 }
 
 // a is between 0 and 255. When 0, we get color1, when 255 we get color2
-fn interpolate_color(
+pub(super) fn interpolate_color(
     a: u32,
     color1: PremultipliedRgbaColor,
     color2: PremultipliedRgbaColor,
@@ -731,9 +731,8 @@ fn interpolate_color(
     }
 }
 
-/// Taken as `dyn` by [`draw_gradient_line`] so it's only instantiated once per pixel type.
-pub(super) trait GradientCommand<T: TargetPixel> {
-    fn clip(&self) -> &super::GradientClip;
+/// Taken as `dyn` by [`draw_line_with_clips`] so it's only instantiated once per pixel type.
+pub(super) trait LineCommand<T: TargetPixel> {
     fn draw_line(
         &self,
         rect: &PhysicalRect,
@@ -752,199 +751,325 @@ pub(super) trait GradientCommand<T: TargetPixel> {
     );
 }
 
-impl<T: TargetPixel> GradientCommand<T> for super::LinearGradientCommand {
-    fn clip(&self) -> &super::GradientClip {
-        &self.clip
-    }
-    fn draw_line(
-        &self,
+macro_rules! impl_line_command {
+    ($ty:ty, |$cmd:ident, $rect:ident, $line:ident, $buffer:ident, $left:ident, $right:ident| $body:expr) => {
+        impl<T: TargetPixel> LineCommand<T> for $ty {
+            fn draw_line(
+                &self,
+                $rect: &PhysicalRect,
+                $line: PhysicalLength,
+                $buffer: &mut [T],
+                $left: i16,
+                $right: i16,
+            ) {
+                let $cmd = self;
+                $body
+            }
+            fn draw_scratch_line(
+                &self,
+                $rect: &PhysicalRect,
+                $line: PhysicalLength,
+                $buffer: &mut [PremultipliedRgbaColor],
+                $left: i16,
+                $right: i16,
+            ) {
+                let $cmd = self;
+                $body
+            }
+        }
+    };
+}
+
+pub(super) struct SolidColor(pub PremultipliedRgbaColor);
+
+impl_line_command!(SolidColor, |c, _rect, _line, buffer, _left, _right| {
+    TargetPixel::blend_slice(buffer, c.0)
+});
+impl_line_command!(super::RoundedRectangle, |rr, rect, line, buffer, left, right| {
+    draw_rounded_rectangle_line(rect, line, rr, buffer, left, right)
+});
+impl_line_command!(super::SceneTexture<'_>, |texture, rect, line, buffer, left, right| {
+    draw_texture_line(rect, line, texture, buffer, left, right)
+});
+impl_line_command!(super::LinearGradientCommand, |g, rect, line, buffer, left, _right| {
+    draw_linear_gradient(rect, line, g, buffer, left)
+});
+impl_line_command!(super::RadialGradientCommand, |g, rect, line, buffer, left, right| {
+    draw_radial_gradient(rect, line, g, buffer, left, right)
+});
+impl_line_command!(super::ConicGradientCommand, |g, rect, line, buffer, left, right| {
+    draw_conic_gradient(rect, line, g, buffer, left, right)
+});
+impl_line_command!(super::BoxShadowCommand, |shadow, rect, line, buffer, left, _right| {
+    super::box_shadow::draw_box_shadow_line(rect, line, shadow, buffer, left)
+});
+
+/// Where the arcs of one [`super::ShapeClip`] cross a line.
+/// The arcs are relative to the shape's left edge rather than the buffer,
+/// so the coverage doesn't depend on where the dirty region splits the line.
+#[derive(Clone, Copy, Default)]
+struct ClipSpan {
+    /// The shape's left edge, in pixels left of the buffer.
+    left_offset: u32,
+    len: usize,
+    shape_width: u32,
+    left_edge: ArcEdge,
+    right_edge: ArcEdge,
+    binary: bool,
+}
+
+impl ClipSpan {
+    fn new(
         rect: &PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [T],
+        clip: &super::ShapeClip,
+        len: usize,
         extra_left_clip: i16,
-        _extra_right_clip: i16,
-    ) {
-        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+        extra_right_clip: i16,
+    ) -> Option<Self> {
+        let shape = &clip.shape;
+        let ((left_radius, left_y), (right_radius, right_y), _) =
+            corner_radii_on_line(rect, line, shape);
+        if left_radius == 0 && right_radius == 0 {
+            return None;
+        }
+        let left_offset = shape.left_clip.get().saturating_add(extra_left_clip) as u32;
+        let right_offset = shape.right_clip.get().saturating_add(extra_right_clip) as u32;
+        let shape_width = len as u32 + left_offset + right_offset;
+        let border = Shifted::new(clip.opaque_border.get());
+        let arc = |r: i16, y: i16| {
+            if r == 0 {
+                return ArcEdge::vertical(Shifted::ZERO);
+            }
+            let r = Shifted::new(r);
+            ArcEdge::new(r, r.saturating_sub(border), r - Shifted::new(y))
+        };
+        let left_edge = arc(left_radius, left_y);
+        let right_edge = if (right_radius, right_y) == (left_radius, left_y) {
+            left_edge
+        } else {
+            arc(right_radius, right_y)
+        };
+        Some(Self {
+            left_offset,
+            len,
+            shape_width,
+            left_edge,
+            right_edge,
+            binary: border > Shifted::ZERO,
+        })
     }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        _extra_right_clip: i16,
-    ) {
-        draw_linear_gradient(rect, line, self, buffer, extra_left_clip)
+
+    fn right(&self) -> Side {
+        Side::Right(self.shape_width)
+    }
+
+    fn buffer_index(&self, x: u32) -> usize {
+        (x.saturating_sub(self.left_offset) as usize).min(self.len)
+    }
+
+    fn outer(&self) -> core::ops::Range<usize> {
+        let left = self.left_edge.pixels(Side::Left);
+        let right = self.right_edge.pixels(self.right());
+        self.buffer_index(left.start)..self.buffer_index(right.end)
+    }
+
+    fn inner(&self) -> core::ops::Range<usize> {
+        if self.binary {
+            // `draw_rounded_rectangle_line` anti-aliases the border's inner edge over this same
+            // span, so the command must have full coverage in it.
+            self.outer()
+        } else {
+            let left = self.left_edge.pixels(Side::Left);
+            let right = self.right_edge.pixels(self.right());
+            self.buffer_index(left.end)..self.buffer_index(right.start)
+        }
+    }
+
+    /// The coverage of buffer pixel `x`, which must be in `outer()`.
+    fn coverage(&self, x: usize) -> u32 {
+        if self.binary {
+            return 255;
+        }
+        let x = x as u32 + self.left_offset;
+        let right = self.right();
+        let left = if x >= self.left_edge.pixels(Side::Left).end {
+            255
+        } else {
+            self.left_edge.coverage(x)
+        };
+        let right = if x < self.right_edge.pixels(right).start {
+            255
+        } else {
+            self.right_edge.shape_coverage(right, x)
+        };
+        // On a narrow shape both arcs can cross the same pixel.
+        left.min(right)
     }
 }
 
-impl<T: TargetPixel> GradientCommand<T> for super::RadialGradientCommand {
-    fn clip(&self) -> &super::GradientClip {
-        &self.clip
-    }
-    fn draw_line(
-        &self,
-        rect: &PhysicalRect,
+/// Bounds the stack buffers of the edge pixels.
+/// Most edges fit in one chunk, but the flat top of a large corner takes several.
+const EDGE_CHUNK: usize = 16;
+
+/// Most runs have a few entries; a longer one recomputes its spans for each edge chunk.
+const CACHED_SPANS: usize = 4;
+
+/// A command's clip run on one line of its buffer.
+pub(super) struct LineClip<'a> {
+    rect: &'a PhysicalRect,
+    line: PhysicalLength,
+    clips: &'a [super::ShapeClip],
+    len: usize,
+    extra_left_clip: i16,
+    extra_right_clip: i16,
+    spans: [ClipSpan; CACHED_SPANS],
+    span_count: usize,
+    /// The pixels the run covers at all.
+    pub outer: core::ops::Range<usize>,
+    /// The pixels it covers fully.
+    pub inner: core::ops::Range<usize>,
+}
+
+impl<'a> LineClip<'a> {
+    /// `None` if the run doesn't clip this line of `len` pixels.
+    #[inline]
+    pub fn new(
+        rect: &'a PhysicalRect,
         line: PhysicalLength,
-        buffer: &mut [T],
+        clips: &'a [super::ShapeClip],
+        len: usize,
         extra_left_clip: i16,
         extra_right_clip: i16,
-    ) {
-        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+    ) -> Option<Self> {
+        // The setup costs more than an MCU's fill of an unclipped line.
+        if clips.is_empty() {
+            return None;
+        }
+        let mut this = Self {
+            rect,
+            line,
+            clips,
+            len,
+            extra_left_clip,
+            extra_right_clip,
+            spans: Default::default(),
+            span_count: 0,
+            outer: 0..len,
+            inner: 0..len,
+        };
+        for span in this.compute_spans() {
+            if let Some(cached) = this.spans.get_mut(this.span_count) {
+                *cached = span;
+            }
+            this.span_count += 1;
+            let (outer, inner) = (span.outer(), span.inner());
+            this.outer = this.outer.start.max(outer.start)..this.outer.end.min(outer.end);
+            this.inner = this.inner.start.max(inner.start)..this.inner.end.min(inner.end);
+        }
+        if this.span_count == 0 {
+            return None;
+        }
+        this.outer.end = this.outer.end.max(this.outer.start);
+        let inner_start = this.inner.start.clamp(this.outer.start, this.outer.end);
+        this.inner = inner_start..this.inner.end.clamp(inner_start, this.outer.end);
+        Some(this)
     }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_radial_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
+
+    /// The spans of the clips that have a corner on this line; the others don't clip it.
+    fn compute_spans(&self) -> impl Iterator<Item = ClipSpan> + 'a {
+        let (rect, line, len) = (self.rect, self.line, self.len);
+        let (extra_left_clip, extra_right_clip) = (self.extra_left_clip, self.extra_right_clip);
+        self.clips.iter().filter_map(move |clip| {
+            ClipSpan::new(rect, line, clip, len, extra_left_clip, extra_right_clip)
+        })
+    }
+
+    /// Calls `f` with each chunk of the pixels between `outer` and `inner`, and their coverage.
+    /// Clips combine by their minimum, which is exact for coincident and concentric edges.
+    pub fn for_each_edge_chunk(&self, mut f: impl FnMut(core::ops::Range<usize>, &[u8])) {
+        let mut coverage = [0u8; EDGE_CHUNK];
+        for edge in [self.outer.start..self.inner.start, self.inner.end..self.outer.end] {
+            for start in edge.clone().step_by(EDGE_CHUNK) {
+                let chunk = start..(start + EDGE_CHUNK).min(edge.end);
+                let coverage = &mut coverage[..chunk.len()];
+                coverage.fill(255);
+                let mut apply = |span: &ClipSpan| {
+                    for (x, c) in chunk.clone().zip(coverage.iter_mut()) {
+                        *c = (*c as u32).min(span.coverage(x)) as u8;
+                    }
+                };
+                if self.span_count <= CACHED_SPANS {
+                    self.spans[..self.span_count].iter().for_each(&mut apply);
+                } else {
+                    self.compute_spans().for_each(|span| apply(&span));
+                }
+                f(chunk, coverage);
+            }
+        }
     }
 }
 
-impl<T: TargetPixel> GradientCommand<T> for super::ConicGradientCommand {
-    fn clip(&self) -> &super::GradientClip {
-        &self.clip
-    }
-    fn draw_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [T],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-    fn draw_scratch_line(
-        &self,
-        rect: &PhysicalRect,
-        line: PhysicalLength,
-        buffer: &mut [PremultipliedRgbaColor],
-        extra_left_clip: i16,
-        extra_right_clip: i16,
-    ) {
-        draw_conic_gradient(rect, line, self, buffer, extra_left_clip, extra_right_clip)
-    }
-}
-
-/// Draw one line of a gradient, clipped to its rounded shape with anti-aliased corners.
-pub(super) fn draw_gradient_line<T: TargetPixel>(
+/// Draw one line of a command, clipped to its clip run with anti-aliased corners.
+#[inline]
+pub(super) fn draw_clipped_line<T: TargetPixel>(
     rect: &PhysicalRect,
     line: PhysicalLength,
-    g: &dyn GradientCommand<T>,
+    clips: &[super::ShapeClip],
+    cmd: &impl LineCommand<T>,
     buffer: &mut [T],
     extra_left_clip: i16,
     extra_right_clip: i16,
 ) {
-    let clip = g.clip();
-    let shape = &clip.shape;
-    let ((left_radius, left_y), (right_radius, right_y), _) = if shape.radius.is_zero() {
-        ((0, 0), (0, 0), 0)
+    if clips.is_empty() {
+        cmd.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
     } else {
-        corner_radii_on_line(rect, line, shape)
-    };
-    if left_radius == 0 && right_radius == 0 {
-        g.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
-        return;
-    }
-
-    let len = buffer.len();
-    // The edges are computed relative to the shape's left edge rather than the buffer,
-    // so the coverage doesn't depend on where the dirty region splits the line.
-    let left_offset = shape.left_clip.get().saturating_add(extra_left_clip) as u32;
-    let right_offset = shape.right_clip.get().saturating_add(extra_right_clip) as u32;
-    let shape_width = len as u32 + left_offset + right_offset;
-    let border = Shifted::new(clip.opaque_border.get());
-    let arc = |r: i16, y: i16| {
-        if r == 0 {
-            return ArcEdge::vertical(Shifted::ZERO);
-        }
-        let r = Shifted::new(r);
-        ArcEdge::new(r, r.saturating_sub(border), r - Shifted::new(y))
-    };
-    let left_edge = arc(left_radius, left_y);
-    let right_edge_storage;
-    let right_edge = if (right_radius, right_y) == (left_radius, left_y) {
-        &left_edge
-    } else {
-        right_edge_storage = arc(right_radius, right_y);
-        &right_edge_storage
-    };
-    let right = Side::Right(shape_width);
-    let (left_pixels, right_pixels) = (left_edge.pixels(Side::Left), right_edge.pixels(right));
-
-    let to_buffer = |x: u32| (x.saturating_sub(left_offset) as usize).min(len);
-    let begin = to_buffer(left_pixels.start);
-    let end = to_buffer(right_pixels.end);
-    let clips = |range: &core::ops::Range<usize>| {
-        (extra_left_clip + range.start as i16, extra_right_clip + (len - range.end) as i16)
-    };
-
-    if border > Shifted::ZERO {
-        // `draw_rounded_rectangle_line` anti-aliases the border's inner edge over this same
-        // span, so the gradient must have full coverage in it.
-        let inner = begin..end.max(begin);
-        let (left_clip, right_clip) = clips(&inner);
-        g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
-        return;
-    }
-
-    let inner_begin = to_buffer(left_pixels.end).clamp(begin, end);
-    let inner_end = to_buffer(right_pixels.start).clamp(inner_begin, end);
-
-    let inner = inner_begin..inner_end;
-    let (left_clip, right_clip) = clips(&inner);
-    g.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
-
-    // On a narrow shape both arcs can cross the same pixel, so take the smaller coverage.
-    let coverage = |x: usize| {
-        let x = x as u32 + left_offset;
-        let left = if x >= left_pixels.end { 255 } else { left_edge.coverage(x) };
-        let right = if x < right_pixels.start { 255 } else { right_edge.shape_coverage(right, x) };
-        left.min(right)
-    };
-    for edge in [begin..inner_begin, inner_end..end] {
-        blend_with_coverage(
-            buffer,
-            edge,
-            |scratch, chunk| {
-                let (left_clip, right_clip) = clips(&chunk);
-                g.draw_scratch_line(rect, line, scratch, left_clip, right_clip);
-            },
-            coverage,
-        );
+        draw_line_with_clips(rect, line, clips, cmd, buffer, extra_left_clip, extra_right_clip);
     }
 }
 
-/// `coverage(x)` is 0 to 255.
-/// `draw` draws the gradient for a sub-range of `range` into a cleared scratch buffer.
-pub(super) fn blend_with_coverage<T: TargetPixel>(
+fn draw_line_with_clips<T: TargetPixel>(
+    rect: &PhysicalRect,
+    line: PhysicalLength,
+    clips: &[super::ShapeClip],
+    cmd: &dyn LineCommand<T>,
     buffer: &mut [T],
-    range: core::ops::Range<usize>,
-    mut draw: impl FnMut(&mut [PremultipliedRgbaColor], core::ops::Range<usize>),
-    coverage: impl Fn(usize) -> u32,
+    extra_left_clip: i16,
+    extra_right_clip: i16,
 ) {
-    // Bounds the stack scratch buffer.
-    const CHUNK: usize = 16;
-    let mut scratch = [PremultipliedRgbaColor::default(); CHUNK];
-    for start in range.clone().step_by(CHUNK) {
-        let chunk = start..(start + CHUNK).min(range.end);
+    let len = buffer.len();
+    let Some(line_clip) = LineClip::new(rect, line, clips, len, extra_left_clip, extra_right_clip)
+    else {
+        cmd.draw_line(rect, line, buffer, extra_left_clip, extra_right_clip);
+        return;
+    };
+    let extra_clips = |range: &core::ops::Range<usize>| {
+        (extra_left_clip + range.start as i16, extra_right_clip + (len - range.end) as i16)
+    };
+
+    let inner = line_clip.inner.clone();
+    // `draw_texture_line` doesn't support an empty buffer.
+    if !inner.is_empty() {
+        let (left_clip, right_clip) = extra_clips(&inner);
+        cmd.draw_line(rect, line, &mut buffer[inner], left_clip, right_clip);
+    }
+
+    let mut scratch = [PremultipliedRgbaColor::default(); EDGE_CHUNK];
+    line_clip.for_each_edge_chunk(|chunk, coverage| {
         let scratch = &mut scratch[..chunk.len()];
         scratch.fill(PremultipliedRgbaColor::default());
-        draw(scratch, chunk.clone());
-        for (x, color) in chunk.zip(scratch.iter()) {
-            let color = interpolate_color(coverage(x), PremultipliedRgbaColor::default(), *color);
+        let (left_clip, right_clip) = extra_clips(&chunk);
+        cmd.draw_scratch_line(rect, line, scratch, left_clip, right_clip);
+        for ((x, color), cov) in chunk.zip(scratch.iter()).zip(coverage.iter()) {
+            let color = interpolate_color(*cov as u32, PremultipliedRgbaColor::default(), *color);
             buffer[x].blend(color);
         }
-    }
+    });
 }
 
 #[cfg(feature = "path")]
 impl super::AnyGradientCommand {
-    pub(super) fn as_command<T: TargetPixel>(&self) -> &dyn GradientCommand<T> {
+    pub(super) fn as_command<T: TargetPixel>(&self) -> &dyn LineCommand<T> {
         match self {
             Self::Linear(g) => g,
             Self::Radial(g) => g,
@@ -988,8 +1113,7 @@ impl super::LinearGradientCommand {
 
     /// Whether [`draw_linear_gradient`] overwrites every pixel of `rect` on `line`.
     pub(super) fn covers_line(&self, rect: &PhysicalRect, line: PhysicalLength) -> bool {
-        if self.color1.alpha != 255 || self.color2.alpha != 255 || !self.clip.shape.radius.is_zero()
-        {
+        if self.color1.alpha != 255 || self.color2.alpha != 255 {
             return false;
         }
         match self.start {
@@ -1712,7 +1836,6 @@ fn rgb565_gradient_is_dithered() {
         right_clip: PhysicalLength::new(0),
         top_clip: PhysicalLength::new(0),
         bottom_clip: PhysicalLength::new(0),
-        clip: Default::default(),
     };
     // Halfway down, the color is about 3/8 of the way to the first non-black 565 red level.
     let line = PhysicalLength::new(32);
@@ -1763,7 +1886,6 @@ fn rgb565_linear_gradient_noise_follows_screen_position() {
                 right_clip: PhysicalLength::new(-16),
                 top_clip: PhysicalLength::new(0),
                 bottom_clip: PhysicalLength::new(0),
-                clip: Default::default(),
             };
             let (left_fill, right_fill) =
                 if invert_slope == 1 { (color1, color2) } else { (color2, color1) };
@@ -1943,4 +2065,75 @@ fn unscaled_texture_line_wraps_into_next_tile() {
             Rgb8Pixel::new(p[0], p[1], p[2])
         })
     );
+}
+
+#[test]
+fn identical_clips_combine_to_one() {
+    let clip = super::ShapeClip {
+        shape: super::RoundedShape {
+            radius: super::PhysicalBorderRadius::new_uniform(16),
+            ..Default::default()
+        },
+        opaque_border: PhysicalLength::new(0),
+    };
+    const SIZE: i16 = 40;
+    let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
+    let color = SolidColor(PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 });
+    // More clips than are cached, so the spans are recomputed for each edge chunk.
+    let clips = [clip; CACHED_SPANS + 1];
+    for line in 0..SIZE {
+        let line = PhysicalLength::new(line);
+        let mut one = [PremultipliedRgbaColor::default(); SIZE as usize];
+        draw_clipped_line(&rect, line, &clips[..1], &color, &mut one, 0, 0);
+        for count in 2..=clips.len() {
+            let mut many = [PremultipliedRgbaColor::default(); SIZE as usize];
+            draw_clipped_line(&rect, line, &clips[..count], &color, &mut many, 0, 0);
+            assert_eq!(
+                bytemuck::cast_slice::<_, u8>(&one),
+                bytemuck::cast_slice::<_, u8>(&many),
+                "line {line:?} with {count} clips"
+            );
+        }
+    }
+}
+
+#[test]
+fn clipped_line_does_not_depend_on_split() {
+    let clip = |radius, left, top, opaque_border| super::ShapeClip {
+        shape: super::RoundedShape {
+            radius,
+            left_clip: PhysicalLength::new(left),
+            right_clip: PhysicalLength::new(3),
+            top_clip: PhysicalLength::new(top),
+            bottom_clip: PhysicalLength::new(0),
+        },
+        opaque_border: PhysicalLength::new(opaque_border),
+    };
+    let asymmetric = super::PhysicalBorderRadius::new(13, 6, 17, 9);
+    let uniform = super::PhysicalBorderRadius::new_uniform(11);
+    let many: [_; CACHED_SPANS + 1] =
+        core::array::from_fn(|i| clip(uniform, i as i16, i as i16, 0));
+    let runs: [&[_]; 3] =
+        [&[clip(asymmetric, 2, 1, 0)], &[clip(uniform, 0, 0, 0), clip(asymmetric, 2, 1, 3)], &many];
+    const SIZE: i16 = 48;
+    let rect = PhysicalRect::new(Default::default(), euclid::size2(SIZE, SIZE));
+    let color = SolidColor(PremultipliedRgbaColor { red: 0, green: 0, blue: 255, alpha: 255 });
+    for (run, clips) in runs.iter().enumerate() {
+        for line in 0..SIZE {
+            let line = PhysicalLength::new(line);
+            let mut whole = [PremultipliedRgbaColor::default(); SIZE as usize];
+            draw_clipped_line(&rect, line, clips, &color, &mut whole, 0, 0);
+            for split in 1..SIZE {
+                let mut parts = [PremultipliedRgbaColor::default(); SIZE as usize];
+                let (left, right) = parts.split_at_mut(split as usize);
+                draw_clipped_line(&rect, line, clips, &color, left, 0, SIZE - split);
+                draw_clipped_line(&rect, line, clips, &color, right, split, 0);
+                assert_eq!(
+                    bytemuck::cast_slice::<_, u8>(&whole),
+                    bytemuck::cast_slice::<_, u8>(&parts),
+                    "run {run}, line {line:?} split at {split}"
+                );
+            }
+        }
+    }
 }
