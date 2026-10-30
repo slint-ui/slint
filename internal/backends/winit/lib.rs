@@ -658,7 +658,7 @@ impl SharedBackendData {
             let Some(window) = window_weak.upgrade() else { continue };
             // A Wayland window is mapped as soon as it exists, and task bars list one that never gets
             // content, so a hidden one waits: showing it registers it here again.
-            if self.is_wayland && !window.is_shown() {
+            if self.is_wayland && matches!(window.visibility(), WindowVisibility::Hidden) {
                 continue;
             }
             if let Err(err) = window.ensure_window(event_loop) {
@@ -1153,7 +1153,8 @@ mod private {
 ///   created when certain conditions of the event loop are met. For example, on Android the application can't be suspended. Therefore,
 ///   functions like [`Self::has_winit_window()`] or [`Self::with_winit_window()`] will only succeed when the event loop is active.
 ///   This is typically the case when callbacks are invoked from the event loop, such as through timers, user input events, or when window
-///   receives events (see also [`Self::on_winit_window_event()`]).
+///   receives events (see also [`Self::on_winit_window_event()`]). On Wayland, where creating a window maps it, the winit window
+///   is created only once the Slint window is shown.
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend.
