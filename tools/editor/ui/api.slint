@@ -701,6 +701,7 @@ export global Api {
             && Api.set-code-binding(element.source-uri, element.source-version, element.offset, name, value);
     }
     pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
+    pure callback normalize-element-id(text: string) -> string;
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 
     pure callback string-is-single-line(value: string) -> bool;
