@@ -370,7 +370,6 @@ async fn lsp_main(
                             message,
                             preview_index,
                             &mut session,
-                            &project_root,
                         ).await;
                     }
                     None => {
@@ -502,7 +501,6 @@ async fn handle_preview_message(
     message: PreviewToLspMessage,
     preview_index: usize,
     session: &mut editor_preview::EditorSession,
-    project_root: &Path,
 ) {
     use PreviewToLspMessage::*;
     if session.preview(preview_index).is_none() {
@@ -515,7 +513,7 @@ async fn handle_preview_message(
             if files.is_empty() {
                 session.send_state_to_preview(preview_index);
             } else {
-                session.send_files_to_preview(preview_index, files, &[project_root.to_path_buf()]);
+                session.send_files_to_preview(preview_index, files);
             }
             for name in settings {
                 if let Some(contents) =
@@ -845,12 +843,7 @@ mod tests {
             &to_previews,
         ));
         let request = PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() };
-        spin_on::spin_on(handle_preview_message(
-            request,
-            PRIMARY_PREVIEW_INDEX,
-            &mut session,
-            &root,
-        ));
+        spin_on::spin_on(handle_preview_message(request, PRIMARY_PREVIEW_INDEX, &mut session));
         for url in std::mem::take(&mut session.pending_recompile) {
             spin_on::spin_on(session.reload_document(url)).unwrap();
         }
@@ -891,7 +884,6 @@ mod tests {
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             PRIMARY_PREVIEW_INDEX,
             &mut session,
-            &root,
         ));
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
             matches!(message, LspToPreviewMessage::SetContents { url, .. }
@@ -923,7 +915,6 @@ mod tests {
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             PRIMARY_PREVIEW_INDEX,
             &mut session,
-            &root,
         ));
         assert_eq!(session.primary_preview().component().cloned(), Some(component.clone()));
         assert!(
@@ -1027,7 +1018,6 @@ mod tests {
                 PreviewToLspMessage::SendWorkspaceEdit { label: Some("Resize".into()), edit },
                 PRIMARY_PREVIEW_INDEX,
                 &mut session,
-                &root,
             ));
             assert_eq!(
                 std::fs::read_to_string(&path).unwrap(),
@@ -1386,7 +1376,6 @@ mod tests {
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             1,
             &mut session,
-            project.path(),
         ));
 
         assert!(messages[0].borrow().is_empty());
@@ -1403,7 +1392,6 @@ mod tests {
             PreviewToLspMessage::RequestPreview { component: component.clone() },
             1,
             &mut session,
-            project.path(),
         ));
 
         assert!(
@@ -1500,7 +1488,6 @@ mod tests {
             },
             PRIMARY_PREVIEW_INDEX,
             &mut session,
-            project.path(),
         ));
 
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
@@ -1514,7 +1501,6 @@ mod tests {
             PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() },
             RUN_PREVIEW_INDEX,
             &mut session,
-            project.path(),
         ));
         let run_messages = messages[RUN_PREVIEW_INDEX].borrow();
         assert!(
@@ -1533,13 +1519,11 @@ mod tests {
     fn clear_highlight_only_clears_the_run_preview_from_the_primary_preview() {
         for preview_index in [PRIMARY_PREVIEW_INDEX, RUN_PREVIEW_INDEX] {
             let (mut session, messages) = session_with_recording_previews();
-            let project = tempfile::tempdir().unwrap();
 
             spin_on::spin_on(handle_preview_message(
                 PreviewToLspMessage::ClearHighlight,
                 preview_index,
                 &mut session,
-                project.path(),
             ));
 
             assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
@@ -1560,13 +1544,11 @@ mod tests {
         let url = editor_preview::test::test_file_name("hover.slint").to_url().unwrap();
         for preview_index in [PRIMARY_PREVIEW_INDEX, RUN_PREVIEW_INDEX] {
             let (mut session, messages) = session_with_recording_previews();
-            let project = tempfile::tempdir().unwrap();
 
             spin_on::spin_on(handle_preview_message(
                 PreviewToLspMessage::HighlightInRunPreview { url: Some(url.clone()), offset: 42 },
                 preview_index,
                 &mut session,
-                project.path(),
             ));
 
             assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
@@ -1585,7 +1567,6 @@ mod tests {
     #[test]
     fn show_document_from_the_run_preview_is_ignored() {
         let (mut session, messages) = session_with_recording_previews();
-        let project = tempfile::tempdir().unwrap();
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::ShowDocument {
@@ -1595,7 +1576,6 @@ mod tests {
             },
             RUN_PREVIEW_INDEX,
             &mut session,
-            project.path(),
         ));
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
@@ -1608,19 +1588,30 @@ mod tests {
         let project = tempfile::tempdir().unwrap();
         let elsewhere = tempfile::tempdir().unwrap();
         let inside = project.path().join("logo.png");
+        let unreferenced = project.path().join("other.png");
         let outside = elsewhere.path().join("logo.png");
-        std::fs::write(&inside, []).unwrap();
-        std::fs::write(&outside, []).unwrap();
-        let [inside, outside] = [inside, outside].map(|path| Url::from_file_path(path).unwrap());
+        for file in [&inside, &unreferenced, &outside] {
+            std::fs::write(file, []).unwrap();
+        }
+        let main = project.path().join("main.slint");
+        let main_source = r#"export component Main { Image { source: @image-url("logo.png"); } }"#;
+        std::fs::write(&main, main_source).unwrap();
+        spin_on::spin_on(session.load_document_impl(
+            main_source.into(),
+            Url::from_file_path(&main).unwrap(),
+            None,
+        ));
+        clear_messages(&messages);
+        let [inside, unreferenced, outside] =
+            [inside, unreferenced, outside].map(|path| Url::from_file_path(path).unwrap());
 
         spin_on::spin_on(handle_preview_message(
             PreviewToLspMessage::RequestState {
-                files: vec![inside.clone(), outside.clone()],
+                files: vec![inside.clone(), unreferenced.clone(), outside.clone()],
                 settings: Vec::new(),
             },
             RUN_PREVIEW_INDEX,
             &mut session,
-            project.path(),
         ));
 
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().is_empty());
@@ -1630,8 +1621,11 @@ mod tests {
                 run_messages.as_slice(),
                 [
                     LspToPreviewMessage::SetContents { url: served, .. },
-                    LspToPreviewMessage::ForgetFile { url: refused },
-                ] if served.url() == &inside && refused == &outside
+                    LspToPreviewMessage::ForgetFile { url: refused_in_project },
+                    LspToPreviewMessage::ForgetFile { url: refused_outside },
+                ] if served.url() == &inside
+                    && refused_in_project == &unreferenced
+                    && refused_outside == &outside
             ),
             "{run_messages:?}"
         );
