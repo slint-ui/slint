@@ -1161,7 +1161,16 @@ pub fn create_drop_element_workspace_edit_with_properties(
     });
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
-    let new_text = if component.default_properties.is_empty() && extra_properties.is_empty() {
+    let first_child = match component.name.as_str() {
+        "TabWidget" if component.is_std_widget => Some("Tab { title: \"Tab 1\"; }"),
+        "RadioGroup" if component.is_std_widget => Some("RadioButton { text: \"Option 1\"; }"),
+        _ => None,
+    };
+
+    let new_text = if component.default_properties.is_empty()
+        && extra_properties.is_empty()
+        && first_child.is_none()
+    {
         format!(
             "{}{for_loop}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component.name, drop_info.insert_info.post_indent
@@ -1176,6 +1185,9 @@ pub fn create_drop_element_workspace_edit_with_properties(
         }
         for p in extra_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
+        }
+        if let Some(child) = first_child {
+            to_insert += &format!("{}    {child}\n", drop_info.insert_info.indent);
         }
         to_insert +=
             &format!("{}}}\n{}", drop_info.insert_info.indent, drop_info.insert_info.post_indent);
