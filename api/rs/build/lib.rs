@@ -350,7 +350,10 @@ impl CompilerConfiguration {
     fn resolve_project_file(
         self,
         project_directory: &Path,
-    ) -> Result<(i_slint_compiler::CompilerConfiguration, Option<ProjectFile>), String> {
+    ) -> Result<
+        (i_slint_compiler::CompilerConfiguration, Option<ProjectFile>),
+        i_slint_compiler::diagnostics::Diagnostic,
+    > {
         let (_, project_file) = project_file::resolve_input(project_directory)?;
         Ok((self.resolve(project_file.as_ref()), project_file))
     }

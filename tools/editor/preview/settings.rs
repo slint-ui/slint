@@ -129,7 +129,8 @@ impl Project {
             if project_root.is_some() {
                 return Err("A project directory cannot be combined with --project-root".into());
             }
-            let (main, _) = i_slint_compiler::project_file::resolve_input(&path)?;
+            let (main, _) = i_slint_compiler::project_file::resolve_input(&path)
+                .map_err(|error| error.message().to_string())?;
             return Self::from_root(&path, &main, component);
         }
         let root = project_root
