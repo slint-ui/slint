@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore frameless qbrush qdrag qimage qpointf qreal qvariant qwidgetsize svgz Nesw qsize qstring
+// cSpell: ignore CBDT frameless glyf qbrush qdrag qimage qpointf qreal qvariant qwidgetsize sbix svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -1383,6 +1383,20 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         y_offset: sharedparley::PhysicalLength,
         glyphs_it: &mut dyn Iterator<Item = sharedparley::parley::layout::Glyph>,
     ) {
+        let stroke = matches!(brush, GlyphBrush::Stroke(_));
+        if COLOR_BITMAP_GLYPHS.with(|glyphs| {
+            glyphs.borrow_mut().draw(
+                &mut self.painter,
+                font,
+                font_size,
+                y_offset,
+                stroke,
+                glyphs_it,
+            )
+        }) {
+            return;
+        }
+
         let Some(mut raw_font) = FONT_CACHE.with(|cache| {
             cache.borrow_mut().font_with_variations(font, font_size.get(), synthesis)
         }) else {
@@ -1721,6 +1735,108 @@ impl FontCache {
 
 thread_local! {
     pub static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default())
+}
+
+/// Glyphs of fonts that draw them as color bitmaps, as emoji fonts do (`CBDT`, `sbix`): rendered
+/// with swash and drawn as images, not with a QRawFont. Qt's FreeType engine (6.4 at least, not
+/// 6.8) sizes a glyph's buffer for the QRawFont's pixel size and copies the font's bitmap strike
+/// into it (`QFontEngineFT::loadGlyph`), past its end.
+#[derive(Default)]
+struct ColorBitmapGlyphs {
+    context: swash::scale::ScaleContext,
+    /// Whether a font is one, by the font's blob id and index.
+    fonts: HashMap<(u64, u32), bool>,
+    glyphs: HashMap<ColorBitmapGlyphKey, Option<ColorBitmapGlyph>>,
+}
+
+/// A font, a glyph, and the bits of the font size.
+type ColorBitmapGlyphKey = (u64, u32, u16, u32);
+
+struct ColorBitmapGlyph {
+    pixmap: qttypes::QPixmap,
+    left: i32,
+    top: i32,
+}
+
+thread_local! {
+    static COLOR_BITMAP_GLYPHS: RefCell<ColorBitmapGlyphs> = RefCell::new(Default::default())
+}
+
+impl ColorBitmapGlyphs {
+    /// Glyphs kept before the cache starts over. A glyph is about 100 KiB at the strike's size.
+    const MAX_GLYPHS: usize = 256;
+
+    /// Draws `glyphs` if `font` is a color bitmap font, and says whether it is. Their stroke
+    /// draws nothing: the fill draws each glyph once.
+    fn draw(
+        &mut self,
+        painter: &mut QPainterPtr,
+        font: &parley::FontData,
+        font_size: sharedparley::PhysicalLength,
+        y_offset: sharedparley::PhysicalLength,
+        stroke: bool,
+        glyphs: &mut dyn Iterator<Item = parley::layout::Glyph>,
+    ) -> bool {
+        let font_id = [font.data.id(), font.index as u64];
+        let font_ref = || swash::FontRef::from_index(font.data.as_ref(), font.index as usize);
+        let is_color = *self.fonts.entry((font_id[0], font.index)).or_insert_with(|| {
+            font_ref().is_some_and(|font_ref| {
+                self.context.builder_with_id(font_ref, font_id).build().has_color_bitmaps()
+            })
+        });
+        if !is_color || stroke {
+            return is_color;
+        }
+        let Some(font_ref) = font_ref() else { return true };
+        let glyphs: Vec<_> = glyphs.collect();
+        let key = |glyph: &parley::layout::Glyph| {
+            (font_id[0], font.index, glyph.id as u16, font_size.get().to_bits())
+        };
+        if self.glyphs.len() + glyphs.len() > Self::MAX_GLYPHS {
+            self.glyphs.clear();
+        }
+        let mut scaler = glyphs
+            .iter()
+            .any(|glyph| !self.glyphs.contains_key(&key(glyph)))
+            .then(|| self.context.builder_with_id(font_ref, font_id).size(font_size.get()).build());
+        for glyph in &glyphs {
+            let cached = self.glyphs.entry(key(glyph)).or_insert_with(|| {
+                Self::render(
+                    scaler.as_mut().expect("built for the missing glyphs"),
+                    glyph.id as u16,
+                )
+            });
+            // Glyphs without a bitmap are skipped, not drawn with the QRawFont: in Noto Color
+            // Emoji these draw nothing (the space, the zero-width joiner, the tags of a
+            // subdivision flag), and it has no outlines (`glyf`, `CFF`) to fall back on.
+            let Some(ColorBitmapGlyph { pixmap, left, top }) = cached else { continue };
+            let x = glyph.x + *left as f32;
+            let y = glyph.y + y_offset.get() - *top as f32;
+            cpp! { unsafe [painter as "QPainterPtr*", pixmap as "const QPixmap*", x as "float",
+                           y as "float"] {
+                (*painter)->drawPixmap(QPointF(x, y), *pixmap);
+            }}
+        }
+        true
+    }
+
+    fn render(scaler: &mut swash::scale::Scaler, glyph_id: u16) -> Option<ColorBitmapGlyph> {
+        use swash::scale::{StrikeWith, image::Content};
+        let image = scaler.scale_color_bitmap(glyph_id, StrikeWith::BestFit)?;
+        if image.content != Content::Color || image.placement.width == 0 {
+            return None;
+        }
+        let width = image.placement.width as i32;
+        let height = image.placement.height as i32;
+        let data = image.data.as_ptr();
+        // swash decodes the strikes' PNGs to RGBA with straight alpha.
+        let pixmap = cpp! { unsafe [data as "const uchar*", width as "int", height as "int"]
+                -> qttypes::QPixmap as "QPixmap" {
+            QImage img(data, width, height, width * 4, QImage::Format_RGBA8888);
+            return QPixmap::fromImage(img);
+        }};
+        Some(ColorBitmapGlyph { pixmap, left: image.placement.left, top: image.placement.top })
+    }
 }
 
 fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::QPixmap> {
