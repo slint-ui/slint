@@ -194,8 +194,8 @@ export component OutlinePane inherits Rectangle {
                         row-expanded-changed(row-index, expanded) => {
                             Api.outline-set-expanded(row-index, expanded);
                         }
-                        row-add-tab-requested(uri, offset) => {
-                            Api.outline-add-tab(uri, offset);
+                        row-add-child-requested(uri, offset) => {
+                            Api.outline-add-child(uri, offset);
                         }
                         drag-started => {
                             Hover.tree-source-uri = "";
