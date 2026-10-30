@@ -109,7 +109,9 @@ pub fn create_import_edit(
     let import_path = import_path.as_ref()?;
     let doc_node = document.node.as_ref().unwrap();
 
-    if document.local_registry.lookup_element(component).is_ok() {
+    if document.local_registry.lookup_element(component).is_ok_and(|element| {
+        !matches!(element, i_slint_compiler::element_type::ElementType::Builtin(b) if b.is_internal)
+    }) {
         None // already known, no import needed
     } else {
         let (missing_import_location, known_import_locations) =
