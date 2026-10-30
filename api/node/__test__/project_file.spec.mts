@@ -47,9 +47,10 @@ test.each(["directory", "manifest"])(
              export component Main inherits Window { Shared { } }`,
         );
 
-        const input = projectInput === "directory"
-            ? directory
-            : path.join(directory, "slint-project.json");
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
         expect(() => loadFile(input)).not.toThrow();
     },
 );
@@ -72,9 +73,10 @@ test.each(["directory", "manifest"])(
              export component Main inherits Window { Widget { } }`,
         );
 
-        const input = projectInput === "directory"
-            ? directory
-            : path.join(directory, "slint-project.json");
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
         expect(() => loadFile(input)).not.toThrow();
     },
 );
@@ -119,9 +121,10 @@ test.each(["directory", "manifest"])(
              export component Main inherits Window { Shared { } }`,
         );
 
-        const input = projectInput === "directory"
-            ? directory
-            : path.join(directory, "slint-project.json");
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
         const ui = loadFile(input) as any;
         expect(ui.Main).toBeDefined();
     },
