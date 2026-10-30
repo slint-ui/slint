@@ -1681,31 +1681,16 @@ fn process_rectangle_impl(
         right_clip: PhysicalLength::new((geom.max_x() - clipped.max_x() + E) as _),
     };
 
-    let rounded_rect: PhysicalRect = clipped.round().cast();
-
+    let mut border_color =
+        PremultipliedRgbaColor::from(alpha_color(args.border.color(), args.alpha));
     let border_width = PhysicalLength::new(args.border_width as _);
-    let mut border_paint = if border_width.get() > 0 {
-        let mut gradients = Vec::new();
-        let fill = gradient_commands(
-            &args.border,
-            args.alpha,
-            args.rotation,
-            geom,
-            clipped,
-            scale_factor,
-            &mut |rect, gradient| gradients.push((rect, gradient)),
-        );
-        match fill {
-            BrushFill::Solid(color) => Paint::Solid(color.into()),
-            BrushFill::Gradient => Paint::Gradient(gradients.into_boxed_slice()),
-        }
+    let gradient_border = border_width.get() > 0 && draws_gradient(&args.border);
+    let (border, opaque_border) = if gradient_border {
+        (border_width, args.alpha == u8::MAX && args.border.is_opaque())
+    } else if border_color.alpha == 0 {
+        (PhysicalLength::new(0), false)
     } else {
-        Paint::Solid(PremultipliedRgbaColor::default())
-    };
-    let (border, opaque_border) = match &border_paint {
-        Paint::Solid(color) if color.alpha == 0 => (PhysicalLength::new(0), false),
-        Paint::Solid(color) => (border_width, color.alpha == u8::MAX),
-        Paint::Gradient(_) => (border_width, args.alpha == u8::MAX && args.border.is_opaque()),
+        (border_width, border_color.alpha == u8::MAX)
     };
     let gradient_clip = |rect: &PhysicalRect| {
         Some(ShapeClip {
@@ -1738,32 +1723,36 @@ fn process_rectangle_impl(
         BrushFill::Solid(color) => PremultipliedRgbaColor::from(color),
         BrushFill::Gradient => PremultipliedRgbaColor::default(),
     };
-    if let Paint::Solid(border_color) = &mut border_paint
-        && border_color.alpha > 0
-        && border_color.alpha < 255
-    {
+    if gradient_border {
+        let rr = RoundedRectangle {
+            shape: rounded_shape,
+            width: border,
+            border: Paint::Solid(PremultipliedRgbaColor::default()),
+            inner_color: color,
+        };
+        process_gradient_border(processor, args, geom, clipped, scale_factor, rr, rounded_clips);
+        return;
+    }
+    if border_color.alpha > 0 && border_color.alpha < 255 {
         // The background isn't drawn under the border, so the border is blended over it here.
         let mut premixed = color;
-        premixed.blend(*border_color);
-        *border_color = premixed;
+        premixed.blend(border_color);
+        border_color = premixed;
     }
 
-    let border_color = match border_paint {
-        Paint::Solid(border_color) if radius.is_zero() => border_color,
-        border_paint => {
-            processor.process_rounded_rectangle(
-                rounded_rect,
-                RoundedRectangle {
-                    shape: rounded_shape,
-                    width: border,
-                    border: border_paint,
-                    inner_color: color,
-                },
-                rounded_clips,
-            );
-            return;
-        }
-    };
+    if !radius.is_zero() {
+        processor.process_rounded_rectangle(
+            clipped.round().cast(),
+            RoundedRectangle {
+                shape: rounded_shape,
+                width: border,
+                border: Paint::Solid(border_color),
+                inner_color: color,
+            },
+            rounded_clips,
+        );
+        return;
+    }
 
     // `cast` panics past the `i16` range, while `as` saturates and keeps a far edge far away.
     let b = border.get();
@@ -1803,6 +1792,44 @@ fn process_rectangle_impl(
             border_color,
         );
     }
+}
+
+/// Whether [`gradient_commands`] fills with `brush` as a gradient.
+fn draws_gradient(brush: &Brush) -> bool {
+    match brush {
+        Brush::LinearGradient(g) => g.stops().nth(1).is_some(),
+        Brush::RadialGradient(g) => g.stops().nth(1).is_some(),
+        Brush::ConicGradient(g) => g.stops().nth(1).is_some(),
+        Brush::SolidColor(_) => false,
+        _ => false,
+    }
+}
+
+/// Kept out of [`process_rectangle_impl`], which is hot for solid borders.
+#[cold]
+#[inline(never)]
+fn process_gradient_border(
+    processor: &mut dyn ProcessScene,
+    args: &target_pixel_buffer::DrawRectangleArgs,
+    geom: euclid::Rect<f32, PhysicalPx>,
+    clipped: euclid::Rect<f32, PhysicalPx>,
+    scale_factor: ScaleFactor,
+    mut rr: RoundedRectangle,
+    rounded_clips: &[RoundedClip],
+) {
+    let mut gradients = Vec::new();
+    let fill = gradient_commands(
+        &args.border,
+        args.alpha,
+        args.rotation,
+        geom,
+        clipped,
+        scale_factor,
+        &mut |rect, gradient| gradients.push((rect, gradient)),
+    );
+    debug_assert!(matches!(fill, BrushFill::Gradient));
+    rr.border = Paint::Gradient(gradients.into_boxed_slice());
+    processor.process_rounded_rectangle(clipped.round().cast(), rr, rounded_clips);
 }
 
 /// What [`gradient_commands`] fills a shape with.
