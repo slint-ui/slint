@@ -183,6 +183,33 @@ Each `src/basic/<control>.slint` file defines the component, its style structs, 
 
 ## Gallery
 
+Run [`examples/tabs.slint`](examples/tabs.slint) for Basic `TabHeader`, `TabBar`, and `TabPanel` controls.
+The example uses nested `TabWidget { Tab { ... } }` declarations with Basic headers and a Basic bar.
+It includes keyboard navigation, horizontal and vertical widgets, and light and dark palettes.
+Its second section replaces all three header slots: `background`, `content`, and `focus-outline`.
+The same examples appear on the gallery's Tabs page.
+
+```powershell
+$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots"
+.\target\debug\slint-viewer.exe --backend winit-software --auto-reload tools/editor/controls/examples/tabs.slint
+```
+
+Import `TabHeaderBase`, `TabBarBase`, `TabBarLayoutBase`, and `TabPanelBase` from `src/headless.slint` for unstyled composition.
+Nested declarations require this branch's experimental compiler integration for `header` and `bar` slots.
+Custom headers require an explicit `bar <<` assignment.
+The standard styles retain their existing tab implementations.
+The headless and Basic implementations remain in the editor library.
+See the [controls API reference](API.md#tabs) for the state bindings and slot contract.
+
+Run the editor-local tab regression fixtures with the repository's Rust test driver:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/editor/controls/tests/run-tabs.ps1
+```
+
+Add `-AllControls` to include the existing reusable-control regressions.
+The runner creates temporary test-driver adapters and removes them after the run.
+
 Run the gallery with the checkout's viewer:
 
 ```powershell

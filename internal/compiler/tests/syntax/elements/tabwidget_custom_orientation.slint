@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabBarItem } from "std-widget-interfaces.slint";
+
+component Bar {
+    in property <[TabBarItem]> tabs;
+    in property <Orientation> orientation;
+    in-out property <int> current-index;
+    out property <int> focused-index: -1;
+    public function focus-tab(index: int) { }
+    @children
+}
+
+component Pages inherits TabWidget {
+    bar << Bar { }
+    Tab { title: "Page"; }
+}
+
+export component Test inherits Window {
+    in property <Orientation> requested-orientation;
+    TabWidget {
+        bar << Bar { }
+        orientation: root.requested-orientation;
+//                   >                         <error{The orientation property only supports constants at the moment}
+        Tab { title: "Custom"; }
+    }
+    Pages {
+        orientation: vertical;
+//                   >       <error{Cannot set orientation when instantiating a TabWidget subclass that already declares its own Tab; declare it on the subclass instead}
+    }
+    Pages {
+        orientation: root.requested-orientation;
+//                   >                         <error{Cannot set orientation when instantiating a TabWidget subclass that already declares its own Tab; declare it on the subclass instead}
+    }
+}

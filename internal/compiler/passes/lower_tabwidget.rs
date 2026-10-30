@@ -9,8 +9,8 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::element_type::ElementType;
-use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::element_type::{ElementType, PropertyLookupMode};
+use crate::expression_tree::{BindingExpression, Callable, Expression, NamedReference};
 use crate::expression_types::{MinMaxOp, Unit};
 use crate::langtype::Type;
 use crate::object_tree::*;
@@ -102,8 +102,53 @@ pub async fn lower_tabwidget(
         .await
         .expect("can't load TabBarVerticalImpl from std-widgets-impl.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
+    let custom = tab_widgets.iter().any(|widget| {
+        widget.borrow().children.iter().any(|child| {
+            child.borrow().slot_target.as_deref() == Some("bar")
+                || child
+                    .borrow()
+                    .children
+                    .iter()
+                    .any(|header| header.borrow().slot_target.as_deref() == Some("header"))
+        })
+    });
+    let mut contracts = Vec::new();
+    if custom {
+        for name in ["TabHeaderInterface", "TabBarInterface"] {
+            if let Some(interface) =
+                type_loader.import_component("std-widget-interfaces.slint", name, diag).await
+            {
+                contracts.push(interface);
+            }
+        }
+        if contracts.len() != 2 {
+            return;
+        }
+    }
 
     for elem in &tab_widgets {
+        let bar = elem
+            .borrow()
+            .children
+            .iter()
+            .find(|child| child.borrow().slot_target.as_deref() == Some("bar"))
+            .cloned();
+        if let Some(bar) = bar {
+            if !validate_slot(&bar, &contracts[1], diag) {
+                elem.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, &bar));
+            } else if bar
+                .borrow()
+                .base_type
+                .lookup_type_for_child_element("Rectangle", &doc.local_registry)
+                .is_err()
+            {
+                diag.push_error(
+                    "Place '@children' in the custom tab bar's header layout".into(),
+                    &*bar.borrow(),
+                );
+                elem.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, &bar));
+            }
+        }
         process_tabwidget(
             elem,
             ElementType::Component(tabwidget_impl.clone()),
@@ -111,6 +156,7 @@ pub async fn lower_tabwidget(
             ElementType::Component(tabbar_horizontal_impl.clone()),
             ElementType::Component(tabbar_vertical_impl.clone()),
             &empty_type,
+            &contracts,
             diag,
         );
     }
@@ -123,16 +169,19 @@ fn process_tabwidget(
     tabbar_horizontal_impl: ElementType,
     tabbar_vertical_impl: ElementType,
     empty_type: &ElementType,
+    contracts: &[Rc<Component>],
     diag: &mut BuildDiagnostics,
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
-    let (timers, mut children): (Vec<_>, Vec<_>) = std::mem::take(&mut elem.borrow_mut().children)
-        .into_iter()
-        .partition(|child| {
-            matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer")
-        });
+    let mut original = std::mem::take(&mut elem.borrow_mut().children);
+    let custom_bar = take_slot(&mut original, "bar");
+    let has_custom_bar = custom_bar.is_some();
+    let (timers, mut children): (Vec<_>, Vec<_>) = original.into_iter().partition(
+        |child| matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "Timer"),
+    );
     let num_tabs = children.len();
     let mut tabs = Vec::new();
+    let mut custom_headers = Vec::new();
     for child in &mut children {
         error_on_slot_default(child, "TabWidget", diag);
         if child.borrow().repeated.is_some() {
@@ -147,6 +196,7 @@ fn process_tabwidget(
             continue;
         }
         let index = tabs.len();
+        let custom_header = take_slot(&mut child.borrow_mut().children, "header");
         child.borrow_mut().base_type = empty_type.clone();
         child
             .borrow_mut()
@@ -201,6 +251,59 @@ fn process_tabwidget(
             );
         }
 
+        if let Some(header) = custom_header {
+            if !validate_slot(&header, &contracts[0], diag) {
+                continue;
+            }
+            if !has_custom_bar {
+                diag.push_error(
+                    "Provide a custom 'bar' to use a custom 'header'".into(),
+                    &*header.borrow(),
+                );
+                continue;
+            }
+            let mut h = header.borrow_mut();
+            h.set_binding(
+                "title".into(),
+                Expression::PropertyReference(NamedReference::new(child, "title".into())).into(),
+            );
+            h.set_binding(
+                "selected".into(),
+                Expression::BinaryExpression {
+                    lhs: Expression::PropertyReference(NamedReference::new(
+                        elem,
+                        "current-index".into(),
+                    ))
+                    .into(),
+                    rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
+                    op: '=',
+                    source_location: None,
+                }
+                .into(),
+            );
+            h.set_binding(
+                "focused".into(),
+                Expression::BinaryExpression {
+                    lhs: Expression::PropertyReference(NamedReference::new(
+                        elem,
+                        "current-focused".into(),
+                    ))
+                    .into(),
+                    rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
+                    op: '=',
+                    source_location: None,
+                }
+                .into(),
+            );
+            h.set_binding(
+                "accessible-item-index".into(),
+                Expression::NumberLiteral(index as _, Unit::None).into(),
+            );
+            drop(h);
+            custom_headers.push((header.clone(), child.clone(), index));
+            tabs.push(header);
+            continue;
+        }
         let mut tab = Element {
             id: format_smolstr!("{}-tab{}", elem.borrow().id, index),
             base_type: tab_impl.clone(),
@@ -249,24 +352,115 @@ fn process_tabwidget(
             );
         }
     }
-    let tabbar = Element {
-        id: format_smolstr!("{}-tabbar", elem.borrow().id),
-        base_type: tabbar_impl,
-        enclosing_component: elem.borrow().enclosing_component.clone(),
-        children: tabs,
-        ..Default::default()
+    let tabbar = if let Some(bar) = custom_bar {
+        bar.borrow_mut().children.extend(tabs);
+        bar
+    } else {
+        Element {
+            id: format_smolstr!("{}-tabbar", elem.borrow().id),
+            base_type: tabbar_impl,
+            enclosing_component: elem.borrow().enclosing_component.clone(),
+            children: tabs,
+            ..Default::default()
+        }
+        .make_rc()
     };
-    let tabbar = Element::make_rc(tabbar);
+    for (header, panel, index) in custom_headers {
+        let activate = Expression::CodeBlock(vec![
+            Expression::SelfAssignment {
+                lhs: Expression::PropertyReference(NamedReference::new(
+                    elem,
+                    "current-index".into(),
+                ))
+                .into(),
+                rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
+                op: '=',
+                node: None,
+            },
+            Expression::FunctionCall {
+                function: Callable::Function(NamedReference::new(&tabbar, "focus-tab".into())),
+                arguments: vec![Expression::NumberLiteral(index as _, Unit::None)],
+                source_location: None,
+            },
+        ]);
+        header.borrow_mut().set_binding("activated".into(), activate.into());
+        let role = crate::typeregister::BUILTIN
+            .enums
+            .AccessibleRole
+            .clone()
+            .try_value_from_string("tab")
+            .unwrap();
+        let selected = NamedReference::new(&header, "selected".into());
+        let activated = NamedReference::new(&header, "activated".into());
+        let mut h = header.borrow_mut();
+        h.set_binding("accessible-role".into(), Expression::EnumerationValue(role).into());
+        h.set_binding(
+            "accessible-label".into(),
+            Expression::PropertyReference(NamedReference::new(&panel, "title".into())).into(),
+        );
+        h.set_binding("accessible-item-selectable".into(), Expression::BoolLiteral(true).into());
+        h.set_binding(
+            "accessible-item-selected".into(),
+            Expression::PropertyReference(selected).into(),
+        );
+        h.set_binding(
+            "accessible-action-default".into(),
+            Expression::FunctionCall {
+                function: Callable::Callback(activated),
+                arguments: vec![],
+                source_location: None,
+            }
+            .into(),
+        );
+    }
+    if has_custom_bar {
+        let Type::Array(item_type) = tabbar
+            .borrow()
+            .lookup_property("tabs", PropertyLookupMode::ComponentLocal)
+            .property_type
+        else {
+            return;
+        };
+        let Type::Struct(item_type) = &*item_type else { return };
+        let model = Expression::Array {
+            element_ty: Type::Struct(item_type.clone()),
+            values: children
+                .iter()
+                .enumerate()
+                .map(|(index, panel)| Expression::Struct {
+                    ty: item_type.clone(),
+                    values: [
+                        ("index".into(), Expression::NumberLiteral(index as _, Unit::None)),
+                        (
+                            "title".into(),
+                            Expression::PropertyReference(NamedReference::new(
+                                panel,
+                                "title".into(),
+                            )),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                })
+                .collect(),
+        };
+        tabbar.borrow_mut().set_binding("tabs".into(), model.into());
+        tabbar.borrow_mut().set_binding(
+            "orientation".into(),
+            Expression::PropertyReference(NamedReference::new(elem, "orientation".into())).into(),
+        );
+    } else {
+        tabbar.borrow_mut().set_binding(
+            "num-tabs".into(),
+            Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
+        );
+    }
     set_tabbar_geometry_prop(elem, &tabbar, "x");
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
     tabbar.borrow_mut().set_binding(
-        SmolStr::new_static("num-tabs"),
-        Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
-    );
-    tabbar.borrow_mut().set_binding(
-        SmolStr::new_static("current"),
+        SmolStr::new_static(if has_custom_bar { "current-index" } else { "current" }),
         BindingExpression::new_two_way(
             NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
         ),
@@ -274,7 +468,15 @@ fn process_tabwidget(
     elem.borrow_mut().set_binding(
         SmolStr::new_static("current-focused"),
         BindingExpression::new_two_way(
-            NamedReference::new(&tabbar, SmolStr::new_static("current-focused")).into(),
+            NamedReference::new(
+                &tabbar,
+                SmolStr::new_static(if has_custom_bar {
+                    "focused-index"
+                } else {
+                    "current-focused"
+                }),
+            )
+            .into(),
         ),
     );
     elem.borrow_mut().set_binding(
@@ -310,6 +512,31 @@ fn process_tabwidget(
     };
 
     elem.borrow_mut().children = std::iter::once(tabbar).chain(children).chain(timers).collect();
+}
+
+fn take_slot(children: &mut Vec<ElementRc>, name: &str) -> Option<ElementRc> {
+    let index =
+        children.iter().position(|child| child.borrow().slot_target.as_deref() == Some(name))?;
+    let child = children.remove(index);
+    child.borrow_mut().slot_target = None;
+    Some(child)
+}
+
+fn validate_slot(
+    element: &ElementRc,
+    interface: &Rc<Component>,
+    diag: &mut BuildDiagnostics,
+) -> bool {
+    let element = element.borrow();
+    let Some(debug) = element.debug.first() else { return false };
+    interfaces::validate_interface_implementation(
+        &element,
+        &interface.root_element,
+        &interface.id,
+        &debug.node.clone().into(),
+        &interfaces::ImplementBinding::OnSelf,
+        diag,
+    )
 }
 
 fn set_geometry_prop(
