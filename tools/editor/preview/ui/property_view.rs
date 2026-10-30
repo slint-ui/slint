@@ -1674,6 +1674,42 @@ export component Test { in property <Foobar> test1; }"#,
     }
 
     #[test]
+    fn inspector_boolean_source_defaults() {
+        let source = r#"
+import { Button, CheckBox, LineEdit, ProgressIndicator } from "std-widgets.slint";
+export component Main inherits Window {
+    Button { /*button*/ }
+    CheckBox { /*checked*/ }
+    LineEdit { /*read-only*/ }
+    ProgressIndicator { /*indeterminate*/ }
+    Text { /*font-italic*/ }
+}"#;
+        let (document_cache, url, _) = loaded_document_cache(source.into());
+        for (marker, property_name, expected) in [
+            ("button", "enabled", true),
+            ("button", "checkable", false),
+            ("checked", "checked", false),
+            ("read-only", "read-only", false),
+            ("indeterminate", "indeterminate", false),
+            ("font-italic", "font-italic", false),
+        ] {
+            let element = document_cache
+                .element_at_offset(
+                    &url,
+                    (source.find(&format!("/*{marker}*/")).unwrap() as u32).into(),
+                )
+                .unwrap();
+            let properties = properties::get_properties(&element, properties::LayoutKind::None);
+            let property =
+                properties.iter().find(|property| property.name == property_name).unwrap();
+            let value =
+                super::map_property_to_ui(&document_cache, &element.element, property, None).0;
+            assert_eq!(value.value_kind, ui::PropertyValueKind::Boolean, "{property_name}");
+            assert_eq!(value.value_bool, expected, "{property_name}");
+        }
+    }
+
+    #[test]
     fn test_property_with_default_values() {
         let source = r#"
 import { Button } from "std-widgets.slint";
