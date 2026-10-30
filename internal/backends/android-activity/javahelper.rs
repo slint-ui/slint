@@ -454,7 +454,6 @@ impl JavaHelper {
         data: &i_slint_core::window::InputMethodProperties,
         scale_factor: f32,
         show_cursor_handles: bool,
-        single_line: bool,
     ) -> Result<(), jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let mut text = data.text.to_string();
@@ -502,7 +501,7 @@ impl JavaHelper {
                     } else {
                         AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
                     };
-                    let multi_line_flag = if single_line {
+                    let multi_line_flag = if data.single_line {
                         0 as jint
                     } else {
                         AndroidInputType::TYPE_TEXT_FLAG_MULTI_LINE(env)?
