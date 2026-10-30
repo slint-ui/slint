@@ -826,18 +826,15 @@ impl BorderSegment {
         border: PremultipliedRgbaColor,
         inner: PremultipliedRgbaColor,
     ) -> PremultipliedRgbaColor {
-        match self {
-            Self::Border(_) => border,
-            Self::Outer(_, edge, side) => interpolate_color(
-                edge.shape_coverage(*side, x),
-                PremultipliedRgbaColor::default(),
-                border,
-            ),
-            Self::Inner(_, edge, side) => {
-                interpolate_color(edge.shape_coverage(*side, x), border, inner)
+        let (coverage, from, to) = match self {
+            Self::Border(_) => return border,
+            Self::Outer(_, edge, side) => {
+                (edge.shape_coverage(*side, x), PremultipliedRgbaColor::default(), border)
             }
-            Self::InnerBoth(_, edges) => interpolate_color(inner_coverage(edges, x), border, inner),
-        }
+            Self::Inner(_, edge, side) => (edge.shape_coverage(*side, x), border, inner),
+            Self::InnerBoth(_, edges) => (inner_coverage(edges, x), border, inner),
+        };
+        interpolate_color(coverage, from, to)
     }
 }
 
