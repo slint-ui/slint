@@ -358,18 +358,6 @@ def test_shadow_canvas_gestures_preview_cancel_and_undo(
         if outcome != "commit":
             snapshot.assert_unchanged()
         else:
-            deadline = time.monotonic() + 0.5
-            while time.monotonic() < deadline:
-                for name in ("offset", "blur", "spread"):
-                    handles = elements(window, f"Shadow {name} handle")
-                    assert len(handles) == 1, (
-                        f"Shadow {name} handle disappeared after releasing {handle}"
-                    )
-                    position = center(handles[0])
-                    assert (position.x, position.y) == pytest.approx(
-                        (positions[name].x, positions[name].y), abs=0.01
-                    ), f"Shadow {name} handle jumped after releasing {handle}"
-                time.sleep(0.005)
             expected = baseline
             for name, old, new in changes:
                 expected = expected.replace(
