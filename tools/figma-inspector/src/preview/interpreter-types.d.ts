@@ -27,6 +27,7 @@ declare module "@interpreter/slint_wasm_interpreter.js" {
         free(): void;
     }
 
+    export function register_font_from_memory(data: Uint8Array): void;
     export function compile_from_string(
         source: string,
         baseUrl: string,

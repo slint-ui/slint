@@ -4,11 +4,24 @@
 import { expect, test } from "vitest";
 import { page, server } from "vitest/browser";
 import JSZip from "jszip";
+import { scalePreview } from "../src/preview/scale-preview";
+import { convertSnapshot } from "../src/preview/converter";
 import { convertCapture } from "../src/preview/convert-capture";
+import {
+    TimingTraceBuilder,
+    type TimingTrace,
+} from "../src/performance/timing";
+import { CaptureTimingCollector } from "../src/performance/capture-timing";
 import { packPreviewAssets } from "../src/asset-transport";
-import { mountPreview, readFixture } from "./browser-harness";
+import {
+    decodePng,
+    mountCanvasPreview,
+    expectCanvasPixels,
+    mountPreview,
+    readFixture,
+} from "./browser-harness";
 import type { Diagnostic } from "../src/plugin/snapshot";
-import type { SourceCapture, SourceNode } from "../src/plugin/source";
+import type { SourceCapture } from "../src/plugin/source";
 
 const buttonSource = await readFixture("fixtures/button.slint");
 
@@ -76,7 +89,7 @@ test("packed image assets compile through preview object URLs", async () => {
     expect(copied[0]).not.toContain("blob:");
 });
 
-test("oversized export validation cannot block the specialized preview", async () => {
+test("large export image data validates without inline source expansion", async () => {
     const p = await mountPreview();
     p.send({
         type: "preview-source",
@@ -95,66 +108,10 @@ test("oversized export validation cannot block the specialized preview", async (
     });
 
     await p.ready(1);
-    expect(p.element("#diagnostics").textContent).toContain(
+    expect(p.element("#diagnostics").textContent).not.toContain(
         "EXPORT_VALIDATION_SKIPPED",
     );
-});
-
-test("flattened native-text capture compiles and retains its fidelity warning", async () => {
-    const capture = JSON.parse(
-        await readFixture("fixtures/source/export-fonts.json"),
-    ) as SourceCapture;
-    capture.flattened = true;
-    delete capture.components;
-    const stripTextExports = (node: SourceNode): void => {
-        if (node.type === "TEXT") delete node.exports;
-        node.children?.forEach(stripTextExports);
-    };
-    stripTextExports(capture.root);
-    const warning: Diagnostic = {
-        severity: "warning",
-        code: "SIMPLIFIED_CAPTURE",
-        category: "omission",
-        message: "This is a simplified flattened export",
-    };
-    const converted = await convertCapture({
-        type: "preview-capture",
-        revision: 1,
-        captureJson: JSON.stringify(capture),
-        warnings: [warning],
-    });
-    expect(converted.type).toBe("preview-source");
-    if (converted.type !== "preview-source") return;
-    expect(converted.warnings).toContainEqual(warning);
-
-    const p = await mountPreview();
-    p.send(converted);
-    await p.ready(1);
-    expect(p.element("#diagnostics").textContent).toContain(
-        "SIMPLIFIED_CAPTURE",
-    );
-    await expect
-        .poll(() => p.element("#source-view").textContent)
-        .toContain("Text {");
-});
-
-test("capture timeout opens a concise dialog while the spinner continues", async () => {
-    const p = await mountPreview();
-    p.send({ type: "preview-busy", revision: 1 });
-    const dialog = p.element<HTMLDialogElement>("#simplified-dialog");
-    expect(dialog.open).toBe(false);
-    p.send({
-        type: "preview-busy",
-        revision: 1,
-        message: "This selection is large. Trying a simpler export.",
-    });
-    await expect.poll(() => dialog.open).toBe(true);
-    expect(p.element("#simplified-dialog-message").textContent).toBe(
-        "This selection is large. Trying a simpler export.",
-    );
-    expect(p.element("#preview-busy").hidden).toBe(false);
-    p.element<HTMLButtonElement>("#simplified-dialog-ok").click();
-    await expect.poll(() => dialog.open).toBe(false);
+    expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(false);
 });
 
 test.each([true, false])(
@@ -437,4 +394,239 @@ test("highlighted source keeps long lines and the last line reachable", async ()
     expect(last.getBoundingClientRect().bottom).toBeLessThanOrEqual(
         view.getBoundingClientRect().bottom + 1,
     );
+});
+
+test("large sections render their complete tree within the canvas limit", async () => {
+    const snapshot = JSON.parse(
+        await readFixture("fixtures/frame.snapshot.json"),
+    );
+    snapshot.root.width = 2561;
+    snapshot.root.height = 14912;
+    snapshot.root.fills = [
+        { kind: "solid", color: { r: 1, g: 0, b: 0, a: 1 }, opacity: 1 },
+    ];
+    snapshot.root.children = [];
+    snapshot.root.shadows = [];
+    snapshot.root.opacity = 1;
+    snapshot.root.strokes = [];
+    const converted = convertSnapshot(
+        scalePreview(snapshot, 2048 / snapshot.root.height),
+    );
+    expect(converted.ok).toBe(true);
+    if (!converted.ok) return;
+    const p = await mountPreview();
+    p.send({ type: "preview-source", revision: 1, source: converted.source });
+    await p.ready(1);
+    const canvas = p.element<HTMLCanvasElement>("#preview-canvas");
+    expect(canvas.height).toBeLessThanOrEqual(4096);
+    expect(convertSnapshot(snapshot)).toMatchObject({
+        ok: true,
+        height: 14912,
+    });
+    const style = p.doc.createElement("style");
+    const width = canvas.getBoundingClientRect().width;
+    const height = canvas.getBoundingClientRect().height;
+    p.doc.head.append(style);
+    try {
+        for (const fraction of [0.1, 0.9]) {
+            style.textContent = `html,body {margin:0!important;overflow:hidden!important} body * {visibility:hidden!important} #preview-canvas {visibility:visible!important;position:fixed!important;left:0!important;top:${100 - height * fraction}px!important}`;
+            await new Promise<void>((resolve) =>
+                p.win.requestAnimationFrame(() => resolve()),
+            );
+            const pixels = await decodePng(
+                await page.elementLocator(p.iframe).screenshot({ save: false }),
+            );
+            const x = Math.floor((width / 2) * p.win.devicePixelRatio);
+            const y = Math.floor(100 * p.win.devicePixelRatio);
+            const i = (y * pixels.width + x) * 4;
+            expect([...pixels.data.slice(i, i + 3)]).toEqual([255, 0, 0]);
+        }
+    } finally {
+        style.remove();
+    }
+    p.send({ type: "preview-source", revision: 2, source: buttonSource });
+    await p.ready(2);
+    expect(canvas.height).toBe(72 * p.win.devicePixelRatio);
+});
+
+test("late export timings update the finalized preview trace without extending its total", async () => {
+    const p = await mountPreview(false);
+    const builder = new TimingTraceBuilder(1, "initial");
+    const collector = new CaptureTimingCollector();
+    collector.measure("nodeReads", () => undefined);
+    builder.setCaptureMetrics({
+        durationMs: 0,
+        requests: 0,
+        exports: 0,
+        cacheHits: 0,
+        timings: collector.snapshot(),
+    });
+    p.send({
+        type: "preview-source",
+        revision: 1,
+        source: buttonSource,
+        trace: builder.toTrace(),
+    });
+    await p.ready(1);
+    await expect
+        .poll(() =>
+            p.messages.find((message) => message.type === "preview-complete"),
+        )
+        .toBeDefined();
+    const completed = p.messages.find(
+        (message) => message.type === "preview-complete",
+    );
+    if (completed?.type !== "preview-complete")
+        throw Error("No completed preview trace");
+    p.send({ type: "preview-finalized", revision: 1, trace: completed.trace });
+    p.send({
+        type: "preview-export",
+        revision: 1,
+        warnings: [],
+        exportPackage: { source: buttonSource, files: [] },
+    });
+    const debug = (
+        p.win as unknown as {
+            __slintPreviewDebug: { getLatestTrace(): TimingTrace };
+        }
+    ).__slintPreviewDebug;
+    await expect
+        .poll(() => debug.getLatestTrace()?.exportValidation?.outcome)
+        .toBe("valid");
+    expect(debug.getLatestTrace().totalMs).toBe(completed.trace.totalMs);
+    expect(debug.getLatestTrace().breakdowns.presentation).toBeDefined();
+    expect(
+        p.element("[data-presentation-timing=firstFrameMs]").textContent,
+    ).toContain("ms");
+    expect(
+        p.element("[data-presentation-timing=secondFrameMs]").textContent,
+    ).toContain("ms");
+    expect(p.element("[data-capture-timing=nodeReads]").textContent).toContain(
+        "operations",
+    );
+    expect(
+        p.element("[data-export-timing=compilationMs]").textContent,
+    ).toContain("valid");
+    expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(false);
+});
+
+test("repeat capture references reuse conversion and compiled preview without a full payload", async () => {
+    const p = await mountPreview(false);
+    const padding = " ".repeat(18 * 1024 * 1024);
+    const source = JSON.parse(await readFixture("fixtures/source/basic.json"));
+    p.send({
+        type: "preview-capture",
+        revision: 1,
+        captureId: "A",
+        captureJson: JSON.stringify(source) + padding,
+        trace: new TimingTraceBuilder(1, "initial").toTrace(),
+    });
+    await p.ready(1);
+    await expect
+        .poll(() => p.element<HTMLButtonElement>("#export-button").disabled)
+        .toBe(false);
+    const changed = structuredClone(source);
+    changed.root.properties.width += 20;
+    p.send({
+        type: "preview-capture",
+        revision: 2,
+        captureId: "B",
+        captureJson: JSON.stringify(changed) + padding,
+        trace: new TimingTraceBuilder(2, "selection-change").toTrace(),
+    });
+    await p.ready(2);
+    await expect
+        .poll(() => p.element<HTMLButtonElement>("#export-button").disabled)
+        .toBe(false);
+    p.send({ type: "preview-busy", revision: 3 });
+    p.send({
+        type: "preview-reuse",
+        revision: 3,
+        captureId: "A",
+        trace: new TimingTraceBuilder(3, "selection-change").toTrace(),
+    });
+    await p.ready(3);
+    await expect
+        .poll(() =>
+            p.messages.find(
+                (message) =>
+                    message.type === "preview-complete" &&
+                    message.revision === 3,
+            ),
+        )
+        .toBeDefined();
+    const completed = p.messages.find(
+        (message) =>
+            message.type === "preview-complete" && message.revision === 3,
+    );
+    if (completed?.type !== "preview-complete")
+        throw Error("Missing reused trace");
+    expect(completed.trace.phases.slintCompilation).toBe(0);
+    expect(completed.trace.phases.slintConversion).toBe(0);
+    expect(completed.trace.phases.captureParse).toBe(0);
+    expect(
+        p.messages.some((message) => message.type === "capture-reuse-miss"),
+    ).toBe(false);
+    await expect
+        .poll(() => p.element<HTMLButtonElement>("#export-button").disabled)
+        .toBe(false);
+});
+
+test("transparent vector assets preserve layout and show the background beneath them", async () => {
+    const p = await mountCanvasPreview();
+    const packed =
+        packPreviewAssets(`export component Demo inherits Window { width: 40px; height: 40px; background: red;
+        Image { x: 10px; y: 10px; width: 20px; height: 20px; source: @image-url("data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"/>')}"); }
+    }`);
+    p.send({ type: "preview-source", revision: 1, source: packed });
+    await p.ready(1);
+    await expectCanvasPixels(p, (pixels) => {
+        const offset = (20 * pixels.width + 20) * 4;
+        expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual([
+            255, 0, 0, 255,
+        ]);
+    });
+});
+
+test("streamed bulk metadata and live supplements render and validate through the real worker", async () => {
+    const p = await mountPreview();
+    const source = JSON.parse(
+        await readFixture("fixtures/source/basic.json"),
+    ) as SourceCapture;
+    const expected = await convertCapture({
+        type: "preview-capture",
+        revision: 1,
+        captureJson: JSON.stringify(source),
+    });
+    if (expected.type !== "preview-source" || !expected.exportPackage)
+        throw Error("Missing native export");
+    const document = {
+        id: source.root.id,
+        type: source.root.type,
+        ...source.root.properties,
+    };
+    const keys = Object.keys(source.root.properties).filter(
+        (key) => key !== "rotation",
+    );
+    source.bulkDocuments = [document];
+    source.bulkPropertySets = [keys];
+    source.root.bulkPropertySet = 0;
+    source.root.properties = { rotation: source.root.properties.rotation };
+    p.send({ type: "preview-busy", revision: 1 });
+    p.send({ type: "preview-bulk", revision: 1, document });
+    p.send({
+        type: "preview-capture",
+        revision: 1,
+        captureId: "bulk",
+        captureJson: JSON.stringify(source),
+        trace: new TimingTraceBuilder(1, "initial").toTrace(),
+    });
+    await p.ready(1);
+    await expect
+        .poll(() => p.element("#source-view").textContent)
+        .toBe(expected.exportPackage.source);
+    await expect
+        .poll(() => (p.element("#export-button") as HTMLButtonElement).disabled)
+        .toBe(false);
+    expect(p.element("#diagnostics").hidden).toBe(true);
 });

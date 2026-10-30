@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { expect, test } from "vitest";
+import { repeatedPreview } from "./repeated-preview";
 import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import { requireValue } from "../src/preview/slint-ir";
@@ -491,3 +492,36 @@ for (const target of ["preview", "export"] as const) {
         }
     });
 }
+
+test("parameterized preview occurrences preserve all rendered pixels and ordering", async () => {
+    const capture = repeatedPreview(await fixture(false), 12);
+    const normalized = await normalizeSource(capture);
+    if (!normalized.ok || normalized.empty)
+        throw Error("Invalid repeated fixture");
+    const factored = convertSnapshot(normalized.snapshot, { specialize: true });
+    const inline = convertSnapshot({
+        ...normalized.snapshot,
+        components: undefined,
+    });
+    if (!factored.ok || !inline.ok) throw Error("Invalid preview conversion");
+    const p = await mountCanvasPreview();
+    p.send({ type: "preview-source", revision: 1, source: inline.source });
+    await p.ready(1);
+    const baseline = await expectCanvasPixels(p, (pixels) => {
+        expect(
+            pixels.data.some(
+                (value, index) =>
+                    index % 4 === 0 &&
+                    value !== pixels.data[index + 1] &&
+                    pixels.data[index + 3] === 255,
+            ),
+        ).toBe(true);
+    });
+    p.send({ type: "preview-source", revision: 2, source: factored.source });
+    await p.ready(2);
+    await expectCanvasPixels(p, (actual) => {
+        expect(actual.width).toBe(baseline.width);
+        expect(actual.height).toBe(baseline.height);
+        expect(actual.data).toEqual(baseline.data);
+    });
+});
