@@ -100,32 +100,29 @@ fn node_to_ksni(
     }
 }
 
-/// The activation token of the last click, until a window takes it.
-static ACTIVATION_TOKEN: std::sync::Mutex<Option<std::string::String>> =
+/// How long a click's activation token waits for a window. A window that shows for the click is
+/// created right after it; one created later, for something else, must not take the token.
+const ACTIVATION_TOKEN_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// The activation token of the last click and when it came, until a window takes it.
+static ACTIVATION_TOKEN: std::sync::Mutex<Option<(std::time::Instant, std::string::String)>> =
     std::sync::Mutex::new(None);
 
-/// Keeps the XDG activation token the host sent with the click being handled. KDE sends it
-/// through `ProvideXdgActivationToken`, which can arrive just after the click, so this waits a
-/// moment for it, as ksni advises. Plasma shows a launch entry on its task bar for each token it
-/// hands out, until a window uses that token.
+/// Keeps the XDG activation token the host sent with the click being handled. Plasma shows a launch
+/// entry on its task bar for each token it hands out, until a window uses that token. ksni runs
+/// this on the thread that also takes the host's `ProvideXdgActivationToken` call, so waiting here
+/// for a token that comes late cannot work.
 fn keep_activation_token() {
-    const WAIT: std::time::Duration = std::time::Duration::from_millis(20);
-    const TRY_EVERY: std::time::Duration = std::time::Duration::from_millis(1);
-    let start = std::time::Instant::now();
-    let token = loop {
-        match ::ksni::current_xdg_activation_token() {
-            Some(token) => break Some(token),
-            None if start.elapsed() >= WAIT => break None,
-            None => std::thread::sleep(TRY_EVERY),
-        }
-    };
-    if let Some(token) = token {
-        *ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(token);
+    if let Some(token) = ::ksni::current_xdg_activation_token() {
+        *ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
+            Some((std::time::Instant::now(), token));
     }
 }
 
 pub fn take_activation_token() -> Option<std::string::String> {
-    ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take()
+    let kept = ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take();
+    kept.filter(|(kept_at, _)| kept_at.elapsed() <= ACTIVATION_TOKEN_MAX_AGE)
+        .map(|(_, token)| token)
 }
 
 pub struct PlatformTray {
@@ -374,5 +371,23 @@ fn entry_to_node(
             enabled: entry.enabled,
             entry_index,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_token_is_taken_once_and_not_when_stale() {
+        let keep = |age: std::time::Duration| {
+            let kept_at = std::time::Instant::now().checked_sub(age).unwrap();
+            *ACTIVATION_TOKEN.lock().unwrap() = Some((kept_at, "token".into()));
+        };
+        keep(std::time::Duration::ZERO);
+        assert_eq!(take_activation_token().as_deref(), Some("token"));
+        assert_eq!(take_activation_token(), None);
+        keep(ACTIVATION_TOKEN_MAX_AGE * 2);
+        assert_eq!(take_activation_token(), None);
     }
 }
