@@ -3757,7 +3757,8 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
     }
 
     let compiled_expr = compile_expression(expr, ctx);
-    if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
+    let is_owned = produces_owned_value(expr) || is_copy(&expr.ty(ctx));
+    if is_owned { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
 impl quote::ToTokens for crate::expression_types::ImageReference {
@@ -4431,7 +4432,7 @@ fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match output {
         ArrayOutput::Model => {
             let rust_element_ty = rust_primitive_type(element_ty).unwrap();
-            let vec = if values.len() > ARRAY_CHUNK_SIZE && !is_plain_value(element_ty) {
+            let vec = if values.len() > ARRAY_CHUNK_SIZE && !is_copy(element_ty) {
                 let len = values.len();
                 let chunks = values.chunks(ARRAY_CHUNK_SIZE).map(|chunk| {
                     let val = chunk.iter().map(|e| compile_expression_to_value(e, ctx));
@@ -4455,10 +4456,10 @@ fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     }
 }
 
-/// Whether a literal array of `ty` compiles to a constant blob, which beats
-/// storing the elements one by one.
-/// Types that aren't listed are chunked, which is the safe direction.
-fn is_plain_value(ty: &Type) -> bool {
+/// Whether the Rust type of `ty` is `Copy`, so its values need no `.clone()`
+/// and a literal array of it compiles to a constant blob.
+/// Types that aren't listed are cloned and chunked, which is the safe direction.
+fn is_copy(ty: &Type) -> bool {
     matches!(
         ty,
         Type::Int32
@@ -4533,7 +4534,7 @@ fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             }
         });
         // This will produce a tuple
-        quote!((#((#elem).clone() #as_,)*))
+        quote!((#((#elem) #as_,)*))
     }
 }
 
