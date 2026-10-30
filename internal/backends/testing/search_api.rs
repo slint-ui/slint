@@ -509,7 +509,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
-    /// #[slint_edition = "1.19"]
+    /// #[edition = "1.19"]
     ///
     /// component PushButton {
     ///     /* .. */
@@ -545,7 +545,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
-    /// #[slint_edition = "1.19"]
+    /// #[edition = "1.19"]
     ///
     /// component PushButton {
     ///     /* .. */
@@ -580,7 +580,7 @@ impl ElementHandle {
     /// ```rust
     /// # i_slint_backend_testing::init_no_event_loop();
     /// slint::slint!{
-    /// #[slint_edition = "1.19"]
+    /// #[edition = "1.19"]
     ///
     /// component ButtonBase {
     ///     /* .. */
@@ -1244,7 +1244,7 @@ fn test_optimized() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             first := Rectangle {
                 second := Rectangle {
@@ -1285,7 +1285,7 @@ fn test_conditional() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             in property <bool> condition: false;
             if condition: dynamic-elem := Rectangle {
@@ -1334,7 +1334,7 @@ fn test_matches() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         component Base inherits Rectangle {}
 
         export component App inherits Window {
@@ -1402,7 +1402,7 @@ fn test_normalize_id() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             the_element := Text {
                 text: "Found me";
@@ -1423,7 +1423,7 @@ fn test_opacity() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             Rectangle {
                 opacity: 0.5;
@@ -1464,7 +1464,7 @@ fn test_popups() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             popup := PopupWindow {
                 close-policy: close-on-click-outside;
@@ -1560,7 +1560,7 @@ fn test_drag_touch_area() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 200px;
             height: 200px;
@@ -1597,7 +1597,7 @@ fn test_drag_zero_distance() {
     crate::init_no_event_loop();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;

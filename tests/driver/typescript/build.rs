@@ -8,11 +8,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
         test_driver_lib::ALL_EXPERIMENTAL_FEATURES
     );
-    println!(
-        "cargo:rustc-env=SLINT_EDITION={}.{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR")
-    );
 
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");

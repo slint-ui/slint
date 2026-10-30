@@ -71,6 +71,7 @@ Options:
   -I <include path>                  Include path for imported .slint files and image resources
   -L <library path>                  Library path as `<library>=<path>`, a directory or an entry-point file
       --style <style name>           Set the style for the UI (e.g., 'native' or 'fluent')
+      --edition <edition>            Set the edition whose language behavior to use (e.g., '1.19')
       --scale-factor <scale factor>  Scale factor applied to embedded assets, for high-DPI displays
       --depfile <dependency file>    Write a dependency file for build systems like CMake or Ninja
       --embed-resources <value>      Declare which resources to embed into the final output

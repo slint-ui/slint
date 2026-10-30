@@ -1591,6 +1591,10 @@ async fn parse_source(
     if !style.is_empty() {
         overrides.style = Some(style);
     }
+    if overrides.project.edition.is_none() {
+        overrides.project.edition =
+            path.to_url().and_then(|url| config.rust_macro_editions.get(&url).copied());
+    }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
     builder.set_project_root(
         PREVIEW_STATE.with_borrow(|preview_state| preview_state.project_root.clone()),
@@ -2186,6 +2190,14 @@ pub mod test {
 
     use crate::editor_preview::test::main_test_file_name;
 
+    /// The configuration that the LSP sends, with the edition of this Slint.
+    pub fn preview_config() -> super::PreviewConfig {
+        let mut config = super::PreviewConfig::default();
+        config.overrides.project.edition =
+            Some(i_slint_compiler::project_file::SlintEdition::current());
+        config
+    }
+
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
@@ -2205,7 +2217,7 @@ pub mod test {
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            Default::default(),
+            crate::preview::test::preview_config(),
             path,
             Some(24),
             Some(source_code.to_string()),
@@ -2275,7 +2287,7 @@ mod tests {
         let source = r#"import { Button } from "std-widgets.slint";
             export component Main inherits Window { Button {} }"#;
         let (diagnostics, compiled, imports, versions) = spin_on::spin_on(parse_source(
-            Default::default(),
+            crate::preview::test::preview_config(),
             SourcePath::from_url(&target.url),
             None,
             Some(source.into()),
@@ -2318,7 +2330,7 @@ mod tests {
             });
             let switched_target = replacement.clone();
             let (diagnostics, _, _, _) = spin_on::spin_on(parse_source(
-                Default::default(), SourcePath::from_url(&original.url), None,
+                crate::preview::test::preview_config(), SourcePath::from_url(&original.url), None,
                 Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
                 move |path| {
@@ -2346,7 +2358,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#,
+            r#"{"edition":"1.19","experimental-features":["component-container"]}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -2359,11 +2371,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"slint-edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#,
+                    r#"{"edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
                 if let Some(contents) = contents {
@@ -2376,7 +2388,7 @@ mod tests {
                 }
             });
             let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
-                Default::default(),
+                crate::preview::test::preview_config(),
                 source.clone(),
                 Some(2),
                 Some(code.into()),
@@ -2404,7 +2416,7 @@ mod tests {
         for file_name in ["main.slint", "main.rs"] {
             let path = SourcePath::new(directory.path().join(file_name));
             let (diagnostics, compiled, _, versions) = spin_on::spin_on(parse_source(
-                Default::default(),
+                crate::preview::test::preview_config(),
                 path.clone(),
                 None,
                 None,
@@ -2440,8 +2452,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),

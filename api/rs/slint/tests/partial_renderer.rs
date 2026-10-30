@@ -203,7 +203,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareB
 #[test]
 fn simple() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: yellow;
             background: black;
@@ -255,7 +255,7 @@ fn simple() {
 #[test]
 fn visibility() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> c : true;
             in property <bool> another: false;
@@ -333,7 +333,7 @@ fn visibility() {
 #[test]
 fn if_condition() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> c : true;
             background: black;
@@ -379,7 +379,7 @@ fn if_condition() {
 #[test]
 fn list_view() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         // We can't rely on the style as they are all different so implement our own in very basic terms
         component ListView inherits Flickable {
             out property <length> visible-width <=> self.width;
@@ -461,7 +461,7 @@ fn list_view() {
 /// test for #6932
 fn scale_factor() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
         }
     }
@@ -480,7 +480,7 @@ fn scale_factor() {
 #[test]
 fn rotated_image() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <angle> rotation <=> i.transform-rotation;
             in property <length> x-pos <=> i.x;
@@ -545,7 +545,7 @@ fn rotated_image() {
 #[test]
 fn window_background() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: yellow;
             background: c;
@@ -572,7 +572,7 @@ fn window_background() {
 #[test]
 fn touch_area_doesnt_cause_redraw() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: yellow;
             in property <length> touch-area-1-x <=> ta1.x;
@@ -642,7 +642,7 @@ fn touch_area_doesnt_cause_redraw() {
 /// is not covered by the parent's repaint and would otherwise leave a ghost.
 fn moving_rendering_dirty_item_clears_old_position() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <length> pos;
             in property <color> c: red;
@@ -693,7 +693,7 @@ fn moving_rendering_dirty_item_clears_old_position() {
 /// even though nothing but the stacking order changed. See #12397.
 fn dynamic_z_order() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <int> z-red: 1;
             in property <int> z-blue: 2;
@@ -764,7 +764,7 @@ fn do_test_no_repaint(window: &MinimalSoftwareWindow) {
 /// across several others repaints, and that a z change preserving the order repaints nothing.
 fn dynamic_z_order_repeater() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         struct ZItem { px: length, py: length, z: int }
         export component Ui inherits Window {
             in property <[ZItem]> items;
@@ -840,7 +840,7 @@ fn dynamic_z_order_repeater() {
 /// top of B, so the A∩B overlap must be repainted (via A's rect).
 fn dynamic_z_order_reversal() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> rev: false;
             background: black;
@@ -885,7 +885,7 @@ fn dynamic_z_order_reversal() {
 /// overlap of the swapped pair must still be repainted.
 fn dynamic_z_order_swap_with_appearing_sibling() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> front: false;
             background: black;
@@ -918,7 +918,7 @@ fn dynamic_z_order_swap_with_appearing_sibling() {
 #[test]
 fn shadow_redraw_beyond_geometry() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <length> x-pos: 10px;
             Rectangle {
@@ -983,7 +983,7 @@ fn shadow_redraw_beyond_geometry() {
 #[test]
 fn backdrop_blur_redraws_as_a_whole() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <length> x-pos: 10px;
             Rectangle {
@@ -1042,7 +1042,7 @@ fn backdrop_blur_redraws_as_a_whole() {
 #[test]
 fn backdrop_blur_opacity_over_translucent_backdrop() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             background: transparent;
             Rectangle {
@@ -1088,7 +1088,7 @@ fn backdrop_blur_opacity_over_translucent_backdrop() {
 #[test]
 fn backdrop_blur_redraws_as_a_whole_for_a_removed_item() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> show: true;
             Rectangle {
@@ -1138,7 +1138,7 @@ fn backdrop_blur_redraws_as_a_whole_for_a_removed_item() {
 #[test]
 fn backdrop_blur_redraws_for_changes_outside_its_clip() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <length> x-pos: 30px;
             Rectangle {
@@ -1197,7 +1197,7 @@ fn backdrop_blur_redraws_for_changes_outside_its_clip() {
 #[test]
 fn text_alignment() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: green;
             Text {
@@ -1249,7 +1249,7 @@ fn text_alignment() {
 #[test]
 fn nowrap_text_change_doesnt_change_height() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <string> first-text: "First text";
             out property <length> first-label-width: first-label.width;
@@ -1293,7 +1293,7 @@ fn create_item_tree_during_rendering() {
     // materializes all three levels before rendering, so every rectangle
     // lands in the first draw's dirty region.
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> cond1: false;
             property <bool> cond2: false;
@@ -1370,7 +1370,7 @@ fn create_item_tree_during_rendering() {
 #[test]
 fn init_property_read_does_not_trigger_redraw() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 100px;
             height: 100px;
@@ -1420,7 +1420,7 @@ fn init_property_read_does_not_trigger_redraw() {
 #[test]
 fn issue_9882_borrow_mut() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             in-out property <[string]> strings: ["Home"];
             VerticalLayout {
@@ -1463,7 +1463,7 @@ fn issue_9882_borrow_mut() {
 /// Check that changing the position of a rectangle is properly tracked when RepaintBufferType::NewBuffer is used.
 fn position_tracking_without_partial_rendering() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 180px;
             height: 260px;
@@ -1534,7 +1534,7 @@ fn position_tracking_without_partial_rendering() {
 #[test]
 fn partial_rendering_does_not_cull_scaled_items() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 300px;
             height: 300px;
@@ -1616,7 +1616,7 @@ fn partial_rendering_does_not_cull_scaled_items() {
 #[test]
 fn partial_rendering_does_not_cull_rotated_items() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 300px;
             height: 300px;
@@ -1670,7 +1670,7 @@ fn partial_rendering_does_not_cull_rotated_items() {
 #[test]
 fn partial_rendering_nested_scales() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 300px;
             height: 300px;
@@ -1745,7 +1745,7 @@ fn partial_rendering_nested_scales() {
 #[test]
 fn layer_visible_after_becoming_non_zero_sized() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 32px;
             height: 32px;
@@ -1804,7 +1804,7 @@ fn layer_rendered_at_correct_position() {
     // partially scrolled out of the visible area. This makes the layer
     // texture miss the left portion of the item.
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 64px;
             height: 64px;
@@ -1883,7 +1883,7 @@ fn layer_rendered_at_correct_position() {
 #[test]
 fn partial_rendering_popup_position_size_change() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         global MyProperty {
             in-out property<length> popup-x: 0px;
             in-out property<length> popup-y: 0px;
@@ -2063,7 +2063,7 @@ fn partial_rendering_popup_position_size_change() {
 #[test]
 fn destroy_never_rendered_item() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> c : false;
             background: black;

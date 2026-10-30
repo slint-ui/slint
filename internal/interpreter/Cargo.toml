@@ -40,10 +40,10 @@ system-tray = ["i-slint-core/system-tray"]
 std = ["i-slint-core/default", "derive_more/std", "i-slint-compiler/std"]
 
 # (internal) For Slint's microcontroller viewer only: don't enable it.
-# It keeps the pre-rendered textures as the compiler made them, and `internal-embed-textures` enables it:
-# the viewer enables `image-owned-textures` of the software renderer.
+# It keeps the pre-rendered textures and fonts as the compiler made them, and `internal-embed-textures` enables it:
+# the viewer enables `owned-pre-rendered-resources` of the software renderer.
 # NOTE: this is not a semver compatible feature
-internal-mcu-interpreter = ["i-slint-core/image-owned-textures"]
+internal-mcu-interpreter = ["i-slint-core/owned-pre-rendered-resources"]
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["std", "i-slint-compiler/display-diagnostics"]
@@ -186,8 +186,7 @@ internal-embed-textures = [
   "internal-mcu-interpreter",
   "i-slint-compiler/renderer-software",
   "dep:i-slint-renderer-software",
-  "i-slint-renderer-software/image-owned-textures",
-  # This crate's core has `path`, which the renderer must match
+  "i-slint-renderer-software/owned-pre-rendered-resources",
   "i-slint-renderer-software/path",
 ]
 

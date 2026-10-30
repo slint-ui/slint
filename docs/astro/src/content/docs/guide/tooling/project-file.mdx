@@ -19,7 +19,7 @@ Compiling `/projects/app/ui/main.slint` directly doesn't load a project file.
 
 ```json
 {
-    "slint-edition": "1.19",
+    "edition": "1.19",
     "main": "ui/main.slint",
     "include-paths": ["ui/shared"],
     "library-paths": {
@@ -29,7 +29,7 @@ Compiling `/projects/app/ui/main.slint` directly doesn't load a project file.
 ```
 
 The file uses JSON syntax and accepts `//` and `/* */` comments.
-`slint-edition` is required.
+`edition` is required.
 When you pass a project directory to the compiler, `main` is required, too.
 All other settings are optional.
 
@@ -37,7 +37,7 @@ All other settings are optional.
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| `slint-edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.19"`. See [Editions](../../language/concepts/editions/). |
+| `edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.19"`. See [Editions](../../language/concepts/editions/). |
 | `main` | string | The `.slint` file to compile when you pass the project directory. See [Compiling a Project](#compiling-a-project). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
@@ -59,17 +59,13 @@ Slint searches the include paths passed to the API or the command line first, th
 A library path passed to the API or the command line replaces the project file's library of the same name,
 and the project file's other libraries stay available.
 
-:::note
-You can't set `slint-edition` through the API or the command line; it only comes from the project file.
-:::
-
 ## Compiling a Project
 
 To compile your project, first set `main` to the main `.slint` file of your application:
 
 ```json
 {
-    "slint-edition": "1.19",
+    "edition": "1.19",
     "main": "ui/main.slint"
 }
 ```

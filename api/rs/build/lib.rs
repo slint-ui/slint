@@ -170,6 +170,18 @@ impl CompilerConfiguration {
         self
     }
 
+    /// Create a new configuration that selects the
+    #[doc = concat!("[edition](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/guide/language/concepts/editions/)")]
+    /// whose language behavior to use, as its major and minor version, such as `(1, 19)`.
+    ///
+    /// This wins over the edition of the project file.
+    /// If the edition is newer than this version of Slint, compilation fails.
+    #[must_use]
+    pub fn with_edition(mut self, edition: (u32, u32)) -> Self {
+        self.overrides.project.edition = Some(edition.into());
+        self
+    }
+
     /// Selects how the resources such as images and font are processed.
     ///
     /// See [`EmbedResourcesKind`]
@@ -473,7 +485,6 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_LIVE_PREVIEW");
     println!("cargo:rerun-if-env-changed=SLINT_BUNDLE_TRANSLATIONS");
     println!("cargo:rerun-if-env-changed=SLINT_ENABLE_EXPERIMENTAL_FEATURES");
-    println!("cargo:rerun-if-env-changed=SLINT_EDITION");
 
     println!(
         "cargo:rustc-env=SLINT_INCLUDE_GENERATED={}",
@@ -725,7 +736,7 @@ fn project_file_defaults_use_project_file_directory_for_relative_paths() {
         fs::write(
             &project_file,
             r#"{
-                "slint-edition": "1.19",
+                "edition": "1.18",
                 "main": "main.slint",
                 "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint"}
@@ -760,7 +771,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
         fs::write(
             &project_file,
             r#"{
-                "slint-edition": "1.19",
+                "edition": "1.19",
                 "main": "main.slint",
                 "include-paths": ["project-include"],
                 "library-paths": {"widgets": "project-lib.slint", "icons": "icons.slint"}
@@ -776,6 +787,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
                 PathBuf::from("build-lib.slint"),
             )]))
             .with_style("build-style".into())
+            .with_edition((1, 19))
             .with_absolute_paths(&test_root)
             .resolve_project_file(&test_root)
             .unwrap();
@@ -792,6 +804,7 @@ fn explicit_settings_add_to_the_project_file_paths() {
             ])
         );
         assert_eq!(config.style.as_deref(), Some("build-style"));
+        assert_eq!(config.edition, Some(project_file::SlintEdition::V1_19));
     });
 }
 
@@ -801,7 +814,7 @@ fn explicit_build_settings_preserve_empty_values_and_false() {
         let project_path = project_file_path_in(test_root);
         std::fs::write(
             &project_path,
-            r#"{"slint-edition":"1.19","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
+            r#"{"edition":"1.19","include-paths":["include"],"library-paths":{"widgets":"lib"}}"#,
         )
         .unwrap();
         let project = ProjectFile::load(project_path).unwrap();
@@ -914,7 +927,7 @@ fn compiler_configuration_defaults_without_project_file() {
         let project_file = project_file_path_in(test_root);
         fs::write(
             &project_file,
-            r#"{"slint-edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+            r#"{"edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
         )
         .unwrap();
 
@@ -968,7 +981,7 @@ fn missing_main_is_a_compilation_error() {
 
     with_temp_test_dir("project-file-error", |test_root| {
         let project_file = project_file_path_in(test_root);
-        fs::write(&project_file, r#"{ "slint-edition": "1.19" }"#).unwrap();
+        fs::write(&project_file, r#"{ "edition": "1.19" }"#).unwrap();
 
         let error = compile_with_output_path(
             test_root,
@@ -995,7 +1008,7 @@ fn output_path_compilation_tracks_project_file_dependency() {
 
         fs::write(
             &project_file,
-            r#"{"slint-edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
+            r#"{"edition": "1.19", "main":"main.slint","include-paths":["include"]}"#,
         )
         .unwrap();
         fs::write(&input_file, "export component Test inherits Rectangle {}").unwrap();
@@ -1051,12 +1064,12 @@ fn a_project_directory_compiles_its_main_file() {
         let project_file = project_file_path_in(&test_root);
         fs::write(
             &project_file,
-            r#"{ "slint-edition": "1.19", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
+            r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["shared"] }"#,
         )
         .unwrap();
         fs::write(
             project_file_path_in(&ui_dir),
-            r#"{ "slint-edition": "1.19", "include-paths": ["nowhere"] }"#,
+            r#"{ "edition": "1.19", "include-paths": ["nowhere"] }"#,
         )
         .unwrap();
         fs::write(shared_dir.join("shared.slint"), "export component Shared {}").unwrap();
@@ -1097,7 +1110,7 @@ fn directory_without_project_file_is_a_compilation_error() {
 fn project_file_cannot_be_compiled_directly() {
     with_temp_test_dir("direct-project-file", |test_root| {
         let project_file = project_file_path_in(test_root);
-        std::fs::write(&project_file, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
+        std::fs::write(&project_file, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
         let error = compile_with_output_path(
             &project_file,
             test_root.join("main.rs"),

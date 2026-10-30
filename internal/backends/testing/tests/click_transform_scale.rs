@@ -10,7 +10,7 @@ fn test_click_under_transform_scale() {
 
     slint::spawn_local(async move {
         slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component App inherits Window {
                 width: 400px;
                 height: 300px;
