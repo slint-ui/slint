@@ -29,13 +29,13 @@ component CornerModeSegment inherits ButtonBase {
 
             Rectangle {
                 y: 0px;
-                height: root.down ? 1px : 0.5px;
+                height: 1px;
                 background: root.down ? (root.dark ? #00000055 : #34465a26)
                     : root.dark ? #ffffff26 : #ffffffe6;
             }
             Rectangle {
                 y: parent.height - self.height;
-                height: 0.5px;
+                height: 1px;
                 background: root.down ? (root.dark ? #ffffff15 : #ffffff99)
                     : root.dark ? #00000066 : #4c5f7233;
             }

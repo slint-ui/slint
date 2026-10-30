@@ -69,6 +69,39 @@ export component InspectorImageSection inherits InspectorSection {
 
             HorizontalLayout {
                 spacing: Metrics.space-compact;
+                cross-axis-alignment: center;
+
+                InspectorFieldLabel {
+                    text: @tr("Image rendering");
+                    vertical-alignment: center;
+                }
+
+                InspectorInfoIcon {
+                    activated => {
+                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#image-rendering");
+                    }
+                }
+            }
+
+            InspectorComboBox {
+                accessible-name: @tr("Image rendering");
+                value: InspectorEnumOptions.option-value("image-rendering", "smooth", InspectorEnumOptions.image-rendering-options);
+                selected-index: InspectorEnumOptions.option-index("image-rendering", "smooth", InspectorEnumOptions.image-rendering-options);
+                options: InspectorEnumOptions.image-rendering-options;
+                wide: true;
+                width: root.field-width;
+                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
+                accepted(text) => {
+                    return text != "" && InspectorContext.commit-code("image-rendering", text);
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
 
                 InspectorFieldLabel {
                     text: @tr("Alignment");

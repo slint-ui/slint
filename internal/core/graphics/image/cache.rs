@@ -22,7 +22,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
             ImageInner::StaticTextures(_) => 0,
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             ImageInner::OwnedTextures(textures) => textures.data.len(),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size().area() as usize,
             ImageInner::BorrowedOpenGLTexture(..) => 0, // Assume storage in GPU memory

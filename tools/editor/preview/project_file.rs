@@ -491,7 +491,7 @@ mod tests {
 
     fn contents(widths: &[i32]) -> String {
         format!(
-            "{{\"slint-edition\":\"1.19\",\"metadata\":{{\"visual-editor\":{}}}}}",
+            "{{\"edition\":\"1.19\",\"metadata\":{{\"visual-editor\":{}}}}}",
             serde_json::to_string(&VisualEditorSettings {
                 canvas_presets: widths
                     .iter()
@@ -539,7 +539,7 @@ mod tests {
         crate::preview::PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
         crate::preview::set_contents(
             &i_slint_live_preview::protocol::VersionedUrl::new(url.clone(), None),
-            r#"{"slint-edition":"1.19","metadata":{"visual-editor":null}}"#.into(),
+            r#"{"edition":"1.19","metadata":{"visual-editor":null}}"#.into(),
         );
         assert_eq!(project.get_project_file_state(), ui::ProjectFileState::Available);
         assert!(!project.get_canvas_presets_error().is_empty());

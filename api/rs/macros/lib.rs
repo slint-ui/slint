@@ -329,7 +329,7 @@ fn extract_compiler_config(
                         }
                     }
                     Some(TokenTree::Ident(edition_ident))
-                        if edition_ident.to_string() == "slint_edition" =>
+                        if edition_ident.to_string() == "edition" =>
                     {
                         match (attr_stream.next(), attr_stream.next()) {
                             (
@@ -360,7 +360,7 @@ fn extract_compiler_config(
 fn missing_edition_warning(span: proc_macro::Span) -> TokenStream {
     let newer = project_file::SlintEdition::LATEST_BEHAVIOR_CHANGE;
     let message = format!(
-        "'slint!' without '#[slint_edition]' misses the behavior changes up to {newer}: add '#[slint_edition = \"{newer}\"]' after reviewing {}",
+        "'slint!' has no '#[edition]', so the language behavior changes up to {newer} don't apply: review them at {}, then add '#[edition = \"{newer}\"]'",
         project_file::SlintEdition::behavior_changes_url()
     );
     diagnostics::macro_warning(span.into(), &message)
@@ -370,29 +370,17 @@ fn behavior_change_warning(
     edition: project_file::SlintEdition,
     value: &proc_macro::Literal,
 ) -> TokenStream {
-    let Some(message) = edition.behavior_change_warning("slint_edition") else {
+    let Some(message) = edition.behavior_change_warning("edition") else {
         return TokenStream::new();
     };
     diagnostics::macro_warning(value.span().into(), &message)
 }
 
 fn parse_edition(value: &proc_macro::Literal) -> Result<project_file::SlintEdition, TokenStream> {
-    let current = project_file::SlintEdition::current();
-    let text = value.to_string();
-    let edition = text
-        .strip_prefix('"')
-        .and_then(|text| text.strip_suffix('"'))
-        .ok_or_else(|| format!("'slint_edition' takes a string, such as \"{current}\""))
-        .and_then(str::parse);
-    let message = match edition {
-        Ok(edition) if edition > current => format!(
-            "'slint_edition' is {edition}, newer than this Slint {current}: upgrade Slint, or set '#[slint_edition = \"{current}\"]'"
-        ),
-        Ok(edition) => return Ok(edition),
-        Err(message) => message,
-    };
-    let span = proc_macro2::Span::from(value.span());
-    Err(quote::quote_spanned!(span => compile_error!{ #message }).into())
+    project_file::SlintEdition::parse_rust_macro_attribute(&value.to_string()).map_err(|message| {
+        let span = proc_macro2::Span::from(value.span());
+        quote::quote_spanned!(span => compile_error!{ #message }).into()
+    })
 }
 
 /// The external files whose changes should invalidate this expansion: the loaded
@@ -425,13 +413,12 @@ fn loaded_files(diag: &BuildDiagnostics) -> Vec<PathBuf> {
 ///
 /// ```rust,ignore
 /// slint::slint! {
-///     #[slint_edition = "1.19"]
+///     #[edition = "1.19"]
 ///     export component App inherits Window { }
 /// }
 /// ```
 ///
 /// Without it, the macro applies none of the behavior changes that depend on the edition, and warns.
-/// The editor and the live preview don't read the attribute.
 ///
 /// ### Limitations
 ///

@@ -46,7 +46,7 @@ Under a strict Content Security Policy, such as Claude Artifacts, publish both f
 - The interpreter compiles with the [edition](https://docs.slint.dev/latest/docs/slint/guide/language/concepts/editions/) of its own release.
   The next argument of `compile_from_string_with_style`, such as `"1.18"`, selects another one.
 - The last argument of both is the URL of the directory with the `slint-project.json` to apply, read through the import loader.
-  Its `slint-edition` takes precedence.
+  Its `edition` takes precedence.
 - Images don't go through the import loader.
   With a URL as the base, such as `https://…`, `@image-url` paths resolve to URLs that `<img>` elements load.
   A path from the root, such as `/img/logo.png`, resolves on the host of the base URL.

@@ -159,13 +159,13 @@ struct JsRawValue {
 }
 
 /// Detects whether `source` is backed by a native adapter (constructed by one
-/// of the `native_*_model_new` factory functions below), via the hidden
-/// `__slintNativeModel` property that the TS Reverse/Filter/Sort/MapModel
-/// classes expose.
+/// of the `native_*_model_new` factory functions below), via the getter that
+/// the TS adapters key by `Symbol.for("slint.nativeModel")`.
 /// Lets chained adapters (e.g. `.filter().sort()`) reuse each other's native
 /// backing directly instead of bouncing back through JS at every level.
-fn native_model_of<'a>(source: &Object<'a>) -> Option<ClassInstance<'a, NativeModel>> {
-    source.get::<ClassInstance<NativeModel>>("__slintNativeModel").ok().flatten()
+fn native_model_of<'a>(env: &Env, source: &Object<'a>) -> Option<ClassInstance<'a, NativeModel>> {
+    let key = env.symbol_for("slint.nativeModel").ok()?;
+    source.get_property::<_, Option<ClassInstance<NativeModel>>>(key).ok().flatten()
 }
 
 /// Resolves an arbitrary JS `Model<T>`-shaped object to a `ModelRc<JsRawValue>`,
@@ -173,7 +173,7 @@ fn native_model_of<'a>(source: &Object<'a>) -> Option<ClassInstance<'a, NativeMo
 /// Returns the error slot along with it, shared by every adapter of the chain,
 /// as an adapter calls the callbacks of the adapters it reuses.
 fn resolve_source(env: &Env, source: &Object) -> Result<(ModelRc<JsRawValue>, ErrorSlot)> {
-    if let Some(native) = native_model_of(source) {
+    if let Some(native) = native_model_of(env, source) {
         return Ok((native.inner.clone(), native.errors.clone()));
     }
 

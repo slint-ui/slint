@@ -6,7 +6,7 @@ fn main() {
     MainWindow::new().unwrap().run().unwrap();
 }
 slint::slint! {
-#[slint_edition = "1.19"]
+#[edition = "1.19"]
 // ANCHOR: tile
 component MemoryTile inherits Rectangle {
     callback clicked;

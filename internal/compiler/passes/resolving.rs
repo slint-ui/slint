@@ -196,7 +196,11 @@ fn resolve_match_elements(
             &mut match_element.subject,
             Expression::PropertyReference(subject_ref.clone()),
         );
-        elem.borrow_mut().set_binding(subject_ref.name().clone(), subject.into());
+        let subject_location = match_element.node.Expression().to_source_location();
+        elem.borrow_mut().set_binding(
+            subject_ref.name().clone(),
+            BindingExpression::new_with_span(subject, subject_location),
+        );
 
         match_element.lower_to_conditional_elements();
     }

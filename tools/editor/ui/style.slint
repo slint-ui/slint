@@ -642,6 +642,18 @@ export struct ImageAssetEditorStyle {
     error: ImageErrorStyle,
 }
 
+export struct ElementPaletteTabStyle {
+    surface: brush,
+    selected-surface: brush,
+    frame: color,
+    separator: color,
+    base: color,
+    highlight: color,
+    edge: color,
+    selected-edge: color,
+    inset-shadow: color,
+}
+
 export struct CornerModeStyle {
     selected-background: brush,
     border: brush,
@@ -1516,6 +1528,21 @@ export global Colors {
 }
 
 export global Style {
+    out property <ElementPaletteTabStyle> element-palette-tab: {
+        surface: Theme.current == ThemeKind.dark
+            ? @linear-gradient(180deg, Colors.surface.brighter(0.3), Colors.surface.brighter(0.06)) : Theme.surfaces.raised,
+        selected-surface: Theme.current == ThemeKind.dark
+            ? @linear-gradient(180deg, Colors.selection.brighter(0.14), Colors.selection.darker(0.04))
+            : @linear-gradient(180deg, Colors.selection.brighter(0.025), Colors.selection),
+        frame: Theme.surfaces.raised-border,
+        separator: Colors.border.with-alpha(0.6),
+        base: Theme.current == ThemeKind.dark ? #161a20a6 : #667c9429,
+        highlight: Theme.current == ThemeKind.dark ? #ffffff42 : #ffffffe6,
+        edge: Theme.current == ThemeKind.dark ? #00000077 : #4c5f7229,
+        selected-edge: Theme.current == ThemeKind.dark ? #ffffff2e : #ffffff99,
+        inset-shadow: Theme.current == ThemeKind.dark ? #00000055 : #23364d18,
+    };
+
     out property <brush> titlebar-background: Theme.surfaces.titlebar;
     out property <brush> panel-background: Theme.surfaces.panel;
     out property <brush> control-well: Theme.surfaces.recessed;

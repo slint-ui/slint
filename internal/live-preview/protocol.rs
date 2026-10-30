@@ -5,6 +5,8 @@ mod lsp_to_preview;
 pub mod pairing;
 mod preview_to_lsp;
 pub mod session;
+#[cfg(test)]
+mod snapshot_tests;
 mod versioned_url;
 
 pub use lsp_to_preview::{
@@ -26,7 +28,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
 mod diagnostics_adapter;
 #[cfg(any(feature = "file-watcher", feature = "preview-session"))]
-pub use diagnostics_adapter::{diagnostic_url, to_lsp_diagnostic};
+pub use diagnostics_adapter::{diagnostic_url, diagnostics_by_url, to_lsp_diagnostic};
 
 pub type SourceFileVersion = Option<i32>;
 pub const SERVICE_TYPE: &str = "_slint-preview._tcp.local.";
@@ -45,9 +47,7 @@ pub const PROTOCOL_SUBPROTOCOL: &str = concat!(
     ".overrides-1",
 );
 
-/// Full Slint version of this build, shown in the discovery picker and in
-/// version-mismatch error messages.
-pub const SLINT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub use crate::SLINT_VERSION;
 
 /// HTTP header set on every WebSocket handshake response (success or
 /// failure) so the LSP can report the viewer's actual version even when

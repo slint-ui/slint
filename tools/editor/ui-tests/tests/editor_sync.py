@@ -13,12 +13,14 @@ class EditorSync:
     directory: Path
     request_id: int = 0
 
-    def wait_for_source(self, path: Path, expected: bytes, timeout: float = 15) -> None:
+    def _round_trip(
+        self,
+        sources: dict[str, str],
+        timeout: float,
+        failure: str,
+    ) -> None:
         self.request_id += 1
-        request = {
-            "id": self.request_id,
-            "sources": {path.as_uri(): expected.decode("utf-8")},
-        }
+        request = {"id": self.request_id, "sources": sources}
         temporary = self.directory / "request.tmp"
         temporary.write_text(json.dumps(request))
         temporary.replace(self.directory / "request.json")
@@ -40,12 +42,19 @@ class EditorSync:
                     return
                 if time.monotonic() >= deadline:
                     raise AssertionError(
-                        f"Preview did not apply {path} within {timeout}s: "
+                        f"{failure} within {timeout}s: "
                         f"{last_response!r}. Build with system-testing enabled."
                     )
                 time.sleep(0.02)
         finally:
             (self.directory / "request.json").unlink(missing_ok=True)
+
+    def wait_for_source(self, path: Path, expected: bytes, timeout: float = 15) -> None:
+        self._round_trip(
+            {path.as_uri(): expected.decode("utf-8")},
+            timeout,
+            failure=f"Preview did not apply {path}",
+        )
 
 
 current_editor_sync: ContextVar[EditorSync] = ContextVar("current_editor_sync")

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW RTLD testui
+// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS LOGPIXELSY NONCLIENTMETRICSW RTLD testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -874,30 +874,40 @@ impl i_slint_core::platform::Platform for Backend {
         }
         #[cfg(target_os = "windows")]
         if let Some(ctx) = _ctx.upgrade() {
-            use windows::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+            use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, LOGPIXELSY, ReleaseDC};
             use windows::Win32::UI::WindowsAndMessaging::{
-                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS,
+                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS, SystemParametersInfoW,
             };
             let mut metrics = NONCLIENTMETRICSW {
                 cbSize: core::mem::size_of::<NONCLIENTMETRICSW>() as u32,
                 ..NONCLIENTMETRICSW::default()
             };
+            // SystemParametersInfoW returns metrics at the system DPI, which LOGPIXELSY reports.
+            // Once we drop Windows 10 before 1607 (Anniversary Update, August 2016),
+            // use `windows::Win32::UI::HiDpi::SystemParametersInfoForDpi` with 96 DPI instead,
+            // without LOGPIXELSY (#14273).
             let ok = unsafe {
-                SystemParametersInfoForDpi(
-                    SPI_GETNONCLIENTMETRICS.0,
+                SystemParametersInfoW(
+                    SPI_GETNONCLIENTMETRICS,
                     metrics.cbSize,
                     Some(&mut metrics as *mut _ as *mut core::ffi::c_void),
-                    0,
-                    96,
+                    Default::default(),
                 )
             }
             .is_ok();
-            // `lfMessageFont.lfHeight` is in pixels at 96 DPI = Slint logical pixels;
-            // negative means em height, positive means cell height — magnitude is fine here.
+            let system_dpi = unsafe {
+                let screen = GetDC(None);
+                let dpi = GetDeviceCaps(Some(screen), LOGPIXELSY);
+                ReleaseDC(None, screen);
+                dpi
+            };
+            // `lfMessageFont.lfHeight` is negative for an em height, positive for a cell height.
             let height = metrics.lfMessageFont.lfHeight.unsigned_abs();
-            if ok && height > 0 {
+            if ok && height > 0 && system_dpi > 0 {
                 ctx.set_platform_default_font_size(Some(
-                    i_slint_core::lengths::LogicalLength::new(height as f32),
+                    i_slint_core::lengths::LogicalLength::new(
+                        height as f32 * 96. / system_dpi as f32,
+                    ),
                 ));
             }
 
@@ -1172,7 +1182,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// use slint::winit_030::{WinitWindowAccessor, winit};
     ///
     /// slint::slint!{
-    ///     #[slint_edition = "1.19"]
+    ///     #[edition = "1.19"]
     ///     import { VerticalBox, Button } from "std-widgets.slint";
     ///     export component HelloWorld inherits Window {
     ///         callback clicked;
@@ -1451,7 +1461,7 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 #[cfg(test)]
 mod testui {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             Text { text: "Ok"; }
         }

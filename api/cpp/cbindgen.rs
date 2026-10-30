@@ -436,7 +436,7 @@ fn default_config() -> cbindgen::Config {
         ("target_os = android".into(), "__ANDROID__".into()),
         ("feature = image-pixel-format-rgb565".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565".into()),
         ("feature = image-pixel-format-gray8".into(), "SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8".into()),
-        ("feature = image-owned-textures".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = owned-pre-rendered-resources".into(), "SLINT_DISABLED_CODE".into()),
         // Disable Rust WGPU specific API feature
         ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-30".into(), "SLINT_DISABLED_CODE".into()),
@@ -444,6 +444,7 @@ fn default_config() -> cbindgen::Config {
     config.defines = defines.into_iter().collect();
     config.structure.associated_constants_in_body = true;
     config.constant.allow_constexpr = true;
+    config.enumeration.deprecated_variant_with_note = Some("[[deprecated({})]]".into());
     config
 }
 

@@ -325,6 +325,8 @@ def _load_file(
     The project file provides the settings that are not given here.
     It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     A `.slint` file path does not load a project file.
+    `include_paths` come before the project file's include paths,
+    and `library_paths` replace the project file's libraries of the same name.
 
     """
 
@@ -406,6 +408,8 @@ def load_file(
     The project file provides the settings that are not given here.
     It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     A `.slint` file path does not load a project file.
+    `include_paths` come before the project file's include paths,
+    and `library_paths` replace the project file's libraries of the same name.
 
     """
 
@@ -418,10 +422,18 @@ def _load_file_checked(
     path: str | os.PathLike[Any] | pathlib.Path,
     expected_api_base64_compressed: str,
     generated_file: str | os.PathLike[Any] | pathlib.Path,
+    include_paths: list[str] | None = None,
+    library_paths: dict[str, str] | None = None,
 ) -> types.SimpleNamespace:
     """@private"""
 
-    module, compilation_result = _load_file(path)
+    module, compilation_result = _load_file(
+        path,
+        include_paths=[Path(p) for p in include_paths] if include_paths else None,
+        library_paths={k: Path(v) for k, v in library_paths.items()}
+        if library_paths
+        else None,
+    )
 
     expected_api = gzip.decompress(
         base64.standard_b64decode(expected_api_base64_compressed)
@@ -445,6 +457,13 @@ class SlintAutoLoader:
 
     def __getattr__(self, name: str) -> Any:
         for path in self.local_dirs or sys.path:
+            if name == "slint_project" and os.path.isfile(
+                Path(path) / "slint-project.json"
+            ):
+                type_namespace = load_file(path)
+                setattr(self, name, type_namespace)
+                return type_namespace
+
             dir_candidate = Path(path) / name
             if os.path.isdir(dir_candidate):
                 loader = SlintAutoLoader(dir_candidate)
@@ -474,6 +493,12 @@ loader = SlintAutoLoader()
 2. Any lookup in the object returned by the first stage tries to match an exported component in the loaded file, or a
    struct, or enum. For example, `loader.my_component.MyComponent` looks for an *exported* component named `MyComponent`
    in the file `my_component.slint`.
+
+To load your project file (`slint-project.json`), look up `slint_project` in its directory.
+The loader then passes the directory to `load_file`.
+For example, `loader.ui.slint_project.MainWindow` looks for `MainWindow` in the `main` file of `ui/slint-project.json`.
+
+**Note:** Other attributes load their `.slint` file without the project file, even if the directory has one.
 
 **Note:** The first entry in the module search path `sys.path` is the directory that contains the input script.
 

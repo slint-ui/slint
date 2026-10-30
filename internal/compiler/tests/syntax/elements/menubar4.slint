@@ -3,8 +3,8 @@
 
 export component B inherits Window {
     callback activate <=> item.activated;
+//                    >                <error{Cannot access property or callback 'item.activated' inside of a MenuBar from enclosing component}
     MenuBar {
-//  >      <error{Cannot access property or callback 'item.activated' inside of a MenuBar from enclosing component}
         Menu {
             title: "hello";
             item := MenuItem {

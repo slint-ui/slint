@@ -19,6 +19,10 @@ export component InspectorCases inherits Window {
         drop-shadow-offset-y: 8px;
         drop-shadow-blur: 16px;
         drop-shadow-spread: 0px;
+
+        inspect-tooltip := Tooltip {
+            text: @markdown("Inspector tooltip");
+        }
     }
 
     inspect-text := Text {

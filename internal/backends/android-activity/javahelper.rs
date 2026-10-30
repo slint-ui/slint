@@ -11,6 +11,7 @@ use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
 };
+use i_slint_core::MotionPreference;
 use i_slint_core::SharedString;
 use i_slint_core::animations::Instant;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
@@ -47,6 +48,10 @@ bind_java_type! {
         fn accent_color {
             name = "accent_color",
             sig = () -> jint,
+        },
+        fn animators_enabled {
+            name = "animators_enabled",
+            sig = () -> jboolean,
         },
         fn color_scheme {
             name = "color_scheme",
@@ -267,9 +272,14 @@ bind_java_type! {
             get = TYPE_TEXT_FLAG_AUTO_CORRECT,
         },
         #[allow(non_snake_case)]
-        static TYPE_TEXT_FLAG_AUTO_COMPLETE {
+        static TYPE_TEXT_FLAG_MULTI_LINE {
             sig = jint,
-            get = TYPE_TEXT_FLAG_AUTO_COMPLETE,
+            get = TYPE_TEXT_FLAG_MULTI_LINE,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_NO_SUGGESTIONS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_NO_SUGGESTIONS,
         },
     }
 }
@@ -484,18 +494,27 @@ impl JavaHelper {
                     } else {
                         0 as jint
                     };
-                    let auto_complete_flag = if hints.auto_complete {
-                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_COMPLETE(env)?
-                    } else {
+                    // Not TYPE_TEXT_FLAG_AUTO_COMPLETE: it asks the input method not to show its own
+                    // candidates and to expect completions from the app, which Slint doesn't provide.
+                    let no_suggestions_flag = if hints.auto_complete {
                         0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
+                    };
+                    let multi_line_flag = if data.single_line {
+                        0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_MULTI_LINE(env)?
                     };
                     AndroidInputType::TYPE_CLASS_TEXT(env)?
                         | capitalization_flag
                         | auto_correct_flag
-                        | auto_complete_flag
+                        | no_suggestions_flag
+                        | multi_line_flag
                 }
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
+                        | AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
                 }
                 InputType::Number => AndroidInputType::TYPE_CLASS_NUMBER(env)?,
@@ -562,6 +581,20 @@ impl JavaHelper {
 
     pub fn font_scale(&self) -> Result<f32, jni::errors::Error> {
         self.with_jni_env(|env, helper| helper.font_scale(env))
+    }
+
+    /// Sets the motion preference of `ctx` to reduced when Android doesn't run animators,
+    /// which "Remove animations" under Settings > Accessibility turns off. Android sends no
+    /// configuration change for this setting, so call it at startup and again whenever the
+    /// window gains focus.
+    pub fn set_motion_preference(&self, ctx: &i_slint_core::SlintContext) {
+        if let Ok(enabled) = self.with_jni_env(|env, helper| helper.animators_enabled(env)) {
+            ctx.set_motion_preference(if enabled {
+                MotionPreference::NoPreference
+            } else {
+                MotionPreference::Reduced
+            });
+        }
     }
 
     /// Returns the theme's `android:colorAccent`, or `None` if the theme doesn't set it.

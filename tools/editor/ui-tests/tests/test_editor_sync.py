@@ -40,3 +40,15 @@ def test_wait_timeout_reports_last_state_and_removes_request(tmp_path):
             tmp_path / "Main.slint", b"source", timeout=0
         )
     assert not (tmp_path / "request.json").exists()
+
+
+def test_wait_accepts_first_response_after_missing_file(tmp_path, monkeypatch):
+    def respond(_):
+        request = json.loads((tmp_path / "request.json").read_text())
+        (tmp_path / "response.json").write_text(
+            json.dumps({"id": request["id"], "ready": True})
+        )
+
+    monkeypatch.setattr("editor_sync.time.sleep", respond)
+    EditorSync(tmp_path).wait_for_source(tmp_path / "Main.slint", b"source")
+    assert not (tmp_path / "request.json").exists()

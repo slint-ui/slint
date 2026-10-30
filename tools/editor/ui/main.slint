@@ -4,8 +4,9 @@
 import { Style, Metrics, Typography, Colors } from "style.slint";
 import "./assets/Inter-VariableFont.ttf";
 
-import { Api, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
+import { Api, CoordinateSpace, EditorSurfaceMode, ElementKind, Hover, InspectorCommitResult, InlineTextEdit, InlineTextEditStart } from "api.slint";
 import { Project } from "project.slint";
+import { Snapping } from "snapping.slint";
 import { Diagnostics } from "diagnostics.slint";
 export { Diagnostics, Diagnostic, DiagnosticLevel, FileDiagnosticSummary, PreviewAvailability } from "diagnostics.slint";
 import { Preview } from "preview.slint";
@@ -30,7 +31,7 @@ import { UpdateStatus, UpdateStatusBar, UpdateStatusPill } from "components/upda
 
 export {
     Api, CanvasView, EditorCursors, EditorWindow, Style, ElementVisuals, FillSession, FillSessionRequest,
-    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Springboard,
+    FillSessionTarget, ShadowSession, ShadowGesture, ShadowValues, InspectorCommitResult, Hover, InlineTextEdit, InlineTextEditStart, Preview, Project, Snapping, Springboard,
 }
 
 export component EditorUi inherits Window {
@@ -200,6 +201,27 @@ export component EditorUi inherits Window {
                 enabled: Api.redo-enabled;
                 activated => { root.apply-history(true); }
             }
+            MenuSeparator { }
+            Menu {
+                title: @tr("Wrap in Layout");
+                enabled: Diagnostics.preview-editable && Api.selection.highlight-index >= 0 && Api.selection.is-wrappable;
+
+                for layout in ["HorizontalLayout", "VerticalLayout", "GridLayout", "FlexboxLayout"]: MenuItem {
+                    title: layout;
+                    activated => {
+                        Api.selected-element-wrap-in-layout(layout);
+                        root.focus-editor();
+                    }
+                }
+                MenuSeparator { }
+                for layout in ["HorizontalBox", "VerticalBox", "GridBox"]: MenuItem {
+                    title: layout;
+                    activated => {
+                        Api.selected-element-wrap-in-layout(layout);
+                        root.focus-editor();
+                    }
+                }
+            }
         }
         Menu {
             title: @tr("View");
@@ -217,7 +239,7 @@ export component EditorUi inherits Window {
             }
             MenuItem {
                 title: @tr("Zoom to Selection");
-                shortcut: @keys(Shift + "2");
+                shortcut: @keys(Control + Digit2);
                 enabled: root.canvas-zoom-enabled;
                 activated => {
                     CanvasView.zoom-to-selection(
@@ -265,7 +287,10 @@ export component EditorUi inherits Window {
             property <bool> shift-pressed: false;
             private property <bool> window-active: Api.window-active();
             changed window-active => {
-                if !self.window-active { self.shift-pressed = false; }
+                if !self.window-active {
+                    self.shift-pressed = false;
+                    Snapping.disabled = false;
+                }
             }
             private property <int> fill-focus-generation: FillSession.focus-generation;
             changed fill-focus-generation => {
@@ -313,7 +338,7 @@ export component EditorUi inherits Window {
                     self.nudge-origin.x,
                     self.nudge-origin.y,
                     CanvasView.selection.width,
-                    CanvasView.selection.height);
+                    CanvasView.selection.height, CoordinateSpace.Root);
             }
 
             // Several edits in flight at once get lost, so quick taps share one write.
@@ -324,6 +349,7 @@ export component EditorUi inherits Window {
             }
 
             capture-key-pressed(event) => {
+                Snapping.disabled = Platform.os == OperatingSystemType.macos ? event.modifiers.meta : event.modifiers.control;
                 if root.canvas-zoom-enabled && event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && event.text == "=" {
                     CanvasView.set-zoom(CanvasView.next-zoom-level);
                     return accept;
@@ -340,6 +366,7 @@ export component EditorUi inherits Window {
             }
 
             capture-key-released(event) => {
+                Snapping.disabled = Platform.os == OperatingSystemType.macos ? event.modifiers.meta : event.modifiers.control;
                 if event.text == Key.Space {
                     CanvasView.space-pressed = false;
                 }
@@ -401,7 +428,7 @@ export component EditorUi inherits Window {
                         CanvasView.nudge-position.x,
                         CanvasView.nudge-position.y,
                         CanvasView.selection.width,
-                        CanvasView.selection.height);
+                        CanvasView.selection.height, CoordinateSpace.Root);
                     return accept;
                 }
                 reject
@@ -411,6 +438,7 @@ export component EditorUi inherits Window {
                 self.nudge-key-held = false;
                 self.write-nudge();
                 self.shift-pressed = false;
+                Snapping.disabled = false;
                 CanvasView.space-pressed = false;
                 CanvasView.panning = false;
             }

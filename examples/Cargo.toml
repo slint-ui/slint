@@ -41,7 +41,7 @@ members = [
 # These keep their own workspace (custom MCU profile, no host build,
 # conflicting board-HAL riscv-rt versions, or - for servo - a conflicting
 # native `links` dependency) and are built separately in CI.
-exclude = ['safe-ui', 'mcu-board-support', 'mcu-embassy', 'uefi-demo', 'servo']
+exclude = ['safe-ui', 'mcu-board-support', 'mcu-embassy', 'mcu-viewer', 'uefi-demo', 'servo']
 
 resolver = "3"
 

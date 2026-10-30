@@ -11,7 +11,7 @@ use super::{
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 use i_slint_core::graphics::{OwnedStorage, StaticTextures};
 use i_slint_core::graphics::{SharedImageBuffer, StaticTexture, TexturePixelFormat};
 use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
@@ -25,6 +25,7 @@ pub struct SceneVectors {
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
     pub box_shadows: Vec<BoxShadowCommand>,
+    pub clips: Vec<ShapeClip>,
 }
 
 pub struct Scene {
@@ -259,6 +260,9 @@ impl Scene {
 
     /// Whether drawing `item` overwrites every pixel it spans on the current line.
     pub fn covers_line(&self, item: &SceneItem) -> bool {
+        if item.clip_len != 0 {
+            return false;
+        }
         match &item.command {
             SceneCommand::Rectangle { color } => color.alpha == 255,
             SceneCommand::Texture { texture_index } => {
@@ -308,6 +312,18 @@ pub struct SceneItem {
     // this is the order of the item from which it is in the item tree
     pub z: u16,
     pub command: SceneCommand,
+    /// Index in [`SceneVectors::clips`] of this item's clip run.
+    /// The item is drawn only inside every shape of the run:
+    /// the rounded `Clip` ancestors whose corners it reaches, and a gradient's own shape.
+    pub clip_start: u16,
+    /// Number of clips in the run; 0 means the item isn't clipped.
+    pub clip_len: u16,
+}
+
+impl SceneItem {
+    pub fn clips<'a>(&self, vectors: &'a SceneVectors) -> &'a [ShapeClip] {
+        &vectors.clips[self.clip_start as usize..][..self.clip_len as usize]
+    }
 }
 
 /// Orders by `y` (top to bottom), then by `z` (front to back).
@@ -497,7 +513,7 @@ pub enum SharedBufferData {
         width: u16,
         sdf: bool,
     },
-    #[cfg(feature = "image-owned-textures")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     Texture {
         textures: alloc::rc::Rc<StaticTextures<OwnedStorage>>,
         texture: StaticTexture,
@@ -509,7 +525,7 @@ impl SharedBufferData {
         match self {
             SharedBufferData::SharedImage(image) => image.width() as usize,
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             SharedBufferData::Texture { texture, .. } => texture.rect.width() as usize,
         }
     }
@@ -519,7 +535,7 @@ impl SharedBufferData {
             SharedBufferData::AlphaMap { data, width, .. } => {
                 data.as_slice().len() / *width as usize
             }
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             SharedBufferData::Texture { texture, .. } => texture.rect.height() as usize,
         }
     }
@@ -592,7 +608,7 @@ impl SharedBufferCommand {
                 },
                 extra: self.extra,
             },
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             SharedBufferData::Texture { textures, texture } => SceneTexture {
                 data: texture_pixels(&textures.data, texture, start..end),
                 pixel_stride: stride as u16,
@@ -629,15 +645,41 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
+/// A rounded shape that clips a command.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct GradientClip {
-    /// A zero radius means no clip.
+pub struct ShapeClip {
     pub shape: RoundedShape,
-    /// The width of the opaque border drawn over the gradient, or 0.
-    /// When set, the gradient is clipped without anti-aliasing to the border's inner edge.
+    /// The width of an opaque border drawn over the command, or 0.
+    /// When set, the command is clipped without anti-aliasing to the border's inner edge.
     /// This keeps it from bleeding through the border's anti-aliased outer edge.
     pub opaque_border: PhysicalLength,
+}
+
+impl ShapeClip {
+    /// Whether a command of `size` reaches into one of the shape's rounded corners.
+    /// Outside of them, the clip has no effect.
+    pub fn touches_corner(&self, size: PhysicalSize) -> bool {
+        let s = &self.shape;
+        let left = s.left_clip.get() as i32;
+        let top = s.top_clip.get() as i32;
+        let right = left + size.width as i32;
+        let bottom = top + size.height as i32;
+        let width = right + s.right_clip.get() as i32;
+        let height = bottom + s.bottom_clip.get() as i32;
+        let touches = |r: i16, x: i32, y: i32| {
+            let r = r as i32;
+            r > 0 && x < right && x + r > left && y < bottom && y + r > top
+        };
+        let r = &s.radius;
+        touches(r.top_left, 0, 0)
+            || touches(r.top_right, width - r.top_right as i32, 0)
+            || touches(
+                r.bottom_right,
+                width - r.bottom_right as i32,
+                height - r.bottom_right as i32,
+            )
+            || touches(r.bottom_left, 0, height - r.bottom_left as i32)
+    }
 }
 
 #[derive(Debug)]
@@ -675,7 +717,6 @@ pub struct LinearGradientCommand {
     pub right_clip: PhysicalLength,
     pub top_clip: PhysicalLength,
     pub bottom_clip: PhysicalLength,
-    pub clip: GradientClip,
 }
 
 pub(crate) type GradientPosition = Fixed<i32, 16>;
@@ -746,7 +787,6 @@ pub struct RadialGradientCommand {
     /// Radii in physical pixels. Always resolved (positive) before command construction.
     pub radius_x: f32,
     pub radius_y: f32,
-    pub clip: GradientClip,
 }
 
 /// Conic gradient that interpolates colors around a center point
@@ -764,7 +804,6 @@ pub struct ConicGradientCommand {
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
-    pub clip: GradientClip,
     /// Clockwise rotation of the whole gradient, in radians.
     pub rotation: f32,
 }
@@ -784,6 +823,8 @@ fn next_line_skipping_a_gap_drops_items_ending_at_the_new_line() {
         size: PhysicalSize::new(10, height),
         z,
         command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+        clip_start: 0,
+        clip_len: 0,
     };
     // Both start inside the gap: the first covers lines 15..20, the second lines 15..21.
     let mut scene =
@@ -823,6 +864,8 @@ fn next_line_keeps_exactly_the_items_on_the_current_line() {
             size: PhysicalSize::new(10, 1 + if z % 5 == 0 { next(120) } else { next(12) }),
             z,
             command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+            clip_start: 0,
+            clip_len: 0,
         })
         .collect();
 
@@ -839,4 +882,41 @@ fn next_line_keeps_exactly_the_items_on_the_current_line() {
         assert_eq!(active, expected, "line {line}");
         scene.next_line();
     }
+}
+
+#[test]
+fn touches_corner() {
+    let clip =
+        |radius: PhysicalBorderRadius, left: i16, top: i16, right: i16, bottom: i16| ShapeClip {
+            shape: RoundedShape {
+                radius,
+                left_clip: Length::new(left),
+                top_clip: Length::new(top),
+                right_clip: Length::new(right),
+                bottom_clip: Length::new(bottom),
+            },
+            opaque_border: PhysicalLength::new(0),
+        };
+    let size = PhysicalSize::new(10, 10);
+    let all = PhysicalBorderRadius::new_uniform(4);
+    // The whole shape.
+    assert!(clip(all, 0, 0, 0, 0).touches_corner(size));
+    // Exactly next to the top-left corner box, and one pixel into it.
+    let top_left = PhysicalBorderRadius::new(4, 0, 0, 0);
+    assert!(!clip(top_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    assert!(clip(top_left, 3, 0, 0, 0).touches_corner(PhysicalSize::new(7, 10)));
+    assert!(!clip(top_left, 0, 4, 0, 0).touches_corner(PhysicalSize::new(10, 6)));
+    // Each other corner on its own.
+    let top_right = PhysicalBorderRadius::new(0, 4, 0, 0);
+    assert!(clip(top_right, 0, 0, 0, 0).touches_corner(size));
+    assert!(!clip(top_right, 0, 0, 4, 0).touches_corner(PhysicalSize::new(6, 10)));
+    let bottom_right = PhysicalBorderRadius::new(0, 0, 4, 0);
+    assert!(!clip(bottom_right, 0, 0, 0, 4).touches_corner(PhysicalSize::new(10, 6)));
+    assert!(clip(bottom_right, 0, 0, 0, 3).touches_corner(PhysicalSize::new(10, 7)));
+    let bottom_left = PhysicalBorderRadius::new(0, 0, 0, 4);
+    assert!(!clip(bottom_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    // A command in the middle touches no corner.
+    assert!(!clip(all, 4, 4, 4, 4).touches_corner(PhysicalSize::new(2, 2)));
+    // Zero radii have no corner at all.
+    assert!(!clip(PhysicalBorderRadius::default(), 0, 0, 0, 0).touches_corner(size));
 }

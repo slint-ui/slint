@@ -135,6 +135,9 @@ The editor compiles the `.slint` file and sends the result to the remote viewer,
 
 `--remote` doesn't take a file path, and can't be combined with `--screenshot` or `--check`.
 
+If a microcontroller runs the Slint viewer firmware and is connected to your computer over USB, the **Remote** dialog lists it too.
+For the supported boards and how to flash the firmware, see [`examples/mcu-viewer`](https://github.com/slint-ui/slint/tree/master/examples/mcu-viewer).
+
 ## Project File
 
 Pass a project directory to load the [project file](../project-file/) (`slint-project.json`) inside it.
@@ -143,9 +146,8 @@ To view a specific `.slint` file with a project root, pass `--project-root <dire
 The viewer loads that directory's project file if it exists and uses the specified `.slint` file, even when the project file sets `main`.
 A `.slint` file without `--project-root` doesn't load a project file.
 Don't combine a project directory input with `--project-root`.
-`-I`, `-L`, and `--style` win over its settings:
-any `-I` replaces the project file's include paths, and any `-L` replaces its library paths.
-Pass `-I ""` or `-L ""` to use no include or library paths at all.
+`--style` and `--edition` win over its settings, while `-I` and `-L` add to its include and library paths,
+as described in [Which Setting Wins](../project-file/#which-setting-wins).
 
 ## Command-Line Options
 
@@ -166,9 +168,10 @@ Run `slint-viewer --help` for the authoritative, always-current list. The common
 | `--no-pairing` | Accept any connection without pairing or encryption. Only for networks you control; the editor warns before each connection to such a viewer. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
 | `--style <style>` | Set the widget style. Wins over the style of the project file. Defaults to `fluent`. |
+| `--edition <edition>` | Set the [edition](../../language/concepts/editions/), such as `1.19`. Wins over the edition of the project file. |
 | `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |
-| `-I <path>` | Add an include path for imported `.slint` files or images. Replaces the include paths of the project file. |
-| `-L <library=path>` | Add a library path for `@library` imports. Replaces the library paths of the project file. |
+| `-I <path>` | Add an include path for imported `.slint` files or images. Comes before the include paths of the project file. |
+| `-L <library=path>` | Add a library path for `@library` imports. Replaces the project file's library of the same name. |
 | `--on <callback> <handler>` | Run a shell command when a callback is invoked. See [Callback Handlers](#callback-handlers). |
 
 Use `-` in place of a file path to read from standard input or write to standard output.
