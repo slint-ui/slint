@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::diagnostics::{ByteFormat, Diagnostic, SourceFileInner, SourceLocation, Span, Spanned};
 use crate::source_path::SourcePath;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -224,13 +225,7 @@ fn project_file_input_error(input: &SourcePath) -> String {
 ///
 /// A directory resolves to the main file specified by its `slint-project.json`.
 /// A source file resolves to itself without loading a project file.
-pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
-    resolve_input_with_diagnostics(input).map_err(|error| error.0)
-}
-
-fn resolve_input_with_diagnostics(
-    input: &Path,
-) -> Result<(PathBuf, Option<ProjectFile>), (String, Option<(String, usize, usize)>)> {
+pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Diagnostic> {
     let input = project_root(input);
     if !input.is_dir() {
         return Ok((input.to_path_buf(), None));
@@ -241,10 +236,16 @@ fn resolve_input_with_diagnostics(
             project_load_error(&SourcePath::new(&project_file_path), error, source)
         })?;
     let entry = project_file.main().ok_or_else(|| {
-        (format!("{} has no 'main' to compile", project_file.source_path()), None)
+        project_error(
+            format!("{} has no 'main' to compile", project_file.source_path()),
+            project_file.source_path(),
+        )
     })?;
     let entry = entry.into_native_path().ok_or_else(|| {
-        (format!("{} must specify a local file for 'main'", project_file.source_path()), None)
+        project_error(
+            format!("{} must specify a local file for 'main'", project_file.source_path()),
+            project_file.source_path(),
+        )
     })?;
     Ok((entry, Some(project_file)))
 }
@@ -252,10 +253,10 @@ fn resolve_input_with_diagnostics(
 async fn load_from_root_with_file_loader(
     root: SourcePath,
     file_loader: Option<&crate::OpenImportCallback>,
-) -> Result<Option<ProjectFile>, (String, Option<(String, usize, usize)>)> {
+) -> Result<Option<ProjectFile>, Diagnostic> {
     let path = root
         .join(FILE_NAME)
-        .ok_or_else(|| (format!("Cannot resolve {FILE_NAME} under {root}"), None))?;
+        .ok_or_else(|| project_error(format!("Cannot resolve {FILE_NAME} under {root}"), &root))?;
     match ProjectFile::load_with_file_loader_and_source(path.clone(), file_loader).await {
         Ok(project_file) => Ok(Some(project_file)),
         Err((error, _))
@@ -269,19 +270,35 @@ async fn load_from_root_with_file_loader(
     }
 }
 
+fn project_error(message: String, path: &SourcePath) -> Diagnostic {
+    Diagnostic::error(
+        message,
+        SourceLocation {
+            source_file: Some(SourceFileInner::from_path_only(path.clone())),
+            span: Span::new(0, 0),
+        },
+    )
+}
+
 fn project_load_error(
     path: &SourcePath,
     error: Box<dyn Error>,
     source: Option<Vec<u8>>,
-) -> (String, Option<(String, usize, usize)>) {
-    let position = error.downcast_ref::<serde_json::Error>().and_then(|error| {
+) -> Diagnostic {
+    let message = format!("Cannot load {path}: {error}");
+    let location = error.downcast_ref::<serde_json::Error>().and_then(|error| {
         let source = String::from_utf8(source?).ok()?;
         if error.line() == 0 {
             return None;
         }
-        Some((source, error.line(), error.column()))
+        let source_file = std::sync::Arc::new(SourceFileInner::new(path.clone(), source));
+        let offset = source_file.offset(error.line(), error.column(), ByteFormat::Utf8);
+        Some(SourceLocation { source_file: Some(source_file), span: Span::new(offset, 0) })
     });
-    (format!("Cannot load {path}: {error}"), position)
+    match location {
+        Some(location) => Diagnostic::error(message, location),
+        None => project_error(message, path),
+    }
 }
 
 /// The root file to compile for an input, see [`load_input()`].
@@ -325,20 +342,13 @@ pub async fn load_input(
     let resolved = if input.file_name() == Some(FILE_NAME)
         && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
     {
-        Err((project_file_input_error(input), input.clone(), None))
+        Err(project_error(project_file_input_error(input), input))
     } else if let Some(root) = project_root {
-        let project_path = root.join(FILE_NAME).unwrap_or_else(|| root.clone());
         load_from_root_with_file_loader(root, Some(&file_loader))
             .await
             .map(|project_file| (input.clone(), project_file))
-            .map_err(|(message, position)| (message, project_path, position))
     } else if let Some(path) = input.as_native_path().filter(|_| source_code.is_none()) {
-        resolve_input_with_diagnostics(path)
-            .map(|(source, project_file)| (SourcePath::new(source), project_file))
-            .map_err(|(message, position)| {
-                let path = if path.is_dir() { path.join(FILE_NAME) } else { path.to_path_buf() };
-                (message, SourcePath::new(path), position)
-            })
+        resolve_input(path).map(|(source, project_file)| (SourcePath::new(source), project_file))
     } else {
         Ok((input.clone(), None))
     };
@@ -356,25 +366,12 @@ pub async fn load_input(
         None
     };
     let loaded = match resolved {
-        Err((message, path, position)) => {
-            if let Some((source, line, column)) = position {
-                let source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
-                    path.clone(),
-                    source,
-                ));
-                let offset = source_file.offset(line, column, crate::diagnostics::ByteFormat::Utf8);
-                diagnostics.push_error_with_span(
-                    message,
-                    crate::diagnostics::SourceLocation {
-                        source_file: Some(source_file),
-                        span: crate::diagnostics::Span::new(offset, 0),
-                    },
-                );
-                attempted_paths.borrow_mut().push(path);
-                None
-            } else {
-                error(message, &path, crate::diagnostics::Span::new(0, 0))
+        Err(diagnostic) => {
+            if let Some(source_file) = Spanned::source_file(&diagnostic) {
+                attempted_paths.borrow_mut().push(source_file.path().clone());
             }
+            diagnostics.push_compiler_error(diagnostic);
+            None
         }
         Ok((source, project_file)) => {
             if let Some(project_file) = &project_file {
@@ -1356,7 +1353,7 @@ mod tests {
     fn a_project_directory_without_a_main_file_is_an_error() {
         with_project_file_contents(r#"{"edition":"1.19"}"#, |path| {
             let error = resolve_input(path.parent().unwrap()).unwrap_err();
-            assert!(error.contains("'main'"), "{error}");
+            assert!(error.message().contains("'main'"), "{error}");
         });
     }
 
@@ -1385,7 +1382,9 @@ mod tests {
             let nested_directory = path.parent().unwrap().join("nested");
             fs::create_dir_all(&nested_directory).unwrap();
             let error = resolve_input(&nested_directory).unwrap_err();
-            assert!(error.contains(&nested_directory.join(FILE_NAME).display().to_string()));
+            assert!(
+                error.message().contains(&nested_directory.join(FILE_NAME).display().to_string())
+            );
             fs::remove_dir_all(&nested_directory).unwrap();
         });
     }
@@ -1396,7 +1395,7 @@ mod tests {
             r#"{ "edition": "1.19", "main": "https://example.com/main.slint" }"#,
             |path| {
                 assert_eq!(
-                    resolve_input(path.parent().unwrap()).unwrap_err(),
+                    resolve_input(path.parent().unwrap()).unwrap_err().message(),
                     format!("{} must specify a local file for 'main'", SourcePath::new(path))
                 );
             },
