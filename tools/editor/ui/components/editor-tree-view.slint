@@ -39,7 +39,7 @@ component EditorTreeRow {
     callback drag-started();
     callback row-hover-changed(int, bool);
     callback expanded-changed(int, bool);
-    callback add-tab-requested(string, int);
+    callback add-child-requested(string, int);
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -57,7 +57,11 @@ component EditorTreeRow {
     property <length> gap-height: root.gap-before || root.gap-after ? Metrics.outline-row-height : 0px;
     property <length> content-y: root.gap-before ? root.gap-height : 0px;
     property <image> row-icon: ElementVisuals.for-kind(node.icon-kind).icon;
-    property <bool> show-add-tab: root.current && root.node.element-type == "TabWidget";
+    property <string> add-child-label: !root.current ? ""
+        : root.node.element-type == "TabWidget" ? @tr("Add Tab")
+        : root.node.element-type == "RadioGroup" ? @tr("Add Radio Button")
+        : "";
+    property <bool> show-add-child: root.add-child-label != "";
 
     height: Metrics.outline-row-height + root.gap-height;
     vertical-stretch: 0;
@@ -342,28 +346,28 @@ component EditorTreeRow {
                             }
                         }
 
-                        if root.show-add-tab: Rectangle {
+                        if root.show-add-child: Rectangle {
                             width: root.style.row.hit-size;
                         }
                     }
 
-                    if root.show-add-tab: Rectangle {
+                    if root.show-add-child: Rectangle {
                         x: parent.width - self.width - root.style.row.padding-inline;
                         y: root.content-y + (Metrics.outline-row-height - self.height) / 2;
                         width: root.style.row.hit-size;
                         height: root.style.row.hit-size;
                         border-radius: root.style.row.radius;
-                        background: add-tab-touch.has-hover ? root.style.row.hover-background : transparent;
+                        background: add-child-touch.has-hover ? root.style.row.hover-background : transparent;
                         accessible-role: AccessibleRole.button;
-                        accessible-label: @tr("Add Tab");
+                        accessible-label: root.add-child-label;
                         accessible-action-default => {
-                            root.add-tab-requested(root.node.uri, root.node.offset);
+                            root.add-child-requested(root.node.uri, root.node.offset);
                         }
 
-                        add-tab-touch := TouchArea {
+                        add-child-touch := TouchArea {
                             mouse-cursor: pointer;
                             clicked => {
-                                root.add-tab-requested(root.node.uri, root.node.offset);
+                                root.add-child-requested(root.node.uri, root.node.offset);
                             }
                         }
 
@@ -375,7 +379,7 @@ component EditorTreeRow {
                         }
 
                         Tooltip {
-                            text: @markdown("\{@tr("Add Tab")}");
+                            text: @markdown("\{root.add-child-label}");
                         }
                     }
 
@@ -427,7 +431,7 @@ export component EditorTreeView inherits FocusScope {
     callback row-current-requested(string, int);
     callback drag-started();
     callback row-expanded-changed(int, bool);
-    callback row-add-tab-requested(string, int);
+    callback row-add-child-requested(string, int);
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list;
@@ -536,8 +540,8 @@ export component EditorTreeView inherits FocusScope {
             expanded-changed(row-index, expanded) => {
                 root.row-expanded-changed(row-index, expanded);
             }
-            add-tab-requested(uri, offset) => {
-                root.row-add-tab-requested(uri, offset);
+            add-child-requested(uri, offset) => {
+                root.row-add-child-requested(uri, offset);
             }
         }
     }
