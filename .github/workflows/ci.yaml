@@ -89,16 +89,9 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                include:
-                    - name: Rust and UI on macOS
-                      os: macos-14
-                      run_ui_tests: true
-                    - name: Rust and UI on Linux
-                      os: ubuntu-22.04
-                      run_ui_tests: true
-                    - name: Rust on Windows
-                      os: windows-2022
-                      run_ui_tests: false
+                include: ${{ fromJSON(inputs.full
+                    && '[{"name":"Rust and UI on macOS","os":"macos-14","run_ui_tests":true},{"name":"Rust and UI on Linux","os":"ubuntu-22.04","run_ui_tests":true},{"name":"Rust on Windows","os":"windows-2022","run_ui_tests":false}]'
+                    || '[{"name":"Rust and UI on Linux","os":"ubuntu-22.04","run_ui_tests":true}]') }}
         runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         permissions:
