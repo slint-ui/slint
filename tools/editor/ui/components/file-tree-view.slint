@@ -98,6 +98,16 @@ component FileTreeRow inherits Rectangle {
         }
     }
 
+    function open-in-file-manager-name() -> string {
+        if (Platform.os == OperatingSystemType.macos) {
+            return @tr("Reveal in Finder");
+        }
+        if (Platform.os == OperatingSystemType.windows) {
+            return @tr("Reveal in File Explorer");
+        }
+        return @tr("Open Containing Folder");
+    }
+
     row-focus := FocusScope {
         focus-on-click: false;
 
@@ -273,6 +283,11 @@ component FileTreeRow inherits Rectangle {
                 title: @tr("Open Slint File");
                 enabled: root.node.is-slint-file;
                 activated => { Api.open-file(root.node.path); }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: open-in-file-manager-name();
+                activated => { Api.open-file-manager(root.node.path); }
             }
         }
 

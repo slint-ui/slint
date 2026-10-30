@@ -144,6 +144,101 @@ fn open_with_default_application(path: &Path) {
     }
 }
 
+/// Shows `path` selected in the system file manager.
+pub(super) fn open_file_manager(
+    path: &Path,
+    #[cfg_attr(not(target_os = "linux"), expect(unused_variables))] window: &slint::Window,
+) {
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "windows")] {
+            use std::os::windows::process::CommandExt as _;
+            // explorer.exe doesn't follow the usual quoting rules for `/select,`.
+            let result = std::process::Command::new("explorer")
+                .raw_arg(format!("/select,\"{}\"", dunce::simplified(path).display()))
+                .spawn();
+        } else if #[cfg(target_os = "macos")] {
+            let result = std::process::Command::new("open").arg("-R").arg(path).spawn();
+        } else if #[cfg(target_os = "linux")] {
+            open_directory_with_activation_token(path, window);
+            let result = std::io::Result::Ok(());
+        } else {
+            open_parent_directory(path);
+            let result = std::io::Result::Ok(());
+        }
+    }
+
+    if let Err(err) = result {
+        tracing::warn!("Failed to show {} in the file manager: {err}", path.display());
+    }
+}
+
+/// Wayland compositors only let the file manager take focus with an activation token from this window.
+/// winit delivers the token asynchronously as `WindowEvent::ActivationTokenDone`.
+#[cfg(target_os = "linux")]
+fn open_directory_with_activation_token(path: &Path, window: &slint::Window) {
+    use slint::winit_030::{EventResult, WinitWindowAccessor as _, winit};
+    use winit::platform::startup_notify::WindowExtStartupNotify as _;
+
+    let Some(serial) =
+        window.with_winit_window(|window| window.request_activation_token().ok()).flatten()
+    else {
+        open_directory(path, None);
+        return;
+    };
+    let mut path = Some(path.to_path_buf());
+    window.on_winit_window_event(move |_, event| {
+        if let winit::event::WindowEvent::ActivationTokenDone { serial: done, token } = event
+            && *done == serial
+            && let Some(path) = path.take()
+        {
+            open_directory(&path, Some(token.clone().into_raw()));
+        }
+        EventResult::Propagate
+    });
+}
+
+#[cfg(target_os = "linux")]
+fn open_directory(path: &Path, activation_token: Option<String>) {
+    let path = path.to_path_buf();
+    std::thread::spawn(move || {
+        if let Err(err) = open_directory_portal(&path, activation_token) {
+            tracing::debug!("OpenDirectory portal failed: {err}");
+            open_parent_directory(&path);
+        }
+    });
+}
+
+/// `org.freedesktop.portal.OpenURI.OpenDirectory` opens the file manager with the file selected,
+/// both inside and outside a Flatpak sandbox.
+#[cfg(target_os = "linux")]
+fn open_directory_portal(
+    path: &Path,
+    activation_token: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::os::fd::AsFd as _;
+    let file = std::fs::File::open(path)?;
+    let mut options: std::collections::HashMap<&str, zbus::zvariant::Value> = Default::default();
+    if let Some(token) = activation_token {
+        options.insert("activation_token", token.into());
+    }
+    zbus::blocking::Connection::session()?.call_method(
+        Some("org.freedesktop.portal.Desktop"),
+        "/org/freedesktop/portal/desktop",
+        Some("org.freedesktop.portal.OpenURI"),
+        "OpenDirectory",
+        &("", zbus::zvariant::Fd::from(file.as_fd()), options),
+    )?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn open_parent_directory(path: &Path) {
+    let directory = if path.is_dir() { path } else { path.parent().unwrap_or(path) };
+    if let Err(err) = std::process::Command::new("xdg-open").arg(directory).spawn() {
+        tracing::warn!("Failed to open {}: {err}", directory.display());
+    }
+}
+
 pub(in crate::preview) struct FileTreeController {
     root: PathBuf,
     expanded: HashSet<PathBuf>,
