@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, PropertyValue } from "../../../api.slint";
+import { Api } from "../../../api.slint";
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
 import { InspectorComboBox, InspectorEditableField, InspectorEnumOptions, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
@@ -10,11 +10,7 @@ export component InspectorTypographySection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
     in property <length> popup-bottom;
-    private property <PropertyValue> runtime-italic: Api.runtime-property-value-data("font-italic", {});
-    private property <PropertyValue> source-italic: Api.source-property-value-data("font-italic", {});
-    private property <bool> italic: root.runtime-italic.value-resolved
-        ? root.runtime-italic.value-bool
-        : root.source-italic.code != "" && root.source-italic.value-bool;
+    private property <bool> italic: Api.editor-property-value-data("font-italic").value-bool;
 
     title: @tr("Typography");
 

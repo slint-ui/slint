@@ -8,7 +8,7 @@ import { InspectorColorValueField } from "color-value-field.slint";
 import { InputSurface } from "../input-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
-import { Api, BrushKind, ColorFieldData, ColorFieldMode } from "../../api.slint";
+import { Api, BrushKind, ColorFieldData, ColorFieldMode, FillData } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
@@ -27,6 +27,7 @@ export component InspectorColorField inherits Rectangle {
     in property <float> element-rotation;
     callback accepted(string) -> bool;
     private property <ColorFieldData> data: Api.source-color-field-data(root.property-name);
+    private property <FillData> swatch-fill: Api.brush-fill(root.swatch);
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
     private property <bool> is-gradient: root.data.mode == ColorFieldMode.gradient;
 
@@ -38,6 +39,7 @@ export component InspectorColorField inherits Rectangle {
         style: root.style;
         accessible-name: root.accessible-name;
         value: root.data.fill.color;
+        swatch-visible: false;
         width: parent.width;
         commit-key: root.commit-key;
         accepted(color, expression) => { return root.accepted(expression); }
@@ -94,7 +96,7 @@ export component InspectorColorField inherits Rectangle {
     }
 
     swatch-focus := FocusScope {
-        visible: !root.is-literal-color;
+        enabled: !root.is-literal-color;
         x: root.style.field.padding-inline;
         width: root.style.swatch-size;
         height: parent.height;
@@ -118,18 +120,18 @@ export component InspectorColorField inherits Rectangle {
             border-radius: self.width / 2;
             clip: true;
 
-            if root.data.fill.kind == BrushKind.solid: ColorIndicator {
+            if root.swatch-fill.kind == BrushKind.solid: ColorIndicator {
                 width: parent.width;
                 height: parent.height;
                 border-radius: parent.border-radius;
                 border-width: Metrics.border-width;
                 outline-color: root.style.swatch-border;
-                color: root.data.fill.color;
+                color: root.swatch-fill.color;
                 checker-light: root.style.checker.light;
                 checker-dark: root.style.checker.dark;
             }
 
-            if root.data.fill.kind != BrushKind.solid: Rectangle {
+            if root.swatch-fill.kind != BrushKind.solid: Rectangle {
                 background: root.swatch;
                 border-radius: parent.border-radius;
                 border-width: Metrics.border-width;
@@ -138,6 +140,7 @@ export component InspectorColorField inherits Rectangle {
         }
 
         TouchArea {
+            visible: !root.is-literal-color;
             accessible-role: AccessibleRole.button;
             accessible-label: @tr("{} color picker", root.accessible-name);
             clicked => {

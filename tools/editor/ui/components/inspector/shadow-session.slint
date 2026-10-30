@@ -48,7 +48,12 @@ export global ShadowSession {
         blur: Api.number-property(prefix + "blur", 16),
         spread: Api.number-property(prefix + "spread", 0),
     };
-    out property <ShadowValues> values: dragging ? draft : source-values;
+    out property <ShadowValues> values: dragging ? draft : {
+        offset-x: Api.editor-number-property(prefix + "offset-x", 0),
+        offset-y: Api.editor-number-property(prefix + "offset-y", 8),
+        blur: Api.editor-number-property(prefix + "blur", 16),
+        spread: Api.editor-number-property(prefix + "spread", 0),
+    };
     out property <Point> anchor-position;
     out property <Size> anchor-size;
     out property <int> opening-generation;

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
-import { Api, PropertyValue } from "../../../api.slint";
+import { Api } from "../../../api.slint";
 import { InspectorColorField, InspectorCornerEditor, InspectorSection } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
@@ -31,10 +31,9 @@ export component InspectorAppearanceSection inherits InspectorSection {
         }
 
         if InspectorContext.is-root-selection(): InspectorColorField {
-            property <PropertyValue> background-value: Api.runtime-property-value-data("background", {});
             accessible-name: @tr("Root background");
             value: Api.source-property-value("background", "");
-            swatch: background-value.value-resolved ? background-value.value-brush : transparent;
+            swatch: InspectorContext.property-brush("background");
             commit-key: InspectorContext.field-key("background");
             preview-key: InspectorContext.field-key("background");
             session-key: InspectorContext.fill-session-key("background");

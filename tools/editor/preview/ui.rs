@@ -73,6 +73,7 @@ pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui() -> Result<EditorUi, PlatformError> {
     let ui = EditorUi::new()?;
+    brushes::setup(&ui.global::<Api>());
     let weak = ui.as_weak();
     ui.global::<Api>().on_window_active(move || {
         weak.upgrade()
@@ -324,7 +325,6 @@ pub fn initialize_editor(
 
     api.on_string_to_code(string_to_code);
 
-    brushes::setup(&api);
     diagnostics::setup(&editor_ui.global::<Diagnostics>());
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
@@ -1608,7 +1608,27 @@ mod tests {
                 value_float: 28.,
                 ..Default::default()
             });
+            api.on_hooked_property_value_data(|_, fallback| fallback);
             assert_eq!(api.invoke_number_property("drop-shadow-blur".into(), 16.), expected);
+            assert_eq!(api.invoke_editor_number_property("drop-shadow-blur".into(), 16.), expected);
+            api.on_hooked_property_value_data(|name, fallback| {
+                if name == "drop-shadow-blur" {
+                    PropertyValue {
+                        value_float: 42.,
+                        value_kind: PropertyValueKind::Float,
+                        value_resolved: true,
+                        ..Default::default()
+                    }
+                } else {
+                    fallback
+                }
+            });
+            assert_eq!(api.invoke_number_property("drop-shadow-blur".into(), 16.), expected);
+            assert_eq!(api.invoke_editor_number_property("drop-shadow-blur".into(), 16.), 42.);
+            assert_eq!(
+                api.invoke_editor_number_property("inner-shadow-blur".into(), 16.),
+                expected
+            );
         }
     }
 
@@ -1768,6 +1788,19 @@ mod tests {
                 let editor = shadow_test_editor(inner);
                 let api = editor.global::<super::Api>();
                 let session = editor.global::<super::ShadowSession>();
+                api.on_hooked_property_value_data(|name, fallback| {
+                    if name.ends_with("offset-x") {
+                        PropertyValue {
+                            value_float: 44.,
+                            value_kind: PropertyValueKind::Float,
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                assert_eq!(session.get_values().offset_x, 44.);
                 api.on_inspector_commit_shadow(move |_, _| accepted);
                 session.invoke_start(super::ShadowGesture::Offset, false);
                 let mut draft = session.get_values();
@@ -2351,59 +2384,270 @@ mod tests {
     }
 
     #[test]
-    fn enabled_switch_reads_source_when_runtime_value_is_unresolved() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        editor
-            .global::<super::Diagnostics>()
-            .set_preview_availability(super::PreviewAvailability::Current);
-        let mut element = api.get_current_element();
-        element.type_name = "Button".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        connect_has_property(&api);
-        set_test_properties(&api, &["enabled"]);
-        editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (source, runtime, expected) in [
-            (None, None, true),
-            (Some(false), None, false),
-            (Some(true), None, true),
-            (Some(false), Some(true), true),
-            (None, Some(false), false),
+    fn brush_editors_prefer_hooks_and_source_with_only_unset_style_defaults_using_runtime() {
+        use i_slint_backend_testing::{TestingBackend, TestingBackendOptions};
+
+        slint::platform::set_platform(Box::new(TestingBackend::new(TestingBackendOptions {
+            renderer_name: Some("software".into()),
+            mock_time: true,
+            ..Default::default()
+        })))
+        .unwrap();
+        for (type_name, property_name, label, style_default) in [
+            ("Window", "background", "Root background", true),
+            ("Text", "color", "Text color", true),
+            ("Rectangle", "background", "Rectangle background", false),
+            ("Rectangle", "border-color", "Border color", false),
         ] {
-            api.on_source_property_value_data(move |name, _| match source {
-                Some(value) if name == "enabled" => PropertyValue {
-                    code: value.to_shared_string(),
-                    kind: PropertyValueKind::Boolean,
-                    value_kind: PropertyValueKind::Boolean,
-                    value_bool: value,
-                    ..Default::default()
-                },
-                _ => PropertyValue::default(),
+            let editor = super::create_ui().unwrap();
+            let api = editor.global::<super::Api>();
+            api.on_highlight_positions(|_, _| {
+                std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
             });
-            api.on_runtime_property_value_data(move |name, fallback| match runtime {
-                Some(value) if name == "enabled" => {
-                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
-                }
-                _ => fallback,
-            });
-            api.set_inspector_generation(api.get_inspector_generation() + 1);
-            let mut element = api.get_current_element();
-            element.offset += 1;
-            api.set_current_element(element);
-            slint::platform::update_timers_and_animations();
-            assert_eq!(
-                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
-                    &editor, "Enabled"
+            let editor_weak = editor.as_weak();
+            api.on_source_color_field_data(move |name| {
+                super::brushes::color_field_data(
+                    editor_weak
+                        .unwrap()
+                        .global::<super::Api>()
+                        .invoke_source_property_value_data(name, Default::default()),
                 )
-                .find_map(|element| element.accessible_checked()),
-                Some(expected),
-                "source: {source:?}, runtime: {runtime:?}"
-            );
+            });
+            api.set_current_element(super::ElementInformation {
+                id: if type_name == "Window" { "root" } else { "selected" }.into(),
+                type_name: type_name.into(),
+                ..Default::default()
+            });
+            api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+            let green = slint::Brush::SolidColor(slint::Color::from_rgb_u8(0, 255, 0));
+            let gradient =
+                slint::Brush::LinearGradient(i_slint_core::graphics::LinearGradientBrush::new(
+                    90.,
+                    [
+                        i_slint_core::graphics::GradientStop {
+                            position: 0.,
+                            color: slint::Color::from_rgb_u8(255, 0, 0),
+                        },
+                        i_slint_core::graphics::GradientStop {
+                            position: 1.,
+                            color: slint::Color::from_rgb_u8(0, 0, 255),
+                        },
+                    ],
+                ));
+            let mut transparent_pixel = None;
+            for (code, resolved, runtime, hooked, expected) in [
+                ("", false, false, None, None),
+                ("", false, true, None, style_default.then_some([0, 0, 255])),
+                ("root.paint", true, true, None, Some([255, 0, 0])),
+                ("root.unknown", false, true, None, None),
+                ("", true, true, None, Some([255, 0, 0])),
+                ("", false, true, Some(green.clone()), Some([0, 255, 0])),
+                ("root.paint", true, true, Some(green.clone()), Some([0, 255, 0])),
+                ("#ff0000", true, true, Some(green.clone()), Some([0, 255, 0])),
+                ("@linear-gradient(90deg, red, red)", true, true, None, Some([255, 0, 0])),
+                (
+                    "@linear-gradient(90deg, red, red)",
+                    true,
+                    true,
+                    Some(green.clone()),
+                    Some([0, 255, 0]),
+                ),
+                ("#ff0000", true, true, Some(gradient.clone()), None),
+            ] {
+                api.on_source_property_value_data(move |name, fallback| {
+                    if name == property_name {
+                        let brush: slint::Brush = if code.starts_with('@') {
+                            slint::Brush::LinearGradient(
+                                i_slint_core::graphics::LinearGradientBrush::new(
+                                    90.,
+                                    [
+                                        i_slint_core::graphics::GradientStop {
+                                            position: 0.,
+                                            color: slint::Color::from_rgb_u8(255, 0, 0),
+                                        },
+                                        i_slint_core::graphics::GradientStop {
+                                            position: 1.,
+                                            color: slint::Color::from_rgb_u8(255, 0, 0),
+                                        },
+                                    ],
+                                ),
+                            )
+                        } else if resolved {
+                            slint::Color::from_rgb_u8(255, 0, 0).into()
+                        } else {
+                            slint::Brush::default()
+                        };
+                        PropertyValue {
+                            code: code.into(),
+                            kind: if code.is_empty()
+                                || code.starts_with('#')
+                                || code.starts_with('@')
+                            {
+                                PropertyValueKind::Brush
+                            } else {
+                                PropertyValueKind::Code
+                            },
+                            value_kind: PropertyValueKind::Brush,
+                            fill: super::brushes::fill_from_brush(brush.clone()).unwrap(),
+                            value_brush: brush,
+                            value_resolved: resolved,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                api.on_runtime_property_value_data(move |name, fallback| {
+                    if runtime && name == property_name {
+                        PropertyValue {
+                            value_brush: slint::Color::from_rgb_u8(0, 0, 255).into(),
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                let hook_value = hooked.clone();
+                api.on_hooked_property_value_data(move |name, fallback| {
+                    if let Some(brush) = &hook_value
+                        && name == property_name
+                    {
+                        PropertyValue {
+                            value_brush: brush.clone(),
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                api.set_current_element(super::ElementInformation {
+                    offset: api.get_current_element().offset + 1,
+                    ..api.get_current_element()
+                });
+                slint::platform::update_timers_and_animations();
+                let field = find_element(&editor, &format!("{label} color picker"));
+                let field_center = field.absolute_position().y + field.size().height / 2.;
+                let swatch = i_slint_backend_testing::ElementHandle::find_by_element_id(
+                    &editor,
+                    "InspectorColorField::swatch-circle",
+                )
+                .find(|swatch| {
+                    (swatch.absolute_position().y + swatch.size().height / 2. - field_center).abs()
+                        < 1.
+                })
+                .expect("field swatch");
+                let position = swatch.absolute_position();
+                let snapshot = editor.window().take_snapshot().unwrap();
+                let pixel = snapshot.as_slice()[(position.y + swatch.size().height / 2.) as usize
+                    * snapshot.width() as usize
+                    + (position.x + swatch.size().width * 0.75) as usize];
+                let actual = [pixel.r, pixel.g, pixel.b];
+                let background = *transparent_pixel.get_or_insert(actual);
+                if matches!(hooked, Some(slint::Brush::LinearGradient(_))) {
+                    let left = snapshot.as_slice()[(position.y + swatch.size().height / 2.)
+                        as usize
+                        * snapshot.width() as usize
+                        + (position.x + swatch.size().width * 0.25) as usize];
+                    assert!(left.r > pixel.r && left.b < pixel.b, "{label}: gradient swatch");
+                } else {
+                    assert_eq!(
+                        actual,
+                        expected.unwrap_or(background),
+                        "{label}: code={code}, resolved={resolved}, runtime={runtime}, hooked={hooked:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn boolean_property_editors_prefer_hooks_then_source_over_runtime() {
+        i_slint_backend_testing::init_no_event_loop();
+        for (property_name, type_name, label, default) in [
+            ("enabled", "Button", "Enabled", true),
+            ("read-only", "LineEdit", "Read-only", false),
+            ("checked", "CheckBox", "Checked", false),
+            ("indeterminate", "ProgressIndicator", "Indeterminate", false),
+            ("font-italic", "Text", "Italic", false),
+            ("checkable", "Button", "Checked", false),
+        ] {
+            let editor = super::create_ui().unwrap();
+            let api = editor.global::<super::Api>();
+            api.on_highlight_positions(|_, _| {
+                std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
+            });
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            api.set_current_element(super::ElementInformation {
+                type_name: type_name.into(),
+                ..Default::default()
+            });
+            api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+            for (source, runtime, hooked, expected) in [
+                (None, None, None, default),
+                (None, Some(!default), None, default),
+                (Some(false), Some(true), None, false),
+                (Some(true), Some(false), None, true),
+                (Some(false), Some(false), Some(true), true),
+                (Some(true), Some(true), Some(false), false),
+            ] {
+                api.on_source_property_value_data(move |name, fallback| {
+                    if name == property_name {
+                        PropertyValue {
+                            code: source.map(|value| value.to_shared_string()).unwrap_or_default(),
+                            kind: PropertyValueKind::Boolean,
+                            value_kind: PropertyValueKind::Boolean,
+                            value_bool: source.unwrap_or(default),
+                            value_resolved: true,
+                            ..Default::default()
+                        }
+                    } else {
+                        fallback
+                    }
+                });
+                api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                    Some(value) if name == property_name => PropertyValue {
+                        value_resolved: true,
+                        value_bool: value,
+                        ..Default::default()
+                    },
+                    _ => fallback,
+                });
+                api.on_hooked_property_value_data(move |name, fallback| match hooked {
+                    Some(value) if name == property_name => PropertyValue {
+                        value_resolved: true,
+                        value_bool: value,
+                        ..Default::default()
+                    },
+                    _ => fallback,
+                });
+                api.set_inspector_generation(api.get_inspector_generation() + 1);
+                api.set_current_element(super::ElementInformation {
+                    offset: api.get_current_element().offset + 1,
+                    ..api.get_current_element()
+                });
+                slint::platform::update_timers_and_animations();
+                let mut controls = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, label,
+                );
+                let actual = if property_name == "checkable" {
+                    Some(controls.next().is_some())
+                } else {
+                    controls.find_map(|element| element.accessible_checked())
+                };
+                assert_eq!(
+                    actual,
+                    Some(expected),
+                    "{property_name}: source={source:?}, runtime={runtime:?}, hooked={hooked:?}"
+                );
+            }
         }
     }
 
@@ -2605,64 +2849,6 @@ mod tests {
     }
 
     #[test]
-    fn read_only_switch_reads_source_when_runtime_value_is_unresolved() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        editor
-            .global::<super::Diagnostics>()
-            .set_preview_availability(super::PreviewAvailability::Current);
-        let mut element = api.get_current_element();
-        element.type_name = "LineEdit".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        connect_has_property(&api);
-        set_test_properties(&api, &["enabled", "read-only"]);
-        editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (source, runtime, expected) in [
-            (None, None, false),
-            (Some(true), None, true),
-            (Some(false), None, false),
-            (Some(true), Some(false), false),
-            (None, Some(true), true),
-        ] {
-            api.on_source_property_value_data(move |name, _| match source {
-                Some(value) if name == "read-only" => PropertyValue {
-                    code: value.to_shared_string(),
-                    kind: PropertyValueKind::Boolean,
-                    value_kind: PropertyValueKind::Boolean,
-                    value_bool: value,
-                    ..Default::default()
-                },
-                _ => PropertyValue::default(),
-            });
-            api.on_runtime_property_value_data(move |name, fallback| match runtime {
-                Some(value) if name == "read-only" => {
-                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
-                }
-                _ => fallback,
-            });
-            api.set_inspector_generation(api.get_inspector_generation() + 1);
-            let mut element = api.get_current_element();
-            element.offset += 1;
-            api.set_current_element(element);
-            slint::platform::update_timers_and_animations();
-            assert_eq!(
-                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
-                    &editor,
-                    "Read-only"
-                )
-                .find_map(|element| element.accessible_checked()),
-                Some(expected),
-                "source: {source:?}, runtime: {runtime:?}"
-            );
-        }
-    }
-
-    #[test]
     fn read_only_switch_commits_code_binding() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -2816,61 +3002,6 @@ mod tests {
                 .is_some(),
                 expected,
                 "{type_name}"
-            );
-        }
-    }
-
-    #[test]
-    fn checked_switch_reads_source_when_runtime_value_is_unresolved() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        editor
-            .global::<super::Diagnostics>()
-            .set_preview_availability(super::PreviewAvailability::Current);
-        let mut element = api.get_current_element();
-        element.type_name = "CheckBox".into();
-        api.set_current_element(element);
-        let mut selection = api.get_selection();
-        selection.highlight_index = 0;
-        api.set_selection(selection);
-        editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (source, runtime, expected) in [
-            (None, None, false),
-            (Some(false), None, false),
-            (Some(true), None, true),
-            (Some(false), Some(true), true),
-            (Some(true), Some(false), false),
-        ] {
-            api.on_source_property_value_data(move |name, _| match source {
-                Some(value) if name == "checked" => PropertyValue {
-                    code: value.to_shared_string(),
-                    kind: PropertyValueKind::Boolean,
-                    value_kind: PropertyValueKind::Boolean,
-                    value_bool: value,
-                    ..Default::default()
-                },
-                _ => PropertyValue::default(),
-            });
-            api.on_runtime_property_value_data(move |name, fallback| match runtime {
-                Some(value) if name == "checked" => {
-                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
-                }
-                _ => fallback,
-            });
-            api.set_inspector_generation(api.get_inspector_generation() + 1);
-            let mut element = api.get_current_element();
-            element.offset += 1;
-            api.set_current_element(element);
-            slint::platform::update_timers_and_animations();
-            assert_eq!(
-                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
-                    &editor, "Checked"
-                )
-                .find_map(|element| element.accessible_checked()),
-                Some(expected),
-                "source: {source:?}, runtime: {runtime:?}"
             );
         }
     }
