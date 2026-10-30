@@ -384,9 +384,9 @@ export component AppWindow inherits Window {
 4. Run the [slint-compiler](https://pypi.org/project/slint-compiler/) to generate `app_window.py`:
     `uvx slint-compiler -f python -o app_window.py app-window.slint`
 
-    If your `slint-project.json` sets `"main": "app-window.slint"`, pass the project directory instead:
-    `uvx slint-compiler -f python -o app_window.py .`.
-    The generated module then loads that project directory at run time, too.
+    If your `slint-project.json` sets `"main": "app-window.slint"`, pass the project file or its directory:
+    `uvx slint-compiler -f python -o app_window.py slint-project.json`.
+    The generated module loads that project at run time, too.
 
 5. Create a file called `main.py`:
 

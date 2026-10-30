@@ -75,7 +75,7 @@ struct Cli {
     #[arg(short = 'L', value_name = "library=path", number_of_values = 1, action)]
     library_paths: Option<Vec<String>>,
 
-    /// The .slint file to load ('-' for stdin)
+    /// The .slint file, project directory, or slint-project.json file to load ('-' for stdin)
     #[arg(name = "path", action, required_unless_present = "remote")]
     path: Option<std::path::PathBuf>,
 
@@ -83,7 +83,7 @@ struct Cli {
         short = 'p',
         long,
         requires = "path",
-        help = "Load project settings from this directory"
+        help = "Load project settings from a directory or slint-project.json file"
     )]
     project_root: Option<std::path::PathBuf>,
 
