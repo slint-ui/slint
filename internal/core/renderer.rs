@@ -366,6 +366,7 @@ pub trait RendererSealed {
 
     /// Like [`Self::register_bitmap_font`], for a font that the renderer keeps until its
     /// last owner drops it.
+    #[cfg(feature = "owned-pre-rendered-resources")]
     fn register_shared_bitmap_font(
         &self,
         _font: &Rc<crate::graphics::BitmapFont<crate::graphics::OwnedStorage>>,

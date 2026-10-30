@@ -26,8 +26,8 @@ slint-interpreter = { path = "../../internal/interpreter", default-features = fa
 i-slint-compiler = { path = "../../internal/compiler", default-features = false, features = ["serde"] }
 i-slint-core = { path = "../../internal/core", default-features = false }
 i-slint-live-preview = { path = "../../internal/live-preview", default-features = false, features = ["serial"] }
-# The interpreter keeps the pre-rendered textures as the compiler made them, which the renderer must draw.
-i-slint-renderer-software = { path = "../../internal/renderers/software", default-features = false, features = ["image-owned-textures"] }
+# The interpreter keeps the pre-rendered textures and fonts as the compiler made them, which the renderer must draw.
+i-slint-renderer-software = { path = "../../internal/renderers/software", default-features = false, features = ["owned-pre-rendered-resources"] }
 log = "0.4"
 
 # A microcontroller has no std: the interpreter needs this instead

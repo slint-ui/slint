@@ -3,13 +3,11 @@
 
 // cSpell: ignore pixelfont vectorfont
 use alloc::rc::Rc;
-#[cfg(feature = "owned-bitmap-fonts")]
-use alloc::rc::Weak;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
 use super::{Fixed, PhysicalLength, PhysicalSize};
-#[cfg(feature = "owned-bitmap-fonts")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 use i_slint_core::graphics::OwnedStorage;
 use i_slint_core::graphics::{BitmapFont, FontRequest, Storage};
 #[cfg(feature = "systemfonts")]
@@ -24,17 +22,17 @@ i_slint_core::thread_local! {
 
 enum RegisteredFont {
     Static(&'static BitmapFont),
-    #[cfg(feature = "owned-bitmap-fonts")]
-    Shared(Weak<BitmapFont<OwnedStorage>>),
+    #[cfg(feature = "owned-pre-rendered-resources")]
+    Shared(alloc::rc::Weak<BitmapFont<OwnedStorage>>),
 }
 
 impl PartialEq for RegisteredFont {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Static(a), Self::Static(b)) => core::ptr::eq(*a, *b),
-            #[cfg(feature = "owned-bitmap-fonts")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             (Self::Shared(a), Self::Shared(b)) => a.ptr_eq(b),
-            #[allow(unreachable_patterns)]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             _ => false,
         }
     }
@@ -61,7 +59,7 @@ impl RegisteredFont {
         }
         match self {
             Self::Static(font) => distance(font, family, italic, weight),
-            #[cfg(feature = "owned-bitmap-fonts")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             Self::Shared(font) => distance(&*font.upgrade()?, family, italic, weight),
         }
     }
@@ -69,7 +67,7 @@ impl RegisteredFont {
     fn at_pixel_size(&self, pixel_size: PhysicalLength) -> Option<Font> {
         Some(match self {
             Self::Static(font) => Font::Pixel(PixelFont::new(*font, pixel_size)),
-            #[cfg(feature = "owned-bitmap-fonts")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             Self::Shared(font) => Font::SharedPixel(PixelFont::new(font.upgrade()?, pixel_size)),
         })
     }
@@ -80,7 +78,7 @@ pub enum GlyphAlphaMap {
     /// A glyph of a font that generated code keeps in a static
     Static(&'static [u8]),
     /// A glyph of a font built at run time, which it keeps alive while the glyph is drawn
-    #[cfg(feature = "owned-bitmap-fonts")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     #[from(skip)]
     Shared { font: Rc<BitmapFont<OwnedStorage>>, glyph_set: u16, glyph: u16 },
     /// A glyph rendered at run time, from a vector font
@@ -91,7 +89,7 @@ impl GlyphAlphaMap {
     pub fn as_slice(&self) -> &[u8] {
         match self {
             Self::Static(data) => data,
-            #[cfg(feature = "owned-bitmap-fonts")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             Self::Shared { font, glyph_set, glyph } => {
                 &font.glyphs[*glyph_set as usize].glyph_data[*glyph as usize].data
             }
@@ -177,7 +175,7 @@ pub mod systemfonts;
 #[derive(derive_more::From)]
 pub enum Font {
     Pixel(PixelFont),
-    #[cfg(feature = "owned-bitmap-fonts")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     SharedPixel(PixelFont<OwnedStorage>),
     #[cfg(feature = "systemfonts")]
     Vector(vectorfont::VectorFont),
@@ -198,7 +196,7 @@ macro_rules! with_font {
     ($font:expr, |$bound:ident| $body:block) => {
         match $font {
             $crate::fonts::Font::Pixel($bound) => $body,
-            #[cfg(feature = "owned-bitmap-fonts")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             $crate::fonts::Font::SharedPixel($bound) => $body,
             #[cfg(feature = "systemfonts")]
             $crate::fonts::Font::Vector($bound) => $body,
@@ -302,7 +300,7 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     register(RegisteredFont::Static(font_data));
 }
 
-#[cfg(feature = "owned-bitmap-fonts")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 pub fn register_shared_bitmap_font(font_data: &Rc<BitmapFont<OwnedStorage>>) {
     register(RegisteredFont::Shared(Rc::downgrade(font_data)));
 }
@@ -310,7 +308,7 @@ pub fn register_shared_bitmap_font(font_data: &Rc<BitmapFont<OwnedStorage>>) {
 fn register(font: RegisteredFont) {
     BITMAP_FONTS.with(|fonts| {
         let mut fonts = fonts.borrow_mut();
-        #[cfg(feature = "owned-bitmap-fonts")]
+        #[cfg(feature = "owned-pre-rendered-resources")]
         fonts.retain(
             |font| !matches!(font, RegisteredFont::Shared(font) if font.strong_count() == 0),
         );
@@ -384,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "owned-bitmap-fonts")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     fn a_shared_font_goes_away_with_its_owner() {
         let font = Rc::new(BitmapFont::<OwnedStorage> {
             family_name: b"Shared".to_vec(),

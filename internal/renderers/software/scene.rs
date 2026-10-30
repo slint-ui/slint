@@ -11,7 +11,7 @@ use super::{
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 use i_slint_core::graphics::{OwnedStorage, StaticTextures};
 use i_slint_core::graphics::{SharedImageBuffer, StaticTexture, TexturePixelFormat};
 use i_slint_core::lengths::{PhysicalPx, PointLengths as _, SizeLengths as _};
@@ -497,7 +497,7 @@ pub enum SharedBufferData {
         width: u16,
         sdf: bool,
     },
-    #[cfg(feature = "image-owned-textures")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     Texture {
         textures: alloc::rc::Rc<StaticTextures<OwnedStorage>>,
         texture: StaticTexture,
@@ -509,7 +509,7 @@ impl SharedBufferData {
         match self {
             SharedBufferData::SharedImage(image) => image.width() as usize,
             SharedBufferData::AlphaMap { width, .. } => *width as usize,
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             SharedBufferData::Texture { texture, .. } => texture.rect.width() as usize,
         }
     }
@@ -519,7 +519,7 @@ impl SharedBufferData {
             SharedBufferData::AlphaMap { data, width, .. } => {
                 data.as_slice().len() / *width as usize
             }
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             SharedBufferData::Texture { texture, .. } => texture.rect.height() as usize,
         }
     }
@@ -592,7 +592,7 @@ impl SharedBufferCommand {
                 },
                 extra: self.extra,
             },
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             SharedBufferData::Texture { textures, texture } => SceneTexture {
                 data: texture_pixels(&textures.data, texture, start..end),
                 pixel_stride: stride as u16,

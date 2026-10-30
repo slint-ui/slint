@@ -12,7 +12,7 @@ use crate::slice::Slice;
 #[allow(unused)]
 use crate::{SharedString, SharedVector};
 
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 use super::OwnedStorage;
 use super::{IntRect, IntSize, StaticStorage};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
@@ -507,7 +507,7 @@ impl ImageCacheKey {
             #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
             ImageInner::WGPUTexture(..) => return None,
             ImageInner::AnimatedImage(animated) => vtable::VRc::borrow(animated).cache_key(),
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             ImageInner::OwnedTextures(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) { None } else { Some(key) }
@@ -596,7 +596,7 @@ pub enum ImageInner {
     #[cfg(any(feature = "unstable-wgpu-29", feature = "unstable-wgpu-30"))]
     WGPUTexture(vtable::VRc<OpaqueImageVTable, WGPUTexture>) = 8,
     AnimatedImage(vtable::VRc<OpaqueImageVTable, AnimatedImage>) = 9,
-    #[cfg(feature = "image-owned-textures")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     OwnedTextures(alloc::rc::Rc<StaticTextures<OwnedStorage>>) = 10,
     StaticTextures(&'static StaticTextures<StaticStorage>) = 11,
 }
@@ -684,7 +684,7 @@ impl ImageInner {
             ImageInner::StaticTextures(ts) => {
                 Some(textures_to_buffer(ts.size, &ts.data, &ts.textures))
             }
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             ImageInner::OwnedTextures(textures) => {
                 Some(textures_to_buffer(textures.size, &textures.data, &textures.textures))
             }
@@ -711,7 +711,7 @@ impl ImageInner {
             ImageInner::None => Default::default(),
             ImageInner::EmbeddedImage { buffer, .. } => buffer.size(),
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             ImageInner::OwnedTextures(textures) => textures.original_size,
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.size(),
@@ -867,7 +867,7 @@ impl PartialEq for ImageInner {
             #[cfg(feature = "svg")]
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::StaticTextures(l0), Self::StaticTextures(r0)) => core::ptr::eq(*l0, *r0),
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             (Self::OwnedTextures(l0), Self::OwnedTextures(r0)) => alloc::rc::Rc::ptr_eq(l0, r0),
             #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
