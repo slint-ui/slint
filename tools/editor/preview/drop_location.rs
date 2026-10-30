@@ -2256,7 +2256,10 @@ export component Main inherits Window {
         super::preview::PREVIEW_STATE.with_borrow_mut(|state| {
             state.source_code.insert(
                 url.clone(),
-                super::preview::SourceCodeCacheEntry { version: None, code: BEFORE_PASTE_CODE.into() },
+                super::preview::SourceCodeCacheEntry {
+                    version: None,
+                    code: BEFORE_PASTE_CODE.into(),
+                },
             );
         });
         let selected =
