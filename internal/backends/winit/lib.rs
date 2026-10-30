@@ -1226,6 +1226,40 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
         &self,
     ) -> impl std::future::Future<Output = Result<Arc<winit::window::Window>, PlatformError>>;
 
+    /// Returns a future that resolves to a new activation token for this window.
+    ///
+    /// Pass the token to another application that you start,
+    /// so that the window system lets its window take the focus.
+    /// For example, set it as `XDG_ACTIVATION_TOKEN` in the environment of the new process,
+    /// or as `activation-token` in the `platform_data` of a D-Bus activation.
+    ///
+    /// The future resolves to an error if the window was never shown or was destroyed,
+    /// if the window system doesn't support activation tokens,
+    /// or if no token arrives within a second.
+    ///
+    /// Available on Linux and other Unix systems with the `wayland` or `x11` feature.
+    ///
+    /// ```rust,no_run
+    /// use slint::winit_030::WinitWindowAccessor;
+    ///
+    /// fn open_directory(window: &slint::Window, path: std::path::PathBuf) {
+    ///     let token = window.request_activation_token();
+    ///     slint::spawn_local(async move {
+    ///         let mut command = std::process::Command::new("xdg-open");
+    ///         if let Ok(token) = token.await {
+    ///             command.env("XDG_ACTIVATION_TOKEN", token.into_raw());
+    ///         }
+    ///         command.arg(path).spawn().unwrap();
+    ///     })
+    ///     .unwrap();
+    /// }
+    /// ```
+    #[cfg(startup_notify)]
+    fn request_activation_token(
+        &self,
+    ) -> impl std::future::Future<Output = Result<winit::window::ActivationToken, PlatformError>>
+    + use<Self>;
+
     /// Dispatches `event` as if winit had delivered it to this window.
     ///
     /// Slint's winit event loop calls this for every [`WindowEvent`] of the window.
@@ -1298,6 +1332,28 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
             adapter
                 .window_event_filter
                 .set(Some(Box::new(move |window, event| callback(window, event))));
+        }
+    }
+
+    #[cfg(startup_notify)]
+    fn request_activation_token(
+        &self,
+    ) -> impl std::future::Future<Output = Result<winit::window::ActivationToken, PlatformError>> + use<>
+    {
+        let receiver = i_slint_core::window::WindowInner::from_pub(self)
+            .window_adapter()
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| (wa as &dyn core::any::Any).downcast_ref::<WinitWindowAdapter>())
+            .ok_or_else(|| {
+                PlatformError::OtherError(
+                    "Slint window is not backed by a Winit window adapter".to_string().into(),
+                )
+            })
+            .and_then(|adapter| adapter.request_activation_token());
+        async move {
+            receiver?
+                .await
+                .map_err(|_| PlatformError::from("No activation token arrived for the window"))
         }
     }
 

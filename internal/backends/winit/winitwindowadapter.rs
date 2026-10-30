@@ -408,6 +408,9 @@ pub(crate) enum WindowVisibility {
     Shown,
 }
 
+#[cfg(startup_notify)]
+const ACTIVATION_TOKEN_TIMEOUT: core::time::Duration = core::time::Duration::from_secs(1);
+
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct WinitWindowAdapter {
@@ -464,6 +467,13 @@ pub struct WinitWindowAdapter {
 
     winit_window_or_none: RefCell<WinitWindowOrNone>,
     window_existence_wakers: RefCell<Vec<core::task::Waker>>,
+    #[cfg(startup_notify)]
+    pending_activation_tokens: RefCell<
+        Vec<(
+            winit::event_loop::AsyncRequestSerial,
+            futures::channel::oneshot::Sender<winit::window::ActivationToken>,
+        )>,
+    >,
 
     #[cfg(target_os = "macos")]
     macos_color_observer: OnceCell<
@@ -521,6 +531,8 @@ impl WinitWindowAdapter {
             transparent: Cell::default(),
             winit_window_or_none: RefCell::new(WinitWindowOrNone::None(window_attributes.into())),
             window_existence_wakers: RefCell::new(Vec::default()),
+            #[cfg(startup_notify)]
+            pending_activation_tokens: Default::default(),
             size: Cell::default(),
             pending_requested_size: Cell::new(None),
             physical_size_before_scale_factor: Cell::new(None),
@@ -850,6 +862,8 @@ impl WinitWindowAdapter {
         attributes.inner_size = Some(physical_size_to_winit(self.size.get()).into());
         attributes.position = last_window_rc.outer_position().ok().map(|pos| pos.into());
         *self.winit_window_or_none.borrow_mut() = WinitWindowOrNone::None(attributes.into());
+        #[cfg(startup_notify)]
+        self.pending_activation_tokens.take();
 
         // Note: Don't register the window in inactive_windows for re-creation later, as creating the window
         // on wayland implies making it visible. Unfortunately, winit won't allow creating a window on wayland
@@ -1869,6 +1883,56 @@ impl WinitWindowAdapter {
 
     pub(crate) fn pending_redraw(&self) -> bool {
         self.pending_redraw.get()
+    }
+
+    #[cfg(startup_notify)]
+    pub(crate) fn request_activation_token(
+        &self,
+    ) -> Result<futures::channel::oneshot::Receiver<winit::window::ActivationToken>, PlatformError>
+    {
+        use winit::platform::startup_notify::WindowExtStartupNotify as _;
+        let winit_window = self.winit_window().ok_or_else(|| {
+            PlatformError::from("Unable to request an activation token for a window that was never shown or was destroyed")
+        })?;
+        let serial = winit_window
+            .request_activation_token()
+            .map_err(|err| PlatformError::OtherError(Box::new(err)))?;
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        self.pending_activation_tokens.borrow_mut().push((serial, sender));
+
+        // winit's X11 backend only logs a failure to create the token and sends no event.
+        // Timers run before the window events of the same event loop iteration,
+        // so the second timer lets a token that's already queued arrive first.
+        let self_weak = self.self_weak.clone();
+        corelib::timers::Timer::single_shot(ACTIVATION_TOKEN_TIMEOUT, move || {
+            corelib::timers::Timer::single_shot(Default::default(), move || {
+                if let Some(adapter) = self_weak.upgrade() {
+                    adapter.take_pending_activation_token(serial);
+                }
+            });
+        });
+        Ok(receiver)
+    }
+
+    #[cfg(startup_notify)]
+    pub(crate) fn activation_token_done(
+        &self,
+        serial: winit::event_loop::AsyncRequestSerial,
+        token: &winit::window::ActivationToken,
+    ) {
+        if let Some(sender) = self.take_pending_activation_token(serial) {
+            let _ = sender.send(token.clone());
+        }
+    }
+
+    #[cfg(startup_notify)]
+    fn take_pending_activation_token(
+        &self,
+        serial: winit::event_loop::AsyncRequestSerial,
+    ) -> Option<futures::channel::oneshot::Sender<winit::window::ActivationToken>> {
+        let mut pending = self.pending_activation_tokens.borrow_mut();
+        let index = pending.iter().position(|(pending, _)| *pending == serial)?;
+        Some(pending.swap_remove(index).1)
     }
 
     pub async fn async_winit_window(
