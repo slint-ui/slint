@@ -1576,17 +1576,9 @@ async fn parse_source(
     let mut builder = slint_interpreter::Compiler::default();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
-    cc.components_to_generate = if let Some(name) = component {
-        i_slint_compiler::ComponentSelection::Named(name)
-    } else {
-        i_slint_compiler::ComponentSelection::LastExported
-    };
+    editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
-    cc.no_native_menu = true;
-    // Otherwise this may cause a runtime panic because of the recursion
-    cc.error_on_binding_loop_with_window_layout = true;
-    cc.is_preview = true;
 
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(

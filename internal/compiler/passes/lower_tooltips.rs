@@ -28,7 +28,7 @@
 //!   exists while `cond` is true.
 
 use crate::builtin_functions::BuiltinFunction;
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression};
 use crate::expression_types::Unit;
@@ -38,6 +38,7 @@ use crate::object_tree::*;
 use crate::typeregister::{BUILTIN, TypeRegister};
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 const TOOLTIP_ELEMENT: &str = "Tooltip";
@@ -65,27 +66,36 @@ fn check_no_reference_to_tooltip(
     diag: &mut BuildDiagnostics,
 ) {
     let dummy_ref = NamedReference::new(parent_element, SmolStr::new_static(WIDTH));
+    let tooltip_span = tooltip_element.borrow().to_source_location();
+    #[allow(clippy::mutable_key_type)]
+    let mut reported = HashSet::new();
+    let mut check = |nr: &NamedReference, span: &SourceLocation| {
+        let in_tooltip = Rc::ptr_eq(&nr.element(), tooltip_element);
+        if in_tooltip && reported.insert(nr.clone()) {
+            super::lower_popups::report_access(
+                tooltip_element,
+                diag,
+                tooltip_element,
+                nr.name(),
+                span,
+            );
+        }
+        in_tooltip
+    };
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |source_elem, _| {
         if Rc::ptr_eq(source_elem, tooltip_element) {
             return;
         }
-        visit_all_named_references_in_element(source_elem, |nr| {
-            if !Rc::ptr_eq(&nr.element(), tooltip_element) {
-                return;
+        visit_element_expressions_with_location(source_elem, &tooltip_span, &mut |expr, span| {
+            if let Some(nr) = expr.referenced_property() {
+                check(nr, span);
             }
-            let id = tooltip_element.borrow().id.clone();
-            let prop_name = nr.name();
-            let what = if id.is_empty() {
-                format!("property or callback '{prop_name}'")
-            } else {
-                format!("property or callback '{id}.{prop_name}'")
-            };
-            diag.push_error(
-                format!("Cannot access {what} inside of a Tooltip from enclosing component"),
-                &*tooltip_element.borrow(),
-            );
-            *nr = dummy_ref.clone();
+        });
+        visit_all_named_references_in_element(source_elem, |nr| {
+            if check(nr, &tooltip_span) {
+                *nr = dummy_ref.clone();
+            }
         });
     });
 }

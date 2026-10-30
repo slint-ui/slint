@@ -3,6 +3,8 @@
 
 //! Conversions of identifiers and names
 
+use alloc::string::String;
+use alloc::vec::Vec;
 use smol_str::SmolStr;
 
 /// Convert a ascii kebab string to pascal case

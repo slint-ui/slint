@@ -565,6 +565,7 @@ impl Snapshotter {
         target_element.repeated =
             elem.repeated.as_ref().map(|r| object_tree::RepeatedElementInfo {
                 model: self.snapshot_expression(&r.model),
+                model_location: r.model_location.clone(),
                 model_data_id: r.model_data_id.clone(),
                 index_id: r.index_id.clone(),
                 is_conditional_element: r.is_conditional_element,

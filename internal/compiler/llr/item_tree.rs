@@ -4,11 +4,16 @@
 use super::{EvaluationContext, EvaluationScope, Expression, ParentScope};
 use crate::langtype::Type;
 use crate::native_class::NativeClass;
+use alloc::collections::BTreeMap;
+use alloc::format;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::cell::{Cell, RefCell};
 use derive_more::{From, Into};
 use smol_str::SmolStr;
-use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap};
-use std::sync::Arc;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 use typed_index_collections::TiVec;
 
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -490,8 +495,8 @@ pub struct Item {
     pub index_in_tree: u32,
 }
 
-impl std::fmt::Debug for Item {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Item {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Item")
             .field("ty", &self.ty.class_name)
             .field("name", &self.name)
@@ -505,7 +510,7 @@ impl std::fmt::Debug for Item {
 pub struct TreeNode {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     /// Either an index in the items, or the local dynamic index for repeater or component container
-    pub item_index: itertools::Either<ItemInstanceIdx, u32>,
+    pub item_index: either::Either<ItemInstanceIdx, u32>,
     pub children: Vec<TreeNode>,
     pub is_accessible: bool,
     /// If set, this node's children have dynamic z-ordering.
@@ -673,11 +678,13 @@ pub struct SubComponent {
     #[cfg_attr(feature = "serde", serde(skip))]
     pub testable_properties: BTreeMap<u32, Vec<TestableProperty>>,
 
+    #[cfg(feature = "std")]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub prop_analysis: HashMap<MemberReference, PropAnalysis>,
 
     /// Populated when `CompilerConfiguration::debug_info` is set.
     /// The interpreter uses it for highlighting and live preview.
+    #[cfg(feature = "std")]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub debug_info: Option<super::debug_info::SubComponentDebugInfo>,
 }
@@ -831,7 +838,6 @@ pub struct CompilationUnit {
     /// aliases are on [`GlobalComponent::aliases`].)
     #[cfg_attr(feature = "serde", serde(skip))]
     pub type_exports: Vec<TypeExport>,
-    #[cfg(feature = "bundle-translations")]
     pub translations: Option<crate::translations::Translations>,
 }
 
@@ -995,26 +1001,27 @@ impl CompilationUnit {
             }
         }
         // Every item tree, by its root sub-component
-        let mut trees: HashMap<SubComponentIdx, &TreeNode> = HashMap::new();
+        let mut trees: TiVec<SubComponentIdx, Option<&TreeNode>> =
+            self.sub_components.iter().map(|_| None).collect();
         for c in &self.public_components {
-            trees.insert(c.item_tree.root, &c.item_tree.tree);
+            trees[c.item_tree.root] = Some(&c.item_tree.tree);
         }
         if let Some(p) = &self.popup_menu {
-            trees.insert(p.item_tree.root, &p.item_tree.tree);
+            trees[p.item_tree.root] = Some(&p.item_tree.tree);
         }
         for sc in self.sub_components.iter() {
             for r in &sc.repeated {
-                trees.insert(r.sub_tree.root, &r.sub_tree.tree);
+                trees[r.sub_tree.root] = Some(&r.sub_tree.tree);
             }
             for p in &sc.popup_windows {
-                trees.insert(p.item_tree.root, &p.item_tree.tree);
+                trees[p.item_tree.root] = Some(&p.item_tree.tree);
             }
         }
         // Visit with the context from `for_each_sub_components` because it has the
         // repeater parent scopes set up, which is needed to resolve expressions that
         // are inlined into the z expressions
         self.for_each_sub_components(&mut |idx, _, ctx| {
-            if let Some(tree) = trees.get(&idx) {
+            if let Some(tree) = trees[idx] {
                 visit_tree(tree, ctx, visitor);
             }
         });

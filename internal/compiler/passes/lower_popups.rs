@@ -3,14 +3,16 @@
 
 //! This pass transforms the PopupWindow element into a component
 
-use crate::diagnostics::{BuildDiagnostics, SourceLocation};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
+use by_address::ByAddress;
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::{Rc, Weak};
 
 const CLOSE_ON_CLICK: &str = "close-on-click";
@@ -242,10 +244,7 @@ fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut Buil
 }
 
 /// Throw error when accessing the popup from outside
-// FIXME:
-// - the span is the span of the PopupWindow, that's wrong, we should have the span of the reference
-// - There are other object reference than in the NamedReference
-// - Maybe this should actually be allowed
+// FIXME: Maybe this should actually be allowed
 pub fn check_no_reference_to_popup(
     popup_window_element: &ElementRc,
     parent_component: &Rc<Component>,
@@ -253,53 +252,59 @@ pub fn check_no_reference_to_popup(
     random_valid_ref: &NamedReference,
     diag: &mut BuildDiagnostics,
 ) {
+    let popup_span = popup_window_element.borrow().to_source_location();
+    #[allow(clippy::mutable_key_type)]
+    let mut reported = HashSet::<(ByAddress<ElementRc>, SmolStr)>::new();
+    let mut check = |element: &ElementRc, name: &str, span: &SourceLocation| {
+        let in_popup = Weak::ptr_eq(&element.borrow().enclosing_component, new_weak);
+        if in_popup && reported.insert((ByAddress(element.clone()), name.into())) {
+            report_access(element, diag, popup_window_element, name, span);
+        }
+        in_popup
+    };
+    recurse_elem_including_sub_components_no_borrow(parent_component, &(), &mut |elem, _| {
+        visit_element_expressions_with_location(elem, &popup_span, &mut |exp, span| {
+            if let Expression::ElementReference(element) = exp {
+                let elem = element.upgrade().unwrap();
+                if !Rc::ptr_eq(&elem, popup_window_element) {
+                    check(&elem, "", span);
+                }
+            } else if let Some(nr) = exp.referenced_property() {
+                check(&nr.element(), nr.name(), span);
+            }
+        });
+    });
     visit_all_named_references(parent_component, &mut |nr| {
-        let element = &nr.element();
-        if check_element(element, new_weak, diag, popup_window_element, nr.name()) {
+        if check(&nr.element(), nr.name(), &popup_span) {
             // just set it to whatever is a valid NamedReference, otherwise we'll panic later
             *nr = random_valid_ref.clone();
         }
     });
-    visit_all_expressions(parent_component, |exp, _| {
-        exp.visit_recursive_mut(&mut |exp| {
-            if let Expression::ElementReference(element) = exp {
-                let elem = element.upgrade().unwrap();
-                if !Rc::ptr_eq(&elem, popup_window_element) {
-                    check_element(&elem, new_weak, diag, popup_window_element, "");
-                }
-            }
-        });
-    });
 }
 
-fn check_element(
+pub fn report_access(
     element: &ElementRc,
-    popup_comp: &Weak<Component>,
     diag: &mut BuildDiagnostics,
     popup_window_element: &ElementRc,
     prop_name: &str,
-) -> bool {
-    if Weak::ptr_eq(&element.borrow().enclosing_component, popup_comp) {
-        let element_name = popup_window_element
-            .borrow()
-            .builtin_type()
-            .map(|t| t.name.clone())
-            .unwrap_or_else(|| SmolStr::new_static("PopupWindow"));
-        let id = element.borrow().id.clone();
-        let what = if prop_name.is_empty() {
-            if id.is_empty() { "something".into() } else { format!("element '{id}'") }
-        } else if id.is_empty() {
-            format!("property or callback '{prop_name}'")
-        } else {
-            format!("property or callback '{id}.{prop_name}'")
-        };
-
-        diag.push_error(
-            format!("Cannot access {what} inside of a {element_name} from enclosing component"),
-            &*popup_window_element.borrow(),
-        );
-        true
+    span: &SourceLocation,
+) {
+    let element_name = popup_window_element
+        .borrow()
+        .builtin_type()
+        .map(|t| t.name.clone())
+        .unwrap_or_else(|| SmolStr::new_static("PopupWindow"));
+    let id = element.borrow().id.clone();
+    let what = if prop_name.is_empty() {
+        if id.is_empty() { "something".into() } else { format!("element '{id}'") }
+    } else if id.is_empty() {
+        format!("property or callback '{prop_name}'")
     } else {
-        false
-    }
+        format!("property or callback '{id}.{prop_name}'")
+    };
+
+    diag.push_error(
+        format!("Cannot access {what} inside of a {element_name} from enclosing component"),
+        span,
+    );
 }
