@@ -11,13 +11,12 @@
 //! See the presentation paths in `docs/development/window-backend-integration.md`
 //! for how this fits the rest of the linuxkms backend.
 
-// cSpell: ignore ADDFB dmabuf etnaviv LCDIF SCANOUT subresource
+// cSpell: ignore dmabuf etnaviv SCANOUT subresource
 
 use std::cell::Cell;
 #[cfg(skia_wgpu_30)]
 use std::os::fd::OwnedFd;
 
-use drm::control::Device;
 use i_slint_core::platform::PlatformError;
 use wgpu_30 as wgpu;
 
@@ -62,13 +61,7 @@ impl GbmDmabufDisplay {
 
         let (width, height) = drm_output.size();
 
-        // A KMS driver without DRM_CAP_ADDFB2_MODIFIERS, such as i.MX8M Plus's LCDIF,
-        // rejects a framebuffer that names a modifier and scans out linear buffers only.
-        let display_takes_modifiers = drm::Device::get_driver_capability(
-            &drm_output.drm_device,
-            drm::DriverCapability::AddFB2Modifiers,
-        )
-        .is_ok_and(|value| value != 0);
+        let display_takes_modifiers = drm_output.takes_modifiers();
 
         // Safety: the Vulkan handles are only used for queries and for loading functions,
         // neither of which has side effects, and `properties2` comes from `hal_device`'s instance.
@@ -256,18 +249,10 @@ impl GbmDmabufDisplay {
             ));
         }
 
-        // Only claim a modifier to KMS when gbm named one and the display takes
-        // modifiers. A buffer whose layout is implicit has none to pass, even where
-        // `LINEAR` made it linear for the Vulkan import above.
-        let handle = if display_takes_modifiers && reported != gbm::Modifier::Invalid {
-            drm_output.drm_device.add_planar_framebuffer(&bo, drm::control::FbCmd2Flags::MODIFIERS)
-        } else {
-            drm_output.drm_device.add_planar_framebuffer(
-                &super::ImplicitLayout(&bo),
-                drm::control::FbCmd2Flags::empty(),
-            )
-        }
-        .map_err(|e| match &fallback_reason {
+        // A buffer whose layout is implicit goes to KMS without a modifier,
+        // even where `LINEAR` made it linear for the Vulkan import above.
+        let added = super::add_framebuffer(&drm_output.drm_device, &bo, display_takes_modifiers);
+        let handle = added.map_err(|e| match &fallback_reason {
             Some(reason) => {
                 format!("Error adding the linear gbm buffer as framebuffer, after {reason}: {e}")
             }
