@@ -596,21 +596,43 @@ pub(super) fn draw_rounded_rectangle_line(
     extra_left_clip: i16,
     extra_right_clip: i16,
 ) {
-    let rl = RoundedLine::new(span, line, rr, line_buffer.len(), extra_left_clip, extra_right_clip);
     match &rr.border {
-        super::Paint::Solid(color) => draw_solid_rounded_line(&rl, rr, *color, line_buffer),
-        super::Paint::Gradient(gradients) => {
-            debug_assert!(rr.width.get() > 0);
-            let border = GradientBorder {
-                gradients,
+        super::Paint::Solid(color) => {
+            let rl = RoundedLine::new(
+                span,
                 line,
-                inner: rr.inner_color,
-                x: span.min_x() + extra_left_clip,
-                left_clip: rl.left_clip,
-            };
-            draw_gradient_rounded_line(&rl, &border, &mut BorderTarget(line_buffer))
+                rr,
+                line_buffer.len(),
+                extra_left_clip,
+                extra_right_clip,
+            );
+            draw_solid_rounded_line(&rl, rr, *color, line_buffer)
         }
+        super::Paint::Gradient(gradients) => draw_gradient_rounded_line(
+            span,
+            line,
+            rr,
+            gradients,
+            extra_left_clip,
+            extra_right_clip,
+            &mut BorderTarget(line_buffer),
+        ),
     }
+}
+
+/// The outer and inner edge of a corner of radius `r`, `y` lines from its horizontal edge.
+#[inline(always)]
+fn corner_edges(r: i16, y: i16, border: Shifted) -> (ArcEdge, ArcEdge) {
+    if r == 0 {
+        return (ArcEdge::vertical(Shifted::ZERO), ArcEdge::vertical(border));
+    }
+    let r = Shifted::new(r);
+    let y = r - Shifted::new(y);
+    let outer = ArcEdge::new(r, r, y);
+    if border == Shifted::ZERO {
+        return (outer, outer);
+    }
+    (outer, ArcEdge::new(r, r.saturating_sub(border), y))
 }
 
 /// Where a rounded rectangle's edges cross one line.
@@ -632,6 +654,7 @@ struct RoundedLine {
 
 impl RoundedLine {
     #[allow(clippy::unnecessary_cast)] // Coord
+    #[inline(always)]
     fn new(
         span: &PhysicalRect,
         line: PhysicalLength,
@@ -648,24 +671,11 @@ impl RoundedLine {
         let right = Side::Right(
             left_clip + len as u32 + shape.right_clip.get().saturating_add(extra_right_clip) as u32,
         );
-        let corner = |r: i16, y: i16| {
-            if r == 0 {
-                return (ArcEdge::vertical(Shifted::ZERO), ArcEdge::vertical(border));
-            }
-            let r = Shifted::new(r);
-            let y = r - Shifted::new(y);
-            let outer = ArcEdge::new(r, r, y);
-            if border == Shifted::ZERO {
-                return (outer, outer);
-            }
-            (outer, ArcEdge::new(r, r.saturating_sub(border), y))
-        };
-
-        let (outer_left, inner_left) = corner(left_radius, left_y);
+        let (outer_left, inner_left) = corner_edges(left_radius, left_y, border);
         let (outer_right, inner_right) = if (right_radius, right_y) == (left_radius, left_y) {
             (outer_left, inner_left)
         } else {
-            corner(right_radius, right_y)
+            corner_edges(right_radius, right_y, border)
         };
         Self {
             left_clip,
@@ -772,6 +782,7 @@ fn draw_solid_rounded_line(
 }
 
 /// The coverage of shape pixel `x` by the inside of both inner `edges`, each with the pixels it covers partially.
+#[inline(always)]
 fn inner_coverage(edges: &[(ArcEdge, Side, core::ops::Range<u32>); 2], x: u32) -> u32 {
     let coverage = |(edge, side, pixels): &(ArcEdge, Side, core::ops::Range<u32>)| {
         let left = matches!(side, Side::Left);
@@ -844,6 +855,8 @@ struct GradientBorder<'a> {
 /// What [`draw_gradient_rounded_line`] needs from the line buffer.
 /// It's `dyn`, so the gradient border's code isn't repeated for each target pixel type.
 trait GradientBorderTarget {
+    /// The number of pixels in the line buffer.
+    fn len(&self) -> usize;
     /// Blends `colors`, dithered with `noise`, into the pixels from `start`.
     fn blend(&mut self, start: usize, colors: &[PremultipliedRgbaColor], noise: GradientNoise);
     /// Blends `color` into `range`.
@@ -861,6 +874,10 @@ trait GradientBorderTarget {
 struct BorderTarget<'a, T>(&'a mut [T]);
 
 impl<T: TargetPixel> GradientBorderTarget for BorderTarget<'_, T> {
+    fn len(&self) -> usize {
+        self.0.len()
+    }
+
     fn blend(&mut self, start: usize, colors: &[PremultipliedRgbaColor], mut noise: GradientNoise) {
         for (pixel, color) in self.0[start..start + colors.len()].iter_mut().zip(colors) {
             pixel.blend_dithered(*color, noise.next(), InternalToken);
@@ -948,10 +965,23 @@ impl GradientBorder<'_> {
 /// Not inlined into each target pixel type's [`draw_rounded_rectangle_line`].
 #[inline(never)]
 fn draw_gradient_rounded_line(
-    rl: &RoundedLine,
-    border: &GradientBorder,
+    span: &PhysicalRect,
+    line: PhysicalLength,
+    rr: &super::RoundedRectangle,
+    gradients: &[(PhysicalRect, super::AnyGradientCommand)],
+    extra_left_clip: i16,
+    extra_right_clip: i16,
     target: &mut dyn GradientBorderTarget,
 ) {
+    debug_assert!(rr.width.get() > 0);
+    let rl = &RoundedLine::new(span, line, rr, target.len(), extra_left_clip, extra_right_clip);
+    let border = &GradientBorder {
+        gradients,
+        line,
+        inner: rr.inner_color,
+        x: span.min_x() + extra_left_clip,
+        left_clip: rl.left_clip,
+    };
     let right = rl.right;
     let (outer_left, outer_right) = (rl.outer_left, rl.outer_right);
     let (inner_left, inner_right) = (rl.inner_left, rl.inner_right);
