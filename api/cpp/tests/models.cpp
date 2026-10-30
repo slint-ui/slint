@@ -436,6 +436,62 @@ SCENARIO("Sorted Model Remove")
     REQUIRE(sorted_model->row_data(2) == 3);
 }
 
+SCENARIO("Sorted Model Stable")
+{
+    // Sorted by key only; the second value tells rows with equal keys apart.
+    using Row = std::pair<int, int>;
+    auto vec_model = std::make_shared<slint::VectorModel<Row>>(
+            std::vector<Row> { { 1, 0 }, { 0, 1 }, { 1, 2 }, { 0, 3 }, { 1, 4 } });
+
+    auto sorted_model = std::make_shared<slint::SortModel<Row>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs.first < rhs.first; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    sorted_model->attach_peer(observer);
+
+    auto order = [&] {
+        std::vector<int> ids;
+        for (size_t i = 0; i < sorted_model->row_count(); ++i)
+            ids.push_back(sorted_model->row_data(i)->second);
+        return ids;
+    };
+    REQUIRE(order() == std::vector { 1, 3, 0, 2, 4 });
+
+    // Regression test for #7895: the changed row used to move to the front of its equal keys.
+    vec_model->set_row_data(4, { 1, 5 });
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows == std::vector<size_t> { 4 });
+    REQUIRE(observer->removed_rows.empty());
+    observer->clear();
+    REQUIRE(order() == std::vector { 1, 3, 0, 2, 5 });
+
+    // A row whose key changes lands by source index among its new equal keys.
+    vec_model->set_row_data(2, { 0, 6 });
+
+    REQUIRE(observer->removed_rows == std::vector { ModelObserver::Range { 3, 1 } });
+    REQUIRE(observer->added_rows == std::vector { ModelObserver::Range { 1, 1 } });
+    observer->clear();
+    REQUIRE(order() == std::vector { 1, 6, 3, 0, 5 });
+
+    // Inserted rows also land by source index among their equal keys.
+    vec_model->insert(1, { 0, 7 });
+    vec_model->push_back({ 0, 8 });
+    REQUIRE(order() == std::vector { 7, 1, 6, 3, 8, 0, 5 });
+
+    // Enough rows that std::sort doesn't fall back to insertion sort, which is stable anyway.
+    std::vector<Row> rows;
+    std::vector<int> expected;
+    for (int key : { 0, 1 })
+        for (int i = 0; i < 100; ++i)
+            if (i % 2 == key)
+                expected.push_back(i);
+    for (int i = 0; i < 100; ++i)
+        rows.push_back({ i % 2, i });
+    vec_model->set_vector(rows);
+    REQUIRE(order() == expected);
+}
+
 class BatchRemoveModel : public slint::Model<int>
 {
 public:
