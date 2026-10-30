@@ -1,0 +1,3 @@
+// nothing set yet
+//|<<error{Cannot load 📂/tests/syntax/project-file/comments-only/slint-project.json: 'edition' is missing: add "edition": "1.19"}
+/* not even this */

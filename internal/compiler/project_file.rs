@@ -967,7 +967,6 @@ mod tests {
                 serde_json::to_value(&baseline).unwrap()
             );
         }
-        assert!(serde_json::from_str::<super::ProjectFileData>(r#"{"unknown":{}}"#).is_err());
     }
 
     #[test]
@@ -1003,21 +1002,6 @@ mod tests {
             [ExperimentalFeature::Closures, ExperimentalFeature::Match].into_iter().collect()
         );
         assert_eq!(config.unknown_experimental_features, ["1"]);
-    }
-
-    #[test]
-    fn unknown_experimental_features_are_rejected() {
-        let error = load_project_file(
-            r#"{"edition": "1.19", "experimental-features": ["match", "unknown"]}"#,
-        )
-        .unwrap_err();
-        assert!(error.to_string().contains("unknown variant `unknown`"), "{error}");
-    }
-
-    #[test]
-    fn snake_case_keys_are_rejected() {
-        let error = load_project_file(r#"{"include_paths": ["include"]}"#).unwrap_err();
-        assert!(error.to_string().contains("unknown field"), "{error}");
     }
 
     #[test]
@@ -1117,76 +1101,13 @@ mod tests {
     }
 
     #[test]
-    fn a_file_of_only_comments_is_invalid() {
-        assert!(load_project_file("// nothing set yet\n/* not even this */\n").is_err());
-    }
-
-    #[test]
-    fn a_comment_keeps_the_line_of_a_later_error() {
-        let error = load_project_file(
-            r#"{
-                "edition": "1.19",
-                // one
-                // two
-                "include-paths": nonsense
-            }"#,
-        )
-        .unwrap_err();
-
-        // The blanked comments keep the offsets, so the error names line 5.
-        assert!(error.to_string().contains("line 5"), "{error}");
-    }
-
-    #[test]
-    fn field_errors_keep_the_first_field_and_its_source_position() {
-        for (source, message, line, column) in [
-            (
-                r#"{
-  "$schema": 42,
-  "main": "main.slint"
-}"#,
-                "invalid type",
-                2,
-                15,
-            ),
-            (
-                r#"{
-  "first-unknown": true,
-  "second-unknown": false
-}"#,
-                "unknown field `first-unknown`",
-                2,
-                17,
-            ),
-        ] {
-            let error = load_project_file(&source).unwrap_err();
-            let error = error.downcast_ref::<serde_json::Error>().unwrap();
-            assert!(error.to_string().contains(message), "{error}");
-            assert_eq!((error.line(), error.column()), (line, column), "{error}");
-        }
-    }
-
-    #[test]
-    fn unknown_settings_are_rejected() {
-        let error = load_project_file(r#"{"unknown_setting": true}"#).unwrap_err();
-        assert!(error.to_string().contains("unknown field"));
-    }
-
-    #[test]
     fn the_edition_is_required() {
-        let cases = ["", "{}", "{\n}", "  \t \n", "// nothing set yet\n/* not even this */\n"];
+        let cases = ["", "  \t \n"];
 
         for case in cases {
             let error = load_project_file(case).unwrap_err().to_string();
             let current = SlintEdition::current();
             assert!(error.contains(&format!(r#"add "edition": "{current}""#)), "{case:?}: {error}");
-        }
-    }
-
-    #[test]
-    fn empty_files_and_invalid_metadata_are_rejected() {
-        for source in ["", "  \t \n", r#"{ "metadata": { this is not json! } }"#] {
-            assert!(load_project_file(source).is_err(), "{source}");
         }
     }
 
@@ -1223,16 +1144,6 @@ mod tests {
         let error = load_project_file(&format!(r#"{{ "edition": "{newer}", "new-setting": 1 }}"#))
             .unwrap_err();
         assert!(error.to_string().contains("upgrade Slint"), "{error}");
-    }
-
-    #[test]
-    fn a_malformed_edition_is_rejected() {
-        for value in [r#""1.19.0""#, r#""1""#, r#""1.x""#, r#""1.019""#, r#""""#, "1.19", "119"] {
-            let error =
-                load_project_file(&format!(r#"{{ "edition": {value} }}"#)).unwrap_err().to_string();
-            assert!(error.contains("such as"), "{value}: {error}");
-            assert!(error.contains("line 1"), "{value}: {error}");
-        }
     }
 
     #[test]

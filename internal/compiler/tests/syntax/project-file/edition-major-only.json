@@ -1,0 +1,4 @@
+{
+//|<<error{Cannot load 📂/tests/syntax/project-file/edition-major-only/slint-project.json: '1' is not a Slint edition: write the major and minor version, such as "1.19" at line 3 column 16}
+  "edition": "1"
+}
