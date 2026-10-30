@@ -664,35 +664,6 @@ impl<'a> MenuRef<'a> {
     }
 }
 
-/*
-#[derive(Debug)]
-struct EntryMap<T> {
-    map: HashMap<usize, T>,
-    pool: IdPool,
-}
-
-impl<T> EntryMap<T> {
-    pub fn new() -> Self {
-        Self { map: HashMap::new(), pool: IdPool::new() }
-    }
-
-    pub fn insert(&mut self, entry: T) -> usize {
-        let id = self.pool.request_id().unwrap();
-        self.map.insert(id, entry);
-        id
-    }
-
-    pub fn release(&mut self, id: usize) {
-        let _ = self.pool.return_id(id);
-        self.map.remove(&id);
-    }
-
-    pub fn get(&self, id: usize) -> Option<&T> {
-        self.map.get(&id)
-    }
-}
-     */
-
 /// Removes the entries matching `take` from `nodes` and returns them in menu order.
 /// Also removes the separators and sub-menus that the removal leaves without content.
 #[cfg(any(target_os = "macos", test))]
