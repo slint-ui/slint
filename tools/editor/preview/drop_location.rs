@@ -1161,8 +1161,13 @@ pub fn create_drop_element_workspace_edit_with_properties(
     });
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
-    let first_child = (component.is_std_widget && component.name == "TabWidget")
-        .then_some("Tab { title: \"Tab 1\"; }");
+    // `Tab` and `RadioButton` only work inside their parent and aren't in the component catalog,
+    // so start the container with one child the user can then edit or duplicate.
+    let first_child = match component.name.as_str() {
+        "TabWidget" if component.is_std_widget => Some("Tab { title: \"Tab 1\"; }"),
+        "RadioGroup" if component.is_std_widget => Some("RadioButton { text: \"Option 1\"; }"),
+        _ => None,
+    };
 
     let new_text = if component.default_properties.is_empty()
         && extra_properties.is_empty()
