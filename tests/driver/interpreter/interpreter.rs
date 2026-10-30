@@ -41,8 +41,7 @@ fn new_compiler(
     compiler.set_library_paths(library_paths);
     compiler.set_style(testcase.requested_style.unwrap_or("fluent").into());
     let compiler_config = compiler.compiler_configuration(i_slint_core::InternalToken);
-    compiler_config.edition =
-        test_driver_lib::parse_slint_edition(source)?.or(compiler_config.edition);
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(source).parse()?);
     Ok(compiler)
 }
 
@@ -137,25 +136,30 @@ fn process_result(
 #[cfg(feature = "llr-serialization")]
 fn run_test_serialized_llr(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     use i_slint_compiler::llr::serialize;
+    use i_slint_core::InternalToken;
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let mut compiler = new_compiler(testcase, &source)?;
-    let mut config = compiler.compiler_configuration(i_slint_core::InternalToken).clone();
+    let mut config = compiler.compiler_configuration(InternalToken).clone();
     // The compiler keeps these as overrides, outside of its configuration
     config.include_paths = compiler.include_paths().clone();
     config.library_paths = compiler.library_paths().clone();
     config.style = compiler.style().cloned();
-    // Like the interpreter's `Compiler`
-    config.inline_all_elements = false;
     let path = i_slint_compiler::source_path::SourcePath::File(testcase.absolute_path.clone());
-    let (diagnostics, unit) = spin_on::spin_on(serialize::compile(&path, source, config));
+    let (diagnostics, compiled) = spin_on::spin_on(serialize::compile(&path, source, config));
     let mode = " (with a serialized LLR)";
-    let unit = unit.ok_or_else(|| {
+    let (unit, resources) = compiled.ok_or_else(|| {
         format!("compilation failed{mode}:\n{}", diagnostics.to_string_vec().join("\n"))
     })?;
     let unit = serialize::from_bytes(&serialize::to_bytes(&unit)?)?;
-    let result = slint_interpreter::CompilationResult::from_compilation_unit(
-        unit,
-        i_slint_core::InternalToken,
-    );
+    let resources = resources
+        .iter()
+        .map(|resource| {
+            let resource =
+                serialize::resource_from_bytes(&serialize::resource_to_bytes(resource)?)?;
+            Ok(slint_interpreter::LoadedResource::new(resource, InternalToken))
+        })
+        .collect::<Result<Vec<_>, Box<dyn Error>>>()?;
+    let result =
+        slint_interpreter::CompilationResult::from_compilation_unit(unit, resources, InternalToken);
     process_result(testcase, &result, mode)
 }

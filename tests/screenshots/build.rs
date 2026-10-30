@@ -19,11 +19,6 @@ fn main() -> std::io::Result<()> {
         "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
         test_driver_lib::ALL_EXPERIMENTAL_FEATURES
     );
-    println!(
-        "cargo:rustc-env=SLINT_EDITION={}.{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR")
-    );
 
     let mut generated_file = BufWriter::new(std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
@@ -122,6 +117,7 @@ fn gen_software_embed_assets(generated_file: &mut impl Write) -> std::io::Result
 
 // Renders every case like `gen_software_embed_assets`, but compiled at run time by the interpreter,
 // and compares against the same references.
+// Each case renders twice: once as compiled, and once sent through serialization.
 #[cfg(feature = "interpreter-embed-assets")]
 fn gen_interpreter_embed_assets(generated_file: &mut impl Write) -> std::io::Result<()> {
     for testcase in test_driver_lib::collect_test_cases("screenshots/cases")? {
@@ -135,17 +131,22 @@ fn gen_interpreter_embed_assets(generated_file: &mut impl Write) -> std::io::Res
             .collect::<Vec<_>>()
             .join(", ");
         let scale_factor = markers.scale_factor.unwrap_or(1.);
-        let load =
-            format!("crate::interpreter::load(\"{path}\", {scale_factor}f32, &[{include_paths}])");
         let module_name = testcase.identifier();
-        write!(generated_file, "\n#[cfg(test)]\nmod r#interpreter_embed_assets_{module_name} {{")?;
-        write_software_test(
-            generated_file,
-            &markers,
-            ignored,
-            SoftwareDriver::Interpreter { reference, load },
-        )?;
-        writeln!(generated_file, "\n}}")?;
+        for (prefix, function) in
+            [("interpreter_embed_assets", "load"), ("interpreter_serialized", "load_serialized")]
+        {
+            let load = format!(
+                "crate::interpreter::{function}(\"{path}\", {scale_factor}f32, &[{include_paths}])"
+            );
+            write!(generated_file, "\n#[cfg(test)]\nmod r#{prefix}_{module_name} {{")?;
+            write_software_test(
+                generated_file,
+                &markers,
+                ignored,
+                SoftwareDriver::Interpreter { reference: reference.clone(), load },
+            )?;
+            writeln!(generated_file, "\n}}")?;
+        }
     }
     Ok(())
 }

@@ -599,6 +599,7 @@ async fn handle_preview_message(
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
+        | ConnectSerial { .. }
         | DisconnectRemote
         | SubmitPairingCode { .. }
         | CancelPairing
@@ -831,8 +832,7 @@ mod tests {
         )
         .unwrap();
         std::fs::write(&import_path, "export component Child inherits Rectangle {}").unwrap();
-        std::fs::write(&manifest_path, r#"{"main":"main.slint", "slint-edition": "1.19"}"#)
-            .unwrap();
+        std::fs::write(&manifest_path, r#"{"main":"main.slint", "edition": "1.19"}"#).unwrap();
         let project = Project::from_input(&project_directory, None, None).unwrap();
         let (to_previews, messages) = recording_previews();
         let mut watcher = FileWatcher::start(|_| {}, |_| {}).unwrap();
@@ -906,7 +906,7 @@ mod tests {
         let source = project_directory.join("main.slint");
         std::fs::write(&source, "export component Main {}").unwrap();
         let manifest = project_directory.join("slint-project.json");
-        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
         let project = Project::from_input(&project_directory, None, None).unwrap();
         let component = project.preview.clone();
         let (to_previews, messages) = recording_previews();
@@ -1047,7 +1047,7 @@ mod tests {
             std::fs::write(&main, "export component Main {}").unwrap();
             let path = root.join("slint-project.json");
             let url = Url::from_file_path(&path).unwrap();
-            let contents = r#"{"slint-edition":"1.19","main":"main.slint"}"#;
+            let contents = r#"{"edition":"1.19","main":"main.slint"}"#;
             let (mut session, messages) = session_with_recording_previews();
             spin_on::spin_on(session.reload_document(Url::from_file_path(main).unwrap())).unwrap();
             std::fs::write(&path, contents).unwrap();
@@ -1087,10 +1087,10 @@ mod tests {
         .unwrap();
         sync_file_watcher_if_needed(&mut watcher, &session, &root, &mut None).unwrap();
         for contents in [
-            Some(r#"{"slint-edition":"1.19","metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
+            Some(r#"{"edition":"1.19","metadata":{"visual-editor":{"canvas-presets":[]}}}"#),
             None,
             Some("{"),
-            Some(r#"{"slint-edition":"1.19","main":"main.slint"}"#),
+            Some(r#"{"edition":"1.19","main":"main.slint"}"#),
         ] {
             clear_messages(&messages);
             while receiver.try_recv().is_ok() {}
@@ -1133,7 +1133,7 @@ mod tests {
     fn project_workspace_edits_apply_without_a_syntax_tree_and_ignore_versions() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
-        let original = r#"{"slint-edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
+        let original = r#"{"edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"canvas-presets":[{"width":100,"height":1080}]}}}"#;
         std::fs::write(&path, original).unwrap();
         let url = Url::from_file_path(&path).unwrap();
         let (mut session, _) = session_with_recording_previews();

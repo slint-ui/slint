@@ -493,6 +493,7 @@ mod ffi {
         translation_domain: Slice<u8>,
         no_default_translation_context: bool,
         bundled_translations_path: Slice<u8>,
+        edition: Slice<u8>,
     ) -> *const LiveReloadingComponentInner {
         // Owned, so that the worker thread can build a Compiler of its own from them
         let include_paths: Vec<PathBuf> =
@@ -507,6 +508,11 @@ mod ffi {
             .then(|| std::str::from_utf8(&translation_domain).unwrap().to_string());
         let bundled_translations_path = (!bundled_translations_path.is_empty())
             .then(|| PathBuf::from(std::str::from_utf8(&bundled_translations_path).unwrap()));
+        let edition = (!edition.is_empty()).then(|| {
+            let edition: i_slint_compiler::project_file::SlintEdition =
+                std::str::from_utf8(&edition).unwrap().parse().unwrap();
+            (edition.major, edition.minor)
+        });
 
         let compiler_factory = move || {
             let mut compiler = Compiler::default();
@@ -514,6 +520,9 @@ mod ffi {
             compiler.set_library_paths(library_paths.clone());
             if let Some(style) = &style {
                 compiler.set_style(style.clone());
+            }
+            if let Some(edition) = edition {
+                compiler.set_edition(edition);
             }
             if let Some(translation_domain) = &translation_domain {
                 compiler.set_translation_domain(translation_domain.clone());

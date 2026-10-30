@@ -141,7 +141,7 @@ impl DrawTextureArgs {
                         stride,
                         size,
                     ),
-                    #[cfg(feature = "image-owned-textures")]
+                    #[cfg(feature = "owned-pre-rendered-resources")]
                     SharedBufferData::Texture { textures, texture } => TextureData::new(
                         crate::scene::texture_pixels(&textures.data, texture, start..end),
                         texture.format,

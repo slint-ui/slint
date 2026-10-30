@@ -15,7 +15,6 @@ export component InspectorTypographySection inherits InspectorSection {
     private property <bool> italic: root.runtime-italic.value-resolved
         ? root.runtime-italic.value-bool
         : root.source-italic.code != "" && root.source-italic.value-bool;
-    changed italic => { italic-toggle.checked = root.italic; }
 
     title: @tr("Typography");
 
@@ -23,7 +22,7 @@ export component InspectorTypographySection inherits InspectorSection {
         padding-left: root.style.padding;
         spacing: Metrics.space-compact;
 
-        InspectorEditableField {
+        if Api.has-property("font-family"): InspectorEditableField {
             accessible-name: @tr("Font family");
             value: InspectorContext.text-font-family-value();
             commit-key: InspectorContext.field-key("font-family");
@@ -37,7 +36,7 @@ export component InspectorTypographySection inherits InspectorSection {
         HorizontalLayout {
             spacing: root.style.column-gap;
 
-            InspectorComboBox {
+            if Api.has-property("font-weight"): InspectorComboBox {
                 accessible-name: @tr("Font weight");
                 fit-options: true;
                 value: InspectorEnumOptions.text-font-weight-label();
@@ -49,7 +48,7 @@ export component InspectorTypographySection inherits InspectorSection {
                 }
             }
 
-            InspectorEditableField {
+            if Api.has-property("font-size"): InspectorEditableField {
                 accessible-name: @tr("Font size");
                 value: InspectorContext.text-font-size-value();
                 commit-key: InspectorContext.field-key("font-size");
@@ -62,10 +61,12 @@ export component InspectorTypographySection inherits InspectorSection {
         }
     }
 
-    InspectorPropertyRow {
+    if Api.has-property("font-italic"): InspectorPropertyRow {
         label: @tr("Italic");
 
-        italic-toggle := InspectorSwitch {
+        InspectorSwitch {
+            property <bool> italic: root.italic;
+            changed italic => { self.checked = self.italic; }
             accessible-label: @tr("Italic");
             checked: root.italic;
             toggled => {

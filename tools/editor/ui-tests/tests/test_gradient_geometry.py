@@ -23,6 +23,7 @@ from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
 from ui_assertions import expect
 from ui_driver import (
+    double_click_at,
     element,
     elements,
     first_window,
@@ -419,8 +420,7 @@ def test_stop_interactions_preserve_color_identity(
         left = center(control(window, "Gradient start"))
         right = center(control(window, "Gradient end"))
         insertion = shifted(left, x=(right.x - left.x) * 0.25)
-        for _ in range(2):
-            gesture(window, insertion, insertion)
+        double_click_at(window, insertion)
         control(window, "Gradient stop 4")
         click_picker_button(window, "Edit stop 2 color")
         expect(picker_field(window, "Hex color")).to_have_value("AA0055")

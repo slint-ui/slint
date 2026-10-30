@@ -7,6 +7,7 @@
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::generator::OutputFormat;
+use i_slint_compiler::project_file::SlintEdition;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::*;
 use itertools::Itertools;
@@ -107,6 +108,11 @@ struct Cli {
     /// Set the style for the UI (e.g., 'native' or 'fluent').
     #[arg(long, name = "style name")]
     style: Option<String>,
+
+    /// Set the edition whose language behavior to use, such as '1.19'.
+    /// This wins over the edition of the project file.
+    #[arg(long, name = "edition", value_parser = SlintEdition::parse_supported)]
+    edition: Option<SlintEdition>,
 
     /// Apply a constant scale factor to embedded assets, typically for high-DPI displays.
     /// This scale factor is also applied to the window by default.
@@ -348,7 +354,7 @@ fn main() -> std::io::Result<()> {
         compiler_config.coverage = args.coverage;
     }
 
-    let command_line_paths = i_slint_compiler::project_file::Overrides {
+    let command_line_overrides = i_slint_compiler::project_file::Overrides {
         project: i_slint_compiler::project_file::ProjectFileData {
             include_paths: (!args.include_paths.is_empty()).then(|| args.include_paths.clone()),
             library_paths: (!args.library_paths.is_empty()).then(|| {
@@ -359,11 +365,12 @@ fn main() -> std::io::Result<()> {
                     })
                     .collect()
             }),
+            edition: args.edition,
             ..Default::default()
         },
         ..Default::default()
     };
-    command_line_paths.apply(project_file.as_ref(), &mut compiler_config);
+    command_line_overrides.apply(project_file.as_ref(), &mut compiler_config);
     if project_file.is_some()
         && let Some(project_directory) = input_project_directory
     {

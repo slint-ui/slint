@@ -57,6 +57,7 @@ mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 pub(crate) mod settings;
+mod snapping;
 #[cfg(feature = "system-testing")]
 mod test_sync;
 pub mod ui;
@@ -1426,6 +1427,39 @@ fn delete_selected_element() {
     send_workspace_edit("Delete element".to_string(), edit, true);
 }
 
+fn wrap_selected_element_in_layout(layout: SharedString) {
+    let Some(selected) = selected_element() else {
+        return;
+    };
+    let Some(selected_node) = selected.as_element_node() else {
+        return;
+    };
+    let Some(document_cache) = document_cache() else { return };
+
+    let import_file =
+        get_component_info(&layout).and_then(|info| info.import_file_name(&selected.path.to_url()));
+    let Some((edit, drop_data)) = drop_location::create_wrap_in_layout_workspace_edit(
+        &document_cache,
+        &selected_node,
+        &layout,
+        &import_file,
+    ) else {
+        return;
+    };
+
+    if send_workspace_edit(format!("Wrap in {layout}"), edit, true) {
+        set_selected_element(
+            Some(ElementSelection {
+                path: drop_data.path,
+                offset: drop_data.selection_offset,
+                instance_index: 0,
+                editing_text: false,
+            }),
+            SelectionNotification::AfterUpdate,
+        );
+    }
+}
+
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     let Some(element_selection) = &selected_element() else {
         return;
@@ -1570,17 +1604,51 @@ fn override_selected_element_rotation_impl(
     Some(new_rotation)
 }
 
-fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
-    let Some(element_selection) = &selected_element() else { return };
-    let Some(element_node) = element_selection.as_element_node() else { return };
-    override_selected_element_geometry_impl(
-        &element_node,
-        element_selection.instance_index,
-        x,
-        y,
-        width,
-        height,
-    );
+fn geometry_result(geometry: Option<LogicalRect>) -> ui::GeometryResult {
+    let Some(geometry) = geometry else { return ui::GeometryResult::default() };
+    ui::GeometryResult {
+        valid: true,
+        geometry: ui::Geometry {
+            x: geometry.origin.x,
+            y: geometry.origin.y,
+            width: geometry.width(),
+            height: geometry.height(),
+        },
+    }
+}
+
+fn root_geometry_to_parent_geometry(geometry: ui::Geometry) -> ui::GeometryResult {
+    geometry_result((|| {
+        let element_selection = selected_element()?;
+        let element_node = element_selection.as_element_node()?;
+        let component_instance = component_instance()?;
+        let current_geometry = element_node.geometries(&component_instance);
+        let current_geometry = current_geometry.get(element_selection.instance_index)?;
+        parent_relative_rect(
+            current_geometry,
+            LogicalPoint::new(geometry.x, geometry.y),
+            CoreLogicalSize::new(geometry.width, geometry.height),
+        )
+    })())
+}
+
+fn override_selected_element_geometry(
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    coordinate_space: ui::CoordinateSpace,
+) -> ui::GeometryResult {
+    geometry_result((|| {
+        let element_selection = selected_element()?;
+        let element_node = element_selection.as_element_node()?;
+        override_selected_element_geometry_impl(
+            &element_node,
+            element_selection.instance_index,
+            LogicalRect::new(LogicalPoint::new(x, y), CoreLogicalSize::new(width, height)),
+            coordinate_space,
+        )
+    })())
 }
 
 /// Maps the selection frame's root-space rectangle back into the element's parent coordinate
@@ -1628,57 +1696,50 @@ fn parent_relative_rect(
 fn override_selected_element_geometry_impl(
     element_node: &ElementRcNode,
     instance_index: usize,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-) {
-    tracing::trace!(
-        "Setting geometry preview x: {}, y: {}, width: {}, height: {}",
-        x,
-        y,
-        width,
-        height
-    );
-    let Some(component_instance) = component_instance() else { return };
+    rect: LogicalRect,
+    coordinate_space: ui::CoordinateSpace,
+) -> Option<LogicalRect> {
+    tracing::trace!("Setting geometry preview: {rect:?} in {coordinate_space:?}");
+    let component_instance = component_instance()?;
 
     let element_hash = element_node
         .element
         .borrow()
         .debug
         .get(element_node.debug_index)
-        .map(|d| d.element_hash)
+        .map(|debug| debug.element_hash)
         .unwrap_or(0);
     if element_hash == 0 {
         tracing::debug!("Element does not have a hash, cannot override geometry");
-        return;
+        return None;
     }
 
     // The parent frame rides along on the selected instance's geometry, so we don't have to
     // guess which parent instance contains the dragged point (which breaks once the element is
     // dragged outside of its parent).
-    let Some(geometry) = element_node.geometries(&component_instance).get(instance_index).cloned()
-    else {
-        tracing::debug!("Selected element does not have geometry, refusing to override");
-        return;
-    };
-    let Some(new_rect) = parent_relative_rect(
-        &geometry,
-        LogicalPoint::new(x, y),
-        CoreLogicalSize::new(width, height),
-    ) else {
+    let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?;
+    if !geometry.renders_as_rectangle {
         tracing::debug!("Refusing to override geometry of a sheared element");
-        return;
+        return None;
+    }
+    let (new_rect, current_rect) = match coordinate_space {
+        ui::CoordinateSpace::Root => {
+            let new_rect = parent_relative_rect(&geometry, rect.origin, rect.size)?;
+            let round_geometry = |rect: LogicalRect| {
+                LogicalRect::new(
+                    LogicalPoint::new(rect.origin.x.round(), rect.origin.y.round()),
+                    CoreLogicalSize::new(rect.width().round(), rect.height().round()),
+                )
+            };
+            (round_geometry(new_rect), geometry.local_rect)
+        }
+        ui::CoordinateSpace::Parent => (rect, geometry.local_rect),
     };
-    let current_rect = geometry.local_rect;
-
-    // Round to match the values written on release by resize_selected_element_impl,
-    // so the element does not jump by a sub-pixel amount when the drag is committed.
     let values = [
-        ("x", new_rect.origin.x.round() as f64, current_rect.origin.x.round() as f64),
-        ("y", new_rect.origin.y.round() as f64, current_rect.origin.y.round() as f64),
-        ("width", new_rect.width().round() as f64, current_rect.width().round() as f64),
-        ("height", new_rect.height().round() as f64, current_rect.height().round() as f64),
+        ("x", new_rect.origin.x as f64, current_rect.origin.x as f64),
+        ("y", new_rect.origin.y as f64, current_rect.origin.y as f64),
+        ("width", new_rect.width() as f64, current_rect.width() as f64),
+        ("height", new_rect.height() as f64, current_rect.height() as f64),
     ];
     let values = values
         .into_iter()
@@ -1688,20 +1749,23 @@ fn override_selected_element_geometry_impl(
         .collect::<Vec<_>>();
 
     PREVIEW_STATE.with_borrow(|preview_state| {
-        let m = (*preview_state.debug_hook_overrides).borrow();
-        for (name, value) in values {
-            let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
-            let Some(property_override) = m.get(&id) else {
-                tracing::debug!(
-                    "Property debug hook {name} does not exist, cannot override geometry",
-                );
-                return;
-            };
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+        let property_overrides = values
+            .into_iter()
+            .map(|(name, value)| {
+                let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+                let property_override = overrides.get(&id)?;
+                Some((property_override, value))
+            })
+            .collect::<Option<Vec<_>>>()?;
+        for (property_override, value) in property_overrides {
             (**property_override).set(Some(slint_interpreter::Value::Number(value)));
         }
-    });
+        Some(())
+    })?;
 
     component_instance.window().request_redraw();
+    element_node.geometries(&component_instance).get(instance_index).map(|geometry| geometry.rect)
 }
 
 fn override_selected_element_border_radius(
@@ -1864,11 +1928,9 @@ fn resize_selected_element_impl(
     override_selected_element_geometry_impl(
         element_node,
         instance_index,
-        rect.origin.x,
-        rect.origin.y,
-        rect.width(),
-        rect.height(),
-    );
+        rect,
+        ui::CoordinateSpace::Root,
+    )?;
 
     persist_selected_element_geometry_impl(element_node)
 }
@@ -2508,17 +2570,9 @@ async fn parse_source(
     let named_component = component.is_some();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
-    cc.components_to_generate = if let Some(name) = component {
-        i_slint_compiler::ComponentSelection::Named(name)
-    } else {
-        i_slint_compiler::ComponentSelection::LastExported
-    };
+    i_slint_editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
-    cc.no_native_menu = true;
-    // Otherwise this may cause a runtime panic because of the recursion
-    cc.error_on_binding_loop_with_window_layout = true;
-    cc.is_preview = true;
     cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
@@ -2836,33 +2890,20 @@ fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &i_slint_editor_preview::document_cache::SourceFileVersionMap,
 ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
-    let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
-        Default::default();
-
-    // Pre-fill version info and an empty diagnostics to reset the state for the url
-    for (path, version) in file_versions.iter() {
-        result.extend(path.to_url().map(|url| (url, (*version, Vec::new()))));
-    }
-
     PREVIEW_STATE.with_borrow(|preview_state| {
-        for d in diagnostics {
-            let Some(uri) = i_slint_live_preview::protocol::diagnostic_url(d) else {
-                continue;
-            };
-            let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
-            if let Some(data) = result.get_mut(&uri) {
-                if data.0.is_some() && new_version.is_some() && data.0 != new_version {
-                    continue;
-                }
-                data.1.push(i_slint_live_preview::protocol::to_lsp_diagnostic(
-                    d,
-                    preview_state.format(),
-                ));
+        let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
+            diagnostics,
+            file_versions.iter().filter_map(|(path, version)| Some((path.to_url()?, *version))),
+            preview_state.format(),
+        );
+        for (url, (version, file_diagnostics)) in &mut result {
+            let new_version = preview_state.source_code.get(url).and_then(|e| e.version);
+            if version.is_some() && new_version.is_some() && *version != new_version {
+                file_diagnostics.clear();
             }
         }
-    });
-
-    result
+        result
+    })
 }
 
 fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
@@ -2945,6 +2986,7 @@ fn set_selected_element(
                 is_interactive,
                 is_moveable: !is_in_layout && !is_root,
                 is_resizable: !is_in_layout && !is_layout,
+                is_wrappable: !is_root,
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)
@@ -3335,7 +3377,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"slint-edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
+            r#"{"edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -3349,7 +3391,7 @@ mod tests {
                 nested_manifest.to_url().unwrap(),
                 SourceCodeCacheEntry {
                     version: Some(1),
-                    code: r#"{"slint-edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
+                    code: r#"{"edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
                         .into(),
                 },
             );
@@ -3365,11 +3407,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"slint-edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
+                    r#"{"edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
             (Some("{"), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
@@ -3420,7 +3462,7 @@ mod tests {
             });
             state.document_cache.replace(Some(Rc::new(cache)));
             for (url, source) in [
-                (manifest.clone(), r#"{"slint-edition":"1.19"}"#),
+                (manifest.clone(), r#"{"edition":"1.19"}"#),
                 (extra.clone(), "export component Extra {}"),
             ] {
                 state
@@ -3490,8 +3532,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),
@@ -3873,7 +3915,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
         let url = Url::from_file_path(&path).unwrap();
-        let original = r#"{"slint-edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        let original = r#"{"edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
         std::fs::write(&path, original).unwrap();
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
         let messages = Rc::new(RefCell::new(Vec::new()));
@@ -4524,10 +4566,11 @@ export component Main {
         override_selected_element_geometry_impl(
             &node,
             0,
-            before.rect.origin.x + 10.,
-            before.rect.origin.y,
-            before.rect.width(),
-            before.rect.height(),
+            LogicalRect::new(
+                LogicalPoint::new(before.rect.origin.x + 10., before.rect.origin.y),
+                before.rect.size,
+            ),
+            ui::CoordinateSpace::Root,
         );
         let overridden = geometry_of(&instance, "inner");
         assert_ne!(overridden.local_rect, before.local_rect);
@@ -4651,10 +4694,11 @@ export component Main {
         override_selected_element_geometry_impl(
             &element_node_of(&instance, "inner"),
             0,
-            before.rect.origin.x + 10.,
-            before.rect.origin.y,
-            before.local_rect.width(),
-            before.local_rect.height(),
+            LogicalRect::new(
+                LogicalPoint::new(before.rect.origin.x + 10., before.rect.origin.y),
+                before.local_rect.size,
+            ),
+            ui::CoordinateSpace::Root,
         );
 
         let after = geometry_of(&instance, "inner");

@@ -60,7 +60,7 @@ const PLAIN: &str = "export component Main inherits Window { }";
 #[test]
 fn include_paths_come_from_the_project_file() {
     let project = Project::new(Some(
-        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
     ));
     project.write("include/shared.slint", "export component Shared { }");
     project.write("main.slint", IMPORTS_SHARED);
@@ -72,7 +72,7 @@ fn include_paths_come_from_the_project_file() {
 #[test]
 fn an_include_path_argument_comes_before_the_project_file_paths() {
     let project = Project::new(Some(
-        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
     ));
     project.write("include/shared.slint", "export component Shared { }");
     project.write("include/project-only.slint", "export component ProjectOnly { }");
@@ -95,7 +95,7 @@ fn an_include_path_argument_comes_before_the_project_file_paths() {
 #[test]
 fn a_library_path_argument_replaces_the_project_library_of_the_same_name() {
     let project = Project::new(Some(
-        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint", "icons": "icons.slint"} }"#,
+        r#"{ "edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint", "icons": "icons.slint"} }"#,
     ));
     project.write("widgets.slint", "export component Widget { }");
     project.write(
@@ -118,7 +118,7 @@ fn a_library_path_argument_replaces_the_project_library_of_the_same_name() {
 #[test]
 fn library_paths_come_from_the_project_file() {
     let project = Project::new(Some(
-        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint"} }"#,
+        r#"{ "edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint"} }"#,
     ));
     project.write("widgets.slint", "export component Widget { }");
     project.write(
@@ -144,7 +144,7 @@ fn an_unreadable_project_file_is_reported() {
 #[test]
 fn the_project_file_is_a_dependency_in_the_depfile() {
     let project = Project::new(Some(
-        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
     ));
     project.write("main.slint", PLAIN);
     let depfile = project.root.join("generated.d");
@@ -171,30 +171,9 @@ fn compiling_without_a_project_file_works() {
 }
 
 #[test]
-fn an_invalid_slint_edition_variable_is_reported() {
-    let project = Project::new(None);
-    let main = project.write("main.slint", PLAIN);
-    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
-        .env("SLINT_EDITION", "999.0")
-        .arg("-f")
-        .arg("cpp")
-        .arg("-o")
-        .arg(project.root.join("generated.h"))
-        .arg(&main)
-        .output()
-        .unwrap();
-    assert!(!output.status.success(), "{}", stderr(&output));
-    assert!(
-        stderr(&output).contains("SLINT_EDITION is 999.0, newer than this Slint"),
-        "{}",
-        stderr(&output)
-    );
-}
-
-#[test]
 fn a_project_directory_compiles_its_main_file() {
     let project = Project::new(Some(
-        r#"{ "slint-edition": "1.19", "main": "ui/main.slint", "include-paths": ["include"] }"#,
+        r#"{ "edition": "1.19", "main": "ui/main.slint", "include-paths": ["include"] }"#,
     ));
     project.write("include/shared.slint", "export component Shared { }");
     let main = project.write("ui/main.slint", IMPORTS_SHARED);
@@ -216,7 +195,7 @@ fn a_project_directory_compiles_its_main_file() {
 
 #[test]
 fn a_project_directory_without_a_main_file_is_reported() {
-    let project = Project::new(Some(r#"{"slint-edition":"1.19"}"#));
+    let project = Project::new(Some(r#"{"edition":"1.19"}"#));
 
     let output = project.compile(&project.root, &[]);
     assert!(!output.status.success());
@@ -225,7 +204,7 @@ fn a_project_directory_without_a_main_file_is_reported() {
 
 #[test]
 fn a_project_file_argument_is_reported() {
-    let project = Project::new(Some(r#"{"slint-edition":"1.19","main":"main.slint"}"#));
+    let project = Project::new(Some(r#"{"edition":"1.19","main":"main.slint"}"#));
     project.write("main.slint", PLAIN);
 
     let argument_sets: &[&[&str]] = &[
@@ -256,7 +235,7 @@ fn a_slint_file_does_not_load_an_adjacent_project_file() {
 #[cfg(feature = "python")]
 #[test]
 fn generated_python_loads_the_project_directory_it_was_generated_from() {
-    let project = Project::new(Some(r#"{ "slint-edition": "1.19", "main": "ui/main.slint" }"#));
+    let project = Project::new(Some(r#"{ "edition": "1.19", "main": "ui/main.slint" }"#));
     project.write("ui/main.slint", PLAIN);
     let generated = project.root.join("app_window.py");
     std::fs::write(&generated, "").unwrap();
@@ -283,38 +262,59 @@ fn generated_python_loads_the_project_directory_it_was_generated_from() {
 
 #[test]
 fn an_edition_before_a_behavior_change_warns() {
-    let project = Project::new(Some(r#"{ "slint-edition": "1.18", "main": "main.slint" }"#));
+    let project = Project::new(Some(r#"{ "edition": "1.18", "main": "main.slint" }"#));
     project.write("main.slint", PLAIN);
 
     let output = project.compile(&project.root, &[]);
     let message = stderr(&output);
     assert!(output.status.success(), "{message}");
-    let warning = "'slint-edition' 1.18 misses the language behavior changes up to 1.19";
+    let warning = "'edition' is 1.18, so the language behavior changes up to 1.19 don't apply";
     assert_eq!(message.matches(warning).count(), 1, "{message}");
     assert!(message.contains("slint-project.json"), "{message}");
 
-    let project = Project::new(Some(r#"{ "slint-edition": "1.19", "main": "main.slint" }"#));
+    let project = Project::new(Some(r#"{ "edition": "1.19", "main": "main.slint" }"#));
     project.write("main.slint", PLAIN);
     let output = project.compile(&project.root, &[]);
     assert!(output.status.success(), "{}", stderr(&output));
-    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
 }
 
 #[test]
-fn the_slint_edition_variable_does_not_warn() {
+fn the_edition_option_wins_over_the_project_file() {
+    // Edition 1.19 reports the inner binding loop as an error, 1.18 only warns.
+    let project = Project::new(Some(r#"{ "edition": "1.18", "main": "main.slint" }"#));
+    project.write(
+        "main.slint",
+        "export component Main inherits Window {
+            HorizontalLayout { Rectangle { VerticalLayout { Rectangle { width: parent.width; } } } }
+        }",
+    );
+
+    let output = project.compile(&project.root, &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let output = project.compile(&project.root, &["--edition", "1.19"]);
+    assert!(!output.status.success(), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
+}
+
+#[test]
+fn an_invalid_edition_option_is_rejected() {
     let project = Project::new(None);
     let main = project.write("main.slint", PLAIN);
-    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
-        .env("SLINT_EDITION", "1.18")
-        .arg("-f")
-        .arg("cpp")
-        .arg("-o")
-        .arg(project.root.join("generated.h"))
-        .arg(&main)
-        .output()
-        .unwrap();
+    for (edition, message) in [("1.19.0", "is not a Slint edition"), ("999.0", "is newer than")] {
+        let output = project.compile(&main, &["--edition", edition]);
+        assert!(!output.status.success(), "{}", stderr(&output));
+        assert!(stderr(&output).contains(message), "{}", stderr(&output));
+    }
+}
+
+#[test]
+fn an_old_edition_option_does_not_warn() {
+    let project = Project::new(None);
+    let main = project.write("main.slint", PLAIN);
+    let output = project.compile(&main, &["--edition", "1.18"]);
     assert!(output.status.success(), "{}", stderr(&output));
-    assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+    assert!(!stderr(&output).contains("don't apply"), "{}", stderr(&output));
 }
 
 #[cfg(feature = "python")]

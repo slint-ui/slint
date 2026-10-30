@@ -187,7 +187,7 @@ pub(crate) fn element_candidates_at(
 type SourceKey = (SourcePath, usize);
 type SourceElements = BTreeMap<SourceKey, SourceElement>;
 
-struct RuntimeItem {
+pub(super) struct RuntimeItem {
     instance: VRc<ItemTreeVTable, Instance>,
     flat_index: usize,
     owner: Pin<Rc<SubComponentInstance>>,
@@ -196,8 +196,21 @@ struct RuntimeItem {
 }
 
 impl RuntimeItem {
-    fn as_item_rc(&self) -> ItemRc {
+    pub(super) fn as_item_rc(&self) -> ItemRc {
         ItemRc::new(VRc::into_dyn(self.instance.clone()), self.flat_index as u32)
+    }
+
+    pub(super) fn corners(&self, root: &VRc<ItemTreeVTable, Instance>) -> [LogicalPoint; 4] {
+        let item = self.as_item_rc();
+        let geometry = item.geometry();
+        let to_root = item.transform_to_item_tree(&VRc::into_dyn(root.clone()));
+        [
+            geometry.origin,
+            LogicalPoint::new(geometry.max_x(), geometry.min_y()),
+            LogicalPoint::new(geometry.max_x(), geometry.max_y()),
+            LogicalPoint::new(geometry.min_x(), geometry.max_y()),
+        ]
+        .map(|corner| to_root.transform_point(corner.cast()).cast())
     }
 
     fn geometry(&self, root: &VRc<ItemTreeVTable, Instance>) -> Option<HighlightedRect> {
@@ -212,7 +225,7 @@ enum SourcePriority {
     RepeatedElement,
 }
 
-struct SourceElement {
+pub(super) struct SourceElement {
     source_location: SourceLocation,
     // Indices into `SourceOccurrences.items` for the runtime items representing this source element.
     item_indices: Vec<usize>,
@@ -235,7 +248,7 @@ impl SourceElement {
         }
     }
 
-    fn occurrences<'a>(
+    pub(super) fn occurrences<'a>(
         &'a self,
         items: &'a [RuntimeItem],
         root: &'a VRc<ItemTreeVTable, Instance>,
@@ -246,18 +259,18 @@ impl SourceElement {
     }
 }
 
-struct SourceOccurrences<'a> {
+pub(super) struct SourceOccurrences<'a> {
     root: &'a VRc<ItemTreeVTable, Instance>,
-    items: Vec<RuntimeItem>,
+    pub(super) items: Vec<RuntimeItem>,
     // Maps an owning `Instance` and its flat item index to an index in `items`.
     item_indices: HashMap<(*const Instance, usize), usize>,
-    elements: SourceElements,
+    pub(super) elements: SourceElements,
     // Indices into `items` for the items whose geometry represents this component use or repeated row.
     enclosing_elements: HashMap<*const SubComponentInstance, (SourceLocation, Vec<usize>)>,
 }
 
 impl<'a> SourceOccurrences<'a> {
-    fn new(root: &'a VRc<ItemTreeVTable, Instance>) -> Self {
+    pub(super) fn new(root: &'a VRc<ItemTreeVTable, Instance>) -> Self {
         i_slint_core::item_tree::ensure_item_tree_instantiated(&VRc::into_dyn(root.clone()));
         let mut sources = Self {
             root,
@@ -620,25 +633,7 @@ fn item_geometry(
     // `lower_property_to_element`) take over the element's geometry and lay the element
     // out at (0,0) inside themselves, so measuring the parent frame from the element
     // directly would collapse `rect.origin - parent_origin` to ~0.
-    let mut transform_rotation = 0.;
-    let mut anchor = item_rc.clone();
-    while let Some(parent) =
-        anchor.parent_item(i_slint_core::item_tree::ParentItemTraversalMode::StopAtPopups)
-    {
-        if !VRc::ptr_eq(parent.item_tree(), &vrc) {
-            break; // crossed into another component instance's item tree
-        }
-        if !parent.is_geometry_wrapper() {
-            break;
-        }
-        if let Some(transform) = i_slint_core::items::ItemRef::downcast_pin::<
-            i_slint_core::items::Transform,
-        >(parent.borrow())
-        {
-            transform_rotation += transform.transform_rotation();
-        }
-        anchor = parent;
-    }
+    let (anchor, transform_rotation) = geometry_anchor(&item_rc);
 
     // Neither transform adds its item's own x/y, so `parent_transform` maps the element's
     // source-parent coordinate system, and `to_root` the coordinate system the injected
@@ -667,6 +662,31 @@ fn item_geometry(
         transform_rotation,
         corner_radii: item_corner_radii(item_rc.borrow()),
     })
+}
+
+pub(super) fn geometry_anchor(item_rc: &ItemRc) -> (ItemRc, f32) {
+    let mut transform_rotation = 0.;
+    let mut anchor = item_rc.clone();
+    let vrc = item_rc.item_tree();
+    while let Some(parent) =
+        anchor.parent_item(i_slint_core::item_tree::ParentItemTraversalMode::StopAtPopups)
+    {
+        if !VRc::ptr_eq(parent.item_tree(), vrc) {
+            break; // crossed into another component instance's item tree
+        }
+        if !parent.is_geometry_wrapper() {
+            break;
+        }
+        if let Some(transform) = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::Transform,
+        >(parent.borrow())
+        {
+            transform_rotation += transform.transform_rotation();
+        }
+        anchor = parent;
+    }
+
+    (anchor, transform_rotation)
 }
 
 /// Whether two axes still meet at a right angle.

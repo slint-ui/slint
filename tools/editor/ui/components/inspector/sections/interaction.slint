@@ -5,7 +5,7 @@ import { Api, PropertyValue } from "../../../api.slint";
 import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
-export component InspectorEnabledSection inherits InspectorSection {
+export component InspectorInteractionSection inherits InspectorSection {
     private property <PropertyValue> runtime-value: Api.runtime-property-value-data("enabled", {});
     private property <PropertyValue> source-value: Api.source-property-value-data("enabled", {});
     private property <bool> value: root.runtime-value.value-resolved
@@ -17,6 +17,8 @@ export component InspectorEnabledSection inherits InspectorSection {
     private property <bool> read-only: root.runtime-read-only.value-resolved
         ? root.runtime-read-only.value-bool
         : root.source-read-only.value-bool;
+
+    private property <bool> checkable: InspectorContext.is-checkable();
 
     title: @tr("Interaction");
 
@@ -49,6 +51,24 @@ export component InspectorEnabledSection inherits InspectorSection {
                 let requested = self.checked;
                 self.checked = root.read-only;
                 InspectorContext.commit-code("read-only", requested ? "true" : "false");
+            }
+        }
+    }
+
+    if InspectorContext.is-button-selection(): InspectorPropertyRow {
+        private property <bool> value: root.checkable;
+        changed value => { checkable-toggle.checked = self.value; }
+
+        label: @tr("Checkable");
+
+        checkable-toggle := InspectorSwitch {
+            accessible-label: @tr("Checkable");
+            checked: root.checkable;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.checkable;
+                InspectorContext.commit-code("checkable", requested ? "true" : "false");
             }
         }
     }

@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, CoordinateSpace, Geometry, Hover, ResizeHandle } from "api.slint";
+import { CanvasView } from "components/canvas-view.slint";
+
+export struct SnapGuide {
+    start-x: length,
+    start-y: length,
+    end-x: length,
+    end-y: length,
+    label: string,
+}
+
+export struct SnapResult {
+    parent-geometry: Geometry,
+    guides: [SnapGuide],
+}
+
+export struct SnapPreview {
+    valid: bool,
+    root-geometry: Geometry,
+    guides: [SnapGuide],
+    identity: string,
+}
+
+export global Snapping {
+    in-out property <bool> disabled;
+    callback snap-move(parent-geometry: Geometry, zoom: float) -> SnapResult;
+    callback snap-resize(parent-geometry: Geometry, handle: ResizeHandle, square: bool, zoom: float) -> SnapResult;
+
+    public pure function selection-identity() -> string {
+        return Api.current-element.source-uri + ":" + Api.current-element.offset
+            + ":" + Api.selection.highlight-index + ":" + Hover.preview-generation;
+    }
+
+    function accept-preview(geometry: Geometry, coordinate-space: CoordinateSpace, guides: [SnapGuide], identity: string) -> SnapPreview {
+        let accepted = Api.override-selected-element-geometry(
+            geometry.x, geometry.y, geometry.width, geometry.height, coordinate-space,
+        );
+        return accepted.valid ? {
+            valid: true,
+            root-geometry: accepted.geometry,
+            guides: guides,
+            identity: identity,
+        } : {};
+    }
+
+    public function preview-move(root-geometry: Geometry, identity: string) -> SnapPreview {
+        if identity != Snapping.selection-identity() { return {}; }
+        if Snapping.disabled {
+            return Snapping.accept-preview(root-geometry, CoordinateSpace.Root, [], identity);
+        }
+        let parent = Api.root-geometry-to-parent-geometry(root-geometry);
+        if !parent.valid { return {}; }
+        let result = Snapping.snap-move(parent.geometry, CanvasView.zoom);
+        return Snapping.accept-preview(result.parent-geometry, CoordinateSpace.Parent, result.guides, identity);
+    }
+
+    public function preview-resize(root-geometry: Geometry, handle: ResizeHandle, square: bool, identity: string) -> SnapPreview {
+        if identity != Snapping.selection-identity()
+            || root-geometry.width <= 0px || root-geometry.height <= 0px { return {}; }
+        let parent = Api.root-geometry-to-parent-geometry(root-geometry);
+        if !parent.valid || parent.geometry.width <= 0px || parent.geometry.height <= 0px {
+            return {};
+        }
+        if Snapping.disabled {
+            if (parent.geometry.width / 1px).round() <= 0 || (parent.geometry.height / 1px).round() <= 0 {
+                return {};
+            }
+            return Snapping.accept-preview(root-geometry, CoordinateSpace.Root, [], identity);
+        }
+        let result = Snapping.snap-resize(parent.geometry, handle, square, CanvasView.zoom);
+        if result.parent-geometry.width <= 0px || result.parent-geometry.height <= 0px {
+            return {};
+        }
+        return Snapping.accept-preview(result.parent-geometry, CoordinateSpace.Parent, result.guides, identity);
+    }
+}
+
+export component SnapGuideLine inherits Path {
+    in property <SnapGuide> guide;
+    fit: preserve;
+    stroke: #e649a0;
+    stroke-width: 1phx;
+    accessible-role: AccessibleRole.region;
+    accessible-label: root.guide.label;
+    MoveTo {
+        x: root.guide.start-x * CanvasView.zoom / 1px;
+        y: root.guide.start-y * CanvasView.zoom / 1px;
+    }
+    LineTo {
+        x: root.guide.end-x * CanvasView.zoom / 1px;
+        y: root.guide.end-y * CanvasView.zoom / 1px;
+    }
+}

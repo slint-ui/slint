@@ -3,9 +3,11 @@
 
 //! The classes of the native items of the run-time, and the properties they declare
 
-use std::collections::{BTreeMap, HashMap};
-use std::fmt::Display;
-use std::sync::Arc;
+use alloc::collections::BTreeMap;
+use alloc::format;
+use alloc::string::String;
+use alloc::sync::Arc;
+use core::fmt::Display;
 
 use smol_str::SmolStr;
 
@@ -47,7 +49,7 @@ pub enum PropertyVisibility {
 }
 
 impl Display for PropertyVisibility {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             PropertyVisibility::Private => f.write_str("private"),
             PropertyVisibility::Input => f.write_str("in"),
@@ -131,7 +133,7 @@ pub struct NativeClass {
     pub class_name: SmolStr,
     pub cpp_vtable_getter: String,
     pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
-    pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
+    pub deprecated_aliases: BTreeMap<SmolStr, SmolStr>,
     /// Type override if class_name is not equal to the name to be used in the
     /// target language API.
     pub builtin_struct: Option<BuiltinStruct>,

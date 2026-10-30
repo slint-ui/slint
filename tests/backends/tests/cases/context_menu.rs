@@ -11,7 +11,7 @@
 #[satchel::test]
 fn native_context_menu_does_not_leak_the_window_adapter() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             menu := ContextMenuArea {
                 Menu {
