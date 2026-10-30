@@ -1,0 +1,286 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 200phx;
+    height: 180phx;
+
+    first := FocusScope {
+        y: 0phx;
+        height: 20phx;
+        focus-gained(reason) => {
+            root.events += "first in\n";
+        }
+        focus-lost(reason) => {
+            root.events += "first out\n";
+        }
+    }
+
+    selectable := TextInput {
+        y: 30phx;
+        height: 20phx;
+        font-family: "FixedTestFont";
+        font-size: 10px;
+        read-only: true;
+        focus-on-tab-navigation: false;
+        text: "Select me";
+    }
+
+    second := FocusScope {
+        y: 60phx;
+        height: 20phx;
+    }
+
+    plain := TextInput {
+        y: 90phx;
+        height: 20phx;
+        text: "Plain";
+    }
+
+    no-tab := TextInput {
+        y: 120phx;
+        height: 20phx;
+        focus-on-tab-navigation: root.no-tab-focus-on-tab-navigation;
+        text: "No tab";
+    }
+
+    no-click := TextInput {
+        y: 150phx;
+        height: 20phx;
+        focus-on-click: root.no-click-focus-on-click;
+        text: "No click";
+    }
+
+    public function focus-no-tab() {
+        no-tab.focus();
+    }
+
+    public function focus-no-click() {
+        no-click.focus();
+    }
+
+    in-out property <bool> no-tab-focus-on-tab-navigation: false;
+    in-out property <bool> no-click-focus-on-click: false;
+    in-out property <string> events;
+    out property <string> focused: (first.has-focus ? "first" : "") + (selectable.has-focus ? "selectable" : "") + (second.has-focus ? "second" : "") + (plain.has-focus ? "plain" : "") + (no-tab.has-focus ? "no-tab" : "") + (no-click.has-focus ? "no-click" : "");
+    out property <bool> text-input-focused: TextInputInterface.text-input-focused;
+    out property <bool> no-tab-has-selection: no-tab.has-selection;
+    out property <int> selectable-anchor: selectable.anchor-position-byte-offset;
+    out property <int> selectable-cursor: selectable.cursor-position-byte-offset;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+// tab skips the inputs with focus-on-tab-navigation: false
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused(), "first");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused(), "second");
+assert!(!instance.get_text_input_focused());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused(), "plain");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused(), "no-click");
+assert!(!instance.get_no_tab_has_selection());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq!(instance.get_focused(), "first");
+
+// shift+tab skips them too
+slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+assert_eq!(instance.get_focused(), "no-click");
+slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+assert_eq!(instance.get_focused(), "plain");
+slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+assert_eq!(instance.get_focused(), "second");
+slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+assert_eq!(instance.get_focused(), "first");
+
+// click focuses the inputs with focus-on-click: true
+slint_testing::send_mouse_click(&instance, 5., 35.);
+assert_eq!(instance.get_focused(), "selectable");
+slint_testing::send_mouse_click(&instance, 5., 95.);
+assert_eq!(instance.get_focused(), "plain");
+slint_testing::send_mouse_click(&instance, 5., 125.);
+assert_eq!(instance.get_focused(), "no-tab");
+
+// click on the input with focus-on-click: false keeps the focus where it is
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_focused(), "first");
+instance.set_events("".into());
+slint_testing::send_mouse_click(&instance, 5., 155.);
+assert_eq!(instance.get_focused(), "first");
+assert_eq!(instance.get_events(), "");
+
+// programmatic focus still works
+instance.invoke_focus_no_tab();
+assert_eq!(instance.get_focused(), "no-tab");
+instance.invoke_focus_no_click();
+assert_eq!(instance.get_focused(), "no-click");
+
+// changing the properties applies to the next focus change
+instance.set_no_tab_focus_on_tab_navigation(true);
+instance.set_no_click_focus_on_click(true);
+slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+assert_eq!(instance.get_focused(), "no-tab");
+slint_testing::send_mouse_click(&instance, 50., 155.);
+assert_eq!(instance.get_focused(), "no-click");
+instance.set_no_tab_focus_on_tab_navigation(false);
+instance.set_no_click_focus_on_click(false);
+slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+assert_eq!(instance.get_focused(), "plain");
+slint_testing::send_mouse_click(&instance, 100., 155.);
+assert_eq!(instance.get_focused(), "plain");
+
+// the read-only input skipped by tab still selects a word on double click
+slint_testing::send_mouse_click(&instance, 5., 35.);
+slint_testing::send_mouse_click(&instance, 5., 35.);
+assert_eq!(instance.get_focused(), "selectable");
+assert_eq!(instance.get_selectable_anchor(), 0);
+assert_eq!(instance.get_selectable_cursor(), 6);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// tab skips the inputs with focus-on-tab-navigation: false
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focused(), "first");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focused(), "second");
+assert(!instance.get_text_input_focused());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focused(), "plain");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focused(), "no-click");
+assert(!instance.get_no_tab_has_selection());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focused(), "first");
+
+// shift+tab skips them too
+slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+assert_eq(instance.get_focused(), "no-click");
+slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+assert_eq(instance.get_focused(), "plain");
+slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+assert_eq(instance.get_focused(), "second");
+slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+assert_eq(instance.get_focused(), "first");
+
+// click focuses the inputs with focus-on-click: true
+slint_testing::send_mouse_click(&instance, 5., 35.);
+assert_eq(instance.get_focused(), "selectable");
+slint_testing::send_mouse_click(&instance, 5., 95.);
+assert_eq(instance.get_focused(), "plain");
+slint_testing::send_mouse_click(&instance, 5., 125.);
+assert_eq(instance.get_focused(), "no-tab");
+
+// click on the input with focus-on-click: false keeps the focus where it is
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_focused(), "first");
+instance.set_events("");
+slint_testing::send_mouse_click(&instance, 5., 155.);
+assert_eq(instance.get_focused(), "first");
+assert_eq(instance.get_events(), "");
+
+// programmatic focus still works
+instance.invoke_focus_no_tab();
+assert_eq(instance.get_focused(), "no-tab");
+instance.invoke_focus_no_click();
+assert_eq(instance.get_focused(), "no-click");
+
+// changing the properties applies to the next focus change
+instance.set_no_tab_focus_on_tab_navigation(true);
+instance.set_no_click_focus_on_click(true);
+slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+assert_eq(instance.get_focused(), "no-tab");
+slint_testing::send_mouse_click(&instance, 50., 155.);
+assert_eq(instance.get_focused(), "no-click");
+instance.set_no_tab_focus_on_tab_navigation(false);
+instance.set_no_click_focus_on_click(false);
+slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+assert_eq(instance.get_focused(), "plain");
+slint_testing::send_mouse_click(&instance, 100., 155.);
+assert_eq(instance.get_focused(), "plain");
+
+// the read-only input skipped by tab still selects a word on double click
+slint_testing::send_mouse_click(&instance, 5., 35.);
+slint_testing::send_mouse_click(&instance, 5., 35.);
+assert_eq(instance.get_focused(), "selectable");
+assert_eq(instance.get_selectable_anchor(), 0);
+assert_eq(instance.get_selectable_cursor(), 6);
+```
+
+```js
+let instance = new slint.TestCase({});
+
+// tab skips the inputs with focus-on-tab-navigation: false
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert.equal(instance.focused, "first");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert.equal(instance.focused, "second");
+assert(!instance.text_input_focused);
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert.equal(instance.focused, "plain");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert.equal(instance.focused, "no-click");
+assert(!instance.no_tab_has_selection);
+slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
+assert.equal(instance.focused, "first");
+
+// shift+tab skips them too
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+assert.equal(instance.focused, "no-click");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+assert.equal(instance.focused, "plain");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+assert.equal(instance.focused, "second");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+assert.equal(instance.focused, "first");
+
+// click focuses the inputs with focus-on-click: true
+slintlib.private_api.send_mouse_click(instance, 5., 35.);
+assert.equal(instance.focused, "selectable");
+slintlib.private_api.send_mouse_click(instance, 5., 95.);
+assert.equal(instance.focused, "plain");
+slintlib.private_api.send_mouse_click(instance, 5., 125.);
+assert.equal(instance.focused, "no-tab");
+
+// click on the input with focus-on-click: false keeps the focus where it is
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+assert.equal(instance.focused, "first");
+instance.events = "";
+slintlib.private_api.send_mouse_click(instance, 5., 155.);
+assert.equal(instance.focused, "first");
+assert.equal(instance.events, "");
+
+// programmatic focus still works
+instance.focus_no_tab();
+assert.equal(instance.focused, "no-tab");
+instance.focus_no_click();
+assert.equal(instance.focused, "no-click");
+
+// changing the properties applies to the next focus change
+instance.no_tab_focus_on_tab_navigation = true;
+instance.no_click_focus_on_click = true;
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+assert.equal(instance.focused, "no-tab");
+slintlib.private_api.send_mouse_click(instance, 50., 155.);
+assert.equal(instance.focused, "no-click");
+instance.no_tab_focus_on_tab_navigation = false;
+instance.no_click_focus_on_click = false;
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
+assert.equal(instance.focused, "plain");
+slintlib.private_api.send_mouse_click(instance, 100., 155.);
+assert.equal(instance.focused, "plain");
+
+// the read-only input skipped by tab still selects a word on double click
+slintlib.private_api.send_mouse_click(instance, 5., 35.);
+slintlib.private_api.send_mouse_click(instance, 5., 35.);
+assert.equal(instance.focused, "selectable");
+assert.equal(instance.selectable_anchor, 0);
+assert.equal(instance.selectable_cursor, 6);
+```
+*/
