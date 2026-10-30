@@ -23,7 +23,7 @@ In your `Cargo.toml` add:
 
 ```toml
 [dependencies]
-slint = "1.16.0"
+slint = "1.19.0"
 ```
 
 And in your `main.rs`:
