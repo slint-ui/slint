@@ -1707,6 +1707,43 @@ def test_explicit_corner_radius_makes_every_handle_independent(
         window.dispatch_event(slint_testing.PointerReleaseEvent(end, button))
 
 
+def test_radius_drag_back_restores_the_adjacent_corner(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / "Main.slint"
+    baseline = radius_source(
+        source_file.read_bytes(), {"top-left": 12, "bottom-left": 100}
+    )
+    source_file.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_fixture_element(window, "Rectangle")
+        start = center(radius_handle(window, "top-left"))
+        positions = radius_handle_positions(window)
+        end = offset_position(start, 88, 88, 0)
+        button = slint_testing.PointerEventButton.Left
+        window.dispatch_event(slint_testing.PointerPressEvent(start, button))
+        window.dispatch_event(slint_testing.PointerMoveEvent(end))
+        wait_for_radius_tooltip(window, 100)
+        assert (
+            position_distance(
+                radius_handle_positions(window)["bottom-left"], positions["bottom-left"]
+            )
+            > 70
+        )
+        snapshot.assert_unchanged_now()
+        window.dispatch_event(slint_testing.PointerMoveEvent(start))
+        wait_for_radius_tooltip(window, 12)
+        assert_radius_handle_positions(window, positions, "top-left", 0, True)
+        window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
+        snapshot.assert_unchanged()
+        assert_radius_handle_positions(window, positions, "top-left", 0, True)
+
+
 @pytest.mark.parametrize(
     ("shift_before_press", "shift_during_drag", "single_corner"),
     [

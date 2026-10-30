@@ -563,6 +563,9 @@ export global Api {
         return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
             ? property.value-float : fallback;
     }
+    public pure function editor-number-property(name: string, fallback: float) -> float {
+        return Api.hooked-property-value-data(name, { value-float: Api.number-property(name, fallback) }).value-float;
+    }
     public pure function shadow-prefix(inner: bool) -> string {
         return inner ? "inner-shadow-" : "drop-shadow-";
     }
@@ -710,6 +713,7 @@ export global Api {
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
 
     pure callback fill-brush(value: FillData) -> brush;
+    pure callback brush-fill(value: brush) -> FillData;
     pure callback fill-expression(value: FillData) -> string;
     pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
     pure callback radial-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
