@@ -21,9 +21,8 @@ It wins over the edition of the project file.
 Use the `LIBRARY_PATHS` argument to specify the name and paths to <SlintRef type="ComponentLibraries" label="component libraries" code={false} />,
 separated by an equals sign (`=`).
 
-Instead of a `.slint` file, pass a project directory.
-Slint loads `slint-project.json` inside that directory.
-The project file provides settings not specified by the CMake arguments.
+If the path points to a project file (`slint-project.json`) or to a directory containing a project file,
+Slint loads the project file and applies settings not specified by the CMake arguments.
 It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 The header is named after the main file: `"main": "ui/the_window.slint"` generates `the_window.h`.
 Changing the project file re-runs the CMake configure step.

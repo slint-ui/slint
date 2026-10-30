@@ -94,9 +94,8 @@ struct Cli {
     #[arg(short = 'L', name = "library path", number_of_values = 1)]
     library_paths: Vec<String>,
 
-    /// Specify a .slint file or a project directory to compile.
-    /// If the path is a directory, Slint loads slint-project.json inside that directory.
-    /// It must contain a main entry specifying the .slint file to compile.
+    /// Specify a .slint file, project directory, or slint-project.json file to compile.
+    /// The project file must contain a main entry specifying the .slint file to compile.
     /// Use '-' to read from stdin.
     #[arg(name = "file")]
     path: std::path::PathBuf,
