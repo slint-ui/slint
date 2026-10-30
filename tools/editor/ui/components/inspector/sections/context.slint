@@ -25,6 +25,13 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider" || InspectorContext.element-information.type-name == "TabWidget");
     }
 
+    public pure function has-current-index-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "ComboBox"
+                || InspectorContext.element-information.type-name == "RadioGroup"
+                || InspectorContext.element-information.type-name == "TabWidget");
+    }
+
     public pure function is-rectangle-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }
