@@ -5429,6 +5429,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::TextInputFocused => {
             format!("{}.text_input_focused()", access_window_field(ctx))
         }
+        BuiltinFunction::TextInputType => {
+            format!("{}.text_input_type()", access_window_field(ctx))
+        }
+        BuiltinFunction::TextInputMethodHints => {
+            format!("{}.text_input_method_hints()", access_window_field(ctx))
+        }
         BuiltinFunction::ShowPopupWindow => (|| {
             // `owner_ref` is the popup's declaring component (its `popup_id` and scope); `anchor_ref`
             // is the parent item for positioning. A trailing argument may carry the synthesized

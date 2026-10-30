@@ -3845,12 +3845,14 @@ fn build(l: &mut Loader) {
         /// \group:keyboard-input
         @is_global
         TextInputInterface {
-            //! ## Properties
-            //!
-            //! The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
-            //! If you're implementing your own virtual keyboard, this property is an indicator whether the virtual keyboard should be shown or hidden.
+            /// The `TextInputInterface.text-input-focused` property can be used to find out if a `TextInput` element has the focus.
+            /// If you're implementing your own virtual keyboard, this property is an indicator whether the virtual keyboard should be shown or hidden.
             /// True if an `TextInput` element has the focus; false otherwise.
             in property <bool> text-input-focused;
+            /// The `TextInputInterface.text-input-type` property can be used to find out the `input-type` of the recently focused `TextInput` element.
+            out property <InputType> text-input-type;
+            /// The `TextInputInterface.text-input-method-hints` property can be used to find out the `input-method-hints` of the recently focused `TextInput` element.
+            out property <InputMethodHints> text-input-method-hints;
         }
     }
 

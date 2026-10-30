@@ -5372,6 +5372,14 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
         })(),
+        BuiltinFunction::TextInputType => (|| {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_type())
+        })(),
+        BuiltinFunction::TextInputMethodHints => (|| {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_method_hints())
+        })(),
         BuiltinFunction::Translate => (|| {
             let context = access_context(ctx);
             quote!(slint::private_unstable_api::translate(&#context, #((#a) as _),*))
