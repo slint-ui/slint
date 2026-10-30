@@ -1161,6 +1161,15 @@ pub fn create_drop_element_workspace_edit_with_properties(
     });
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
+    let mut extra_properties = extra_properties.to_vec();
+    if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
+        extend_with_new_properties(
+            &mut extra_properties,
+            &component.default_properties,
+            component.default_size.clone(),
+        );
+    }
+
     let new_text = if component.default_properties.is_empty() && extra_properties.is_empty() {
         format!(
             "{}{for_loop}{} {{{placeholder} }}\n{}",
@@ -1174,7 +1183,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
         for p in &component.default_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
-        for p in extra_properties {
+        for p in &extra_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
         to_insert +=

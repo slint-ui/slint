@@ -1089,7 +1089,14 @@ pub fn create_drop_element_workspace_edit(
     });
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
-    let new_text = if component.default_properties.is_empty() {
+    let default_size: &[editor_preview::editing::PropertyChange] =
+        if drop_info.target_element_node.layout_kind() == ui::LayoutKind::None {
+            &component.default_size
+        } else {
+            &[]
+        };
+
+    let new_text = if component.default_properties.is_empty() && default_size.is_empty() {
         format!(
             "{}{for_loop}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component.name, drop_info.insert_info.post_indent
@@ -1099,7 +1106,7 @@ pub fn create_drop_element_workspace_edit(
             "{}{for_loop}{} {{{placeholder}\n",
             drop_info.insert_info.pre_indent, component.name
         );
-        for p in &component.default_properties {
+        for p in component.default_properties.iter().chain(default_size) {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
         to_insert +=

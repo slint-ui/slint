@@ -366,6 +366,7 @@ fn add_tab_edit(
             "title",
             format!("\"Tab {}\"", tab_count + 1),
         )],
+        default_size: Vec::new(),
     };
     preview::drop_location::create_drop_element_workspace_edit(&document_cache, &tab, &drop_info)
 }
