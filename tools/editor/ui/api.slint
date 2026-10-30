@@ -548,6 +548,11 @@ export global Api {
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
     pure callback source-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback hooked-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    hooked-property-value-data(property-name, fallback) => { return fallback; }
+    public pure function editor-property-value-data(property-name: string) -> PropertyValue {
+        return Api.hooked-property-value-data(property-name, Api.source-property-value-data(property-name, {}));
+    }
     pure callback has-property(property-name: string) -> bool;
     pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
     pure callback source-property-value(property-name: string, fallback: string) -> string;
