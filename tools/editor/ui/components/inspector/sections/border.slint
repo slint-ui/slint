@@ -15,7 +15,7 @@ export component InspectorBorderSection inherits InspectorSection {
     InspectorPropertyRow {
         label: @tr("Width");
         InspectorValueField {
-            property <PropertyValue> border-value: Api.source-property-value-data("border-width", {});
+            property <PropertyValue> border-value: Api.editor-property-value-data("border-width");
             accessible-name: @tr("Border width");
             value: self.border-value.value-resolved ? "\{self.border-value.value-float}" : InspectorContext.property-length-label("border-width", "0");
             commit-key: InspectorContext.inspector-key;

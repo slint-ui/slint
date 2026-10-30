@@ -65,10 +65,7 @@ export global InspectorContext {
     }
 
     public pure function is-checkable() -> bool {
-        let runtime = Api.runtime-property-value-data("checkable", {});
-        return runtime.value-resolved
-            ? runtime.value-bool
-            : Api.source-property-value-data("checkable", {}).value-bool;
+        return Api.editor-property-value-data("checkable").value-bool;
     }
 
     public pure function is-checkbox-selection() -> bool {
@@ -282,33 +279,30 @@ export global InspectorContext {
     }
 
     public pure function property-brush(property-name: string) -> brush {
-        let property = Api.runtime-property-value-data(property-name, {});
+        let source = Api.source-property-value-data(property-name, {});
+        let style-default = (property-name == "background" && InspectorContext.is-root-selection())
+            || (property-name == "color" && InspectorContext.is-text-selection());
+        let fallback = source.code == "" && !source.value-resolved && style-default
+            ? Api.runtime-property-value-data(property-name, source) : source;
+        let property = Api.hooked-property-value-data(property-name, fallback);
         return property.value-resolved ? property.value-brush : transparent;
     }
 
     public pure function property-string(property-name: string, fallback: string) -> string {
         let property = Api.source-property-value-data(property-name, {});
-        if property.code == "" {
-            return fallback;
-        }
-        if property.value-kind == PropertyValueKind.string && property.value-string != "" {
-            return property.value-string;
-        }
-        if property.display-string != "" {
-            return property.display-string;
-        }
-        return property.code;
+        let value = property.code == "" ? fallback
+            : property.value-kind == PropertyValueKind.string && property.value-string != "" ? property.value-string
+            : property.display-string != "" ? property.display-string : property.code;
+        return Api.hooked-property-value-data(property-name, { value-string: value, value-kind: PropertyValueKind.string }).value-string;
     }
 
     public pure function property-length-label(property-name: string, fallback: string) -> string {
         let property = Api.source-property-value-data(property-name, {});
-        if property.code == "" {
-            return fallback;
-        }
-        if property.value-kind == PropertyValueKind.float || property.kind == PropertyValueKind.float {
-            return property.value-float.to-fixed(0);
-        }
-        return property.code;
+        let value = property.code == "" ? fallback
+            : property.value-kind == PropertyValueKind.float || property.kind == PropertyValueKind.float
+                ? property.value-float.to-fixed(0) : property.code;
+        let hooked = Api.hooked-property-value-data(property-name, { value-string: value, value-kind: PropertyValueKind.string });
+        return hooked.value-kind == PropertyValueKind.float ? hooked.value-float.to-fixed(0) : hooked.value-string;
     }
 
     public function commit-codes(bindings: [CodeBinding]) -> bool {
