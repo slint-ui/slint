@@ -225,18 +225,26 @@ fn project_file_input_error(input: &SourcePath) -> String {
 /// A directory resolves to the main file specified by its `slint-project.json`.
 /// A source file resolves to itself without loading a project file.
 pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
+    resolve_input_with_diagnostics(input).map_err(|error| error.0)
+}
+
+fn resolve_input_with_diagnostics(
+    input: &Path,
+) -> Result<(PathBuf, Option<ProjectFile>), (String, Option<(String, usize, usize)>)> {
     let input = project_root(input);
     if !input.is_dir() {
         return Ok((input.to_path_buf(), None));
     }
     let project_file_path = input.join(FILE_NAME);
-    let project_file = ProjectFile::load(&project_file_path)
-        .map_err(|error| format!("Cannot load {}: {error}", project_file_path.display()))?;
-    let entry = project_file
-        .main()
-        .ok_or_else(|| format!("{} has no 'main' to compile", project_file.source_path()))?;
+    let project_file =
+        ProjectFile::load_with_source(&project_file_path).map_err(|(error, source)| {
+            project_load_error(&SourcePath::new(&project_file_path), error, source)
+        })?;
+    let entry = project_file.main().ok_or_else(|| {
+        (format!("{} has no 'main' to compile", project_file.source_path()), None)
+    })?;
     let entry = entry.into_native_path().ok_or_else(|| {
-        format!("{} must specify a local file for 'main'", project_file.source_path())
+        (format!("{} must specify a local file for 'main'", project_file.source_path()), None)
     })?;
     Ok((entry, Some(project_file)))
 }
@@ -244,20 +252,36 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Str
 async fn load_from_root_with_file_loader(
     root: SourcePath,
     file_loader: Option<&crate::OpenImportCallback>,
-) -> Result<Option<ProjectFile>, String> {
-    let path =
-        root.join(FILE_NAME).ok_or_else(|| format!("Cannot resolve {FILE_NAME} under {root}"))?;
-    match ProjectFile::load_with_file_loader(path.clone(), file_loader).await {
+) -> Result<Option<ProjectFile>, (String, Option<(String, usize, usize)>)> {
+    let path = root
+        .join(FILE_NAME)
+        .ok_or_else(|| (format!("Cannot resolve {FILE_NAME} under {root}"), None))?;
+    match ProjectFile::load_with_file_loader_and_source(path.clone(), file_loader).await {
         Ok(project_file) => Ok(Some(project_file)),
-        Err(error)
+        Err((error, _))
             if error
                 .downcast_ref::<std::io::Error>()
                 .is_some_and(|error| error.kind() == std::io::ErrorKind::NotFound) =>
         {
             Ok(None)
         }
-        Err(error) => Err(format!("Cannot load {path}: {error}")),
+        Err((error, source)) => Err(project_load_error(&path, error, source)),
     }
+}
+
+fn project_load_error(
+    path: &SourcePath,
+    error: Box<dyn Error>,
+    source: Option<Vec<u8>>,
+) -> (String, Option<(String, usize, usize)>) {
+    let position = error.downcast_ref::<serde_json::Error>().and_then(|error| {
+        let source = String::from_utf8(source?).ok()?;
+        if error.line() == 0 {
+            return None;
+        }
+        Some((source, error.line(), error.column()))
+    });
+    (format!("Cannot load {path}: {error}"), position)
 }
 
 /// The root file to compile for an input, see [`load_input()`].
@@ -301,19 +325,19 @@ pub async fn load_input(
     let resolved = if input.file_name() == Some(FILE_NAME)
         && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
     {
-        Err((project_file_input_error(input), input.clone()))
+        Err((project_file_input_error(input), input.clone(), None))
     } else if let Some(root) = project_root {
         let project_path = root.join(FILE_NAME).unwrap_or_else(|| root.clone());
         load_from_root_with_file_loader(root, Some(&file_loader))
             .await
             .map(|project_file| (input.clone(), project_file))
-            .map_err(|message| (message, project_path))
+            .map_err(|(message, position)| (message, project_path, position))
     } else if let Some(path) = input.as_native_path().filter(|_| source_code.is_none()) {
-        resolve_input(path)
+        resolve_input_with_diagnostics(path)
             .map(|(source, project_file)| (SourcePath::new(source), project_file))
-            .map_err(|message| {
+            .map_err(|(message, position)| {
                 let path = if path.is_dir() { path.join(FILE_NAME) } else { path.to_path_buf() };
-                (message, SourcePath::new(path))
+                (message, SourcePath::new(path), position)
             })
     } else {
         Ok((input.clone(), None))
@@ -332,7 +356,26 @@ pub async fn load_input(
         None
     };
     let loaded = match resolved {
-        Err((message, path)) => error(message, &path, crate::diagnostics::Span::new(0, 0)),
+        Err((message, path, position)) => {
+            if let Some((source, line, column)) = position {
+                let source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
+                    path.clone(),
+                    source,
+                ));
+                let offset = source_file.offset(line, column, crate::diagnostics::ByteFormat::Utf8);
+                diagnostics.push_error_with_span(
+                    message,
+                    crate::diagnostics::SourceLocation {
+                        source_file: Some(source_file),
+                        span: crate::diagnostics::Span::new(offset, 0),
+                    },
+                );
+                attempted_paths.borrow_mut().push(path);
+                None
+            } else {
+                error(message, &path, crate::diagnostics::Span::new(0, 0))
+            }
+        }
         Ok((source, project_file)) => {
             if let Some(project_file) = &project_file {
                 attempted_paths.borrow_mut().push(project_file.source_path().clone());
@@ -391,11 +434,15 @@ pub async fn load_input(
 
 impl ProjectFile {
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+        Self::load_with_source(path).map_err(|(error, _)| error)
+    }
+
+    fn load_with_source(path: impl AsRef<Path>) -> Result<Self, (Box<dyn Error>, Option<Vec<u8>>)> {
         let source_path = normalize_project_file_path(SourcePath::File(
             crate::source_path::clean_path(path.as_ref()),
         ));
-        let source = source_path.read()?.into_owned();
-        Self::parse(source_path, source)
+        let source = source_path.read().map_err(|error| (error.into(), None))?.into_owned();
+        Self::parse(source_path, source.clone()).map_err(|error| (error, Some(source)))
     }
 
     /// Parses project-file contents without reading from disk.
@@ -430,19 +477,26 @@ impl ProjectFile {
         path: SourcePath,
         file_loader: Option<&crate::OpenImportCallback>,
     ) -> Result<Self, Box<dyn Error>> {
+        Self::load_with_file_loader_and_source(path, file_loader).await.map_err(|(error, _)| error)
+    }
+
+    async fn load_with_file_loader_and_source(
+        path: SourcePath,
+        file_loader: Option<&crate::OpenImportCallback>,
+    ) -> Result<Self, (Box<dyn Error>, Option<Vec<u8>>)> {
         let path = normalize_project_file_path(path);
         let source = if let Some(result) = match file_loader {
             Some(file_loader) => file_loader(path.clone()).await,
             None => None,
         } {
-            result?.into_bytes()
+            result.map_err(|error| (error.into(), None))?.into_bytes()
         } else {
             if cfg!(target_arch = "wasm32") && matches!(path, SourcePath::File(_)) {
-                return Err(std::io::Error::from(std::io::ErrorKind::NotFound).into());
+                return Err((std::io::Error::from(std::io::ErrorKind::NotFound).into(), None));
             }
-            path.read()?.into_owned()
+            path.read().map_err(|error| (error.into(), None))?.into_owned()
         };
-        Self::parse(path, source)
+        Self::parse(path, source.clone()).map_err(|error| (error, Some(source)))
     }
 
     pub fn source_path(&self) -> &SourcePath {
@@ -1304,6 +1358,25 @@ mod tests {
             let error = resolve_input(path.parent().unwrap()).unwrap_err();
             assert!(error.contains("'main'"), "{error}");
         });
+    }
+
+    #[test]
+    fn a_project_directory_reports_a_parse_error_in_the_project_file() {
+        for (source, expected) in [
+            ("{\n  \"$schema\": 42,\n  \"edition\": \"1.19\"\n}\n", (2, 15)),
+            ("{\n  \"edition\": \"1.19\",\n", (3, 1)),
+        ] {
+            with_project_file_contents(source, |path| {
+                let input = SourcePath::new(path.parent().unwrap());
+                let mut diagnostics = crate::diagnostics::BuildDiagnostics::default();
+                let (loaded, _) =
+                    spin_on::spin_on(super::load_input(&input, None, None, None, &mut diagnostics));
+                assert!(loaded.is_none());
+                let diagnostic = diagnostics.iter().next().unwrap();
+                assert_eq!(diagnostic.source_file().unwrap(), path);
+                assert_eq!(diagnostic.line_column(), expected);
+            });
+        }
     }
 
     #[test]

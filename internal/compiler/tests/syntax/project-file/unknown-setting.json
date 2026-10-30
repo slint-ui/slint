@@ -1,4 +1,4 @@
 {
-//|<<error{Cannot load 📂/tests/syntax/project-file/unknown-setting/slint-project.json: unknown field `unknown_setting`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata` at line 3 column 19}
   "unknown_setting": true
+//                |error{Cannot load 📂/tests/syntax/project-file/unknown-setting/slint-project.json: unknown field `unknown_setting`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata` at line 2 column 19}
 }

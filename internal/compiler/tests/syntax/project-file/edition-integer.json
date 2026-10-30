@@ -1,4 +1,4 @@
 {
-//|<<error{Cannot load 📂/tests/syntax/project-file/edition-integer/slint-project.json: invalid type: integer `119`, expected a Slint edition string, such as "1.19" at line 3 column 16}
   "edition": 119
+//             |error{Cannot load 📂/tests/syntax/project-file/edition-integer/slint-project.json: invalid type: integer `119`, expected a Slint edition string, such as "1.19" at line 2 column 16}
 }
