@@ -458,6 +458,7 @@ fn within_tolerance(
     tolerance: f32,
 ) -> bool {
     [LogicalVector::new(correction.x, 0.), LogicalVector::new(0., correction.y)].into_iter().all(
+        #[allow(clippy::unnecessary_cast)]
         |axis_correction| {
             parent_to_root.transform_vector(axis_correction.cast()).length() as f32 <= tolerance
         },
@@ -495,7 +496,10 @@ fn closest_target(
             let Some(rect) = candidate(feature_index, target) else { continue };
             let offset = targets.parent_to_root.transform_vector((point - start).cast());
             let projection = (offset.dot(segment) / segment_length_squared).clamp(0., 1.);
+
+            #[allow(clippy::unnecessary_cast)]
             let distance_squared = (offset - segment * projection).square_length() as f32;
+
             if best_match.as_ref().is_none_or(|current| distance_squared < current.distance_squared)
             {
                 best_match =
