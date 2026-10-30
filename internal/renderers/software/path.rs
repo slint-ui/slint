@@ -4,8 +4,11 @@
 //! Path rendering support for the software renderer using zeno
 
 use super::PhysicalRect;
-use super::draw_functions::{LineClip, PremultipliedRgbaColor, TargetPixel, interpolate_color};
-use super::{AnyGradientCommand, PhysicalLength, ShapeClip};
+use super::draw_functions::{
+    LineClip, PremultipliedRgbaColor, TargetPixel, draw_gradients_scratch_line,
+    for_each_scratch_pixel, interpolate_color,
+};
+use super::{Paint, PhysicalLength, ShapeClip};
 use alloc::vec;
 use alloc::vec::Vec;
 use zeno::{Cap, Fill, Join, Mask, Stroke, Style};
@@ -57,13 +60,6 @@ pub fn convert_path_data_to_zeno(
     }
 
     commands
-}
-
-/// What a path's coverage mask is filled with.
-pub enum Paint {
-    Solid(PremultipliedRgbaColor),
-    /// Gradient commands, each with the rect it's placed in.
-    Gradient(Vec<(PhysicalRect, AnyGradientCommand)>),
 }
 
 /// Common rendering logic for both filled and stroked paths
@@ -182,15 +178,12 @@ fn render_path_with_style<T: TargetPixel>(
                         line,
                         run,
                         |scratch, chunk| {
-                            for (rect, gradient) in gradients {
-                                gradient.as_command::<T>().draw_scratch_line(
-                                    rect,
-                                    line_number,
-                                    scratch,
-                                    chunk.start as i16 - rect.min_x(),
-                                    rect.max_x() - chunk.end as i16,
-                                );
-                            }
+                            draw_gradients_scratch_line(
+                                gradients,
+                                line_number,
+                                scratch,
+                                chunk.start as i16..chunk.end as i16,
+                            );
                         },
                         |x| mask_row[x - x_start] as u32,
                     );
@@ -205,22 +198,12 @@ fn render_path_with_style<T: TargetPixel>(
 fn blend_with_coverage<T: TargetPixel>(
     buffer: &mut [T],
     range: core::ops::Range<usize>,
-    mut draw: impl FnMut(&mut [PremultipliedRgbaColor], core::ops::Range<usize>),
+    draw: impl FnMut(&mut [PremultipliedRgbaColor], core::ops::Range<usize>),
     coverage: impl Fn(usize) -> u32,
 ) {
-    // Bounds the stack scratch buffer.
-    const CHUNK: usize = 16;
-    let mut scratch = [PremultipliedRgbaColor::default(); CHUNK];
-    for start in range.clone().step_by(CHUNK) {
-        let chunk = start..(start + CHUNK).min(range.end);
-        let scratch = &mut scratch[..chunk.len()];
-        scratch.fill(PremultipliedRgbaColor::default());
-        draw(scratch, chunk.clone());
-        for (x, color) in chunk.zip(scratch.iter()) {
-            let color = interpolate_color(coverage(x), PremultipliedRgbaColor::default(), *color);
-            buffer[x].blend(color);
-        }
-    }
+    for_each_scratch_pixel(range, draw, |x, color| {
+        buffer[x].blend(interpolate_color(coverage(x), PremultipliedRgbaColor::default(), color));
+    });
 }
 
 /// Render a filled path
