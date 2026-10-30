@@ -28,9 +28,12 @@ This document describes the Slint release process
   (see the comment in `scripts/publish.sh`)
 
 * Update version number in the documentation  (Only for major release)
-  - Crate documentation have sample .toml files (api/rs/lib.rs, api/rs/build/lib.rs, api/rs/README)
+  - The `slint = "…"` and `slint-build = "…"` lines of the crate documentation
+    (api/rs/slint/lib.rs, api/rs/build/lib.rs, api/rs/slint/README.md, api/rs/slint/mcu.md)
       - `sed --follow-symlinks -i 's/^\(slint.*\) = ".*"$/\1 = "1.16.0"/' **/*.rs **/*.md`
-  - The `[dependencies.slint]` in mcu.md
+  - The `slint = { version = "…", … }` lines in api/rs/slint/android.rs and in the guide pages under docs/astro/src/content/docs/guide/
+  - The `[dependencies.slint]` version and the `cargo add slint@…` lines in api/rs/slint/mcu.md
+  - Check that all of them show the new version: `git grep -E 'slint[a-z-]*(@| = "| = \{ ?version = ")1\.[0-9]' -- '*.rs' '*.md' '*.mdx' ':!CHANGELOG.md'`
 
 * Update the `zed` extension commit hash of the tree-sitter repo in editors/zed/extension.toml in the `grammars.slint` section.
   Take the **commit** hash from the [**nightly** branch](https://github.com/slint-ui/tree-sitter-slint/tree/nightly).
