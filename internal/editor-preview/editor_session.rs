@@ -861,53 +861,51 @@ impl EditorSession {
                 preview.to_preview.send(&self.project_file_contents_message(url.clone()));
                 continue;
             }
-            if let Some(node) =
-                self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
-            {
-                let version = self.document_cache.document_version_by_path(node.source_file.path());
-                let contents = node.text().to_string().into();
-                tracing::debug!("Sending cached file {} to preview", url);
-                preview.to_preview.send(&LspToPreviewMessage::SetContents {
-                    url: VersionedUrl::new(url.clone(), version),
-                    contents,
-                });
-                #[cfg(feature = "preview-remote")]
-                self.send_referenced_fonts(preview, url, &mut fonts_sent);
-                continue;
-            }
-            let Some(path) = url.to_file_path().ok() else {
-                tracing::warn!("Cannot convert URL to file path: {url}");
-                preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-                continue;
-            };
-            let file_access = file_access.get_or_init(|| {
-                crate::preview_files::PreviewFileAccess::new(
-                    &self.document_cache,
-                    &self.document_roots(),
-                )
-            });
-            if !file_access.allows(&path) {
-                tracing::warn!(
-                    "Refusing to send {} to the preview: not a file of the project being previewed",
-                    path.display()
-                );
-                preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
-                continue;
-            }
-            match std::fs::read(&path) {
-                Ok(contents) => {
-                    tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
+            match self.preview_file_contents(url, &file_access) {
+                Ok((version, contents)) => {
+                    tracing::debug!("Sending {url} ({} bytes) to the preview", contents.len());
                     preview.to_preview.send(&LspToPreviewMessage::SetContents {
-                        url: VersionedUrl::new(url.clone(), None),
+                        url: VersionedUrl::new(url.clone(), version),
                         contents,
                     });
+                    #[cfg(feature = "preview-remote")]
+                    self.send_referenced_fonts(preview, url, &mut fonts_sent);
                 }
-                Err(err) => {
-                    tracing::warn!("Failed to read file {}: {err}", path.display());
+                Err(reason) => {
+                    tracing::warn!("Not sending {url} to the preview: {reason}");
                     preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 }
             }
         }
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+    ))]
+    fn preview_file_contents(
+        &self,
+        url: &Url,
+        file_access: &std::cell::OnceCell<crate::preview_files::PreviewFileAccess>,
+    ) -> Result<(SourceFileVersion, Vec<u8>), String> {
+        if let Some(node) = self.document_cache.get_document(url).and_then(|doc| doc.node.as_ref())
+        {
+            let version = self.document_cache.document_version_by_path(node.source_file.path());
+            return Ok((version, node.text().to_string().into()));
+        }
+        let path = url.to_file_path().map_err(|()| "not a local file path".to_string())?;
+        let file_access = file_access.get_or_init(|| {
+            crate::preview_files::PreviewFileAccess::new(
+                &self.document_cache,
+                &self.document_roots(),
+            )
+        });
+        if !file_access.allows(&path) {
+            return Err("not a file of the project being previewed".into());
+        }
+        let contents = std::fs::read(&path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        Ok((None, contents))
     }
 
     /// Read each font file imported by the `.slint` at `doc_url` and push it
