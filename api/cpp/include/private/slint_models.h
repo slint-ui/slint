@@ -785,13 +785,7 @@ struct SortModelInner : private_api::ModelChangeListener
             auto inserted_value = source_model->row_data(row);
             if (!inserted_value)
                 continue;
-            auto insertion_point =
-                    std::lower_bound(sorted_rows.begin(), sorted_rows.end(), *inserted_value,
-                                     [this](size_t sorted_row, const ModelData &inserted_value) {
-                                         auto sorted_elem = source_model->row_data(sorted_row);
-                                         return sorted_elem && comp(*sorted_elem, inserted_value);
-                                     });
-
+            auto insertion_point = sorted_insertion_point(row, *inserted_value);
             insertion_point = sorted_rows.insert(insertion_point, row);
             target_model.notify_row_added(std::distance(sorted_rows.begin(), insertion_point), 1);
         }
@@ -810,13 +804,7 @@ struct SortModelInner : private_api::ModelChangeListener
         auto changed_value = source_model->row_data(changed_row);
         if (!changed_value)
             return;
-        auto insertion_point =
-                std::lower_bound(sorted_rows.begin(), sorted_rows.end(), *changed_value,
-                                 [this](size_t sorted_row, const ModelData &changed_value) {
-                                     auto sorted_elem = source_model->row_data(sorted_row);
-                                     return sorted_elem && comp(*sorted_elem, changed_value);
-                                 });
-
+        auto insertion_point = sorted_insertion_point(changed_row, *changed_value);
         insertion_point = sorted_rows.insert(insertion_point, changed_row);
         auto inserted_row = std::distance(sorted_rows.begin(), insertion_point);
 
@@ -865,6 +853,19 @@ struct SortModelInner : private_api::ModelChangeListener
         target_model.notify_reset();
     }
 
+    std::vector<size_t>::iterator sorted_insertion_point(size_t row, const ModelData &value)
+    {
+        return std::lower_bound(sorted_rows.begin(), sorted_rows.end(), row,
+                                [this, &value](size_t sorted_row, size_t inserted_row) {
+                                    auto sorted_elem = source_model->row_data(sorted_row);
+                                    if (!sorted_elem)
+                                        return false;
+                                    if (comp(*sorted_elem, value))
+                                        return true;
+                                    return !comp(value, *sorted_elem) && sorted_row < inserted_row;
+                                });
+    }
+
     void ensure_sorted()
     {
         if (!sorted_rows_dirty) {
@@ -875,11 +876,12 @@ struct SortModelInner : private_api::ModelChangeListener
         for (size_t i = 0; i < sorted_rows.size(); ++i)
             sorted_rows[i] = i;
 
-        std::sort(sorted_rows.begin(), sorted_rows.end(), [this](auto lhs_index, auto rhs_index) {
-            auto lhs_elem = source_model->row_data(lhs_index);
-            auto rhs_elem = source_model->row_data(rhs_index);
-            return rhs_elem && lhs_elem && comp(*lhs_elem, *rhs_elem);
-        });
+        std::stable_sort(sorted_rows.begin(), sorted_rows.end(),
+                         [this](auto lhs_index, auto rhs_index) {
+                             auto lhs_elem = source_model->row_data(lhs_index);
+                             auto rhs_elem = source_model->row_data(rhs_index);
+                             return rhs_elem && lhs_elem && comp(*lhs_elem, *rhs_elem);
+                         });
 
         sorted_rows_dirty = false;
     }
@@ -895,6 +897,7 @@ struct SortModelInner : private_api::ModelChangeListener
 /// The SortModel acts as an adapter model for a given source model by sorting all rows
 /// with by order provided by the given sorting function. The sorting function is called for
 /// pairs of elements of the source model.
+/// Rows that compare equal keep their order from the source model.
 ///
 /// \code
 /// auto source_model = std::make_shared<slint::VectorModel<SharedString>>(
