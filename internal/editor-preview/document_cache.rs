@@ -366,27 +366,12 @@ impl DocumentCache {
     }
 
     pub(crate) fn retain_documents(&mut self, roots: &HashSet<Url>) -> Result<HashSet<Url>> {
-        let mut retained = roots.clone();
-        let mut pending = roots.iter().cloned().collect::<Vec<_>>();
-        while let Some(url) = pending.pop() {
-            if let Some(document) = self.get_document(&url) {
-                for import in &document.imports {
-                    if let Some(import_url) = import.resolved.as_ref().and_then(SourcePath::to_url)
-                        && retained.insert(import_url.clone())
-                    {
-                        pending.push(import_url);
-                    }
-                }
-            }
+        let roots = roots.iter().map(SourcePath::from_url).collect();
+        let removed = self.type_loader.retain_documents(&roots)?;
+        for path in &removed {
+            self.source_file_versions.borrow_mut().remove(path);
         }
-        let removed = self
-            .all_urls()
-            .filter(|url| url.scheme() != "builtin" && !retained.contains(url))
-            .collect::<HashSet<_>>();
-        for url in &removed {
-            self.drop_document(url)?;
-        }
-        Ok(removed)
+        Ok(removed.iter().filter_map(SourcePath::to_url).collect())
     }
 
     pub fn compiler_configuration(&self) -> CompilerConfiguration {
