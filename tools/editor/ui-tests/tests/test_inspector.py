@@ -1111,6 +1111,45 @@ def test_font_italic_switch_writes_exact_source(
         expect(italic_switch()).to_be_checked()
 
 
+def test_rectangle_clip_switch_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    def clip_switch() -> slint_testing.Element:
+        return inspector_field(window, "Clip", slint_testing.AccessibleRole.Switch)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_element(window, "Rectangle")
+        expect(clip_switch()).to_be_checked(False)
+
+        clip_switch().invoke_accessible_default_action()
+        clipped = wait_for_source_change(source_file, baseline)
+        assert clipped == replace_once(
+            baseline,
+            b"        drop-shadow-offset-y: 8px;",
+            b"        drop-shadow-offset-y: 8px;\n        clip: true;",
+        )
+        expect(clip_switch()).to_be_checked()
+
+        clip_switch().invoke_accessible_default_action()
+        unclipped = wait_for_source_change(source_file, clipped)
+        assert unclipped == replace_once(
+            clipped, b"        clip: true;", b"        clip: false;"
+        )
+        expect(clip_switch()).to_be_checked(False)
+
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(clipped, INSPECTOR_SOURCE)
+        expect(clip_switch()).to_be_checked()
+
+
 @pytest.mark.parametrize("wrap", ("no-wrap", "word-wrap", "char-wrap"))
 def test_each_text_wrap_writes_exact_source(
     editor_binary: Path,
