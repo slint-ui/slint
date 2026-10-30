@@ -923,6 +923,13 @@ jobs:
                   name: android-demos
                   path: android-demos/
 
+    android_reproducible:
+        if: github.event.inputs.mode != 'release'
+        needs: [android]
+        uses: ./.github/workflows/android_reproducible.yaml
+        with:
+            signed-apks: android-demos
+
     # QA the freshly published nightly release: build an ESP-IDF demo against
     # the prebuilt Slint C++ packages and slint-compiler downloaded from the
     # `nightly` release tag (SLINT_ESP_LOCAL_EXAMPLE=OFF), the same way users
