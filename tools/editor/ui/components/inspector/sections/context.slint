@@ -48,6 +48,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StyledText";
     }
 
+    public pure function has-styled-text-property() -> bool {
+        return InspectorContext.element-information.type-name == "StyledText" || InspectorContext.element-information.type-name == "Tooltip";
+    }
+
     public pure function is-image-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Image";
     }
@@ -99,8 +103,8 @@ export global InspectorContext {
     }
 
     public pure function has-text-property-selection() -> bool {
-        return InspectorContext.has-backend-rect()
-            && Api.has-property("text");
+        return (Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "Tooltip")
+            || (InspectorContext.has-backend-rect() && Api.has-property("text"));
     }
 
     public pure function has-typography-selection() -> bool {
