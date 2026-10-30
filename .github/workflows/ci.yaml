@@ -74,16 +74,9 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                include:
-                    - name: Rust and UI on macOS
-                      os: blacksmith-6vcpu-macos-15
-                      run_ui_tests: true
-                    - name: Rust and UI on Linux
-                      os: blacksmith-4vcpu-ubuntu-2204
-                      run_ui_tests: true
-                    - name: Rust on Windows
-                      os: blacksmith-4vcpu-windows-2025
-                      run_ui_tests: false
+                include: ${{ fromJSON(inputs.full
+                    && '[{"name":"Rust and UI on macOS","os":"blacksmith-6vcpu-macos-15","run_ui_tests":true},{"name":"Rust and UI on Linux","os":"blacksmith-4vcpu-ubuntu-2204","run_ui_tests":true},{"name":"Rust on Windows","os":"blacksmith-4vcpu-windows-2025","run_ui_tests":false}]'
+                    || '[{"name":"Rust and UI on Linux","os":"blacksmith-4vcpu-ubuntu-2204","run_ui_tests":true}]') }}
         runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         permissions:
