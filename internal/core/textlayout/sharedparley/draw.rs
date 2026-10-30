@@ -214,10 +214,16 @@ impl TextParagraph {
             let padded_x_range = visible_x_range
                 .map(|x_range| (x_range.start - line_height)..(x_range.end + line_height));
             let control_glyphs = self.control_glyphs(&line);
+            let elision = last_line
+                .then(|| layout.line_elision(&line, self.layout.is_rtl(), vertically_truncated))
+                .flatten();
             let mut glyph_index = 0;
+            let mut run_index = 0;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
+                        let this_run = run_index;
+                        run_index += 1;
                         let run_control_glyphs: &[bool] = if control_glyphs.is_empty() {
                             &[]
                         } else {
@@ -241,13 +247,7 @@ impl TextParagraph {
                                 glyph_x_range = Some(x_range);
                             }
                         }
-                        let ellipsis = if last_line {
-                            let (truncated_glyphs, ellipsis) = layout.glyphs_with_elision(
-                                &glyph_run,
-                                vertically_truncated,
-                                metrics.hanging_advance,
-                            );
-
+                        let ellipsis = if let Some(elision) = &elision {
                             Self::draw_glyph_run_with_selection(
                                 &glyph_run,
                                 item_renderer,
@@ -255,11 +255,11 @@ impl TextParagraph {
                                 default_stroke_brush,
                                 para_y,
                                 glyph_x_range,
-                                &mut truncated_glyphs.filter(&mut is_printable),
+                                &mut elision.glyphs(&glyph_run).filter(&mut is_printable),
                                 selection.map(|selection| &selection.foreground),
                                 line_spans.unwrap_or_default(),
                             );
-                            ellipsis
+                            elision.ellipsis_for_run(this_run)
                         } else {
                             Self::draw_glyph_run_with_selection(
                                 &glyph_run,

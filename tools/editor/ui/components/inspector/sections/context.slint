@@ -53,8 +53,20 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Button";
     }
 
+    public pure function is-checkable() -> bool {
+        let runtime = Api.runtime-property-value-data("checkable", {});
+        return runtime.value-resolved
+            ? runtime.value-bool
+            : Api.source-property-value-data("checkable", {}).value-bool;
+    }
+
     public pure function is-checkbox-selection() -> bool {
         return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "CheckBox";
+    }
+
+    public pure function is-checked-selection() -> bool {
+        return InspectorContext.is-checkbox-selection()
+            || (InspectorContext.is-button-selection() && InspectorContext.is-checkable());
     }
 
     public pure function is-slider-selection() -> bool {
@@ -121,7 +133,7 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StandardButton";
     }
 
-    public pure function is-enable-selection() -> bool {
+    public pure function is-interaction-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && (InspectorContext.element-information.type-name == "Button"
                 || InspectorContext.element-information.type-name == "CheckBox"

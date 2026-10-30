@@ -1,0 +1,52 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "mcu-viewer"
+version = "1.19.0"
+authors = ["Slint Developers <info@slint.dev>"]
+edition = "2024"
+build = "build.rs"
+publish = false
+license = "MIT"
+description = "Shows on a microcontroller the designs that the Slint live preview sends over USB"
+
+[[bin]]
+path = "main.rs"
+name = "mcu-viewer"
+
+[features]
+simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std", "mcu-board-support/simulator"]
+default = ["simulator"]
+
+[dependencies]
+mcu-board-support = { path = "../mcu-board-support" }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "software-renderer-path"] }
+slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["internal-mcu-interpreter", "internal"] }
+i-slint-compiler = { path = "../../internal/compiler", default-features = false, features = ["serde"] }
+i-slint-core = { path = "../../internal/core", default-features = false }
+i-slint-live-preview = { path = "../../internal/live-preview", default-features = false, features = ["serial"] }
+# The interpreter keeps the pre-rendered textures as the compiler made them, which the renderer must draw.
+i-slint-renderer-software = { path = "../../internal/renderers/software", default-features = false, features = ["image-owned-textures"] }
+log = "0.4"
+
+# A microcontroller has no std: the interpreter needs this instead
+[target.'cfg(target_os = "none")'.dependencies]
+slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["libm"] }
+
+[target.'cfg(not(target_os = "none"))'.dependencies]
+slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
+# Keeps its own release profile, see below.
+[workspace]
+
+[profile.release]
+opt-level = "s"
+debug = true
+
+# The Xtensa LLVM backend fails on the compiler at "s", "z" and 1 ("Cannot select").
+[profile.release.package.i-slint-compiler]
+opt-level = 2
