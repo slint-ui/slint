@@ -675,10 +675,12 @@ pub mod winit_030 {
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Winit releases become available.
     //!
-    //! Use the types and traits in this module in combination with other APIs to access additional window properties,
-    //! create custom windows, or hook into the winit event loop.
+    //! Use the types and traits in this module for what Slint's own API doesn't cover,
+    //! such as accessing additional window properties, creating custom windows, or hooking into the winit event loop.
+    //! Slint keeps managing the window, so not every combination of winit calls is supported.
+    //! Slint may override state that it controls itself, such as the cursor, the size, or the IME state.
     //!
-    //! For example, use the [`WinitWindowAccessor`] to obtain access to the underling [`winit::window::Window`]:
+    //! For example, use the [`WinitWindowAccessor`] to obtain access to the underlying [`winit::window::Window`]:
     //!
     //! `Cargo.toml`:
     //! ```toml
