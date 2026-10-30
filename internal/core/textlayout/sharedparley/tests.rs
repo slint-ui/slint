@@ -372,7 +372,7 @@ fn quote_step(scale_factor: f32) -> f32 {
 #[test]
 fn quote_paragraph_x_per_depth() {
     let layout = layout_markdown("a\n\n> b\n>> c", LayoutOptions::default());
-    let xs: Vec<f32> = layout.paragraphs.iter().map(|p| p.x().get()).collect();
+    let xs: Vec<f32> = layout.paragraphs.iter().map(|p| p.x(layout.quote_step).get()).collect();
     assert_eq!(xs, [0.0, quote_step(1.0), 2.0 * quote_step(1.0)]);
 
     let builder = super::shaping::LayoutWithoutLineBreaksBuilder::new(
@@ -382,7 +382,7 @@ fn quote_paragraph_x_per_depth() {
         ScaleFactor::new(2.0),
     );
     let layout = layout_markdown_with_builder("> b", builder, LayoutOptions::default());
-    assert_eq!(layout.paragraphs[0].x().get(), quote_step(2.0));
+    assert_eq!(layout.paragraphs[0].x(layout.quote_step).get(), quote_step(2.0));
 }
 
 #[test]
@@ -395,8 +395,9 @@ fn quote_wraps_within_reduced_width() {
     let paragraph = &quoted.paragraphs[0];
     for line in paragraph.layout.lines() {
         let metrics = line.metrics();
-        let right = paragraph.x().get() + metrics.inline_min_coord + metrics.advance
-            - metrics.hanging_advance;
+        let right =
+            paragraph.x(quoted.quote_step).get() + metrics.inline_min_coord + metrics.advance
+                - metrics.hanging_advance;
         assert!(right <= max_width.get() + 0.5, "line ends at {right}");
     }
     assert!(paragraph.layout.lines().len() >= plain.paragraphs[0].layout.lines().len());
@@ -417,7 +418,8 @@ fn link_hit_test_respects_quote_indent() {
     let y = paragraph.y.get() + paragraph.layout.height() / 2.;
     assert_eq!(link_in_layout(&layout, PhysicalPoint::new(1., y)), None);
     assert_eq!(
-        link_in_layout(&layout, PhysicalPoint::new(paragraph.x().get() + 2., y)).as_deref(),
+        link_in_layout(&layout, PhysicalPoint::new(paragraph.x(layout.quote_step).get() + 2., y))
+            .as_deref(),
         Some("u")
     );
 }
@@ -436,7 +438,7 @@ fn elision_in_quote_respects_indent() {
         options,
     );
     let paragraph = &layout.paragraphs[0];
-    let x = paragraph.x();
+    let x = paragraph.x(layout.quote_step);
     let line = paragraph.layout.lines().next().unwrap();
     let mut elided = false;
     for item in line.items() {
@@ -450,29 +452,31 @@ fn elision_in_quote_respects_indent() {
     assert!(elided);
 }
 
-#[test]
-fn quote_bars_cover_only_drawn_lines() {
-    let options =
-        LayoutOptions { max_width: Some(LogicalLength::new(150.)), ..LayoutOptions::default() };
-    let layout = layout_markdown(QUOTED_TEXT, options);
+fn drawn_line_indices(layout: &Layout, band: &Range<PhysicalLength>, last: usize) -> Vec<usize> {
     let paragraph = &layout.paragraphs[0];
-    let lines: Vec<_> = paragraph.layout.lines().map(|line| *line.metrics()).collect();
-    assert!(lines.len() >= 3);
-    let last = lines.len() - 1;
-    let para_y = layout.y_offset + paragraph.y;
-    let everything = PhysicalLength::new(f32::MIN)..PhysicalLength::new(f32::MAX);
-
-    assert_eq!(
-        paragraph.quote_bar_extent(&layout, para_y, &everything, last),
-        Some(lines[0].block_min_coord.round()..lines[last].block_max_coord.round())
-    );
-
-    let far_below = PhysicalLength::new(10_000.)..PhysicalLength::new(20_000.);
-    assert_eq!(paragraph.quote_bar_extent(&layout, para_y, &far_below, last), None);
+    paragraph
+        .drawn_lines(layout, layout.y_offset + paragraph.y, band, last)
+        .map(|(index, _)| index)
+        .collect()
 }
 
 #[test]
-fn quote_bars_stop_at_max_lines_cut() {
+fn drawn_lines_follow_visible_band() {
+    let options =
+        LayoutOptions { max_width: Some(LogicalLength::new(150.)), ..LayoutOptions::default() };
+    let layout = layout_markdown(QUOTED_TEXT, options);
+    let line_count = layout.paragraphs[0].layout.lines().len();
+    assert!(line_count >= 3);
+    let last = line_count - 1;
+    let everything = PhysicalLength::new(f32::MIN)..PhysicalLength::new(f32::MAX);
+    assert_eq!(drawn_line_indices(&layout, &everything, last), (0..line_count).collect::<Vec<_>>());
+
+    let far_below = PhysicalLength::new(10_000.)..PhysicalLength::new(20_000.);
+    assert_eq!(drawn_line_indices(&layout, &far_below, last), Vec::<usize>::new());
+}
+
+#[test]
+fn drawn_lines_stop_at_max_lines_cut() {
     let options = LayoutOptions {
         max_width: Some(LogicalLength::new(150.)),
         max_lines: Some(2),
@@ -481,11 +485,22 @@ fn quote_bars_stop_at_max_lines_cut() {
     let layout = layout_markdown(QUOTED_TEXT, options);
     let cut = layout.visible_extent().unwrap();
     assert_eq!((cut.last_paragraph, cut.last_line), (0, 1));
-    let paragraph = &layout.paragraphs[0];
-    let line = *paragraph.layout.lines().nth(1).unwrap().metrics();
     let everything = PhysicalLength::new(f32::MIN)..PhysicalLength::new(f32::MAX);
-    let extent = paragraph
-        .quote_bar_extent(&layout, layout.y_offset + paragraph.y, &everything, cut.last_line)
-        .unwrap();
-    assert_eq!(extent.end, line.block_max_coord.round());
+    assert_eq!(drawn_line_indices(&layout, &everything, cut.last_line), [0, 1]);
+}
+
+#[test]
+fn drawn_lines_skip_lines_clipped_off_the_top() {
+    let options = LayoutOptions {
+        max_width: Some(LogicalLength::new(150.)),
+        max_height: Some(LogicalLength::new(20.)),
+        vertical_align: TextVerticalAlignment::Bottom,
+        text_overflow: TextOverflow::Elide,
+        ..LayoutOptions::default()
+    };
+    let layout = layout_markdown(QUOTED_TEXT, options);
+    let last = layout.visible_extent().unwrap().last_line;
+    assert!(last >= 2);
+    let everything = PhysicalLength::new(f32::MIN)..PhysicalLength::new(f32::MAX);
+    assert_eq!(drawn_line_indices(&layout, &everything, last), [last]);
 }

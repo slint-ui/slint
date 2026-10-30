@@ -125,6 +125,7 @@ pub(super) fn layout(
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
     let inputs = LineBreakingInputs::new(&options, max_physical_width);
+    let quote_step = layout_builder.quote_step();
     if let Some(line_breaking) =
         line_breaking.filter(|line_breaking| line_breaking.inputs == inputs)
     {
@@ -142,6 +143,7 @@ pub(super) fn layout(
             line_limit_cut: line_breaking.line_limit_cut,
             line_breaking_inputs: inputs,
             broke_lines: false,
+            quote_step,
         };
     }
 
@@ -171,8 +173,9 @@ pub(super) fn layout(
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
-        para.layout
-            .break_all_lines(max_physical_width.map(|width| (width - para.x()).get().max(0.0)));
+        para.layout.break_all_lines(
+            max_physical_width.map(|width| (width - para.x(quote_step)).get().max(0.0)),
+        );
         para.layout.align(inputs.alignment, parley::AlignmentOptions::default());
 
         para.y = PhysicalLength::new(para_y);
@@ -208,7 +211,7 @@ pub(super) fn layout(
                     .fold(PhysicalLength::zero(), PhysicalLength::max),
                 _ => PhysicalLength::new(p.layout.full_width()),
             };
-            p.x() + width
+            p.x(quote_step) + width
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
     // With an active line limit, the height only extends to the bottom of the last kept line, so
@@ -240,6 +243,7 @@ pub(super) fn layout(
         line_limit_cut,
         line_breaking_inputs: inputs,
         broke_lines: true,
+        quote_step,
     }
 }
 
@@ -304,6 +308,8 @@ pub(super) struct Layout {
     /// Whether this layout ran the full breaking pass rather than reusing a [`RetainedLineBreaking`].
     /// Read by the `layout_miss_count` test counter.
     pub(super) broke_lines: bool,
+    /// The x offset of one block quote level. See [`TextParagraph::x`].
+    pub(super) quote_step: PhysicalLength,
 }
 
 impl Layout {

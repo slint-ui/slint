@@ -183,6 +183,34 @@ impl TextParagraph {
         LineVisibility::Draw
     }
 
+    /// The lines that `draw` draws, with their indices.
+    pub(super) fn drawn_lines<'a>(
+        &'a self,
+        layout: &'a Layout,
+        para_y: PhysicalLength,
+        visible_band: &'a Range<PhysicalLength>,
+        last_drawn: usize,
+    ) -> impl Iterator<Item = (usize, parley::layout::Line<'a, Brush>)> {
+        self.layout
+            .lines()
+            .enumerate()
+            .map_while(move |(index, line)| {
+                match self.line_visibility(
+                    layout,
+                    index,
+                    line.metrics(),
+                    para_y,
+                    visible_band,
+                    last_drawn,
+                ) {
+                    LineVisibility::Draw => Some(Some((index, line))),
+                    LineVisibility::Skip => Some(None),
+                    LineVisibility::Stop => None,
+                }
+            })
+            .flatten()
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn draw<R: GlyphRenderer>(
         &self,
@@ -222,37 +250,23 @@ impl TextParagraph {
             _ => (line_count.saturating_sub(1), false),
         };
 
-        let x = self.x();
-        let indented = self.quote_depth > 0;
-        let shifted_x_range;
-        let mut visible_x_range = visible_x_range;
-        if indented {
-            self.draw_quote_bars(
-                layout,
-                item_renderer,
-                para_y,
-                visible_band,
-                last_drawn,
-                default_text_color,
-            );
-            shifted_x_range = visible_x_range.map(|range| (range.start - x)..(range.end - x));
-            visible_x_range = shifted_x_range.as_ref();
-            item_renderer.save_state();
-            item_renderer.translate(crate::lengths::LogicalVector::from_lengths(
-                x / item_renderer.scale_factor(),
-                LogicalLength::zero(),
-            ));
-        }
+        let x = self.x(layout.quote_step);
+        let origin = PhysicalPoint::from_lengths(x, para_y);
 
-        self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color, last_drawn);
+        self.draw_inline_code_backgrounds(
+            layout,
+            item_renderer,
+            origin,
+            visible_band,
+            default_text_color,
+            last_drawn,
+        );
 
-        for (index, line) in self.layout.lines().enumerate() {
+        let mut drawn_extent: Option<Range<f32>> = None;
+        for (index, line) in self.drawn_lines(layout, para_y, visible_band, last_drawn) {
             let metrics = line.metrics();
-            match self.line_visibility(layout, index, metrics, para_y, visible_band, last_drawn) {
-                LineVisibility::Draw => {}
-                LineVisibility::Skip => continue,
-                LineVisibility::Stop => break,
-            }
+            let top = drawn_extent.map_or(metrics.block_min_coord, |extent| extent.start);
+            drawn_extent = Some(top..metrics.block_max_coord);
             let line_height =
                 PhysicalLength::new(metrics.block_max_coord - metrics.block_min_coord);
             let last_line = index == last_drawn;
@@ -263,7 +277,7 @@ impl TextParagraph {
                 selection.map(|selection| selection.spans.for_line(paragraph_index, index));
             // Padded for ink overhanging the advance, like the vertical filtering of lines.
             let padded_x_range = visible_x_range
-                .map(|x_range| (x_range.start - line_height)..(x_range.end + line_height));
+                .map(|x_range| (x_range.start - x - line_height)..(x_range.end - x + line_height));
             let control_glyphs = self.control_glyphs(&line);
             let mut glyph_index = 0;
             for item in line.items() {
@@ -305,7 +319,7 @@ impl TextParagraph {
                                 item_renderer,
                                 default_fill_brush,
                                 default_stroke_brush,
-                                para_y,
+                                origin,
                                 glyph_x_range,
                                 &mut truncated_glyphs.filter(&mut is_printable),
                                 selection.map(|selection| &selection.foreground),
@@ -318,7 +332,7 @@ impl TextParagraph {
                                 item_renderer,
                                 default_fill_brush,
                                 default_stroke_brush,
-                                para_y,
+                                origin,
                                 glyph_x_range,
                                 &mut glyph_run.positioned_glyphs().filter(&mut is_printable),
                                 selection.map(|selection| &selection.foreground),
@@ -327,7 +341,8 @@ impl TextParagraph {
                             None
                         };
 
-                        if let Some((ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
+                        if let Some((mut ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
+                            ellipsis_glyph.x += x.get();
                             let run = glyph_run.run();
                             item_renderer.draw_glyph_run(
                                 &ellipsis_font,
@@ -351,35 +366,9 @@ impl TextParagraph {
             }
         }
 
-        if indented {
-            item_renderer.restore_state();
+        if let Some(extent) = drawn_extent {
+            self.draw_quote_bars(layout, item_renderer, para_y, extent, default_text_color);
         }
-    }
-
-    /// The rounded physical y range, in item coordinates, of the lines that `draw` draws.
-    pub(super) fn quote_bar_extent(
-        &self,
-        layout: &Layout,
-        para_y: PhysicalLength,
-        visible_band: &Range<PhysicalLength>,
-        last_drawn: usize,
-    ) -> Option<Range<f32>> {
-        let mut extent: Option<Range<f32>> = None;
-        for (index, line) in self.layout.lines().enumerate() {
-            let metrics = line.metrics();
-            match self.line_visibility(layout, index, metrics, para_y, visible_band, last_drawn) {
-                LineVisibility::Draw => {
-                    let top = extent.map_or(metrics.block_min_coord, |extent| extent.start);
-                    extent = Some(top..metrics.block_max_coord);
-                }
-                LineVisibility::Skip => {}
-                LineVisibility::Stop => break,
-            }
-        }
-        // Rounded, so the bars of adjacent paragraphs meet without a seam.
-        extent.map(|extent| {
-            (para_y.get() + extent.start).round()..(para_y.get() + extent.end).round()
-        })
     }
 
     fn draw_quote_bars<R: GlyphRenderer>(
@@ -387,23 +376,23 @@ impl TextParagraph {
         layout: &Layout,
         item_renderer: &mut R,
         para_y: PhysicalLength,
-        visible_band: &Range<PhysicalLength>,
-        last_drawn: usize,
+        extent: Range<f32>,
         default_text_color: Color,
     ) {
-        let Some(extent) = self.quote_bar_extent(layout, para_y, visible_band, last_drawn) else {
-            return;
-        };
+        // Rounded, so the bars of adjacent paragraphs meet without a seam.
+        let top = (para_y.get() + extent.start).round();
+        let bottom = (para_y.get() + extent.end).round();
         let color = if is_on_dark_background(default_text_color) {
             Color::from_argb_u8(112, 170, 170, 170)
         } else {
             Color::from_argb_u8(96, 128, 128, 128)
         };
-        let width = (self.quote_step.get() * QUOTE_BAR_WIDTH_EM / QUOTE_INDENT_EM).round().max(1.0);
+        let step = layout.quote_step.get();
+        let width = (step * QUOTE_BAR_WIDTH_EM / QUOTE_INDENT_EM).round().max(1.0);
         for level in 0..self.quote_depth {
             let rect = PhysicalRect::new(
-                PhysicalPoint::new(self.quote_step.get() * level as f32, extent.start),
-                PhysicalSize::new(width, extent.end - extent.start),
+                PhysicalPoint::new(step * level as f32, top),
+                PhysicalSize::new(width, bottom - top),
             );
             item_renderer.fill_rectangle_with_color(rect, color);
         }
@@ -415,8 +404,10 @@ impl TextParagraph {
     /// without any user-facing styling property.
     fn draw_inline_code_backgrounds<R: GlyphRenderer>(
         &self,
+        layout: &Layout,
         item_renderer: &mut R,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
+        visible_band: &Range<PhysicalLength>,
         default_text_color: Color,
         last_drawn: usize,
     ) {
@@ -427,7 +418,6 @@ impl TextParagraph {
         // Neutral gray fill (low alpha) on both themes — contrast against the page
         // background carries the "this is code" cue. The border picks up the same hue
         // but a higher alpha so the rounded outline stays visible against the fill.
-        // Pick brighter values on dark backgrounds.
         let fill = Color::from_argb_u8(28, 128, 128, 128);
         let border = if is_on_dark_background(default_text_color) {
             Color::from_argb_u8(88, 170, 170, 170)
@@ -447,9 +437,7 @@ impl TextParagraph {
         let scale_factor = item_renderer.scale_factor();
         let border_width = BORDER_WIDTH * scale_factor;
 
-        // Capsules only under lines that are drawn: lines past the visible-extent cut
-        // (`overflow: elide` height limit or `max-lines`) don't render their glyphs either.
-        for line in self.layout.lines().take(last_drawn + 1) {
+        for (_, line) in self.drawn_lines(layout, origin.y_length(), visible_band, last_drawn) {
             for item in line.items() {
                 let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
                     continue;
@@ -496,12 +484,12 @@ impl TextParagraph {
                 if bg_width <= 0.0 {
                     continue;
                 }
-                let bg_left = glyph_run.offset();
+                let bg_left = origin.x + glyph_run.offset();
 
                 let bg_rect = PhysicalRect::new(
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(bg_left),
-                        PhysicalLength::new(bg_top) + para_y,
+                        PhysicalLength::new(bg_top) + origin.y_length(),
                     ),
                     PhysicalSize::new(bg_width, bg_height),
                 );
@@ -531,7 +519,7 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
         // A uniform `no-wrap` line is a single run, so culling whole runs is not enough.
         visible_x_range: Option<&Range<PhysicalLength>>,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
@@ -559,7 +547,7 @@ impl TextParagraph {
                 item_renderer,
                 default_fill_brush,
                 default_stroke_brush,
-                para_y,
+                origin,
                 glyphs_it,
                 None,
             ),
@@ -568,7 +556,7 @@ impl TextParagraph {
                 item_renderer,
                 default_fill_brush,
                 default_stroke_brush,
-                para_y,
+                origin,
                 glyphs_it,
                 selection_brush,
             ),
@@ -596,7 +584,7 @@ impl TextParagraph {
                             item_renderer,
                             default_fill_brush,
                             default_stroke_brush,
-                            para_y,
+                            origin,
                             &glyphs,
                             segment,
                             brush,
@@ -609,7 +597,7 @@ impl TextParagraph {
                     item_renderer,
                     default_fill_brush,
                     default_stroke_brush,
-                    para_y,
+                    origin,
                     &glyphs,
                     x..run_x.end,
                     None,
@@ -625,7 +613,7 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
         glyphs: &[parley::layout::Glyph],
         x: Range<f32>,
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
@@ -643,7 +631,7 @@ impl TextParagraph {
         let render = item_renderer.combine_clip(
             LogicalRect::new(
                 LogicalPoint::from_lengths(
-                    PhysicalLength::new(x.start) / scale_factor,
+                    PhysicalLength::new(origin.x + x.start) / scale_factor,
                     current_clip.origin.y_length(),
                 ),
                 LogicalSize::from_lengths(
@@ -660,7 +648,7 @@ impl TextParagraph {
                 item_renderer,
                 default_fill_brush,
                 default_stroke_brush,
-                para_y,
+                origin,
                 &mut glyphs.iter().cloned(),
                 override_fill_brush,
             );
@@ -674,11 +662,18 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
-        para_y: PhysicalLength,
+        origin: PhysicalPoint,
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
         // Forced fill for selected glyphs, overriding the run's own brush.
         override_fill_brush: Option<&<R as GlyphRenderer>::PlatformBrush>,
     ) {
+        let para_y = origin.y_length();
+        let mut glyphs_it = glyphs_it.map(|mut glyph| {
+            glyph.x += origin.x;
+            glyph
+        });
+        let glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph> = &mut glyphs_it;
+
         let run = glyph_run.run();
         let normalized_coords: &[i16] = bytemuck::cast_slice(run.normalized_coords());
         let synthesis = run.synthesis();
@@ -780,7 +775,7 @@ impl TextParagraph {
         let decoration = |item_renderer: &R, offset: f32, size: f32| {
             PhysicalRect::new(
                 PhysicalPoint::new(
-                    glyph_run.offset(),
+                    origin.x + glyph_run.offset(),
                     item_renderer.snap_y(para_y.get() + glyph_run.baseline() - offset),
                 ),
                 PhysicalSize::new(glyph_run.advance(), size.round().max(1.)),

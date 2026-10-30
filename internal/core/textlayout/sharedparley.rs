@@ -340,7 +340,7 @@ pub fn link_under_cursor(
 
 fn link_in_layout(layout: &Layout, cursor: PhysicalPoint) -> Option<std::string::String> {
     layout.paragraph_by_y(cursor.y_length()).and_then(|paragraph| {
-        let paragraph_x: f64 = paragraph.x().cast::<f64>().get();
+        let paragraph_x: f64 = paragraph.x(layout.quote_step).cast::<f64>().get();
         let paragraph_y: f64 = paragraph.y.cast::<f64>().get();
 
         paragraph
@@ -611,12 +611,13 @@ fn text_content_widths_impl(
         // opportunities. Paragraphs stack vertically, so both widths are the widest.
         // Without wrapping each paragraph is one line, so a line limit drops the paragraphs
         // that are not drawn, from both widths.
+        let quote_step = layout_builder.quote_step();
         let (min, max) = paragraphs_without_linebreaks
             .iter()
             .take(text_item.line_limit().unwrap_or(usize::MAX))
             .fold((0., 0.), |(min, max), p| {
                 let w = p.layout.calculate_content_widths();
-                let x = p.x().get();
+                let x = p.x(quote_step).get();
                 (f32::max(min, x + w.min), f32::max(max, x + w.max))
             });
         crate::renderer::ContentWidths {

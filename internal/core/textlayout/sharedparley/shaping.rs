@@ -45,6 +45,11 @@ pub(super) struct LayoutWithoutLineBreaksBuilder {
 }
 
 impl LayoutWithoutLineBreaksBuilder {
+    /// The x offset of one block quote level, in whole pixels.
+    pub(super) fn quote_step(&self) -> PhysicalLength {
+        PhysicalLength::new((self.pixel_size * self.scale_factor * QUOTE_INDENT_EM).get().round())
+    }
+
     pub(super) fn new(
         font_request: Option<FontRequest>,
         text_wrap: TextWrap,
@@ -273,9 +278,6 @@ pub(super) fn create_text_paragraphs(
     text: PlainOrStyledText,
     link_color: Color,
 ) -> Vec<TextParagraph> {
-    let quote_step = PhysicalLength::new(
-        (layout_builder.pixel_size * layout_builder.scale_factor * QUOTE_INDENT_EM).get().round(),
-    );
     let paragraph_from_text = |font_context: &mut FontContext,
                                text: &str,
                                range: std::ops::Range<usize>,
@@ -301,7 +303,6 @@ pub(super) fn create_text_paragraphs(
             code_ranges,
             control_characters,
             quote_depth,
-            quote_step,
         }
     };
 
@@ -413,12 +414,15 @@ pub(super) struct TextParagraph {
     pub(super) code_ranges: std::vec::Vec<Range<usize>>,
     /// Ascending byte offsets of the control characters in the paragraph's text.
     pub(super) control_characters: std::vec::Vec<usize>,
+    /// See [`i_slint_common::styled_text::StyledTextParagraph::quote_depth`].
     pub(super) quote_depth: u8,
-    pub(super) quote_step: PhysicalLength,
 }
 
 impl TextParagraph {
-    pub(super) fn x(&self) -> PhysicalLength {
-        self.quote_step * self.quote_depth as f32
+    /// The paragraph's x offset in the layout.
+    /// Cursor and selection geometry ignore it,
+    /// because only `StyledText` has quotes and it has no cursor or selection.
+    pub(super) fn x(&self, quote_step: PhysicalLength) -> PhysicalLength {
+        quote_step * self.quote_depth as f32
     }
 }

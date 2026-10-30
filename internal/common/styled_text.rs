@@ -46,6 +46,7 @@ pub struct StyledTextParagraph {
     pub formatting: Vec<FormattedSpan>,
     /// Locations of clickable links within the paragraph
     pub links: Vec<(Range<usize>, String)>,
+    /// Number of enclosing block quotes, capped at `u8::MAX`
     pub quote_depth: u8,
 }
 
@@ -399,12 +400,14 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     let mut skip_end_count: usize = 0;
     let mut interleaved_count: usize = 0;
     let mut quote_nesting: usize = 0;
+    let mut after_item_marker = false;
 
     let mut current_paragraph: Option<StyledTextParagraph> = None;
 
     for (event, event_range) in parser.into_offset_iter() {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
         let quote_depth = quote_nesting.min(u8::MAX.into()) as u8;
+        let follows_item_marker = core::mem::take(&mut after_item_marker);
 
         match event {
             pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
@@ -429,6 +432,14 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
             pulldown_cmark::Event::Start(tag) => {
                 let style = match tag {
                     pulldown_cmark::Tag::Paragraph => {
+                        // `- > q` keeps the bullet on the line of its quote.
+                        if let Some(paragraph) = current_paragraph
+                            .as_mut()
+                            .filter(|p| follows_item_marker && quote_depth > p.quote_depth)
+                        {
+                            paragraph.quote_depth = quote_depth;
+                            continue;
+                        }
                         start_paragraph(
                             &mut paragraphs,
                             &mut current_paragraph,
@@ -455,6 +466,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                             &mut style_stack,
                             new_paragraph,
                         );
+                        after_item_marker = true;
                         continue;
                     }
                     pulldown_cmark::Tag::List(index) => {
@@ -471,6 +483,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
 
                     pulldown_cmark::Tag::BlockQuote(_) => {
                         quote_nesting += 1;
+                        after_item_marker = follows_item_marker;
                         continue;
                     }
                     pulldown_cmark::Tag::HtmlBlock => {
@@ -1257,7 +1270,9 @@ fn markdown_block_quotes() {
     expect("> a\n>\n> b", &[("a", 1), ("b", 1)]);
     expect("> - a\n> - b", &[("• a", 1), ("• b", 1)]);
     expect("- a\n  > b", &[("• a", 0), ("b", 1)]);
-    expect("- > q", &[("• ", 0), ("q", 1)]);
+    expect("- > q", &[("• q", 1)]);
+    expect("- > > q", &[("• q", 2)]);
+    expect("- a\n\n  > b", &[("• ", 0), ("a", 0), ("b", 1)]);
 
     let deep = alloc::format!("{} deep\n\nafter", ">".repeat(300));
     expect(&deep, &[("deep", u8::MAX), ("after", 0)]);
@@ -1293,6 +1308,22 @@ fn markdown_block_quotes() {
         }]
     );
 
+    let quoted = assert_no_errors(parse_interpolated::<&[_]>("> x", &[]));
+    assert_eq!(
+        assert_no_errors(parse_interpolated(
+            &MARKDOWN_INTERPOLATION_PLACEHOLDER.to_string(),
+            &[quoted]
+        ))[0]
+            .quote_depth,
+        0
+    );
+
     let (_, errors) = parse_interpolated::<&[_]>("<blockquote>x</blockquote>", &[]);
-    assert!(!errors.is_empty());
+    assert!(
+        errors.iter().any(|error| matches!(
+            &error.kind,
+            StyledTextParseErrorKind::UnsupportedMarkdown(name) if name == "HTML blocks (<blockquote>x</blockquote>)"
+        )),
+        "{errors:?}"
+    );
 }
