@@ -301,13 +301,20 @@ pub async fn load_input(
     let resolved = if input.file_name() == Some(FILE_NAME)
         && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
     {
-        Err(project_file_input_error(input))
+        Err((project_file_input_error(input), input.clone()))
     } else if let Some(root) = project_root {
+        let project_path = root.join(FILE_NAME).unwrap_or_else(|| root.clone());
         load_from_root_with_file_loader(root, Some(&file_loader))
             .await
             .map(|project_file| (input.clone(), project_file))
+            .map_err(|message| (message, project_path))
     } else if let Some(path) = input.as_native_path().filter(|_| source_code.is_none()) {
-        resolve_input(path).map(|(source, project_file)| (SourcePath::new(source), project_file))
+        resolve_input(path)
+            .map(|(source, project_file)| (SourcePath::new(source), project_file))
+            .map_err(|message| {
+                let path = if path.is_dir() { path.join(FILE_NAME) } else { path.to_path_buf() };
+                (message, SourcePath::new(path))
+            })
     } else {
         Ok((input.clone(), None))
     };
@@ -325,7 +332,7 @@ pub async fn load_input(
         None
     };
     let loaded = match resolved {
-        Err(message) => error(message, input, crate::diagnostics::Span::new(0, 0)),
+        Err((message, path)) => error(message, &path, crate::diagnostics::Span::new(0, 0)),
         Ok((source, project_file)) => {
             if let Some(project_file) = &project_file {
                 attempted_paths.borrow_mut().push(project_file.source_path().clone());
