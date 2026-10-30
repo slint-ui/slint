@@ -14,11 +14,7 @@ use i_slint_live_preview::remote::{Connection, ConnectionMessage, PairingPolicy}
 use slint::ComponentHandle as _;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-slint::slint! {
-    #[edition = "1.19"]
-    export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
-    export { AttributionItem } from "remote/licenses.slint";
-}
+slint::include_modules!();
 
 // CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
 const SLINT_VERSION: &str = concat!("Slint ", env!("CARGO_PKG_VERSION"));

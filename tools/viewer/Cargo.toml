@@ -59,6 +59,7 @@ gettext = ["i-slint-core/gettext-rs"]
 ## Enable the remote viewer mode (--remote flag)
 remote = [
   "dep:slint",
+  "dep:slint-build",
   "i-slint-live-preview/remote",
   "dep:tokio",
   "dep:async-compat",
@@ -166,3 +167,4 @@ name = "android.permission.INTERNET"
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
+slint-build = { workspace = true, optional = true }
