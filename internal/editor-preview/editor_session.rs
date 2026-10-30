@@ -880,12 +880,8 @@ impl EditorSession {
                 preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 continue;
             };
-            let file_access = file_access.get_or_init(|| {
-                crate::preview_files::PreviewFileAccess::new(
-                    &self.document_cache,
-                    &self.document_roots(),
-                )
-            });
+            let file_access = file_access
+                .get_or_init(|| crate::preview_files::PreviewFileAccess::new(&self.document_cache));
             if !file_access.allows(&path) {
                 tracing::warn!(
                     "Refusing to send {} to the preview: not a file of the project being previewed",
@@ -1093,15 +1089,14 @@ impl EditorSession {
             return Ok(Default::default());
         }
         self.drop_document(url.clone()).await?;
-        if self
-            .document_roots()
-            .iter()
-            .any(|root| SourcePath::from_url(root) == SourcePath::from_url(&url))
-        {
+        let roots = self.document_roots();
+        if roots.iter().any(|root| SourcePath::from_url(root) == SourcePath::from_url(&url)) {
             self.reload_document_without_project_discovery(url, &mut BuildDiagnostics::default())
                 .await;
         } else if self.forget_rust_macro_edition(&url) {
             return self.reapply_effective_configuration().await;
+        } else {
+            self.document_cache.retain_documents(&roots)?;
         }
         Ok(Default::default())
     }

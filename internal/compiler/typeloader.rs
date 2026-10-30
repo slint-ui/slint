@@ -50,6 +50,8 @@ struct LoadedDocuments {
     /// The dependencies of the currently loaded files.
     /// Maps all the files that depends directly on the key
     dependencies: HashMap<SourcePath, HashSet<SourcePath>>,
+    /// The files each document imports or references, see [`TypeLoader::drop_document`].
+    file_dependencies: HashMap<SourcePath, HashSet<SourcePath>>,
 }
 
 #[derive(Debug, Clone)]
@@ -167,7 +169,7 @@ pub(crate) fn snapshot_with_extra_doc(
     if let Some(doc_node) = &new_doc.node {
         let path = doc_node.source_file.path().clone();
         if let Some(r) = &mut result {
-            r.all_documents.docs.insert(path, (LoadedDocument::Document(new_doc), Vec::new()));
+            r.register_document(new_doc, path, Vec::new());
         }
     }
 
@@ -307,6 +309,7 @@ impl Snapshotter {
                 .collect(),
             currently_loading: Default::default(),
             dependencies: Default::default(),
+            file_dependencies: loaded_documents.file_dependencies.clone(),
         })
     }
 
@@ -1071,6 +1074,7 @@ impl TypeLoader {
     /// Returns the list of all (transitive) dependencies.
     ///
     /// This forces the compiler to entirely reload the document from scratch.
+    /// Its file dependencies remain available until it reloads or [`Self::retain_documents`] removes it.
     /// To only cause a re-analyze, but not a reparse, use [Self::invalidate_document]
     pub fn drop_document(
         &mut self,
@@ -1124,6 +1128,40 @@ impl TypeLoader {
         extra_deps.extend(deps);
         self.bump_revision();
         extra_deps
+    }
+
+    /// Retain the roots, their dependencies, and the built-in documents.
+    /// This also removes file dependencies kept while a document waits to reload.
+    pub fn retain_documents(
+        &mut self,
+        roots: &HashSet<SourcePath>,
+    ) -> Result<HashSet<SourcePath>, std::io::Error> {
+        let mut retained = roots.clone();
+        retained.extend(
+            self.all_documents.file_dependencies.keys().filter(|path| path.is_builtin()).cloned(),
+        );
+        let mut pending = retained.iter().cloned().collect::<Vec<_>>();
+        while let Some(path) = pending.pop() {
+            if let Some(dependencies) = self.all_documents.file_dependencies.get(&path) {
+                for dependency in dependencies {
+                    if retained.insert(dependency.clone()) {
+                        pending.push(dependency.clone());
+                    }
+                }
+            }
+        }
+        let removed = self
+            .all_documents
+            .file_dependencies
+            .keys()
+            .filter(|path| !retained.contains(*path))
+            .cloned()
+            .collect::<HashSet<_>>();
+        for path in &removed {
+            self.drop_document(path)?;
+            self.all_documents.file_dependencies.remove(path);
+        }
+        Ok(removed)
     }
 
     /// Imports of files that don't have the .slint extension are returned.
@@ -1705,27 +1743,30 @@ impl TypeLoader {
         } else {
             None
         };
-        Self::register_document(state, doc, path, parse_errors);
+        state.tl.register_document(doc, path, parse_errors);
         raw_type_loader
     }
 
     fn register_document(
-        state: &mut BorrowedTypeLoader<'_>,
+        &mut self,
         doc: Document,
         path: SourcePath,
         parse_errors: Vec<Diagnostic>,
     ) {
+        let mut file_dependencies = doc.referenced_file_resources.borrow().clone();
+        file_dependencies.extend(
+            doc.embedded_file_resources
+                .borrow()
+                .iter()
+                .filter_map(|resource| resource.path.clone()),
+        );
+        file_dependencies.extend(doc.imports.iter().filter_map(|import| import.resolved.clone()));
+        self.all_documents.file_dependencies.insert(path.clone(), file_dependencies);
         for dep in doc.imports.iter().filter_map(|import| import.resolved.as_ref()) {
-            state
-                .tl
-                .all_documents
-                .dependencies
-                .entry(dep.clone())
-                .or_default()
-                .insert(path.clone());
+            self.all_documents.dependencies.entry(dep.clone()).or_default().insert(path.clone());
         }
-        state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
-        state.tl.bump_revision();
+        self.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        self.bump_revision();
     }
 
     async fn load_file_impl<'a>(
@@ -1750,7 +1791,7 @@ impl TypeLoader {
         if !state.diag.has_errors() {
             crate::passes::run_import_passes(&doc, state.tl, state.diag);
         }
-        Self::register_document(state, doc, path, parse_errors);
+        state.tl.register_document(doc, path, parse_errors);
     }
 
     async fn load_doc_no_pass<'a>(
@@ -2002,36 +2043,14 @@ impl TypeLoader {
 
     /// Returns all file paths whose on-disk changes can affect the current document graph.
     ///
-    /// This includes loaded documents, the resources they reference, and unresolved import
-    /// targets that are kept in the dependency graph so newly created files can invalidate
-    /// their dependents.
+    /// This includes documents, their resources, and unresolved imports.
+    /// Dependencies stay available during invalidation and reloads.
     pub fn all_files_to_watch(&self) -> HashSet<SourcePath> {
-        fn resource_paths(document: &LoadedDocument) -> Vec<SourcePath> {
-            match document {
-                LoadedDocument::Document(document) => document
-                    .referenced_file_resources
-                    .borrow()
-                    .iter()
-                    .cloned()
-                    .chain(
-                        document
-                            .embedded_file_resources
-                            .borrow()
-                            .iter()
-                            .flat_map(|resource| resource.path.clone()),
-                    )
-                    .collect(),
-                LoadedDocument::Invalidated(_document) => vec![],
-            }
-        }
-
         self.all_documents
-            .docs
+            .file_dependencies
             .iter()
-            .flat_map(|(path, (document, _diagnostics))| {
-                std::iter::once(path.clone()).chain(resource_paths(document))
-            })
-            .chain(self.all_documents.dependencies.keys().cloned())
+            .flat_map(|(path, dependencies)| std::iter::once(path).chain(dependencies))
+            .cloned()
             .collect()
     }
 
@@ -2720,6 +2739,33 @@ export component Main inherits Window {
 }
 
 #[test]
+fn test_resource_dependencies_survive_reload_and_replace_old_references() {
+    let mut config = CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    config.style = Some("fluent".into());
+    let mut diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(config, &mut diagnostics);
+    let main = SourcePath::new(std::env::temp_dir().join("main.slint"));
+    let old_image = SourcePath::new(std::env::temp_dir().join("old.svg"));
+    let new_image = SourcePath::new(std::env::temp_dir().join("new.svg"));
+    let source = r#"export component Main { Image { source: @image-url("old.svg"); } }"#;
+    spin_on::spin_on(loader.load_file(&main, source.into(), false, &mut diagnostics));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+
+    loader.invalidate_document(&main);
+    assert!(loader.all_files_to_watch().contains(&old_image));
+    loader.drop_document(&main).unwrap();
+    assert!(loader.all_files_to_watch().contains(&main));
+    assert!(loader.all_files_to_watch().contains(&old_image));
+
+    let source = source.replace("old.svg", "new.svg");
+    spin_on::spin_on(loader.load_file(&main, source, false, &mut diagnostics));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    assert!(loader.all_files_to_watch().contains(&new_image));
+    assert!(!loader.all_files_to_watch().contains(&old_image));
+    assert!(loader.get_document(&main).unwrap().embedded_file_resources.borrow().is_empty());
+}
+
+#[test]
 fn test_embedding_only_includes_used_images() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let image = SourcePath::new(manifest_dir.join("../../logo/slint-logo-square-light.png"));
@@ -3100,6 +3146,7 @@ fn test_snapshotting() {
 
     let copy = snapshot(&type_loader).unwrap();
     assert_eq!(copy.revision(), type_loader.revision());
+    assert_eq!(copy.all_files_to_watch(), type_loader.all_files_to_watch());
 
     let doc = copy.get_document(&path).unwrap();
     let c = doc.inner_components.first().unwrap();

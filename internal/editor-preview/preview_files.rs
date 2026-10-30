@@ -12,7 +12,7 @@
 //! such as the loaded sources and the fonts they import.
 
 use crate::DocumentCache;
-use i_slint_compiler::source_path::{SourcePath, clean_path};
+use i_slint_compiler::source_path::clean_path;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -25,16 +25,8 @@ pub(crate) struct PreviewFileAccess {
 impl PreviewFileAccess {
     /// The files the project's sources name: the documents the compiler loaded or imports,
     /// and the resources the documents reference.
-    /// Also the session's `document_roots`, which the cache drops while they reload from disk.
-    pub(crate) fn new(
-        document_cache: &DocumentCache,
-        document_roots: &HashSet<lsp_types::Url>,
-    ) -> Self {
-        let mut files = document_cache.all_paths_to_watch();
-        files.extend(
-            document_roots.iter().filter_map(|url| SourcePath::from_url(url).into_native_path()),
-        );
-        Self { files }
+    pub(crate) fn new(document_cache: &DocumentCache) -> Self {
+        Self { files: document_cache.all_paths_to_watch() }
     }
 
     pub(crate) fn allows(&self, path: &Path) -> bool {
@@ -49,7 +41,7 @@ mod tests {
     use crate::test::empty_document_cache;
 
     fn access(document_cache: &DocumentCache) -> PreviewFileAccess {
-        PreviewFileAccess::new(document_cache, &HashSet::new())
+        PreviewFileAccess::new(document_cache)
     }
 
     #[test]
@@ -207,14 +199,16 @@ mod tests {
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     #[test]
-    fn serves_a_previewed_document_while_it_reloads() {
+    fn serves_a_previewed_document_and_its_image_while_it_reloads() {
         use i_slint_live_preview::file_watcher::FileChangeKind;
         use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewComponent};
 
         let project = tempfile::tempdir().unwrap();
         let main = project.path().join("main.slint");
-        let main_source = "export component Main { }";
+        let main_source = r#"export component Main { Image { source: @image-url("logo.png"); } }"#;
         std::fs::write(&main, main_source).unwrap();
+        let image = project.path().join("logo.png");
+        std::fs::write(&image, []).unwrap();
 
         let (capture, recorded) = crate::test::preview_capture();
         let mut session = crate::test::session_with(empty_document_cache());
@@ -226,15 +220,53 @@ mod tests {
         );
         spin_on::spin_on(session.trigger_file_watcher(url.clone(), FileChangeKind::Changed))
             .unwrap();
-        assert!(!session.document_cache.all_paths_to_watch().contains(&main));
+        assert!(session.document_cache.all_paths_to_watch().contains(&main));
+        assert!(session.document_cache.all_paths_to_watch().contains(&image));
         recorded.borrow_mut().clear();
 
-        session.send_files_to_preview(preview, &[url]);
+        let image_url = lsp_types::Url::from_file_path(&image).unwrap();
+        session.send_files_to_preview(preview, &[url, image_url]);
 
         let recorded = recorded.borrow();
         assert!(
-            matches!(recorded.as_slice(), [LspToPreviewMessage::SetContents { .. }]),
+            matches!(
+                recorded.as_slice(),
+                [LspToPreviewMessage::SetContents { .. }, LspToPreviewMessage::SetContents { .. }]
+            ),
             "{recorded:?}"
         );
+    }
+
+    #[test]
+    fn retains_dependencies_during_reload_and_revokes_them_when_the_project_closes() {
+        let project = tempfile::tempdir().unwrap();
+        let main = project.path().join("main.slint");
+        let imported = project.path().join("imported.slint");
+        let image = project.path().join("logo.png");
+        std::fs::write(&image, []).unwrap();
+        std::fs::write(
+            &imported,
+            r#"export component Imported { Image { source: @image-url("logo.png"); } }"#,
+        )
+        .unwrap();
+        let source = r#"import { Imported } from "imported.slint";
+            export component Main { Imported {} }"#;
+        let mut session = crate::test::session_with(empty_document_cache());
+        let url = lsp_types::Url::from_file_path(&main).unwrap();
+        spin_on::spin_on(session.open_document(source.into(), url.clone(), Some(1))).unwrap();
+        let imported_url = lsp_types::Url::from_file_path(&imported).unwrap();
+
+        session.document_cache.drop_document(&imported_url).unwrap();
+        session.document_cache.retain_documents(&HashSet::from([url.clone()])).unwrap();
+        let during_reload = access(&session.document_cache);
+        for path in [&main, &imported, &image] {
+            assert!(during_reload.allows(path), "{}", path.display());
+        }
+
+        spin_on::spin_on(session.close_document(url)).unwrap();
+        let after_close = access(&session.document_cache);
+        for path in [&main, &imported, &image] {
+            assert!(!after_close.allows(path), "{}", path.display());
+        }
     }
 }
