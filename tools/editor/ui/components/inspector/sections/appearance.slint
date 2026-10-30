@@ -3,12 +3,17 @@
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
 import { Api, PropertyValue } from "../../../api.slint";
-import { InspectorColorField, InspectorCornerEditor, InspectorSection } from "../index.slint";
+import { InspectorColorField, InspectorCornerEditor, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorAppearanceSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> pane-width;
+    private property <PropertyValue> clip-runtime-value: Api.runtime-property-value-data("clip", {});
+    private property <PropertyValue> clip-source-value: Api.source-property-value-data("clip", {});
+    private property <bool> clip-value: root.clip-runtime-value.value-resolved
+        ? root.clip-runtime-value.value-bool
+        : root.clip-source-value.code != "" && root.clip-source-value.value-bool;
 
     title: @tr("APPEARANCE");
     use-shared-title: true;
@@ -90,6 +95,24 @@ export component InspectorAppearanceSection inherits InspectorSection {
                 return InspectorContext.commit-inspector(root.corner-property(index), value);
             }
             canceled => { Api.inspector-cancel(); }
+        }
+    }
+
+    if InspectorContext.is-rectangle-selection(): InspectorPropertyRow {
+        private property <bool> value: root.clip-value;
+        changed value => { clip-toggle.checked = self.value; }
+
+        label: @tr("Clip");
+
+        clip-toggle := InspectorSwitch {
+            accessible-label: @tr("Clip");
+            checked: root.clip-value;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.clip-value;
+                InspectorContext.commit-code("clip", requested ? "true" : "false");
+            }
         }
     }
 }
