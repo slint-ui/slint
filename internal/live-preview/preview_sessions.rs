@@ -673,7 +673,7 @@ mod tests {
                     LspToPreviewMessage::OpenProject { root: Some(root) },
                     LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(manifest.clone(), Some(5)),
-                        contents: br#"{"slint-edition":"1.18"}"#.to_vec(),
+                        contents: br#"{"edition":"1.18"}"#.to_vec(),
                     },
                     LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(main.clone(), Some(3)),
@@ -713,7 +713,7 @@ mod tests {
                 let [warning] = manifest_diagnostics.as_slice() else {
                     panic!("{manifest_diagnostics:?}")
                 };
-                assert!(warning.message.starts_with("'slint-edition' 1.18"), "{warning:?}");
+                assert!(warning.message.starts_with("'edition' is 1.18"), "{warning:?}");
             })
             .await;
     }
