@@ -432,7 +432,6 @@ impl PreviewSession {
         compiler.set_project_root(self.project_root.borrow().clone(), InternalToken);
         let compiler = scopeguard::guard(compiler, |compiler| self.restore_compiler(compiler));
         let source_code = String::from_utf8_lossy(&file.contents).into_owned();
-        let diagnostic_url = component.url.clone();
         let compilation_result =
             compiler.build_from_source_path(Some(source_code), path, InternalToken).await;
         drop(compiler);
@@ -444,7 +443,7 @@ impl PreviewSession {
             .collect();
 
         if compilation_result.has_errors() {
-            self.send_diagnostics(&compilation_result, &diagnostic_url);
+            self.send_diagnostics(&compilation_result);
             let message = compilation_result
                 .diagnostics()
                 .inspect(|diagnostic| tracing::warn!("Compiler diagnostic: {diagnostic}"))
@@ -467,7 +466,7 @@ impl PreviewSession {
             return PreviewCompilation::ComponentNotFound;
         };
 
-        self.send_diagnostics(&compilation_result, &diagnostic_url);
+        self.send_diagnostics(&compilation_result);
         PreviewCompilation::Ready(CompiledPreview {
             compilation: Box::new(compilation_result.into_send()),
             component_name,
@@ -485,25 +484,24 @@ impl PreviewSession {
         self.to_editor.send(message)
     }
 
-    fn send_diagnostics(
-        &self,
-        compilation_result: &slint_interpreter::CompilationResult,
-        uri: &Url,
-    ) {
-        let message = PreviewToLspMessage::Diagnostics {
-            uri: uri.clone(),
-            version: None,
-            diagnostics: compilation_result
-                .diagnostics()
-                .map(|diagnostic| {
-                    crate::protocol::to_lsp_diagnostic(
-                        &diagnostic,
-                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                    )
-                })
-                .collect(),
+    fn send_diagnostics(&self, compilation_result: &slint_interpreter::CompilationResult) {
+        use i_slint_compiler::diagnostics::ByteFormat;
+        let format = if self.configuration.borrow().as_ref().is_none_or(|config| config.format_utf8)
+        {
+            ByteFormat::Utf8
+        } else {
+            ByteFormat::Utf16
         };
-        self.send_to_editor(&message).ok();
+        let diagnostics: Vec<_> = compilation_result.diagnostics().collect();
+        let diagnostics = crate::protocol::diagnostics_by_url(
+            &diagnostics,
+            self.file_cache.borrow().iter().filter_map(|(url, entry)| match entry {
+                CacheEntry::Ready(file_content) => Some((url.clone(), file_content.version)),
+                CacheEntry::Loading(_) => None,
+            }),
+            format,
+        );
+        self.to_editor.notify_diagnostics(diagnostics).ok();
     }
 }
 
@@ -636,6 +634,132 @@ mod tests {
             self.0.borrow_mut().push(message.clone());
             Ok(())
         }
+    }
+
+    fn take_diagnostics(
+        editor: &CaptureToEditor,
+    ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+        editor
+            .0
+            .take()
+            .into_iter()
+            .filter_map(|message| match message {
+                PreviewToLspMessage::Diagnostics { uri, version, diagnostics } => {
+                    Some((uri, (version, diagnostics)))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Used to send every diagnostic under the previewed file, with UTF-8 columns and no version.
+    #[tokio::test]
+    async fn diagnostics_go_to_the_file_and_version_they_are_in() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let editor = Rc::new(CaptureToEditor::default());
+                let (session, handle) = PreviewSession::start(editor.clone(), |_| {});
+                let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
+                let imported =
+                    Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
+                let root = Url::from_directory_path(std::env::temp_dir()).unwrap();
+                let manifest = root.join("slint-project.json").unwrap();
+                let error_line = r#"    in property <string> label: "Next →"; foo: 1;"#;
+                for message in [
+                    LspToPreviewMessage::SetConfiguration {
+                        config: PreviewConfig { format_utf8: false, ..Default::default() },
+                    },
+                    LspToPreviewMessage::OpenProject { root: Some(root) },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(manifest.clone(), Some(5)),
+                        contents: br#"{"slint-edition":"1.18"}"#.to_vec(),
+                    },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(main.clone(), Some(3)),
+                        contents: br#"
+                            import { Imported } from "imported.slint";
+                            export component App inherits Window { Imported {} }
+                        "#
+                        .to_vec(),
+                    },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(imported.clone(), Some(7)),
+                        contents: format!("export component Imported {{\n{error_line}\n}}")
+                            .into_bytes(),
+                    },
+                ] {
+                    handle.handle_message(message).unwrap();
+                }
+
+                let component = PreviewComponent { url: main.clone(), component: None };
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::CompilationError { .. }
+                ));
+
+                let diagnostics = take_diagnostics(&editor);
+                assert_eq!(diagnostics[&main], (Some(3), Vec::new()));
+                let (version, imported_diagnostics) = &diagnostics[&imported];
+                assert_eq!(*version, Some(7));
+                let [error] = imported_diagnostics.as_slice() else {
+                    panic!("{imported_diagnostics:?}")
+                };
+                let utf16_column =
+                    error_line[..error_line.find("foo").unwrap()].encode_utf16().count();
+                assert_eq!(error.range.start, lsp_types::Position::new(1, utf16_column as u32));
+                let (version, manifest_diagnostics) = &diagnostics[&manifest];
+                assert_eq!(*version, Some(5));
+                let [warning] = manifest_diagnostics.as_slice() else {
+                    panic!("{manifest_diagnostics:?}")
+                };
+                assert!(warning.message.starts_with("'slint-edition' 1.18"), "{warning:?}");
+            })
+            .await;
+    }
+
+    /// Used to leave the errors of a dropped import in the editor.
+    #[tokio::test]
+    async fn a_file_the_build_no_longer_reads_gets_its_diagnostics_cleared() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let editor = Rc::new(CaptureToEditor::default());
+                let (session, _handle) = PreviewSession::start(editor.clone(), |_| {});
+                let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
+                let imported =
+                    Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
+                let set_contents = |url: &Url, version, contents: &str| {
+                    session.process_message(
+                        LspToPreviewMessage::SetContents {
+                            url: VersionedUrl::new(url.clone(), Some(version)),
+                            contents: contents.into(),
+                        },
+                        &|_| {},
+                        &mut None,
+                    );
+                };
+                let component = PreviewComponent { url: main.clone(), component: None };
+                set_contents(
+                    &main,
+                    1,
+                    r#"
+                        import { Imported } from "imported.slint";
+                        export component App inherits Window { Imported {} }
+                    "#,
+                );
+                set_contents(&imported, 7, "export component Imported { foo: 1; }");
+                session.compile_component(&component).await;
+                assert_eq!(take_diagnostics(&editor)[&imported].1.len(), 1);
+
+                set_contents(&main, 2, "export component App inherits Window {}");
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::Ready(_)
+                ));
+                assert_eq!(take_diagnostics(&editor)[&imported], (Some(7), Vec::new()));
+            })
+            .await;
     }
 
     #[tokio::test]
