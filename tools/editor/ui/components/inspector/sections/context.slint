@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
+import { Api, CoordinateSpace, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
 import { InspectorEnumOptions } from "../enum-options.slint";
 
 export global InspectorContext {
@@ -242,6 +242,7 @@ export global InspectorContext {
             name == "y" ? value * 1px : InspectorContext.selected-y(),
             name == "width" ? value * 1px : InspectorContext.selected-width(),
             name == "height" ? value * 1px : InspectorContext.selected-height(),
+            CoordinateSpace.Root,
         );
         return true;
     }

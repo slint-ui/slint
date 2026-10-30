@@ -198,6 +198,7 @@ pub fn initialize_editor(
     });
     api.on_select_behind(super::element_selection::select_element_behind);
     api.on_highlight_positions(super::element_selection::highlight_positions);
+    super::snapping::setup(editor_ui);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
     api.on_new_component_data(super::new_component_data);
@@ -236,6 +237,7 @@ pub fn initialize_editor(
     api.on_selected_element_rotate(super::rotate_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_selected_element_wrap_in_layout(super::wrap_selected_element_in_layout);
+    api.on_root_geometry_to_parent_geometry(super::root_geometry_to_parent_geometry);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
