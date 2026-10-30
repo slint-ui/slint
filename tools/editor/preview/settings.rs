@@ -473,7 +473,11 @@ mod tests {
         let directory = Project::from_input(&root, None, None).unwrap();
         assert_eq!(directory.preview.url, Url::from_file_path(&source).unwrap());
         assert!(Project::from_input(&root, None, Some(&nested)).is_err());
-        assert!(Project::from_input(&manifest, None, None).is_err());
+        let project = Project::from_input(&manifest, None, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
+        let explicit_manifest = Project::from_input(&source, None, Some(&manifest)).unwrap();
+        assert_eq!(explicit_manifest.root, root);
         let missing_root = root.join("unavailable");
         let path = missing_root.join("main.slint");
         assert_eq!(Project::from_root(&missing_root, &path, None).unwrap().root, missing_root);
@@ -493,7 +497,9 @@ mod tests {
         let project = Project::from_selected_file(&manifest, None).unwrap();
         assert_eq!(project.root, root);
         assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
-        assert!(Project::from_input(&manifest, None, None).is_err());
+        let project = Project::from_input(&manifest, None, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
 
         std::fs::write(&manifest, r#"{"edition":"1.19"}"#).unwrap();
         assert!(Project::from_selected_file(&manifest, None).is_err());

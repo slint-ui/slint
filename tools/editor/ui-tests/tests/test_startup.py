@@ -198,7 +198,6 @@ def test_explicit_project_root_keeps_the_selected_source(
     (include / "shared.slint").write_text("export component Shared { }")
     source_directory = fixture_project / "ui"
     source_directory.mkdir()
-    (source_directory / "slint-project.json").write_text("{")
     main = source_directory / "Main.slint"
     main.write_text(
         'import { Shared } from "shared.slint";\n'

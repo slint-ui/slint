@@ -818,7 +818,8 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 mod tests {
     use super::{
         FILE_NAME, Overrides, ProjectFile, ProjectFileData, SlintEdition, is_project_file,
-        resolve_input, resolve_relative_path, resolve_source_relative_path,
+        normalize_project_root, project_root, resolve_input, resolve_relative_path,
+        resolve_source_relative_path,
     };
     use crate::{ExperimentalFeature, ExperimentalFeatures};
     use crate::{generator::OutputFormat, source_path::SourcePath};
@@ -1498,6 +1499,19 @@ mod tests {
         assert!(is_project_file(Path::new("ui/slint-project.json")));
         assert!(!is_project_file(Path::new("ui/other.json")));
         assert!(!is_project_file(Path::new("ui/main.slint")));
+    }
+
+    #[test]
+    fn project_root_accepts_only_the_exact_manifest_name() {
+        for (input, expected) in [
+            ("slint-project.json", "."),
+            ("ui/slint-project.json", "ui"),
+            ("ui/other.json", "ui/other.json"),
+            ("ui", "ui"),
+        ] {
+            assert_eq!(project_root(Path::new(input)), Path::new(expected));
+            assert_eq!(normalize_project_root(SourcePath::new(input)), SourcePath::new(expected));
+        }
     }
 
     fn callback_loader(
