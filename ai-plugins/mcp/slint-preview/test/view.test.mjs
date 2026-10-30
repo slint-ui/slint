@@ -21,7 +21,7 @@ assert.equal(
 );
 const testScript = importParts.join("importInterpreter()");
 
-function startView({ fetch, captureError, compile, toolCallError } = {}) {
+function startView({ fetch, captureError, compile, toolCallError, missingImage } = {}) {
     let onMessage;
     let resolveCapture;
     const captured = new Promise((resolve) => {
@@ -113,7 +113,13 @@ function startView({ fetch, captureError, compile, toolCallError } = {}) {
         set() {},
         configurable: true,
     });
-    const instance = { show: async () => {} };
+    const instance = {
+        show: async () => {
+            if (missingImage) {
+                new HTMLImageElement().src = "slint-file:///missing.png";
+            }
+        },
+    };
     const interpreter = {
         default: async () => {},
         run_event_loop() {},
@@ -157,6 +163,7 @@ function startView({ fetch, captureError, compile, toolCallError } = {}) {
         captured,
         reported,
         status: elements.get("status"),
+        diagnostics: elements.get("diagnostics"),
         async preview() {
             await ready;
             onMessage({
@@ -199,6 +206,59 @@ test("renders when version metadata fails", { timeout: 3000 }, async () => {
     });
     await view.preview();
     assert.equal((await view.captured).png, "cGl4ZWxz");
+});
+
+test("hides compiler warnings and notes while reporting warnings to the model", {
+    timeout: 3000,
+}, async () => {
+    const view = startView({
+        compile: async () => ({
+            component: { create: async () => ({ show: async () => {} }) },
+            diagnostics: [
+                { level: 1, message: "test warning", lineNumber: 1, columnNumber: 2 },
+                { level: 2, message: "test note", lineNumber: 3, columnNumber: 4 },
+            ],
+        }),
+    });
+    await view.preview();
+    assert.equal((await view.captured).png, "cGl4ZWxz");
+    assert.equal(view.diagnostics.children.length, 0);
+    assert.ok((await view.reported).includes("main.slint:1:2: warning: test warning"));
+});
+
+test("shows compiler errors without warnings and notes", {
+    timeout: 3000,
+}, async () => {
+    const view = startView({
+        compile: async () => ({
+            component: null,
+            diagnostics: [
+                { level: 0, message: "test error", lineNumber: 1, columnNumber: 2 },
+                { level: 1, message: "test warning", lineNumber: 3, columnNumber: 4 },
+                { level: 2, message: "test note", lineNumber: 5, columnNumber: 6 },
+            ],
+        }),
+    });
+    await view.preview();
+    const capture = await view.captured;
+    assert.equal(capture.error, "main.slint:1:2: error: test error");
+    assert.equal(view.diagnostics.children.length, 1);
+    assert.equal(view.diagnostics.children[0].className, "error");
+    assert.equal(view.diagnostics.children[0].textContent, capture.error);
+    assert.ok((await view.reported).includes("main.slint:3:4: warning: test warning"));
+});
+
+test("reports missing images to the model without displaying warnings", {
+    timeout: 3000,
+}, async () => {
+    const view = startView({ missingImage: true });
+    await view.preview();
+    assert.equal((await view.captured).png, "cGl4ZWxz");
+    assert.equal(view.diagnostics.children.length, 0);
+    assert.equal(
+        await view.reported,
+        "The Slint preview couldn't load image /missing.png: no file data",
+    );
 });
 
 test("publishes a terminal error when canvas capture fails", {
