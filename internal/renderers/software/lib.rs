@@ -36,7 +36,7 @@ use euclid::Length;
 use fixed::Fixed;
 #[cfg(feature = "std")]
 use i_slint_core::api::PlatformError;
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 use i_slint_core::graphics::OwnedStorage;
 #[cfg(feature = "std")]
 use i_slint_core::graphics::Rgba8Pixel;
@@ -1116,6 +1116,7 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
+    #[cfg(feature = "owned-pre-rendered-resources")]
     fn register_shared_bitmap_font(
         &self,
         font: &Rc<i_slint_core::graphics::BitmapFont<i_slint_core::graphics::OwnedStorage>>,
@@ -2341,7 +2342,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
         enum Pixels {
             Static(&'static [u8]),
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             Owned(Rc<StaticTextures<OwnedStorage>>),
         }
         let mut draw_textures = |pixels: Pixels,
@@ -2433,7 +2434,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 src_rect.size().cast(),
                             ),
                         ),
-                        #[cfg(feature = "image-owned-textures")]
+                        #[cfg(feature = "owned-pre-rendered-resources")]
                         Pixels::Owned(textures) => {
                             target_pixel_buffer::TextureDataContainer::Shared {
                                 buffer: SharedBufferData::Texture {
@@ -2463,7 +2464,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             ImageInner::StaticTextures(StaticTextures { data, textures, size, original_size }) => {
                 draw_textures(Pixels::Static(data), textures, *size, *original_size)
             }
-            #[cfg(feature = "image-owned-textures")]
+            #[cfg(feature = "owned-pre-rendered-resources")]
             ImageInner::OwnedTextures(owned) => {
                 let StaticTextures { textures, size, original_size, .. } = &**owned;
                 draw_textures(Pixels::Owned(owned.clone()), textures, *size, *original_size)
@@ -2651,8 +2652,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     },
                                 )
                             }
-                            fonts::GlyphAlphaMap::Shared { .. }
-                            | fonts::GlyphAlphaMap::Rendered(_) => {
+                            _ => {
                                 let buffer = SharedBufferData::AlphaMap {
                                     data: glyph.alpha_map.clone(),
                                     width: pixel_stride,
@@ -2683,7 +2683,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 ),
                             )
                         }
-                        fonts::GlyphAlphaMap::Shared { .. } | fonts::GlyphAlphaMap::Rendered(_) => {
+                        _ => {
                             let source_rect = euclid::rect(0, 0, glyph.width.0, glyph.height.0);
                             target_pixel_buffer::TextureDataContainer::Shared {
                                 buffer: SharedBufferData::AlphaMap {

@@ -46,7 +46,7 @@ fn text_size_does_not_double_borrow_font_context() {
     // which calls `text_size` for the inner Text elements — all while the
     // outer `text_size` still holds `font_context().borrow_mut()`.
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         component Header {
             HorizontalLayout {
                 Text {

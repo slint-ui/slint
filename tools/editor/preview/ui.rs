@@ -198,6 +198,7 @@ pub fn initialize_editor(
     });
     api.on_select_behind(super::element_selection::select_element_behind);
     api.on_highlight_positions(super::element_selection::highlight_positions);
+    super::snapping::setup(editor_ui);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
     api.on_new_component_data(super::new_component_data);
@@ -236,6 +237,7 @@ pub fn initialize_editor(
     api.on_selected_element_rotate(super::rotate_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_selected_element_wrap_in_layout(super::wrap_selected_element_in_layout);
+    api.on_root_geometry_to_parent_geometry(super::root_geometry_to_parent_geometry);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
@@ -2434,7 +2436,7 @@ mod tests {
     }
 
     #[test]
-    fn enabled_section_follows_selected_element_type() {
+    fn enabled_section_follows_selected_element_properties() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2444,23 +2446,25 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
+        connect_has_property(&api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (type_name, expected) in [
-            ("Button", true),
-            ("CheckBox", true),
-            ("LineEdit", true),
-            ("TouchArea", true),
-            ("TextInput", true),
-            ("KeyBinding", true),
-            ("MenuItem", true),
-            ("Rectangle", false),
-            ("Text", false),
-            ("VerticalLayout", false),
+        for (type_name, property, expected) in [
+            ("Button", "enabled", true),
+            ("CheckBox", "enabled", true),
+            ("LineEdit", "enabled", true),
+            ("TouchArea", "enabled", true),
+            ("TextInput", "enabled", true),
+            ("KeyBinding", "enabled", true),
+            ("MenuItem", "enabled", true),
+            ("Rectangle", "background", false),
+            ("Text", "text", false),
+            ("VerticalLayout", "spacing", false),
         ] {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
+            set_test_properties(&api, &[property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(
@@ -2488,6 +2492,8 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
+        connect_has_property(&api);
+        set_test_properties(&api, &["enabled"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (source, runtime, expected) in [
@@ -2530,7 +2536,7 @@ mod tests {
     }
 
     #[test]
-    fn title_field_follows_selected_element_type() {
+    fn title_field_follows_selected_element_properties() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2540,18 +2546,20 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
+        connect_has_property(&api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (type_name, expected) in [
-            ("GroupBox", true),
-            ("RadioGroup", true),
-            ("RadioButton", false),
-            ("Button", false),
-            ("Text", false),
+        for (type_name, property, expected) in [
+            ("GroupBox", "title", true),
+            ("RadioGroup", "title", true),
+            ("RadioButton", "text", false),
+            ("Button", "text", false),
+            ("Text", "text", false),
         ] {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
+            set_test_properties(&api, &[property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
@@ -2585,6 +2593,8 @@ mod tests {
             recorded.borrow_mut().push((name.to_string(), value.to_string()));
             true
         });
+        connect_has_property(&api);
+        set_test_properties(&api, &["title"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
@@ -2600,7 +2610,7 @@ mod tests {
     }
 
     #[test]
-    fn placeholder_field_follows_selected_element_type() {
+    fn placeholder_field_follows_selected_element_properties() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2610,18 +2620,20 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
+        connect_has_property(&api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (type_name, expected) in [
-            ("LineEdit", true),
-            ("TextEdit", true),
-            ("TextInput", false),
-            ("Button", false),
-            ("Text", false),
+        for (type_name, property, expected) in [
+            ("LineEdit", "placeholder-text", true),
+            ("TextEdit", "placeholder-text", true),
+            ("TextInput", "text", false),
+            ("Button", "text", false),
+            ("Text", "text", false),
         ] {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
+            set_test_properties(&api, &[property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(
@@ -2658,6 +2670,8 @@ mod tests {
             recorded.borrow_mut().push((name.to_string(), value.to_string()));
             true
         });
+        connect_has_property(&api);
+        set_test_properties(&api, &["placeholder-text"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
@@ -2677,7 +2691,7 @@ mod tests {
     }
 
     #[test]
-    fn read_only_switch_follows_selected_element_type() {
+    fn read_only_switch_follows_selected_element_properties() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
@@ -2687,21 +2701,23 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
+        connect_has_property(&api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
-        for (type_name, expected) in [
-            ("LineEdit", true),
-            ("SpinBox", true),
-            ("TextEdit", true),
-            ("TextInput", true),
-            ("Button", false),
-            ("CheckBox", false),
-            ("TouchArea", false),
-            ("Text", false),
+        for (type_name, property, expected) in [
+            ("LineEdit", "read-only", true),
+            ("SpinBox", "read-only", true),
+            ("TextEdit", "read-only", true),
+            ("TextInput", "read-only", true),
+            ("Button", "enabled", false),
+            ("CheckBox", "checked", false),
+            ("TouchArea", "enabled", false),
+            ("Text", "text", false),
         ] {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
+            set_test_properties(&api, &["enabled", property]);
             slint::platform::update_timers_and_animations();
             assert_eq!(
                 i_slint_backend_testing::ElementHandle::find_by_accessible_label(
@@ -2730,6 +2746,8 @@ mod tests {
         let mut selection = api.get_selection();
         selection.highlight_index = 0;
         api.set_selection(selection);
+        connect_has_property(&api);
+        set_test_properties(&api, &["enabled", "read-only"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (source, runtime, expected) in [
@@ -2794,6 +2812,8 @@ mod tests {
             recorded.borrow_mut().push((name.to_string(), value.to_string()));
             true
         });
+        connect_has_property(&api);
+        set_test_properties(&api, &["enabled", "read-only"]);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         slint::platform::update_timers_and_animations();
@@ -2879,6 +2899,52 @@ mod tests {
                     "{type_name}: {label}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn current_index_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("ComboBox", true),
+            ("RadioGroup", true),
+            ("TabWidget", true),
+            ("Slider", false),
+            ("Rectangle", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Current index"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
         }
     }
 
@@ -3034,6 +3100,45 @@ mod tests {
     }
 
     #[test]
+    fn mouse_cursor_combo_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 100.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [("TouchArea", true), ("Rectangle", false), ("Text", false)] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Mouse Cursor"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
     fn standard_button_kind_combo_follows_selected_element_type() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
@@ -3093,12 +3198,13 @@ mod tests {
             .into()
         });
         editor.show().unwrap();
-        editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+        editor.window().set_size(slint::LogicalSize::new(1360., 1600.));
         for (type_name, horizontal, vertical) in [
             ("Text", true, true),
             ("StyledText", true, true),
             ("LineEdit", true, false),
-            ("TextEdit", false, false),
+            ("SpinBox", true, false),
+            ("TextEdit", true, false),
             ("Rectangle", false, false),
         ] {
             let mut element = api.get_current_element();
@@ -3188,12 +3294,7 @@ mod tests {
             }]))
             .into()
         });
-        let api_weak = <super::Api as slint::Global<'_, super::EditorUi>>::as_weak(&api);
-        api.on_has_property(move |name| {
-            api_weak
-                .upgrade()
-                .is_some_and(|api| super::source_property_value_data(&api, name).is_some())
-        });
+        connect_has_property(&api);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 860.));
         for (type_name, property, expected) in [
@@ -3205,16 +3306,7 @@ mod tests {
             let mut element = api.get_current_element();
             element.type_name = type_name.into();
             api.set_current_element(element);
-            api.set_properties(
-                std::rc::Rc::new(VecModel::from(vec![super::PropertyGroup {
-                    group_name: type_name.into(),
-                    properties: std::rc::Rc::new(VecModel::from(vec![create_test_property(
-                        property, "",
-                    )]))
-                    .into(),
-                }]))
-                .into(),
-            );
+            set_test_properties(&api, &[property]);
             slint::platform::update_timers_and_animations();
             for label in ["Horizontal Scroll Bar Policy", "Vertical Scroll Bar Policy"] {
                 assert_eq!(
@@ -3940,6 +4032,28 @@ mod tests {
                 ..Default::default()
             },
         }
+    }
+
+    fn connect_has_property(api: &super::Api<'_>) {
+        let api_weak = <super::Api as slint::Global<'_, super::EditorUi>>::as_weak(api);
+        api.on_has_property(move |name| {
+            api_weak
+                .upgrade()
+                .is_some_and(|api| super::source_property_value_data(&api, name).is_some())
+        });
+    }
+
+    fn set_test_properties(api: &super::Api<'_>, names: &[&str]) {
+        api.set_properties(
+            std::rc::Rc::new(VecModel::from(vec![super::PropertyGroup {
+                group_name: "".into(),
+                properties: std::rc::Rc::new(VecModel::from(
+                    names.iter().map(|name| create_test_property(name, "")).collect::<Vec<_>>(),
+                ))
+                .into(),
+            }]))
+            .into(),
+        );
     }
 
     #[test]

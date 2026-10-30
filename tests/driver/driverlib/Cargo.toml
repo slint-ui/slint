@@ -22,6 +22,7 @@ fork-harness = ["dep:libtest-mimic", "dep:satchel"]
 
 [dependencies]
 regex = "1.4"
+serde_json = "1"
 walkdir = "2"
 
 # cSpell: ignore libtest

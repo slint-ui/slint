@@ -37,8 +37,15 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.library_paths = library_paths;
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
-    compiler_config.edition =
-        test_driver_lib::parse_slint_edition(&source)?.or(compiler_config.edition);
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
+    // The generated code loads the project directory at run time, for the edition.
+    let project_directory = tempfile::tempdir()?;
+    test_driver_lib::write_project_file(
+        project_directory.path(),
+        &testcase.absolute_path,
+        &source,
+    )?;
+    compiler_config.input_project_directory = Some(project_directory.path().to_path_buf());
     if source.contains("//bundle-translations") {
         compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
@@ -158,10 +165,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .arg("--no-cache")
         .arg(&python_file)
         .env("PYTHONPATH", PYTHON_PATH.clone())
-        .env(
-            "SLINT_EDITION",
-            test_driver_lib::extract_slint_edition(&source).unwrap_or(env!("SLINT_EDITION")),
-        )
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()

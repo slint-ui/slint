@@ -5,7 +5,7 @@
 //! language server and the visual editor.
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::project_file::{self, Overrides, ProjectFile, ProjectFileData};
+use i_slint_compiler::project_file::{self, Overrides, ProjectFile, ProjectFileData, SlintEdition};
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
@@ -14,7 +14,7 @@ use i_slint_live_preview::{
 use lsp_types::Url;
 
 use i_slint_compiler::source_path::SourcePath;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -173,6 +173,9 @@ pub struct EditorSession {
     /// The project files of the open documents, broadest first.
     /// A shared document cache has one configuration, so their settings are merged.
     project_file_paths: Vec<PathBuf>,
+    /// The `#[edition]` of the `slint!` macro of each loaded `.rs` file.
+    /// They win over the project files, as they do for the build.
+    rust_macro_editions: BTreeMap<Url, SlintEdition>,
 }
 
 impl EditorSession {
@@ -279,6 +282,7 @@ impl EditorSession {
             workspace_roots: Default::default(),
             active_projects: Default::default(),
             project_file_paths: Default::default(),
+            rust_macro_editions: Default::default(),
         }
     }
 
@@ -390,7 +394,7 @@ impl EditorSession {
             mut include_paths,
             library_paths,
             experimental_features,
-            slint_edition,
+            edition,
             schema: _,
             main: _,
             metadata: (),
@@ -414,9 +418,24 @@ impl EditorSession {
         let mut experimental_features = experimental_features.map(|value| {
             (value, override_source(workspace.experimental_features.is_some()).to_string())
         });
-        let mut edition = slint_edition
-            .map(|value| (value, override_source(workspace.slint_edition.is_some()).to_string()));
+        let mut edition =
+            edition.map(|value| (value, override_source(workspace.edition.is_some()).to_string()));
         let mut project_diagnostics = Vec::new();
+
+        for (url, rust_macro_edition) in &self.rust_macro_editions {
+            let source = format!("the slint! macro in {url}");
+            keep_first(
+                &mut edition,
+                Some(*rust_macro_edition),
+                &source,
+                "edition",
+                &mut |ignored, selected, source| {
+                    tracing::warn!(
+                        "slint-lsp is ignoring {ignored} of the slint! macro in {url}. Using {selected} from {source}"
+                    )
+                },
+            );
+        }
 
         for path in &self.project_file_paths {
             let Some(url) = SourcePath::new(path).to_url() else { continue };
@@ -428,7 +447,7 @@ impl EditorSession {
                     include_paths: project_include_paths,
                     library_paths: project_library_paths,
                     experimental_features: project_experimental_features,
-                    slint_edition: project_edition,
+                    edition: project_edition,
                     schema: _,
                     main: _,
                     metadata: (),
@@ -465,10 +484,8 @@ impl EditorSession {
                     "experimental features",
                     &mut warn,
                 );
-                keep_first(&mut edition, project_edition, &source, "slint-edition", &mut warn);
-                if let Some(warning) =
-                    project.slint_edition().behavior_change_warning("slint-edition")
-                {
+                keep_first(&mut edition, project_edition, &source, "edition", &mut warn);
+                if let Some(warning) = project.edition().behavior_change_warning("edition") {
                     let mut edition_diagnostics = BuildDiagnostics::default();
                     edition_diagnostics.push_warning_with_span(warning, project.edition_location());
                     diagnostics.extend(edition_diagnostics.iter().map(|d| {
@@ -492,7 +509,7 @@ impl EditorSession {
                 library_paths: library_paths
                     .map(|paths| paths.into_iter().map(|(name, (path, _))| (name, path)).collect()),
                 experimental_features: experimental_features.map(|(features, _)| features),
-                slint_edition: edition.map(|(version, _)| version),
+                edition: edition.map(|(version, _)| version),
                 schema: None,
                 main: None,
                 metadata: (),
@@ -540,6 +557,7 @@ impl EditorSession {
         self.preview_config = PreviewConfig {
             hide_ui: overrides.hide_ui,
             overrides: overrides.compiler,
+            rust_macro_editions: self.rust_macro_editions.clone(),
             format_utf8: compiler_config.format == crate::ByteFormat::Utf8,
         };
         self.send_to_previews(&LspToPreviewMessage::SetConfiguration {
@@ -635,6 +653,30 @@ impl EditorSession {
         } else {
             Ok(Default::default())
         }
+    }
+
+    /// Records the `#[edition]` of the `slint!` macro in `content` if `url` is a `.rs` file,
+    /// and returns whether it changed.
+    /// An attribute that doesn't parse, such as one being typed, keeps the previous edition.
+    fn update_rust_macro_edition(&mut self, url: &Url, content: &str) -> bool {
+        if !url.path().ends_with(".rs") {
+            return false;
+        }
+        let Some(url) = SourcePath::from_url(url).to_url() else { return false };
+        let previous = match i_slint_compiler::lexer::extract_rust_macro_edition(content) {
+            None => self.rust_macro_editions.remove(&url),
+            Some((value, _)) => match SlintEdition::parse_rust_macro_attribute(value) {
+                Ok(edition) => self.rust_macro_editions.insert(url.clone(), edition),
+                Err(_) => return false,
+            },
+        };
+        previous != self.rust_macro_editions.get(&url).copied()
+    }
+
+    /// Forgets the `#[edition]` of the `slint!` macro in `url`, and returns whether it had one.
+    fn forget_rust_macro_edition(&mut self, url: &Url) -> bool {
+        let url = SourcePath::from_url(url).to_url().unwrap_or_else(|| url.clone());
+        self.rust_macro_editions.remove(&url).is_some()
     }
 
     pub fn project_main_urls(&self) -> impl Iterator<Item = Url> + '_ {
@@ -841,6 +883,7 @@ impl EditorSession {
             }
             let Some(path) = url.to_file_path().ok() else {
                 tracing::warn!("Cannot convert URL to file path: {url}");
+                preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 continue;
             };
             let file_access = file_access.get_or_init(|| {
@@ -1063,6 +1106,8 @@ impl EditorSession {
         {
             self.reload_document_without_project_discovery(url, &mut BuildDiagnostics::default())
                 .await;
+        } else if self.forget_rust_macro_edition(&url) {
+            return self.reapply_effective_configuration().await;
         }
         Ok(Default::default())
     }
@@ -1082,6 +1127,9 @@ impl EditorSession {
             };
         }
         let mut configuration_diagnostics = self.maybe_update_active_project(&url).await?;
+        if self.update_rust_macro_edition(&url, &content) {
+            configuration_diagnostics.extend(self.reapply_effective_configuration().await?);
+        }
         let (extra_files, diag) = self.load_document_impl(content, url.clone(), version).await;
 
         tracing::debug!("Loaded {url} with {} diagnostics", diag.iter().count());
@@ -1210,10 +1258,15 @@ impl EditorSession {
 
         self.drop_document_impl(url.clone())?;
 
+        let mut diagnostics = match self.forget_rust_macro_edition(&url) {
+            true => self.reapply_effective_configuration().await?,
+            false => Vec::new(),
+        };
         // make sure to clear the diagnostics on this file.
         // This is especially important for deleted files, but also for renamed files to clear the diagnostics on the old file.
         // Otherwise they will stick around forever (e.g. in VS Code).
-        Ok(vec![(url, version, vec![])])
+        diagnostics.push((url, version, vec![]));
+        Ok(diagnostics)
     }
 
     pub async fn trigger_file_watcher(
@@ -1327,6 +1380,7 @@ mod preview_tests {
                 Some(&PreviewConfig {
                     hide_ui: None,
                     overrides: Overrides::default(),
+                    rust_macro_editions: Default::default(),
                     format_utf8: false,
                 })
             );
@@ -1348,21 +1402,21 @@ mod preview_tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
-        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         spin_on::spin_on(session.maybe_update_active_project(&document_url)).unwrap();
         for messages in &messages {
             assert!(messages.borrow().iter().any(|message| matches!(message,
-                LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == br#"{"slint-edition":"1.19"}"#
+                LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == br#"{"edition":"1.19"}"#
             )));
             messages.borrow_mut().clear();
         }
         session.send_state_to_preview(0);
         assert!(messages[0].borrow().iter().any(|message| matches!(message,
-            LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == br#"{"slint-edition":"1.19"}"#
+            LspToPreviewMessage::SetContents { url: sent, contents } if sent.url() == &url && contents == br#"{"edition":"1.19"}"#
         )));
         assert!(messages[1].borrow().is_empty());
-        for source in ["// changed comment\n{\"slint-edition\":\"1.19\"}", "not valid JSON"] {
+        for source in ["// changed comment\n{\"edition\":\"1.19\"}", "not valid JSON"] {
             for messages in &messages {
                 messages.borrow_mut().clear();
             }
@@ -1403,9 +1457,9 @@ mod preview_tests {
         let manifest_url = Url::from_file_path(&manifest_path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         for (version, manifest, expected) in [
-            (1, r#"{"slint-edition":"1.19"}"#, true),
-            (2, r#"{"slint-edition":"1.19"}"#, false),
-            (3, r#"{"slint-edition":"1.19","experimental-features":[]}"#, true),
+            (1, r#"{"edition":"1.19"}"#, true),
+            (2, r#"{"edition":"1.19"}"#, false),
+            (3, r#"{"edition":"1.19","experimental-features":[]}"#, true),
         ] {
             std::fs::write(&manifest_path, manifest).unwrap();
             for messages in &messages {
@@ -1432,7 +1486,7 @@ mod preview_tests {
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(
             directory.path().join(i_slint_compiler::project_file::FILE_NAME),
-            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#,
+            r#"{"edition":"1.19","experimental-features":["match"]}"#,
         )
         .unwrap();
         session.set_startup_config_overrides(SessionConfigOverrides {
@@ -1485,11 +1539,11 @@ mod preview_tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
-        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
         for (index, source) in [
-            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#,
+            r#"{"edition":"1.19","experimental-features":["match"]}"#,
             "{invalid",
-            "// buffer comment\n{\"slint-edition\":\"1.19\"}",
+            "// buffer comment\n{\"edition\":\"1.19\"}",
         ]
         .into_iter()
         .enumerate()
@@ -1516,8 +1570,7 @@ mod preview_tests {
             for messages in &messages {
                 assert_project_contents(messages, &url, source, version);
             }
-            std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[]}"#)
-                .unwrap();
+            std::fs::write(&path, r#"{"edition":"1.19","experimental-features":[]}"#).unwrap();
             for (preview_index, messages) in messages.iter().enumerate() {
                 messages.borrow_mut().clear();
                 session.send_state_to_preview(preview_index);
@@ -1537,7 +1590,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         assert!(!path.exists());
         assert!(SourcePath::from_url(&url).as_native_path().is_some());
-        let contents = r#"{"slint-edition":"1.19","experimental-features":["match"]}"#;
+        let contents = r#"{"edition":"1.19","experimental-features":["match"]}"#;
         spin_on::spin_on(session.open_document(contents.into(), url.clone(), Some(9))).unwrap();
         let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
         spin_on::spin_on(session.load_document("export component Main {}".into(), source, Some(1)))
@@ -1565,7 +1618,7 @@ mod preview_tests {
             let url = Url::parse(target).unwrap();
             assert!(
                 spin_on::spin_on(session.open_document(
-                    r#"{"slint-edition":"1.19"}"#.into(),
+                    r#"{"edition":"1.19"}"#.into(),
                     url.clone(),
                     Some(1)
                 ))
@@ -1597,8 +1650,7 @@ mod preview_tests {
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":["match"]}"#)
-            .unwrap();
+        std::fs::write(&path, r#"{"edition":"1.19","experimental-features":["match"]}"#).unwrap();
         spin_on::spin_on(session.load_document(
             "export component Main {}".into(),
             document_url.clone(),
@@ -1638,13 +1690,12 @@ mod preview_tests {
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
         let document_url = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
-        let buffer = r#"{"slint-edition":"1.19","experimental-features":["match"]}"#;
+        std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
+        let buffer = r#"{"edition":"1.19","experimental-features":["match"]}"#;
         spin_on::spin_on(session.open_document(buffer.into(), url.clone(), Some(4))).unwrap();
         for change in [FileChangeKind::Created, FileChangeKind::Changed, FileChangeKind::Deleted] {
             if !matches!(change, FileChangeKind::Deleted) {
-                std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[]}"#)
-                    .unwrap();
+                std::fs::write(&path, r#"{"edition":"1.19","experimental-features":[]}"#).unwrap();
             } else {
                 std::fs::remove_file(&path).unwrap();
             }
@@ -1670,7 +1721,7 @@ mod preview_tests {
                 ExperimentalFeatures::from(ExperimentalFeature::Match)
             );
         }
-        let disk = r#"{"slint-edition":"1.19","experimental-features":[]}"#;
+        let disk = r#"{"edition":"1.19","experimental-features":[]}"#;
         std::fs::write(&path, disk).unwrap();
         for messages in &messages {
             messages.borrow_mut().clear();
@@ -1693,9 +1744,9 @@ mod preview_tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
-        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
         spin_on::spin_on(session.open_document(
-            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#.into(),
+            r#"{"edition":"1.19","experimental-features":["match"]}"#.into(),
             url.clone(),
             Some(3),
         ))
@@ -1745,8 +1796,7 @@ mod preview_tests {
             let project = directory.path().join(name);
             std::fs::create_dir(&project).unwrap();
             let path = project.join(i_slint_compiler::project_file::FILE_NAME);
-            std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[]}"#)
-                .unwrap();
+            std::fs::write(&path, r#"{"edition":"1.19","experimental-features":[]}"#).unwrap();
             let document_url = Url::from_file_path(project.join("main.slint")).unwrap();
             spin_on::spin_on(session.load_document(
                 "export component Main {}".into(),
@@ -1757,7 +1807,7 @@ mod preview_tests {
             manifests.push(Url::from_file_path(path).unwrap());
         }
         let changed = spin_on::spin_on(session.open_document(
-            r#"{"slint-edition":"1.19","experimental-features":["match"]}"#.into(),
+            r#"{"edition":"1.19","experimental-features":["match"]}"#.into(),
             manifests[0].clone(),
             Some(7),
         ))
@@ -1786,7 +1836,7 @@ mod preview_tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
-        std::fs::write(&path, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
             session.send_files_to_preview(
                 preview_index,
@@ -1803,8 +1853,7 @@ mod preview_tests {
             .unwrap();
         assert!(!session.active_projects.contains_key(&path));
         assert_eq!(session.active_project_file_paths().collect::<Vec<_>>(), [path.as_path()]);
-        std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":["match"]}"#)
-            .unwrap();
+        std::fs::write(&path, r#"{"edition":"1.19","experimental-features":["match"]}"#).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
             messages.borrow_mut().clear();
             session.send_state_to_preview(preview_index);
@@ -2045,9 +2094,8 @@ mod preview_tests {
         std::fs::create_dir(&nested_directory).unwrap();
         let nested_manifest = nested_directory.join(i_slint_compiler::project_file::FILE_NAME);
         let nested_manifest_url = Url::from_file_path(&nested_manifest).unwrap();
-        std::fs::write(&root_manifest, r#"{"slint-edition":"1.19","include-paths":["outer"]}"#)
-            .unwrap();
-        std::fs::write(&nested_manifest, r#"{"slint-edition":"1.19","include-paths":["inner"]}"#)
+        std::fs::write(&root_manifest, r#"{"edition":"1.19","include-paths":["outer"]}"#).unwrap();
+        std::fs::write(&nested_manifest, r#"{"edition":"1.19","include-paths":["inner"]}"#)
             .unwrap();
         let source = nested_directory.join("main.slint");
         let component = PreviewComponent {
@@ -2081,11 +2129,11 @@ mod preview_tests {
         );
         let manifest_index = replay.iter().position(|message| {
             matches!(message, LspToPreviewMessage::SetContents { url, contents }
-                if url.url() == &root_manifest_url && contents.as_slice() == br#"{"slint-edition":"1.19","include-paths":["outer"]}"#)
+                if url.url() == &root_manifest_url && contents.as_slice() == br#"{"edition":"1.19","include-paths":["outer"]}"#)
         }).unwrap();
         let nested_manifest_index = replay.iter().position(|message| {
             matches!(message, LspToPreviewMessage::SetContents { url, contents }
-                if url.url() == &nested_manifest_url && contents.as_slice() == br#"{"slint-edition":"1.19","include-paths":["inner"]}"#)
+                if url.url() == &nested_manifest_url && contents.as_slice() == br#"{"edition":"1.19","include-paths":["inner"]}"#)
         }).unwrap();
         let configuration_index = replay
             .iter()
@@ -2314,7 +2362,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let document = temp.path().join("editing.slint");
         let disk_dependency = temp.path().join("disk-only.slint");
-        std::fs::write(temp.path().join(FILE_NAME), r#"{ "slint-edition": "1.19" }"#).unwrap();
+        std::fs::write(temp.path().join(FILE_NAME), r#"{ "edition": "1.19" }"#).unwrap();
         std::fs::write(&document, r#"import { DiskOnly } from "disk-only.slint"; export component Main inherits DiskOnly {}"#).unwrap();
         std::fs::write(&disk_dependency, "export component DiskOnly inherits DoesNotExist {}")
             .unwrap();
@@ -2366,9 +2414,8 @@ mod tests {
         let document = temp.path().join("editing.slint");
         let entry = entry_directory.join("main.slint");
         let dependency = entry_directory.join("dependency.slint");
-        std::fs::write(&project, r#"{ "slint-edition": "1.19", "main": "main/main.slint" }"#)
-            .unwrap();
-        std::fs::write(entry_directory.join(FILE_NAME), r#"{ "slint-edition": "1.19" }"#).unwrap();
+        std::fs::write(&project, r#"{ "edition": "1.19", "main": "main/main.slint" }"#).unwrap();
+        std::fs::write(entry_directory.join(FILE_NAME), r#"{ "edition": "1.19" }"#).unwrap();
         std::fs::write(&entry, r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#).unwrap();
         std::fs::write(&dependency, "export component Dependency {}").unwrap();
         write_document(&document);
@@ -2405,7 +2452,7 @@ mod tests {
         let document = temp.path().join("editing.slint");
         std::fs::write(
             temp.path().join(FILE_NAME),
-            r#"{ "slint-edition": "1.19", "main": "main.slint" }"#,
+            r#"{ "edition": "1.19", "main": "main.slint" }"#,
         )
         .unwrap();
         write_document(&entry);
@@ -2433,7 +2480,7 @@ mod tests {
         let entry = temp.path().join("main.slint");
         std::fs::write(
             temp.path().join(FILE_NAME),
-            r#"{ "slint-edition": "1.19", "main": "main.slint" }"#,
+            r#"{ "edition": "1.19", "main": "main.slint" }"#,
         )
         .unwrap();
         std::fs::write(&entry, "export component Main inherits DoesNotExist {}").unwrap();
@@ -2458,7 +2505,7 @@ mod tests {
         }
         std::fs::write(
             temp.path().join(FILE_NAME),
-            r#"{ "slint-edition": "1.19", "main": "main.slint" }"#,
+            r#"{ "edition": "1.19", "main": "main.slint" }"#,
         )
         .unwrap();
         spin_on::spin_on(
@@ -2486,7 +2533,7 @@ mod tests {
             std::fs::create_dir(directory).unwrap();
             std::fs::write(
                 directory.join(FILE_NAME),
-                r#"{ "slint-edition": "1.19", "main": "../shared.slint" }"#,
+                r#"{ "edition": "1.19", "main": "../shared.slint" }"#,
             )
             .unwrap();
             let document = directory.join("editing.slint");
@@ -2494,11 +2541,8 @@ mod tests {
             open_document(&mut session, &document).unwrap();
         }
         let first_project = project_directories[0].join(FILE_NAME);
-        std::fs::write(
-            &first_project,
-            r#"{ "slint-edition": "1.19", "main": "../replacement.slint" }"#,
-        )
-        .unwrap();
+        std::fs::write(&first_project, r#"{ "edition": "1.19", "main": "../replacement.slint" }"#)
+            .unwrap();
         spin_on::spin_on(
             session.reload_active_project_file(&first_project, FileChangeKind::Changed),
         )
@@ -2544,7 +2588,7 @@ mod tests {
         let project = temp.path().join(FILE_NAME);
         let entry = temp.path().join("main.slint");
         let document = temp.path().join("editing.slint");
-        std::fs::write(&project, r#"{ "slint-edition": "1.19", "main": "main.slint" }"#).unwrap();
+        std::fs::write(&project, r#"{ "edition": "1.19", "main": "main.slint" }"#).unwrap();
         write_document(&entry);
         write_document(&document);
         let mut session = session();
@@ -2570,14 +2614,11 @@ mod tests {
         std::fs::create_dir_all(&nested_directory).unwrap();
         let nested_project_path = nested_directory.join(FILE_NAME);
         let document_path = nested_directory.join("main.slint");
-        std::fs::write(
-            &top_project_path,
-            r#"{ "slint-edition": "1.19", "include-paths": ["top"] }"#,
-        )
-        .unwrap();
+        std::fs::write(&top_project_path, r#"{ "edition": "1.19", "include-paths": ["top"] }"#)
+            .unwrap();
         std::fs::write(
             &nested_project_path,
-            r#"{ "slint-edition": "1.19", "include-paths": ["nested"] }"#,
+            r#"{ "edition": "1.19", "include-paths": ["nested"] }"#,
         )
         .unwrap();
         write_document(&document_path);
@@ -2606,11 +2647,8 @@ mod tests {
         let workspace_project = workspace.join(FILE_NAME);
         let source = source_directory.join("main.slint");
         std::fs::write(&outside_project, "{").unwrap();
-        std::fs::write(
-            &workspace_project,
-            r#"{"slint-edition":"1.19","include-paths":["include"]}"#,
-        )
-        .unwrap();
+        std::fs::write(&workspace_project, r#"{"edition":"1.19","include-paths":["include"]}"#)
+            .unwrap();
         write_document(&source);
 
         let mut bounded = session();
@@ -2645,7 +2683,7 @@ mod tests {
         }
 
         let sibling_project = source_directory.join(FILE_NAME);
-        std::fs::write(&sibling_project, r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(&sibling_project, r#"{"edition":"1.19"}"#).unwrap();
         let mut editor_session = session();
         load_document(&mut editor_session, &source).unwrap();
         assert_eq!(
@@ -2677,16 +2715,10 @@ mod tests {
 
         let inner_project = inner.join(FILE_NAME);
         let other_project = other.join(FILE_NAME);
-        std::fs::write(
-            &inner_project,
-            r#"{"slint-edition":"1.19","include-paths":["inner-include"]}"#,
-        )
-        .unwrap();
-        std::fs::write(
-            &other_project,
-            r#"{"slint-edition":"1.19","include-paths":["other-include"]}"#,
-        )
-        .unwrap();
+        std::fs::write(&inner_project, r#"{"edition":"1.19","include-paths":["inner-include"]}"#)
+            .unwrap();
+        std::fs::write(&other_project, r#"{"edition":"1.19","include-paths":["other-include"]}"#)
+            .unwrap();
         let mut editor_session = session();
         editor_session.set_workspace_roots(roots);
         load_document(&mut editor_session, &inner_source).unwrap();
@@ -2713,11 +2745,8 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(
-            &project_path,
-            r#"{ "slint-edition": "1.19", "include-paths": ["include"] }"#,
-        )
-        .unwrap();
+        std::fs::write(&project_path, r#"{ "edition": "1.19", "include-paths": ["include"] }"#)
+            .unwrap();
         write_document(&document_path);
 
         let mut session = session();
@@ -2747,7 +2776,7 @@ mod tests {
             let directory = temp.path().join(name);
             std::fs::create_dir_all(&directory).unwrap();
             let path = directory.join(FILE_NAME);
-            std::fs::write(&path, r#"{"slint-edition":"1.19","experimental-features":[],"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
+            std::fs::write(&path, r#"{"edition":"1.19","experimental-features":[],"include-paths":["include"],"library-paths":{"shared":"../shared"}}"#).unwrap();
             session.project_file_paths.push(path.clone());
             session
                 .active_projects
@@ -2777,8 +2806,7 @@ mod tests {
             let path = directory.join(FILE_NAME);
             std::fs::write(
                 &path,
-                serde_json::json!({"slint-edition": "1.19", "library-paths": libraries})
-                    .to_string(),
+                serde_json::json!({"edition": "1.19", "library-paths": libraries}).to_string(),
             )
             .unwrap();
             session.project_file_paths.push(path.clone());
@@ -2833,7 +2861,7 @@ mod tests {
         let mut session = session();
         spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
             compiler: Overrides {
-                project: ProjectFileData { slint_edition: Some(edition), ..Default::default() },
+                project: ProjectFileData { edition: Some(edition), ..Default::default() },
                 ..Default::default()
             },
             ..Default::default()
@@ -2843,7 +2871,37 @@ mod tests {
             session.document_cache.compiler_configuration().compiler_config.edition,
             Some(edition)
         );
-        assert_eq!(session.preview_config.overrides.project.slint_edition, Some(edition));
+        assert_eq!(session.preview_config.overrides.project.edition, Some(edition));
+    }
+
+    #[test]
+    fn the_edition_of_a_slint_macro_applies() {
+        let temp = TempDir::new().unwrap();
+        let url = Url::from_file_path(temp.path().join("main.rs")).unwrap();
+        let mut session = session();
+        for (content, expected) in [
+            (r#"slint::slint!{ #[edition = "1.18"] export component A {} }"#, Some("1.18")),
+            (r#"slint::slint!{ export component A {} }"#, None),
+            (r#"slint::slint!{ #[edition = "1.19"] export component A {} }"#, Some("1.19")),
+        ] {
+            spin_on::spin_on(session.load_document(content.into(), url.clone(), Some(1))).unwrap();
+            let expected = expected.map(|e| e.parse::<SlintEdition>().unwrap());
+            assert_eq!(
+                session.document_cache.compiler_configuration().compiler_config.edition,
+                expected,
+                "{content}"
+            );
+            assert_eq!(
+                session.preview_config.rust_macro_editions.get(&url).copied(),
+                expected,
+                "{content}"
+            );
+        }
+        assert_eq!(session.preview_config.overrides.project.edition, None);
+
+        spin_on::spin_on(session.delete_document(url.clone())).unwrap();
+        assert_eq!(session.document_cache.compiler_configuration().compiler_config.edition, None);
+        assert!(session.preview_config.rust_macro_editions.is_empty());
     }
 
     #[test]
@@ -2853,8 +2911,8 @@ mod tests {
         let inner_directory = temp.path().join("nested");
         std::fs::create_dir_all(&inner_directory).unwrap();
         let inner = inner_directory.join(FILE_NAME);
-        std::fs::write(&outer, r#"{ "slint-edition": "1.19" }"#).unwrap();
-        std::fs::write(&inner, r#"{ "slint-edition": "1.18" }"#).unwrap();
+        std::fs::write(&outer, r#"{ "edition": "1.19" }"#).unwrap();
+        std::fs::write(&inner, r#"{ "edition": "1.18" }"#).unwrap();
         let mut session = session();
         for path in [&outer, &inner] {
             session.project_file_paths.push(path.clone());
@@ -2872,8 +2930,8 @@ mod tests {
         let inner_url = Url::from_file_path(&inner).unwrap();
         let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &inner_url).unwrap();
         assert_eq!(warnings.len(), 2, "{warnings:?}");
-        assert!(warnings[0].message.contains("slint-edition '1.18'"), "{warnings:?}");
-        assert!(warnings[1].message.contains("'slint-edition' 1.18 misses"), "{warnings:?}");
+        assert!(warnings[0].message.contains("edition '1.18'"), "{warnings:?}");
+        assert!(warnings[1].message.contains("'edition' is 1.18, so"), "{warnings:?}");
         let outer_url = Url::from_file_path(&outer).unwrap();
         let (_, _, warnings) = diagnostics.iter().find(|(url, _, _)| url == &outer_url).unwrap();
         assert!(warnings.is_empty(), "{warnings:?}");
@@ -2890,10 +2948,10 @@ mod tests {
         write_document(&document);
         std::fs::write(
             &outer,
-            r#"{"slint-edition":"1.19","experimental-features":["match"],"library-paths":{"widgets":"outer"}}"#,
+            r#"{"edition":"1.19","experimental-features":["match"],"library-paths":{"widgets":"outer"}}"#,
         )
         .unwrap();
-        std::fs::write(&inner, r#"{"slint-edition":"1.19","experimental-features":[],"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
+        std::fs::write(&inner, r#"{"edition":"1.19","experimental-features":[],"include-paths":["include"],"library-paths":{"widgets":"inner","other":"other"}}"#).unwrap();
         let mut session = session();
         for path in [&outer, &inner] {
             session.project_file_paths.push(path.clone());
@@ -2997,7 +3055,7 @@ mod tests {
         let document_path = temp.path().join("main.slint");
         std::fs::write(
             &project_path,
-            r#"{ "slint-edition": "1.19", "include-paths": ["project"], "library-paths": {"project": "project-lib"} }"#,
+            r#"{ "edition": "1.19", "include-paths": ["project"], "library-paths": {"project": "project-lib"} }"#,
         )
         .unwrap();
         write_document(&document_path);
@@ -3150,12 +3208,12 @@ mod tests {
         let document_b = project_b.join("main.slint");
         std::fs::write(
             project_a.join(FILE_NAME),
-            r#"{ "slint-edition": "1.19", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"] }"#,
+            r#"{ "edition": "1.19", "$schema": "schema-a", "main": "main.slint", "include-paths": ["include-a"] }"#,
         )
         .unwrap();
         std::fs::write(
             project_b.join(FILE_NAME),
-            r#"{ "slint-edition": "1.19", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
+            r#"{ "edition": "1.19", "include-paths": ["include-b"], "library-paths": {"widgets": "lib.slint"} }"#,
         )
         .unwrap();
         write_document(&document_a);
@@ -3198,7 +3256,7 @@ mod tests {
             let project_path = directory.join(FILE_NAME);
             std::fs::write(
                 &project_path,
-                format!(r#"{{ "slint-edition": "1.19", "include-paths": ["{include_path}"] }}"#),
+                format!(r#"{{ "edition": "1.19", "include-paths": ["{include_path}"] }}"#),
             )
             .unwrap();
             let document_path = directory.join("main.slint");
@@ -3223,7 +3281,7 @@ mod tests {
                 if path == &project_paths[0] { "first-include" } else { "second-include" };
             std::fs::write(
                 path,
-                format!(r#"{{ "slint-edition": "1.19", "include-paths": ["{include_path}"] }}"#),
+                format!(r#"{{ "edition": "1.19", "include-paths": ["{include_path}"] }}"#),
             )
             .unwrap();
             spin_on::spin_on(session.reload_active_project_file(path, FileChangeKind::Changed))
@@ -3246,12 +3304,12 @@ mod tests {
         std::fs::create_dir_all(&inner).unwrap();
         std::fs::write(
             outer.join(FILE_NAME),
-            r#"{ "slint-edition": "1.19", "library-paths": {"widgets": "outer.slint"} }"#,
+            r#"{ "edition": "1.19", "library-paths": {"widgets": "outer.slint"} }"#,
         )
         .unwrap();
         std::fs::write(
             inner.join(FILE_NAME),
-            r#"{ "slint-edition": "1.19", "library-paths": {"widgets": "inner.slint"} }"#,
+            r#"{ "edition": "1.19", "library-paths": {"widgets": "inner.slint"} }"#,
         )
         .unwrap();
         write_document(&outer.join("main.slint"));
@@ -3286,7 +3344,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(&project_path, r#"{ "slint-edition": "1.19", "include-paths": ["first"] }"#)
+        std::fs::write(&project_path, r#"{ "edition": "1.19", "include-paths": ["first"] }"#)
             .unwrap();
         write_document(&document_path);
 
@@ -3315,11 +3373,8 @@ mod tests {
         );
         assert!(session.pending_recompile.contains(&document_url));
 
-        std::fs::write(
-            &project_path,
-            r#"{ "slint-edition": "1.19", "include-paths": ["second"] }"#,
-        )
-        .unwrap();
+        std::fs::write(&project_path, r#"{ "edition": "1.19", "include-paths": ["second"] }"#)
+            .unwrap();
         spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Changed))
             .unwrap();
 
@@ -3340,8 +3395,7 @@ mod tests {
             open_document(&mut session, &document).unwrap();
             assert!(session.active_project_file_paths().next().is_none());
             let path = directory.path().join(FILE_NAME);
-            std::fs::write(&path, r#"{"slint-edition":"1.19","include-paths":["created"]}"#)
-                .unwrap();
+            std::fs::write(&path, r#"{"edition":"1.19","include-paths":["created"]}"#).unwrap();
             spin_on::spin_on(
                 session.trigger_file_watcher(Url::from_file_path(&path).unwrap(), change),
             )
@@ -3359,7 +3413,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
-        std::fs::write(&project_path, r#"{ "slint-edition": "1.19", "include-paths": ["first"] }"#)
+        std::fs::write(&project_path, r#"{ "edition": "1.19", "include-paths": ["first"] }"#)
             .unwrap();
         write_document(&document_path);
 
@@ -3388,11 +3442,8 @@ mod tests {
         );
         assert!(session.pending_recompile.contains(&document_url));
 
-        std::fs::write(
-            &project_path,
-            r#"{ "slint-edition": "1.19", "include-paths": ["second"] }"#,
-        )
-        .unwrap();
+        std::fs::write(&project_path, r#"{ "edition": "1.19", "include-paths": ["second"] }"#)
+            .unwrap();
         spin_on::spin_on(session.trigger_file_watcher(project_url, FileChangeKind::Created))
             .unwrap();
 

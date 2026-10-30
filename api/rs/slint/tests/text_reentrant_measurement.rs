@@ -51,7 +51,7 @@ static BITMAP_FONT: BitmapFont = BitmapFont {
 #[test]
 fn draw_text() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             Text {
@@ -71,7 +71,7 @@ fn draw_text() {
 #[test]
 fn draw_styled_text_link() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             StyledText {
@@ -92,7 +92,7 @@ fn draw_styled_text_link() {
 #[test]
 fn draw_styled_text_selection() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             StyledText {
@@ -116,7 +116,7 @@ fn draw_styled_text_selection() {
 #[test]
 fn draw_text_input_selection() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             TextInput {
@@ -137,7 +137,7 @@ fn draw_text_input_selection() {
 #[test]
 fn hover_styled_text() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             StyledText {
@@ -159,7 +159,7 @@ fn hover_styled_text() {
 #[test]
 fn draw_bitmap_font_text() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             reference := Text { width: 10px; height: 10px; text: "reference"; }
             Text {
@@ -183,7 +183,7 @@ fn draw_bitmap_font_text() {
 #[test]
 fn draw_bitmap_font_text_input() {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             in property <string> reference-text: "reference";
             reference := Text { width: 10px; height: 10px; text: root.reference-text; }

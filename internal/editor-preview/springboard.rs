@@ -966,6 +966,53 @@ mod tests {
             .await;
     }
 
+    fn local_only_messages() -> Vec<PreviewToLspMessage> {
+        vec![
+            PreviewToLspMessage::RequestPreview { component: component() },
+            PreviewToLspMessage::ShowDocument {
+                file: component().url,
+                selection: Default::default(),
+                take_focus: true,
+            },
+            PreviewToLspMessage::SendWorkspaceEdit { label: None, edit: Default::default() },
+            PreviewToLspMessage::UpdateUserSettings {
+                name: "remote".into(),
+                contents: "{}".into(),
+            },
+            PreviewToLspMessage::HighlightInRunPreview { url: Some(component().url), offset: 1 },
+        ]
+    }
+
+    async fn assert_forwarded(
+        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+        messages: &[PreviewToLspMessage],
+    ) {
+        for message in messages {
+            assert_eq!(format!("{:?}", receive(receiver).await), format!("{message:?}"));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_local_preview_passes_on_what_a_viewer_may_not_send() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, _discovery) = controller("echo_child");
+                controller.start();
+                started(&mut receiver).await;
+                let (sender, endpoint) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
+                    .unwrap();
+                for message in local_only_messages() {
+                    sender.send(message).unwrap();
+                }
+                assert_forwarded(&mut receiver, &local_only_messages()).await;
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
     use i_slint_live_preview::{
         preview_sessions::{
             PreviewCompilation, PreviewSession, PreviewSessionEvent, PreviewSessionHandle,
@@ -1174,11 +1221,11 @@ mod tests {
             controller.send(&LspToPreviewMessage::OpenProject { root: Some(manifest.join(".").unwrap()) });
             let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
             controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window { ComponentContainer {} }".into() });
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.19","experimental-features":["component-container"]}"#.into() });
             controller.send(&LspToPreviewMessage::ShowPreview(target.clone()));
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ShowPreview { .. })).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)));
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","experimental-features":[]}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.19","experimental-features":[]}"#.into() });
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
             let component_container = i_slint_compiler::ExperimentalFeature::ComponentContainer.into();
@@ -1308,6 +1355,59 @@ mod tests {
             controller.close();
             viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
         }).await;
+    }
+
+    #[tokio::test]
+    async fn a_viewer_reaches_the_editor_only_with_what_it_may_send() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
+                let (controller, mut upstream, discovered) = controller("echo_child");
+                discover(
+                    &controller,
+                    &discovered,
+                    discovery::tests::service("Policy", viewer.connection.local_port()),
+                )
+                .await;
+                pair(&controller, 0);
+                controller.start();
+                accept_plaintext(&controller).await;
+                initial_request(&mut upstream).await;
+                let refused = local_only_messages().into_iter().chain([
+                    PreviewToLspMessage::SendShowMessage {
+                        message: lsp_types::ShowMessageParams {
+                            typ: lsp_types::MessageType::ERROR,
+                            message: "remote".into(),
+                        },
+                    },
+                    PreviewToLspMessage::Exited,
+                    PreviewToLspMessage::Pong,
+                ]);
+                let allowed = [
+                    PreviewToLspMessage::Diagnostics {
+                        uri: component().url,
+                        version: None,
+                        diagnostics: Vec::new(),
+                    },
+                    PreviewToLspMessage::DebugMessage { location: None, message: "remote".into() },
+                    PreviewToLspMessage::RequestState {
+                        files: vec![component().url],
+                        settings: Vec::new(),
+                    },
+                ];
+                for message in refused.chain(allowed.clone()) {
+                    viewer.connection.send(message).unwrap();
+                }
+                assert_forwarded(&mut upstream, &allowed).await;
+                let (connection, error) = inspect(&controller, |task| {
+                    (task.connection.state, task.connection.error.clone())
+                })
+                .await;
+                assert_eq!(connection, ui::ConnectionState::Connected, "{error}");
+                controller.close();
+                viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
+            })
+            .await;
     }
 
     #[tokio::test]

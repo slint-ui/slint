@@ -1,12 +1,12 @@
 ---
 title: slint_target_sources
-description: The slint_target_sources CMake function — register .slint files, set the C++ namespace, library paths and compilation units.
+description: The slint_target_sources CMake function — register .slint files, set the C++ namespace, edition, library paths and compilation units.
 ---
 
 import SlintRef from "../../../components/SlintRef.astro";
 
 ```
-slint_target_sources(<target> <files>.... [NAMESPACE namespace] [LIBRARY_PATHS name1=lib1 name2=lib2 ...] [COMPILATION_UNITS num])
+slint_target_sources(<target> <files>.... [NAMESPACE namespace] [EDITION edition] [LIBRARY_PATHS name1=lib1 name2=lib2 ...] [COMPILATION_UNITS num])
 ```
 
 Use this function to tell CMake about the .slint files of your application, similar to the builtin cmake [target_sources](https://cmake.org/cmake/help/latest/command/target_sources.html) function.
@@ -14,6 +14,9 @@ The function takes care of running the slint-compiler to convert `.slint` files 
 and extend the include directories of your target so that the generated file is found when including it in your application.
 
 The optional `NAMESPACE` argument will put the generated components in the given C++ namespace.
+
+Use the `EDITION` argument to set the <SlintRef type="Editions" label="edition" code={false} />, such as `1.19`.
+It wins over the edition of the project file.
 
 Use the `LIBRARY_PATHS` argument to specify the name and paths to <SlintRef type="ComponentLibraries" label="component libraries" code={false} />,
 separated by an equals sign (`=`).
@@ -25,16 +28,16 @@ It must contain a `main` entry, which specifies the `.slint` file the compiler l
 The header is named after the main file: `"main": "ui/the_window.slint"` generates `the_window.h`.
 Changing the project file re-runs the CMake configure step.
 
-Given a file called `the_window.slint`, the following example will create a file called `the_window.h` that can
-be included from your .cpp file. Assuming the `the_window.slint` contains a component `TheWindow`, the output
-C++ class will be put in the namespace `ui`, resulting to `ui::TheWindow`. Any import from `@mycomponentlib/` will
-be redirected to the specified path.
+Given a file called `the_window.slint`, the following example creates `the_window.h`, which you can include from your `.cpp` file.
+If `the_window.slint` contains a component `TheWindow`, the generated C++ class is `ui::TheWindow` and uses the language behavior of edition `1.19`.
+Imports from `@mycomponentlib/` resolve to the specified path.
 
 ```cmake
 add_executable(my_application main.cpp)
 target_link_libraries(my_application PRIVATE Slint::Slint)
 slint_target_sources(my_application the_window.slint
     NAMESPACE ui
+    EDITION 1.19
     LIBRARY_PATHS mycomponentlib=/path/to/customcomponents
 )
 ```

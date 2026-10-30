@@ -227,9 +227,6 @@ pub struct CompilerConfiguration {
     /// before editions existed.
     pub edition: Option<project_file::SlintEdition>,
 
-    /// An invalid `SLINT_EDITION`, which the compilation reports as an error.
-    invalid_edition_env: Option<String>,
-
     /// Where `edition` is set, such as in a project file. A warning about the edition points
     /// there, and there is no such warning without it.
     pub edition_location: Option<diagnostics::SourceLocation>,
@@ -364,15 +361,6 @@ impl CompilerConfiguration {
                 .map(|list| ExperimentalFeatures::parse_list(&list))
                 .unwrap_or_default();
 
-        // Undocumented. Selects an edition without a project file,
-        // for the test drivers or to try a `.slint` file in slint-viewer.
-        let (edition, invalid_edition_env) = match std::env::var("SLINT_EDITION")
-            .map_or(Ok(None), |value| edition_from_env(&value))
-        {
-            Ok(edition) => (edition, None),
-            Err(message) => (None, Some(message)),
-        };
-
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
         #[cfg(feature = "slint-sc")]
@@ -402,8 +390,7 @@ impl CompilerConfiguration {
             accessibility: true,
             experimental_features,
             unknown_experimental_features,
-            edition,
-            invalid_edition_env,
+            edition: None,
             edition_location: None,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
@@ -430,21 +417,6 @@ impl CompilerConfiguration {
     }
 }
 
-#[cfg(feature = "std")]
-fn edition_from_env(value: &str) -> Result<Option<project_file::SlintEdition>, String> {
-    if value.is_empty() {
-        return Ok(None);
-    }
-    let current = project_file::SlintEdition::current();
-    match value.parse() {
-        Ok(edition) if edition > current => Err(format!(
-            "SLINT_EDITION is {edition}, newer than this Slint {current}: set it to {current} or older"
-        )),
-        Ok(edition) => Ok(Some(edition)),
-        Err(message) => Err(format!("SLINT_EDITION: {message}")),
-    }
-}
-
 /// Prepare for compilation of the source file
 /// - storing parser configuration
 /// - setting up the parser
@@ -460,13 +432,17 @@ fn prepare_for_compile(
         compiler_config.accessibility = false;
     }
 
-    // Not a panic, which would crash the LSP.
-    if let Some(message) = &compiler_config.invalid_edition_env {
-        diagnostics.push_error_with_span(message.clone(), Default::default());
+    match compiler_config.edition.map(project_file::SlintEdition::supported) {
+        None => diagnostics.push_info_with_span(
+            project_file::SlintEdition::missing_edition_info(),
+            Default::default(),
+        ),
+        Some(Err(message)) => diagnostics.push_error_with_span(message, Default::default()),
+        Some(Ok(_)) => {}
     }
     if let Some(location) = &compiler_config.edition_location
         && let Some(warning) =
-            compiler_config.edition.and_then(|e| e.behavior_change_warning("slint-edition"))
+            compiler_config.edition.and_then(|e| e.behavior_change_warning("edition"))
     {
         diagnostics.push_warning_with_span(warning, location.clone());
     }
@@ -589,29 +565,4 @@ fn experimental_feature_error(what: &str, feature: ExperimentalFeature) -> Strin
     format!(
         "'{what}' is experimental. Add '{feature}' to the SLINT_ENABLE_EXPERIMENTAL_FEATURES environment variable or to 'experimental-features' in the project file"
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{edition_from_env, project_file::SlintEdition};
-
-    #[test]
-    fn slint_edition_variable_selects_the_edition() {
-        assert_eq!(edition_from_env("1.19"), Ok(Some(SlintEdition::V1_19)));
-        assert_eq!(edition_from_env(""), Ok(None));
-    }
-
-    #[test]
-    fn an_invalid_slint_edition_variable_is_an_error() {
-        assert!(
-            edition_from_env("1.19.0")
-                .unwrap_err()
-                .starts_with("SLINT_EDITION: '1.19.0' is not a Slint edition")
-        );
-        assert!(
-            edition_from_env("999.0")
-                .unwrap_err()
-                .starts_with("SLINT_EDITION is 999.0, newer than this Slint")
-        );
-    }
 }
