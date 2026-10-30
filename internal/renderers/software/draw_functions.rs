@@ -581,15 +581,19 @@ pub(super) fn draw_rounded_rectangle_line(
     extra_right_clip: i16,
 ) {
     match &rr.border {
-        super::Paint::Solid(color) => draw_rounded_line(
-            span,
-            line,
-            rr,
-            &SolidBorder(*color),
-            line_buffer,
-            extra_left_clip,
-            extra_right_clip,
-        ),
+        super::Paint::Solid(color) => {
+            let outer = if rr.width.get() == 0 { rr.inner_color } else { *color };
+            let border = SolidBorder { border: *color, outer };
+            draw_rounded_line(
+                span,
+                line,
+                rr,
+                &border,
+                line_buffer,
+                extra_left_clip,
+                extra_right_clip,
+            )
+        }
         super::Paint::Gradient(gradients) => {
             debug_assert!(rr.width.get() > 0);
             let x = span.min_x() + extra_left_clip;
@@ -613,41 +617,115 @@ pub(super) fn draw_rounded_rectangle_line(
     }
 }
 
-/// What a rounded rectangle's border is filled with.
-trait BorderFill {
-    /// Blends each pixel of `range` with `mix` of its index and its border color.
-    fn blend(
-        &self,
-        line_buffer: &mut [impl TargetPixel],
-        range: core::ops::Range<usize>,
-        mix: impl Fn(usize, PremultipliedRgbaColor) -> PremultipliedRgbaColor,
-    );
+/// One part of a side of a rounded rectangle's border on a line, in line buffer pixels.
+#[derive(Clone)]
+enum BorderSegment {
+    /// Fully covered by the border.
+    Border(core::ops::Range<usize>),
+    /// The outer edge, from transparent to the border.
+    Outer(core::ops::Range<usize>, ArcEdge, Side),
+    /// The inner edge, from the border to the inner color.
+    Inner(core::ops::Range<usize>, ArcEdge, Side),
+    /// Both inner edges, when a corner wider than half the rectangle reaches past the opposite
+    /// side's border, each with the pixels it covers partially.
+    InnerBoth(core::ops::Range<usize>, [(ArcEdge, Side, core::ops::Range<u32>); 2]),
+}
 
-    /// Blends each pixel of `range` with its border color.
-    fn fill(&self, line_buffer: &mut [impl TargetPixel], range: core::ops::Range<usize>) {
-        self.blend(line_buffer, range, |_, c| c)
+impl BorderSegment {
+    fn range(&self) -> core::ops::Range<usize> {
+        match self {
+            Self::Border(range)
+            | Self::Outer(range, ..)
+            | Self::Inner(range, ..)
+            | Self::InnerBoth(range, _) => range.clone(),
+        }
+    }
+
+    /// The color of line buffer pixel `i`, where the shape's pixel is `i + left_clip`.
+    #[inline(always)]
+    fn color(
+        &self,
+        i: usize,
+        left_clip: u32,
+        border: PremultipliedRgbaColor,
+        outer: PremultipliedRgbaColor,
+        inner: PremultipliedRgbaColor,
+    ) -> PremultipliedRgbaColor {
+        let x = i as u32 + left_clip;
+        match self {
+            Self::Border(_) => border,
+            Self::Outer(_, edge, side) => interpolate_color(
+                edge.shape_coverage(*side, x),
+                PremultipliedRgbaColor::default(),
+                outer,
+            ),
+            Self::Inner(_, edge, side) => {
+                interpolate_color(edge.shape_coverage(*side, x), border, inner)
+            }
+            Self::InnerBoth(_, edges) => {
+                let coverage = |(edge, side, pixels): &(ArcEdge, Side, core::ops::Range<u32>)| {
+                    let left = matches!(side, Side::Left);
+                    if x < pixels.start {
+                        if left { 0 } else { 255 }
+                    } else if x >= pixels.end {
+                        if left { 255 } else { 0 }
+                    } else {
+                        edge.shape_coverage(*side, x)
+                    }
+                };
+                interpolate_color(coverage(&edges[0]).min(coverage(&edges[1])), border, inner)
+            }
+        }
     }
 }
 
-struct SolidBorder(PremultipliedRgbaColor);
+/// What a rounded rectangle's border is filled with.
+trait BorderFill {
+    /// Blends the segments of one side of the border, in order from left to right.
+    fn blend_side(
+        &self,
+        line_buffer: &mut [impl TargetPixel],
+        segments: &[BorderSegment],
+        left_clip: u32,
+        inner: PremultipliedRgbaColor,
+    );
+
+    /// Blends the border over `range`, for the top and bottom border.
+    fn blend_run(&self, line_buffer: &mut [impl TargetPixel], range: core::ops::Range<usize>);
+}
+
+struct SolidBorder {
+    border: PremultipliedRgbaColor,
+    /// The outer edge's color, which is the inner color without a border.
+    outer: PremultipliedRgbaColor,
+}
 
 impl BorderFill for SolidBorder {
     #[inline(always)]
-    fn blend(
+    fn blend_side(
         &self,
         line_buffer: &mut [impl TargetPixel],
-        range: core::ops::Range<usize>,
-        mix: impl Fn(usize, PremultipliedRgbaColor) -> PremultipliedRgbaColor,
+        segments: &[BorderSegment],
+        left_clip: u32,
+        inner: PremultipliedRgbaColor,
     ) {
-        for x in range {
-            line_buffer[x].blend(mix(x, self.0));
+        for segment in segments {
+            match segment {
+                BorderSegment::Border(range) => self.blend_run(line_buffer, range.clone()),
+                _ => {
+                    for i in segment.range() {
+                        let color = segment.color(i, left_clip, self.border, self.outer, inner);
+                        line_buffer[i].blend(color);
+                    }
+                }
+            }
         }
     }
 
     #[inline(always)]
-    fn fill(&self, line_buffer: &mut [impl TargetPixel], range: core::ops::Range<usize>) {
+    fn blend_run(&self, line_buffer: &mut [impl TargetPixel], range: core::ops::Range<usize>) {
         if !range.is_empty() {
-            TargetPixel::blend_slice(&mut line_buffer[range], self.0)
+            TargetPixel::blend_slice(&mut line_buffer[range], self.border)
         }
     }
 }
@@ -663,31 +741,89 @@ struct GradientBorder<'a> {
     noise: GradientNoise,
 }
 
-impl BorderFill for GradientBorder<'_> {
-    fn blend(
+impl GradientBorder<'_> {
+    /// Blends `segments`, with the border color of line buffer pixel `i` from `color(i)`.
+    fn blend_segments(
         &self,
         line_buffer: &mut [impl TargetPixel],
-        range: core::ops::Range<usize>,
-        mix: impl Fn(usize, PremultipliedRgbaColor) -> PremultipliedRgbaColor,
+        segments: impl IntoIterator<Item = BorderSegment>,
+        left_clip: u32,
+        color: impl Fn(usize) -> PremultipliedRgbaColor,
     ) {
-        let mut noise = self.noise.skip(range.start);
-        for_each_scratch_pixel(
-            range,
-            |scratch, chunk| {
-                draw_gradients_scratch_line(
-                    self.gradients,
-                    self.line,
-                    scratch,
-                    self.x + chunk.start as i16..self.x + chunk.end as i16,
-                );
-            },
-            |i, color| {
+        let inner = self.inner;
+        for segment in segments {
+            let range = segment.range();
+            let mut noise = self.noise.skip(range.start);
+            for i in range {
+                let mut color = color(i);
                 // The background isn't drawn under the border, so the border is blended over it here.
-                let mut premixed = self.inner;
-                premixed.blend(color);
-                line_buffer[i].blend_dithered(mix(i, premixed), noise.next(), InternalToken);
-            },
-        );
+                if color.alpha < u8::MAX && inner.alpha > 0 {
+                    let mut premixed = inner;
+                    premixed.blend(color);
+                    color = premixed;
+                }
+                let color = segment.color(i, left_clip, color, color, inner);
+                line_buffer[i].blend_dithered(color, noise.next(), InternalToken);
+            }
+        }
+    }
+}
+
+impl BorderFill for GradientBorder<'_> {
+    fn blend_side(
+        &self,
+        line_buffer: &mut [impl TargetPixel],
+        segments: &[BorderSegment],
+        left_clip: u32,
+        _inner: PremultipliedRgbaColor,
+    ) {
+        if let [(rect, super::AnyGradientCommand::Linear(g))] = self.gradients {
+            let colors = g.colors_on_line(rect, self.line);
+            let x = self.x - rect.min_x();
+            self.blend_segments(line_buffer, segments.iter().cloned(), left_clip, |i| {
+                colors.at(x as i32 + i as i32)
+            });
+            return;
+        }
+        // One gradient pass for the side's ramps and the border between them,
+        // since the gradient's setup costs more than the few pixels of a side.
+        let start = segments.iter().map(|s| s.range().start).min().unwrap_or_default();
+        let end = segments.iter().map(|s| s.range().end).max().unwrap_or_default();
+        for_each_scratch_chunk(start..end.max(start), |scratch, chunk| {
+            draw_gradients_line(
+                self.gradients,
+                self.line,
+                scratch,
+                self.x + chunk.start as i16..self.x + chunk.end as i16,
+            );
+            let segments = segments.iter().map(|segment| {
+                let range = segment.range();
+                let start = range.start.max(chunk.start);
+                let range = start..range.end.min(chunk.end).max(start);
+                match segment.clone() {
+                    BorderSegment::Border(_) => BorderSegment::Border(range),
+                    BorderSegment::Outer(_, edge, side) => BorderSegment::Outer(range, edge, side),
+                    BorderSegment::Inner(_, edge, side) => BorderSegment::Inner(range, edge, side),
+                    BorderSegment::InnerBoth(_, edges) => BorderSegment::InnerBoth(range, edges),
+                }
+            });
+            self.blend_segments(line_buffer, segments, left_clip, |i| scratch[i - chunk.start]);
+        });
+    }
+
+    fn blend_run(&self, line_buffer: &mut [impl TargetPixel], range: core::ops::Range<usize>) {
+        if range.is_empty() {
+            return;
+        }
+        if self.inner.alpha > 0 {
+            TargetPixel::blend_slice(&mut line_buffer[range.clone()], self.inner);
+        }
+        draw_gradients_line(
+            self.gradients,
+            self.line,
+            &mut line_buffer[range.clone()],
+            self.x + range.start as i16..self.x + range.end as i16,
+        )
     }
 }
 
@@ -715,6 +851,10 @@ fn draw_rounded_line(
         let begin = to_buffer(begin);
         begin..to_buffer(end).max(begin)
     };
+    let pixels = |edge: &ArcEdge, side: Side| {
+        let pixels = edge.pixels(side);
+        run(pixels.start, pixels.end)
+    };
     let right = Side::Right(
         left_clip + width as u32 + shape.right_clip.get().saturating_add(extra_right_clip) as u32,
     );
@@ -737,79 +877,61 @@ fn draw_rounded_line(
     } else {
         corner(right_radius, right_y)
     };
-    let clear = PremultipliedRgbaColor::default();
     let inner_color = rr.inner_color;
-    let blend_outer = |line_buffer: &mut [_], edge: &ArcEdge, side: Side| {
-        let pixels = edge.pixels(side);
-        let range = run(pixels.start, pixels.end);
-        let mix = |x: usize, c| {
-            interpolate_color(edge.shape_coverage(side, x as u32 + left_clip), clear, c)
-        };
-        if border == Shifted::ZERO {
-            SolidBorder(inner_color).blend(line_buffer, range, mix)
-        } else {
-            fill.blend(line_buffer, range, mix)
-        }
-    };
-    let blend_inner = |line_buffer: &mut [_], edge: &ArcEdge, side: Side| {
-        let pixels = edge.pixels(side);
-        fill.blend(line_buffer, run(pixels.start, pixels.end), |x, c| {
-            interpolate_color(edge.shape_coverage(side, x as u32 + left_clip), c, inner_color)
-        })
-    };
-
-    blend_outer(line_buffer, &outer_left, Side::Left);
+    let left_edge = BorderSegment::Outer(pixels(&outer_left, Side::Left), outer_left, Side::Left);
+    let right_edge = BorderSegment::Outer(pixels(&outer_right, right), outer_right, right);
     let outer_end = outer_left.pixels(Side::Left).end;
     let outer_start = outer_right.pixels(right).start;
     if y < rr.width.get() {
         // up or down border
-        fill.fill(line_buffer, run(outer_end, outer_start));
+        fill.blend_side(line_buffer, &[left_edge], left_clip, inner_color);
+        fill.blend_run(line_buffer, run(outer_end, outer_start));
+        fill.blend_side(line_buffer, &[right_edge], left_clip, inner_color);
+        return;
+    }
+    let (left_pixels, right_pixels) = (inner_left.pixels(Side::Left), inner_right.pixels(right));
+    if left_pixels.end > right_pixels.start {
+        // A corner wider than half the rectangle reaches past the opposite side's border,
+        // so both inner edges cross the same pixels.
+        let begin = left_pixels.start.min(right_pixels.start);
+        let end = left_pixels.end.max(right_pixels.end);
+        let edges = [(inner_left, Side::Left, left_pixels), (inner_right, right, right_pixels)];
+        let segments = [
+            left_edge,
+            BorderSegment::Border(run(outer_end, begin)),
+            BorderSegment::InnerBoth(run(begin, end), edges),
+            BorderSegment::Border(run(end, outer_start)),
+            right_edge,
+        ];
+        fill.blend_side(line_buffer, &segments, left_clip, inner_color);
+        return;
+    }
+    if border == Shifted::ZERO {
+        fill.blend_side(line_buffer, &[left_edge], left_clip, inner_color);
     } else {
-        let (left_pixels, right_pixels) =
-            (inner_left.pixels(Side::Left), inner_right.pixels(right));
-        if left_pixels.end <= right_pixels.start {
-            if border > Shifted::ZERO {
-                fill.fill(line_buffer, run(outer_end, left_pixels.start));
-                blend_inner(line_buffer, &inner_left, Side::Left);
-            }
-            if inner_color.alpha > 0 {
-                let range = run(left_pixels.end, right_pixels.start);
-                if !range.is_empty() {
-                    TargetPixel::blend_slice(&mut line_buffer[range], inner_color)
-                }
-            }
-            if border > Shifted::ZERO {
-                blend_inner(line_buffer, &inner_right, right);
-                fill.fill(line_buffer, run(right_pixels.end, outer_start));
-            }
-        } else {
-            // A corner wider than half the rectangle reaches past the opposite side's border,
-            // so both inner edges cross the same pixels.
-            let begin = left_pixels.start.min(right_pixels.start);
-            let end = left_pixels.end.max(right_pixels.end);
-            fill.fill(line_buffer, run(outer_end, begin));
-            fill.blend(line_buffer, run(begin, end), |x, c| {
-                let x = x as u32 + left_clip;
-                let coverage = |edge: &ArcEdge, side, pixels: &core::ops::Range<u32>| {
-                    if x < pixels.start {
-                        if matches!(side, Side::Left) { 0 } else { 255 }
-                    } else if x >= pixels.end {
-                        if matches!(side, Side::Left) { 255 } else { 0 }
-                    } else {
-                        edge.shape_coverage(side, x)
-                    }
-                };
-                let cov = coverage(&inner_left, Side::Left, &left_pixels).min(coverage(
-                    &inner_right,
-                    right,
-                    &right_pixels,
-                ));
-                interpolate_color(cov, c, inner_color)
-            });
-            fill.fill(line_buffer, run(end, outer_start));
+        let segments = [
+            left_edge,
+            BorderSegment::Border(run(outer_end, left_pixels.start)),
+            BorderSegment::Inner(pixels(&inner_left, Side::Left), inner_left, Side::Left),
+        ];
+        fill.blend_side(line_buffer, &segments, left_clip, inner_color);
+    }
+    if inner_color.alpha > 0 {
+        let range = run(left_pixels.end, right_pixels.start);
+        if !range.is_empty() {
+            TargetPixel::blend_slice(&mut line_buffer[range], inner_color)
         }
     }
-    blend_outer(line_buffer, &outer_right, right);
+    if border == Shifted::ZERO {
+        fill.blend_side(line_buffer, &[right_edge], left_clip, inner_color);
+    } else {
+        let segments = [
+            BorderSegment::Inner(pixels(&inner_right, right), inner_right, right),
+            BorderSegment::Border(run(right_pixels.end, outer_start)),
+            right_edge,
+        ];
+        fill.blend_side(line_buffer, &segments, left_clip, inner_color);
+    }
 }
 
 // a is between 0 and 255. When 0, we get color1, when 255 we get color2
@@ -1185,18 +1307,18 @@ impl super::AnyGradientCommand {
     }
 }
 
-/// Draws `gradients`, each with the rect it's placed in, into `scratch`, which spans `x`.
-pub(super) fn draw_gradients_scratch_line(
+/// Draws `gradients`, each with the rect it's placed in, into `buffer`, which spans `x`.
+pub(super) fn draw_gradients_line<T: TargetPixel>(
     gradients: &[(PhysicalRect, super::AnyGradientCommand)],
     line: PhysicalLength,
-    scratch: &mut [PremultipliedRgbaColor],
+    buffer: &mut [T],
     x: core::ops::Range<i16>,
 ) {
     for (rect, gradient) in gradients {
-        gradient.as_command::<PremultipliedRgbaColor>().draw_scratch_line(
+        gradient.as_command::<T>().draw_line(
             rect,
             line,
-            scratch,
+            buffer,
             x.start - rect.min_x(),
             rect.max_x() - x.end,
         );
@@ -1205,10 +1327,24 @@ pub(super) fn draw_gradients_scratch_line(
 
 /// Calls `f` with each pixel of `range` and its color,
 /// which `draw` draws for a sub-range of `range` into a cleared scratch buffer.
+#[cfg(feature = "path")]
 pub(super) fn for_each_scratch_pixel(
     range: core::ops::Range<usize>,
     mut draw: impl FnMut(&mut [PremultipliedRgbaColor], core::ops::Range<usize>),
     mut f: impl FnMut(usize, PremultipliedRgbaColor),
+) {
+    for_each_scratch_chunk(range, |scratch, chunk| {
+        draw(scratch, chunk.clone());
+        for (x, color) in chunk.zip(scratch.iter()) {
+            f(x, *color);
+        }
+    });
+}
+
+/// Calls `f` with a cleared scratch buffer for each sub-range of `range`.
+fn for_each_scratch_chunk(
+    range: core::ops::Range<usize>,
+    mut f: impl FnMut(&mut [PremultipliedRgbaColor], core::ops::Range<usize>),
 ) {
     // Bounds the stack scratch buffer; long runs take several chunks.
     const CHUNK: usize = 16;
@@ -1217,10 +1353,7 @@ pub(super) fn for_each_scratch_pixel(
         let chunk = start..(start + CHUNK).min(range.end);
         let scratch = &mut scratch[..chunk.len()];
         scratch.fill(PremultipliedRgbaColor::default());
-        draw(scratch, chunk.clone());
-        for (x, color) in chunk.zip(scratch.iter()) {
-            f(x, *color);
-        }
+        f(scratch, chunk);
     }
 }
 
@@ -1228,6 +1361,50 @@ impl super::LinearGradientCommand {
     /// Whether [`draw_linear_gradient`] overwrites every pixel of every line.
     pub(super) fn covers_line(&self) -> bool {
         self.stops.iter().all(|s| s.color.alpha == 255)
+    }
+
+    /// The gradient's colors on `line`.
+    fn colors_on_line(&self, rect: &PhysicalRect, line: PhysicalLength) -> LinearGradientLine<'_> {
+        LinearGradientLine {
+            stops: self.stops.as_slice(),
+            position: self.position + self.dy * (line.get() as i32 - rect.min_y() as i32),
+            dx: self.dx,
+        }
+    }
+}
+
+/// A linear gradient's colors along one line.
+struct LinearGradientLine<'a> {
+    stops: &'a [super::LinearGradientStop],
+    /// The position at the rect's left pixel.
+    position: LinearGradientPosition,
+    dx: LinearGradientPosition,
+}
+
+impl LinearGradientLine<'_> {
+    /// The color `x` pixels right of the rect's left edge.
+    #[inline(always)]
+    fn at(&self, x: i32) -> PremultipliedRgbaColor {
+        linear_gradient_color(self.stops, self.position + self.dx * x)
+    }
+}
+
+/// The color at `position`, as [`draw_linear_gradient`] draws it.
+fn linear_gradient_color(
+    stops: &[super::LinearGradientStop],
+    position: LinearGradientPosition,
+) -> PremultipliedRgbaColor {
+    let (Some(first), Some(last)) = (stops.first(), stops.last()) else {
+        return PremultipliedRgbaColor::default();
+    };
+    let segment = stops
+        .windows(2)
+        .find(|w| position >= w[0].position && position < w[1].position)
+        .map(|w| &w[0]);
+    match segment {
+        Some(stop) => color_from_q15(linear_gradient_channels(stop, position)),
+        None if position < first.position => first.color,
+        None => last.color,
     }
 }
 
@@ -1321,7 +1498,9 @@ fn draw_linear_gradient(
     extra_left_clip: i16,
 ) {
     let stops = g.stops.as_slice();
-    let (Some(first), Some(last)) = (stops.first(), stops.last()) else { return };
+    if stops.is_empty() {
+        return;
+    }
     let noise = GradientNoise::new(rect.min_x() as i32 + extra_left_clip as i32, line.get() as i32);
     // Everything below is relative to the rect's left edge rather than the buffer, so drawing a
     // line in pieces gives the same pixels as drawing it whole.
@@ -1331,16 +1510,7 @@ fn draw_linear_gradient(
     let visible = offset..offset + buffer.len();
 
     if g.dx.0 == 0 {
-        let segment = stops
-            .windows(2)
-            .find(|w| position >= w[0].position && position < w[1].position)
-            .map(|w| &w[0]);
-        let color = match segment {
-            Some(stop) => color_from_q15(linear_gradient_channels(stop, position)),
-            None if position < first.position => first.color,
-            None => last.color,
-        };
-        draw_linear_fill(buffer, color, noise);
+        draw_linear_fill(buffer, linear_gradient_color(stops, position), noise);
         return;
     }
 
@@ -1711,6 +1881,12 @@ impl TargetPixel for Rgb8Pixel {
 
 impl TargetPixel for PremultipliedRgbaColor {
     fn blend(&mut self, color: PremultipliedRgbaColor) {
+        // Gradients are drawn into cleared scratch buffers, where blending is a store.
+        // In a user's buffer, this drops the color of an additive pixel (alpha 0, color non-zero).
+        if self.alpha == 0 {
+            *self = color;
+            return;
+        }
         let a = (u8::MAX - color.alpha) as u16;
         self.red = (self.red as u16 * a / 255) as u8 + color.red;
         self.green = (self.green as u16 * a / 255) as u8 + color.green;

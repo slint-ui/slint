@@ -5,8 +5,8 @@
 
 use super::PhysicalRect;
 use super::draw_functions::{
-    LineClip, PremultipliedRgbaColor, TargetPixel, draw_gradients_scratch_line,
-    for_each_scratch_pixel, interpolate_color,
+    LineClip, PremultipliedRgbaColor, TargetPixel, draw_gradients_line, for_each_scratch_pixel,
+    interpolate_color,
 };
 use super::{Paint, PhysicalLength, ShapeClip};
 use alloc::vec;
@@ -178,7 +178,7 @@ fn render_path_with_style<T: TargetPixel>(
                         line,
                         run,
                         |scratch, chunk| {
-                            draw_gradients_scratch_line(
+                            draw_gradients_line(
                                 gradients,
                                 line_number,
                                 scratch,
