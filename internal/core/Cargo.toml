@@ -64,8 +64,8 @@ image-pixel-format-rgb565 = ["i-slint-common/image-pixel-format-rgb565"]
 # need it don't pay for the extra conversion code.
 image-pixel-format-gray8 = ["i-slint-common/image-pixel-format-gray8"]
 
-# (internal) Keep the textures that the interpreter receives as the compiler made them.
-image-owned-textures = []
+# Keep the textures and bitmap fonts that the interpreter receives as the compiler made them.
+owned-pre-rendered-resources = []
 
 box-shadow-cache = []
 

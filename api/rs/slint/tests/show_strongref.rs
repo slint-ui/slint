@@ -7,7 +7,7 @@ use ::slint::slint;
 fn show_maintains_strong_reference() {
     i_slint_backend_testing::init_integration_test_with_mock_time();
 
-    slint!(#[slint_edition = "1.19"] export component TestWindow inherits Window {
+    slint!(#[edition = "1.19"] export component TestWindow inherits Window {
         callback root-clicked();
         TouchArea {
             clicked => { root.root-clicked(); }

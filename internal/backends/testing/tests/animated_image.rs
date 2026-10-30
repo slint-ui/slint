@@ -6,7 +6,7 @@
 use slint::ComponentHandle;
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component App inherits Window {
         width: 16px;
         height: 8px;

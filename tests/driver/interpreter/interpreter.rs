@@ -41,8 +41,7 @@ fn new_compiler(
     compiler.set_library_paths(library_paths);
     compiler.set_style(testcase.requested_style.unwrap_or("fluent").into());
     let compiler_config = compiler.compiler_configuration(i_slint_core::InternalToken);
-    compiler_config.edition =
-        test_driver_lib::parse_slint_edition(source)?.or(compiler_config.edition);
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(source).parse()?);
     Ok(compiler)
 }
 

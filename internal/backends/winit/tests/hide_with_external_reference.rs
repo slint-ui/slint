@@ -12,7 +12,7 @@ use slint::winit_030::WinitWindowAccessor;
 const REPORT: &str = "references to it still exist";
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component App inherits Window {
         width: 100px;
         height: 100px;

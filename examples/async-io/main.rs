@@ -6,7 +6,7 @@ use slint::Model;
 use async_compat::Compat;
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export { MainWindow, Symbol } from "stockticker.slint";
 }
 

@@ -98,7 +98,7 @@ fn text_horizontal_alignment() {
     let window = setup();
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component TestCase inherits Window {
             in property <int> align: 0;
             background: white;

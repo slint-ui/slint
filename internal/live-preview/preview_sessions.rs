@@ -707,7 +707,7 @@ mod tests {
                 let directory = tempfile::tempdir().unwrap();
                 let root = Url::from_directory_path(directory.path()).unwrap();
                 let manifest_path = directory.path().join("slint-project.json");
-                std::fs::write(&manifest_path, r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#).unwrap();
+                std::fs::write(&manifest_path, r#"{"edition":"1.19","experimental-features":["component-container"]}"#).unwrap();
                 let manifest = Url::from_file_path(&manifest_path).unwrap();
                 let nested_manifest =
                     Url::from_file_path(directory.path().join("ui/slint-project.json")).unwrap();
@@ -715,7 +715,7 @@ mod tests {
                 let target = PreviewComponent { url: source.clone(), component: None };
                 for (url, contents) in [
                     (source, "export component Main inherits Window { ComponentContainer {} }"),
-                    (nested_manifest, r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#),
+                    (nested_manifest, r#"{"edition":"1.19","experimental-features":["component-container"]}"#),
                 ] {
                     session.process_message(
                         LspToPreviewMessage::SetContents {
@@ -737,7 +737,7 @@ mod tests {
                 ));
                 assert!(session.dependencies.borrow().contains(&manifest));
                 for contents in
-                    [r#"{"slint-edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#, r#"{"slint-edition":"1.19"}"#, "{"]
+                    [r#"{"edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#, r#"{"edition":"1.19"}"#, "{"]
                 {
                     session.process_message(
                         LspToPreviewMessage::SetContents {
@@ -756,7 +756,7 @@ mod tests {
                 session.process_message(
                     LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(manifest, None),
-                        contents: r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into(),
+                        contents: r#"{"edition":"1.19","experimental-features":["component-container"]}"#.into(),
                     },
                     &|_| {},
                     &mut None,
@@ -808,8 +808,8 @@ mod tests {
         assert!(session.dependencies.borrow().contains(&url));
         assert!(capture.0.borrow().is_empty());
         for (contents, rebuild) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
             (Some("{broken"), true),
             (None, true),
             (None, true),

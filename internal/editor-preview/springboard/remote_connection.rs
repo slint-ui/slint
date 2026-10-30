@@ -98,7 +98,7 @@ async fn run(
     let (mut sender, receiver) = socket.split();
     let _ = events.send(ConnectionEvent::Connected);
     if let Some(request) = authenticated.initial_request {
-        let _ = events.send(ConnectionEvent::Message(request));
+        forward(events, request);
     }
     let last_pong = Cell::new(tokio::time::Instant::now());
     let result = tokio::select! {
@@ -188,12 +188,7 @@ async fn receive(
                 };
                 match message {
                     PreviewToLspMessage::Pong => last_pong.set(tokio::time::Instant::now()),
-                    message if message.is_allowed_from_remote_viewer() => {
-                        let _ = events.send(ConnectionEvent::Message(message));
-                    }
-                    message => tracing::warn!(
-                        "Ignoring message that a remote viewer may not send: {message:?}"
-                    ),
+                    message => forward(events, message),
                 }
             }
             Ok(Message::Text(_)) => {}
@@ -213,6 +208,14 @@ async fn receive(
         }
     }
     Err("Connection to viewer was lost".into())
+}
+
+fn forward(events: &mpsc::UnboundedSender<ConnectionEvent>, message: PreviewToLspMessage) {
+    if message.is_allowed_from_remote_viewer() {
+        let _ = events.send(ConnectionEvent::Message(message));
+    } else {
+        tracing::warn!("Ignoring message that a remote viewer may not send: {message:?}");
+    }
 }
 
 async fn send(

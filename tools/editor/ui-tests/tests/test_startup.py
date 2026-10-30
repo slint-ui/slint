@@ -19,7 +19,7 @@ from ui_driver import (
 
 
 def project_file(main: str | None = None) -> str:
-    contents = {"slint-edition": "1.19"}
+    contents = {"edition": "1.19"}
     if main is not None:
         contents["main"] = main
     return json.dumps(contents)

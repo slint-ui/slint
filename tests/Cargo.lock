@@ -5310,6 +5310,7 @@ dependencies = [
  "libtest-mimic",
  "regex",
  "satchel",
+ "serde_json",
  "walkdir",
 ]
 

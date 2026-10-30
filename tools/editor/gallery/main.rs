@@ -5,7 +5,7 @@ use slint::ComponentHandle;
 
 mod ui {
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
         export {
             Api, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode,

@@ -11,7 +11,7 @@ use slint::{
 };
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     import { InspectorTextFieldBase } from "../ui/components/inspector/text-field-base.slint";
 
     export component InspectorInputTest inherits Window {

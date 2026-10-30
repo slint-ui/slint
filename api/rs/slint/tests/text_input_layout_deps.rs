@@ -66,7 +66,7 @@ fn blinking_cursor_does_not_reshape() {
     let window = common::setup_with_platform(Box::new(ClockPlatform), WIDTH as u32, HEIGHT as u32);
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component BlinkComponent inherits Window {
             forward-focus: input;
             in property <string> label: "Hello World, a somewhat longer line of text";

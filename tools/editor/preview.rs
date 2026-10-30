@@ -3361,7 +3361,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"slint-edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
+            r#"{"edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -3375,7 +3375,7 @@ mod tests {
                 nested_manifest.to_url().unwrap(),
                 SourceCodeCacheEntry {
                     version: Some(1),
-                    code: r#"{"slint-edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
+                    code: r#"{"edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
                         .into(),
                 },
             );
@@ -3391,11 +3391,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"slint-edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
+                    r#"{"edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
             (Some("{"), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
@@ -3446,7 +3446,7 @@ mod tests {
             });
             state.document_cache.replace(Some(Rc::new(cache)));
             for (url, source) in [
-                (manifest.clone(), r#"{"slint-edition":"1.19"}"#),
+                (manifest.clone(), r#"{"edition":"1.19"}"#),
                 (extra.clone(), "export component Extra {}"),
             ] {
                 state
@@ -3516,8 +3516,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),
@@ -3899,7 +3899,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("slint-project.json");
         let url = Url::from_file_path(&path).unwrap();
-        let original = r#"{"slint-edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        let original = r#"{"edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
         std::fs::write(&path, original).unwrap();
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
         let messages = Rc::new(RefCell::new(Vec::new()));
