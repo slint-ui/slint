@@ -844,18 +844,12 @@ impl EditorSession {
     }
 
     /// Send `files` to the preview at `preview_index`.
-    /// Files that aren't loaded are read from disk only if they belong to the project,
-    /// where `workspace_folders` are the directories the user opened.
+    /// Files that aren't loaded are read from disk only if the project's sources name them.
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
     ))]
-    pub fn send_files_to_preview(
-        &self,
-        preview_index: usize,
-        files: &[lsp_types::Url],
-        workspace_folders: &[PathBuf],
-    ) {
+    pub fn send_files_to_preview(&self, preview_index: usize, files: &[lsp_types::Url]) {
         let Some(preview) = self.preview(preview_index) else { return };
         let file_access = std::cell::OnceCell::new();
         #[cfg(feature = "preview-remote")]
@@ -886,12 +880,8 @@ impl EditorSession {
                 preview.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
                 continue;
             };
-            let file_access = file_access.get_or_init(|| {
-                crate::preview_files::PreviewFileAccess::new(
-                    workspace_folders,
-                    &self.document_cache,
-                )
-            });
+            let file_access = file_access
+                .get_or_init(|| crate::preview_files::PreviewFileAccess::new(&self.document_cache));
             if !file_access.allows(&path) {
                 tracing::warn!(
                     "Refusing to send {} to the preview: not a file of the project being previewed",
@@ -1099,15 +1089,14 @@ impl EditorSession {
             return Ok(Default::default());
         }
         self.drop_document(url.clone()).await?;
-        if self
-            .document_roots()
-            .iter()
-            .any(|root| SourcePath::from_url(root) == SourcePath::from_url(&url))
-        {
+        let roots = self.document_roots();
+        if roots.iter().any(|root| SourcePath::from_url(root) == SourcePath::from_url(&url)) {
             self.reload_document_without_project_discovery(url, &mut BuildDiagnostics::default())
                 .await;
         } else if self.forget_rust_macro_edition(&url) {
             return self.reapply_effective_configuration().await;
+        } else {
+            self.document_cache.retain_documents(&roots)?;
         }
         Ok(Default::default())
     }
@@ -1576,7 +1565,7 @@ mod preview_tests {
                 session.send_state_to_preview(preview_index);
                 assert_project_contents(messages, &url, source, version);
                 messages.borrow_mut().clear();
-                session.send_files_to_preview(preview_index, std::slice::from_ref(&url), &[]);
+                session.send_files_to_preview(preview_index, std::slice::from_ref(&url));
                 assert_project_contents(messages, &url, source, version);
             }
         }
@@ -1838,11 +1827,7 @@ mod preview_tests {
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
         for (preview_index, messages) in messages.iter().enumerate() {
-            session.send_files_to_preview(
-                preview_index,
-                std::slice::from_ref(&url),
-                &[directory.path().to_path_buf()],
-            );
+            session.send_files_to_preview(preview_index, std::slice::from_ref(&url));
             assert!(
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
@@ -1859,11 +1844,7 @@ mod preview_tests {
             session.send_state_to_preview(preview_index);
             assert!(messages.borrow().iter().any(|message| matches!(message, LspToPreviewMessage::ForgetFile { url: sent } if sent == &url)));
             messages.borrow_mut().clear();
-            session.send_files_to_preview(
-                preview_index,
-                std::slice::from_ref(&url),
-                &[directory.path().to_path_buf()],
-            );
+            session.send_files_to_preview(preview_index, std::slice::from_ref(&url));
             assert!(
                 matches!(messages.borrow().as_slice(), [LspToPreviewMessage::ForgetFile { url: sent }] if sent == &url)
             );
@@ -1990,7 +1971,7 @@ mod preview_tests {
         assert!(session.preview_mut(2).is_none());
         session.send_to_preview(2, &LspToPreviewMessage::Quit);
         session.send_state_to_preview(2);
-        session.send_files_to_preview(2, &[], &[]);
+        session.send_files_to_preview(2, &[]);
         session.show_preview(2, component, None);
 
         assert!(messages.iter().all(|messages| messages.borrow().is_empty()));
@@ -2047,8 +2028,10 @@ mod preview_tests {
         let (mut session, messages) = session_with_recording_previews();
         let temp_directory = tempfile::tempdir().unwrap();
         let path = temp_directory.path().join("requested.slint");
-        std::fs::write(&path, "export component Requested {}").unwrap();
-        let url = Url::from_file_path(path).unwrap();
+        let source =
+            r#"export component Requested { Image { source: @image-url("requested.png"); } }"#;
+        std::fs::write(&path, source).unwrap();
+        let (url, _) = crate::test::load(&mut session, &path, source);
         let component = PreviewComponent { url, component: Some("Requested".into()) };
         let asset = temp_directory.path().join("requested.png");
         std::fs::write(&asset, []).unwrap();
@@ -2059,11 +2042,7 @@ mod preview_tests {
         }
 
         session.send_state_to_preview(1);
-        session.send_files_to_preview(
-            1,
-            &[Url::from_file_path(asset).unwrap()],
-            &[temp_directory.path().to_path_buf()],
-        );
+        session.send_files_to_preview(1, &[Url::from_file_path(asset).unwrap()]);
 
         assert!(messages[0].borrow().is_empty());
         let secondary_messages = messages[1].borrow();
