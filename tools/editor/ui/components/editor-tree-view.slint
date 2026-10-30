@@ -339,6 +339,10 @@ component EditorTreeRow {
                                 color: root.style.row.foreground;
                                 font-size: root.style.row.font-size;
                                 overflow: elide;
+
+                                if root.node.element-id != "": Tooltip {
+                                    text: @markdown("\{root.node.element-type}");
+                                }
                             }
                         }
 
