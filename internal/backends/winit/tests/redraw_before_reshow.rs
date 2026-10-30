@@ -50,7 +50,7 @@ fn main() {
         return;
     };
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 100px;
             height: 100px;
