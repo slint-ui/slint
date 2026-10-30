@@ -113,10 +113,10 @@ instance.set_result("".into());
 // right click to open the menu
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(15.0, 15.0), button: PointerEventButton::Right });
-// press outside the menu should close it
+// press outside the menu should close it, without reaching the TouchArea
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
-assert_eq!(instance.get_result(), "DownLeftUpLeft");
+assert_eq!(instance.get_result(), "UpLeft");
 ```
 
 ```cpp

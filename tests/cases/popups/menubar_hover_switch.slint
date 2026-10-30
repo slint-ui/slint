@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// While a menu of the MenuBar is open, hovering another entry of the menu bar switches menus,
+// also when the menu bar isn't at the window origin, as in a preview that embeds the window.
+
+component Inner inherits Window {
+    MenuBar {
+        Menu {
+            title: "File";
+            MenuItem { title: "New"; }
+        }
+        Menu {
+            title: "Edit";
+            MenuItem { title: "Copy"; }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+    Rectangle {
+        x: 50px;
+        y: 40px;
+        width: 300px;
+        height: 200px;
+        Inner { }
+    }
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+let find = |label| slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next();
+let center = |label| {
+    let element = find(label).unwrap();
+    let (position, size) = (element.absolute_position(), element.size());
+    LogicalPosition::new(position.x + size.width / 2., position.y + size.height / 2.)
+};
+find("File").unwrap().mock_single_click(PointerEventButton::Left);
+assert!(find("New").is_some());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: center("Edit") });
+assert!(find("New").is_none());
+assert!(find("Copy").is_some());
+```
+*/
