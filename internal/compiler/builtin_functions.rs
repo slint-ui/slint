@@ -145,6 +145,7 @@ macro_rules! builtin_type {
     (Color) => { $crate::langtype::Type::Color };
     (Brush) => { $crate::langtype::Type::Brush };
     (StyledText) => { $crate::langtype::Type::StyledText };
+    (InputMethodHints) => { $crate::typeregister::builtin_structs::get(&$crate::langtype::BuiltinStruct::InputMethodHints).into() };
     ($enum:ident) => { $crate::langtype::Type::Enumeration($crate::typeregister::BUILTIN.enums.$enum.clone()) };
 }
 

@@ -262,6 +262,8 @@ macro_rules! for_each_builtin_function {
             PathAngleAt: #[cfg(feature = "path")] pure fn path_angle_at(path: ItemArg<Path> => ElementReference, t: f32) -> f32 => Angle {
                 path.item.angle_at(&path.rc, t)
             }
+            TextInputType: pure fn() -> InputType
+            TextInputMethodHints: pure fn() -> InputMethodHints
         }
     };
 }

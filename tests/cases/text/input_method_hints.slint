@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    ti := TextInput {
+        input-method-hints: {
+            capitalization: CapitalizationMode.words,
+            auto-correct: false,
+            auto-complete: false
+        };
+    }
+
+    out property <bool> input_focused: ti.has_focus;
+    out property<InputMethodHints> input-method-hints: TextInputInterface.text-input-method-hints;
+}
+
+/*
+```rust
+use i_slint_core::items::InputMethodHints;
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_input_method_hints(), InputMethodHints::default());
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+
+let mut hints = InputMethodHints::default();
+hints.capitalization = slint::language::CapitalizationMode::Words;
+hints.auto_correct = false;
+hints.auto_complete = false;
+
+assert_eq!(instance.get_input_method_hints(), hints);
+```
+*/

@@ -158,6 +158,8 @@ fn builtin_function_is_const(
         }
         BuiltinFunction::ScrollTo | BuiltinFunction::EnsureVisible => false,
         BuiltinFunction::ListViewEnsureRowVisible => false,
+        BuiltinFunction::TextInputType => false,
+        BuiltinFunction::TextInputMethodHints => false,
     }
 }
 

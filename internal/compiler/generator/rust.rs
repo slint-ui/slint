@@ -5396,6 +5396,14 @@ fn compile_builtin_function_call(
             let predicate = a.next().unwrap();
             quote!(sp::model_find_index(&#model, #predicate))
         })(),
+        BuiltinFunction::TextInputType => (|| {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_type())
+        })(),
+        BuiltinFunction::TextInputMethodHints => (|| {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).text_input_method_hints())
+        })(),
     }
 }
 
