@@ -13,8 +13,7 @@ use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
 use i_slint_core::item_tree::{
-    IndexRange, ItemTree, ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder,
-    VisitChildrenResult,
+    IndexRange, ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
 };
 use i_slint_core::items::{AccessibleRole, ItemVTable};
 use i_slint_core::layout::{LayoutInfo, Orientation};
