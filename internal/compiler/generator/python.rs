@@ -604,15 +604,16 @@ pub fn generate(
     };
 
     let destination_path = destination_path.and_then(|maybe_relative_destination_path| {
-        std::fs::canonicalize(maybe_relative_destination_path)
-            .ok()
-            .and_then(|p| p.parent().map(std::path::PathBuf::from))
+        let directory = maybe_relative_destination_path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or(std::path::Path::new("."));
+        std::fs::canonicalize(directory).ok()
     });
 
-    let relative_input_path = destination_path
-        .and_then(|destination_path| pathdiff::diff_paths(&input_path, destination_path));
-
-    if let Some(relative_input_path) = relative_input_path {
+    if let Some(destination_path) = destination_path
+        && let Some(relative_input_path) = pathdiff::diff_paths(&input_path, &destination_path)
+    {
         use base64::engine::Engine;
         use std::io::Write;
 
@@ -622,11 +623,47 @@ pub fn generate(
         let compressed_api_str = api_str_compressor.finish()?;
         let base64_api_str = base64::engine::general_purpose::STANDARD.encode(&compressed_api_str);
 
+        let relative_path = |path: &std::path::Path| {
+            let path = std::fs::canonicalize(path).or_else(|_| std::path::absolute(path))?;
+            let path = pathdiff::diff_paths(&path, &destination_path).unwrap_or(path);
+            std::io::Result::Ok(format!(
+                "os.path.join(os.path.dirname(__file__), r'{}')",
+                path.to_string_lossy()
+            ))
+        };
+
+        let mut extra_arguments = String::new();
+        if !compiler_config.include_paths.is_empty() {
+            let include_paths = compiler_config
+                .include_paths
+                .iter()
+                .map(|path| {
+                    // A relative include path is relative to the importing file
+                    if path.is_relative() {
+                        Ok(format!("r'{}'", path.to_string_lossy()))
+                    } else {
+                        relative_path(path)
+                    }
+                })
+                .collect::<std::io::Result<Vec<_>>>()?;
+            extra_arguments += &format!(", include_paths=[{}]", include_paths.join(", "));
+        }
+        if !compiler_config.library_paths.is_empty() {
+            let library_paths = compiler_config
+                .library_paths
+                .iter()
+                .sorted_by(|(a, _), (b, _)| a.cmp(b))
+                .map(|(name, path)| Ok(format!("r'{name}': {}", relative_path(path)?)))
+                .collect::<std::io::Result<Vec<_>>>()?;
+            extra_arguments += &format!(", library_paths={{{}}}", library_paths.join(", "));
+        }
+
         file.imports.push(SmolStr::new_static("os"));
         file.trailing_code.push(format_smolstr!(
-            "globals().update(vars(slint._load_file_checked(path=os.path.join(os.path.dirname(__file__), r'{}'), expected_api_base64_compressed=r'{}', generated_file=__file__)))",
+            "globals().update(vars(slint._load_file_checked(path=os.path.join(os.path.dirname(__file__), r'{}'), expected_api_base64_compressed=r'{}', generated_file=__file__{})))",
             relative_input_path.to_string_lossy(),
-            base64_api_str
+            base64_api_str,
+            extra_arguments
         ));
     }
 

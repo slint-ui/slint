@@ -16,6 +16,7 @@ fn generate_dts(path: &Path) -> Result<Vec<u8>, String> {
         .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
         .collect();
     compiler_config.debug_info = true;
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
 
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(

@@ -17,6 +17,7 @@ use std::rc::Rc;
 const TILE_SIZE: isize = 256;
 
 slint::slint! {
+#[edition = "1.19"]
 import { Slider } from "std-widgets.slint";
 export struct Tile { x: length, y: length, tile: image}
 

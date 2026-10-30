@@ -26,7 +26,8 @@ mod tests {
             }
         "#;
         let mut compiler = Compiler::default();
-        compiler.compiler_configuration(i_slint_core::InternalToken).enable_experimental = true;
+        compiler.compiler_configuration(i_slint_core::InternalToken).experimental_features =
+            i_slint_compiler::ExperimentalFeatures::all();
         let result = spin_on::spin_on(compiler.build_from_source(
             source.into(),
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/metadata-probe.slint"),
@@ -80,17 +81,21 @@ mod tests {
             (ElementKind::Text, "Text", "Visual"),
             (ElementKind::StyledText, "StyledText", "Visual"),
             (ElementKind::TouchArea, "TouchArea", "Input & interaction"),
-            (ElementKind::Widget, "Button", "Widgets"),
-            (ElementKind::Widget, "CheckBox", "Widgets"),
-            (ElementKind::Widget, "LineEdit", "Widgets"),
+            (ElementKind::Widget, "Button", "std-widgets"),
+            (ElementKind::Widget, "CheckBox", "std-widgets"),
+            (ElementKind::Widget, "LineEdit", "std-widgets"),
         ] {
             let entry = entry(name).unwrap();
             assert_eq!(entry.kind, kind);
             assert_eq!(entry.group.label(), group);
             assert_eq!(kind_for_type(&format!(" {name} ")), kind);
             assert_eq!(
-                DragItem::try_from(new_component_data(name.into())).unwrap(),
-                DragItem::NewComponent { kind, type_name: name }
+                DragItem::try_from(new_component_data(name.into(), Default::default())).unwrap(),
+                DragItem::NewComponent {
+                    kind,
+                    type_name: name.into(),
+                    source_uri: Default::default()
+                }
             );
         }
     }
@@ -152,11 +157,203 @@ mod tests {
     }
 
     #[test]
+    fn palette_names_are_normalized_in_drag_payloads() {
+        assert_eq!(
+            DragItem::try_from(new_component_data(" Text ".into(), Default::default())).unwrap(),
+            DragItem::NewComponent {
+                kind: ElementKind::Text,
+                type_name: "Text".into(),
+                source_uri: Default::default()
+            },
+        );
+    }
+
+    #[test]
+    fn project_drag_payloads_keep_the_definition_uri_and_reject_stale_entries() {
+        use i_slint_editor_preview::component_catalog::{Position, std_widgets_info};
+        let mut first = std_widgets_info("Button", false);
+        first.name = "SharedCard".into();
+        first.is_std_widget = false;
+        first.defined_at =
+            Some(Position::new(lsp_types::Url::parse("file:///one/Card.slint").unwrap(), 0.into()));
+        let mut second = first.clone();
+        second.defined_at =
+            Some(Position::new(lsp_types::Url::parse("file:///two/Card.slint").unwrap(), 0.into()));
+        let saved = crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            std::mem::replace(&mut state.known_components, vec![first, second])
+        });
+        for uri in ["file:///one/Card.slint", "file:///two/Card.slint"] {
+            assert_eq!(
+                DragItem::try_from(new_component_data("SharedCard".into(), uri.into())).unwrap(),
+                DragItem::NewComponent {
+                    kind: ElementKind::Component,
+                    type_name: "SharedCard".into(),
+                    source_uri: uri.into()
+                },
+            );
+            let component = crate::preview::palette_component("SharedCard", uri).unwrap();
+            assert_eq!(component.defined_at.unwrap().url().as_str(), uri);
+        }
+        assert!(
+            DragItem::try_from(new_component_data(
+                "SharedCard".into(),
+                "file:///missing/Card.slint".into()
+            ))
+            .is_err()
+        );
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.known_components = saved;
+        });
+        assert!(
+            crate::preview::palette_component("SharedCard", "file:///one/Card.slint").is_none()
+        );
+    }
+
+    #[test]
     fn fallback_kinds_cannot_create_palette_drops() {
-        for name in ["", "Window", "CustomComponent"] {
+        for name in [
+            "",
+            "Timer",
+            "KeyBinding",
+            "Path",
+            "MoveTo",
+            "Row",
+            "PopupWindow",
+            "Tooltip",
+            "ContextMenuArea",
+            "MenuBar",
+            "Menu",
+            "MenuItem",
+            "MenuSeparator",
+            "SystemTrayIcon",
+            "Window",
+            "Dialog",
+            "CustomComponent",
+        ] {
             assert_eq!(kind_for_type(name), ElementKind::Component);
             assert!(entry(name).is_none());
-            assert!(DragItem::try_from(new_component_data(name.into())).is_err());
+            assert!(
+                DragItem::try_from(new_component_data(name.into(), Default::default())).is_err()
+            );
         }
+    }
+
+    #[test]
+    fn input_palette_matches_interactive_selection_filter() {
+        use slint::{Model, ModelRc, VecModel};
+        let (cache, _, _) = i_slint_editor_preview::test::loaded_document_cache(String::new());
+        let mut components = Vec::new();
+        i_slint_editor_preview::component_catalog::builtin_components(&cache, &mut components);
+        let frames: ModelRc<crate::preview::ui::SelectionStackFrame> =
+            std::rc::Rc::new(VecModel::from(
+                PRIMITIVES
+                    .iter()
+                    .map(|entry| {
+                        let component = components
+                            .iter()
+                            .find(|component| component.name == entry.type_name)
+                            .unwrap();
+                        crate::preview::ui::SelectionStackFrame {
+                            type_name: entry.type_name.into(),
+                            is_interactive: component.is_interactive,
+                            is_layout: component.is_layout,
+                            ..Default::default()
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            ))
+            .into();
+        for entry in PRIMITIVES.iter().filter(|entry| entry.group == Group::InputInteraction) {
+            for (filter, expected) in [
+                (crate::preview::ui::SelectionStackFilter::Interactive, true),
+                (crate::preview::ui::SelectionStackFilter::Others, false),
+            ] {
+                let filtered = crate::preview::element_selection::filter_sort_selection_stack(
+                    frames.clone(),
+                    Default::default(),
+                    filter,
+                );
+                assert_eq!(
+                    filtered.iter().any(|frame| frame.type_name == entry.type_name),
+                    expected,
+                    "{}",
+                    entry.type_name
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn primitives_resolve_and_insert_with_canvas_geometry() {
+        use crate::preview::drop_location;
+        use i_slint_editor_preview::{
+            component_catalog::builtin_components,
+            editing::{PropertyChange, text_edit},
+            test,
+        };
+
+        i_slint_backend_testing::init_no_event_loop();
+        let source = "export component Main inherits Window { target := Rectangle { } }";
+        let url = test::main_test_file_name().to_url().unwrap();
+        let document_cache = test::recompile_test_with_sources(
+            "fluent",
+            std::collections::HashMap::from([(url.clone(), source.into())]),
+            true,
+            i_slint_compiler::ExperimentalFeatures::all(),
+        );
+        let mut components = Vec::new();
+        builtin_components(&document_cache, &mut components);
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.known_components = components;
+            state.source_code.insert(
+                url.clone(),
+                crate::preview::SourceCodeCacheEntry { version: Some(1), code: source.into() },
+            );
+        });
+        let target = document_cache
+            .element_at_offset(&url, (source.find("Rectangle").unwrap() as u32).into())
+            .unwrap();
+        let drop = drop_location::DropInformation {
+            insert_info: drop_location::insert_position_at_end(&target).unwrap(),
+            target_element_node: target,
+            drop_mark: None,
+            child_index: 0,
+        };
+        for entry in PRIMITIVES {
+            let component =
+                crate::preview::palette_component(entry.type_name, "").unwrap_or_else(|| {
+                    panic!("{} must resolve in the built-in catalog", entry.type_name)
+                });
+            let mut properties = vec![
+                PropertyChange::new("x", "20px".into()),
+                PropertyChange::new("y", "24px".into()),
+                PropertyChange::new("width", "160px".into()),
+                PropertyChange::new("height", "96px".into()),
+            ];
+            drop_location::extend_with_new_properties(
+                &mut properties,
+                &component.default_properties,
+                drop_location::visual_properties_for_drop(&component),
+            );
+            let (edit, _) = drop_location::create_drop_element_workspace_edit_with_properties(
+                &document_cache,
+                &component,
+                &drop,
+                &properties,
+            )
+            .unwrap();
+            let edited = text_edit::apply_workspace_edit(&document_cache, &edit).unwrap();
+            assert_eq!(
+                drop_location::workspace_edit_compiles(&document_cache, &edit),
+                crate::preview::CompilationResult::ChangeCompiles,
+                "{}: {}",
+                entry.type_name,
+                edited[0].contents
+            );
+        }
+        crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+            state.source_code.clear();
+            state.known_components.clear();
+        });
     }
 }

@@ -12,6 +12,7 @@ use slint::platform::{PointerEventButton, WindowEvent};
 use slint::private_unstable_api::re_exports::DragAction;
 
 slint::slint! {
+    #[edition = "1.19"]
     export component Source inherits Window {
         pure callback to-transfer(string) -> data-transfer;
         width: 100px;

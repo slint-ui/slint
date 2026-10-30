@@ -242,3 +242,22 @@ If `bounce` is set to 1, the period of the spring is exactly `duration`. If an o
 this results in `x == 0px` at exactly `duration`. Since the next iteration starts at exactly `duration`, as long as `direction`
 is not `alternate` or `alternate-reverse`, an `iteration-count` of -1 will be an infinite continuous spring. If `bounce` is set to values
 other than 1, the position will not quite be at either end of the animation and there will be a noticeable jump.
+
+## Reduced Motion
+
+Your users can ask their operating system for less motion.
+Slint reads that setting on these platforms:
+
+- Windows, with the winit backend: `Animation effects` under `Settings > Accessibility > Visual effects`.
+- Android: `Remove animations` under `Settings > Accessibility`.
+
+On other platforms and backends, animations always run.
+When your users reduce motion, Slint skips animations:
+
+- Every `animate` block behaves as if `enabled` were `false`, so a change sets the property to its target value at once.
+- A `Flickable` still pans while the pointer is down, but doesn't fling when the pointer is released.
+- A mouse wheel step, a smooth `scroll-to()`, and a smooth `ensure-row-visible()` scroll at once.
+- Content pulled past an edge snaps back at once.
+
+A change of the setting applies to animations that start afterwards; an animation that's already running finishes at its own pace.
+Effects that you drive with `animation-tick()` aren't affected.

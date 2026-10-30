@@ -5,20 +5,17 @@ use i_slint_compiler::source_path::SourcePath;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    path::PathBuf,
     rc::Rc,
     sync::Arc,
 };
 
 use i_slint_core::InternalToken;
-use i_slint_core::textlayout::sharedparley::fontique;
-use i_slint_core::window::WindowInner;
 use lsp_types::Url;
 use slint_interpreter::ComponentHandle as _;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::REBUILD_DEBOUNCE;
-use crate::inspector::InspectorOverlay;
+use crate::debug_agent::{DebugAgent, PreviewUpdate};
 use crate::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
     SourceFileVersion,
@@ -435,7 +432,6 @@ impl PreviewSession {
         compiler.set_project_root(self.project_root.borrow().clone(), InternalToken);
         let compiler = scopeguard::guard(compiler, |compiler| self.restore_compiler(compiler));
         let source_code = String::from_utf8_lossy(&file.contents).into_owned();
-        let diagnostic_url = component.url.clone();
         let compilation_result =
             compiler.build_from_source_path(Some(source_code), path, InternalToken).await;
         drop(compiler);
@@ -447,7 +443,7 @@ impl PreviewSession {
             .collect();
 
         if compilation_result.has_errors() {
-            self.send_diagnostics(&compilation_result, &diagnostic_url);
+            self.send_diagnostics(&compilation_result);
             let message = compilation_result
                 .diagnostics()
                 .inspect(|diagnostic| tracing::warn!("Compiler diagnostic: {diagnostic}"))
@@ -470,7 +466,7 @@ impl PreviewSession {
             return PreviewCompilation::ComponentNotFound;
         };
 
-        self.send_diagnostics(&compilation_result, &diagnostic_url);
+        self.send_diagnostics(&compilation_result);
         PreviewCompilation::Ready(CompiledPreview {
             compilation: Box::new(compilation_result.into_send()),
             component_name,
@@ -488,25 +484,24 @@ impl PreviewSession {
         self.to_editor.send(message)
     }
 
-    fn send_diagnostics(
-        &self,
-        compilation_result: &slint_interpreter::CompilationResult,
-        uri: &Url,
-    ) {
-        let message = PreviewToLspMessage::Diagnostics {
-            uri: uri.clone(),
-            version: None,
-            diagnostics: compilation_result
-                .diagnostics()
-                .map(|diagnostic| {
-                    crate::protocol::to_lsp_diagnostic(
-                        &diagnostic,
-                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                    )
-                })
-                .collect(),
+    fn send_diagnostics(&self, compilation_result: &slint_interpreter::CompilationResult) {
+        use i_slint_compiler::diagnostics::ByteFormat;
+        let format = if self.configuration.borrow().as_ref().is_none_or(|config| config.format_utf8)
+        {
+            ByteFormat::Utf8
+        } else {
+            ByteFormat::Utf16
         };
-        self.send_to_editor(&message).ok();
+        let diagnostics: Vec<_> = compilation_result.diagnostics().collect();
+        let diagnostics = crate::protocol::diagnostics_by_url(
+            &diagnostics,
+            self.file_cache.borrow().iter().filter_map(|(url, entry)| match entry {
+                CacheEntry::Ready(file_content) => Some((url.clone(), file_content.version)),
+                CacheEntry::Loading(_) => None,
+            }),
+            format,
+        );
+        self.to_editor.notify_diagnostics(diagnostics).ok();
     }
 }
 
@@ -548,6 +543,7 @@ fn is_supported(url: &Url) -> bool {
 pub async fn run_with_channels(
     mut from_editor: mpsc::UnboundedReceiver<LspToPreviewMessage>,
     to_editor: Rc<dyn PreviewToLsp>,
+    prepare_window: impl AsyncFnOnce(&i_slint_core::api::Window),
 ) -> anyhow::Result<()> {
     let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
     let (preview_session, session_handle) =
@@ -570,60 +566,28 @@ pub async fn run_with_channels(
         }
     });
 
-    install_debug_handler(Rc::downgrade(&to_editor))?;
-
+    let mut debug_agent = DebugAgent::new(Rc::downgrade(&to_editor))?;
     let mut current_component = None;
-    let mut current_highlight = None;
     let mut component_instance = None;
-    let mut inspector = None;
-    let mut registered_fonts = HashSet::new();
-    let mut pending_fonts = Vec::new();
+    let mut prepare_window = Some(prepare_window);
 
     while let Some(event) = event_receiver.recv().await {
-        match event {
-            PreviewSessionEvent::SetUserSettings { .. } => {}
-            PreviewSessionEvent::ShowPreview { component } => {
-                show_component(
-                    &preview_session,
-                    &component,
-                    &mut component_instance,
-                    &mut inspector,
-                    current_highlight.as_ref(),
-                    &mut pending_fonts,
-                )
-                .await?;
-                current_component = Some(component);
-            }
-            PreviewSessionEvent::ContentsChanged => {
+        let component = match debug_agent.handle_event(event, component_instance.as_ref()) {
+            None => continue,
+            Some(PreviewUpdate::ShowPreview { component }) => &*current_component.insert(component),
+            Some(PreviewUpdate::ContentsChanged) => {
                 let Some(component) = current_component.as_ref() else { continue };
-                show_component(
-                    &preview_session,
-                    component,
-                    &mut component_instance,
-                    &mut inspector,
-                    current_highlight.as_ref(),
-                    &mut pending_fonts,
-                )
-                .await?;
+                component
             }
-            PreviewSessionEvent::HighlightFromEditor { url, offset } => {
-                current_highlight = url.map(|url| (url, offset));
-                if let Some(inspector) = inspector.as_ref() {
-                    inspector.update(component_instance.as_ref(), current_highlight.as_ref());
-                }
-            }
-            PreviewSessionEvent::RegisterFont { url, contents } => {
-                if !registered_fonts.insert(url.clone()) {
-                    tracing::debug!("Font {url} already registered, skipping");
-                    continue;
-                }
-                if let Some(component_instance) = component_instance.as_ref() {
-                    register_font(component_instance.window(), contents);
-                } else {
-                    pending_fonts.push(contents);
-                }
-            }
-        }
+        };
+        show_component(
+            &preview_session,
+            component,
+            &mut component_instance,
+            &mut debug_agent,
+            &mut prepare_window,
+        )
+        .await?;
     }
 
     Ok(())
@@ -633,9 +597,8 @@ async fn show_component(
     preview_session: &PreviewSession,
     component: &PreviewComponent,
     component_instance: &mut Option<slint_interpreter::ComponentInstance>,
-    inspector: &mut Option<InspectorOverlay>,
-    current_highlight: Option<&(Url, u32)>,
-    pending_fonts: &mut Vec<Arc<[u8]>>,
+    debug_agent: &mut DebugAgent,
+    prepare_window: &mut Option<impl AsyncFnOnce(&i_slint_core::api::Window)>,
 ) -> anyhow::Result<()> {
     let PreviewCompilation::Ready(compiled) = preview_session.compile_component(component).await
     else {
@@ -648,43 +611,12 @@ async fn show_component(
     } else {
         component_definition.create()?
     };
-    for contents in pending_fonts.drain(..) {
-        register_font(new_instance.window(), contents);
-    }
-    if inspector.is_none() {
-        *inspector = Some(InspectorOverlay::new(new_instance.window()).await?);
+    debug_agent.create_overlay(new_instance.window()).await?;
+    if let Some(prepare_window) = prepare_window.take() {
+        prepare_window(new_instance.window()).await;
     }
     new_instance.show()?;
-    *component_instance = Some(new_instance);
-    let inspector = inspector.as_ref().unwrap();
-    inspector.attach()?;
-    inspector.update(component_instance.as_ref(), current_highlight);
-    Ok(())
-}
-
-pub fn register_font(window: &i_slint_core::api::Window, contents: Arc<[u8]>) {
-    // Wrap the already-Arc-backed bytes in a Blob without copying.
-    let blob = fontique::Blob::new(Arc::new(contents));
-    WindowInner::from_pub(window).context().font_context().borrow_mut().register_fonts(blob);
-}
-
-fn install_debug_handler(
-    to_editor: std::rc::Weak<dyn PreviewToLsp>,
-) -> Result<(), slint_interpreter::PlatformError> {
-    i_slint_backend_selector::with_global_context(|context| {
-        context.set_log_message_handler(Some(Box::new(move |message| {
-            let Some(to_editor) = to_editor.upgrade() else { return };
-            let location = message
-                .location()
-                .map(|location| (PathBuf::from(location.path), location.line, location.column));
-            to_editor
-                .send(&PreviewToLspMessage::DebugMessage {
-                    location,
-                    message: message.message_arguments().to_string(),
-                })
-                .ok();
-        })))
-    })?;
+    debug_agent.show(component_instance.insert(new_instance))?;
     Ok(())
 }
 
@@ -692,6 +624,7 @@ fn install_debug_handler(
 mod tests {
     use super::*;
     use crate::protocol::VersionedUrl;
+    use std::path::PathBuf;
 
     #[derive(Default)]
     struct CaptureToEditor(RefCell<Vec<PreviewToLspMessage>>);
@@ -700,6 +633,183 @@ mod tests {
         fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
             self.0.borrow_mut().push(message.clone());
             Ok(())
+        }
+    }
+
+    fn take_diagnostics(
+        editor: &CaptureToEditor,
+    ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
+        editor
+            .0
+            .take()
+            .into_iter()
+            .filter_map(|message| match message {
+                PreviewToLspMessage::Diagnostics { uri, version, diagnostics } => {
+                    Some((uri, (version, diagnostics)))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Used to send every diagnostic under the previewed file, with UTF-8 columns and no version.
+    #[tokio::test]
+    async fn diagnostics_go_to_the_file_and_version_they_are_in() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let editor = Rc::new(CaptureToEditor::default());
+                let (session, handle) = PreviewSession::start(editor.clone(), |_| {});
+                let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
+                let imported =
+                    Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
+                let root = Url::from_directory_path(std::env::temp_dir()).unwrap();
+                let manifest = root.join("slint-project.json").unwrap();
+                let error_line = r#"    in property <string> label: "Next →"; foo: 1;"#;
+                for message in [
+                    LspToPreviewMessage::SetConfiguration {
+                        config: PreviewConfig { format_utf8: false, ..Default::default() },
+                    },
+                    LspToPreviewMessage::OpenProject { root: Some(root) },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(manifest.clone(), Some(5)),
+                        contents: br#"{"edition":"1.18"}"#.to_vec(),
+                    },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(main.clone(), Some(3)),
+                        contents: br#"
+                            import { Imported } from "imported.slint";
+                            export component App inherits Window { Imported {} }
+                        "#
+                        .to_vec(),
+                    },
+                    LspToPreviewMessage::SetContents {
+                        url: VersionedUrl::new(imported.clone(), Some(7)),
+                        contents: format!("export component Imported {{\n{error_line}\n}}")
+                            .into_bytes(),
+                    },
+                ] {
+                    handle.handle_message(message).unwrap();
+                }
+
+                let component = PreviewComponent { url: main.clone(), component: None };
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::CompilationError { .. }
+                ));
+
+                let diagnostics = take_diagnostics(&editor);
+                assert_eq!(diagnostics[&main], (Some(3), Vec::new()));
+                let (version, imported_diagnostics) = &diagnostics[&imported];
+                assert_eq!(*version, Some(7));
+                let [error] = imported_diagnostics.as_slice() else {
+                    panic!("{imported_diagnostics:?}")
+                };
+                let utf16_column =
+                    error_line[..error_line.find("foo").unwrap()].encode_utf16().count();
+                assert_eq!(error.range.start, lsp_types::Position::new(1, utf16_column as u32));
+                let (version, manifest_diagnostics) = &diagnostics[&manifest];
+                assert_eq!(*version, Some(5));
+                let [warning] = manifest_diagnostics.as_slice() else {
+                    panic!("{manifest_diagnostics:?}")
+                };
+                assert!(warning.message.starts_with("'edition' is 1.18"), "{warning:?}");
+            })
+            .await;
+    }
+
+    /// Used to leave the errors of a dropped import in the editor.
+    #[tokio::test]
+    async fn a_file_the_build_no_longer_reads_gets_its_diagnostics_cleared() {
+        i_slint_backend_testing::init_no_event_loop();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let editor = Rc::new(CaptureToEditor::default());
+                let (session, _handle) = PreviewSession::start(editor.clone(), |_| {});
+                let main = Url::from_file_path(std::env::temp_dir().join("main.slint")).unwrap();
+                let imported =
+                    Url::from_file_path(std::env::temp_dir().join("imported.slint")).unwrap();
+                let set_contents = |url: &Url, version, contents: &str| {
+                    session.process_message(
+                        LspToPreviewMessage::SetContents {
+                            url: VersionedUrl::new(url.clone(), Some(version)),
+                            contents: contents.into(),
+                        },
+                        &|_| {},
+                        &mut None,
+                    );
+                };
+                let component = PreviewComponent { url: main.clone(), component: None };
+                set_contents(
+                    &main,
+                    1,
+                    r#"
+                        import { Imported } from "imported.slint";
+                        export component App inherits Window { Imported {} }
+                    "#,
+                );
+                set_contents(&imported, 7, "export component Imported { foo: 1; }");
+                session.compile_component(&component).await;
+                assert_eq!(take_diagnostics(&editor)[&imported].1.len(), 1);
+
+                set_contents(&main, 2, "export component App inherits Window {}");
+                assert!(matches!(
+                    session.compile_component(&component).await,
+                    PreviewCompilation::Ready(_)
+                ));
+                assert_eq!(take_diagnostics(&editor)[&imported], (Some(7), Vec::new()));
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn prepare_only_the_primary_window_before_showing_it() {
+        i_slint_backend_testing::init_no_event_loop();
+        let capture = Rc::new(CaptureToEditor::default());
+        let session = Rc::new(PreviewSession {
+            file_cache: Default::default(),
+            dependencies: Default::default(),
+            compiler: Default::default(),
+            project_root: Default::default(),
+            configuration: Default::default(),
+            to_editor: capture,
+        });
+        session.restore_compiler(session.create_compiler());
+        let url = Url::parse("file:///window-preparation.slint").unwrap();
+        let component = PreviewComponent { url: url.clone(), component: Some("Main".into()) };
+        let extra_compiler = slint_interpreter::Compiler::default();
+        let extra = extra_compiler
+            .build_from_source(
+                "export component Extra inherits Window { width: 100px; height: 100px; }".into(),
+                "extra.slint".into(),
+            )
+            .await
+            .component("Extra")
+            .unwrap()
+            .create()
+            .unwrap();
+        extra.show().unwrap();
+        let calls = std::cell::Cell::new(0);
+        let mut prepare = Some(async |window: &i_slint_core::api::Window| {
+            assert!(!window.is_visible());
+            assert!(extra.window().is_visible());
+            calls.set(calls.get() + 1);
+        });
+        let mut instance = None;
+        let mut debug_agent = DebugAgent::new(Rc::downgrade(&session.to_editor)).unwrap();
+        for width in [240, 320] {
+            session.process_message(
+                LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url.clone(), None),
+                    contents: format!("export component Main inherits Window {{ width: {width}px; height: 160px; }}").into(),
+                }, &|_| {}, &mut None,
+            );
+            show_component(&session, &component, &mut instance, &mut debug_agent, &mut prepare)
+                .await
+                .unwrap();
+            assert!(instance.as_ref().unwrap().window().is_visible());
+            assert!(extra.window().is_visible());
+            assert_eq!(calls.get(), 1);
         }
     }
 
@@ -721,7 +831,7 @@ mod tests {
                 let directory = tempfile::tempdir().unwrap();
                 let root = Url::from_directory_path(directory.path()).unwrap();
                 let manifest_path = directory.path().join("slint-project.json");
-                std::fs::write(&manifest_path, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#).unwrap();
+                std::fs::write(&manifest_path, r#"{"edition":"1.19","experimental-features":["component-container"]}"#).unwrap();
                 let manifest = Url::from_file_path(&manifest_path).unwrap();
                 let nested_manifest =
                     Url::from_file_path(directory.path().join("ui/slint-project.json")).unwrap();
@@ -729,7 +839,7 @@ mod tests {
                 let target = PreviewComponent { url: source.clone(), component: None };
                 for (url, contents) in [
                     (source, "export component Main inherits Window { ComponentContainer {} }"),
-                    (nested_manifest, r#"{"slint-edition":"1.19","enable-experimental-features":true}"#),
+                    (nested_manifest, r#"{"edition":"1.19","experimental-features":["component-container"]}"#),
                 ] {
                     session.process_message(
                         LspToPreviewMessage::SetContents {
@@ -751,7 +861,7 @@ mod tests {
                 ));
                 assert!(session.dependencies.borrow().contains(&manifest));
                 for contents in
-                    [r#"{"slint-edition":"1.19","main":"other.slint","enable-experimental-features":true}"#, r#"{"slint-edition":"1.19"}"#, "{"]
+                    [r#"{"edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#, r#"{"edition":"1.19"}"#, "{"]
                 {
                     session.process_message(
                         LspToPreviewMessage::SetContents {
@@ -764,13 +874,13 @@ mod tests {
                     let compiled = session.compile_component(&target).await;
                     assert_eq!(
                         matches!(compiled, PreviewCompilation::Ready(_)),
-                        contents.contains("enable-experimental-features"),
+                        contents.contains("experimental-features"),
                     );
                 }
                 session.process_message(
                     LspToPreviewMessage::SetContents {
                         url: VersionedUrl::new(manifest, None),
-                        contents: r#"{"slint-edition":"1.19","enable-experimental-features":true}"#.into(),
+                        contents: r#"{"edition":"1.19","experimental-features":["component-container"]}"#.into(),
                     },
                     &|_| {},
                     &mut None,
@@ -822,8 +932,8 @@ mod tests {
         assert!(session.dependencies.borrow().contains(&url));
         assert!(capture.0.borrow().is_empty());
         for (contents, rebuild) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
             (Some("{broken"), true),
             (None, true),
             (None, true),

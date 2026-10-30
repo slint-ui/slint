@@ -312,7 +312,7 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
 ## Enable support for exposing [fontique](https://docs.rs/fontique/0.12.0/fontique/) related APIs.
-unstable-fontique-012 = ["i-slint-common/shared-fontique"]
+unstable-fontique-012 = ["i-slint-common/shared-fontique", "i-slint-core/shared-parley"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -357,7 +357,7 @@ serde = { workspace = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "io-util"] }
 async-compat = { version = "0.2.4" }
 bytemuck = { workspace = true }
-i-slint-renderer-software = { path = "../../../internal/renderers/software", features = ["testing"] }
+i-slint-renderer-software = { path = "../../../internal/renderers/software", features = ["testing", "owned-pre-rendered-resources"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # this line is there to add the "enable" feature by default, but only on linux

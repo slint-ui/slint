@@ -19,6 +19,10 @@ export component InspectorShadowControl inherits Rectangle {
     private property <bool> effect-enabled: Api.has-shadow(root.prefix);
     height: Style.inspector-field.height;
     changed effect-enabled => { toggle.checked = root.effect-enabled; }
+    private property <int> anchor-focus-generation: ShadowSession.anchor-focus-generation;
+    changed anchor-focus-generation => {
+        if ShadowSession.inner == root.inner { control.focus(); }
+    }
 
     HorizontalLayout {
         spacing: Metrics.space-small;
@@ -86,8 +90,10 @@ export component InspectorShadowControl inherits Rectangle {
     function activate() {
         if !control.enabled { return; }
         control.focus();
-        if ShadowSession.open && ShadowSession.inner == root.inner { ShadowSession.close(); }
-        else { ShadowSession.begin(root.absolute-position, { width: root.width, height: root.height }, root.inner); }
+        ShadowSession.canvas-focus = false;
+        if !ShadowSession.open || ShadowSession.inner != root.inner {
+            ShadowSession.begin(control.absolute-position, { width: control.width, height: control.height }, root.inner);
+        }
     }
 }
 

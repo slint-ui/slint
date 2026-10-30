@@ -3,12 +3,10 @@
 
 use super::{RepaintBufferType, SoftwareRenderer};
 use alloc::rc::{Rc, Weak};
-use core::cell::{Cell, RefCell};
+use core::cell::Cell;
 use i_slint_core::api::Window;
-use i_slint_core::cursor::{MouseCursorHandling, MouseCursorInner};
-use i_slint_core::graphics::Image;
 use i_slint_core::platform::Renderer;
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal};
+use i_slint_core::window::WindowAdapter;
 
 /// This is a minimal adapter for a Window that doesn't have any other feature than rendering
 /// using the software renderer.
@@ -17,7 +15,6 @@ pub struct MinimalSoftwareWindow {
     renderer: SoftwareRenderer,
     needs_redraw: Cell<bool>,
     size: Cell<i_slint_core::api::PhysicalSize>,
-    mouse_cursor_image: RefCell<Option<Image>>,
 }
 
 impl MinimalSoftwareWindow {
@@ -30,30 +27,8 @@ impl MinimalSoftwareWindow {
             renderer: SoftwareRenderer::new_with_repaint_buffer_type(repaint_buffer_type),
             needs_redraw: Default::default(),
             size: Default::default(),
-            mouse_cursor_image: Default::default(),
         })
     }
-
-    /// Draws the mouse cursor as part of the window contents, for platforms where nothing else
-    /// draws it, such as when rendering directly to a frame buffer.
-    ///
-    /// The cursor follows the position of the last [`WindowEvent::PointerMoved`](i_slint_core::platform::WindowEvent::PointerMoved)
-    /// and disappears on [`WindowEvent::PointerExited`](i_slint_core::platform::WindowEvent::PointerExited).
-    /// `image` is drawn with its top-left corner at the pointer, and `MouseCursor.none` hides
-    /// the cursor. Pass `None` to stop drawing the cursor.
-    ///
-    /// Moving the pointer only repaints the area the cursor covers.
-    ///
-    /// Call this before the window receives pointer events: afterwards, a new image only shows
-    /// once the cursor changes shape.
-    ///
-    /// This is experimental: enable the `experimental` feature of the `i-slint-renderer-software`
-    /// crate, and expect changes in future releases.
-    #[cfg(feature = "experimental")]
-    pub fn set_mouse_cursor_image(&self, image: Option<Image>) {
-        self.mouse_cursor_image.replace(image);
-    }
-
     /// If the window needs to be redrawn, the callback will be called with the
     /// [renderer](SoftwareRenderer) that should be used to do the drawing.
     ///
@@ -123,19 +98,6 @@ impl WindowAdapter for MinimalSoftwareWindow {
 
     fn request_redraw(&self) {
         self.needs_redraw.set(true);
-    }
-
-    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
-        Some(self)
-    }
-}
-
-impl WindowAdapterInternal for MinimalSoftwareWindow {
-    fn set_mouse_cursor(&self, cursor: MouseCursorInner) -> MouseCursorHandling {
-        match self.mouse_cursor_image.borrow().clone() {
-            Some(image) => MouseCursorHandling::render_with_default_image(&cursor, || image),
-            None => MouseCursorHandling::Platform,
-        }
     }
 }
 

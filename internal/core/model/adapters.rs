@@ -670,6 +670,21 @@ where
 
         self.sorted_rows_dirty.set(false);
     }
+
+    fn insertion_index(&self, mapping: &[usize], row: usize) -> usize {
+        let Some(data) = self.wrapped_model.row_data(row) else {
+            return mapping.len();
+        };
+        mapping.partition_point(|existing_row| {
+            self.wrapped_model.row_data(*existing_row).is_some_and(|existing| {
+                self.sort_helper
+                    .borrow_mut()
+                    .cmp(&existing, &data)
+                    .then_with(|| existing_row.cmp(&row))
+                    == core::cmp::Ordering::Less
+            })
+        })
+    }
 }
 
 impl<M, S> ModelChangeListener for SortModelInner<M, S>
@@ -687,16 +702,7 @@ where
         let removed_index = mapping.iter().position(|r| *r == row).unwrap();
         mapping.remove(removed_index);
 
-        let insertion_index = if let Some(changed_data) = self.wrapped_model.row_data(row) {
-            mapping.partition_point(|existing_row| {
-                self.wrapped_model.row_data(*existing_row).is_some_and(|existing| {
-                    self.sort_helper.borrow_mut().cmp(&existing, &changed_data)
-                        == core::cmp::Ordering::Less
-                })
-            })
-        } else {
-            mapping.len()
-        };
+        let insertion_index = self.insertion_index(&mapping, row);
 
         mapping.insert(insertion_index, row);
 
@@ -731,16 +737,7 @@ where
         }
 
         for row in index..(index + count) {
-            let insertion_index = if let Some(added_data) = self.wrapped_model.row_data(row) {
-                self.mapping.borrow().partition_point(|existing_row| {
-                    self.wrapped_model.row_data(*existing_row).is_some_and(|existing| {
-                        self.sort_helper.borrow_mut().cmp(&existing, &added_data)
-                            == core::cmp::Ordering::Less
-                    })
-                })
-            } else {
-                self.mapping.borrow().len()
-            };
+            let insertion_index = self.insertion_index(&self.mapping.borrow(), row);
             self.mapping.borrow_mut().insert(insertion_index, row);
             self.notify.row_added(insertion_index, 1)
         }
@@ -788,6 +785,7 @@ where
 /// Provides a sorted view of rows by another [`Model`].
 ///
 /// When the other Model is updated, the `Sorted` is updated accordingly.
+/// Rows that compare equal keep their order from the source model.
 ///
 /// Generic parameters:
 /// * `M` the type of the wrapped `Model`.
@@ -1119,6 +1117,44 @@ mod sort_tests {
         assert_eq!(sorted_model.row_data(1).unwrap(), 1);
         assert_eq!(sorted_model.row_data(2).unwrap(), 2);
         assert_eq!(sorted_model.row_data(3).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_sorted_model_stable() {
+        // Sorted by key only; the second value tells rows with equal keys apart.
+        let wrapped_rc = Rc::new(VecModel::from(vec![(1, 0), (0, 1), (1, 2), (0, 3), (1, 4)]));
+        let sorted_model =
+            Rc::new(SortModel::new(wrapped_rc.clone(), |lhs: &(i32, i32), rhs| lhs.0.cmp(&rhs.0)));
+
+        let _checker = ModelChecker::new(sorted_model.clone());
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        let order = || sorted_model.iter().map(|(_, id)| id).collect::<Vec<_>>();
+        assert_eq!(order(), [1, 3, 0, 2, 4]);
+
+        // Regression test for #7895: the changed row used to move to the front of its equal keys.
+        wrapped_rc.set_row_data(4, (1, 5));
+
+        assert!(observer.added_rows.borrow().is_empty());
+        assert!(observer.changed_rows.borrow().eq(&[4]));
+        assert!(observer.removed_rows.borrow().is_empty());
+        observer.clear();
+        assert_eq!(order(), [1, 3, 0, 2, 5]);
+
+        // A row whose key changes lands by source index among its new equal keys.
+        wrapped_rc.set_row_data(2, (0, 6));
+
+        assert!(observer.removed_rows.borrow().eq(&[(3, 1)]));
+        assert!(observer.added_rows.borrow().eq(&[(1, 1)]));
+        observer.clear();
+        assert_eq!(order(), [1, 6, 3, 0, 5]);
+
+        // Inserted rows also land by source index among their equal keys.
+        wrapped_rc.insert(1, (0, 7));
+        wrapped_rc.push((0, 8));
+        assert_eq!(order(), [7, 1, 6, 3, 8, 0, 5]);
     }
 
     #[test]

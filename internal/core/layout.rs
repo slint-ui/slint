@@ -1456,13 +1456,13 @@ mod flexbox_taffy {
     /// AlignContent::Start/End would ignore the direction and always use the writing mode.
     fn to_align_content(alignment: LayoutAlignment) -> AlignContent {
         match alignment {
-            LayoutAlignment::Stretch => AlignContent::Stretch,
-            LayoutAlignment::Start => AlignContent::FlexStart,
-            LayoutAlignment::End => AlignContent::FlexEnd,
-            LayoutAlignment::Center => AlignContent::Center,
-            LayoutAlignment::SpaceBetween => AlignContent::SpaceBetween,
-            LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
-            LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
+            LayoutAlignment::Stretch => AlignContent::STRETCH,
+            LayoutAlignment::Start => AlignContent::FLEX_START,
+            LayoutAlignment::End => AlignContent::FLEX_END,
+            LayoutAlignment::Center => AlignContent::CENTER,
+            LayoutAlignment::SpaceBetween => AlignContent::SPACE_BETWEEN,
+            LayoutAlignment::SpaceAround => AlignContent::SPACE_AROUND,
+            LayoutAlignment::SpaceEvenly => AlignContent::SPACE_EVENLY,
         }
     }
 
@@ -1626,10 +1626,11 @@ mod flexbox_taffy {
                     let max_height = v_constraint
                         .map_or(Coord::MAX, |vc| eff_max(vc, content_h))
                         .min(row_cross_cap.unwrap_or(Coord::MAX));
+                    let min_width = eff_min(h_constraint, content_w);
                     let max_width_dim = if max_width < Coord::MAX {
-                        Dimension::length(max_width as _)
+                        LengthPercentageAuto::length(max_width as _)
                     } else {
-                        Dimension::auto()
+                        LengthPercentageAuto::auto()
                     };
 
                     // A stretching item gets `auto` on the cross axis, so it sizes
@@ -1674,8 +1675,8 @@ mod flexbox_taffy {
                                     },
                                 },
                                 min_size: Size {
-                                    width: Dimension::length(eff_min(h_constraint, content_w) as _),
-                                    height: Dimension::length(
+                                    width: LengthPercentageAuto::length(min_width as _),
+                                    height: LengthPercentageAuto::length(
                                         v_constraint
                                             .map(|vc| eff_min(vc, content_h) as f32)
                                             .unwrap_or(0.0),
@@ -1684,9 +1685,9 @@ mod flexbox_taffy {
                                 max_size: Size {
                                     width: max_width_dim,
                                     height: if max_height < Coord::MAX {
-                                        Dimension::length(max_height as _)
+                                        LengthPercentageAuto::length(max_height as _)
                                     } else {
-                                        Dimension::auto()
+                                        LengthPercentageAuto::auto()
                                     },
                                 },
                                 flex_grow: if params.alignment == LayoutAlignment::Stretch {
@@ -1709,10 +1710,10 @@ mod flexbox_taffy {
                                 flex_shrink: params.flex_shrink,
                                 align_self: match flex.cross_axis_self_alignment {
                                     CrossAxisAlignment::Auto => None,
-                                    CrossAxisAlignment::Stretch => Some(AlignSelf::Stretch),
-                                    CrossAxisAlignment::Start => Some(AlignSelf::FlexStart),
-                                    CrossAxisAlignment::End => Some(AlignSelf::FlexEnd),
-                                    CrossAxisAlignment::Center => Some(AlignSelf::Center),
+                                    CrossAxisAlignment::Stretch => Some(AlignSelf::STRETCH),
+                                    CrossAxisAlignment::Start => Some(AlignSelf::FLEX_START),
+                                    CrossAxisAlignment::End => Some(AlignSelf::FLEX_END),
+                                    CrossAxisAlignment::Center => Some(AlignSelf::CENTER),
                                 },
                                 ..Default::default()
                             },
@@ -1747,16 +1748,16 @@ mod flexbox_taffy {
                             SlintFlexboxLayoutWrap::NoWrap => FlexWrap::NoWrap,
                             SlintFlexboxLayoutWrap::WrapReverse => FlexWrap::WrapReverse,
                         },
-                        justify_content: Some(to_align_content(params.alignment)),
-                        align_items: Some(match params.cross_axis_alignment {
+                        justify_content: to_align_content(params.alignment),
+                        align_items: match params.cross_axis_alignment {
                             CrossAxisAlignment::Auto | CrossAxisAlignment::Stretch => {
-                                AlignItems::Stretch
+                                AlignItems::STRETCH
                             }
-                            CrossAxisAlignment::Start => AlignItems::FlexStart,
-                            CrossAxisAlignment::End => AlignItems::FlexEnd,
-                            CrossAxisAlignment::Center => AlignItems::Center,
-                        }),
-                        align_content: Some(to_align_content(params.cross_axis_line_alignment)),
+                            CrossAxisAlignment::Start => AlignItems::FLEX_START,
+                            CrossAxisAlignment::End => AlignItems::FLEX_END,
+                            CrossAxisAlignment::Center => AlignItems::CENTER,
+                        },
+                        align_content: to_align_content(params.cross_axis_line_alignment),
                         gap: Size {
                             width: LengthPercentage::length(params.spacing_h as _),
                             height: LengthPercentage::length(params.spacing_v as _),
@@ -1815,15 +1816,22 @@ mod flexbox_taffy {
                 .compute_layout_with_measure(
                     self.container,
                     available_space,
-                    |known_dimensions, _available_space, _node_id, node_context, _style| {
-                        // Only the container node has no context.
-                        let Some(&mut child_index) = node_context else {
-                            return taffy::prelude::Size::ZERO;
-                        };
-                        let known_w = known_dimensions.width.map(|w| w as Coord);
-                        let known_h = known_dimensions.height.map(|h| h as Coord);
-                        let (w, h) = measure(child_index, known_w, known_h);
-                        taffy::prelude::Size { width: w as f32, height: h as f32 }
+                    |inputs, _node_id, node_context, style| {
+                        taffy::compute_leaf_layout(
+                            inputs,
+                            style,
+                            |_, _| 0.0,
+                            |known_dimensions, _available_space| {
+                                // Only the container node has no context.
+                                let Some(&mut child_index) = node_context else {
+                                    return taffy::prelude::Size::ZERO;
+                                };
+                                let known_w = known_dimensions.width.map(|w| w as Coord);
+                                let known_h = known_dimensions.height.map(|h| h as Coord);
+                                let (w, h) = measure(child_index, known_w, known_h);
+                                taffy::prelude::Size { width: w as f32, height: h as f32 }
+                            },
+                        )
                     },
                 )
                 .unwrap_or_else(|e| {

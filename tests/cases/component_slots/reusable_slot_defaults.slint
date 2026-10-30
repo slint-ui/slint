@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, ComboBox } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    in-out property <length> text-size: 14px;
+    out property <length> item-height: background-override.item-height;
+    out property <bool> test: button.width == 12px && button.height == 10px
+        && choice.width == 12px && choice.height == 10px
+        && toggle.width == 12px && toggle.height == 10px
+        && combo.min-width == 58px && combo.min-height == 22px
+        && background-override.item-height >= 32px;
+
+    VerticalLayout {
+        alignment: start;
+        cross-axis-alignment: start;
+
+        button := Button {
+            text: "Replaced button label";
+            font-size: 48px;
+            horizontal-padding: 80px;
+            content << HorizontalLayout { Rectangle { width: 12px; height: 10px; } }
+        }
+
+        choice := CheckBox {
+            text: "Replaced checkbox label";
+            font-size: 48px;
+            indicator-size: 64px;
+            content << HorizontalLayout { Rectangle { width: 12px; height: 10px; } }
+        }
+
+        toggle := Switch {
+            text: "Replaced switch label";
+            font-size: 48px;
+            track-height: 64px;
+            content << HorizontalLayout { Rectangle { width: 12px; height: 10px; } }
+        }
+
+        combo := ComboBox {
+            model: ["Replaced combo label"];
+            font-size: 48px;
+            content << Rectangle { width: 12px; height: 10px; }
+        }
+
+        background-override := ComboBox {
+            model: ["First", "Second"];
+            font-size: root.text-size;
+            background << { }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+for id in ["TestCase::button", "TestCase::choice", "TestCase::toggle"] {
+    let control = slint_testing::ElementHandle::find_by_element_id(&instance, id).next().unwrap();
+    assert!(control.query_descendants().match_type_name("Text").find_first().is_none());
+}
+let sizes = || ["TestCase::button", "TestCase::choice", "TestCase::toggle", "TestCase::combo"].map(|id| {
+    slint_testing::ElementHandle::find_by_element_id(&instance, id)
+        .next().unwrap().size()
+});
+assert!(instance.get_test(), "sizes: {:?}, row height: {}", sizes(), instance.get_item_height());
+let initial_height = instance.get_item_height();
+instance.set_text_size(48.);
+slint::platform::update_timers_and_animations();
+assert!(instance.get_test(), "sizes: {:?}, row height: {}", sizes(), instance.get_item_height());
+assert!(instance.get_item_height() > initial_height);
+```
+*/

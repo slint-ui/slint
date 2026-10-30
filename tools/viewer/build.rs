@@ -22,19 +22,17 @@ fn main() {
         ) },
     }
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_REMOTE");
     bump_windows_stack_size();
-    // The slint!{} macro in remote.rs needs the experimental
-    // new_with_existing_window constructor.
-    if std::env::var_os("CARGO_FEATURE_REMOTE").is_some() {
-        println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    #[cfg(feature = "remote")]
+    {
+        let mut config = slint_build::CompilerConfiguration::new();
         // Android needs the Material style so the UI's ListView scrolls by touch.
-        println!("cargo:rerun-if-env-changed=SLINT_STYLE");
         if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android")
             && std::env::var_os("SLINT_STYLE").is_none()
         {
-            println!("cargo:rustc-env=SLINT_STYLE=material");
+            config = config.with_style("material".into());
         }
+        slint_build::compile_with_config(".", config).unwrap();
         generate_third_party_licenses();
     }
 }

@@ -5,8 +5,10 @@
 
 use crate::expression_types::Orientation;
 use crate::langtype::Function;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
 use smol_str::{SmolStr, StrExt};
-use std::sync::Arc;
 
 macro_rules! declare_builtin_functions {
     ($(
@@ -19,6 +21,7 @@ macro_rules! declare_builtin_functions {
         /// A function built into the run-time.
         /// The functions of builtin elements name their variant in `builtin_elements.rs`.
         #[derive(Debug, Clone, PartialEq, Eq, strum::EnumString)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub enum BuiltinFunction {
             $($(#[$attr])* $Name $(($Payload))?,)*
         }
@@ -37,8 +40,8 @@ macro_rules! declare_builtin_functions {
 
         impl BuiltinFunction {
             pub fn ty(&self) -> Arc<Function> {
-                static TYPES: std::sync::LazyLock<BuiltinFunctionTypes> =
-                    std::sync::LazyLock::new(|| BuiltinFunctionTypes {
+                static TYPES: once_cell::sync::Lazy<BuiltinFunctionTypes> =
+                    once_cell::sync::Lazy::new(|| BuiltinFunctionTypes {
                         $($Name: Arc::new(Function {
                             args: vec![$(builtin_type!($ty $(=> $as)?)),*],
                             return_type: builtin_type!($Ret $(=> $RetType)?),
@@ -108,7 +111,7 @@ macro_rules! builtin_purity {
 macro_rules! builtin_type {
     ($rust:tt => $slint:tt) => { builtin_type!($slint) };
     (()) => { $crate::langtype::Type::Void };
-    ([$ty:tt]) => { $crate::langtype::Type::Array(std::sync::Arc::new(builtin_type!($ty))) };
+    ([$ty:tt]) => { $crate::langtype::Type::Array(alloc::sync::Arc::new(builtin_type!($ty))) };
     (f32) => { $crate::langtype::Type::Float32 };
     (f64) => { $crate::langtype::Type::Float32 };
     (i32) => { $crate::langtype::Type::Int32 };

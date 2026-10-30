@@ -75,6 +75,7 @@ const UI_HEIGHT: u32 = 600;
 const SCALE_FACTOR: f32 = 2.0; // HiDPI scale factor (2.0 for Retina displays)
 
 slint::slint! {
+    #[edition = "1.19"]
     import { VerticalBox, Button, Slider, AboutSlint } from "std-widgets.slint";
     export component Demo inherits Window {
         // Fully transparent background (#RRGGBBAA with alpha=00) so the 3D scene

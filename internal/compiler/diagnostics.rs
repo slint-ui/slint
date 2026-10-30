@@ -367,9 +367,6 @@ pub fn diagnostic_end_line_column_with_format(
 pub struct BuildDiagnostics {
     inner: Vec<Diagnostic>,
 
-    /// When false, throw error for experimental features
-    pub enable_experimental: bool,
-
     /// When true, reject features not supported by the safety-critical subset
     #[cfg(feature = "slint-sc")]
     pub slint_sc: bool,
@@ -576,19 +573,36 @@ impl BuildDiagnostics {
 
     /// Follows https://no-color.org
     #[cfg(feature = "display-diagnostics")]
-    fn stderr_is_styled() -> bool {
-        use std::io::IsTerminal;
-        std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none_or(|v| v.is_empty())
+    fn no_color_requested() -> bool {
+        std::env::var_os("NO_COLOR").is_some_and(|v| !v.is_empty())
     }
 
     #[cfg(feature = "display-diagnostics")]
-    /// Print the diagnostics on the console
-    pub fn print(self) {
+    fn stderr_is_styled() -> bool {
+        use std::io::IsTerminal;
+        std::io::stderr().is_terminal() && !Self::no_color_requested()
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    fn print_to_stderr(self, styled: bool) {
         use std::io::Write;
-        let to_print = self.call_diagnostics(Self::stderr_is_styled(), None);
+        let to_print = self.call_diagnostics(styled, None);
         if !to_print.is_empty() {
             let _ = writeln!(std::io::stderr(), "{to_print}");
         }
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    /// Print the diagnostics on stderr, with ANSI colors unless `NO_COLOR` is set
+    pub fn print(self) {
+        self.print_to_stderr(!Self::no_color_requested())
+    }
+
+    #[cfg(feature = "display-diagnostics")]
+    /// Print the diagnostics on stderr, with ANSI colors only if stderr is a terminal
+    /// and `NO_COLOR` is unset
+    pub fn print_styled_if_terminal(self) {
+        self.print_to_stderr(Self::stderr_is_styled())
     }
 
     #[cfg(feature = "display-diagnostics")]
@@ -635,9 +649,7 @@ impl BuildDiagnostics {
                         ));
                     }
                     DiagnosticLevel::Warning => {
-                        result.extend(proc_macro::TokenStream::from(
-                            quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
-                        ));
+                        result.extend(macro_warning(span, message));
                     },
                     DiagnosticLevel::Note => {
                         // TODO: Notes are not (yet) supported in proc-macros, we'll just print them as warnings for now.
@@ -702,6 +714,12 @@ impl BuildDiagnostics {
             std::process::exit(-1);
         }
     }
+}
+
+/// Tokens that make rustc report `message` as a warning at `span`.
+#[cfg(feature = "proc_macro_span")]
+pub fn macro_warning(span: proc_macro2::Span, message: &str) -> proc_macro::TokenStream {
+    quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };).into()
 }
 
 #[cfg(test)]

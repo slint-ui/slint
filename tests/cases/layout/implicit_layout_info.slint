@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The compiler stores the layout info an item reports in a property of the element,
+// which its `min-width`, `preferred-height`, and so on, read.
+// A text measures the same through that property in a state, in an instance of a component
+// based on it, and in a repeater, as a plain text does.
+
+component Measured {
+    in property <bool> wide;
+    out property <length> min-w: t.min-width;
+    out property <length> pref-w: t.preferred-width;
+
+    t := Text {
+        text: "Hello World";
+        states [
+            wide when root.wide: { min-width: 500px; }
+        ]
+    }
+}
+
+// An instance shares the property of its base component's root, which is the same item.
+component MeasuredText inherits Text {
+    out property <length> own-size: self.min-width + self.preferred-width;
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 100px;
+    in-out property <bool> wide;
+
+    reference := Text { text: "Hello World"; }
+    m := Measured { wide: root.wide; }
+    mt := MeasuredText { text: "Hello World"; }
+
+    out property <length> repeated-width;
+    for i in 1: Rectangle {
+        r := Text { text: "Hello World"; }
+        init => { root.repeated-width = r.preferred-width + r.min-width; }
+    }
+
+    out property <bool> test: reference.preferred-width > 0px
+        && m.pref-w == reference.preferred-width
+        && m.min-w == (root.wide ? 500px : reference.min-width)
+        && mt.max-width == reference.max-width
+        && mt.own-size == reference.min-width + reference.preferred-width
+        && root.repeated-width == reference.preferred-width + reference.min-width;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_wide(true);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+handle->set_wide(true);
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+instance.wide = true;
+assert(instance.test);
+```
+
+*/

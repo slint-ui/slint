@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 {
-    "slint-edition": "1.19",
+    "edition": "1.19",
     "main": "ui/main.slint",
-    "enable-experimental-features": true,
+    "experimental-features": ["interfaces", "shadowable", "closures", "named-slots", "custom-mouse-cursor", "component-container"],
     "library-paths": {
         "springboard": "../../internal/editor-preview/springboard/springboard.slint"
     }

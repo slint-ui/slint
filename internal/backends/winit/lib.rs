@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW RTLD testui
+// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS LOGPIXELSY NONCLIENTMETRICSW RTLD testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -41,6 +41,8 @@ mod ios;
 #[cfg(target_os = "macos")]
 mod macos;
 mod touch_finger_id;
+#[cfg(target_os = "windows")]
+mod windows_settings;
 
 /// Re-export of the winit crate.
 pub use winit;
@@ -653,8 +655,13 @@ impl SharedBackendData {
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
-            if let Some(err) = window_weak.upgrade().and_then(|w| w.ensure_window(event_loop).err())
-            {
+            let Some(window) = window_weak.upgrade() else { continue };
+            // A Wayland window is mapped as soon as it exists, and task bars list one that never gets
+            // content, so a hidden one waits: showing it registers it here again.
+            if self.is_wayland && matches!(window.visibility(), WindowVisibility::Hidden) {
+                continue;
+            }
+            if let Err(err) = window.ensure_window(event_loop) {
                 result = Err(err);
                 break;
             }
@@ -872,32 +879,44 @@ impl i_slint_core::platform::Platform for Backend {
         }
         #[cfg(target_os = "windows")]
         if let Some(ctx) = _ctx.upgrade() {
-            use windows::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+            use windows::Win32::Graphics::Gdi::{GetDC, GetDeviceCaps, LOGPIXELSY, ReleaseDC};
             use windows::Win32::UI::WindowsAndMessaging::{
-                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS,
+                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS, SystemParametersInfoW,
             };
             let mut metrics = NONCLIENTMETRICSW {
                 cbSize: core::mem::size_of::<NONCLIENTMETRICSW>() as u32,
                 ..NONCLIENTMETRICSW::default()
             };
+            // SystemParametersInfoW returns metrics at the system DPI, which LOGPIXELSY reports.
+            // Once we drop Windows 10 before 1607 (Anniversary Update, August 2016),
+            // use `windows::Win32::UI::HiDpi::SystemParametersInfoForDpi` with 96 DPI instead,
+            // without LOGPIXELSY (#14273).
             let ok = unsafe {
-                SystemParametersInfoForDpi(
-                    SPI_GETNONCLIENTMETRICS.0,
+                SystemParametersInfoW(
+                    SPI_GETNONCLIENTMETRICS,
                     metrics.cbSize,
                     Some(&mut metrics as *mut _ as *mut core::ffi::c_void),
-                    0,
-                    96,
+                    Default::default(),
                 )
             }
             .is_ok();
-            // `lfMessageFont.lfHeight` is in pixels at 96 DPI = Slint logical pixels;
-            // negative means em height, positive means cell height — magnitude is fine here.
+            let system_dpi = unsafe {
+                let screen = GetDC(None);
+                let dpi = GetDeviceCaps(Some(screen), LOGPIXELSY);
+                ReleaseDC(None, screen);
+                dpi
+            };
+            // `lfMessageFont.lfHeight` is negative for an em height, positive for a cell height.
             let height = metrics.lfMessageFont.lfHeight.unsigned_abs();
-            if ok && height > 0 {
+            if ok && height > 0 && system_dpi > 0 {
                 ctx.set_platform_default_font_size(Some(
-                    i_slint_core::lengths::LogicalLength::new(height as f32),
+                    i_slint_core::lengths::LogicalLength::new(
+                        height as f32 * 96. / system_dpi as f32,
+                    ),
                 ));
             }
+
+            ctx.set_motion_preference(windows_settings::motion_preference());
         }
     }
 
@@ -1134,7 +1153,8 @@ mod private {
 ///   created when certain conditions of the event loop are met. For example, on Android the application can't be suspended. Therefore,
 ///   functions like [`Self::has_winit_window()`] or [`Self::with_winit_window()`] will only succeed when the event loop is active.
 ///   This is typically the case when callbacks are invoked from the event loop, such as through timers, user input events, or when window
-///   receives events (see also [`Self::on_winit_window_event()`]).
+///   receives events (see also [`Self::on_winit_window_event()`]). On Wayland, where creating a window maps it, the winit window
+///   is created only once the Slint window is shown.
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend.
@@ -1168,6 +1188,7 @@ pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// use slint::winit_030::{WinitWindowAccessor, winit};
     ///
     /// slint::slint!{
+    ///     #[edition = "1.19"]
     ///     import { VerticalBox, Button } from "std-widgets.slint";
     ///     export component HelloWorld inherits Window {
     ///         callback clicked;
@@ -1446,6 +1467,7 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 #[cfg(test)]
 mod testui {
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             Text { text: "Ok"; }
         }

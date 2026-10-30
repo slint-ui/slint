@@ -14,67 +14,58 @@ export interface ComboBoxPopupSurface {
     in property <length> popup-padding;
     in property <length> item-height;
     in property <int> maximum-visible-items;
+
     out property <bool> opened;
     out property <bool> focused;
+
     callback highlight(index: int);
     callback selected(index: int);
     callback key-event(event: KeyEvent) -> EventResult;
+
     public function open();
     public function close();
 }
 
 export component ComboBoxBase {
     implement ComboBoxInterface <=> self;
+
     in property <bool> enabled: true;
     in property <[string]> model;
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
+    in property <length> spacing;
+    in property <length> item-height;
+    in property <int> maximum-visible-items: 8;
+    in property <length> popup-padding;
+    in property <length> popup-width: root.width;
+    in property <length> popup-height: min(root.count, max(1, root.maximum-visible-items)) * root.item-height
+        + 2 * root.popup-padding;
+
     in-out property <int> current-index: root.count > 0 ? 0 : -1;
     in-out property <string> current-value: root.indexed-value;
-    in property <string> placeholder;
-    in property <string> display-text: root.current-index >= 0 && root.current-index < root.count
-        ? root.current-value : root.placeholder;
+
     out property <int> count: root.model.length;
     out property <int> highlighted-index: root.highlight-index;
     out property <bool> expanded: popup.opened;
     out property <bool> has-focus: root.enabled && (keys.has-focus || popup.focused);
     out property <bool> hovered: root.enabled && pointer.has-hover;
     out property <bool> pressed: root.enabled && pointer.pressed;
-    in property <length> content-padding;
-    in property <length> content-padding-left: root.content-padding;
-    in property <length> content-padding-right: root.content-padding;
-    in property <length> content-padding-top: root.content-padding;
-    in property <length> content-padding-bottom: root.content-padding;
-    in property <length> indicator-width: 16px;
-    in property <length> spacing: 8px;
-    in property <length> item-height: 32px;
-    in property <int> maximum-visible-items: 8;
-    in property <length> popup-padding: 4px;
-    in property <length> popup-width: root.width;
-    in property <length> popup-height: min(root.count, max(1, root.maximum-visible-items)) * root.item-height
-        + 2 * root.popup-padding;
-    callback selected(current-value: string);
-    callback highlighted(index: int);
+
+    private property <int> highlight-index: -1;
+    private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
+        ? root.model[root.current-index] : "";
 
     slot background;
     slot content;
     slot indicator;
     slot <ComboBoxPopupSurface> popup;
 
-    private property <int> highlight-index: -1;
-    private property <string> indexed-value: root.current-index >= 0 && root.current-index < root.count
-        ? root.model[root.current-index] : "";
-
-    horizontal-stretch: 1;
-    vertical-stretch: 0;
-    forward-focus: keys;
-    accessible-role: combobox;
-    accessible-label: "";
-    accessible-enabled: root.enabled;
-    accessible-value: root.current-value;
-    accessible-expandable: root.enabled && root.count > 0;
-    accessible-expanded: root.expanded;
-    accessible-action-default => { root.open(); }
-    accessible-action-expand => { root.open(); }
-    accessible-action-set-value(value) => { root.select(root.model.index-of(value)); }
+    callback selected(current-value: string);
+    callback highlighted(index: int);
 
     public function open() {
         if !root.enabled || root.count == 0 || root.expanded { return; }
@@ -118,18 +109,11 @@ export component ComboBoxBase {
         }
     }
 
-    init => {
-        root.synchronize-value();
-        if root.current-index < -1 || root.current-index >= root.count { root.synchronize-model(); }
-    }
-    changed current-index => { root.synchronize-model(); }
-    changed current-value => { root.synchronize-value(); }
-
     function synchronize-model() {
         if root.count == 0 {
             root.current-index = -1;
             root.highlight-index = -1;
-            popup.close();
+            root.close();
         } else {
             if root.current-index < -1 || root.current-index >= root.count {
                 root.current-index = clamp(root.current-index, -1, root.count - 1);
@@ -138,14 +122,9 @@ export component ComboBoxBase {
         }
         root.update-current-value();
     }
-    changed model => { root.synchronize-model(); }
-    changed count => { root.synchronize-model(); }
-    changed indexed-value => { root.synchronize-model(); }
-    changed enabled => { if !root.enabled { popup.close(); } }
-    changed has-focus => { if !root.has-focus && root.expanded { popup.close(); } }
 
     function handle-key(event: KeyEvent) -> EventResult {
-        if !root.enabled || root.count == 0 || event.modifiers.control { return reject; }
+        if !root.enabled || root.count == 0 || event.modifiers.control || event.modifiers.meta { return reject; }
         if event.text == Key.Escape && root.expanded {
             root.close();
             return accept;
@@ -184,30 +163,51 @@ export component ComboBoxBase {
         return accept;
     }
 
+    forward-focus: keys;
+    accessible-role: combobox;
+    accessible-label: "";
+    accessible-enabled: root.enabled;
+    accessible-value: root.current-value;
+    accessible-expandable: root.enabled && root.count > 0;
+    accessible-expanded: root.expanded;
+    accessible-action-default => { root.open(); }
+    accessible-action-expand => { root.open(); }
+    accessible-action-set-value(value) => { root.select(root.model.index-of(value)); }
+
+    init => {
+        root.synchronize-value();
+        if root.current-index < -1 || root.current-index >= root.count { root.synchronize-model(); }
+    }
+    changed current-index => { root.synchronize-model(); }
+    changed current-value => { root.synchronize-value(); }
+
+    changed model => { root.synchronize-model(); }
+    changed count => { root.synchronize-model(); }
+    changed indexed-value => { root.synchronize-model(); }
+    changed enabled => { if !root.enabled { popup.close(); } }
+    changed has-focus => { if !root.has-focus && root.expanded { popup.close(); } }
+
     background { }
 
     pointer := TouchArea {
         enabled: root.enabled;
-        mouse-cursor: root.count > 0 ? MouseCursor.pointer : MouseCursor.default;
         clicked => {
             if root.expanded { root.close(); } else { root.open(); }
         }
     }
 
     HorizontalLayout {
-        padding-top: root.content-padding-top;
-        padding-bottom: root.content-padding-bottom;
-        padding-left: root.content-padding-left;
-        padding-right: root.content-padding-right;
+        padding-top: root.top-padding;
+        padding-bottom: root.bottom-padding;
+        padding-left: root.left-padding;
+        padding-right: root.right-padding;
         spacing: root.spacing;
         content { }
-        @children
 
-        Rectangle {
-            width: root.indicator-width;
-            indicator { }
-        }
+        indicator { }
     }
+
+    @children
 
     keys := FocusScope {
         width: 0px;

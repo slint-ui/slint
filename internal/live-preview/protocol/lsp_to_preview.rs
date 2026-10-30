@@ -20,10 +20,14 @@ pub struct PreviewConfig {
     pub hide_ui: Option<bool>,
     #[serde(default, with = "named_overrides")]
     pub overrides: i_slint_compiler::project_file::Overrides,
+    #[serde(default)]
+    pub rust_macro_editions:
+        std::collections::BTreeMap<Url, i_slint_compiler::project_file::SlintEdition>,
     pub format_utf8: bool,
 }
 
 #[derive(Clone, derive_more::Debug, serde::Deserialize, serde::Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum LspToPreviewMessage {
     InvalidateContents {
         url: lsp_types::Url,
@@ -59,7 +63,8 @@ pub enum LspToPreviewMessage {
         state: RemoteConnectionState,
         /// Human-readable `address:port` of the attempted target.
         target: String,
-        /// Set on `Failed` to describe the cause.
+        /// On `Failed`, the cause. On `Connected`, why the device doesn't show the
+        /// current design, if it doesn't.
         error: Option<String>,
     },
     Quit,
@@ -157,7 +162,7 @@ mod configuration_tests {
     fn future_overrides() -> serde_json::Value {
         serde_json::json!({
             "style": "fluent",
-            "project": { "include-paths": [], "slint-edition": "1.19" },
+            "project": { "include-paths": [], "edition": "1.19" },
             "embed_resources": "FutureEmbedding",
             "default_translation_context": "FutureContext",
             "debug_info": false,
@@ -177,7 +182,7 @@ mod configuration_tests {
         assert_eq!(config.overrides.style.as_deref(), Some("fluent"));
         assert_eq!(config.overrides.project.include_paths, Some(Vec::new()));
         assert_eq!(
-            config.overrides.project.slint_edition,
+            config.overrides.project.edition,
             Some(i_slint_compiler::project_file::SlintEdition::V1_19)
         );
         assert_eq!(config.overrides.debug_info, Some(false));
@@ -213,11 +218,13 @@ mod configuration_tests {
         struct FutureConfig {
             hide_ui: Option<bool>,
             overrides: Vec<u8>,
+            rust_macro_editions: std::collections::BTreeMap<String, String>,
             format_utf8: bool,
         }
         let encoded = postcard::to_allocvec(&FutureConfig {
             hide_ui: Some(true),
             overrides: serde_json::to_vec(&future_overrides()).unwrap(),
+            rust_macro_editions: [("file:///main.rs".into(), "1.18".into())].into(),
             format_utf8: true,
         })
         .unwrap();
@@ -225,6 +232,10 @@ mod configuration_tests {
         assert_eq!(decoded.overrides.style.as_deref(), Some("fluent"));
         assert_eq!(decoded.overrides.embed_resources, None);
         assert_eq!(decoded.overrides.default_translation_context, None);
+        assert_eq!(
+            decoded.rust_macro_editions.values().copied().collect::<Vec<_>>(),
+            [i_slint_compiler::project_file::SlintEdition { major: 1, minor: 18 }]
+        );
         let encoded = postcard::to_allocvec(&decoded).unwrap();
         assert_eq!(postcard::from_bytes::<PreviewConfig>(&encoded).unwrap(), decoded);
     }

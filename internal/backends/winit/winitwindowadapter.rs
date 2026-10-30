@@ -446,8 +446,7 @@ pub struct WinitWindowAdapter {
     /// Indicate whether we've ever received a resize event from winit after showing the window.
     pending_resize_event_after_show: Cell<bool>,
 
-    /// Whether the current winit window has presented a frame.
-    first_frame_presented: Cell<bool>,
+    has_presentable_frame: Cell<bool>,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
@@ -527,7 +526,7 @@ impl WinitWindowAdapter {
             physical_size_before_scale_factor: Cell::new(None),
             has_explicit_size: Default::default(),
             pending_resize_event_after_show: Default::default(),
-            first_frame_presented: Default::default(),
+            has_presentable_frame: Default::default(),
             renderer,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
@@ -687,7 +686,7 @@ impl WinitWindowAdapter {
 
         let winit_window =
             self.renderer.resume(active_event_loop, window_attributes, self.self_weak.clone())?;
-        self.first_frame_presented.set(false);
+        self.has_presentable_frame.set(false);
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in
@@ -927,7 +926,7 @@ impl WinitWindowAdapter {
             self.reveal_on_first_frame.take();
         }
         if matches!(outcome?, DrawOutcome::Success) {
-            self.first_frame_presented.set(true);
+            self.has_presentable_frame.set(true);
         } else {
             // Frame was skipped (e.g. surface occluded). pending_redraw was already
             // cleared above, so re-arm it so we try again.
@@ -1415,6 +1414,12 @@ impl WinitWindowAdapter {
                 let have_focus =
                     if cfg!(target_os = "macos") { winit_window.has_focus() } else { *have_focus };
                 self.activation_changed(have_focus)?;
+                #[cfg(target_os = "windows")]
+                if have_focus {
+                    WindowInner::from_pub(self.window())
+                        .context()
+                        .set_motion_preference(crate::windows_settings::motion_preference());
+                }
             }
 
             WinitWindowEvent::KeyboardInput { event, is_synthetic, .. } => {
@@ -1777,10 +1782,10 @@ impl WinitWindowAdapter {
             // Pre-render the first frame before mapping the window to avoid a flash of
             // uninitialized VRAM on X11 (no background_pixmap). Skipped on Wayland, where
             // rendering before the initial configure makes the compositor mis-size the window.
-            if !self.first_frame_presented.get() && !self.shared_backend_data.is_wayland {
+            if !self.has_presentable_frame.get() && !self.shared_backend_data.is_wayland {
                 let _ = self.draw();
                 #[cfg(target_os = "macos")]
-                if !self.first_frame_presented.get() {
+                if !self.has_presentable_frame.get() {
                     *self.reveal_on_first_frame.borrow_mut() =
                         crate::macos::RevealOnFirstFrame::new(&winit_window);
                 }
@@ -1817,7 +1822,7 @@ impl WinitWindowAdapter {
             // winit doesn't guarantee a RedrawRequested for a window shown after the event loop
             // started: on iOS the only initial one is delivered during `resumed`, and on Wayland
             // none comes when the initial configure matches the requested size and scale.
-            if !self.first_frame_presented.get() {
+            if !self.has_presentable_frame.get() {
                 self.request_redraw();
             }
 
@@ -1849,7 +1854,10 @@ impl WinitWindowAdapter {
 
             // After the window is ordered out, so that the reveal can't show it.
             #[cfg(target_os = "macos")]
-            self.reveal_on_first_frame.take();
+            {
+                self.reveal_on_first_frame.take();
+                self.has_presentable_frame.set(false);
+            }
 
             Ok(())
         }

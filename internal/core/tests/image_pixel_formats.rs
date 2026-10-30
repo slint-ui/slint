@@ -21,6 +21,7 @@ impl slint::platform::Platform for TestPlatform {
 }
 
 slint::slint! {
+    #[edition = "1.19"]
     export component TestCase inherits Window {
         in property <image> source;
         in property <brush> tint;
@@ -45,10 +46,10 @@ fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     buffer
 }
 
-#[cfg(feature = "image-pixel-format-alpha-map")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 struct LineBuffer<'a>(&'a mut [Rgb8Pixel]);
 
-#[cfg(feature = "image-pixel-format-alpha-map")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 impl slint::platform::software_renderer::LineBufferProvider for LineBuffer<'_> {
     type TargetPixel = Rgb8Pixel;
 
@@ -62,7 +63,7 @@ impl slint::platform::software_renderer::LineBufferProvider for LineBuffer<'_> {
     }
 }
 
-#[cfg(feature = "image-pixel-format-alpha-map")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 fn render_by_line(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); SIZE * SIZE];
     window.request_redraw();
@@ -113,34 +114,36 @@ fn optional_pixel_formats_render() {
         assert_eq!(*p, expected, "rgb565 mismatch at {i}");
     }
 
-    #[cfg(feature = "image-pixel-format-alpha-map")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     alpha_map_renders_in_its_color_or_the_colorize_color(&window, &ui);
 }
 
-#[cfg(feature = "image-pixel-format-alpha-map")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 fn alpha_map_renders_in_its_color_or_the_colorize_color(
     window: &MinimalSoftwareWindow,
     ui: &TestCase,
 ) {
-    let mut alpha = SharedPixelBuffer::<u8>::new(SIZE as u32, SIZE as u32);
-    for (i, p) in alpha.make_mut_slice().iter_mut().enumerate() {
-        *p = if i % 2 == 0 { 0x00 } else { 0xff };
-    }
-    let buffer = i_slint_core::graphics::SharedImageBuffer::AlphaMap {
-        alpha,
-        color: slint::Color::from_rgb_u8(0, 0xff, 0),
+    use i_slint_core::graphics::{IntRect, IntSize, StaticTexture, StaticTextures};
+    let size = IntSize::new(SIZE as u32, SIZE as u32);
+    let textures = StaticTextures {
+        size,
+        original_size: size,
+        data: (0..SIZE * SIZE).map(|i| if i % 2 == 0 { 0x00 } else { 0xff }).collect(),
+        textures: vec![StaticTexture {
+            rect: IntRect::from_size(size.cast()),
+            format: i_slint_core::graphics::TexturePixelFormat::AlphaMap,
+            color: 0xff00ff00,
+            index: 0,
+        }],
     };
-    let image = slint::Image::from(i_slint_core::graphics::ImageInner::EmbeddedImage {
-        cache_key: i_slint_core::graphics::ImageCacheKey::Invalid,
-        buffer,
-    });
-    assert!(image.to_rgb8().is_none());
+    let image =
+        slint::Image::from(i_slint_core::graphics::ImageInner::OwnedTextures(Rc::new(textures)));
     let rgba = image.to_rgba8().unwrap();
     let premultiplied = image.to_rgba8_premultiplied().unwrap();
     for (i, (p, pm)) in rgba.as_slice().iter().zip(premultiplied.as_slice()).enumerate() {
         let a = if i % 2 == 0 { 0x00 } else { 0xff };
-        assert_eq!(*p, slint::Rgba8Pixel::new(0, 0xff, 0, a), "rgba of the alpha map at {i}");
-        assert_eq!(*pm, slint::Rgba8Pixel::new(0, a, 0, a), "premultiplied alpha map at {i}");
+        assert_eq!(*p, slint::Rgba8Pixel::new(0, a, 0, a), "rgba of the alpha map at {i}");
+        assert_eq!(*pm, *p, "premultiplied alpha map at {i}");
     }
     ui.set_source(image);
     for (tint, color) in [

@@ -42,6 +42,14 @@
     "verdaccio": "6.10.7",
     "vitest": "catalog:"
   },
+  "peerDependencies": {
+    "esbuild": ">=0.20"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    }
+  },
   "engines": {
     "node": ">= 22.18"
   },

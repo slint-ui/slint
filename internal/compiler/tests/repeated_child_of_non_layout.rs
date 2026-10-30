@@ -13,17 +13,17 @@ use i_slint_compiler::project_file::SlintEdition;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 
 /// Every diagnostic compiling `source` produces, at any level.
-fn diagnostics(source: &str, repeated_children_constrain_parent: bool) -> Vec<String> {
+fn diagnostics(source: &str, edition: Option<SlintEdition>) -> Vec<String> {
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, &mut diag);
     let mut config = CompilerConfiguration::new(OutputFormat::Llr);
-    config.edition = repeated_children_constrain_parent.then_some(SlintEdition::V1_19);
+    config.edition = edition;
     let (_doc, diag, _loader) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, config));
     diag.to_string_vec()
 }
 
 fn assert_binding_loop(name: &str, source: &str) {
-    let diagnostics = diagnostics(source, true);
+    let diagnostics = diagnostics(source, Some(SlintEdition::V1_19));
     assert!(
         diagnostics.iter().any(|d| d.contains("binding loop")),
         "{name}: expected a binding loop, got {diagnostics:?}"
@@ -53,7 +53,7 @@ export component Main inherits Window {{
     }}
 }}"#
         );
-        let diagnostics = diagnostics(&source, true);
+        let diagnostics = diagnostics(&source, Some(SlintEdition::V1_19));
         assert!(diagnostics.is_empty(), "{name} reads the window width: {diagnostics:?}");
     }
 }
@@ -82,15 +82,20 @@ fn child_reading_an_enclosing_size_loops_either_way() {
     assert_binding_loop("repeated child", &child_reading_an_enclosing_size(REPEATED_CHILD));
 }
 
-/// The default, which the merge breaks: a repeated child is left out, so the same
-/// source compiles. A static child loops either way (#13972).
+/// Without an edition, or before 1.19, a repeated child is left out, so the same source
+/// compiles; the merge breaks that. A static child loops either way (#13972).
 #[test]
 fn repeated_child_is_left_out_by_default() {
-    let repeated = diagnostics(&child_reading_an_enclosing_size(REPEATED_CHILD), false);
-    assert!(repeated.is_empty(), "repeated child: {repeated:?}");
-    let static_child = diagnostics(&child_reading_an_enclosing_size(STATIC_CHILD), false);
-    assert!(
-        static_child.iter().any(|d| d.contains("binding loop")),
-        "static child: expected a binding loop, got {static_child:?}"
-    );
+    for edition in [None, Some(SlintEdition { major: 1, minor: 18 })] {
+        let repeated = diagnostics(&child_reading_an_enclosing_size(REPEATED_CHILD), edition);
+        assert!(
+            !repeated.iter().any(|d| d.contains("binding loop")),
+            "{edition:?}, repeated child: {repeated:?}"
+        );
+        let static_child = diagnostics(&child_reading_an_enclosing_size(STATIC_CHILD), edition);
+        assert!(
+            static_child.iter().any(|d| d.contains("binding loop")),
+            "{edition:?}, static child: expected a binding loop, got {static_child:?}"
+        );
+    }
 }

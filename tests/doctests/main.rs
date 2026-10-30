@@ -44,6 +44,8 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
     };
 
     let mut compiler = slint_interpreter::Compiler::default();
+    let edition = i_slint_compiler::project_file::SlintEdition::current();
+    compiler.set_edition((edition.major, edition.minor));
     compiler.set_library_paths(
         std::iter::once((
             "material".into(),
@@ -56,6 +58,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
 
     let diagnostics = result
         .diagnostics()
+        .filter(|d| d.level() != slint_interpreter::DiagnosticLevel::Info)
         .filter(|d| {
             let msg = d.message();
             // It is ok if there is no components
@@ -91,9 +94,10 @@ fn do_test_sc(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error
         Some(i_slint_compiler::source_path::SourcePath::new(path)),
         &mut diag,
     );
-    let config = i_slint_compiler::CompilerConfiguration::new(
+    let mut config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::SlintSc,
     );
+    config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
     let (doc, diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(node, diag, config));
     if diag.has_errors() {

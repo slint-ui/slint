@@ -210,15 +210,9 @@ path = [
   "examples/speedometer/needle.png",
 
   "demos/printerdemo/ui/images/action-button-frame.png",
-  "demos/printerdemo/ui/images/mcu/combo-active-background.png",
-  "demos/printerdemo/ui/images/mcu/copy-button.jpg",
   "demos/printerdemo/ui/images/mcu/place-document.jpg",
   "demos/printerdemo/ui/images/mcu/popup.jpg",
-  "demos/printerdemo/ui/images/mcu/scan-button.jpg",
-  "demos/printerdemo/ui/images/mcu/sub-action-button.jpg",
-  "demos/printerdemo/ui/images/mcu/switch-active.png",
   "demos/food-processor/ui/images/back.svg",
-  "demos/food-processor/ui/images/bubble.jpg",
   "demos/food-processor/ui/images/close.svg",
   "demos/food-processor/ui/images/duration.jpg",
   "demos/food-processor/ui/images/play.svg",
@@ -285,6 +279,8 @@ path = [
   "tests/screenshots/references/anyrender/**.json",
 
   "scripts/commit-template.txt",
+
+  "internal/live-preview/protocol/snapshots.txt",
 
   "tools/**.md",
   "tools/compiler/npm/package.json",
@@ -414,70 +410,270 @@ SPDX-FileCopyrightText = "Copyright © Spyrosoft Solutions GmbH <office@spyro-so
 SPDX-License-Identifier = "CC-BY-4.0"
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/1.jpg", "demos/food-processor/ui/images/detail/1.jpg"]
+path = "demos/food-processor/ui/images/photos/1.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/wnjV1AswsgM (Twice-Cooked Pork)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/2.jpg", "demos/food-processor/ui/images/detail/2.jpg"]
+path = "demos/food-processor/ui/images/photos/2.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/GCifViDTdq4 (Slint Burger)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/3.jpg", "demos/food-processor/ui/images/detail/3.jpg"]
+path = "demos/food-processor/ui/images/photos/3.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/oBpxQ3-vJfA (Fruit Tea)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/4.jpg", "demos/food-processor/ui/images/detail/4.jpg"]
+path = "demos/food-processor/ui/images/photos/4.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/GXFZjf6B2Hc (Linguine with Prawns)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/5.jpg", "demos/food-processor/ui/images/detail/5.jpg"]
+path = "demos/food-processor/ui/images/photos/5.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/VdetvhJ_muE (Mothers Orange Juice; the original depicts iced tea)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/6.jpg", "demos/food-processor/ui/images/detail/6.jpg"]
+path = "demos/food-processor/ui/images/photos/6.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/QWloaDwiquE (Choc Chip Cookies)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/7.jpg", "demos/food-processor/ui/images/detail/7.jpg"]
+path = "demos/food-processor/ui/images/photos/7.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/5gTixp6KwtI (Berry Porridge)."
 
 [[annotations]]
-path = ["demos/food-processor/ui/images/grid/8.jpg", "demos/food-processor/ui/images/detail/8.jpg"]
+path = "demos/food-processor/ui/images/photos/8.jpg"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Eiliv Aceron"
 SPDX-License-Identifier = "LicenseRef-Unsplash"
 SPDX-FileComment = "Cropped from https://unsplash.com/photos/joCw_0lcR7E (Pancit Palabok)."
 
 [[annotations]]
-path = [
-  "demos/food-processor/ui/images/ingredients/**.png",
-  "demos/food-processor/ui/images/ingredients/generation.json",
-]
+path = "demos/food-processor/ui/images/photos/9.jpg"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
-SPDX-License-Identifier = "MIT"
-SPDX-FileComment = "Generated with OpenAI imagegen from text-only prompts. No reference images were used. See generation.json."
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/NnIWIPdxbPg (Rainbow Veggie Bowl)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/photos/10.jpg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/pNuCNvigfkc (Pork Belly Ramen)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/photos/11.jpg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/sFDZXxTX2-c (Crispy Fries)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/photos/12.jpg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Eiliv Aceron"
+SPDX-License-Identifier = "LicenseRef-Unsplash"
+SPDX-FileComment = "Cropped from https://unsplash.com/photos/tGpBPnc3ZoA (Eggs Florentine)."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/asparagus.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Delapouite"
+SPDX-License-Identifier = "CC-BY-3.0"
+SPDX-FileComment = "https://game-icons.net/1x1/delapouite/asparagus.html. Recolored green. Optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/avocado.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f951.svg. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/bacon.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/bacon.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/beans.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1fad8.svg. Recolored green for edamame. Optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/butter.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f9c8.svg. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/carrots.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/carrot.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/cucumber.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/cucumber.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/egg.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/egg_plain.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/garlic.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: spice/garlic.svg in https://opengameart.org/sites/default/files/spice.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/lemon.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/lemon.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/lime.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/lemon.svg in https://opengameart.org/sites/default/files/food_0.7z. Rind recolored green. Optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/mango.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f96d.svg. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/muffin.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/bun.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/mushrooms.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/mushroom.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/noodles.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/plain_noodles.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/oil.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/sesame_oil.svg in https://opengameart.org/sites/default/files/food_0.7z. ViewBox trimmed. Optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/olive-oil.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/olive_oil.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/onion.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/onion.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/paprika.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: spice/hot_pepper.svg in https://opengameart.org/sites/default/files/spice.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/pork.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/meat.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/potato.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/potato.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/rice.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/rice.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/salt.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f9c2.svg. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/spinach.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/spinach.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/stock.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2013 Tiny Speck, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "Glitch artwork: https://github.com/tinyspeck/glitch-items. SVG source: food/stock_sauce.svg in https://opengameart.org/sites/default/files/food_0.7z. Artwork unchanged; optimized with svgo."
+
+[[annotations]]
+path = "demos/food-processor/ui/images/ingredients/yogurt.svg"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Twitter, Inc. and other contributors"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "Twemoji 14.0.2: https://github.com/twitter/twemoji/blob/v14.0.2/assets/svg/1f963.svg. Bowl contents recolored for yogurt. Optimized with svgo."
 
 [[annotations]]
 path = "demos/weather-demo/ui/assets/weathericons-font.ttf"
@@ -542,6 +738,8 @@ path = [
   "tools/editor/ui/assets/lucide/check.svg",
   "tools/editor/ui/assets/lucide/chevron-down.svg",
   "tools/editor/ui/assets/lucide/monitor.svg",
+  "tools/editor/ui/assets/lucide/move.svg",
+  "tools/editor/ui/assets/lucide/plus.svg",
   "tools/editor/ui/assets/lucide/smartphone.svg",
   "tools/editor/ui/assets/lucide/square.svg",
   "tools/editor/ui/assets/lucide/square-filled.svg",

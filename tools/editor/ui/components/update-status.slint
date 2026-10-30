@@ -106,7 +106,6 @@ export component UpdateStatusPill inherits Rectangle {
 
     TouchArea {
         enabled: UpdateStatus.clickable();
-        mouse-cursor: UpdateStatus.clickable() ? pointer : default;
         clicked => {
             Api.check-for-update();
         }
@@ -154,7 +153,6 @@ export component UpdateStatusBar inherits Rectangle {
 
             TouchArea {
                 enabled: UpdateStatus.clickable();
-                mouse-cursor: UpdateStatus.clickable() ? pointer : default;
                 clicked => {
                     Api.check-for-update();
                 }

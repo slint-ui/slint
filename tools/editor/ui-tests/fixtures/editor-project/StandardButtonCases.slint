@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StandardButton } from "std-widgets.slint";
+
+export component StandardButtonCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    default-standard-button := StandardButton {
+        x: 32px;
+        y: 32px;
+    }
+
+    cancel-standard-button := StandardButton {
+        x: 32px;
+        y: 96px;
+        kind: cancel;
+    }
+}

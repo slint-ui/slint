@@ -72,9 +72,10 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
                 let slint = slintlib.loadFile(String.raw`{path}`);
         "#,
         slintpath = slintpath.to_string_lossy(),
-        path = testcase.absolute_path.to_string_lossy()
+        path = dir.path().to_string_lossy()
     )?;
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
+    test_driver_lib::write_project_file(dir.path(), &testcase.absolute_path, &source)?;
     let include_paths = test_driver_lib::extract_include_paths(&source);
     let library_paths = test_driver_lib::extract_library_paths(&source)
         .map(|(k, v)| {
@@ -94,8 +95,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
         .env("SLINT_LIBRARY_PATH", std::env::join_paths(library_paths).unwrap())
         .env("SLINT_SCALE_FACTOR", "1") // We don't have a testing backend, but we can try to force a SF1 as the tests expect.
-        .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
-        .env("SLINT_EDITION", env!("SLINT_EDITION"))
+        .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", test_driver_lib::ALL_EXPERIMENTAL_FEATURES)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()

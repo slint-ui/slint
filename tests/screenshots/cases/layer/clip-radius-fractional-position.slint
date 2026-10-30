@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A clip with a radius at a fractional position, like a context menu opened at the
+// fractional pointer position Wayland reports.
+// The text must stay as sharp as the unclipped reference below it.
+//
+// Skia is excluded because its font rendering varies across platforms.
+//ignore:skia
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: black;
+
+    Rectangle {
+        x: 4.25px;
+        y: 4.25px;
+        width: 56px;
+        height: 26px;
+        background: #333;
+        border-radius: 6px;
+        clip: true;
+        Text {
+            x: 4px;
+            y: 4px;
+            text: "Menu";
+            color: white;
+        }
+    }
+
+    Text {
+        x: 8.25px;
+        y: 38.25px;
+        text: "Menu";
+        color: white;
+    }
+}

@@ -52,10 +52,12 @@ pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
 mod outline;
+mod project_file;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 pub(crate) mod settings;
+mod snapping;
 #[cfg(feature = "system-testing")]
 mod test_sync;
 pub mod ui;
@@ -106,6 +108,7 @@ pub fn initialize(
     editor_ui.on_inspector_pane_reset(reset_pane(PaneSize::InspectorWidth));
     editor_ui.on_elements_pane_reset(reset_pane(PaneSize::ElementsHeight));
     editor_ui.on_outline_pane_reset(reset_pane(PaneSize::OutlineHeight));
+    project_file::setup(editor_ui);
 
     to_lsp
         .send_telemetry(&mut [(
@@ -374,7 +377,7 @@ impl PreviewState {
             api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
             api.set_inspector_fill_refresh_pending(false);
-            ui::ui_set_known_components(&api, &[], usize::MAX);
+            ui::ui_set_project_components(&api, &[]);
             ui::ui_set_preview_data(&api, Default::default(), None);
             outline::reset_outline(&api, None);
         }
@@ -457,6 +460,7 @@ fn delete_document(url: &lsp_types::Url) {
         )
     });
 
+    project_file::refresh(url);
     if let Some(current) = current
         && (&current.url == url || url_is_used)
     {
@@ -490,6 +494,7 @@ fn reset_project_state(root: Option<Url>) {
         state.project_generation = state.project_generation.wrapping_add(1);
         (state.api.upgrade(), state.editor_ui.as_ref().map(|editor_ui| editor_ui.clone_strong()))
     });
+    project_file::reset();
     inline_text_edit::refresh();
     inline_text_edit::notify_finished(false);
 
@@ -532,6 +537,7 @@ pub fn set_user_settings(name: String, contents: String) {
             }
             preview_state.settings = settings;
         });
+        project_file::reload_settings();
     }
 }
 
@@ -606,8 +612,17 @@ fn record_current_project() {
     }
     let Some(component_name) = component.component else { return };
     let Ok(url) = Url::from_file_path(path) else { return };
-    let project =
-        Project { root, preview: PreviewComponent { url, component: Some(component_name) } };
+    let selected_canvas_preset = PREVIEW_STATE.with_borrow(|state| {
+        state
+            .editor_ui
+            .as_ref()
+            .map_or(0, |editor| editor.global::<ui::Project>().get_selected_canvas_preset())
+    });
+    let project = Project {
+        root,
+        preview: PreviewComponent { url, component: Some(component_name) },
+        selected_canvas_preset,
+    };
     let update = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.settings.add_recent_project(project) {
             return None;
@@ -722,6 +737,7 @@ fn set_contents(url: &VersionedUrl, content: String) {
         let reload = (dependency && changed).then(|| preview_state.current_component()).flatten();
         (reload, invalidate)
     });
+    project_file::refresh(url.url());
     if invalidate {
         inspector::invalidate();
     }
@@ -1198,14 +1214,22 @@ enum DragItem {
     /// An existing element instance to be moved.
     MoveElementInstance { uri: SharedString, offset: u32 },
     /// A new component from the palette to be instantiated.
-    NewComponent { kind: ui::ElementKind, type_name: &'static str },
+    NewComponent { kind: ui::ElementKind, type_name: SharedString, source_uri: SharedString },
 }
 
-fn new_component_data(type_name: SharedString) -> DataTransfer {
-    let Some(entry) = element_catalog::entry(&type_name) else {
-        return Default::default();
+fn new_component_data(type_name: SharedString, source_uri: SharedString) -> DataTransfer {
+    let (kind, type_name) = if source_uri.is_empty() {
+        let Some(entry) = element_catalog::entry(&type_name) else {
+            return Default::default();
+        };
+        (entry.kind, entry.type_name.into())
+    } else {
+        if palette_component(&type_name, &source_uri).is_none() {
+            return Default::default();
+        }
+        (ui::ElementKind::Component, type_name)
     };
-    DragItem::NewComponent { kind: entry.kind, type_name: entry.type_name }.into()
+    DragItem::NewComponent { kind, type_name, source_uri }.into()
 }
 
 /// Tried to convert a [`DataTransfer`] to a `DragItem`, but the data transfer's user data
@@ -1239,7 +1263,7 @@ impl From<DragItem> for DataTransfer {
 }
 
 fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
-    let Ok(DragItem::NewComponent { type_name, .. }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { type_name, source_uri, .. }) = data.try_into() else {
         return false;
     };
 
@@ -1254,27 +1278,37 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(type_name) else {
+    let Some(component) = palette_component(&type_name, &source_uri) else {
         return false;
     };
 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn palette_component(type_name: &str) -> Option<ComponentInformation> {
+fn palette_component(type_name: &str, source_uri: &str) -> Option<ComponentInformation> {
     PREVIEW_STATE.with_borrow(|preview_state| {
         preview_state
             .known_components
             .iter()
             .find(|component| {
-                component.name == type_name && (component.is_builtin || component.is_std_widget)
+                component.name == type_name
+                    && !component.is_global
+                    && !component.is_interface
+                    && if source_uri.is_empty() {
+                        component.is_builtin || component.is_std_widget
+                    } else {
+                        component
+                            .defined_at
+                            .as_ref()
+                            .is_some_and(|position| position.url().as_str() == source_uri)
+                    }
             })
             .cloned()
     })
 }
 
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
-    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name, source_uri }) = data.try_into() else {
         return;
     };
 
@@ -1284,7 +1318,7 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = palette_component(type_name) else {
+    let Some(component) = palette_component(&type_name, &source_uri) else {
         return;
     };
 
@@ -1302,7 +1336,7 @@ fn drop_component_with_geometry(
     position: LogicalPosition,
     size: LogicalSize,
 ) {
-    let Ok(DragItem::NewComponent { kind, type_name }) = data.try_into() else {
+    let Ok(DragItem::NewComponent { kind, type_name, source_uri }) = data.try_into() else {
         return;
     };
 
@@ -1316,7 +1350,7 @@ fn drop_component_with_geometry(
         CoreLogicalSize::new(size.width, size.height),
     );
 
-    let Some(component) = palette_component(type_name) else {
+    let Some(component) = palette_component(&type_name, &source_uri) else {
         return;
     };
 
@@ -1391,6 +1425,39 @@ fn delete_selected_element() {
     );
 
     send_workspace_edit("Delete element".to_string(), edit, true);
+}
+
+fn wrap_selected_element_in_layout(layout: SharedString) {
+    let Some(selected) = selected_element() else {
+        return;
+    };
+    let Some(selected_node) = selected.as_element_node() else {
+        return;
+    };
+    let Some(document_cache) = document_cache() else { return };
+
+    let import_file =
+        get_component_info(&layout).and_then(|info| info.import_file_name(&selected.path.to_url()));
+    let Some((edit, drop_data)) = drop_location::create_wrap_in_layout_workspace_edit(
+        &document_cache,
+        &selected_node,
+        &layout,
+        &import_file,
+    ) else {
+        return;
+    };
+
+    if send_workspace_edit(format!("Wrap in {layout}"), edit, true) {
+        set_selected_element(
+            Some(ElementSelection {
+                path: drop_data.path,
+                offset: drop_data.selection_offset,
+                instance_index: 0,
+                editing_text: false,
+            }),
+            SelectionNotification::AfterUpdate,
+        );
+    }
 }
 
 fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
@@ -1537,17 +1604,51 @@ fn override_selected_element_rotation_impl(
     Some(new_rotation)
 }
 
-fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
-    let Some(element_selection) = &selected_element() else { return };
-    let Some(element_node) = element_selection.as_element_node() else { return };
-    override_selected_element_geometry_impl(
-        &element_node,
-        element_selection.instance_index,
-        x,
-        y,
-        width,
-        height,
-    );
+fn geometry_result(geometry: Option<LogicalRect>) -> ui::GeometryResult {
+    let Some(geometry) = geometry else { return ui::GeometryResult::default() };
+    ui::GeometryResult {
+        valid: true,
+        geometry: ui::Geometry {
+            x: geometry.origin.x,
+            y: geometry.origin.y,
+            width: geometry.width(),
+            height: geometry.height(),
+        },
+    }
+}
+
+fn root_geometry_to_parent_geometry(geometry: ui::Geometry) -> ui::GeometryResult {
+    geometry_result((|| {
+        let element_selection = selected_element()?;
+        let element_node = element_selection.as_element_node()?;
+        let component_instance = component_instance()?;
+        let current_geometry = element_node.geometries(&component_instance);
+        let current_geometry = current_geometry.get(element_selection.instance_index)?;
+        parent_relative_rect(
+            current_geometry,
+            LogicalPoint::new(geometry.x, geometry.y),
+            CoreLogicalSize::new(geometry.width, geometry.height),
+        )
+    })())
+}
+
+fn override_selected_element_geometry(
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    coordinate_space: ui::CoordinateSpace,
+) -> ui::GeometryResult {
+    geometry_result((|| {
+        let element_selection = selected_element()?;
+        let element_node = element_selection.as_element_node()?;
+        override_selected_element_geometry_impl(
+            &element_node,
+            element_selection.instance_index,
+            LogicalRect::new(LogicalPoint::new(x, y), CoreLogicalSize::new(width, height)),
+            coordinate_space,
+        )
+    })())
 }
 
 /// Maps the selection frame's root-space rectangle back into the element's parent coordinate
@@ -1595,57 +1696,50 @@ fn parent_relative_rect(
 fn override_selected_element_geometry_impl(
     element_node: &ElementRcNode,
     instance_index: usize,
-    x: f32,
-    y: f32,
-    width: f32,
-    height: f32,
-) {
-    tracing::trace!(
-        "Setting geometry preview x: {}, y: {}, width: {}, height: {}",
-        x,
-        y,
-        width,
-        height
-    );
-    let Some(component_instance) = component_instance() else { return };
+    rect: LogicalRect,
+    coordinate_space: ui::CoordinateSpace,
+) -> Option<LogicalRect> {
+    tracing::trace!("Setting geometry preview: {rect:?} in {coordinate_space:?}");
+    let component_instance = component_instance()?;
 
     let element_hash = element_node
         .element
         .borrow()
         .debug
         .get(element_node.debug_index)
-        .map(|d| d.element_hash)
+        .map(|debug| debug.element_hash)
         .unwrap_or(0);
     if element_hash == 0 {
         tracing::debug!("Element does not have a hash, cannot override geometry");
-        return;
+        return None;
     }
 
     // The parent frame rides along on the selected instance's geometry, so we don't have to
     // guess which parent instance contains the dragged point (which breaks once the element is
     // dragged outside of its parent).
-    let Some(geometry) = element_node.geometries(&component_instance).get(instance_index).cloned()
-    else {
-        tracing::debug!("Selected element does not have geometry, refusing to override");
-        return;
-    };
-    let Some(new_rect) = parent_relative_rect(
-        &geometry,
-        LogicalPoint::new(x, y),
-        CoreLogicalSize::new(width, height),
-    ) else {
+    let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?;
+    if !geometry.renders_as_rectangle {
         tracing::debug!("Refusing to override geometry of a sheared element");
-        return;
+        return None;
+    }
+    let (new_rect, current_rect) = match coordinate_space {
+        ui::CoordinateSpace::Root => {
+            let new_rect = parent_relative_rect(&geometry, rect.origin, rect.size)?;
+            let round_geometry = |rect: LogicalRect| {
+                LogicalRect::new(
+                    LogicalPoint::new(rect.origin.x.round(), rect.origin.y.round()),
+                    CoreLogicalSize::new(rect.width().round(), rect.height().round()),
+                )
+            };
+            (round_geometry(new_rect), geometry.local_rect)
+        }
+        ui::CoordinateSpace::Parent => (rect, geometry.local_rect),
     };
-    let current_rect = geometry.local_rect;
-
-    // Round to match the values written on release by resize_selected_element_impl,
-    // so the element does not jump by a sub-pixel amount when the drag is committed.
     let values = [
-        ("x", new_rect.origin.x.round() as f64, current_rect.origin.x.round() as f64),
-        ("y", new_rect.origin.y.round() as f64, current_rect.origin.y.round() as f64),
-        ("width", new_rect.width().round() as f64, current_rect.width().round() as f64),
-        ("height", new_rect.height().round() as f64, current_rect.height().round() as f64),
+        ("x", new_rect.origin.x as f64, current_rect.origin.x as f64),
+        ("y", new_rect.origin.y as f64, current_rect.origin.y as f64),
+        ("width", new_rect.width() as f64, current_rect.width() as f64),
+        ("height", new_rect.height() as f64, current_rect.height() as f64),
     ];
     let values = values
         .into_iter()
@@ -1655,20 +1749,23 @@ fn override_selected_element_geometry_impl(
         .collect::<Vec<_>>();
 
     PREVIEW_STATE.with_borrow(|preview_state| {
-        let m = (*preview_state.debug_hook_overrides).borrow();
-        for (name, value) in values {
-            let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
-            let Some(property_override) = m.get(&id) else {
-                tracing::debug!(
-                    "Property debug hook {name} does not exist, cannot override geometry",
-                );
-                return;
-            };
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+        let property_overrides = values
+            .into_iter()
+            .map(|(name, value)| {
+                let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+                let property_override = overrides.get(&id)?;
+                Some((property_override, value))
+            })
+            .collect::<Option<Vec<_>>>()?;
+        for (property_override, value) in property_overrides {
             (**property_override).set(Some(slint_interpreter::Value::Number(value)));
         }
-    });
+        Some(())
+    })?;
 
     component_instance.window().request_redraw();
+    element_node.geometries(&component_instance).get(instance_index).map(|geometry| geometry.rect)
 }
 
 fn override_selected_element_border_radius(
@@ -1831,11 +1928,9 @@ fn resize_selected_element_impl(
     override_selected_element_geometry_impl(
         element_node,
         instance_index,
-        rect.origin.x,
-        rect.origin.y,
-        rect.width(),
-        rect.height(),
-    );
+        rect,
+        ui::CoordinateSpace::Root,
+    )?;
 
     persist_selected_element_geometry_impl(element_node)
 }
@@ -1916,10 +2011,28 @@ enum CompilationResult {
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let _ = slint::invoke_from_event_loop(move || {
+        project_file::workspace_edit_finished(&edit, applied);
         if !inline_text_edit::workspace_edit_finished(&edit, applied) {
             inspector::workspace_edit_finished(edit, applied);
         }
     });
+}
+
+fn workspace_edit_source_file(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    source_code: &SourceCodeCache,
+    url: &lsp_types::Url,
+) -> Option<i_slint_compiler::diagnostics::SourceFile> {
+    let path = SourcePath::from_url(url);
+    if path.as_native_path().is_some_and(i_slint_compiler::project_file::is_project_file) {
+        let source = source_code.get(url)?;
+        Some(std::sync::Arc::new(i_slint_compiler::diagnostics::SourceFileInner::new(
+            path,
+            source.code.clone(),
+        )))
+    } else {
+        Some(document_cache.get_document(url)?.node.as_ref()?.source_file.clone())
+    }
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
@@ -1935,9 +2048,12 @@ fn submit_workspace_edit(
     let Some(document_cache) = document_cache() else {
         return false;
     };
-    let Ok(result) = text_edit::apply_workspace_edit(&document_cache, &edit) else {
-        return false;
-    };
+    let result = PREVIEW_STATE.with_borrow(|state| {
+        text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |url| {
+            workspace_edit_source_file(&document_cache, &state.source_code, url)
+        })
+    });
+    let Ok(result) = result else { return false };
     let fill_refresh = if let Some(fill) = fill.clone() {
         let [expected] = result.as_slice() else { return false };
         let unchanged = PREVIEW_STATE.with_borrow(|state| {
@@ -1971,7 +2087,11 @@ fn submit_workspace_edit(
         }
     }
 
-    let reverse_edit = text_edit::reversed_edit(&document_cache, &edit);
+    let reverse_edit = PREVIEW_STATE.with_borrow(|state| {
+        text_edit::reversed_edit_with_source(&edit, document_cache.format, |url| {
+            workspace_edit_source_file(&document_cache, &state.source_code, url)
+        })
+    });
 
     let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
@@ -2111,18 +2231,6 @@ fn previewed_component_changed() {
             component_catalog::file_local_components(&document_cache, &url, &mut components);
         }
 
-        let index = if let Some(component) = preview_component.as_ref() {
-            components
-                .iter()
-                .position(|ci| {
-                    &ci.name == component
-                        && ci.defined_at.as_ref().map(|da| da.url()) == Some(&previewed_url)
-                })
-                .unwrap_or(usize::MAX)
-        } else {
-            usize::MAX
-        };
-
         apply_live_preview_data();
 
         PREVIEW_STATE.with_borrow_mut(|preview_state| {
@@ -2147,7 +2255,7 @@ fn previewed_component_changed() {
                     ui::palette::set_palette(&api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
-                ui::ui_set_known_components(&api, &preview_state.known_components, index);
+                ui::ui_set_project_components(&api, &preview_state.known_components);
                 let component = document_cache.get_document(&previewed_url).and_then(|doc| {
                     match preview_component.as_ref() {
                         Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
@@ -2462,17 +2570,9 @@ async fn parse_source(
     let named_component = component.is_some();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
-    cc.components_to_generate = if let Some(name) = component {
-        i_slint_compiler::ComponentSelection::Named(name)
-    } else {
-        i_slint_compiler::ComponentSelection::LastExported
-    };
+    i_slint_editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
-    cc.no_native_menu = true;
-    // Otherwise this may cause a runtime panic because of the recursion
-    cc.error_on_binding_loop_with_window_layout = true;
-    cc.is_preview = true;
     cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
@@ -2790,33 +2890,20 @@ fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &i_slint_editor_preview::document_cache::SourceFileVersionMap,
 ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
-    let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
-        Default::default();
-
-    // Pre-fill version info and an empty diagnostics to reset the state for the url
-    for (path, version) in file_versions.iter() {
-        result.extend(path.to_url().map(|url| (url, (*version, Vec::new()))));
-    }
-
     PREVIEW_STATE.with_borrow(|preview_state| {
-        for d in diagnostics {
-            let Some(uri) = i_slint_live_preview::protocol::diagnostic_url(d) else {
-                continue;
-            };
-            let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
-            if let Some(data) = result.get_mut(&uri) {
-                if data.0.is_some() && new_version.is_some() && data.0 != new_version {
-                    continue;
-                }
-                data.1.push(i_slint_live_preview::protocol::to_lsp_diagnostic(
-                    d,
-                    preview_state.format(),
-                ));
+        let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
+            diagnostics,
+            file_versions.iter().filter_map(|(path, version)| Some((path.to_url()?, *version))),
+            preview_state.format(),
+        );
+        for (url, (version, file_diagnostics)) in &mut result {
+            let new_version = preview_state.source_code.get(url).and_then(|e| e.version);
+            if version.is_some() && new_version.is_some() && *version != new_version {
+                file_diagnostics.clear();
             }
         }
-    });
-
-    result
+        result
+    })
 }
 
 fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
@@ -2899,6 +2986,7 @@ fn set_selected_element(
                 is_interactive,
                 is_moveable: !is_in_layout && !is_root,
                 is_resizable: !is_in_layout && !is_layout,
+                is_wrappable: !is_root,
             });
 
             if let Some(document_cache) = document_cache_from(preview_state)
@@ -3125,6 +3213,17 @@ pub mod test {
 
     use i_slint_editor_preview::test::main_test_file_name;
 
+    /// Cargo exports the `SLINT_ENABLE_EXPERIMENTAL_FEATURES` from `build.rs` to the tests too,
+    /// so every compilation reports the enabled experimental features in an info diagnostic.
+    pub fn without_info(
+        diagnostics: Vec<super::diagnostics::Diagnostic>,
+    ) -> Vec<super::diagnostics::Diagnostic> {
+        diagnostics
+            .into_iter()
+            .filter(|d| d.level() != super::diagnostics::DiagnosticLevel::Info)
+            .collect()
+    }
+
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
@@ -3164,6 +3263,7 @@ pub mod test {
                 })
             },
         ));
+        let diagnostics = without_info(diagnostics);
 
         assert!(diagnostics.is_empty());
 
@@ -3232,6 +3332,7 @@ mod tests {
                     })
                 },
             ));
+            let diagnostics = test::without_info(diagnostics);
             assert!(diagnostics.is_empty(), "{diagnostics:?}");
             PREVIEW_STATE.with_borrow_mut(|state| {
                 assert_ne!(state.current_component(), Some(original.clone()));
@@ -3276,7 +3377,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"slint-edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
+            r#"{"edition":"1.19","library-paths":{"widgets":"shared.slint"}}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -3290,7 +3391,7 @@ mod tests {
                 nested_manifest.to_url().unwrap(),
                 SourceCodeCacheEntry {
                     version: Some(1),
-                    code: r#"{"slint-edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
+                    code: r#"{"edition":"1.19","library-paths":{"widgets":"missing.slint"}}"#
                         .into(),
                 },
             );
@@ -3306,11 +3407,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"slint-edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
+                    r#"{"edition":"1.19","main":"other.slint","library-paths":{"widgets":"shared.slint"}}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
             (Some("{"), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
@@ -3332,6 +3433,7 @@ mod tests {
                 None,
                 |path| Box::pin(async move { Some(get_path_from_cache(&path)) }),
             ));
+            let diagnostics = test::without_info(diagnostics);
             assert_eq!(!diagnostics.is_empty(), has_errors, "{diagnostics:?}");
             assert_eq!(compiled.is_some(), !has_errors);
         }
@@ -3360,7 +3462,7 @@ mod tests {
             });
             state.document_cache.replace(Some(Rc::new(cache)));
             for (url, source) in [
-                (manifest.clone(), r#"{"slint-edition":"1.19"}"#),
+                (manifest.clone(), r#"{"edition":"1.19"}"#),
                 (extra.clone(), "export component Extra {}"),
             ] {
                 state
@@ -3430,8 +3532,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),
@@ -3454,7 +3556,7 @@ mod tests {
         reset_preview_state(Default::default());
     }
 
-    fn availability_test_editor() -> ui::EditorUi {
+    pub(super) fn availability_test_editor() -> ui::EditorUi {
         i_slint_backend_testing::init_no_event_loop();
         reset_preview_state(Default::default());
         let editor = ui::create_ui().unwrap();
@@ -3471,7 +3573,11 @@ mod tests {
         editor
     }
 
-    fn apply_availability_test_source(editor: &ui::EditorUi, source: &str, source_available: bool) {
+    pub(super) fn apply_availability_test_source(
+        editor: &ui::EditorUi,
+        source: &str,
+        source_available: bool,
+    ) {
         let requested = PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap());
         let path = SourcePath::from_url(&requested.url);
         if source_available {
@@ -3482,7 +3588,7 @@ mod tests {
                 );
             });
         }
-        let (mut diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
+        let (diagnostics, compiled, open_import_callback, source_file_versions, no_component) =
             spin_on::spin_on(parse_source(
                 Default::default(),
                 path,
@@ -3492,6 +3598,7 @@ mod tests {
                 requested.component.clone(),
                 |_| Box::pin(async { Some(Err(std::io::ErrorKind::NotFound.into())) }),
             ));
+        let mut diagnostics = test::without_info(diagnostics);
         let loaded_component_name = compiled.as_ref().map(|compiled| compiled.name().to_string());
         ui::diagnostics::set_compilation_diagnostics(
             &mut diagnostics,
@@ -3793,6 +3900,80 @@ mod tests {
             "Replacement preview",
         );
         assert_eq!(global.get_entries().row_count(), 1);
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn project_workspace_edits_use_raw_cache_and_undo_callbacks() {
+        let editor = availability_test_editor();
+        apply_availability_test_source(
+            &editor,
+            "export component Main inherits Rectangle {}",
+            true,
+        );
+        undo_redo::setup(&editor.global::<ui::Api>());
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("slint-project.json");
+        let url = Url::from_file_path(&path).unwrap();
+        let original = r#"{"edition":"1.19","main":"main.slint",/* keep */"metadata":{"visual-editor":{"old":"🦊"}}}"#;
+        std::fs::write(&path, original).unwrap();
+        set_contents(&VersionedUrl::new(url.clone(), Some(1)), original.into());
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state.to_lsp.borrow_mut() =
+                Some(Rc::new(CapturePreviewToLsp { messages: messages.clone() }));
+        });
+        let document_cache = document_cache().unwrap();
+        let source_file = PREVIEW_STATE.with_borrow(|state| {
+            workspace_edit_source_file(&document_cache, &state.source_code, &url).unwrap()
+        });
+        let edit = project_file::update_canvas_presets_edit(
+            &source_file,
+            Some(1),
+            &[project_file::CanvasPreset { width: 720, height: 1280 }],
+            document_cache.format,
+        )
+        .unwrap();
+        assert!(send_workspace_edit("Canvas presets".into(), edit.clone(), true));
+        assert!(!send_workspace_edit("Successive presets".into(), edit.clone(), true));
+        let result =
+            text_edit::apply_workspace_edit_with_source(&edit, document_cache.format, |_| {
+                Some(source_file.clone())
+            })
+            .unwrap();
+        let expected = result[0].contents.clone();
+        std::fs::write(&path, &expected).unwrap();
+        set_contents(&VersionedUrl::new(url.clone(), Some(2)), expected.clone());
+        preview_instance_ready();
+        messages.as_ref().borrow_mut().clear();
+        for (redo, expected_source) in [(false, original), (true, expected.as_str())] {
+            if redo {
+                editor.global::<ui::Api>().invoke_redo();
+            } else {
+                editor.global::<ui::Api>().invoke_undo();
+            }
+            let messages = std::mem::take(&mut *messages.as_ref().borrow_mut());
+            let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = messages.as_slice() else {
+                panic!("Missing history edit");
+            };
+            let result = PREVIEW_STATE
+                .with_borrow(|state| {
+                    text_edit::apply_workspace_edit_with_source(
+                        edit,
+                        document_cache.format,
+                        |url| workspace_edit_source_file(&document_cache, &state.source_code, url),
+                    )
+                })
+                .unwrap();
+            assert_eq!(result[0].contents, expected_source);
+            std::fs::write(&path, expected_source).unwrap();
+            set_contents(&VersionedUrl::new(url.clone(), None), expected_source.into());
+            preview_instance_ready();
+        }
+        std::fs::write(&path, "{}").unwrap();
+        editor.global::<ui::Api>().invoke_undo();
+        assert!(messages.borrow().is_empty());
+        assert!(!editor.global::<ui::Api>().get_undo_enabled());
         reset_preview_state(Default::default());
     }
 
@@ -4385,10 +4566,11 @@ export component Main {
         override_selected_element_geometry_impl(
             &node,
             0,
-            before.rect.origin.x + 10.,
-            before.rect.origin.y,
-            before.rect.width(),
-            before.rect.height(),
+            LogicalRect::new(
+                LogicalPoint::new(before.rect.origin.x + 10., before.rect.origin.y),
+                before.rect.size,
+            ),
+            ui::CoordinateSpace::Root,
         );
         let overridden = geometry_of(&instance, "inner");
         assert_ne!(overridden.local_rect, before.local_rect);
@@ -4512,10 +4694,11 @@ export component Main {
         override_selected_element_geometry_impl(
             &element_node_of(&instance, "inner"),
             0,
-            before.rect.origin.x + 10.,
-            before.rect.origin.y,
-            before.local_rect.width(),
-            before.local_rect.height(),
+            LogicalRect::new(
+                LogicalPoint::new(before.rect.origin.x + 10., before.rect.origin.y),
+                before.local_rect.size,
+            ),
+            ui::CoordinateSpace::Root,
         );
 
         let after = geometry_of(&instance, "inner");

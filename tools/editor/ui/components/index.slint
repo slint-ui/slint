@@ -4,6 +4,7 @@
 import { Style, PaintStyle, Metrics, Colors, Typography, Motion, FieldStyle, SidebarToggleStyle, PaletteRowStyle } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
 import { ElementVisuals } from "element-presentation.slint";
+import { Project } from "../project.slint";
 import { Api, CanvasCorner, ElementKind } from "../api.slint";
 
 export global EditorIcons {
@@ -19,6 +20,7 @@ export global EditorCursors {
     pure callback rotation-image(angle) -> image;
     pure callback resize-image(angle) -> image;
     pure callback scrub-horizontal-image() -> image;
+    scrub-horizontal-image => { return @image-url("../assets/cursors/scrub-horizontal.svg"); }
     out property <MouseCursor> canvas-default: MouseCursor.custom(
         @image-url("../assets/cursors/default-32.png"),
         14,
@@ -37,8 +39,8 @@ export global EditorAngles {
 }
 
 export global PreviewMetrics {
-    out property <length> canvas-width: 390px;
-    out property <length> canvas-height: 720px;
+    out property <length> canvas-width: Project.canvas-size.width + 2 * Style.artboard.padding;
+    out property <length> canvas-height: Project.canvas-size.height + 2 * Style.artboard.padding;
 }
 
 export global EditorWindow {
@@ -261,7 +263,6 @@ export component SidebarToggleButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
         clicked => {
             root.clicked();
         }
@@ -272,6 +273,7 @@ export component ComponentPaletteRow inherits Rectangle {
     in property <PaletteRowStyle> style: Style.palette-row;
     in property <ElementKind> kind;
     in property <string> label;
+    in property <string> source-uri;
     in property <bool> enabled: true;
     in property <bool> drag-enabled: true;
     callback drag-started();
@@ -323,7 +325,7 @@ export component ComponentPaletteRow inherits Rectangle {
 
     dragger := DragArea {
         enabled: root.enabled && root.drag-enabled && !AppState.palette-drag-cancelled;
-        data: Api.new-component-data(root.label);
+        data: Api.new-component-data(root.label, root.source-uri);
         allow-copy: true;
 
         changed dragging => {
@@ -339,7 +341,6 @@ export component ComponentPaletteRow inherits Rectangle {
 
         touch := TouchArea {
             enabled: root.enabled && root.drag-enabled;
-            mouse-cursor: self.enabled ? pointer : default;
         }
     }
 }

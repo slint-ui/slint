@@ -5,10 +5,11 @@
 #![cfg(target_arch = "wasm32")]
 
 use std::cell::RefCell;
-use std::path::Path;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+use i_slint_compiler::project_file::SlintEdition;
+use i_slint_compiler::source_path::SourcePath;
 use slint_interpreter::ComponentHandle;
 
 #[wasm_bindgen]
@@ -37,7 +38,7 @@ impl CompilationResult {
 
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type ImportCallbackFunction = (url: string) => Promise<string>;
+type ImportCallbackFunction = (url: string) => Promise<string | null>;
 type ResourceLoaderFunction = (url: string) => Promise<Uint8Array>;
 type CurrentElementInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
@@ -60,15 +61,22 @@ extern "C" {
 ///
 /// Returns a promise to a compiled component which can be run with ".run()"
 ///
-/// `optional_import_callback` returns the source of an imported `.slint` file.
+/// `optional_import_callback` returns the source of an imported `.slint` file,
+/// or `null` if the file doesn't exist, so that the search continues in the next include path.
 /// `optional_resource_loader` returns the bytes of an imported font file.
 /// Without it, the interpreter fetches the font from its URL.
+/// `optional_project_root` is the URL of the directory with the `slint-project.json` to apply.
+/// The interpreter reads that file through `optional_import_callback`.
+///
+/// It compiles with the edition of its own release.
+/// Use [`compile_from_string_with_style`] to select another edition.
 #[wasm_bindgen]
 pub async fn compile_from_string(
     source: String,
     base_url: String,
     optional_import_callback: Option<ImportCallbackFunction>,
     optional_resource_loader: Option<ResourceLoaderFunction>,
+    optional_project_root: Option<String>,
 ) -> Result<CompilationResult, JsValue> {
     compile_from_string_with_style(
         source,
@@ -76,11 +84,18 @@ pub async fn compile_from_string(
         String::new(),
         optional_import_callback,
         optional_resource_loader,
+        None,
+        optional_project_root,
     )
     .await
 }
 
-/// Same as [`compile_from_string`], but also takes a style parameter
+/// Same as [`compile_from_string`], but also takes a style parameter.
+///
+/// `optional_edition` is the edition to compile with, such as `"1.18"`.
+/// Without it, it compiles with the edition of its own release.
+/// An edition that this interpreter doesn't support is a compilation error.
+/// The `edition` of a project file under `optional_project_root` takes precedence.
 #[wasm_bindgen]
 pub async fn compile_from_string_with_style(
     source: String,
@@ -88,37 +103,70 @@ pub async fn compile_from_string_with_style(
     style: String,
     optional_import_callback: Option<ImportCallbackFunction>,
     optional_resource_loader: Option<ResourceLoaderFunction>,
+    optional_edition: Option<String>,
+    optional_project_root: Option<String>,
 ) -> Result<CompilationResult, JsValue> {
     let mut compiler = slint_interpreter::Compiler::default();
     let config = compiler.compiler_configuration(i_slint_core::InternalToken);
     config.is_preview = true;
     config.components_to_generate = i_slint_compiler::ComponentSelection::LastExported;
+    // The default of SlintPad, so that a snippet behaves the same in the docs and in SlintPad.
+    let edition = match optional_edition.as_deref().map(SlintEdition::parse_supported) {
+        None => SlintEdition::current(),
+        Some(Ok(edition)) => edition,
+        Some(Err(message)) => {
+            let error =
+                diagnostic_object(&message, (0, 0), "", slint_interpreter::DiagnosticLevel::Error)?;
+            return Ok(CompilationResult {
+                component: None,
+                diagnostics: js_sys::Array::of1(&error.into()),
+                error_string: message,
+            });
+        }
+    };
+    config.edition = Some(edition);
     if !style.is_empty() {
         compiler.set_style(style)
     }
+    if let Some(root) = optional_project_root {
+        compiler.set_project_root(Some(SourcePath::new(root)), i_slint_core::InternalToken);
+    }
 
     if let Some(load_callback) = optional_import_callback {
-        let open_import_callback = move |file_name: &Path| -> core::pin::Pin<
+        let open_import_callback = move |file_name: SourcePath| -> core::pin::Pin<
             Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
         > {
             Box::pin({
                 let load_callback = js_sys::Function::from(load_callback.clone());
-                let file_name: String = file_name.to_string_lossy().into();
+                let file_name = file_name.to_string();
                 async move {
-                    let result = load_callback.call1(&JsValue::UNDEFINED, &file_name.into());
-                    let promise: js_sys::Promise = result.unwrap().into();
-                    let future = wasm_bindgen_futures::JsFuture::from(promise);
-                    match future.await {
-                        Ok(js_ok) => Some(Ok(js_ok.as_string().unwrap_or_default())),
-                        Err(js_err) => Some(Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            js_err.as_string().unwrap_or_default(),
-                        ))),
-                    }
+                    let result = match load_callback.call1(&JsValue::UNDEFINED, &file_name.into()) {
+                        Ok(promise) => {
+                            wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise))
+                                .await
+                        }
+                        Err(js_err) => Err(js_err),
+                    };
+                    Some(match result {
+                        Ok(js_ok) if js_ok.is_null() => Err(std::io::ErrorKind::NotFound.into()),
+                        Ok(js_ok) => Ok(js_ok.as_string().unwrap_or_default()),
+                        Err(js_err) => Err(std::io::Error::other(
+                            js_err
+                                .as_string()
+                                .or_else(|| {
+                                    js_err.dyn_ref::<js_sys::Error>().map(|e| e.message().into())
+                                })
+                                .unwrap_or_default(),
+                        )),
+                    })
                 }
             })
         };
-        compiler.set_file_loader(open_import_callback);
+        let open_import_callback: i_slint_compiler::OpenImportCallback =
+            Rc::new(open_import_callback);
+        compiler.compiler_configuration(i_slint_core::InternalToken).open_import_callback =
+            Some(open_import_callback.clone());
+        compiler.set_project_file_loader(open_import_callback, i_slint_core::InternalToken);
     }
 
     if let Some(load_resource) = optional_resource_loader {
@@ -146,11 +194,6 @@ pub async fn compile_from_string_with_style(
 
     let result = compiler.build_from_source(source, base_url.into()).await;
 
-    let line_key = JsValue::from_str("lineNumber");
-    let column_key = JsValue::from_str("columnNumber");
-    let message_key = JsValue::from_str("message");
-    let file_key = JsValue::from_str("fileName");
-    let level_key = JsValue::from_str("level");
     let mut error_as_string = String::new();
     let array = js_sys::Array::new();
     for d in result.diagnostics() {
@@ -160,7 +203,6 @@ pub async fn compile_from_string_with_style(
             .or_else(|| d.source_url())
             .unwrap_or_default();
 
-        let filename_js = JsValue::from_str(&filename);
         let (line, column) = d.line_column();
 
         if d.level() == slint_interpreter::DiagnosticLevel::Error {
@@ -172,13 +214,7 @@ pub async fn compile_from_string_with_style(
             write!(&mut error_as_string, "{}:{}:{}", filename, line, d).unwrap();
         }
 
-        let error_obj = js_sys::Object::new();
-        js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message()))?;
-        js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64))?;
-        js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64))?;
-        js_sys::Reflect::set(&error_obj, &file_key, &filename_js)?;
-        js_sys::Reflect::set(&error_obj, &level_key, &JsValue::from_f64(d.level() as i8 as f64))?;
-        array.push(&error_obj);
+        array.push(&diagnostic_object(&d.message(), (line, column), &filename, d.level())?.into());
     }
 
     Ok(CompilationResult {
@@ -186,6 +222,21 @@ pub async fn compile_from_string_with_style(
         diagnostics: array,
         error_string: error_as_string,
     })
+}
+
+fn diagnostic_object(
+    message: &str,
+    (line, column): (usize, usize),
+    file_name: &str,
+    level: slint_interpreter::DiagnosticLevel,
+) -> Result<js_sys::Object, JsValue> {
+    let object = js_sys::Object::new();
+    js_sys::Reflect::set(&object, &"message".into(), &JsValue::from_str(message))?;
+    js_sys::Reflect::set(&object, &"lineNumber".into(), &JsValue::from_f64(line as f64))?;
+    js_sys::Reflect::set(&object, &"columnNumber".into(), &JsValue::from_f64(column as f64))?;
+    js_sys::Reflect::set(&object, &"fileName".into(), &JsValue::from_str(file_name))?;
+    js_sys::Reflect::set(&object, &"level".into(), &JsValue::from_f64(level as i8 as f64))?;
+    Ok(object)
 }
 
 #[wasm_bindgen]

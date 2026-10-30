@@ -81,7 +81,7 @@ fn generate_public_component(
     component_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: "slint::private_api::live_preview::LiveReloadingComponent".into(),
+            ty: "::slint::private_api::live_preview::LiveReloadingComponent".into(),
             name: "live_preview".into(),
             ..Default::default()
         }),
@@ -123,14 +123,14 @@ fn generate_public_component(
     component_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
-            ty: "static const slint::private_api::ItemTreeVTable".into(),
+            ty: "static const ::slint::private_api::ItemTreeVTable".into(),
             name: "static_vtable".into(),
             ..Default::default()
         }),
     ));
 
     file.definitions.push(Declaration::Var(Var {
-        ty: "const slint::private_api::ItemTreeVTable".into(),
+        ty: "const ::slint::private_api::ItemTreeVTable".into(),
         name: format_smolstr!("{component_id}::static_vtable"),
         // One nullptr per function entry of `ItemTreeVTable`; keep the count
         // in sync with `i_slint_core::item_tree::ItemTreeVTable`.
@@ -139,21 +139,21 @@ fn generate_public_component(
                 nullptr, nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, \
                 nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, \
-                slint::private_api::drop_in_place<{component_id}>, slint::private_api::dealloc }}"
+                ::slint::private_api::drop_in_place<{component_id}>, ::slint::private_api::dealloc }}"
         )),
         ..Default::default()
     }));
 
     let create_code = vec![
         format!(
-            "slint::SharedVector<slint::SharedString> include_paths{{ {} }};",
+            "::slint::SharedVector<::slint::SharedString> include_paths{{ {} }};",
             compiler_config
                 .include_paths
                 .iter()
                 .map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy())))
                 .join(", ")
         ),
-        format!("slint::SharedVector<slint::SharedString> library_paths{{ {} }};", {
+        format!("::slint::SharedVector<::slint::SharedString> library_paths{{ {} }};", {
             let mut library_paths: Vec<_> = compiler_config.library_paths.iter().collect();
             library_paths.sort_by(|a, b| a.0.cmp(b.0));
             library_paths
@@ -162,24 +162,25 @@ fn generate_public_component(
                 .join(", ")
         }),
         format!(
-            "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {}, {:?});",
+            "auto live_preview = ::slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {}, {:?}, {:?});",
             component.name,
             compiler_config.style.as_ref().unwrap_or(&String::new()),
             compiler_config.translation_domain.as_ref().unwrap_or(&String::new()),
             compiler_config.default_translation_context == crate::DefaultTranslationContext::None,
             compiler_config.absolute_bundled_translations_path().unwrap_or_default(),
+            compiler_config.edition.map(|edition| edition.to_string()).unwrap_or_default(),
         ),
         format!(
-            "auto self_rc = vtable::VRc<slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"
+            "auto self_rc = vtable::VRc<::slint::private_api::ItemTreeVTable, {component_id}>::make(std::move(live_preview));"
         ),
-        format!("return slint::ComponentHandle<{component_id}>(self_rc);"),
+        format!("return ::slint::ComponentHandle<{component_id}>(self_rc);"),
     ];
 
     component_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: "create".into(),
-            signature: format!("() -> slint::ComponentHandle<{component_id}>"),
+            signature: format!("() -> ::slint::ComponentHandle<{component_id}>"),
             statements: Some(create_code),
             is_static: true,
             ..Default::default()
@@ -191,7 +192,7 @@ fn generate_public_component(
         Declaration::Function(Function {
             is_constructor_or_destructor: true,
             name: ident(&component_struct.name),
-            signature: "(slint::private_api::live_preview::LiveReloadingComponent live_preview)"
+            signature: "(::slint::private_api::live_preview::LiveReloadingComponent live_preview)"
                 .into(),
             constructor_member_initializers: vec!["live_preview(std::move(live_preview))".into()],
             statements: Some(Vec::new()),
@@ -223,7 +224,7 @@ fn generate_public_component(
         Access::Public,
         Declaration::Function(Function {
             name: "window".into(),
-            signature: "() const -> slint::Window&".into(),
+            signature: "() const -> ::slint::Window&".into(),
             statements: Some(vec!["return live_preview.window();".into()]),
             ..Default::default()
         }),
@@ -236,7 +237,7 @@ fn generate_public_component(
             signature: "() -> void".into(),
             statements: Some(vec![
                 "show();".into(),
-                "slint::run_event_loop();".into(),
+                "::slint::run_event_loop();".into(),
                 "hide();".into(),
             ]),
             ..Default::default()
@@ -256,8 +257,9 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent) {
             // A global without public properties generates no accessor that
             // reads the member; clang's -Wunused-private-field rejects it
             // under -Werror.
-            ty: "[[maybe_unused]] const slint::private_api::live_preview::LiveReloadingComponent&"
-                .into(),
+            ty:
+                "[[maybe_unused]] const ::slint::private_api::live_preview::LiveReloadingComponent&"
+                    .into(),
             name: "live_preview".into(),
             ..Default::default()
         }),
@@ -269,7 +271,7 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent) {
             is_constructor_or_destructor: true,
             name: ident(&global.name),
             signature:
-                "(const slint::private_api::live_preview::LiveReloadingComponent &live_preview)"
+                "(const ::slint::private_api::live_preview::LiveReloadingComponent &live_preview)"
                     .into(),
             constructor_member_initializers: vec!["live_preview(live_preview)".into()],
             statements: Some(Vec::new()),
@@ -327,7 +329,7 @@ fn generate_public_api_for_properties(
                 .map(|(i, t)| format!("{}(args[{i}])", convert_from_value_fn(t)))
                 .join(", ");
             let return_statement = if callback.return_type == Type::Void {
-                format!("callback_handler({args}); return slint::interpreter::Value();",)
+                format!("callback_handler({args}); return ::slint::interpreter::Value();",)
             } else {
                 format!(
                     "return {}(callback_handler({args}));",
@@ -344,7 +346,7 @@ fn generate_public_api_for_properties(
                     )),
                     signature: "(Functor && callback_handler) const".into(),
                     statements: Some(vec![
-                        "using slint::private_api::live_preview::into_slint_value;".into(),
+                        "using ::slint::private_api::live_preview::into_slint_value;".into(),
                         format!(
                             "live_preview.set_callback(\"{prefix}{prop_name}\", [callback_handler]([[maybe_unused]] auto args) {{ {return_statement} }});",
                         ),
@@ -395,7 +397,7 @@ fn generate_public_api_for_properties(
 
             if !p.read_only() {
                 let prop_setter: Vec<String> = vec![
-                    "using slint::private_api::live_preview::into_slint_value;".into(),
+                    "using ::slint::private_api::live_preview::into_slint_value;".into(),
                     format!(
                         "live_preview.set_property(\"{prefix}{prop_name}\", {}(value));",
                         convert_to_value_fn(&p.ty)
@@ -473,7 +475,7 @@ fn convert_to_value_fn(ty: &Type) -> String {
                 )
             });
             format!(
-                "([](const auto &tuple) {{ slint::interpreter::Struct s; {}return slint::interpreter::Value(s); }})",
+                "([](const auto &tuple) {{ ::slint::interpreter::Struct s; {}return ::slint::interpreter::Value(s); }})",
                 init.join("")
             )
         }
@@ -482,7 +484,7 @@ fn convert_to_value_fn(ty: &Type) -> String {
             let conf_fn = convert_to_value_fn(a);
             let aty = a.cpp_type().unwrap();
             format!(
-                "([](const auto &model) {{ return slint::interpreter::Value(std::make_shared<slint::MapModel<{aty}, slint::interpreter::Value>>(model, {conf_fn})); }})"
+                "([](const auto &model) {{ return ::slint::interpreter::Value(std::make_shared<::slint::MapModel<{aty}, ::slint::interpreter::Value>>(model, {conf_fn})); }})"
             )
         }
         _ => "into_slint_value".into(),
@@ -493,15 +495,15 @@ fn convert_from_value_fn(ty: &Type) -> String {
     match ty {
         Type::Struct(s) if s.name.is_none() => {
             let mut init = s.fields.iter().map(|(name, ty)| {
-                format!("slint::private_api::live_preview::from_slint_value<{}>(s.get_field(\"{name}\").value())", ty.cpp_type().unwrap())
+                format!("::slint::private_api::live_preview::from_slint_value<{}>(s.get_field(\"{name}\").value())", ty.cpp_type().unwrap())
             });
             format!(
-                "([](const slint::interpreter::Value &v) {{ auto s = v.to_struct().value(); return std::make_tuple({}); }})",
+                "([](const ::slint::interpreter::Value &v) {{ auto s = v.to_struct().value(); return std::make_tuple({}); }})",
                 init.join(", ")
             )
         }
         _ => format!(
-            "slint::private_api::live_preview::from_slint_value<{}>",
+            "::slint::private_api::live_preview::from_slint_value<{}>",
             ty.cpp_type().unwrap_or_default()
         ),
     }
@@ -516,12 +518,12 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                 };
                 let name = ident(struct_name);
                 let mut to_statements = vec![
-                    "using slint::private_api::live_preview::into_slint_value;".into(),
-                    "slint::interpreter::Struct s;".into(),
+                    "using ::slint::private_api::live_preview::into_slint_value;".into(),
+                    "::slint::interpreter::Struct s;".into(),
                 ];
                 let mut from_statements = vec![
-                    "using slint::private_api::live_preview::from_slint_value;".into(),
-                    "slint::interpreter::Struct s = val.to_struct().value();".into(),
+                    "using ::slint::private_api::live_preview::from_slint_value;".into(),
+                    "::slint::interpreter::Struct s = val.to_struct().value();".into(),
                     format!("{name} self;"),
                 ];
                 for (f, t) in &s.fields {
@@ -530,7 +532,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                         ident(f)
                     ));
                     from_statements.push(format!(
-                        "self.{} = slint::private_api::live_preview::from_slint_value<{}>(s.get_field(\"{f}\").value());",
+                        "self.{} = ::slint::private_api::live_preview::from_slint_value<{}>(s.get_field(\"{f}\").value());",
                         ident(f),
                         t.cpp_type().unwrap()
                     ));
@@ -540,7 +542,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                 file.declarations.push(Declaration::Function(Function {
                     name: "into_slint_value".into(),
                     signature: format!(
-                        "([[maybe_unused]] const {name} &self) -> slint::interpreter::Value"
+                        "([[maybe_unused]] const {name} &self) -> ::slint::interpreter::Value"
                     ),
                     statements: Some(to_statements),
                     is_inline: true,
@@ -549,7 +551,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                 file.declarations.push(Declaration::Function(Function {
                     name: "from_slint_value".into(),
                     signature: format!(
-                        "(const slint::interpreter::Value &val, const {name} *) -> {name}"
+                        "(const ::slint::interpreter::Value &val, const {name} *) -> {name}"
                     ),
                     statements: Some(from_statements),
                     is_inline: true,
@@ -558,7 +560,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
             }
             Type::Enumeration(e) => {
                 let mut from_statements = vec![
-                    "auto value_str = slint::private_api::live_preview::LiveReloadingComponent::get_enum_value(val);".to_string(),
+                    "auto value_str = ::slint::private_api::live_preview::LiveReloadingComponent::get_enum_value(val);".to_string(),
                 ];
                 let mut to_statements = vec!["switch (self) {".to_string()];
                 let name = ident(&e.name);
@@ -570,7 +572,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                     from_statements.push(format!(
                         "if (value_str == \"{value}\") return {name}::{variant_name};"
                     ));
-                    to_statements.push(format!("case {name}::{variant_name}: return slint::private_api::live_preview::LiveReloadingComponent::value_from_enum(\"{}\", \"{value}\");", e.name));
+                    to_statements.push(format!("case {name}::{variant_name}: return ::slint::private_api::live_preview::LiveReloadingComponent::value_from_enum(\"{}\", \"{value}\");", e.name));
                 }
                 from_statements.push("return {};".to_string());
                 to_statements.push("}".to_string());
@@ -579,7 +581,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                 file.declarations.push(Declaration::Function(Function {
                     name: "into_slint_value".into(),
                     signature: format!(
-                        "([[maybe_unused]] const {name} &self) -> slint::interpreter::Value"
+                        "([[maybe_unused]] const {name} &self) -> ::slint::interpreter::Value"
                     ),
                     statements: Some(to_statements),
                     is_inline: true,
@@ -588,7 +590,7 @@ fn generate_value_conversions(file: &mut File, structs_and_enums: &[Type]) {
                 file.declarations.push(Declaration::Function(Function {
                     name: "from_slint_value".into(),
                     signature: format!(
-                        "(const slint::interpreter::Value &val, const {name} *) -> {name}"
+                        "(const ::slint::interpreter::Value &val, const {name} *) -> {name}"
                     ),
                     statements: Some(from_statements),
                     is_inline: true,

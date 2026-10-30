@@ -17,8 +17,10 @@ path = "lib.rs"
 
 [features]
 image-pixel-format-gray8 = ["i-slint-core/image-pixel-format-gray8"]
-image-pixel-format-alpha-map = ["i-slint-core/image-pixel-format-alpha-map"]
 image-pixel-format-rgb565 = ["i-slint-core/image-pixel-format-rgb565"]
+# Pre-rendered images and bitmap fonts built at run time, as the interpreter does.
+# Without it, only the ones that generated code keeps in statics are drawn.
+owned-pre-rendered-resources = ["i-slint-core/owned-pre-rendered-resources"]
 systemfonts = [
   "i-slint-core/shared-fontique",
   "i-slint-common/shared-fontique",

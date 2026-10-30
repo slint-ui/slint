@@ -3,17 +3,30 @@
 
 // cSpell: ignore imum noarg strarg
 
-use smol_str::{SmolStr, StrExt, ToSmolStr};
+use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+#[cfg(feature = "std")]
+use smol_str::ToSmolStr;
+use smol_str::{SmolStr, StrExt};
+#[cfg(feature = "std")]
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(feature = "std")]
+use std::collections::{HashMap, HashSet};
+#[cfg(feature = "std")]
 use std::rc::Rc;
-use std::sync::Arc;
 
+#[cfg(feature = "std")]
 use crate::builtin_functions::BuiltinFunction;
+#[cfg(feature = "std")]
 use crate::element_type::{BuiltinElement, ElementType, PropertyLookupResult};
 use crate::langtype::{BuiltinStruct, Enumeration, Function, Struct, Type};
+#[cfg(feature = "std")]
 use crate::native_class::PropertyVisibility;
+#[cfg(feature = "std")]
 use crate::object_tree::Component;
+#[cfg(feature = "std")]
 use crate::typeloader;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -66,9 +79,11 @@ macro_rules! declare_enums {
                     stringify!($vis) == "pub",
                 )),* }
             }
-            fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
+            #[cfg(any(feature = "std", feature = "serde"))]
+            pub(crate) fn all(&self) -> impl Iterator<Item = &Arc<Enumeration>> {
                 [$(&self.$Name),*].into_iter()
             }
+            #[cfg(feature = "std")]
             fn fill_register(&self, register: &mut TypeRegister) {
                 for e in self.all() {
                     if !matches!(e.name.as_str(), "PathEvent" | "BuiltInMouseCursor") {
@@ -91,6 +106,7 @@ fn enumeration(name: &str, values: &[&str], public: bool) -> Arc<Enumeration> {
             .map(|v| crate::names::to_kebab_case(v.trim_start_matches("r#")).into())
             .collect(),
         default_value: 0,
+        #[cfg(feature = "std")]
         node: None,
         rust_attributes: Vec::new(),
     })
@@ -103,13 +119,13 @@ pub struct BuiltinTypes {
     pub set_selection_offsets_callback_type: Type,
     /// The builtin structs that aren't in `for_each_builtin_structs` nor path elements,
     /// by name. See [`builtin_structs::get`].
-    structs: HashMap<BuiltinStruct, Arc<Struct>>,
+    structs: BTreeMap<BuiltinStruct, Arc<Struct>>,
 }
 
 impl BuiltinTypes {
     fn new() -> Self {
         let enums = BuiltinEnums::new();
-        let mut structs = HashMap::new();
+        let mut structs = BTreeMap::new();
         let mut add = |name: BuiltinStruct, fields: &[(&str, Type)]| {
             let fields = fields.iter().map(|(field, ty)| (SmolStr::new(field), ty.clone()));
             let s = Arc::new(Struct::new(fields.collect(), name.clone()));
@@ -288,8 +304,10 @@ impl BuiltinTypes {
     }
 }
 
-pub static BUILTIN: std::sync::LazyLock<BuiltinTypes> = std::sync::LazyLock::new(BuiltinTypes::new);
+pub static BUILTIN: once_cell::sync::Lazy<BuiltinTypes> =
+    once_cell::sync::Lazy::new(BuiltinTypes::new);
 
+#[cfg(feature = "std")]
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
     ("clip", Type::Bool),
     ("opacity", Type::Float32),
@@ -375,6 +393,7 @@ pub fn reserved_accessibility_properties() -> impl Iterator<Item = (&'static str
 }
 
 /// list of reserved property injected in every item
+#[cfg(feature = "std")]
 pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, PropertyVisibility)> {
     RESERVED_GEOMETRY_PROPERTIES
         .iter()
@@ -436,6 +455,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(reserved_member_functions().map(|(name, f, v)| (name, Type::Function(f.ty()), v)))
 }
 
+#[cfg(feature = "std")]
 /// lookup reserved property injected in every item
 pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResult<'_> {
     static RESERVED_PROPERTIES: std::sync::LazyLock<
@@ -490,6 +510,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
     PropertyLookupResult::invalid(name)
 }
 
+#[cfg(feature = "std")]
 pub fn reserved_member_functions()
 -> impl Iterator<Item = (&'static str, BuiltinFunction, PropertyVisibility)> {
     IntoIterator::into_iter([
@@ -499,6 +520,7 @@ pub fn reserved_member_functions()
     ])
 }
 
+#[cfg(feature = "std")]
 /// These member functions are injected in every time
 pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     for (m, e, _) in reserved_member_functions() {
@@ -509,6 +531,7 @@ pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     None
 }
 
+#[cfg(feature = "std")]
 /// All types (datatypes, internal elements, properties, ...) are stored in this type
 #[derive(Debug, Default)]
 pub struct TypeRegister {
@@ -525,8 +548,10 @@ pub struct TypeRegister {
     parent_registry: Option<Rc<RefCell<TypeRegister>>>,
     /// If the lookup function should return types that are marked as internal
     pub(crate) expose_internal_types: bool,
+    pub(crate) experimental_features: crate::ExperimentalFeatures,
 }
 
+#[cfg(feature = "std")]
 impl TypeRegister {
     pub(crate) fn snapshot(&self, snapshotter: &mut typeloader::Snapshotter) -> Self {
         Self {
@@ -546,6 +571,7 @@ impl TypeRegister {
                 .as_ref()
                 .map(|tr| snapshotter.snapshot_type_register(tr)),
             expose_internal_types: self.expose_internal_types,
+            experimental_features: self.experimental_features,
         }
     }
 
@@ -562,10 +588,10 @@ impl TypeRegister {
         self.types.insert(name, t).is_none()
     }
 
-    fn builtin_internal() -> Self {
+    pub fn builtin() -> Rc<RefCell<Self>> {
         let mut register = Self::with_builtin_types();
         crate::builtin_elements::load(&mut register);
-        register
+        Rc::new(RefCell::new(register))
     }
 
     /// A register with the basic types, the builtin structs and enums, but no elements.
@@ -620,36 +646,38 @@ impl TypeRegister {
         register
     }
 
-    #[doc(hidden)]
-    /// All builtins incl. experimental ones! Do not use in production code!
-    pub fn builtin_experimental() -> Rc<RefCell<Self>> {
-        let register = Self::builtin_internal();
-        Rc::new(RefCell::new(register))
-    }
-
-    pub fn builtin() -> Rc<RefCell<Self>> {
-        let mut register = Self::builtin_internal();
-
-        register.elements.remove("ComponentContainer").unwrap();
-        register.types.remove("component-factory").unwrap();
-
-        Rc::new(RefCell::new(register))
+    pub fn set_experimental_features(&mut self, features: crate::ExperimentalFeatures) {
+        self.experimental_features = features;
     }
 
     pub fn new(parent: &Rc<RefCell<TypeRegister>>) -> Self {
+        let parent_ref = parent.borrow();
         Self {
             parent_registry: Some(parent.clone()),
-            expose_internal_types: parent.borrow().expose_internal_types,
+            expose_internal_types: parent_ref.expose_internal_types,
+            experimental_features: parent_ref.experimental_features,
             ..Default::default()
         }
     }
 
     pub fn lookup(&self, name: &str) -> Type {
+        let ty = self.lookup_including_disabled(name);
+        if self.is_enabled(ty.experimental_feature()) { ty } else { Type::Invalid }
+    }
+
+    /// Like [`Self::lookup`], but also finds the types of disabled experimental features.
+    pub(crate) fn lookup_including_disabled(&self, name: &str) -> Type {
         self.types
             .get(name)
             .cloned()
-            .or_else(|| self.parent_registry.as_ref().map(|r| r.borrow().lookup(name)))
+            .or_else(|| {
+                self.parent_registry.as_ref().map(|r| r.borrow().lookup_including_disabled(name))
+            })
             .unwrap_or_default()
+    }
+
+    fn is_enabled(&self, feature: Option<crate::ExperimentalFeature>) -> bool {
+        feature.is_none_or(|feature| self.experimental_features.contains(feature))
     }
 
     fn lookup_element_as_result(
@@ -666,7 +694,14 @@ impl TypeRegister {
     }
 
     pub fn lookup_element(&self, name: &str) -> Result<ElementType, String> {
-        self.lookup_element_as_result(name).map_err(|context_restricted_types| {
+        let result = self.lookup_element_as_result(name);
+        if let Ok(element) = &result
+            && let Some(feature) = element.experimental_feature()
+            && !self.experimental_features.contains(feature)
+        {
+            return Err(crate::experimental_feature_error(name, feature));
+        }
+        result.map_err(|context_restricted_types| {
             if let Some(permitted_parent_types) = context_restricted_types.get(name) {
                 if permitted_parent_types.len() == 1 {
                     format!(
@@ -699,10 +734,21 @@ impl TypeRegister {
     }
 
     pub fn lookup_qualified<Member: AsRef<str>>(&self, qualified: &[Member]) -> Type {
-        if qualified.len() != 1 {
-            return Type::Invalid;
+        match qualified {
+            [name] => self.lookup(name.as_ref()),
+            _ => Type::Invalid,
         }
-        self.lookup(qualified[0].as_ref())
+    }
+
+    /// Like [`Self::lookup_qualified`], but also finds the types of disabled experimental features.
+    pub(crate) fn lookup_qualified_including_disabled<Member: AsRef<str>>(
+        &self,
+        qualified: &[Member],
+    ) -> Type {
+        match qualified {
+            [name] => self.lookup_including_disabled(name.as_ref()),
+            _ => Type::Invalid,
+        }
     }
 
     /// Add the component with its defined name
@@ -738,8 +784,17 @@ impl TypeRegister {
 
     /// Return a hashmap with all the registered type
     pub fn all_types(&self) -> HashMap<SmolStr, Type> {
-        let mut all =
-            self.parent_registry.as_ref().map(|r| r.borrow().all_types()).unwrap_or_default();
+        let mut all = self.all_types_including_disabled();
+        all.retain(|_, ty| self.is_enabled(ty.experimental_feature()));
+        all
+    }
+
+    fn all_types_including_disabled(&self) -> HashMap<SmolStr, Type> {
+        let mut all = self
+            .parent_registry
+            .as_ref()
+            .map(|r| r.borrow().all_types_including_disabled())
+            .unwrap_or_default();
         for (k, v) in &self.types {
             all.insert(k.clone(), v.clone());
         }
@@ -748,8 +803,17 @@ impl TypeRegister {
 
     /// Return a hashmap with all the registered element type
     pub fn all_elements(&self) -> HashMap<SmolStr, ElementType> {
-        let mut all =
-            self.parent_registry.as_ref().map(|r| r.borrow().all_elements()).unwrap_or_default();
+        let mut all = self.all_elements_including_disabled();
+        all.retain(|_, element| self.is_enabled(element.experimental_feature()));
+        all
+    }
+
+    fn all_elements_including_disabled(&self) -> HashMap<SmolStr, ElementType> {
+        let mut all = self
+            .parent_registry
+            .as_ref()
+            .map(|r| r.borrow().all_elements_including_disabled())
+            .unwrap_or_default();
         for (k, v) in &self.elements {
             all.insert(k.clone(), v.clone());
         }
@@ -769,8 +833,8 @@ pub mod builtin_structs {
     use super::*;
     use crate::langtype::ConstantExpression;
 
-    pub static BUILTIN_STRUCTS: std::sync::LazyLock<BuiltinStructs> =
-        std::sync::LazyLock::new(BuiltinStructs::new);
+    pub static BUILTIN_STRUCTS: once_cell::sync::Lazy<BuiltinStructs> =
+        once_cell::sync::Lazy::new(BuiltinStructs::new);
 
     #[rustfmt::skip]
     macro_rules! map_type {
@@ -843,6 +907,7 @@ pub mod builtin_structs {
     i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
 
     /// The path elements' structs, made of the properties of their native class.
+    #[cfg(feature = "std")]
     static PATH_ELEMENTS: std::sync::LazyLock<HashMap<BuiltinStruct, Arc<Struct>>> =
         std::sync::LazyLock::new(|| {
             crate::builtin_elements::BUILTIN_ELEMENTS
@@ -859,17 +924,18 @@ pub mod builtin_structs {
     /// The definition of the builtin struct `name`.
     /// Code that makes a struct with a builtin name takes its type from here.
     pub fn get(name: &BuiltinStruct) -> Arc<Struct> {
+        let s = find(name);
+        #[cfg(feature = "std")]
+        let s = s.or_else(|| PATH_ELEMENTS.get(name).cloned());
+        s.unwrap_or_else(|| panic!("no definition for {name:?}"))
+    }
+
+    /// The definition of the builtin struct `name`, unless it's a path element:
+    /// those come from the builtin elements, which need std.
+    pub fn find(name: &BuiltinStruct) -> Option<Arc<Struct>> {
         // Each lookup touches only the static that holds `name`: the macro structs ask for
         // `LogicalPosition` while they're built, and the path elements need a builtin register.
-        if let Some(s) = from_macro(name) {
-            return s;
-        }
-        BUILTIN
-            .structs
-            .get(name)
-            .or_else(|| PATH_ELEMENTS.get(name))
-            .unwrap_or_else(|| panic!("no definition for {name:?}"))
-            .clone()
+        from_macro(name).or_else(|| BUILTIN.structs.get(name).cloned())
     }
 
     fn build_struct(

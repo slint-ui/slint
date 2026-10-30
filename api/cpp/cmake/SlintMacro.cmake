@@ -71,12 +71,9 @@ endfunction()
 
 function(SLINT_TARGET_SOURCES target)
     # Parse the NAMESPACE argument
-    cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE;COMPILATION_UNITS" "LIBRARY_PATHS" ${ARGN})
+    cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE;COMPILATION_UNITS;EDITION" "LIBRARY_PATHS" ${ARGN})
 
     get_target_property(enabled_features Slint::Slint SLINT_ENABLED_FEATURES)
-    if ("EXPERIMENTAL" IN_LIST enabled_features)
-        list(APPEND SLINT_COMPILER_ENV_VARS SLINT_ENABLE_EXPERIMENTAL_FEATURES=1)
-    endif()
     if ("SYSTEM_TESTING" IN_LIST enabled_features)
         list(APPEND SLINT_COMPILER_ENV_VARS SLINT_EMIT_DEBUG_INFO=1)
     endif()
@@ -92,6 +89,10 @@ function(SLINT_TARGET_SOURCES target)
         list(REMOVE_AT ARGN ${_index})
         # If the namespace is not empty, add the --cpp-namespace argument
         set(_SLINT_CPP_NAMESPACE_ARG "--cpp-namespace=${SLINT_TARGET_SOURCES_NAMESPACE}")
+    endif()
+
+    if (DEFINED SLINT_TARGET_SOURCES_EDITION)
+        set(_SLINT_EDITION_ARG "--edition=${SLINT_TARGET_SOURCES_EDITION}")
     endif()
 
     if (DEFINED SLINT_TARGET_SOURCES_COMPILATION_UNITS)
@@ -154,6 +155,7 @@ function(SLINT_TARGET_SOURCES target)
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                 --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
                 --style ${_SLINT_STYLE}
+                ${_SLINT_EDITION_ARG}
                 --embed-resources=${embed}
                 --translation-domain=${translation_domain_arg}
                 ${no_default_translation_context_arg}

@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
 #[cfg(feature = "image-pixel-format-rgb565")]
 use i_slint_core::graphics::Rgb8Pixel;
@@ -20,17 +19,18 @@ pub trait TextureImporter
 where
     Self: femtovg::Renderer + Sized,
 {
-    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-    fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
+    fn convert_opengl_texture(opengl_texture: &BorrowedOpenGLTexture) -> Self::NativeTexture;
 
     #[cfg(feature = "unstable-wgpu-30")]
     fn convert_wgpu_30_texture(wgpu_texture: wgpu_30::Texture) -> Self::NativeTexture;
 }
 
 impl TextureImporter for femtovg::renderer::OpenGl {
-    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-    fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
-        glow::NativeTexture(opengl_texture)
+    fn convert_opengl_texture(opengl_texture: &BorrowedOpenGLTexture) -> Self::NativeTexture {
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        return glow::NativeTexture(opengl_texture.texture_id);
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        return opengl_texture.texture.clone();
     }
 
     #[cfg(feature = "unstable-wgpu-30")]
@@ -41,8 +41,7 @@ impl TextureImporter for femtovg::renderer::OpenGl {
 
 #[cfg(feature = "wgpu-30")]
 impl TextureImporter for femtovg::renderer::WGPURenderer {
-    #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-    fn convert_opengl_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
+    fn convert_opengl_texture(_opengl_texture: &BorrowedOpenGLTexture) -> Self::NativeTexture {
         todo!()
     }
 
@@ -99,7 +98,14 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
             "internal error: this can only fail if the filtered image was zero width or height",
         );
 
-        self.canvas.borrow_mut().filter_image(filtered_image.id, filter, self.id);
+        let mut canvas = self.canvas.borrow_mut();
+        // filter_image() clamps a Gaussian blur to the sigma of one shader pass (8); a chain runs
+        // larger blurs at a downsampled size instead. If the chain can't run (e.g. its scratch
+        // images don't fit the transient budget), the clamped single pass is better than nothing.
+        if canvas.filter_image_chain(filtered_image.id, &[filter], self.id).is_err() {
+            canvas.filter_image(filtered_image.id, filter, self.id);
+        }
+        drop(canvas);
 
         filtered_image
     }
@@ -161,14 +167,9 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     return None;
                 }
             }
-            #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
-            ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture {
-                texture_id,
-                size,
-                origin,
-                ..
-            }) => {
-                let image_flags = match origin {
+            ImageInner::BorrowedOpenGLTexture(opengl_texture) => {
+                let size = opengl_texture.size;
+                let image_flags = match opengl_texture.origin {
                     i_slint_core::graphics::BorrowedOpenGLTextureOrigin::TopLeft => image_flags,
                     i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
                         image_flags | femtovg::ImageFlags::FLIP_Y
@@ -180,7 +181,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                 canvas
                     .borrow_mut()
                     .create_image_from_native_texture(
-                        <R as TextureImporter>::convert_opengl_texture(*texture_id),
+                        <R as TextureImporter>::convert_opengl_texture(opengl_texture),
                         femtovg::ImageInfo::new(
                             image_flags,
                             size.width as _,

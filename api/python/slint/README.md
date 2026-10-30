@@ -127,6 +127,17 @@ The exported component is exposed as a Python class. To access this class, you h
    If the file name contains a dash, like `app-window.slint`, an attribute lookup for `app_window` tries to
    locate `app_window.slint` and then falls back to `app-window.slint`.
 
+   To load your project file (`slint-project.json`), look up `slint_project` in its directory.
+   The loader passes the directory to `load_file`, which compiles your project's `main` file with the project's settings:
+
+   ```python
+   # Look for `ui/slint-project.json` in `sys.path`:
+   main_window = slint.loader.ui.slint_project.MainWindow()
+   ```
+
+   **Note:** Other `.slint` files in that directory load without the project file,
+   so its include paths and library paths don't apply to them.
+
 ### Accessing Properties
 
 [Properties](https://docs.slint.dev/latest/docs/slint/reference/language/properties/) declared as `out` or `in-out` in `.slint` files are visible as

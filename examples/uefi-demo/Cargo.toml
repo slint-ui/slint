@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore minipng
+
 # Own workspace: all of uefi-demo's dependencies are `cfg(target_os = "uefi")`,
 # so it cannot build for the host and is kept out of the examples workspace. It
 # shares the repository `target/` directory via the root `.cargo/config.toml`,
@@ -24,11 +26,10 @@ path = "main.rs"
 name = "uefi-demo"
 
 [target.'cfg(target_os = "uefi")'.dependencies]
-uefi = { version = "0.37", features = ["panic_handler", "global_allocator"] }
+uefi = { version = "0.41", features = ["panic_handler", "global_allocator"] }
+minipng = "1.0"
 
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "libm", "log", "unsafe-single-threaded"] }
-# For the experimental `MinimalSoftwareWindow::set_mouse_cursor_image`.
-i-slint-renderer-software = { path = "../../internal/renderers/software", default-features = false, features = ["experimental"] }
 log = "0.4.21"
 
 [build-dependencies]

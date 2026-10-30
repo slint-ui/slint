@@ -181,7 +181,6 @@ export component InspectorComboBox inherits InputSurface {
         }
 
         native-menu-touch := TouchArea {
-            mouse-cursor: root.can-open ? pointer : default;
             clicked => {
                 root.show-popup();
             }
@@ -280,7 +279,6 @@ export component InspectorComboBox inherits InputSurface {
                             }
 
                             row-touch := TouchArea {
-                                mouse-cursor: pointer;
                                 clicked => {
                                     root.highlighted-index = index;
                                     if root.accepted(option.value) {

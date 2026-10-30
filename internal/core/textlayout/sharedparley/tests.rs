@@ -114,19 +114,18 @@ fn bidi_selection_spans_are_ascending_in_x() {
 #[test]
 fn test_text_line_height_matches_shaped_single_line() {
     for (pixel_size, line_height_factor) in [(12.0, None), (25.5, None), (12.0, Some(1.5))] {
-        let font_request = FontRequest {
-            pixel_size: Some(LogicalLength::new(pixel_size)),
-            line_height_factor,
-            ..Default::default()
-        };
+        let font_request =
+            FontRequest { pixel_size: Some(LogicalLength::new(pixel_size)), ..Default::default() };
         let builder = super::shaping::LayoutWithoutLineBreaksBuilder::new(
             Some(font_request.clone()),
+            line_height_factor,
             TextWrap::NoWrap,
             None,
             ScaleFactor::new(1.0),
         );
         let shaped = layout_text_with_builder("Hello world", builder, LayoutOptions::default());
-        let fast = text_line_height(&mut test_font_context(), &font_request).unwrap();
+        let fast =
+            text_line_height(&mut test_font_context(), &font_request, line_height_factor).unwrap();
         assert!(
             (shaped.height.get() - fast.get()).abs() < 0.01,
             "shaped {} != estimated {} (size {pixel_size}, factor {line_height_factor:?})",
@@ -310,6 +309,156 @@ fn test_max_lines_caps_height() {
         limited.paragraphs[0].layout.lines().next().unwrap().metrics().block_max_coord,
     );
     assert_eq!(limited.height, first_line_bottom);
+}
+
+type XRange = (f32, f32);
+
+/// Lays out `text` on one line, elided to `width`, and returns the kept glyph x ranges and
+/// the ellipsis x range of each run on that line.
+fn elided_line(text: &str, width: f32, force_elision: bool) -> Vec<(Vec<XRange>, Option<XRange>)> {
+    let layout = layout_text_with_options(
+        text,
+        LayoutOptions {
+            max_width: Some(LogicalLength::new(width)),
+            text_overflow: TextOverflow::Elide,
+            ..Default::default()
+        },
+    );
+    let paragraph = &layout.paragraphs[0];
+    let line = paragraph.layout.lines().next().unwrap();
+    let elision = layout.line_elision(&line, paragraph.layout.is_rtl(), force_elision);
+    let x_range = |glyph: parley::layout::Glyph| (glyph.x, glyph.x + glyph.advance);
+    line.items()
+        .filter_map(|item| match item {
+            parley::PositionedLayoutItem::GlyphRun(run) => Some(run),
+            _ => None,
+        })
+        .enumerate()
+        .map(|(index, run)| match &elision {
+            Some(elision) => (
+                elision.glyphs(&run).map(x_range).collect(),
+                elision.ellipsis_for_run(index).map(|(glyph, ..)| x_range(glyph)),
+            ),
+            None => (run.positioned_glyphs().map(x_range).collect(), None),
+        })
+        .collect()
+}
+
+/// Asserts that the line of `runs` has one ellipsis, within `width`, and no kept glyph under it.
+fn assert_one_ellipsis_in_box(runs: &[(Vec<XRange>, Option<XRange>)], width: f32, context: &str) {
+    let ellipses: Vec<_> = runs.iter().filter_map(|(_, ellipsis)| *ellipsis).collect();
+    assert_eq!(ellipses.len(), 1, "expected one ellipsis, {context}");
+    let (ellipsis_start, ellipsis_end) = ellipses[0];
+    assert!(
+        ellipsis_start >= -0.01 && ellipsis_end <= width + 0.01,
+        "ellipsis at {ellipsis_start}..{ellipsis_end} outside the box, {context}"
+    );
+    let glyphs: Vec<_> = runs.iter().flat_map(|(glyphs, _)| glyphs).collect();
+    assert!(
+        glyphs
+            .iter()
+            .all(|&&(start, end)| end <= ellipsis_start + 0.01 || start >= ellipsis_end - 0.01),
+        "glyphs under the ellipsis at {ellipsis_start}..{ellipsis_end}, {context}: {glyphs:?}"
+    );
+}
+
+#[test]
+fn test_elide_left_to_right_line() {
+    let runs = elided_line(&"abc ".repeat(20), 100., false);
+    let (glyphs, ellipsis) = &runs[0];
+    let (ellipsis_start, ellipsis_end) = ellipsis.expect("the line overflows");
+    assert!(ellipsis_end <= 100.);
+    assert!(!glyphs.is_empty());
+    assert!(glyphs.iter().all(|&(start, end)| start >= 0. && end <= ellipsis_start));
+}
+
+#[test]
+fn test_elide_right_to_left_line() {
+    // An overflowing right-to-left line spills out on the left, so it's cut off there (#14434).
+    // The right-to-left mark makes a paragraph of Latin text right-to-left, like a file name that
+    // starts with Arabic and ends in ".docx". The test font has no Hebrew, so those glyphs are
+    // missing-glyph boxes, which still have an advance.
+    for text in
+        ["\u{5d0}\u{5d1}\u{5d2} ".repeat(20), alloc::format!("\u{200f}{}", "abc ".repeat(20))]
+    {
+        let runs = elided_line(&text, 100., false);
+        let ellipses: Vec<_> = runs.iter().filter_map(|(_, ellipsis)| *ellipsis).collect();
+        assert_eq!(ellipses.len(), 1, "expected one ellipsis on the line of {text:?}");
+        let (ellipsis_start, ellipsis_end) = ellipses[0];
+        assert!(ellipsis_start >= 0.);
+        let glyphs: Vec<_> = runs.iter().flat_map(|(glyphs, _)| glyphs).collect();
+        assert!(!glyphs.is_empty());
+        assert!(
+            glyphs.iter().all(|&&(start, end)| start >= ellipsis_end - 0.01 && end <= 100.01),
+            "glyphs outside the box or under the ellipsis: {glyphs:?}"
+        );
+        let left = glyphs.iter().map(|&&(start, _)| start).fold(f32::MAX, f32::min);
+        assert!(
+            left - ellipsis_end < 0.01,
+            "the ellipsis ends at {ellipsis_end}, not at the first kept glyph at {left}"
+        );
+        let max_advance = glyphs.iter().map(|&&(start, end)| end - start).fold(0., f32::max);
+        assert!(
+            ellipsis_start < max_advance + 0.01,
+            "more than one glyph was cut before the ellipsis at {ellipsis_start}"
+        );
+        let right = glyphs.iter().map(|&&(_, end)| end).fold(f32::MIN, f32::max);
+        assert!(right > 99., "the kept text of {text:?} ends at {right}, not at the right edge");
+    }
+}
+
+#[test]
+fn test_elide_right_to_left_line_that_fits() {
+    // parley hangs the trailing space past the left edge, which isn't an overflow.
+    let runs = elided_line("\u{5d0}\u{5d1}\u{5d2} ", 100., false);
+    assert!(runs.iter().all(|(_, ellipsis)| ellipsis.is_none()));
+    assert_eq!(runs.iter().map(|(glyphs, _)| glyphs.len()).sum::<usize>(), 4);
+}
+
+#[test]
+fn test_elide_line_of_several_runs() {
+    // Uppercase words stand in for right-to-left text: right-to-left marks lay them out from
+    // right to left, one glyph run per word, and an isolate holds them in a left-to-right
+    // paragraph. The line is cut once, wherever that falls, even when the overflowing run ends
+    // closer to the box edge than the ellipsis is wide, which put the ellipsis partly outside the
+    // box.
+    for text in [
+        "\u{200f}ALPHA\u{200f} BETA\u{200f} gamma delta\u{200f} EPSILON\u{200f} ZETA",
+        "alpha beta \u{2067}GAMMA\u{200f} DELTA\u{2069} epsilon zeta",
+    ] {
+        assert!(elided_line(text, 1000., false).len() > 1, "{text:?} lays out as one run");
+        for width in 30..120 {
+            let width = width as f32;
+            assert_one_ellipsis_in_box(
+                &elided_line(text, width, false),
+                width,
+                &alloc::format!("{text:?} at {width}px"),
+            );
+        }
+    }
+}
+
+#[test]
+fn test_elide_vertically_truncated_line_of_several_runs() {
+    // A line that fits but whose lines below were dropped gets one ellipsis, not one per run.
+    for (text, is_rtl) in [
+        ("\u{200f}ONE\u{200f} TWO\u{200f} three four", true),
+        ("one two \u{2067}THREE\u{200f} FOUR\u{2069}", false),
+    ] {
+        let runs = elided_line(text, 200., true);
+        assert!(runs.len() > 1, "{text:?} lays out as one run");
+        assert_one_ellipsis_in_box(&runs, 200., &alloc::format!("{text:?}"));
+        let (ellipsis_start, ellipsis_end) =
+            runs.iter().find_map(|(_, ellipsis)| *ellipsis).unwrap();
+        let glyphs: Vec<_> = runs.iter().flat_map(|(glyphs, _)| glyphs).copied().collect();
+        if is_rtl {
+            let left = glyphs.iter().map(|&(start, _)| start).fold(f32::MAX, f32::min);
+            assert!((left - ellipsis_end).abs() < 0.01, "ellipsis not next to the text");
+        } else {
+            let right = glyphs.iter().map(|&(_, end)| end).fold(f32::MIN, f32::max);
+            assert!((right - ellipsis_start).abs() < 0.01, "ellipsis not next to the text");
+        }
+    }
 }
 
 #[test]

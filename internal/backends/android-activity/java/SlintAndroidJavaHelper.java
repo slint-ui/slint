@@ -5,6 +5,7 @@
 
 package dev.slint.android;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -16,6 +17,7 @@ import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableStringBuilder;
@@ -667,6 +669,13 @@ public class SlintAndroidJavaHelper {
 
     public float font_scale() {
         return mActivity.getResources().getConfiguration().fontScale;
+    }
+
+    public boolean animators_enabled() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return ValueAnimator.areAnimatorsEnabled();
+        }
+        return Settings.Global.getFloat(mActivity.getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 1.0f) != 0;
     }
 
     public int accent_color() {

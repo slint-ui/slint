@@ -166,8 +166,8 @@ objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIApp
 block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
 arboard = { version = "3.6", default-features = false }
-windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
 
 [build-dependencies]
 cfg_aliases = { workspace = true }
@@ -196,6 +196,10 @@ harness = false
 name = "hide_with_external_reference"
 
 [[test]]
+name = "redraw_before_reshow"
 harness = false
+
+[[test]]
 name = "initial_window_icon"
+harness = false
 required-features = ["x11", "renderer-software"]

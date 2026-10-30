@@ -2,15 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
+#[cfg(feature = "bundle-translations")]
 use crate::source_path::SourcePath;
+use alloc::vec::Vec;
+#[cfg(feature = "bundle-translations")]
 use rspolib::TranslatedEntry;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
+#[cfg(feature = "bundle-translations")]
+use smol_str::ToSmolStr;
+#[cfg(feature = "bundle-translations")]
 use std::collections::HashMap;
+#[cfg(feature = "bundle-translations")]
 use std::collections::hash_map::Entry;
+#[cfg(feature = "bundle-translations")]
 use std::path::Path;
+#[cfg(feature = "bundle-translations")]
 use std::rc::Rc;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Translations {
     /// An array with all the array of string
     /// The first vector index is stored in the LLR.
@@ -34,6 +44,7 @@ pub struct Translations {
     pub languages: Vec<(SmolStr, char)>,
 }
 
+#[cfg(feature = "bundle-translations")]
 #[derive(Clone)]
 pub struct TranslationsBuilder {
     result: Translations,
@@ -45,6 +56,7 @@ pub struct TranslationsBuilder {
     catalogs: Rc<Vec<rspolib::POFile>>,
 }
 
+#[cfg(feature = "bundle-translations")]
 impl TranslationsBuilder {
     pub fn load_translations(
         path: &Path,
@@ -204,6 +216,7 @@ impl TranslationsBuilder {
     }
 }
 
+#[cfg(feature = "bundle-translations")]
 fn get_string(plural: Expression) -> Option<SmolStr> {
     match plural {
         Expression::StringLiteral(s) => Some(s),
@@ -211,6 +224,7 @@ fn get_string(plural: Expression) -> Option<SmolStr> {
     }
 }
 
+#[cfg(feature = "bundle-translations")]
 mod plural_rule_parser {
     use super::Expression;
     pub struct ParseError<'a>(&'static str, &'a [u8]);

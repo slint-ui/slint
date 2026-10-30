@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 export component ShadowBox inherits Rectangle {
+    in property <brush> fill <=> bg.background;
+
     border-radius: 14px;
     fake-shadow := Rectangle {
         y: 2px;

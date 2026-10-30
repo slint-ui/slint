@@ -600,6 +600,7 @@ segmenteditem
 semihosting
 Segoe
 serde
+serialport
 setattr
 SETFL
 Shaderiv
@@ -654,6 +655,7 @@ structval
 strvalue
 styledprop
 styledtext
+styledtextitem
 styledtextprop
 styledval
 stylemetrics
@@ -707,6 +709,7 @@ toucharea
 toupper
 trunc
 tungstenite
+Twemoji
 typedoc
 typeregister
 Tzimabazafi
@@ -776,6 +779,7 @@ WNDCLASS
 wordlike
 WQXGA
 writeback
+wrappable
 WRONLY
 Wtautological
 xbuild

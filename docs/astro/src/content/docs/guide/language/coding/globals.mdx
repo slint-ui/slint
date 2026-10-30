@@ -41,6 +41,7 @@ export global Logic  {
 
 ```rust
 slint::slint!{
+#[edition = "1.19"]
 export global Logic {
     in-out property <int> the-value;
     pure callback magic-operation(int) -> int;

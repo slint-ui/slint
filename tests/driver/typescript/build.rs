@@ -4,11 +4,9 @@
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1",);
     println!(
-        "cargo:rustc-env=SLINT_EDITION={}.{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR")
+        "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
+        test_driver_lib::ALL_EXPERIMENTAL_FEATURES
     );
 
     let tests_file_path =

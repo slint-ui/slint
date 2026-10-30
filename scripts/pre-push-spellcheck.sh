@@ -46,7 +46,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 
 # shellcheck disable=SC2086
-if ! pnpm exec cspell --no-progress --gitignore $changed_files; then
+if ! pnpm exec cspell --no-progress --gitignore --no-must-find-files $changed_files; then
     echo "" >&2
     echo "pre-push: cspell failed on the files above." >&2
     echo "Fix the words, or add genuinely new technical terms to .cspell/slint-project-words.txt (alphabetical)." >&2

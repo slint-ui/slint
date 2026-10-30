@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore serialport
+
 [package]
 name = "i-slint-editor-preview"
 description = "Shared document model and editing session for the Slint language server and visual editor"
@@ -33,6 +35,15 @@ preview-process = [
 preview-external = []
 ## Support the LSP-owned remote preview transport.
 preview-remote = ["remote-client"]
+## Show the design on a microcontroller connected to a serial port
+serial = [
+  "dep:i-slint-common",
+  "dep:serialport",
+  "dep:spin_on",
+  "i-slint-compiler/serde",
+  "i-slint-compiler/renderer-software",
+  "i-slint-live-preview/serial",
+]
 ## Expose the test fixtures so that dependent crates can build on them
 testing = ["dep:i-slint-backend-testing", "dep:spin_on"]
 
@@ -41,6 +52,7 @@ slint-build = { workspace = true, features = ["experimental-module-builds"], opt
 
 [dependencies]
 slint = { workspace = true, features = ["compat-1-2"], optional = true }
+i-slint-common = { workspace = true, optional = true }
 i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 i-slint-live-preview = { version = "=1.19.0", path = "../live-preview", features = ["protocol", "file-watcher"] }
 
@@ -61,12 +73,13 @@ i-slint-backend-testing = { workspace = true, optional = true }
 spin_on = { workspace = true, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
-tokio-tungstenite-wasm = { version = "0.8.2", optional = true }
+mdns-sd = { version = "0.21.6", default-features = false, features = ["async"], optional = true }
+tokio-tungstenite-wasm = { version = "0.9.0", optional = true }
 directories = "6.0"
 scopeguard = { version = "1.1.0", default-features = false }
 tokio = { version = "1.50.0", features = ["io-util", "process", "rt", "sync", "time", "macros"] }
 tempfile = "3"
+serialport = { version = "4.10", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.30"
@@ -78,6 +91,8 @@ i-slint-live-preview = { path = "../live-preview", features = ["remote"] }
 tokio-tungstenite = "0.30.0"
 i-slint-backend-testing = { path = "../backends/testing" }
 spin_on = { workspace = true }
+i-slint-core = { path = "../core" }
+slint-interpreter = { path = "../interpreter", features = ["internal", "internal-embed-textures"] }
 
 [package.metadata.docs.rs]
 all-features = true

@@ -21,6 +21,8 @@ mod preview_files;
 pub mod remote_authentication;
 #[cfg(all(feature = "remote-client", not(target_arch = "wasm32")))]
 pub mod remote_client;
+#[cfg(all(feature = "serial", not(target_arch = "wasm32")))]
+pub mod serial;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod settings_store;
 #[cfg(all(feature = "springboard", not(target_arch = "wasm32")))]

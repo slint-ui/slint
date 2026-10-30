@@ -12,7 +12,7 @@ def project_directory(tmp_path: pathlib.Path, settings: dict[str, Any]) -> pathl
     # resolve() so the directory matches the paths the compiler reports back.
     directory = tmp_path.resolve()
     (directory / "slint-project.json").write_text(
-        json.dumps({"slint-edition": "1.19", **settings})
+        json.dumps({"edition": "1.19", **settings})
     )
     return directory
 
@@ -108,4 +108,7 @@ def test_building_a_file_ignores_its_project_file(tmp_path: pathlib.Path) -> Non
     main = write_main(directory, "export component Main inherits Window { }")
 
     result = native.Compiler().build_from_path(main)
-    assert messages(result) == []
+    # Only the info that no edition is set
+    assert [diagnostic.level for diagnostic in result.diagnostics] == [
+        native.DiagnosticLevel.Info
+    ]

@@ -1,12 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell: ignore datasheet reborrow
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    esp_println::println!("Panic: {:?}", info);
-    loop {}
-}
+// cSpell: ignore datasheet jtag reborrow
+
 esp_bootloader_esp_idf::esp_app_desc!();
 
 use alloc::boxed::Box;
@@ -128,6 +124,7 @@ impl slint::platform::Platform for EspBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
+        window.set_size(slint::PhysicalSize::new(320, 240));
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -149,6 +146,16 @@ impl Default for EspBackend {
 
 /// Initializes the heap, the board peripherals and sets the Slint platform.
 pub fn init() {
+    init_board();
+}
+
+/// Like [`init`], and returns the USB-Serial-JTAG port that the USB-C connector is wired to.
+pub fn init_with_host_link() -> impl crate::HostLink {
+    crate::esp32_s3_usb_serial::host_link(init_board(), "M5Stack CoreS3")
+}
+
+/// Initializes the board and returns the USB device peripheral, which it doesn't use.
+fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
     let mut peripherals =
         esp_hal::init(esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz));
     init_logger_from_env();
@@ -287,6 +294,8 @@ pub fn init() {
         })),
     }))
     .expect("backend already initialized");
+
+    peripherals.USB_DEVICE
 }
 
 /// Frees an I2C bus that a device still holds after the ESP32-S3 was reset in the middle of a
@@ -425,10 +434,6 @@ impl EspBackend {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let BoardState { mut buffer_provider, mut touch_driver, _backlight } =
             self.state.borrow_mut().take().expect("event loop already running");
-
-        // Update the Slint window size from the display (320x240 for M5Stack CoreS3)
-        let size = slint::PhysicalSize::new(320, 240);
-        self.window.borrow().as_ref().unwrap().set_size(size);
 
         // Variable to track the last touch position
         let mut last_touch = None;

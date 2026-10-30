@@ -20,6 +20,7 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
     use slint::ComponentHandle as _;
     let api_weak = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(api);
     let selection_api_weak = api_weak.clone();
+    let has_property_api_weak = api_weak.clone();
     let editor_weak = editor.as_weak();
     let selected_item = selected_item_cache(move || {
         let editor = editor_weak.upgrade()?;
@@ -38,6 +39,11 @@ pub fn setup(editor: &ui::EditorUi, api: &ui::Api<'_>) {
             .upgrade()
             .and_then(|api| ui::source_property_value_data(&api, property_name))
             .unwrap_or(fallback)
+    });
+    api.on_has_property(move |property_name| {
+        has_property_api_weak
+            .upgrade()
+            .is_some_and(|api| ui::source_property_value_data(&api, property_name).is_some())
     });
     api.on_runtime_property_value_data(move |property_name, fallback| {
         let runtime = selected_item
@@ -194,6 +200,7 @@ fn map_property_to_ui(
     let expression = code_block_or_expression.as_ref().and_then(|cbe| cbe.expression());
 
     if let Some(expression) = &expression {
+        value.is_number_literal = convert_number_literal(expression).is_some();
         value.code = SharedString::from(expression.text().to_string());
 
         if let Some(qualified_name) = expression.QualifiedName() {
@@ -318,6 +325,11 @@ fn map_property_to_ui(
         }
     }
 
+    if let Some(code) = code_block_or_expression.as_ref().filter(|code| code.expression().is_none())
+    {
+        value.code = code.text().to_string().into();
+        value.kind = ui::PropertyValueKind::Code;
+    }
     if is_complex(expression, &property_info.ty) {
         value.kind = ui::PropertyValueKind::Code;
     }
@@ -1328,14 +1340,18 @@ export component Test { in property <Foobar> test1; }"#,
             1,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 20.));
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @radial-gradient(ellipse 40px 40px, #f00 0%, #00f 100%); }"#,
             1,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert_eq!((result.fill.radius, result.fill.radius_y), (40., 40.));
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @radial-gradient(circle 0px, #f00 0%, #00f 100%); }"#,
@@ -1353,7 +1369,9 @@ export component Test { in property <Foobar> test1; }"#,
             3,
         );
         assert!(matches!(result.brush_kind, ui::BrushKind::Radial));
-        assert!(!result.value_resolved);
+        assert!(result.value_resolved);
+        assert!(result.fill.radial_ellipse);
+        assert!(!result.fill.custom_radius);
 
         let result = property_conversion_test(
             r#"export component Test { in property <brush> test1: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50% - 10%, #f69d3c 100%); }"#,

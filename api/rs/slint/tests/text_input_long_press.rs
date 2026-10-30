@@ -8,6 +8,7 @@ use slint::LogicalPosition;
 use slint::platform::{PointerEventButton, WindowEvent};
 
 slint::slint! {
+    #[edition = "1.19"]
     export component TestCase inherits Window {
         width: 300phx;
         height: 100phx;

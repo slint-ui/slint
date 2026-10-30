@@ -74,6 +74,7 @@ impl slint::platform::Platform for MemoryPlatform {
 }
 
 slint::slint! {
+    #[edition = "1.19"]
     export component CursorScene inherits Window {
         width: 320px;
         height: 240px;
@@ -243,6 +244,7 @@ impl slint::platform::Platform for ClockPlatform {
 }
 
 slint::slint! {
+    #[edition = "1.19"]
     export component AnimatedScene inherits Window {
         width: 320px;
         height: 240px;
@@ -313,6 +315,7 @@ mod event_loop {
     use super::*;
 
     slint::slint! {
+        #[edition = "1.19"]
         export component EndlessAnimation inherits Window {
             width: 320px;
             height: 240px;

@@ -5,6 +5,7 @@
 use wasm_bindgen::prelude::*;
 
 slint::slint! {
+    #[edition = "1.19"]
     export { MainWindow } from "../ui/demo.slint";
 }
 

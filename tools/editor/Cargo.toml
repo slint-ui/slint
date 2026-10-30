@@ -46,6 +46,7 @@ clru = { workspace = true }
 crossbeam-channel = "0.5"
 futures-util = "0.3.32"
 itertools = { workspace = true }
+jsonc-parser = "0.34.0"
 lsp-types = { workspace = true }
 nucleo-matcher = "0.3.1"
 pathdiff = "0.2.3"
@@ -70,7 +71,7 @@ tempfile = "3"
 
 # Used by the visual editor for the auto-updater, the title bar, and opening files from Finder.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSToolbar", "NSView", "NSWindow"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "libc", "NSApplication", "NSRunningApplication", "NSResponder", "NSToolbar", "NSView", "NSWindow"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSEnumerator", "NSString", "NSBundle", "NSError", "NSDate", "NSURL"] }
 objc2 = "0.6"
 raw-window-handle = "0.6"
@@ -95,7 +96,7 @@ reqwest = { version = "0.13", default-features = false, features = ["blocking", 
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-mdns-sd = { version = "0.20.0", default-features = false, optional = true }
+mdns-sd = { version = "0.21.6", default-features = false, optional = true }
 rfd = "0.17.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

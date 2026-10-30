@@ -9,6 +9,7 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorGeometrySection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
+    private property <bool> resizable: InspectorContext.is-resizable-selection();
 
     title: @tr("Geometry");
     InspectorPropertyRow {
@@ -16,8 +17,9 @@ export component InspectorGeometrySection inherits InspectorSection {
         InspectorValueField {
             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
             accessible-name: @tr("Position X"); prefix: "X";
+            enabled: root.resizable; muted-value: !root.resizable;
             value: InspectorContext.selected-x-label(); commit-key: InspectorContext.field-key("x");
-            scrubbable: true; scrub-value: InspectorContext.selected-x() / 1px;
+            scrubbable: root.resizable; scrub-value: InspectorContext.selected-x() / 1px;
             scrub-preview(value) => { return InspectorContext.preview-geometry-property("x", value); }
             scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
             scrub-canceled(value) => { InspectorContext.preview-geometry-property("x", value); }
@@ -26,8 +28,9 @@ export component InspectorGeometrySection inherits InspectorSection {
         InspectorValueField {
             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
             accessible-name: @tr("Position Y"); prefix: "Y";
+            enabled: root.resizable; muted-value: !root.resizable;
             value: InspectorContext.selected-y-label(); commit-key: InspectorContext.field-key("y");
-            scrubbable: true; scrub-value: InspectorContext.selected-y() / 1px;
+            scrubbable: root.resizable; scrub-value: InspectorContext.selected-y() / 1px;
             scrub-preview(value) => { return InspectorContext.preview-geometry-property("y", value); }
             scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
             scrub-canceled(value) => { InspectorContext.preview-geometry-property("y", value); }
@@ -40,26 +43,26 @@ export component InspectorGeometrySection inherits InspectorSection {
             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
             accessible-name: @tr("Width"); prefix: "W";
             value: InspectorContext.selected-width-label(); commit-key: InspectorContext.field-key("width");
-            scrubbable: true; scrub-value: InspectorContext.selected-width() / 1px;
+            scrubbable: root.resizable; scrub-value: InspectorContext.selected-width() / 1px;
             scrub-has-minimum: true; scrub-minimum: 1;
             scrub-preview(value) => { return InspectorContext.preview-geometry-property("width", value); }
             scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
             scrub-canceled(value) => { InspectorContext.preview-geometry-property("width", value); }
-            accepted(text) => { return InspectorContext.commit-geometry(InspectorContext.selected-x-label(), InspectorContext.selected-y-label(), text, InspectorContext.selected-height-label()); }
+            accepted(text) => { return root.resizable ? InspectorContext.commit-geometry(InspectorContext.selected-x-label(), InspectorContext.selected-y-label(), text, InspectorContext.selected-height-label()) : InspectorContext.commit-size-code("width", text); }
         }
         InspectorValueField {
             width: (parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap) / 2;
             accessible-name: @tr("Height"); prefix: "H";
             value: InspectorContext.selected-height-label(); commit-key: InspectorContext.field-key("height");
-            scrubbable: true; scrub-value: InspectorContext.selected-height() / 1px;
+            scrubbable: root.resizable; scrub-value: InspectorContext.selected-height() / 1px;
             scrub-has-minimum: true; scrub-minimum: 1;
             scrub-preview(value) => { return InspectorContext.preview-geometry-property("height", value); }
             scrub-accepted(value) => { return InspectorContext.accept-geometry-scrub(); }
             scrub-canceled(value) => { InspectorContext.preview-geometry-property("height", value); }
-            accepted(text) => { return InspectorContext.commit-geometry(InspectorContext.selected-x-label(), InspectorContext.selected-y-label(), InspectorContext.selected-width-label(), text); }
+            accepted(text) => { return root.resizable ? InspectorContext.commit-geometry(InspectorContext.selected-x-label(), InspectorContext.selected-y-label(), InspectorContext.selected-width-label(), text) : InspectorContext.commit-size-code("height", text); }
         }
     }
-    if !InspectorContext.is-root-selection(): InspectorPropertyRow {
+    if !InspectorContext.is-root-selection() && !InspectorContext.is-layout-selection(): InspectorPropertyRow {
         label: @tr("Rotation");
         height: Metrics.control-large;
         knob := InspectorRotationKnob {

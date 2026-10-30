@@ -9,6 +9,7 @@ mod slint_bevy_adapter;
 mod web_asset;
 
 slint::slint! {
+#[edition = "1.19"]
 import { Palette, Button, ComboBox, GroupBox, GridBox, Slider, HorizontalBox, VerticalBox, ProgressIndicator } from "std-widgets.slint";
 
 export component AppWindow inherits Window {

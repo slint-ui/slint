@@ -23,6 +23,12 @@ name = "test-driver-interpreter"
 # pass identically in both runs. Not a default feature to keep regular test runs fast,
 # but CI enables it via --all-features.
 inject-debug-hooks = []
+# Run every test once more on a unit that went through serialization, as the remote viewer
+# receives it. Catches any part of the LLR that doesn't survive the trip.
+llr-serialization = ["dep:i-slint-compiler", "slint-interpreter/internal-embed-textures"]
+
+[dependencies]
+i-slint-compiler = { workspace = true, features = ["serde"], optional = true }
 
 [dev-dependencies]
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "backend-qt", "internal"] }

@@ -11,12 +11,17 @@ use crate::expression_types::{
     EasingCurve, ImageReference, MinMaxOp, OperatorClass, Orientation, operator_class,
 };
 use crate::langtype::{ConstantExpression, Keys, Type};
-use itertools::Either;
+use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
+use alloc::string::String;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
+use either::Either;
 use smol_str::SmolStr;
-use std::collections::BTreeMap;
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ArrayOutput {
     Slice,
     Model,
@@ -49,6 +54,7 @@ pub const CROSS_WIDTH_LOCAL: &str = "cross_width";
 /// taffy-assigned width. See [`Expression::SolveFlexboxLayoutWithMeasure`].
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FlexboxMeasureCell {
     /// A static height-for-width cell, with its vertical `LayoutInfo`-typed
     /// expression reading the `measure_known_w` local as its width constraint.
@@ -66,6 +72,7 @@ pub enum FlexboxMeasureCell {
 /// [`Expression::BoxLayoutInfoOrthoWithMeasure`].
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BoxMeasureCell {
     /// A static cell: its vertical `LayoutInfo` expression. A height-for-width
     /// cell reads the `measure_known_w` local as its width constraint; any
@@ -78,6 +85,7 @@ pub enum BoxMeasureCell {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Expression {
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(SmolStr),
@@ -139,6 +147,8 @@ pub enum Expression {
         function: BuiltinFunction,
         arguments: Vec<Expression>,
         /// The location of the call in the .slint source, for run-time diagnostics
+        #[cfg(feature = "std")]
+        #[cfg_attr(feature = "serde", serde(skip))]
         source_location: Option<crate::diagnostics::SourceLocation>,
     },
     CallBackCall {
@@ -215,6 +225,7 @@ pub enum Expression {
         output: ArrayOutput,
     },
     Struct {
+        #[cfg_attr(feature = "serde", serde(with = "crate::llr::serialize::structure"))]
         ty: Arc<crate::langtype::Struct>,
         values: BTreeMap<SmolStr, Expression>,
     },
@@ -527,6 +538,7 @@ impl Expression {
             Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
             Type::StyledText => Expression::BuiltinFunctionCall {
+                #[cfg(feature = "std")]
                 source_location: None,
                 function: BuiltinFunction::StringToStyledText,
                 arguments: vec![Expression::StringLiteral(SmolStr::default())],
@@ -839,6 +851,7 @@ impl Expression {
         self.visit_mut(|e| e.visit_recursive_mut(visitor));
     }
 
+    #[cfg(feature = "std")]
     pub fn visit_property_references(
         &self,
         ctx: &EvaluationContext,
@@ -966,6 +979,7 @@ impl<'a, T> EvaluationContext<'a, T> {
         }
     }
 
+    #[cfg(feature = "std")]
     pub(crate) fn property_info<'b>(&'b self, prop: &MemberReference) -> PropertyInfoResult<'b> {
         fn match_in_sub_component<'b>(
             cu: &'b super::CompilationUnit,
@@ -1097,6 +1111,7 @@ impl<'a, T> EvaluationContext<'a, T> {
 
     /// Resolve a reference to a user function, returning the function and the
     /// [`ContextMap`] to evaluate its body in the current context.
+    #[cfg(feature = "std")]
     pub(crate) fn function_info<'b>(
         &'b self,
         reference: &MemberReference,
@@ -1260,18 +1275,20 @@ impl<T> TypeResolutionContext for EvaluationContext<'_, T> {
     }
 }
 
+#[cfg(feature = "std")]
 #[derive(Default, Debug)]
 pub(crate) struct PropertyInfoResult<'a> {
     pub analysis: Option<&'a crate::property_analysis::PropertyAnalysis>,
     pub binding: Option<(&'a super::BindingExpression, ContextMap)>,
     pub animation: Option<(&'a Expression, ContextMap)>,
     pub ty: Type,
-    pub use_count: Option<&'a std::cell::Cell<usize>>,
+    pub use_count: Option<&'a core::cell::Cell<usize>>,
 }
 
 /// Maps between two evaluation context.
 /// This allows to go from the current subcomponents context, to the context
 /// relative to the binding we want to inline
+#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub(crate) enum ContextMap {
     Identity,
@@ -1279,6 +1296,7 @@ pub(crate) enum ContextMap {
     InGlobal(GlobalIdx),
 }
 
+#[cfg(feature = "std")]
 impl ContextMap {
     fn from_parent_level(parent_level: usize) -> Self {
         if parent_level == 0 {

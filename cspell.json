@@ -265,6 +265,7 @@
     "unerase",
     "unmapping",
     "unminimize",
+    "unrotated",
     "untracked",
     "viewbox",
     "virtualizes",
@@ -478,6 +479,10 @@
     {
       "filename": "**/*.rst",
       "languageId": "restructuredtext"
+    },
+    {
+      "filename": "**/*.html.in",
+      "languageId": "html"
     },
     {
       "filename": "**/*.slint",

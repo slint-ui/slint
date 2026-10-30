@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cspell:ignore nesw
+
 import { Api } from "../../api.slint";
 import { InspectorComboOption } from "control-data.slint";
 
@@ -10,6 +12,10 @@ export global InspectorEnumOptions {
         { value: "preserve", label: "preserve" },
         { value: "contain", label: "contain" },
         { value: "cover", label: "cover" },
+    ];
+    out property <[InspectorComboOption]> image-rendering-options: [
+        { value: "smooth", label: "smooth" },
+        { value: "pixelated", label: "pixelated" },
     ];
     out property <[InspectorComboOption]> image-tiling-options: [
         { value: "none", label: "none" },
@@ -58,12 +64,70 @@ export global InspectorEnumOptions {
         { value: "horizontal", label: @tr("Horizontal") },
         { value: "vertical", label: @tr("Vertical") },
     ];
+    out property <[InspectorComboOption]> scrollbar-policy-options: [
+        { value: "as-needed", label: @tr("As needed") },
+        { value: "always-on", label: @tr("Always on") },
+        { value: "always-off", label: @tr("Always off") },
+    ];
+    out property <[InspectorComboOption]> layout-alignment-options: [
+        { value: "stretch", label: @tr("Stretch") },
+        { value: "center", label: @tr("Center") },
+        { value: "start", label: @tr("Start") },
+        { value: "end", label: @tr("End") },
+        { value: "space-between", label: @tr("Space between") },
+        { value: "space-around", label: @tr("Space around") },
+        { value: "space-evenly", label: @tr("Space evenly") },
+    ];
     out property <[InspectorComboOption]> input-type-options: [
         { value: "text", label: @tr("Text") },
         { value: "password", label: @tr("Password") },
         { value: "number", label: @tr("Number") },
         { value: "decimal", label: @tr("Decimal") },
         { value: "search", label: @tr("Search") },
+    ];
+    out property <[InspectorComboOption]> mouse-cursor-options: [
+        { value: "default", label: @tr("Default") },
+        { value: "none", label: @tr("None") },
+        { value: "help", label: @tr("Help") },
+        { value: "pointer", label: @tr("Pointer") },
+        { value: "progress", label: @tr("Progress") },
+        { value: "wait", label: @tr("Wait") },
+        { value: "crosshair", label: @tr("Crosshair") },
+        { value: "text", label: @tr("Text") },
+        { value: "alias", label: @tr("Alias") },
+        { value: "copy", label: @tr("Copy") },
+        { value: "move", label: @tr("Move") },
+        { value: "no-drop", label: @tr("No drop") },
+        { value: "not-allowed", label: @tr("Not allowed") },
+        { value: "grab", label: @tr("Grab") },
+        { value: "grabbing", label: @tr("Grabbing") },
+        { value: "col-resize", label: @tr("Column resize") },
+        { value: "row-resize", label: @tr("Row resize") },
+        { value: "n-resize", label: @tr("North resize") },
+        { value: "e-resize", label: @tr("East resize") },
+        { value: "s-resize", label: @tr("South resize") },
+        { value: "w-resize", label: @tr("West resize") },
+        { value: "ne-resize", label: @tr("North-east resize") },
+        { value: "nw-resize", label: @tr("North-west resize") },
+        { value: "se-resize", label: @tr("South-east resize") },
+        { value: "sw-resize", label: @tr("South-west resize") },
+        { value: "ew-resize", label: @tr("East-west resize") },
+        { value: "ns-resize", label: @tr("North-south resize") },
+        { value: "nesw-resize", label: @tr("North-east-south-west resize") },
+        { value: "nwse-resize", label: @tr("North-west-south-east resize") },
+    ];
+    out property <[InspectorComboOption]> standard-button-kind-options: [
+        { value: "ok", label: @tr("OK") },
+        { value: "cancel", label: @tr("Cancel") },
+        { value: "apply", label: @tr("Apply") },
+        { value: "close", label: @tr("Close") },
+        { value: "reset", label: @tr("Reset") },
+        { value: "help", label: @tr("Help") },
+        { value: "yes", label: @tr("Yes") },
+        { value: "no", label: @tr("No") },
+        { value: "abort", label: @tr("Abort") },
+        { value: "retry", label: @tr("Retry") },
+        { value: "ignore", label: @tr("Ignore") },
     ];
 
     public pure function option-index(name: string, default: string, options: [InspectorComboOption]) -> int {

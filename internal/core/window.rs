@@ -388,6 +388,9 @@ pub struct InputMethodProperties {
     pub input_type: InputType,
     /// The hints for the input method for the text edit.
     pub input_method_hints: InputMethodHints,
+    /// Whether the item is a single-line field such as a `LineEdit`, not a multi-line editor.
+    /// The input method picks the keyboard layout and the action key from it.
+    pub single_line: bool,
     /// The clip rect in window coordinates
     pub clip_rect: Option<LogicalRect>,
 }
@@ -1637,27 +1640,33 @@ impl WindowInner {
                 );
             },
         );
+    }
 
-        // Track position
-        if item.downcast::<crate::items::TextInput>().is_some() {
-            self.focus_item_position_tracker.init(
-                (item.downgrade(), self.window_adapter_weak.clone()),
-                |(item, _)| {
-                    let Some(item) = item.upgrade() else { return Default::default() };
-                    Some(item.map_to_native_window(item.geometry().origin))
-                },
-                |(item, window_adapter), _| {
-                    let (Some(item), Some(window_adapter)) =
-                        (item.upgrade(), window_adapter.upgrade())
-                    else {
-                        return;
-                    };
-                    if let Some(text_input) = item.downcast::<crate::items::TextInput>() {
-                        text_input.as_pin_ref().update_ime(&window_adapter, &item);
-                    }
-                },
-            );
-        }
+    /// Calls `on_moved` whenever the position of the focused `item` in the native window changes.
+    /// The tracking is reset when the item loses focus.
+    ///
+    /// This is called by the item itself (e.g. TextInput) rather than from `track_focus_item`,
+    /// so that the window doesn't reference the item's code and pull it into the binary of
+    /// applications that don't use that item.
+    pub(crate) fn track_focus_item_position(
+        &self,
+        item: &ItemRc,
+        on_moved: fn(&ItemRc, &Rc<dyn WindowAdapter>),
+    ) {
+        self.focus_item_position_tracker.init(
+            (item.downgrade(), self.window_adapter_weak.clone(), on_moved),
+            |(item, _, _)| {
+                let Some(item) = item.upgrade() else { return Default::default() };
+                Some(item.map_to_native_window(item.geometry().origin))
+            },
+            |(item, window_adapter, on_moved), _| {
+                let (Some(item), Some(window_adapter)) = (item.upgrade(), window_adapter.upgrade())
+                else {
+                    return;
+                };
+                on_moved(&item, &window_adapter);
+            },
+        );
     }
 
     fn move_focus(
@@ -2772,10 +2781,22 @@ pub mod ffi {
     /// by the renderer.
     #[repr(u8)]
     pub enum GraphicsAPI {
-        /// The rendering is done using OpenGL.
-        NativeOpenGL,
         /// The rendering is done using APIs inaccessible from C++, such as WGPU.
         Inaccessible,
+        /// The rendering is done using OpenGL.
+        OpenGL,
+        #[cfg(cbindgen)]
+        /// \deprecated Use OpenGL instead.
+        #[deprecated(note = "Use OpenGL instead")]
+        NativeOpenGL = OpenGL,
+        /// The rendering is done using OpenGL ES.
+        OpenGLES,
+        /// The rendering is done using Apple's Metal framework.
+        Metal,
+        /// The rendering is done using Vulkan.
+        Vulkan,
+        /// The rendering is done using Direct3D.
+        Direct3D,
     }
 
     struct WithUserData<T> {
@@ -3075,7 +3096,7 @@ pub mod ffi {
                     graphics_api: &crate::api::GraphicsAPI,
                 ) {
                     let cpp_graphics_api = match graphics_api {
-                        crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
+                        crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::OpenGL,
                         crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
                         #[cfg(feature = "unstable-wgpu-29")]
                         crate::api::GraphicsAPI::WGPU29 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)

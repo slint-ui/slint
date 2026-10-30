@@ -166,12 +166,16 @@ impl<T> ItemCache<T> {
         self.map.borrow().is_empty()
     }
 
-    /// Keeps only the entries for which `f` returns true.
-    pub fn retain(&self, mut f: impl FnMut(&T) -> bool) {
-        self.map.borrow_mut().retain(|_, per_component| {
-            per_component.retain(|_, entry| f(&entry.data));
-            !per_component.is_empty()
-        });
+    /// Calls `f` on every cached value.
+    ///
+    /// Use this to shrink values in place rather than removing their entries:
+    /// whatever depends on an entry is only notified of later changes while the entry exists.
+    pub fn for_each_mut(&self, mut f: impl FnMut(&mut T)) {
+        for per_component in self.map.borrow_mut().values_mut() {
+            for entry in per_component.values_mut() {
+                f(&mut entry.data);
+            }
+        }
     }
 
     /// Returns a [`RefMut`](std::cell::RefMut) referencing the cached value associated with
@@ -186,6 +190,19 @@ impl<T> ItemCache<T> {
         item_rc: &ItemRc,
         update_fn: impl FnOnce() -> T,
     ) -> std::cell::RefMut<'_, T> {
+        self.get_or_update_cache_entry_ref_unless(item_rc, update_fn, |_| false)
+    }
+
+    /// Like [`Self::get_or_update_cache_entry_ref`], but also computes the value again when
+    /// `is_stale` returns `true` for the cached one.
+    ///
+    /// The entry is updated in place, so whatever depends on it keeps being notified of changes.
+    pub fn get_or_update_cache_entry_ref_unless(
+        &self,
+        item_rc: &ItemRc,
+        update_fn: impl FnOnce() -> T,
+        is_stale: impl FnOnce(&T) -> bool,
+    ) -> std::cell::RefMut<'_, T> {
         let component = &(**item_rc.item_tree()) as *const _;
         let index = item_rc.index();
 
@@ -193,12 +210,17 @@ impl<T> ItemCache<T> {
             let mut borrowed = self.map.borrow_mut();
             match borrowed.entry(component).or_default().entry(index) {
                 std::collections::hash_map::Entry::Occupied(mut entry) => {
-                    let mut tracker = entry.get_mut().dependency_tracker.take();
+                    let entry = entry.get_mut();
+                    let stale = is_stale(&entry.data);
+                    let mut tracker = entry.dependency_tracker.take();
                     drop(borrowed);
-                    let maybe_new_data = tracker
-                        .get_or_insert_with(|| Box::pin(Default::default()))
-                        .as_ref()
-                        .evaluate_if_dirty(update_fn);
+                    let pinned_tracker =
+                        tracker.get_or_insert_with(|| Box::pin(Default::default())).as_ref();
+                    let maybe_new_data = if stale {
+                        Some(pinned_tracker.evaluate(update_fn))
+                    } else {
+                        pinned_tracker.evaluate_if_dirty(update_fn)
+                    };
                     let mut borrowed = self.map.borrow_mut();
                     let e = borrowed.get_mut(&component).unwrap().get_mut(&index).unwrap();
                     e.dependency_tracker = tracker;
@@ -488,9 +510,9 @@ pub trait RenderImage {
     fn tiling(self: Pin<&Self>) -> (ImageTiling, ImageTiling);
 }
 
-/// Trait for an item has font properties
-#[allow(missing_docs)]
+/// Trait for an item that has font properties.
 pub trait HasFont {
+    /// The font to shape the item's text with, falling back to the enclosing `Window`'s defaults.
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest;
 }
 
@@ -500,10 +522,11 @@ pub enum PlainOrStyledText {
     Styled(crate::styled_text::StyledText),
 }
 
-/// Trait for an item that represents an string towards the renderer
-#[allow(missing_docs)]
+/// Trait for an item that represents a string towards the renderer.
 pub trait RenderString: HasFont {
+    /// The text to lay out.
     fn text(self: Pin<&Self>) -> PlainOrStyledText;
+    /// The `max-lines` property; see [`Self::line_limit`].
     fn max_lines(self: Pin<&Self>) -> i32 {
         0
     }
@@ -520,6 +543,57 @@ pub trait RenderString: HasFont {
     /// Color of `Style::Link` spans. Like `stroke`, it's baked into the shaped glyphs.
     fn link_color(self: Pin<&Self>) -> Color {
         Default::default()
+    }
+    /// The factor applied to the font's natural line height, or `None` for the natural height.
+    ///
+    /// Width measurement goes through `TextForWidth`, which never calls this: the line height
+    /// can't change the width, and a factor bound to the width would loop there (#13799).
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        None
+    }
+    /// Whether the renderer only measures the width, so a layout shaped with any line height serves.
+    fn measures_width_only(self: Pin<&Self>) -> bool {
+        false
+    }
+}
+
+/// Maps a `line-height-factor` property value to [`RenderString::line_height_factor`].
+/// Negative and non-finite values behave like `1`, the natural line height; `0` collapses lines.
+pub fn resolve_line_height_factor(factor: f32) -> Option<f32> {
+    (factor.is_finite() && factor >= 0.0 && factor != 1.0).then_some(factor)
+}
+
+/// Presents a text to the renderer for measuring its width: like the text itself, but with the
+/// natural line height. See [`RenderString::line_height_factor`].
+pub(crate) struct TextForWidth<'a>(pub Pin<&'a dyn RenderString>);
+
+impl HasFont for TextForWidth<'_> {
+    fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
+        self.0.font_request(self_rc)
+    }
+}
+
+impl RenderString for TextForWidth<'_> {
+    fn text(self: Pin<&Self>) -> PlainOrStyledText {
+        self.0.text()
+    }
+    fn max_lines(self: Pin<&Self>) -> i32 {
+        self.0.max_lines()
+    }
+    fn line_limit(self: Pin<&Self>) -> Option<usize> {
+        self.0.line_limit()
+    }
+    fn stroke(self: Pin<&Self>) -> (Brush, LogicalLength, TextStrokeStyle) {
+        self.0.stroke()
+    }
+    fn link_color(self: Pin<&Self>) -> Color {
+        self.0.link_color()
+    }
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        None
+    }
+    fn measures_width_only(self: Pin<&Self>) -> bool {
+        true
     }
 }
 
@@ -552,6 +626,22 @@ pub trait RenderText: RenderString {
     fn wrap(self: Pin<&Self>) -> TextWrap;
     fn overflow(self: Pin<&Self>) -> TextOverflow;
     fn is_markdown(self: Pin<&Self>) -> bool;
+    /// The part of the text drawn as selected, if any.
+    fn selection(self: Pin<&Self>) -> Option<TextSelection> {
+        None
+    }
+}
+
+/// A stretch of a text item's text drawn as selected.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextSelection {
+    /// Byte offsets into the raw text.
+    /// For styled text, that is its paragraphs joined by `'\n'`.
+    pub range: core::ops::Range<usize>,
+    /// The highlight behind the selected glyphs.
+    pub background: Color,
+    /// The color of the selected glyphs, whatever their own.
+    pub foreground: Color,
 }
 
 impl HasFont for (SharedString, Brush) {
@@ -562,7 +652,6 @@ impl HasFont for (SharedString, Brush) {
             0,
             LogicalLength::default(),
             LogicalLength::default(),
-            0.0,
             false,
         )
     }

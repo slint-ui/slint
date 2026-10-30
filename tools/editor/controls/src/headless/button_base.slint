@@ -8,27 +8,33 @@ export component ButtonBase {
     implement ButtonInterface <=> self;
 
     in property <bool> enabled: true;
-    in property <MouseCursor> mouse-cursor: MouseCursor.pointer;
-    in property <bool> checkable;
-    in-out property <bool> checked;
+    in property <MouseCursor> mouse-cursor: MouseCursor.default;
     in property <string> text;
+    in property <bool> checkable;
     in property <image> icon;
     in property <length> icon-size: 20px;
-    in property <bool> colorize-icon: true;
     in property <bool> primary;
-    in property <length> content-padding;
-    in property <length> content-padding-left: root.content-padding;
-    in property <length> content-padding-right: root.content-padding;
-    in property <length> content-padding-top: root.content-padding;
-    in property <length> content-padding-bottom: root.content-padding;
+    in property <bool> colorize-icon;
+    in property <bool> focus-on-click;
+    in property <bool> focus-on-tab-navigation: true;
+
+    in-out property <bool> checked;
+
     out property <bool> has-focus: interaction.has-focus;
+    out property <bool> focus-visible: interaction.focus-visible;
     out property <bool> hovered: interaction.hovered;
     out property <bool> pressed: interaction.pressed;
-    callback clicked();
-    callback toggled(checked: bool);
 
     slot background;
     slot content;
+
+    callback clicked();
+
+    public function activate() {
+        if !root.enabled { return; }
+        if root.checkable { root.checked = !root.checked; }
+        root.clicked();
+    }
 
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -40,15 +46,6 @@ export component ButtonBase {
     accessible-checked: root.checked;
     accessible-action-default => { root.activate(); }
 
-    public function activate() {
-        if !root.enabled { return; }
-        if root.checkable {
-            root.checked = !root.checked;
-            root.toggled(root.checked);
-        }
-        root.clicked();
-    }
-
     background { }
 
     interaction := PressInteraction {
@@ -56,15 +53,11 @@ export component ButtonBase {
         height: root.height;
         enabled: root.enabled;
         mouse-cursor: root.mouse-cursor;
+        focus-on-click: root.focus-on-click;
+        focus-on-tab-navigation: root.focus-on-tab-navigation;
         activated => { root.activate(); }
     }
 
-    HorizontalLayout {
-        padding-left: root.content-padding-left;
-        padding-right: root.content-padding-right;
-        padding-top: root.content-padding-top;
-        padding-bottom: root.content-padding-bottom;
-        content { }
-        @children
-    }
+    content { }
+    @children
 }

@@ -25,6 +25,7 @@ use derive_more as dm;
 
 use crate::CompilerConfiguration;
 use crate::expression_tree::Callable;
+use crate::project_file::SlintEdition;
 use smol_str::{SmolStr, ToSmolStr};
 
 /// Represent the kind of property for the DefaultFontSize based on the `default-font-size`` property of every `Window``
@@ -81,6 +82,7 @@ pub fn binding_analysis(
         &reverse_aliases,
         &mut global_analysis,
         compiler_config.error_on_binding_loop_with_window_layout,
+        compiler_config.edition,
         diag,
     );
     global_analysis
@@ -186,6 +188,7 @@ struct AnalysisContext<'a> {
     /// And we should issue a warning if that's part of a loop instead of an error
     window_layout_property: Option<PropertyPath>,
     error_on_binding_loop_with_window_layout: bool,
+    edition: Option<SlintEdition>,
     /// Set once `MAX_ANALYSIS_DEPTH` was reported, so a document yields one error
     depth_limit_reported: bool,
     /// For each place a binding loop diagnostic or note points at, whether one of those loops
@@ -199,10 +202,12 @@ fn perform_binding_analysis(
     reverse_aliases: &ReverseAliases,
     global_analysis: &mut GlobalAnalysis,
     error_on_binding_loop_with_window_layout: bool,
+    edition: Option<SlintEdition>,
     diag: &mut BuildDiagnostics,
 ) {
     let mut context = AnalysisContext {
         error_on_binding_loop_with_window_layout,
+        edition,
         visited: HashSet::new(),
         currently_analyzing: Default::default(),
         window_layout_property: None,
@@ -463,7 +468,7 @@ fn analyze_binding(
     // so the expression of a property aliased to this one is a dependency of this binding too.
     // The other direction is covered by the `two_way_bindings` loop above.
     let mut aliased_deps = Vec::new();
-    for alias in reverse_aliases.get(&current.prop).into_iter().flatten() {
+    for alias in transitive_reverse_aliases(&current.prop, reverse_aliases) {
         let element = alias.element();
         let element_borrow = element.borrow();
         if let Some(alias_binding) = element_borrow.binding(alias.name()) {
@@ -592,8 +597,6 @@ fn report_binding_loop(
     // The bindings of the cycle that have a place in the source. A synthetic element (eg. the
     // Flickable's content element) has none; the rest of the cycle is still reported.
     let mut reportable = Vec::new();
-    // Skip a cycle whose bindings were all reported already: most often it's one reported cycle
-    // entered from another of its properties. One that shares only some is another loop.
     let mut all_reported = true;
     for it in &cycle {
         let elem = it.prop.element();
@@ -615,7 +618,13 @@ fn report_binding_loop(
         };
         reportable.push((*it, span, rank));
     }
-    if all_reported {
+    // Skip a cycle whose bindings were all reported already: most often it's one reported cycle
+    // entered from another of its properties. One that shares only some is another loop.
+    // From edition 1.19, an error one is still reported: it may be a shorter loop inside an
+    // earlier one, such as a warning through the window layout.
+    let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
+    let report_hidden_errors = context.edition.is_some_and(|v| v >= SlintEdition::V1_19);
+    if all_reported && !(is_error && report_hidden_errors) {
         return;
     }
     // Of equal blame, one in the user's own file over one in a widget, then the one written
@@ -634,7 +643,6 @@ fn report_binding_loop(
     };
     // Skip, too, a cycle that would only point where earlier loops already did, such as one
     // through another instance of the same component. A warning there doesn't hide an error.
-    let is_error = context.error_on_binding_loop_with_window_layout || !has_window_layout;
     let covered = |span: &SourceLocation| {
         context.loop_reported_at.get(&place(span)).is_some_and(|was_error| *was_error || !is_error)
     };
@@ -805,6 +813,23 @@ fn describe_loop(current: &PropertyPath, cycle: &[&PropertyPath]) -> String {
         out.push_str(&prop.prop.declared_name());
     }
     out
+}
+
+fn transitive_reverse_aliases(
+    prop: &NamedReference,
+    reverse_aliases: &ReverseAliases,
+) -> Vec<NamedReference> {
+    let mut result = Vec::new();
+    let mut pending = vec![prop];
+    while let Some(p) = pending.pop() {
+        for alias in reverse_aliases.get(p).into_iter().flatten() {
+            if alias != prop && !result.contains(alias) {
+                result.push(alias.clone());
+                pending.push(alias);
+            }
+        }
+    }
+    result
 }
 
 /// Find properties two-way-bound (via `<=>`) to `prop`, ascending through base components
