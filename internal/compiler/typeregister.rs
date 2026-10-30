@@ -124,17 +124,25 @@ pub struct BuiltinTypes {
 
 impl BuiltinTypes {
     fn new() -> Self {
+        use crate::expression_types::Unit;
+        use crate::langtype::ConstantExpression;
         let enums = BuiltinEnums::new();
         let mut structs = BTreeMap::new();
-        let mut add = |name: BuiltinStruct, fields: &[(&str, Type)]| {
-            let fields = fields.iter().map(|(field, ty)| (SmolStr::new(field), ty.clone()));
-            let s = Arc::new(Struct::new(fields.collect(), name.clone()));
-            structs.insert(name, s.clone());
-            Type::Struct(s)
-        };
-        let enumeration = |e: &Arc<Enumeration>| Type::Enumeration(e.clone());
-
-        let layout_info = add(
+        let mut add_with_defaults =
+            |name: BuiltinStruct,
+             fields: &[(&str, Type)],
+             defaults: &[(&str, ConstantExpression)]| {
+                let fields = fields.iter().map(|(field, ty)| (SmolStr::new(field), ty.clone()));
+                let mut s = Struct::new(fields.collect(), name.clone());
+                s.field_defaults = defaults
+                    .iter()
+                    .map(|(field, value)| (SmolStr::new(field), value.clone()))
+                    .collect();
+                let s = Arc::new(s);
+                structs.insert(name, s.clone());
+                Type::Struct(s)
+            };
+        let layout_info = add_with_defaults(
             BuiltinStruct::LayoutInfo,
             &[
                 ("min", Type::LogicalLength),
@@ -144,7 +152,15 @@ impl BuiltinTypes {
                 ("max_percent", Type::Float32),
                 ("stretch", Type::Float32),
             ],
+            &[
+                ("max", ConstantExpression::NumberLiteral(f32::MAX as f64, Unit::Px)),
+                ("max_percent", ConstantExpression::NumberLiteral(100., Unit::None)),
+            ],
         );
+        let mut add =
+            |name: BuiltinStruct, fields: &[(&str, Type)]| add_with_defaults(name, fields, &[]);
+        let enumeration = |e: &Arc<Enumeration>| Type::Enumeration(e.clone());
+
         let align_self = enumeration(&enums.CrossAxisAlignment);
         let flex_item_props = add(
             BuiltinStruct::FlexItemProps,

@@ -1433,6 +1433,20 @@ impl Expression {
         }
     }
 
+    /// A literal of the struct `ty` with `values`, and the default value for the other fields.
+    pub fn struct_with_defaults(
+        ty: Arc<Struct>,
+        values: impl IntoIterator<Item = (SmolStr, Expression)>,
+    ) -> Expression {
+        let mut values: BTreeMap<_, _> = values.into_iter().collect();
+        for name in ty.fields.keys() {
+            if !values.contains_key(name) {
+                values.insert(name.clone(), Self::default_value_for_field(&ty, name));
+            }
+        }
+        Expression::Struct { ty, values }
+    }
+
     pub fn default_value_for_field(ty: &Struct, name: &SmolStr) -> Expression {
         ty.field_defaults.get(name).map(Expression::from_constant).unwrap_or_else(|| {
             Expression::default_value_for_type(

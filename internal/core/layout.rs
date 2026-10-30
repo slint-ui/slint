@@ -1127,7 +1127,7 @@ pub fn grid_layout_info(
     let max = layout_data.iter().map(|data| data.max).fold(spacing_w, Saturating::add);
     let preferred = layout_data.iter().map(|data| data.pref).sum::<Coord>() + spacing_w;
     let stretch = layout_data.iter().map(|data| data.stretch).sum::<f32>();
-    LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
+    LayoutInfo { min, max, preferred, stretch, ..Default::default() }
 }
 
 #[repr(C)]
@@ -1421,7 +1421,7 @@ pub fn box_layout_info(
     }; // Maximum size of the complete layout
     let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
-    LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
+    LayoutInfo { min, max, preferred, stretch, ..Default::default() }
 }
 
 pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) -> LayoutInfo {
@@ -1437,9 +1437,13 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
     fold.preferred += extra_w;
     // Don't propagate children's percentage constraints to the parent.
     // Percentages are relative to the layout's own size, not the grandparent's.
-    fold.min_percent = 0 as _;
-    fold.max_percent = 100 as _;
-    fold
+    LayoutInfo {
+        min: fold.min,
+        max: fold.max,
+        preferred: fold.preferred,
+        stretch: fold.stretch,
+        ..Default::default()
+    }
 }
 
 /// Helper module for taffy-based flexbox layout
@@ -2248,14 +2252,7 @@ pub fn flexbox_layout_info_main_axis(
         acc + extra_pad
     };
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
-    LayoutInfo {
-        min,
-        max: Coord::MAX,
-        min_percent: 0 as _,
-        max_percent: 100 as _,
-        preferred,
-        stretch,
-    }
+    LayoutInfo { min, preferred, stretch, ..Default::default() }
 }
 
 /// Return cross-axis LayoutInfo for a FlexboxLayout.
@@ -2456,14 +2453,7 @@ pub fn flexbox_layout_info_cross_axis_with_measure(
         cross_of(builder.container_size())
     };
 
-    LayoutInfo {
-        min: cross_size,
-        max: Coord::MAX,
-        min_percent: 0 as _,
-        max_percent: 100 as _,
-        preferred,
-        stretch: 0.0,
-    }
+    LayoutInfo { min: cross_size, preferred, ..Default::default() }
 }
 
 #[cfg(feature = "ffi")]

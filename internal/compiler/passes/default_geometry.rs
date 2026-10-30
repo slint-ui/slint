@@ -425,22 +425,18 @@ fn merge_explicit_constraints(
 }
 
 fn explicit_layout_info(e: &ElementRc, orientation: Orientation) -> Expression {
-    let mut values = BTreeMap::new();
     let (size, orient) = match orientation {
         Orientation::Horizontal => ("width", "horizontal"),
         Orientation::Vertical => ("height", "vertical"),
     };
-    for (k, v) in [
+    let values = [
         ("min", format_smolstr!("min-{size}")),
         ("max", format_smolstr!("max-{size}")),
         ("preferred", format_smolstr!("preferred-{size}")),
         ("stretch", format_smolstr!("{orient}-stretch")),
-    ] {
-        values.insert(k.into(), Expression::PropertyReference(NamedReference::new(e, v)));
-    }
-    values.insert("min_percent".into(), Expression::NumberLiteral(0., Unit::None));
-    values.insert("max_percent".into(), Expression::NumberLiteral(100., Unit::None));
-    Expression::Struct { ty: crate::typeregister::layout_info_type(), values }
+    ]
+    .map(|(k, v)| (k.into(), Expression::PropertyReference(NamedReference::new(e, v))));
+    Expression::struct_with_defaults(crate::typeregister::layout_info_type(), values)
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`

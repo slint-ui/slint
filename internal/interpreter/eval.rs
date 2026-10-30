@@ -716,7 +716,10 @@ pub(crate) fn fill_missing_struct_fields(
     ty: &i_slint_compiler::langtype::Struct,
 ) {
     for k in ty.fields.keys() {
-        value.0.entry(k.clone()).or_insert_with(|| default_value_for_struct_field(ty, k));
+        value
+            .0
+            .entry(crate::api::normalize_identifier(k))
+            .or_insert_with(|| default_value_for_struct_field(ty, k));
     }
 }
 
@@ -1022,9 +1025,12 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::Array { values, .. } => Value::Model(ModelRc::new(SharedVectorModel::from(
             values.iter().map(|e| eval_expression(ctx, e)).collect::<SharedVector<_>>(),
         ))),
-        Expression::Struct { values, .. } => Value::Struct(
-            values.iter().map(|(k, v)| (k.to_string(), eval_expression(ctx, v))).collect(),
-        ),
+        Expression::Struct { ty, values } => {
+            let mut value: crate::Struct =
+                values.iter().map(|(k, v)| (k.to_string(), eval_expression(ctx, v))).collect();
+            fill_missing_struct_fields(&mut value, ty);
+            Value::Struct(value)
+        }
         Expression::EasingCurve(curve) => {
             use i_slint_compiler::expression_types::EasingCurve as EC;
             use i_slint_core::animations::EasingCurve as Core;
@@ -2673,4 +2679,10 @@ pub(crate) fn component_context(ctx: &EvalContext) -> SlintContext {
         None => SlintContext::current()
             .expect("a component is being evaluated, so there is a current context"),
     }
+}
+
+#[test]
+fn layout_info_default_is_the_runtime_default() {
+    let ty = Type::Struct(i_slint_compiler::typeregister::layout_info_type());
+    assert_eq!(default_value_for_type(&ty), i_slint_core::layout::LayoutInfo::default().into());
 }
