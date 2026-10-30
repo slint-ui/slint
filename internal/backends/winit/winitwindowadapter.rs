@@ -937,6 +937,10 @@ impl WinitWindowAdapter {
         Ok(())
     }
 
+    pub(crate) fn is_shown(&self) -> bool {
+        !matches!(self.shown.get(), WindowVisibility::Hidden)
+    }
+
     pub fn winit_window(&self) -> Option<Arc<winit::window::Window>> {
         self.winit_window_or_none.borrow().as_window()
     }

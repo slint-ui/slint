@@ -655,8 +655,13 @@ impl SharedBackendData {
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
-            if let Some(err) = window_weak.upgrade().and_then(|w| w.ensure_window(event_loop).err())
-            {
+            let Some(window) = window_weak.upgrade() else { continue };
+            // A Wayland window is mapped as soon as it exists, and task bars list one that never gets
+            // content, so a hidden one waits: showing it registers it here again.
+            if self.is_wayland && !window.is_shown() {
+                continue;
+            }
+            if let Err(err) = window.ensure_window(event_loop) {
                 result = Err(err);
                 break;
             }
