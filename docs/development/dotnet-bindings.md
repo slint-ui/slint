@@ -147,9 +147,11 @@ A case whose generated code doesn't compile is dropped from the runner and fails
 The driver builds `slint-dotnet` with the `testing` feature,
 which uses the test fonts and reports Windows as the operating system, like the interpreter driver.
 It passes the include and library paths and the bundled translations of a case like the other drivers do.
-Like them, it sets `SLINT_EDITION` to the edition of this Slint, for the compiler and for the runner,
-since layout fixes such as #407 only apply from edition 1.19.
-A case with an `//edition:` line gets that edition instead, at generation and in its runner process.
+Like them, it compiles each case with the edition of this Slint, since layout fixes such as #407 only apply from edition 1.19,
+and a case with an `//edition:` line gets that edition instead.
+The generated code compiles the case again in the runner, which takes an edition only from a project file,
+so the driver writes one per case into the runner's `projects` directory, like the Node.js and Python drivers.
+It also lists the case's include and library paths, as absolute paths.
 
 The ```` ```csharp ```` blocks of a case go into `cases/<case>.test.cs`, which the runner calls after the `test` check.
 The runner is the assembly `Slint.TestDriver`, which sees the internal `Slint.Testing`.
@@ -459,7 +461,8 @@ Done:
   and the manual `linuxkms` test with its `GbmDisplay` change.
   Next, it needs what 1.19.0-preview.10 published: iOS, the templates, and `Image.FromPremultipliedRgba8`, items 17, 20, and 21,
   and the `linuxkms` job of CI.
-  That change in `internal/backends/linuxkms` fixes Slint itself, so it can also go upstream as a pull request of its own, before this one.
+  That change in `internal/backends/linuxkms` fixes Slint itself, so it went upstream on its own, as [#14565](https://github.com/slint-ui/slint/pull/14565).
+  Following its review, one `DrmOutput::takes_modifiers` and one `add_framebuffer` serve both gbm displays; it waits for approval.
   Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
   Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
@@ -585,7 +588,7 @@ Next:
       and libinput delivers keys and clicks: a virtual keyboard from `/dev/uinput` adds a todo.
     - The OpenGL renderers failed at the first frame, because `GbmDisplay` named a modifier to a driver
       without `DRM_CAP_ADDFB2_MODIFIERS`. It now checks the capability, like `GbmDmabufDisplay`,
-      and Skia, FemtoVG, and both OpenGL samples render; that change in `internal/backends/linuxkms` goes upstream on its own.
+      and Skia, FemtoVG, and both OpenGL samples render; that change is upstream as #14565, see item 14.
     - Building `slint-dotnet` without the `live-preview` feature failed, since `is_window` needs the interpreter's `internal` feature,
       which `Cargo.toml` now enables directly.
     - The Linux .NET job of CI loads `vkms`, the kernel's virtual display driver, and starts the todo example
