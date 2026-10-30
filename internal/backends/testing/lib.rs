@@ -118,6 +118,12 @@ pub fn configure_test_fonts() {
         include_bytes!("../../../tests/screenshots/fonts/NotoSans-Italic.ttf"),
         include_bytes!("../../../tests/screenshots/fonts/NotoSansSymbols2-Regular.ttf"),
     ];
+    // Color emoji fonts, only for the cases that name them: left out of the fallback chain so
+    // they can't change any other case.
+    static NAMED_FONTS: &[&[u8]] = &[
+        include_bytes!("../../../tests/screenshots/fonts/NotoColorEmoji-Subset.ttf"),
+        include_bytes!("../../../tests/screenshots/fonts/TwemojiMozilla-Subset.ttf"),
+    ];
 
     i_slint_core::with_existing_context(|ctx| {
         let mut font_context = ctx.font_context().borrow_mut();
@@ -138,6 +144,11 @@ pub fn configure_test_fonts() {
                     chain_families.push(*family_id);
                 }
             }
+        }
+        for font in NAMED_FONTS {
+            font_context
+                .collection
+                .register_fonts(fontique::Blob::new(std::sync::Arc::new(*font)), None);
         }
         // Map the fallback generics plus monospace (used by markdown code spans) to the bundled
         // fonts, so all generic families resolve deterministically with system fonts disabled.

@@ -112,6 +112,9 @@ pub enum PreviewToLspMessage {
     /// Highlight an element in the visual editor run preview without showing it in the editor.
     /// `None` clears the highlight.
     HighlightInRunPreview { url: Option<Url>, offset: u32 },
+    /// The preview UI asked to show the design on a microcontroller connected to
+    /// this serial port. The LSP main process compiles the design and sends it.
+    ConnectSerial { port: String },
 }
 
 impl PreviewToLspMessage {

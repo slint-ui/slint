@@ -48,7 +48,9 @@ def picker_field(window, label, role=slint_testing.AccessibleRole.TextInput):
 
 
 def open_gradient(window):
-    click(window, "Rectangle background color picker")
+    control(window, "Rectangle background color picker").single_click(
+        slint_testing.PointerEventButton.Left
+    )
 
 
 def open_radial(window):

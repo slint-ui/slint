@@ -412,6 +412,8 @@ public:
     ///
     /// The provided callback must be callable with a slint::RenderingState and the
     /// slint::GraphicsAPI argument.
+    /// The renderer passes GraphicsAPI::OpenGL for both OpenGL and OpenGL ES,
+    /// and GraphicsAPI::Inaccessible for graphics APIs without a C++ interface.
     ///
     /// On success, the function returns a std::optional without value. On error, the function
     /// returns the error code as value in the std::optional.

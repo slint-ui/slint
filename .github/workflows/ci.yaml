@@ -474,6 +474,19 @@ jobs:
               # Host target, overriding the embedded default target of this directory's .cargo/config.toml
               run: cargo check --bin ui_simulator --target=x86_64-unknown-linux-gnu --no-default-features --features=simulator --release
               working-directory: examples/mcu-embassy
+            - name: Check the mcu-viewer simulator
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') || contains(fromJSON(inputs.changes), 'internal') }}
+              env:
+                  RUSTFLAGS: -D warnings
+              run: cargo check --manifest-path examples/mcu-viewer/Cargo.toml
+            - name: Check the compiler, the interpreter and the preview protocol without std
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') }}
+              env:
+                  RUSTFLAGS: -D warnings
+              run: |
+                  cargo check --target=thumbv7em-none-eabihf -p i-slint-compiler --no-default-features --features=serde
+                  cargo check --target=thumbv7em-none-eabihf -p slint-interpreter --no-default-features --features=internal-mcu-interpreter,internal,libm,i-slint-core/unsafe-single-threaded
+                  cargo check --target=thumbv7em-none-eabihf -p i-slint-live-preview --no-default-features --features=serial
             - name: Check all boards
               if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') }}
               env:
@@ -488,6 +501,12 @@ jobs:
                   cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml --release
                   cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml --release
                   cargo +esp check --manifest-path demos/Cargo.toml -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml --release
+            # The interpreter needs floating point coordinates
+            - name: Check the mcu-viewer firmware
+              if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'examples_mcu') }}
+              env:
+                  RUSTFLAGS: -D warnings
+              run: cargo +esp check --manifest-path examples/mcu-viewer/Cargo.toml --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml --release
 
             - uses: baptiste0928/cargo-install@v3
               if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_cpp') }}

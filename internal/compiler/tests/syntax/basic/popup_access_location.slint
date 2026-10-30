@@ -1,0 +1,134 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Accesses into a PopupWindow are reported at the access (#4438)
+
+component WithChildrenInPopup {
+    PopupWindow {
+        Rectangle { @children }
+    }
+}
+
+export component A inherits Window {
+    popup := PopupWindow {
+        r := Rectangle {
+            callback cb();
+            function f() -> length { 1px }
+            property <bool> cond;
+            property <[int]> model;
+            property <int> count;
+            property <int> subject;
+        }
+        input := TextInput { }
+    }
+    TouchArea {
+        clicked => {
+            r.background = blue;
+//          >           <error{Cannot access property or callback 'r.background' inside of a PopupWindow from enclosing component}
+            r.cb();
+//            ><error{Cannot access property or callback 'r.cb' inside of a PopupWindow from enclosing component}
+        }
+        double-clicked => {
+            debug(r.f());
+//                  ^error{Cannot access property or callback 'r.f' inside of a PopupWindow from enclosing component}
+        }
+    }
+    function get() -> length { r.width }
+//  >                                  <error{Cannot access property or callback 'r.width' inside of a PopupWindow from enclosing component}
+    property <length> two-way <=> r.height;
+//                            >           <error{Cannot access property or callback 'r.height' inside of a PopupWindow from enclosing component}
+    // Only the first binding, in name order, reports 'r.x'
+    property <length> x-first: r.x;
+//                             >  <error{Cannot access property or callback 'r.x' inside of a PopupWindow from enclosing component}
+    property <length> x-second: r.x;
+    changed width => { debug(r.y); }
+//                     >   <error{Cannot access property or callback 'r.y' inside of a PopupWindow from enclosing component}
+    init => { debug(r.border-width); }
+//            >   <error{Cannot access property or callback 'r.border-width' inside of a PopupWindow from enclosing component}
+    forward-focus: input;
+//                 >    <error{Cannot access element 'input' inside of a PopupWindow from enclosing component}
+    for i in 2: Rectangle { background: r.border-color; }
+//                                      >             <error{Cannot access property or callback 'r.border-color' inside of a PopupWindow from enclosing component}
+    if true: Rectangle { width: r.border-radius; }
+//                              >              <error{Cannot access property or callback 'r.border-radius' inside of a PopupWindow from enclosing component}
+    if r.cond: Rectangle { }
+//     >    <error{Cannot access property or callback 'r.cond' inside of a PopupWindow from enclosing component}
+    for item in r.model: Rectangle { }
+//              >     <error{Cannot access property or callback 'r.model' inside of a PopupWindow from enclosing component}
+    for i in r.count: Rectangle { }
+//           >     <error{Cannot access property or callback 'r.count' inside of a PopupWindow from enclosing component}
+    match r.subject {
+//        >        <error{Cannot access property or callback 'r.subject' inside of a PopupWindow from enclosing component}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    other := PopupWindow {
+        Rectangle { height: r.drop-shadow-blur; }
+//                          >                 <error{Cannot access property or callback 'r.drop-shadow-blur' inside of a PopupWindow from enclosing component}
+    }
+    Timer {
+        interval: r.drop-shadow-offset-x / 1px * 1ms;
+//                >                                 <error{Cannot access property or callback 'r.drop-shadow-offset-x' inside of a PopupWindow from enclosing component}
+        triggered => { debug(r.drop-shadow-offset-y); }
+//                     >   <error{Cannot access property or callback 'r.drop-shadow-offset-y' inside of a PopupWindow from enclosing component}
+    }
+    Rectangle {
+        x: 5px;
+        animate x { duration: r.clip ? 1ms : 2ms; }
+//                            >                 <error{Cannot access property or callback 'r.clip' inside of a PopupWindow from enclosing component}
+    }
+    states [
+        s when true: {
+            height: 50px;
+            in { animate height { duration: r.visible ? 1ms : 2ms; } }
+//                                          >                    <error{Cannot access property or callback 'r.visible' inside of a PopupWindow from enclosing component}
+        }
+        t when r.absolute-position.x > 0: {
+//      ^error{Cannot access property or callback 'r.absolute-position' inside of a PopupWindow from enclosing component}
+            width: r.preferred-width;
+//          >   <error{Cannot access property or callback 'r.preferred-width' inside of a PopupWindow from enclosing component}
+        }
+    ]
+    ContextMenuArea {
+        Menu {
+            MenuItem { title: r.accessible-label; }
+//                            >                 <error{Cannot access property or callback 'r.accessible-label' inside of a PopupWindow from enclosing component}
+        }
+    }
+
+    WithChildrenInPopup {
+        inner := Rectangle {
+            callback icb();
+            property <int> ip;
+            property <bool> c;
+            property <[int]> m;
+        }
+    }
+    property <float> state-value;
+    property <float> inlined-binding: inner.opacity;
+//                                    >            <error{Access to property 'inner.opacity' which is inlined into a PopupWindow via @children is forbidden}
+    property <int> inlined-two-way <=> inner.ip;
+//                                 >           <error{Access to property 'inner.ip' which is inlined into a PopupWindow via @children is forbidden}
+    changed height => { debug(inner.width); }
+//                      >   <error{Access to property 'inner.width' which is inlined into a PopupWindow via @children is forbidden}
+    TouchArea {
+        clicked => { inner.icb(); }
+//                         > <error{Access to property 'inner.icb' which is inlined into a PopupWindow via @children is forbidden}
+    }
+    if inner.c: Rectangle { }
+//     >     <error{Access to property 'inner.c' which is inlined into a PopupWindow via @children is forbidden}
+    for item in inner.m: Rectangle { }
+//              >     <error{Access to property 'inner.m' which is inlined into a PopupWindow via @children is forbidden}
+    states [
+        u when inner.x > 0: {
+//      ^error{Access to property 'inner.x' which is inlined into a PopupWindow via @children is forbidden}
+            state-value: inner.z;
+//          >         <error{Access to property 'inner.z' which is inlined into a PopupWindow via @children is forbidden}
+        }
+    ]
+    Rectangle {
+        y: 5px;
+        animate y { duration: inner.visible ? 1ms : 2ms; }
+//                            >                        <error{Access to property 'inner.visible' which is inlined into a PopupWindow via @children is forbidden}
+    }
+}

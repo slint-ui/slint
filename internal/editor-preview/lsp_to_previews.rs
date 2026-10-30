@@ -29,6 +29,8 @@ pub trait RemoteTransport {
         addresses: Vec<String>,
         port: u16,
     ) -> std::pin::Pin<Box<dyn Future<Output = Result<()>>>>;
+    /// Show the design on the microcontroller connected to the serial port `port`.
+    fn connect_serial(&self, port: String) -> std::pin::Pin<Box<dyn Future<Output = Result<()>>>>;
     fn disconnect(&self) -> std::pin::Pin<Box<dyn Future<Output = ()>>>;
     /// The code the user read off the viewer's screen.
     fn submit_pairing_code(&self, code: String);
