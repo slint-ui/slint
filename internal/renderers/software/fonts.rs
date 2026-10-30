@@ -8,6 +8,8 @@ use core::cell::RefCell;
 
 use super::{Fixed, PhysicalLength, PhysicalSize};
 use i_slint_core::graphics::{BitmapFont, FontRequest, OwnedStorage, Storage};
+#[cfg(feature = "systemfonts")]
+use i_slint_core::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use i_slint_core::lengths::ScaleFactor;
 use i_slint_core::textlayout::TextLayout;
 use pixelfont::PixelFont;
@@ -104,6 +106,16 @@ impl RenderableGlyph {
     }
 }
 
+/// The pixels of a glyph rendered from a vector font.
+#[cfg(feature = "systemfonts")]
+#[derive(Clone)]
+pub enum VectorGlyphPixels {
+    /// One coverage value per pixel, drawn in the text's color.
+    AlphaMap(Rc<[u8]>),
+    /// Premultiplied RGBA pixels of a color glyph, such as an emoji, drawn as they are.
+    Color(SharedPixelBuffer<Rgba8Pixel>),
+}
+
 // Subset of `RenderableGlyph`, specifically for VectorFonts.
 #[cfg(feature = "systemfonts")]
 #[derive(Clone)]
@@ -112,7 +124,7 @@ pub struct RenderableVectorGlyph {
     pub y: Fixed<i32, 8>,
     pub width: PhysicalLength,
     pub height: PhysicalLength,
-    pub alpha_map: Rc<[u8]>,
+    pub pixels: VectorGlyphPixels,
     pub pixel_stride: u16,
     pub glyph_origin_x: f32,
 }
@@ -121,6 +133,14 @@ pub struct RenderableVectorGlyph {
 impl RenderableVectorGlyph {
     pub fn size(&self) -> PhysicalSize {
         PhysicalSize::from_lengths(self.width, self.height)
+    }
+
+    /// The number of bytes the glyph's pixels take, for the glyph cache.
+    pub fn byte_size(&self) -> usize {
+        match &self.pixels {
+            VectorGlyphPixels::AlphaMap(alpha_map) => alpha_map.len(),
+            VectorGlyphPixels::Color(buffer) => buffer.as_bytes().len(),
+        }
     }
 }
 

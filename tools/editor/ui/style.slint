@@ -496,13 +496,14 @@ export struct RotationDialStyle {
 export struct InspectorSliderStyle {
     thumb-width: length = 22px,
     thumb-height: length = 14px,
-    track-height: length = 10px,
-    fill-height: length = 2px,
-    zero-height: length = 6px,
+    track-height: length = 6px,
+    fill-height: length = 1px,
+    zero-height: length = 4px,
     dot-size: length = 3px,
     fill: color,
     track: brush,
-    track-border: color,
+    track-border: brush,
+    track-shadow: ShadowStyle,
     zero: color,
     hover-border: color,
     dial: RotationDialStyle,
@@ -641,24 +642,36 @@ export struct ImageAssetEditorStyle {
     error: ImageErrorStyle,
 }
 
+export struct ElementPaletteTabStyle {
+    surface: brush,
+    selected-surface: brush,
+    frame: color,
+    separator: color,
+    base: color,
+    highlight: color,
+    edge: color,
+    selected-edge: color,
+    inset-shadow: color,
+}
+
 export struct CornerModeStyle {
     selected-background: brush,
     border: brush,
     width: length,
     height: length,
     radius: length,
-    background: brush,
     foreground: color,
     muted: color,
     focus-border: brush,
 }
 
 export struct CornerEditorStyle {
-    field-width: length = 72px,
+    field-width: length,
     gap: length,
     mode: CornerModeStyle,
     slider: InspectorSliderStyle,
     field: FieldStyle,
+    uniform-field: FieldStyle,
 }
 
 export struct ColorFieldStyle {
@@ -688,7 +701,6 @@ export struct ColorPalette {
     subtle-selection: color,
     focus-background: color,
     text-selection: color,
-    text-selection-foreground: color,
     on-accent: color,
     danger: color,
     warning: color,
@@ -849,8 +861,7 @@ export global LightTheme {
         selection: LightTheme.surfaces.selected,
         subtle-selection: LightTheme.surfaces.hover,
         focus-background: root.accent.with-alpha(0.12),
-        text-selection: #2563eb,
-        text-selection-foreground: #ffffff,
+        text-selection: #bad6fb,
         on-accent: #ffffff,
         danger: #cf222e,
         warning: #9a6700,
@@ -1045,7 +1056,7 @@ export global LightTheme {
         disabled: { background: LightTheme.surfaces.recessed, foreground: LightTheme.colors.muted, border: LightTheme.surfaces.recessed-border },
         muted: LightTheme.colors.muted,
         selection: LightTheme.colors.text-selection,
-        selection-foreground: LightTheme.colors.text-selection-foreground,
+        selection-foreground: LightTheme.colors.foreground,
     };
 
     out property <SegmentStyle> segment: {
@@ -1074,7 +1085,6 @@ export global LightTheme {
 
     out property <CornerModeStyle> corner-mode: {
         selected-background: LightTheme.surfaces.raised,
-        background: transparent,
         border: LightTheme.surfaces.raised-border,
         foreground: LightTheme.colors.foreground,
         muted: LightTheme.colors.muted,
@@ -1129,8 +1139,7 @@ export global DarkTheme {
         selection: DarkTheme.surfaces.selected,
         subtle-selection: DarkTheme.surfaces.hover,
         focus-background: root.accent.with-alpha(0.12),
-        text-selection: #93c5fd,
-        text-selection-foreground: #111827,
+        text-selection: #406994,
         on-accent: #ffffff,
         danger: #ff7b72,
         warning: #e3b341,
@@ -1325,7 +1334,7 @@ export global DarkTheme {
         disabled: { background: DarkTheme.surfaces.recessed, foreground: DarkTheme.colors.muted, border: DarkTheme.surfaces.recessed-border },
         muted: DarkTheme.colors.muted,
         selection: DarkTheme.colors.text-selection,
-        selection-foreground: DarkTheme.colors.text-selection-foreground,
+        selection-foreground: DarkTheme.colors.foreground,
     };
 
     out property <SegmentStyle> segment: {
@@ -1354,7 +1363,6 @@ export global DarkTheme {
 
     out property <CornerModeStyle> corner-mode: {
         selected-background: DarkTheme.surfaces.raised,
-        background: transparent,
         border: DarkTheme.surfaces.raised-border,
         foreground: DarkTheme.colors.foreground,
         muted: DarkTheme.colors.muted,
@@ -1520,6 +1528,21 @@ export global Colors {
 }
 
 export global Style {
+    out property <ElementPaletteTabStyle> element-palette-tab: {
+        surface: Theme.current == ThemeKind.dark
+            ? @linear-gradient(180deg, Colors.surface.brighter(0.3), Colors.surface.brighter(0.06)) : Theme.surfaces.raised,
+        selected-surface: Theme.current == ThemeKind.dark
+            ? @linear-gradient(180deg, Colors.selection.brighter(0.14), Colors.selection.darker(0.04))
+            : @linear-gradient(180deg, Colors.selection.brighter(0.025), Colors.selection),
+        frame: Theme.surfaces.raised-border,
+        separator: Colors.border.with-alpha(0.6),
+        base: Theme.current == ThemeKind.dark ? #161a20a6 : #667c9429,
+        highlight: Theme.current == ThemeKind.dark ? #ffffff42 : #ffffffe6,
+        edge: Theme.current == ThemeKind.dark ? #00000077 : #4c5f7229,
+        selected-edge: Theme.current == ThemeKind.dark ? #ffffff2e : #ffffff99,
+        inset-shadow: Theme.current == ThemeKind.dark ? #00000055 : #23364d18,
+    };
+
     out property <brush> titlebar-background: Theme.surfaces.titlebar;
     out property <brush> panel-background: Theme.surfaces.panel;
     out property <brush> control-well: Theme.surfaces.recessed;
@@ -1755,9 +1778,14 @@ export global Style {
     out property <InspectorSliderStyle> inspector-slider: {
         height: Metrics.control-compact,
         min-width: Metrics.control-medium,
-        fill: Colors.accent.with-alpha(0.65),
-        track: Theme.fields.inspector-field.normal.background,
-        track-border: Theme.fields.inspector-field.normal.border,
+        fill: Colors.accent.with-alpha(Theme.current == ThemeKind.dark ? 0.3 : 0.25),
+        track: Theme.current == ThemeKind.dark ? @linear-gradient(180deg, #292e36, #353c46) : Theme.surfaces.recessed,
+        track-border: Theme.current == ThemeKind.dark ? @linear-gradient(180deg, #20242b, #5d697a) : @linear-gradient(180deg, #c2cbd6, #edf1f6),
+        track-shadow: {
+            color: Theme.current == ThemeKind.dark ? #00000026 : #23364d14,
+            blur: 2px,
+            offset-y: 1px,
+        },
         zero: Colors.muted.with-alpha(0.55),
         hover-border: Colors.muted,
         dial: root.rotation-dial,
@@ -2007,17 +2035,27 @@ export global Style {
         radius: root.field.radius,
         border: Theme.controls.corner-mode.border,
         selected-background: Theme.controls.corner-mode.selected-background,
-        background: Theme.controls.corner-mode.background,
         foreground: Theme.controls.corner-mode.foreground,
         muted: Theme.controls.corner-mode.muted,
         focus-border: Theme.controls.corner-mode.focus-border,
     };
 
     out property <CornerEditorStyle> corner-editor: {
+        field-width: 2 * root.corner-mode.width,
         gap: Metrics.space-compact,
         mode: root.corner-mode,
         slider: root.inspector-slider,
         field: root.inspector-field,
+        uniform-field: {
+            height: root.inspector-field.height,
+            radius: root.inspector-field.radius,
+            border-width: root.inspector-field.border-width,
+            padding-inline: 6px,
+            padding-end: 6px,
+            gap: 4px,
+            text: root.inspector-field.text,
+            appearance: root.inspector-field.appearance,
+        },
     };
 
     out property <ColorFieldStyle> color-field: {

@@ -154,7 +154,9 @@ fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, So
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
-        "transform-rotation" | "border-width" | "backdrop-blur" => Some(vec![name]),
+        "transform-rotation" | "border-width" | "backdrop-blur" | "padding" | "spacing" => {
+            Some(vec![name])
+        }
         name if CORNERS.contains(&name) => Some(vec![name]),
         _ => None,
     }
@@ -457,6 +459,8 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
                 "transform-rotation" => "Rotating element",
                 "border-width" => "Changing border width",
                 "backdrop-blur" => "Changing backdrop blur",
+                "padding" => "Changing layout padding",
+                "spacing" => "Changing layout spacing",
                 _ => "Changing border radius",
             }
             .into(),

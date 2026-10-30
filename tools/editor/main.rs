@@ -599,6 +599,7 @@ async fn handle_preview_message(
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
+        | ConnectSerial { .. }
         | DisconnectRemote
         | SubmitPairingCode { .. }
         | CancelPairing
@@ -1255,7 +1256,7 @@ mod tests {
         assert!(session.document_cache.get_document(&old_url).is_none());
         assert!(session.document_cache.get_document(&expected_component.url).is_some());
         assert!(session.previews()[RUN_PREVIEW_INDEX].component().cloned().is_none());
-        assert!(Rc::ptr_eq(&session.previews()[RUN_PREVIEW_INDEX].to_preview(), &old_run_preview));
+        assert!(Rc::ptr_eq(session.previews()[RUN_PREVIEW_INDEX].to_preview(), &old_run_preview));
         let expected_root_url =
             Url::from_directory_path(std::fs::canonicalize(&project_root).unwrap()).unwrap();
         assert!(messages[PRIMARY_PREVIEW_INDEX].borrow().iter().any(|message| {
@@ -1363,7 +1364,7 @@ mod tests {
         assert!(session.document_cache.get_document(&old_url).is_none());
         assert_eq!(session.primary_preview().component().cloned(), Some(target));
         assert!(session.previews()[RUN_PREVIEW_INDEX].component().cloned().is_none());
-        assert!(Rc::ptr_eq(&session.previews()[RUN_PREVIEW_INDEX].to_preview(), &old_run_preview));
+        assert!(Rc::ptr_eq(session.previews()[RUN_PREVIEW_INDEX].to_preview(), &old_run_preview));
         assert!(matches!(
             messages[PRIMARY_PREVIEW_INDEX].borrow().first(),
             Some(LspToPreviewMessage::OpenProject { .. })

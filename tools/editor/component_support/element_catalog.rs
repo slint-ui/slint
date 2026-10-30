@@ -19,6 +19,7 @@ impl Hash for ElementKind {
 pub enum Group {
     Visual,
     InputInteraction,
+    Layouts,
     Widgets,
 }
 
@@ -27,12 +28,14 @@ impl Group {
         match self {
             Self::Visual => tr::tr!("Visual"),
             Self::InputInteraction => tr::tr!("Input & interaction"),
-            Self::Widgets => tr::tr!("Widgets"),
+            Self::Layouts => tr::tr!("Layouts"),
+            Self::Widgets => "std-widgets".into(),
         }
     }
 }
 
-pub const GROUPS: [Group; 3] = [Group::Visual, Group::InputInteraction, Group::Widgets];
+pub const GROUPS: [Group; 4] =
+    [Group::Visual, Group::InputInteraction, Group::Layouts, Group::Widgets];
 
 pub struct Entry {
     pub kind: ElementKind,
@@ -40,12 +43,44 @@ pub struct Entry {
     pub group: Group,
 }
 
-pub const PRIMITIVES: [Entry; 5] = [
+pub const PRIMITIVES: [Entry; 17] = [
     Entry { kind: ElementKind::Rectangle, type_name: "Rectangle", group: Group::Visual },
     Entry { kind: ElementKind::Text, type_name: "Text", group: Group::Visual },
     Entry { kind: ElementKind::StyledText, type_name: "StyledText", group: Group::Visual },
     Entry { kind: ElementKind::Image, type_name: "Image", group: Group::Visual },
     Entry { kind: ElementKind::TouchArea, type_name: "TouchArea", group: Group::InputInteraction },
+    Entry { kind: ElementKind::Flickable, type_name: "Flickable", group: Group::InputInteraction },
+    Entry {
+        kind: ElementKind::SwipeGestureHandler,
+        type_name: "SwipeGestureHandler",
+        group: Group::InputInteraction,
+    },
+    Entry {
+        kind: ElementKind::ScaleRotateGestureHandler,
+        type_name: "ScaleRotateGestureHandler",
+        group: Group::InputInteraction,
+    },
+    Entry { kind: ElementKind::DragArea, type_name: "DragArea", group: Group::InputInteraction },
+    Entry { kind: ElementKind::DropArea, type_name: "DropArea", group: Group::InputInteraction },
+    Entry {
+        kind: ElementKind::FocusScope,
+        type_name: "FocusScope",
+        group: Group::InputInteraction,
+    },
+    Entry { kind: ElementKind::TextInput, type_name: "TextInput", group: Group::InputInteraction },
+    Entry {
+        kind: ElementKind::HorizontalLayout,
+        type_name: "HorizontalLayout",
+        group: Group::Layouts,
+    },
+    Entry { kind: ElementKind::VerticalLayout, type_name: "VerticalLayout", group: Group::Layouts },
+    Entry { kind: ElementKind::GridLayout, type_name: "GridLayout", group: Group::Layouts },
+    Entry { kind: ElementKind::FlexboxLayout, type_name: "FlexboxLayout", group: Group::Layouts },
+    Entry {
+        kind: ElementKind::WindowMoveArea,
+        type_name: "WindowMoveArea",
+        group: Group::InputInteraction,
+    },
 ];
 
 pub const WIDGETS: [Entry; 22] = [

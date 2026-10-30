@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! A project directory loads `slint-project.json` from that directory, and the command line wins over it.
+//! A project directory loads `slint-project.json` from that directory, and the command line adds to it.
 
 // These drive the compiler through its C++ output. The Slint SC subset builds
 // without that format, and rejects the arguments a project file could set anyway.
@@ -70,15 +70,48 @@ fn include_paths_come_from_the_project_file() {
 }
 
 #[test]
-fn an_include_path_argument_wins_over_the_project_file() {
+fn an_include_path_argument_comes_before_the_project_file_paths() {
     let project = Project::new(Some(
-        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["unusable"] }"#,
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
     ));
-    project.write("other/shared.slint", "export component Shared { }");
-    project.write("main.slint", IMPORTS_SHARED);
+    project.write("include/shared.slint", "export component Shared { }");
+    project.write("include/project-only.slint", "export component ProjectOnly { }");
+    project.write(
+        "other/shared.slint",
+        "export component Shared { in property <int> from-argument; }",
+    );
+    project.write(
+        "main.slint",
+        r#"import { Shared } from "shared.slint";
+           import { ProjectOnly } from "project-only.slint";
+           export component Main inherits Window { Shared { from-argument: 1; } ProjectOnly { } }"#,
+    );
 
     let include_path = project.root.join("other");
     let output = project.compile(&project.root, &["-I", include_path.to_str().unwrap()]);
+    assert!(output.status.success(), "{}", stderr(&output));
+}
+
+#[test]
+fn a_library_path_argument_replaces_the_project_library_of_the_same_name() {
+    let project = Project::new(Some(
+        r#"{ "slint-edition": "1.19", "main": "main.slint", "library-paths": {"widgets": "widgets.slint", "icons": "icons.slint"} }"#,
+    ));
+    project.write("widgets.slint", "export component Widget { }");
+    project.write(
+        "other-widgets.slint",
+        "export component Widget { in property <int> from-argument; }",
+    );
+    project.write("icons.slint", "export component Icon { }");
+    project.write(
+        "main.slint",
+        r#"import { Widget } from "@widgets";
+           import { Icon } from "@icons";
+           export component Main inherits Window { Widget { from-argument: 1; } Icon { } }"#,
+    );
+
+    let library_path = format!("widgets={}", project.root.join("other-widgets.slint").display());
+    let output = project.compile(&project.root, &["-L", &library_path]);
     assert!(output.status.success(), "{}", stderr(&output));
 }
 
@@ -282,4 +315,51 @@ fn the_slint_edition_variable_does_not_warn() {
         .unwrap();
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(!stderr(&output).contains("misses the language behavior"), "{}", stderr(&output));
+}
+
+#[cfg(feature = "python")]
+#[test]
+fn generated_python_passes_include_and_library_paths_to_the_run_time_compiler() {
+    let project = Project::new(None);
+    project.write("include/shared.slint", "export component Shared { }");
+    project.write("widgets.slint", "export component Widget { }");
+    let main = project.write(
+        "ui/main.slint",
+        r#"import { Shared } from "shared.slint";
+           import { Widget } from "@widgets";
+           export component Main inherits Window { Shared { } Widget { } }"#,
+    );
+    let generated = project.write("generated/app_window.py", "");
+    let parent = Path::new("..");
+    let include_path = parent.join("include");
+    let library_path = parent.join("widgets.slint");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_slint-compiler"))
+        .current_dir(&project.root)
+        .args(["-f", "python", "-I"])
+        .arg(&include_path)
+        .arg("-I")
+        .arg(project.root.join("include"))
+        .args(["-L", "widgets=widgets.slint", "-o"])
+        .arg(&generated)
+        .arg(&main)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{}", stderr(&output));
+
+    let code = std::fs::read_to_string(&generated).unwrap();
+    let expected = [
+        format!(
+            "include_paths=[r'{}', os.path.join(os.path.dirname(__file__), r'{}')]",
+            include_path.display(),
+            include_path.display()
+        ),
+        format!(
+            "library_paths={{r'widgets': os.path.join(os.path.dirname(__file__), r'{}')}}",
+            library_path.display()
+        ),
+    ];
+    for expected in expected {
+        assert!(code.contains(&expected), "{expected} not in {code}");
+    }
 }

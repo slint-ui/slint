@@ -997,7 +997,7 @@ public:
     }
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of
-    /// paths. This wins over the include paths of the project file.
+    /// paths. These paths come before the include paths of the project file.
     void set_include_paths(const slint::SharedVector<slint::SharedString> &paths)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_include_paths(&inner, &paths);

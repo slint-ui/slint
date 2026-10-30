@@ -5,7 +5,7 @@
 //! language server and the visual editor.
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::project_file::{Overrides, ProjectFile, ProjectFileData};
+use i_slint_compiler::project_file::{self, Overrides, ProjectFile, ProjectFileData};
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
@@ -84,29 +84,6 @@ fn keep_first<T: Clone + PartialEq + std::fmt::Display>(
     }
 }
 
-fn merge_project_include_paths(
-    include_paths: &mut Option<Vec<PathBuf>>,
-    project_include_paths: Option<Vec<PathBuf>>,
-    override_source: Option<&str>,
-    warn: &mut impl FnMut(String, String, &str),
-) {
-    let Some(paths) = project_include_paths else { return };
-    let include_paths = include_paths.get_or_insert_default();
-    for path in paths {
-        if !include_paths.contains(&path) {
-            if let Some(source) = override_source {
-                warn(
-                    format!("include path '{}'", path.display()),
-                    format!("include paths {include_paths:?}"),
-                    source,
-                );
-            } else {
-                include_paths.push(path);
-            }
-        }
-    }
-}
-
 fn merge_project_library_paths(
     library_paths: &mut Option<HashMap<String, (PathBuf, String)>>,
     project_library_paths: Option<HashMap<String, PathBuf>>,
@@ -119,20 +96,10 @@ fn merge_project_library_paths(
     let mut paths = paths.into_iter().collect::<Vec<_>>();
     paths.sort_by(|(left, _), (right, _)| left.cmp(right));
     for (name, path) in paths {
-        if let Some(source) = override_source
-            && !library_paths.contains_key(&name)
-        {
-            warn(
-                format!("library '{name}' at '{}'", path.display()),
-                format!("no library '{name}'"),
-                source,
-            );
-            continue;
-        }
         let (kept_path, kept_source) = library_paths
             .entry(name.clone())
             .or_insert_with(|| (path.clone(), project_source.to_string()));
-        if kept_path != &path {
+        if kept_path != &path && override_source != Some(kept_source.as_str()) {
             warn(
                 format!("library '{name}' at '{}'", path.display()),
                 format!("library '{name}' at '{}'", kept_path.display()),
@@ -436,8 +403,6 @@ impl EditorSession {
             }
         };
         let workspace = &self.workspace_config_overrides.compiler.project;
-        let include_source =
-            include_paths.as_ref().map(|_| override_source(workspace.include_paths.is_some()));
         let library_source =
             library_paths.as_ref().map(|_| override_source(workspace.library_paths.is_some()));
         let mut library_paths = library_paths.map(|paths| {
@@ -480,12 +445,12 @@ impl EditorSession {
                         ..Default::default()
                     });
                 };
-                merge_project_include_paths(
-                    &mut include_paths,
-                    project_include_paths,
-                    include_source,
-                    &mut warn,
-                );
+                if let Some(project_include_paths) = project_include_paths {
+                    project_file::append_include_paths(
+                        include_paths.get_or_insert_default(),
+                        project_include_paths,
+                    );
+                }
                 merge_project_library_paths(
                     &mut library_paths,
                     project_library_paths,
@@ -2847,19 +2812,19 @@ mod tests {
                 ..Default::default()
             }))
             .unwrap();
-        for (project_path, expected_warnings) in project_paths.iter().zip([1, 1, 0]) {
+        // The override replaces the projects' `shared` library, as it does when compiling.
+        for project_path in &project_paths {
             let warnings = &diagnostics
                 .iter()
                 .find(|(url, _, _)| url == &Url::from_file_path(project_path).unwrap())
                 .unwrap()
                 .2;
-            assert_eq!(warnings.len(), expected_warnings);
-            assert!(
-                warnings
-                    .iter()
-                    .all(|warning| warning.message.contains("workspace configuration override"))
-            );
+            assert!(warnings.is_empty(), "{warnings:?}");
         }
+        let library_paths =
+            &session.document_cache.compiler_configuration().compiler_config.library_paths;
+        assert_eq!(library_paths["shared"], temp.path().join("third/third-lib"));
+        assert!(library_paths.contains_key("unrelated"));
     }
 
     #[test]
@@ -2965,15 +2930,13 @@ mod tests {
             ..Default::default()
         });
         let diagnostics = recompute(&mut session);
-        for path in [&outer, &inner] {
-            let warnings = warnings_for(&diagnostics, path);
-            assert!(!warnings.is_empty());
-            assert!(
-                warnings
-                    .iter()
-                    .all(|warning| warning.message.contains("startup configuration override"))
-            );
-        }
+        let warnings = warnings_for(&diagnostics, &outer);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].message.contains("startup configuration override"));
+        // The paths of the projects add to the empty override paths, so only the projects conflict.
+        let warnings = warnings_for(&diagnostics, &inner);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].message.contains(&format!("project file {}", outer.display())));
         let diagnostics =
             spin_on::spin_on(session.set_workspace_config_overrides(SessionConfigOverrides {
                 compiler: Overrides { project: ProjectFileData::default(), ..Default::default() },
@@ -2986,22 +2949,20 @@ mod tests {
         session.workspace_config_overrides.compiler.project.library_paths =
             Some(HashMap::from([("other".into(), temp.path().join("workspace-lib"))]));
         let diagnostics = recompute(&mut session);
+        // The override replaces the inner project's `other` library without a warning.
         let warnings = warnings_for(&diagnostics, &inner);
-        assert_eq!(warnings.len(), 3);
-        assert!(
-            warnings
-                .iter()
-                .all(|warning| { warning.message.contains("workspace configuration override") })
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].message.contains("library 'widgets'"));
+        let config = &session.document_cache.compiler_configuration().compiler_config;
+        assert_eq!(
+            config.include_paths,
+            vec![temp.path().join("workspace"), inner_directory.join("include")]
         );
-        assert!(warnings.iter().any(|warning| warning.message.contains("no library 'widgets'")));
+        assert_eq!(config.library_paths["other"], temp.path().join("workspace-lib"));
         session.workspace_config_overrides.compiler.project.include_paths = Some(Vec::new());
         session.workspace_config_overrides.compiler.project.library_paths = Some(HashMap::new());
         let diagnostics = recompute(&mut session);
-        assert!(
-            warnings_for(&diagnostics, &inner)
-                .iter()
-                .all(|warning| { warning.message.contains("workspace configuration override") })
-        );
+        assert_eq!(warnings_for(&diagnostics, &inner).len(), 1);
         let diagnostics = spin_on::spin_on(session.load_document(
             std::fs::read_to_string(&document).unwrap(),
             Url::from_file_path(&document).unwrap(),
@@ -3030,7 +2991,7 @@ mod tests {
     }
 
     #[test]
-    fn config_overrides_replace_collections_and_fall_back_when_removed() {
+    fn config_overrides_add_to_the_project_paths_and_fall_back_when_removed() {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
@@ -3042,6 +3003,16 @@ mod tests {
         write_document(&document_path);
 
         let mut session = session();
+        let project_paths = vec![temp.path().join("project")];
+        let project_libraries =
+            HashMap::from([("project".into(), temp.path().join("project-lib"))]);
+        let with_project_paths =
+            |paths: &Vec<PathBuf>| [paths.clone(), project_paths.clone()].concat();
+        let with_project_libraries = |libraries: &HashMap<String, PathBuf>| {
+            let mut libraries = libraries.clone();
+            libraries.extend(project_libraries.clone());
+            libraries
+        };
         let startup_paths = vec![temp.path().join("startup")];
         let startup_libraries =
             HashMap::from([("startup".into(), temp.path().join("startup-lib"))]);
@@ -3083,11 +3054,11 @@ mod tests {
             .unwrap();
             assert_eq!(
                 session.document_cache.compiler_configuration().compiler_config.include_paths,
-                paths
+                with_project_paths(&paths)
             );
             assert_eq!(
                 session.document_cache.compiler_configuration().compiler_config.library_paths,
-                libraries
+                with_project_libraries(&libraries)
             );
             assert_eq!(
                 session
@@ -3111,11 +3082,11 @@ mod tests {
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
-            startup_paths
+            with_project_paths(&startup_paths)
         );
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.library_paths,
-            startup_libraries
+            with_project_libraries(&startup_libraries)
         );
         assert_eq!(
             session
@@ -3135,11 +3106,11 @@ mod tests {
         spin_on::spin_on(session.set_workspace_config_overrides(Default::default())).unwrap();
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.include_paths,
-            vec![temp.path().join("project")]
+            project_paths
         );
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.library_paths,
-            HashMap::from([("project".into(), temp.path().join("project-lib"))])
+            project_libraries
         );
         assert_eq!(
             session

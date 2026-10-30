@@ -285,6 +285,8 @@ impl AndroidWindowAdapter {
                 self.do_render()?;
             }
             PollEvent::Main(MainEvent::GainedFocus) => {
+                self.java_helper
+                    .set_motion_preference(WindowInner::from_pub(&self.window).context());
                 self.window.dispatch_event_with_result(WindowEvent::WindowActiveChanged(true))?;
             }
             PollEvent::Main(MainEvent::LostFocus) => {
