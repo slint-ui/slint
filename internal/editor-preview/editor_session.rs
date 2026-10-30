@@ -113,7 +113,7 @@ fn merge_project_library_paths(
 struct ProjectFileState {
     contents: Vec<u8>,
     version: SourceFileVersion,
-    parsed: Option<ProjectFile>,
+    parsed: Result<ProjectFile, String>,
 }
 
 impl ProjectFileState {
@@ -121,36 +121,32 @@ impl ProjectFileState {
         path: &std::path::Path,
         contents: Vec<u8>,
         version: SourceFileVersion,
-    ) -> (Self, Option<Box<dyn std::error::Error>>) {
+    ) -> Self {
         let supplied = contents.clone();
         let loader: i_slint_compiler::OpenImportCallback = Rc::new(move |_| {
             let source = String::from_utf8(supplied.clone())
                 .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error));
             Box::pin(async move { Some(source) })
         });
-        let (parsed, error) = match ProjectFile::load_with_file_loader(
+        let parsed = ProjectFile::load_with_file_loader(
             SourcePath::File(i_slint_compiler::source_path::clean_path(path)),
             Some(&loader),
         )
         .await
-        {
-            Ok(project) => (Some(project), None),
-            Err(error) => (None, Some(error)),
-        };
-        (Self { contents, version, parsed }, error)
+        .map_err(|error| error.to_string());
+        Self { contents, version, parsed }
     }
 
-    async fn load(
-        path: &std::path::Path,
-    ) -> std::io::Result<(Self, Option<Box<dyn std::error::Error>>)> {
+    async fn load(path: &std::path::Path) -> std::io::Result<Self> {
         Ok(Self::from_contents(path, std::fs::read(path)?, None).await)
     }
 }
 
 enum DiscoveredProjectFile {
     None,
-    File { path: PathBuf, state: ProjectFileState },
-    Invalid { path: PathBuf, state: Option<ProjectFileState>, error: Box<dyn std::error::Error> },
+    // Box the state to prevent clippy::large_enum_variant
+    File { path: PathBuf, state: Box<ProjectFileState> },
+    Invalid { path: PathBuf, error: Box<dyn std::error::Error> },
 }
 
 /// The documents currently being edited, together with the state the preview
@@ -440,8 +436,18 @@ impl EditorSession {
         for path in &self.project_file_paths {
             let Some(url) = SourcePath::new(path).to_url() else { continue };
             let mut diagnostics = Vec::new();
+            if let Some(error) =
+                self.active_projects.get(path).and_then(|state| state.parsed.as_ref().err())
+            {
+                diagnostics.push(lsp_types::Diagnostic {
+                    severity: Some(lsp_types::DiagnosticSeverity::ERROR),
+                    source: Some("slint".into()),
+                    message: error.clone(),
+                    ..Default::default()
+                });
+            }
             if let Some(project) =
-                self.active_projects.get(path).and_then(|state| state.parsed.as_ref())
+                self.active_projects.get(path).and_then(|state| state.parsed.as_ref().ok())
             {
                 let ProjectFileData {
                     include_paths: project_include_paths,
@@ -586,14 +592,11 @@ impl EditorSession {
             return Ok(DiscoveredProjectFile::None);
         };
         if let Some(state) = self.open_project_file_state(&path) {
-            return Ok(DiscoveredProjectFile::File { path, state: state.clone() });
+            return Ok(DiscoveredProjectFile::File { path, state: Box::new(state.clone()) });
         }
         Ok(match ProjectFileState::load(&path).await {
-            Ok((state, None)) => DiscoveredProjectFile::File { path, state },
-            Ok((state, Some(error))) => {
-                DiscoveredProjectFile::Invalid { path, state: Some(state), error }
-            }
-            Err(error) => DiscoveredProjectFile::Invalid { path, state: None, error: error.into() },
+            Ok(state) => DiscoveredProjectFile::File { path, state: Box::new(state) },
+            Err(error) => DiscoveredProjectFile::Invalid { path, error: error.into() },
         })
     }
 
@@ -604,8 +607,8 @@ impl EditorSession {
 
     fn store_project_file(&mut self, path: PathBuf, state: Option<ProjectFileState>) -> bool {
         let settings_changed =
-            self.active_projects.get(&path).and_then(|state| state.parsed.as_ref())
-                != state.as_ref().and_then(|state| state.parsed.as_ref());
+            self.active_projects.get(&path).and_then(|state| state.parsed.as_ref().ok())
+                != state.as_ref().and_then(|state| state.parsed.as_ref().ok());
         if !self.project_file_paths.contains(&path) {
             insert_broadest_first(&mut self.project_file_paths, path.clone());
         }
@@ -625,7 +628,7 @@ impl EditorSession {
         let (path, state) = match self.discover_project_file_for_document_url(url).await? {
             DiscoveredProjectFile::None => return Ok(Default::default()),
             DiscoveredProjectFile::File { path, state } => (path, Some(state)),
-            DiscoveredProjectFile::Invalid { path, state, error } => {
+            DiscoveredProjectFile::Invalid { path, error } => {
                 if !self.active_project_file_paths().any(|known| known == path) {
                     initial_error = Some(error);
                 } else {
@@ -634,12 +637,12 @@ impl EditorSession {
                         path.display()
                     );
                 }
-                (path, state)
+                (path, None)
             }
         };
-        let contents_changed = self.active_projects.get(&path) != state.as_ref();
+        let contents_changed = self.active_projects.get(&path) != state.as_deref();
         let project_url = SourcePath::new(&path).to_url();
-        let settings_changed = self.store_project_file(path, state);
+        let settings_changed = self.store_project_file(path, state.map(|state| *state));
         if (contents_changed || initial_error.is_some())
             && let Some(url) = project_url
         {
@@ -650,6 +653,8 @@ impl EditorSession {
         }
         if settings_changed {
             self.reapply_effective_configuration().await
+        } else if contents_changed {
+            Ok(self.effective_compiler_configuration().1)
         } else {
             Ok(Default::default())
         }
@@ -680,7 +685,9 @@ impl EditorSession {
     }
 
     pub fn project_main_urls(&self) -> impl Iterator<Item = Url> + '_ {
-        self.active_projects.values().filter_map(|state| state.parsed.as_ref()?.main()?.to_url())
+        self.active_projects
+            .values()
+            .filter_map(|state| state.parsed.as_ref().ok()?.main()?.to_url())
     }
 
     fn document_roots(&self) -> HashSet<Url> {
@@ -738,8 +745,8 @@ impl EditorSession {
         contents: Vec<u8>,
         version: SourceFileVersion,
     ) -> crate::Result<VersionedDiagnostics> {
-        let (state, error) = ProjectFileState::from_contents(&path, contents, version).await;
-        if let Some(error) = error {
+        let state = ProjectFileState::from_contents(&path, contents, version).await;
+        if let Err(error) = &state.parsed {
             tracing::warn!("Failed to parse project file {}: {error}", path.display());
         }
         let url = SourcePath::new(&path).to_url();
@@ -748,7 +755,7 @@ impl EditorSession {
             self.send_to_previews(&self.project_file_contents_message(url));
         }
         if !settings_changed {
-            return Ok(Default::default());
+            return Ok(self.effective_compiler_configuration().1);
         }
         let diagnostics = self.reapply_effective_configuration().await?;
         self.enqueue_configuration_recompile();
@@ -1164,7 +1171,7 @@ impl EditorSession {
             let Some(entry) = SourcePath::from_url(&url)
                 .into_native_path()
                 .and_then(|path| self.active_projects.get(&path))
-                .and_then(|state| state.parsed.as_ref()?.main()?.to_url())
+                .and_then(|state| state.parsed.as_ref().ok()?.main()?.to_url())
             else {
                 return Ok(configuration_diagnostics);
             };
@@ -1540,10 +1547,11 @@ mod preview_tests {
         let path = directory.path().join(i_slint_compiler::project_file::FILE_NAME);
         let url = Url::from_file_path(&path).unwrap();
         std::fs::write(&path, r#"{"edition":"1.19"}"#).unwrap();
-        for (index, source) in [
-            r#"{"edition":"1.19","experimental-features":["match"]}"#,
-            "{invalid",
-            "// buffer comment\n{\"edition\":\"1.19\"}",
+        for (index, (source, invalid)) in [
+            (r#"{"edition":"1.19","experimental-features":["match"]}"#, false),
+            ("{invalid", true),
+            ("{", true),
+            ("// buffer comment\n{\"edition\":\"1.19\"}", false),
         ]
         .into_iter()
         .enumerate()
@@ -1559,14 +1567,18 @@ mod preview_tests {
                 spin_on::spin_on(session.load_document(source.into(), url.clone(), version))
                     .unwrap()
             };
-            assert!(
-                diagnostics
+            let (_, actual_version, project_diagnostics) =
+                diagnostics.iter().find(|(diagnostic_url, _, _)| diagnostic_url == &url).unwrap();
+            assert_eq!(*actual_version, version);
+            assert_eq!(
+                project_diagnostics
                     .iter()
-                    .filter(|(diagnostic_url, _, _)| diagnostic_url == &url)
-                    .all(|(_, actual, _)| actual == &version)
+                    .any(|diagnostic| diagnostic.severity
+                        == Some(lsp_types::DiagnosticSeverity::ERROR)),
+                invalid
             );
             assert!(session.document_cache.get_document(&url).is_none());
-            assert_eq!(session.active_projects[&path].parsed.is_none(), index == 1);
+            assert_eq!(session.active_projects[&path].parsed.is_err(), invalid);
             for messages in &messages {
                 assert_project_contents(messages, &url, source, version);
             }
@@ -1672,7 +1684,7 @@ mod preview_tests {
             Some(2),
         ))
         .unwrap();
-        assert!(session.active_projects[&path].parsed.is_none());
+        assert!(session.active_projects[&path].parsed.is_err());
         assert_eq!(
             session.document_cache.compiler_configuration().compiler_config.experimental_features,
             default_experimental
@@ -1777,14 +1789,16 @@ mod preview_tests {
         }
         std::fs::write(&path, "{invalid").unwrap();
         let source = Url::from_file_path(directory.path().join("main.slint")).unwrap();
-        assert!(
-            spin_on::spin_on(session.load_document(
-                "export component Main {}".into(),
-                source,
-                Some(1)
-            ))
-            .is_err()
-        );
+        let diagnostics = spin_on::spin_on(session.load_document(
+            "export component Main {}".into(),
+            source,
+            Some(1),
+        ))
+        .unwrap();
+        assert!(diagnostics.iter().any(|(diagnostic_url, _, diagnostics)| diagnostic_url == &url
+            && diagnostics.iter().any(
+                |diagnostic| diagnostic.severity == Some(lsp_types::DiagnosticSeverity::ERROR)
+            )));
     }
 
     #[test]
@@ -2780,7 +2794,7 @@ mod tests {
             session.project_file_paths.push(path.clone());
             session
                 .active_projects
-                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(&path)).unwrap().0);
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(&path)).unwrap());
         }
         let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
         assert_eq!(diagnostics.len(), 2);
@@ -2812,7 +2826,7 @@ mod tests {
             session.project_file_paths.push(path.clone());
             session
                 .active_projects
-                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(&path)).unwrap().0);
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(&path)).unwrap());
             project_paths.push(path);
         }
         let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
@@ -2918,7 +2932,7 @@ mod tests {
             session.project_file_paths.push(path.clone());
             session
                 .active_projects
-                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(path)).unwrap().0);
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(path)).unwrap());
         }
 
         let diagnostics = spin_on::spin_on(session.reapply_effective_configuration()).unwrap();
@@ -2957,7 +2971,7 @@ mod tests {
             session.project_file_paths.push(path.clone());
             session
                 .active_projects
-                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(path)).unwrap().0);
+                .insert(path.clone(), spin_on::spin_on(ProjectFileState::load(path)).unwrap());
         }
         let recompute = |session: &mut EditorSession| {
             spin_on::spin_on(session.reapply_effective_configuration()).unwrap()
@@ -3034,7 +3048,10 @@ mod tests {
         let diagnostics =
             spin_on::spin_on(session.reload_active_project_file(&inner, FileChangeKind::Changed))
                 .unwrap();
-        assert!(warnings_for(&diagnostics, &inner).is_empty());
+        assert_eq!(
+            warnings_for(&diagnostics, &inner)[0].severity,
+            Some(lsp_types::DiagnosticSeverity::ERROR)
+        );
         let diagnostics =
             spin_on::spin_on(session.trigger_file_watcher(
                 Url::from_file_path(&inner).unwrap(),
@@ -3270,7 +3287,7 @@ mod tests {
             spin_on::spin_on(session.reload_active_project_file(path, FileChangeKind::Changed))
                 .unwrap();
         }
-        assert!(session.active_projects.values().all(|state| state.parsed.is_none()));
+        assert!(session.active_projects.values().all(|state| state.parsed.is_err()));
         assert_eq!(
             session.active_project_file_paths().collect::<Vec<_>>(),
             project_paths.iter().map(PathBuf::as_path).collect::<Vec<_>>()
@@ -3327,16 +3344,36 @@ mod tests {
     }
 
     #[test]
-    fn invalid_initial_project_file_prevents_document_load() {
+    fn invalid_initial_project_file_does_not_prevent_document_load() {
         let temp = TempDir::new().unwrap();
         let project_path = temp.path().join(FILE_NAME);
         let document_path = temp.path().join("main.slint");
         std::fs::write(&project_path, "{").unwrap();
         write_document(&document_path);
 
-        let mut session = session();
-        assert!(load_document(&mut session, &document_path).is_err());
-        assert_eq!(session.active_project_file_paths().next(), Some(project_path.as_path()));
+        let document_url = Url::from_file_path(&document_path).unwrap();
+        let project_url = Url::from_file_path(&project_path).unwrap();
+        for reload in [false, true] {
+            let mut session = session();
+            let diagnostics = if reload {
+                spin_on::spin_on(session.reload_document(document_url.clone()))
+            } else {
+                spin_on::spin_on(session.load_document(
+                    std::fs::read_to_string(&document_path).unwrap(),
+                    document_url.clone(),
+                    None,
+                ))
+            }
+            .unwrap();
+            assert!(session.document_cache.get_document(&document_url).is_some());
+            assert!(diagnostics.iter().any(|(url, _, diagnostics)| {
+                url == &project_url
+                    && diagnostics.iter().any(|diagnostic| {
+                        diagnostic.severity == Some(lsp_types::DiagnosticSeverity::ERROR)
+                    })
+            }));
+            assert_eq!(session.active_project_file_paths().next(), Some(project_path.as_path()));
+        }
     }
 
     #[test]
