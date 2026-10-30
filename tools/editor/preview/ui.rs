@@ -3162,7 +3162,8 @@ mod tests {
             ("Text", true, true),
             ("StyledText", true, true),
             ("LineEdit", true, false),
-            ("TextEdit", false, false),
+            ("SpinBox", true, false),
+            ("TextEdit", true, false),
             ("Rectangle", false, false),
         ] {
             let mut element = api.get_current_element();

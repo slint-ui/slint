@@ -125,6 +125,13 @@ export global InspectorContext {
             && Api.has-property("placeholder-text");
     }
 
+    public pure function has-only-horizontal-alignment() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "SpinBox"
+                || InspectorContext.element-information.type-name == "TextEdit");
+    }
+
     public pure function is-standard-button-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StandardButton";
     }
