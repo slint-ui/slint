@@ -2014,8 +2014,23 @@ fn build(l: &mut Loader) {
     }
 
     element! {
+        /// A `StandardMenuItem` represents a standard menu item like 'Cut', 'Copy', 'Paste'.
+        @is_non_item_type @disallow_global_types_as_child_elements
+        StandardMenuItem {
+            /// The kind of this menu item
+            in property <StandardMenuItemKind> kind;
+            /// Invoked when the menu item is activated.
+            callback activated;
+            /// Enable or disable the `StandardMenuItem`
+            in property <bool> enabled: true;
+        }
+    }
+
+    element! {
         /// Place the `Menu` element in a <Link type="MenuBar" />, a `ContextMenuArea`, or within another `Menu`.
-        /// Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus, and `MenuSeparator` to create separators.
+        /// Use `MenuItem` children of individual menu items, `Menu` children to create sub-menus,
+        /// and `MenuSeparator` to create separators.
+        /// Use `StandardMenuItem` for standard actions like copy, paste, and select all.
         @is_non_item_type @disallow_global_types_as_child_elements
         Menu {
             /// This is the label of the menu as written in the menu bar or in the parent menu.
@@ -2027,7 +2042,7 @@ fn build(l: &mut Loader) {
             in property <image> icon;
 
 
-            children: MenuItem, MenuSeparator, Menu;
+            children: MenuItem, MenuSeparator, Menu, StandardMenuItem;
         }
     }
 

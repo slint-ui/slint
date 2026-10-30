@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    property <StandardMenuItemKind> paste: StandardMenuItemKind.paste;
+
+    MenuBar {
+        Menu {
+            StandardMenuItem {
+                kind: StandardMenuItemKind.undo;
+            }
+            StandardMenuItem {}
+//          >               <error{StandardMenuItem must have a binding set for its 'kind' property}
+            StandardMenuItem {
+                kind: root.paste;
+//                    >         <error{'kind' must be a 'StandardMenuItemKind' value}
+            }
+        }
+    }
+
+    ContextMenuArea {
+        Menu {
+            StandardMenuItem {
+                kind: StandardMenuItemKind.undo;
+            }
+            StandardMenuItem {}
+//          >               <error{StandardMenuItem must have a binding set for its 'kind' property}
+        }
+    }
+}
