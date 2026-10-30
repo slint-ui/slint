@@ -24,8 +24,6 @@ export struct GeometryResult {
     geometry: Geometry,
 }
 
-export enum InspectorCommitResult { rejected, unchanged, pending }
-
 export enum CanvasCorner {
     top-left,
     top-right,
@@ -686,7 +684,7 @@ export global Api {
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> InspectorCommitResult;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-fill-preview(key: string, name: string, value: FillData, rotation: float, rotate-element: bool) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData, rotation: float, fill-changed: bool, rotation-changed: bool) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);
