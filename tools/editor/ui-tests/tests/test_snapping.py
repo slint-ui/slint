@@ -491,7 +491,7 @@ def test_rotated_edge_keeps_constraint_and_only_satisfied_winner(
         assert actual["height"] == 60
 
 
-def test_resize_rejects_nonpositive_proposal_then_recovers(snapping_scene) -> None:
+def test_resize_rejects_non_positive_proposal_then_recovers(snapping_scene) -> None:
     with snapping_scene(rectangle("target", 205.5, 200, 20, 30)) as (window, source):
         baseline = source.read_bytes()
         start = press_handle(window, "resize right")
