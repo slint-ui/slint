@@ -1697,7 +1697,7 @@ fn process_rectangle_impl(
         );
         match fill {
             BrushFill::Solid(color) => Paint::Solid(color.into()),
-            BrushFill::Gradient => Paint::Gradient(gradients),
+            BrushFill::Gradient => Paint::Gradient(gradients.into_boxed_slice()),
         }
     } else {
         Paint::Solid(PremultipliedRgbaColor::default())
@@ -3400,7 +3400,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     let color = PremultipliedRgbaColor::from(color);
                     (color.alpha > 0).then_some(Paint::Solid(color))
                 }
-                BrushFill::Gradient => Some(Paint::Gradient(gradients)),
+                BrushFill::Gradient => Some(Paint::Gradient(gradients.into_boxed_slice())),
             }
         };
 

@@ -8,6 +8,7 @@ use super::{
     Fixed, PhysicalBorderRadius, PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalRegion,
     PhysicalSize, PremultipliedRgbaColor, RenderingRotation,
 };
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use euclid::Length;
 use i_slint_core::Color;
@@ -695,7 +696,7 @@ pub struct RoundedRectangle {
 pub enum Paint {
     Solid(PremultipliedRgbaColor),
     /// Gradient commands, each with the rect it's placed in.
-    Gradient(Vec<(PhysicalRect, AnyGradientCommand)>),
+    Gradient(Box<[(PhysicalRect, AnyGradientCommand)]>),
 }
 
 #[derive(Debug)]
