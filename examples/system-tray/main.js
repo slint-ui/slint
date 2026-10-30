@@ -35,6 +35,7 @@ main_window.tray_menu_enabled_changed = (value) => {
 // default (Slint's CloseRequestResponse::HideWindow).
 main_window.hide_to_tray = () => {
     main_window.window.hide();
+    tray.window_visible = false;
 };
 
 // Tray click / "Show / hide window" menu item toggles the window.
@@ -45,6 +46,7 @@ tray.toggle_window = () => {
     } else {
         main_window.window.hide();
     }
+    tray.window_visible = now_visible;
     main_window.activation_log = `Tray activated → window ${now_visible ? "shown" : "hidden"}`;
 };
 

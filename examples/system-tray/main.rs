@@ -48,22 +48,30 @@ fn main() {
     // the visible tray. Pressing the OS close button does the same thing
     // by default (Slint's `CloseRequestResponse::HideWindow`).
     let win_weak = main_window.as_weak();
+    let tray_weak = tray.as_weak();
     main_window.on_hide_to_tray(move || {
         if let Some(w) = win_weak.upgrade() {
             w.hide().unwrap();
+
+            if let Some(t) = tray_weak.upgrade() {
+                t.set_window_visible(false);
+            }
         }
     });
 
     // Tray click / "Show / hide window" menu item toggles the window.
     let win_weak = main_window.as_weak();
+    let tray_weak = tray.as_weak();
     tray.on_toggle_window(move || {
         let Some(w) = win_weak.upgrade() else { return };
+        let Some(t) = tray_weak.upgrade() else { return };
         let now_visible = !w.window().is_visible();
         if now_visible {
             w.show().unwrap();
         } else {
             w.hide().unwrap();
         }
+        t.set_window_visible(now_visible);
         let label = if now_visible { "shown" } else { "hidden" };
         w.set_activation_log(format!("Tray activated → window {label}").into());
     });
