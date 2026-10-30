@@ -3388,12 +3388,17 @@ mod project_file_tests {
             for manifest_contents in
                 [r#"{"edition":"1.19"}"#, r#"{"edition":"1.19","main":"other.slint"}"#]
             {
-                for static_compilation in [false, true] {
+                for (project_root, static_compilation) in [
+                    (root.clone(), false),
+                    (root.clone(), true),
+                    (manifest.clone(), false),
+                    (manifest.clone(), true),
+                ] {
                     let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
                     let loader_requested = requested.clone();
                     let loader_manifest = manifest.clone();
                     let mut compiler = Compiler::default();
-                    compiler.set_project_root(Some(root.clone()), i_slint_core::InternalToken);
+                    compiler.set_project_root(Some(project_root), i_slint_core::InternalToken);
                     compiler.set_project_file_loader(
                         std::rc::Rc::new(move |path| {
                             loader_requested.borrow_mut().push(path.clone());
