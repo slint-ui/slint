@@ -643,7 +643,11 @@ impl WinitWindowAdapter {
                 EventLoopExtStartupNotify, WindowAttributesExtStartupNotify,
                 reset_activation_token_env,
             };
-            if let Some(token) = active_event_loop.read_token_from_env() {
+            // A click on a tray icon comes with a token too, for the window it shows.
+            let token = i_slint_core::items::system_tray::take_tray_activation_token()
+                .map(winit::window::ActivationToken::from_raw)
+                .or_else(|| active_event_loop.read_token_from_env());
+            if let Some(token) = token {
                 window_attributes = window_attributes.with_activation_token(token);
             }
             reset_activation_token_env();

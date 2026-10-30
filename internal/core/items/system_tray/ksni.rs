@@ -42,6 +42,7 @@ impl ::ksni::Tray for KsniTray {
     }
 
     fn activate(&mut self, x: i32, y: i32) {
+        keep_activation_token();
         let _ = self.event_tx.try_send(Event::Activate(x, y));
     }
 
@@ -89,6 +90,7 @@ fn node_to_ksni(
                 activate: std::boxed::Box::new(move |_tray: &mut KsniTray| {
                     // ksni runs the callback on its own thread; the channel hands the
                     // click off to the dispatcher task living on the Slint event loop.
+                    keep_activation_token();
                     let _ = tx.try_send(Event::Menu(entry_index));
                 }),
                 ..Default::default()
@@ -96,6 +98,34 @@ fn node_to_ksni(
             .into()
         }
     }
+}
+
+/// The activation token of the last click, until a window takes it.
+static ACTIVATION_TOKEN: std::sync::Mutex<Option<std::string::String>> =
+    std::sync::Mutex::new(None);
+
+/// Keeps the XDG activation token the host sent with the click being handled. KDE sends it
+/// through `ProvideXdgActivationToken`, which can arrive just after the click, so this waits a
+/// moment for it, as ksni advises. Plasma shows a launch entry on its task bar for each token it
+/// hands out, until a window uses that token.
+fn keep_activation_token() {
+    const WAIT: std::time::Duration = std::time::Duration::from_millis(20);
+    const TRY_EVERY: std::time::Duration = std::time::Duration::from_millis(1);
+    let start = std::time::Instant::now();
+    let token = loop {
+        match ::ksni::current_xdg_activation_token() {
+            Some(token) => break Some(token),
+            None if start.elapsed() >= WAIT => break None,
+            None => std::thread::sleep(TRY_EVERY),
+        }
+    };
+    if let Some(token) = token {
+        *ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(token);
+    }
+}
+
+pub fn take_activation_token() -> Option<std::string::String> {
+    ACTIVATION_TOKEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take()
 }
 
 pub struct PlatformTray {
