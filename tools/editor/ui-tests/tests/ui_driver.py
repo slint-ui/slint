@@ -60,6 +60,16 @@ PRIMITIVE_KINDS = tuple(kind for group in PRIMITIVE_GROUPS.values() for kind in 
 PALETTE_KINDS = ("Image", "Rectangle", "StyledText", "Text", "TouchArea", *WIDGET_KINDS)
 
 
+def double_click_at(
+    window: slint_testing.Window, position: slint_testing.LogicalPosition
+) -> None:
+    button = slint_testing.PointerEventButton.Left
+    window.dispatch_event(slint_testing.PointerMoveEvent(position))
+    for _ in range(2):
+        window.dispatch_event(slint_testing.PointerPressEvent(position, button))
+        window.dispatch_event(slint_testing.PointerReleaseEvent(position, button))
+
+
 def press_key(window: slint_testing.Window, key: str) -> None:
     window.dispatch_event(slint_testing.KeyPressedEvent(text=key))
     window.dispatch_event(slint_testing.KeyReleasedEvent(text=key))

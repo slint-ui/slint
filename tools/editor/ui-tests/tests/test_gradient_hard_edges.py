@@ -10,14 +10,13 @@ from editor_sync import wait_for_source
 from gradient_interactions import (
     center,
     control,
-    gesture,
     gradient_document,
     move_picker_to_files,
     open_gradient,
 )
 from PIL import Image
 from source_snapshot import SourceSnapshot, wait_for_source_change
-from ui_driver import first_window, launch_editor, select_outline_row
+from ui_driver import double_click_at, first_window, launch_editor, select_outline_row
 
 
 def test_coincident_canvas_insertion_preserves_rendering(
@@ -44,8 +43,7 @@ def test_coincident_canvas_insertion_preserves_rendering(
             ).tobytes()
 
         before = pixels()
-        for _ in range(2):
-            gesture(window, point, point)
+        double_click_at(window, point)
         control(window, "Gradient stop 5")
         assert pixels() == before
         control(window, "Close Fill").invoke_accessible_default_action()

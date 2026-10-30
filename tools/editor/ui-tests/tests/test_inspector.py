@@ -1404,6 +1404,45 @@ def test_widget_text_content_writes_exact_source(
         element(window, rendered, role=role)
 
 
+def test_tooltip_text_content_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "inspect-tooltip")
+        wait_for_field(
+            window,
+            "Text content",
+            '@markdown("Inspector tooltip")',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        assert not elements(
+            window,
+            "Horizontal Alignment",
+            role=slint_testing.AccessibleRole.Combobox,
+        )
+        edit_field(
+            window,
+            "Text content",
+            '@markdown("**Tooltip** content")',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                b'            text: @markdown("Inspector tooltip");',
+                b'            text: @markdown("**Tooltip** content");',
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+
+
 def test_invalid_text_content_does_not_change_source(
     editor_binary: Path,
     editor_environment: dict[str, str],
