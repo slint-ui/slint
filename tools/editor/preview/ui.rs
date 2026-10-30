@@ -2588,6 +2588,8 @@ mod tests {
                 ..Default::default()
             });
             api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+            connect_has_property(&api);
+            set_test_properties(&api, &["enabled", property_name]);
             editor.show().unwrap();
             editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
             for (source, runtime, hooked, expected) in [
