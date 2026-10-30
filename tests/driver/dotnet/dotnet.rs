@@ -26,7 +26,7 @@ struct Batch {
 
 static BATCH: LazyLock<Batch> = LazyLock::new(build_batch);
 
-pub fn test(identifier: &str, edition: Option<&str>) -> Result<(), Box<dyn Error>> {
+pub fn test(identifier: &str) -> Result<(), Box<dyn Error>> {
     if let Some(failure) = BATCH.failures.get(identifier) {
         return Err(failure.clone().into());
     }
@@ -36,7 +36,6 @@ pub fn test(identifier: &str, edition: Option<&str>) -> Result<(), Box<dyn Error
         .env("SLINT_BACKEND", "testing")
         // The generated code compiles the case again at run time, which needs the same settings.
         .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", test_driver_lib::ALL_EXPERIMENTAL_FEATURES)
-        .env("SLINT_EDITION", edition.unwrap_or(env!("SLINT_EDITION")))
         .output()?;
     if output.status.success() {
         Ok(())
@@ -62,27 +61,43 @@ fn repository() -> PathBuf {
 }
 
 /// Returns the generated code, and the `csharp` blocks as a class, if there are any.
-fn generate(identifier: &str, path: &Path) -> Result<(String, Option<String>, Case), String> {
+/// The code loads the case through a project in `project`, whose file sets the case's edition at run time too.
+fn generate(
+    identifier: &str,
+    path: &Path,
+    project: &Path,
+) -> Result<(String, Option<String>, Case), String> {
     let source = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
     let mut diag = BuildDiagnostics::default();
     let syntax_node =
         parser::parse(source.clone(), Some(source_path::SourcePath::new(path)), &mut diag);
     let format = generator::OutputFormat::CSharp(csharp::Config {
         namespace: Some(format!("Case_{identifier}")),
-        runtime_path: Some(path.to_string_lossy().into_owned()),
+        runtime_path: Some(project.to_string_lossy().into_owned()),
         live_preview: false,
     });
     let mut config = CompilerConfiguration::new(format.clone());
     config.style = Some(STYLE.into());
-    config.edition = test_driver_lib::parse_slint_edition(&source)
-        .map_err(|e| format!("invalid edition: {e:?}"))?
-        .or(config.edition);
+    let edition = test_driver_lib::edition_or_current(&source);
+    config.edition = Some(edition.parse().map_err(|e| format!("invalid edition: {e:?}"))?);
     // Relative to the directory of this crate, which cargo test runs in, like the other drivers.
+    // Absolute in the project file, which resolves paths against its own directory.
+    let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     config.include_paths =
-        test_driver_lib::extract_include_paths(&source).map(PathBuf::from).collect();
+        test_driver_lib::extract_include_paths(&source).map(|p| crate_dir.join(p)).collect();
     config.library_paths = test_driver_lib::extract_library_paths(&source)
-        .map(|(name, path)| (name.to_string(), PathBuf::from(path)))
+        .map(|(name, path)| (name.to_string(), crate_dir.join(path)))
         .collect();
+    let project_file = serde_json::json!({
+        "edition": edition,
+        "main": path,
+        "include-paths": config.include_paths,
+        "library-paths": config.library_paths,
+    });
+    std::fs::create_dir_all(project).map_err(|e| e.to_string())?;
+    std::fs::write(project.join("slint-project.json"), project_file.to_string())
+        .map_err(|e| e.to_string())?;
+    config.input_project_directory = Some(project.to_path_buf());
     if source.contains("//bundle-translations") {
         config.bundled_translations_path = path.parent().map(Path::to_path_buf);
         config.translation_domain =
@@ -187,12 +202,14 @@ fn build_batch() -> Batch {
     let cases_dir = dir.join("cases");
     let _ = std::fs::remove_dir_all(&cases_dir);
     std::fs::create_dir_all(&cases_dir).unwrap();
+    let projects_dir = dir.join("projects");
+    let _ = std::fs::remove_dir_all(&projects_dir);
 
     let mut failures = HashMap::new();
     let mut cases = BTreeMap::new();
     for line in std::fs::read_to_string(env!("TEST_CASES")).unwrap().lines() {
         let (identifier, path) = line.split_once('\t').unwrap();
-        match generate(identifier, Path::new(path)) {
+        match generate(identifier, Path::new(path), &projects_dir.join(identifier)) {
             Ok((code, blocks, case)) => {
                 std::fs::write(cases_dir.join(format!("{identifier}.g.cs")), code).unwrap();
                 if let Some(blocks) = blocks {

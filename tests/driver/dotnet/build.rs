@@ -8,12 +8,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
         test_driver_lib::ALL_EXPERIMENTAL_FEATURES
     );
-    // The cases target the edition of this Slint, like in the other drivers.
-    println!(
-        "cargo:rustc-env=SLINT_EDITION={}.{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR")
-    );
 
     let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     let mut tests_file = std::fs::File::create(out_dir.join("test_functions.rs"))?;
@@ -27,8 +21,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let ignored = testcase.is_ignored("csharp") || testcase.is_ignored("interpreter");
         let identifier = testcase.identifier();
-        let source = std::fs::read_to_string(&testcase.absolute_path)?;
-        let edition = test_driver_lib::extract_slint_edition(&source);
         if !ignored {
             writeln!(cases_file, "{identifier}\t{}", testcase.absolute_path.display())?;
         }
@@ -39,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[test]
             {ignore}
             fn test_dotnet_{identifier}() {{
-                dotnet::test("{identifier}", {edition:?}).unwrap();
+                dotnet::test("{identifier}").unwrap();
             }}
         "##,
             ignore = if ignored { "#[ignore]" } else { "" },

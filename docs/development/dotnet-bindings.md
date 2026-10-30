@@ -149,7 +149,7 @@ which uses the test fonts and reports Windows as the operating system, like the 
 It passes the include and library paths and the bundled translations of a case like the other drivers do.
 Like them, it sets `SLINT_EDITION` to the edition of this Slint, for the compiler and for the runner,
 since layout fixes such as #407 only apply from edition 1.19.
-A case with a `//slint-edition:` line gets that edition instead, at generation and in its runner process.
+A case with an `//edition:` line gets that edition instead, at generation and in its runner process.
 
 The ```` ```csharp ```` blocks of a case go into `cases/<case>.test.cs`, which the runner calls after the `test` check.
 The runner is the assembly `Slint.TestDriver`, which sees the internal `Slint.Testing`.

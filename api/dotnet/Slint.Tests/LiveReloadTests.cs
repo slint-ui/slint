@@ -96,7 +96,7 @@ public sealed class LiveReloadTests
     {
         var path = NewFile(Source("first"));
         var dir = Path.GetDirectoryName(path)!;
-        File.WriteAllText(Path.Combine(dir, "slint-project.json"), """{ "slint-edition": "1.19", "main": "app.slint" }""");
+        File.WriteAllText(Path.Combine(dir, "slint-project.json"), """{ "edition": "1.19", "main": "app.slint" }""");
         using var app = ComponentInstance.CreateLive(dir, "App");
         Assert.AreEqual("first", app.GetProperty("label"));
 

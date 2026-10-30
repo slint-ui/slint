@@ -22,6 +22,7 @@ spin_on = { workspace = true }
 
 [dev-dependencies]
 test_driver_lib = { path = "../driverlib" }
+serde_json = "1"
 i-slint-compiler = { workspace = true, features = ["default", "csharp", "display-diagnostics", "bundle-translations"] }
 
 [build-dependencies]
