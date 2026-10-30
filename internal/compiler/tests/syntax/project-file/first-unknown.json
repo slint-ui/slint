@@ -1,5 +1,5 @@
 {
-//|<<error{Cannot load 📂/tests/syntax/project-file/first-unknown/slint-project.json: unknown field `first-unknown`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata` at line 3 column 17}
   "first-unknown": true,
+//              |error{Cannot load 📂/tests/syntax/project-file/first-unknown/slint-project.json: unknown field `first-unknown`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata` at line 2 column 17}
   "second-unknown": false
 }

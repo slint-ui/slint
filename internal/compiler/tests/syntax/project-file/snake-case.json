@@ -1,4 +1,4 @@
 {
-//|<<error{Cannot load 📂/tests/syntax/project-file/snake-case/slint-project.json: unknown field `include_paths`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata` at line 3 column 17}
   "include_paths": ["include"]
+//              |error{Cannot load 📂/tests/syntax/project-file/snake-case/slint-project.json: unknown field `include_paths`, expected one of `$schema`, `library-paths`, `include-paths`, `experimental-features`, `main`, `edition`, `metadata` at line 2 column 17}
 }

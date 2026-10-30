@@ -1,7 +1,7 @@
 {
-//|<<error{Cannot load 📂/tests/syntax/project-file/comments-before-error/slint-project.json: expected ident at line 6 column 21}
   "edition": "1.19",
   // one
   // two
   "include-paths": nonsense
+//                  |error{Cannot load 📂/tests/syntax/project-file/comments-before-error/slint-project.json: expected ident at line 5 column 21}
 }

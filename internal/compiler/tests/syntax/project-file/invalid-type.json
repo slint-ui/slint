@@ -1,5 +1,5 @@
 {
-//|<<error{Cannot load 📂/tests/syntax/project-file/invalid-type/slint-project.json: invalid type: integer `42`, expected a string at line 3 column 15}
   "$schema": 42,
+//            |error{Cannot load 📂/tests/syntax/project-file/invalid-type/slint-project.json: invalid type: integer `42`, expected a string at line 2 column 15}
   "edition": "1.19"
 }

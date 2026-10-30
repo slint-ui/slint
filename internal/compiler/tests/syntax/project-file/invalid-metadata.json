@@ -1,4 +1,4 @@
 {
-//|<<error{Cannot load 📂/tests/syntax/project-file/invalid-metadata/slint-project.json: key must be a string at line 3 column 17}
   "metadata": { this is not json! }
+//              |error{Cannot load 📂/tests/syntax/project-file/invalid-metadata/slint-project.json: key must be a string at line 2 column 17}
 }
