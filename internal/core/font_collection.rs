@@ -7,6 +7,7 @@ use i_slint_common::sharedfontique;
 #[cfg(all(feature = "std", feature = "shared-parley"))]
 #[allow(clippy::large_enum_variant)]
 enum Pending {
+    #[cfg_attr(target_family = "wasm", allow(dead_code))]
     Prefetching(std::thread::JoinHandle<sharedfontique::fontique::Collection>),
     Supplied(sharedfontique::fontique::Collection),
 }
