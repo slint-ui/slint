@@ -25,7 +25,6 @@ export Test2 := Rectangle {
         }
 
         if (true) : Tab {
-//                  >  <error{dynamic tabs ('if' or 'for') are currently not supported}
             title: "hello";
         }
 
@@ -37,6 +36,18 @@ export Test2 := Rectangle {
         Tab {
             accessible-label: "Tab Panel";
 //                            >          <error{The property 'accessible-label' cannot be set for Tabs inside a TabWidget}
+            Rectangle { }
+        }
+        Tab {
+            row: 1;
+//               ><error{The property 'row' cannot be set for Tabs inside a TabWidget}
+            colspan: 2;
+//                   ><error{The property 'colspan' cannot be set for Tabs inside a TabWidget}
+            Rectangle { }
+        }
+        for i in 2: Tab {
+            col: i;
+//               ><error{The property 'col' cannot be set for Tabs inside a TabWidget}
             Rectangle { }
         }
     }
