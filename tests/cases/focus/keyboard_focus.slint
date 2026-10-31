@@ -271,4 +271,33 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
 slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "B:2.1:1.789:2.0:1.456:T:B:");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+const string Backtab = "\u0019";
+void TypeAfter(string move)
+{
+    Testing.SendKeyboardStringSequence(instance.Instance, move);
+    Testing.SendKeyboardStringSequence(instance.Instance, "X");
+}
+
+Testing.SendKeyboardStringSequence(instance.Instance, "X");
+Assert.AreEqual("", instance.Result);
+var expected = "";
+foreach (var element in new[] { "T", "1.456", "2.0", "1.789", "2.1", "B", "T" })
+{
+    TypeAfter("\t");
+    expected += element + ":";
+    Assert.AreEqual(expected, instance.Result);
+}
+
+instance.Result = "";
+expected = "";
+foreach (var element in new[] { "B", "2.1", "1.789", "2.0", "1.456", "T", "B" })
+{
+    TypeAfter(Backtab);
+    expected += element + ":";
+    Assert.AreEqual(expected, instance.Result);
+}
+```
 */

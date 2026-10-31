@@ -60,4 +60,9 @@ slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.log, "if1,for1.1,for1.2,for2.1,if2.1,for2.2,if2.2,outer.1,mid.1,inner.1.1,inner.1.2,");
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Testing.MockElapsedTime(100);
+Assert.AreEqual("if1,for1.1,for1.2,for2.1,if2.1,for2.2,if2.2,outer.1,mid.1,inner.1.1,inner.1.2,", instance.Log);
+```
 */

@@ -56,4 +56,15 @@ instance.mode = 2;
 assert.equal(instance.count, 2);
 assert.equal(instance.first, 40.);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+instance.Mode = 1;
+Assert.AreEqual(3, instance.Count);
+Assert.AreEqual(10f, instance.First);
+instance.Mode = 2;
+Assert.AreEqual(2, instance.Count);
+Assert.AreEqual(40f, instance.First);
+```
 */

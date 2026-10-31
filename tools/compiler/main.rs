@@ -65,6 +65,10 @@ struct Cli {
         feature = "typescript",
         doc = "'typescript' generates TypeScript type declarations, to be written to a `.d.ts` file."
     )]
+    #[cfg_attr(
+        feature = "csharp",
+        doc = "'csharp' generates typed C# classes for the .NET bindings."
+    )]
     #[cfg_attr(feature = "slint-sc", doc = "'slint-sc' generates the safety-critical subset.")]
     /// 'llr' prints the compiler's low-level representation, to look at what it produces.
     #[arg(short = 'f', long = "format")]
@@ -160,6 +164,24 @@ struct Cli {
     #[cfg(feature = "cpp")]
     #[arg(long = "cpp-file", name = "output .cpp file", number_of_values = 1)]
     cpp_files: Vec<std::path::PathBuf>,
+
+    /// Define the C# namespace for generated code.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-namespace", name = "C# namespace")]
+    csharp_namespace: Option<String>,
+
+    /// Set the path that the generated C# code loads the input from at run time,
+    /// relative to the application directory: the .slint file, or the project directory.
+    /// Defaults to the name of the input.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-runtime-path", name = "runtime path")]
+    csharp_runtime_path: Option<String>,
+
+    /// Make the generated C# code load the input from its source path,
+    /// and reload components when it or a file it imports changes. For development only.
+    #[cfg(feature = "csharp")]
+    #[arg(long = "csharp-live-preview")]
+    csharp_live_preview: bool,
 }
 
 /// Parses the file to compile, the main file of a project directory given as input,
@@ -230,6 +252,12 @@ fn main() -> std::io::Result<()> {
         reject(args.cpp_namespace.is_some(), "--cpp-namespace");
         #[cfg(feature = "cpp")]
         reject(!args.cpp_files.is_empty(), "--cpp-file");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_namespace.is_some(), "--csharp-namespace");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_runtime_path.is_some(), "--csharp-runtime-path");
+        #[cfg(feature = "csharp")]
+        reject(args.csharp_live_preview, "--csharp-live-preview");
     }
 
     #[allow(unused_mut)]
@@ -243,6 +271,8 @@ fn main() -> std::io::Result<()> {
             Some("rs") => generator::OutputFormat::Rust,
             #[cfg(feature = "python")]
             Some("py") => generator::OutputFormat::Python,
+            #[cfg(feature = "csharp")]
+            Some("cs") => generator::OutputFormat::CSharp(Default::default()),
             #[cfg(feature = "cpp")]
             _ => generator::OutputFormat::Cpp(Default::default()),
             #[cfg(not(feature = "cpp"))]
@@ -281,6 +311,23 @@ fn main() -> std::io::Result<()> {
             }
             _ => {
                 eprintln!("C++ files option was set but the output format is not C++ - ignoring");
+            }
+        }
+    }
+
+    #[cfg(feature = "csharp")]
+    if args.csharp_namespace.is_some()
+        || args.csharp_runtime_path.is_some()
+        || args.csharp_live_preview
+    {
+        match &mut format {
+            generator::OutputFormat::CSharp(config) => {
+                config.namespace = args.csharp_namespace.clone();
+                config.runtime_path = args.csharp_runtime_path.clone();
+                config.live_preview = args.csharp_live_preview;
+            }
+            _ => {
+                eprintln!("C# options were set but the output format is not C# - ignoring");
             }
         }
     }

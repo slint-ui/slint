@@ -1,0 +1,25 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<!--
+  Packs the slint-compiler binaries that Slint.targets runs.
+  Pass SlintCompilerBinariesDir, a directory with one sub-directory per runtime identifier:
+    dotnet pack -p:SlintCompilerBinariesDir=artifacts/compiler    with artifacts/compiler/osx-arm64/slint-compiler
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>$(SlintCompilerPackageId)</PackageId>
+    <Description>$(SlintDescriptionPrefix)The slint-compiler that the $(SlintPackageId) package runs to generate C# code from .slint files.</Description>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <!-- No assembly, so nothing to debug. -->
+    <IncludeSymbols>false</IncludeSymbols>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- The package has no lib folder on purpose. -->
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- NuGet imports buildTransitive/<package id>.props, so the file takes the name of the package. -->
+    <None Include="buildTransitive/Slint.Compiler.props" Pack="true" PackagePath="buildTransitive/$(PackageId).props" />
+    <None Include="$(SlintCompilerBinariesDir)/**/*" Pack="true" PackagePath="tools/" Condition="'$(SlintCompilerBinariesDir)' != ''" />
+  </ItemGroup>
+</Project>

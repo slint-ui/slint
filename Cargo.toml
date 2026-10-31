@@ -19,6 +19,7 @@ members = [
   'api/slint-sc',
   'api/slint-sc/tests/driver/bare_metal',
   'api/python/slint',
+  'api/dotnet/native',
   'api/wasm-interpreter',
   'editors/zed',
   'helper_crates/const-field-offset',

@@ -78,4 +78,19 @@ slintlib.private_api.send_mouse_click(instance, 150., 300.);
 assert(!instance.input1_focused);
 assert(instance.input2_focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Input1Focused);
+Assert.IsFalse(instance.Input2Focused);
+Testing.SendKeyboardStringSequence(instance.Instance, "Only for field 1");
+Assert.AreEqual("Only for field 1", instance.Input1Text);
+Assert.AreEqual("", instance.Input2Text);
+Testing.SendMouseClick(instance.Instance, 150, 100);
+Assert.IsTrue(instance.Input1Focused);
+Assert.IsFalse(instance.Input2Focused);
+Testing.SendMouseClick(instance.Instance, 150, 300);
+Assert.IsFalse(instance.Input1Focused);
+Assert.IsTrue(instance.Input2Focused);
+```
 */

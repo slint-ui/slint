@@ -130,4 +130,32 @@ slintlib.private_api.send_keyboard_string_sequence(instance, "\u0019");
 slintlib.private_api.send_keyboard_string_sequence(instance, "X");
 assert.equal(instance.result, "2:1:2:");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+const string Backtab = "\u0019";
+// Moves the focus, then types into the focused element, which records it.
+void TypeAfter(string move)
+{
+    Testing.SendKeyboardStringSequence(instance.Instance, move);
+    Testing.SendKeyboardStringSequence(instance.Instance, "X");
+}
+
+Testing.SendKeyboardStringSequence(instance.Instance, "X");
+Assert.AreEqual("", instance.Result);
+TypeAfter("\t");
+Assert.AreEqual("1:", instance.Result);
+TypeAfter("\t");
+Assert.AreEqual("1:2:", instance.Result);
+TypeAfter("\t");
+Assert.AreEqual("1:2:1:", instance.Result);
+
+instance.Result = "";
+TypeAfter(Backtab);
+Assert.AreEqual("2:", instance.Result);
+TypeAfter(Backtab);
+Assert.AreEqual("2:1:", instance.Result);
+TypeAfter(Backtab);
+Assert.AreEqual("2:1:2:", instance.Result);
+```
 */

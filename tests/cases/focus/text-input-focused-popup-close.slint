@@ -66,4 +66,13 @@ assert(instance.focused);
 instance.close_popup();
 assert(!instance.focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.Focused);
+Testing.MockElapsedTime(500);
+Assert.IsTrue(instance.Focused);
+instance.InvokeClosePopup();
+Assert.IsFalse(instance.Focused);
+```
 */

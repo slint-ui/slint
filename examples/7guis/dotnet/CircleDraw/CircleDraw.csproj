@@ -1,0 +1,20 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- tests/cases/7guis links to this example, and the test drivers run every .slint file under it, so none may be copied to bin. -->
+    <SlintCopyToOutput>false</SlintCopyToOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <SlintFile Include="../../circledraw.slint" />
+  </ItemGroup>
+  <!-- Outside this repository, use <PackageReference Include="yurkinh.slint.net" Version="..." /> instead of the two lines below. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../../api/dotnet/Slint/Slint.csproj" />
+  </ItemGroup>
+  <Import Project="../../../../api/dotnet/Slint/build/Slint.targets" />
+</Project>

@@ -1,0 +1,22 @@
+<Project>
+
+  <!-- Each platform's project generates its own classes from the .slint files, and compiles the C# in Shared/ with them. -->
+  <PropertyGroup>
+    <RootNamespace>SlintApp</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+<!--#if (style != "default") -->
+    <SlintStyle>SLINT_STYLE</SlintStyle>
+<!--#endif -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SlintFile Include="$(MSBuildThisFileDirectory)ui/app-window.slint" />
+    <Compile Include="$(MSBuildThisFileDirectory)Shared/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SLINT_PACKAGE_ID" Version="SLINT_VERSION" />
+  </ItemGroup>
+
+</Project>

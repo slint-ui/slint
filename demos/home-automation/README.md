@@ -3,9 +3,9 @@
 
 A fictional Home Automation User Interface.
 
-| `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- | --- | --- |
-| [`ui.slint`](./ui/demo.slint) | [`main.rs`](./rust/main.rs) |  | [`main.js`](./node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/home-automation/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/home-automation/ui/demo.slint) |
+| `.slint` Design | Rust Source | C++ Source | Node Source | C# Source | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- | --- | --- | --- |
+| [`ui.slint`](./ui/demo.slint) | [`main.rs`](./rust/main.rs) |  | [`main.js`](./node/main.js) | [`Program.cs`](./dotnet/Program.cs) | [Online simulation](https://slint.dev/snapshots/master/demos/home-automation/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/demos/home-automation/ui/demo.slint) |
 
 ![Screenshot of the Home Automation Demo](https://github.com/user-attachments/assets/607e07a5-2e79-4045-9fe4-3da2493ba187 "Home Automation Demo")
 

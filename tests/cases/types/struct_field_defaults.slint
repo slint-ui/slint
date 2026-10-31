@@ -307,4 +307,46 @@ from_cb = instance.make_cb()
 assert from_cb.name == "cb"
 assert from_cb.score == 42
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+
+var defaultPlayer = new PlayerWithDefault();
+Assert.AreEqual("unknown", defaultPlayer.Name);
+Assert.AreEqual(42, defaultPlayer.Score);
+Assert.AreEqual(1f, defaultPlayer.Energy);
+Assert.IsTrue(defaultPlayer.Alive);
+Assert.AreEqual(Color.FromArgb(0xff00ff00), defaultPlayer.Tint);
+Assert.AreEqual(Rank.Gold, defaultPlayer.Rank);
+Assert.AreEqual(TimeSpan.FromSeconds(2), defaultPlayer.Time);
+Assert.AreEqual(0, defaultPlayer.Plain);
+// A new record and a struct that Slint fills with the defaults are equal.
+Assert.AreEqual(defaultPlayer, instance.NeverSet);
+
+var custom = new PlayerWithDefault { Name = "custom" };
+Assert.AreEqual("custom", custom.Name);
+Assert.AreEqual(42, custom.Score);
+Assert.AreEqual(custom, instance.Partial with { Name = "custom" });
+
+var nested = new NestedDefault();
+Assert.AreEqual("nested", nested.Player.Name);
+Assert.AreEqual(42, nested.Player.Score);
+CollectionAssert.AreEqual(new[] { "a", "b" }, nested.Tags.ToList());
+
+var edge = new Edge();
+Assert.IsTrue(edge.Big > 2000000000);
+Assert.AreEqual("42", edge.Text);
+Assert.AreEqual(42, edge.Inner.Score);
+Assert.AreEqual(44f, edge.Size);
+Assert.AreEqual(edge, instance.Edge);
+
+// Each record gets its own model.
+Assert.AreNotSame(new Holder().Model, new Holder().Model);
+Assert.AreEqual(45, new Holder().Model[0].Abc);
+
+var fromCb = instance.InvokeMakeCb();
+Assert.AreEqual("cb", fromCb.Name);
+Assert.AreEqual(42, fromCb.Score);
+```
 */

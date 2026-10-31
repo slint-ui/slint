@@ -88,5 +88,26 @@ instance.mark_dirty();
 slintlib.private_api.send_mouse_click(instance, 15., 5.);
 assert.equal(instance.result, "");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+void Click() => Testing.SendMouseClick(instance.Instance, 15, 5);
+
+Click();
+Assert.AreEqual("Init 'AA' (0)\nInit 'BB' (0)\n", instance.Result);
+instance.Result = "";
+Click();
+instance.MarkDirty();
+Click();
+Assert.AreEqual("", instance.Result);
+Click();
+instance.Change();
+Click();
+Assert.AreEqual("Init 'CC' (1)\n", instance.Result);
+instance.Result = "";
+instance.MarkDirty();
+Click();
+Assert.AreEqual("", instance.Result);
+```
 */
 

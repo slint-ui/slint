@@ -7,6 +7,12 @@ SPDX-PackageSupplier = "Slint Developers <info@slint.dev>"
 SPDX-PackageDownloadLocation = "https://slint.dev/"
 
 [[annotations]]
+path = ["api/dotnet/Templates/content/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["examples/safe-ui/app/assets/**.png"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

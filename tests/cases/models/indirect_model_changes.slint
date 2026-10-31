@@ -58,4 +58,12 @@ assert(instance.test);
 instance.up2();
 assert.equal(instance.t2, 18);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(6, instance.T1);
+Assert.IsTrue(instance.Test);
+instance.InvokeUp2();
+Assert.AreEqual(18, instance.T2);
+```
 */

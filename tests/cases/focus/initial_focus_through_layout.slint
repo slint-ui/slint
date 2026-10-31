@@ -42,4 +42,10 @@ var instance = new slint.TestCase();
 assert(!instance.input1_focused);
 assert(instance.input2_focused);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.Input1Focused);
+Assert.IsTrue(instance.Input2Focused);
+```
 */

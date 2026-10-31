@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationId>SLINT_APP_ID</ApplicationId>
+    <ApplicationTitle>SlintApp</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- The ABIs that Slint has libraries for: devices, and emulators on x86_64. -->
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+<!--#if (style != "default") -->
+    <SlintStyle>SLINT_STYLE</SlintStyle>
+<!--#endif -->
+  </PropertyGroup>
+
+  <!-- Release: .NET for Android compiles ahead of time and trims by default. -->
+
+  <ItemGroup>
+    <SlintFile Include="ui/app-window.slint" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SLINT_PACKAGE_ID" Version="SLINT_VERSION" />
+  </ItemGroup>
+
+</Project>

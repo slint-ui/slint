@@ -1,0 +1,406 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Builds the Slint and Slint.Compiler NuGet packages with the native binaries of every platform, and the templates package,
+# checks that projects, and apps from the templates, can build and run with them, and optionally publishes them to nuget.org.
+
+name: Build and publish the NuGet packages
+
+on:
+    workflow_dispatch:
+      inputs:
+        version:
+            type: string
+            required: false
+            description: "Package version, such as 1.19.0-preview.1. Defaults to the workspace version with a -nightly suffix"
+        publish:
+            type: boolean
+            default: false
+            required: false
+            description: "Publish the packages to nuget.org"
+
+env:
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
+    DOTNET_CLI_TELEMETRY_OPTOUT: 1
+    DOTNET_NOLOGO: 1
+    # A fork publishes under its own package IDs: set the repository variable SLINT_NUGET_PACKAGE_ID,
+    # and optionally SLINT_NUGET_AUTHORS. The compiler package is <id>.Compiler.
+    SLINT_PACKAGE_ID: ${{ vars.SLINT_NUGET_PACKAGE_ID || 'Slint' }}
+
+jobs:
+    build_binaries:
+        name: Build the binaries for ${{ matrix.rid }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - { runner: macos-14, rid: osx-arm64, target: aarch64-apple-darwin }
+                    - { runner: macos-14, rid: osx-x64, target: x86_64-apple-darwin }
+                    - { runner: ubuntu-22.04, rid: linux-x64, target: x86_64-unknown-linux-gnu }
+                    - { runner: ubuntu-22.04-arm, rid: linux-arm64, target: aarch64-unknown-linux-gnu }
+                    - { runner: windows-2022, rid: win-x64, target: x86_64-pc-windows-msvc }
+                    - { runner: windows-11-arm, rid: win-arm64, target: aarch64-pc-windows-msvc }
+                    # Android gets only the library, since slint-compiler runs on the build machine.
+                    - { runner: ubuntu-22.04, rid: android-arm64, target: aarch64-linux-android }
+                    - { runner: ubuntu-22.04, rid: android-x64, target: x86_64-linux-android }
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+                  key: dotnet-${{ matrix.target }}
+            # The Android backend compiles a Java helper against an SDK platform, and links with the NDK.
+            - name: Set up the Android NDK
+              if: startsWith(matrix.rid, 'android-')
+              shell: bash
+              run: |
+                  ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+                  bin=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+                  triple=${{ matrix.target }}
+                  # API level 26, like SupportedOSPlatformVersion of the Android build of Slint.csproj.
+                  {
+                      echo "ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME"
+                      echo "CARGO_TARGET_$(echo "$triple" | tr 'a-z-' 'A-Z_')_LINKER=$bin/${triple}26-clang"
+                      echo "CC_${triple//-/_}=$bin/${triple}26-clang"
+                      echo "CXX_${triple//-/_}=$bin/${triple}26-clang++"
+                      echo "AR_${triple//-/_}=$bin/llvm-ar"
+                  } >> "$GITHUB_ENV"
+            - name: Build
+              shell: bash
+              run: cargo build --release --target ${{ matrix.target }} -p slint-dotnet ${{ !startsWith(matrix.rid, 'android-') && '-p slint-compiler' || '' }}
+            - name: Collect the binaries
+              shell: bash
+              run: |
+                  out=target/${{ matrix.target }}/release
+                  mkdir -p artifacts/native/${{ matrix.rid }} artifacts/compiler/${{ matrix.rid }}
+                  case "${{ matrix.rid }}" in
+                      win-*) cp $out/slint_dotnet.dll artifacts/native/${{ matrix.rid }}/
+                             cp $out/slint-compiler.exe artifacts/compiler/${{ matrix.rid }}/ ;;
+                      osx-*) cp $out/libslint_dotnet.dylib artifacts/native/${{ matrix.rid }}/
+                             cp $out/slint-compiler artifacts/compiler/${{ matrix.rid }}/ ;;
+                      android-*) cp $out/libslint_dotnet.so artifacts/native/${{ matrix.rid }}/
+                                 rmdir artifacts/compiler/${{ matrix.rid }} ;;
+                      *)     cp $out/libslint_dotnet.so artifacts/native/${{ matrix.rid }}/
+                             cp $out/slint-compiler artifacts/compiler/${{ matrix.rid }}/ ;;
+                  esac
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: dotnet-binaries-${{ matrix.rid }}
+                  path: artifacts
+
+    # The framework for iOS devices and the simulator, which the package has in ios/.
+    build_ios:
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: "aarch64-apple-ios aarch64-apple-ios-sim"
+                  key: dotnet-ios
+            - name: Build the framework
+              run: |
+                  scripts/build_dotnet_ios.sh
+                  mkdir -p artifacts/ios
+                  cp -R target/ios/slint_dotnet.xcframework artifacts/ios/
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: dotnet-binaries-ios
+                  path: artifacts
+
+    pack:
+        needs: [build_binaries, build_ios]
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            # For the net10.0-android build of Slint, with SlintActivity.
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: microsoft
+                  java-version: 21
+            - name: Install the .NET Android workload
+              run: |
+                  dotnet workload install android
+                  ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+            - uses: actions/download-artifact@v8
+              with:
+                  pattern: dotnet-binaries-*
+                  path: artifacts
+                  merge-multiple: true
+            - name: Determine the version
+              id: version
+              shell: bash
+              run: |
+                  version="${{ inputs.version }}"
+                  if [ -z "$version" ]; then
+                      version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)-nightly.$(date +%Y%m%d)"
+                  fi
+                  echo "version=$version" >> "$GITHUB_OUTPUT"
+            - name: Pack
+              working-directory: api/dotnet
+              shell: bash
+              run: |
+                  props=(-p:Version=${{ steps.version.outputs.version }} -p:SlintPackageId="$SLINT_PACKAGE_ID")
+                  if [ "$SLINT_PACKAGE_ID" = "Slint" ]; then
+                      if [ "$GITHUB_REPOSITORY" != "slint-ui/slint" ]; then
+                          echo "::error::Only slint-ui/slint packs the Slint packages; set the repository variable SLINT_NUGET_PACKAGE_ID"
+                          exit 1
+                      fi
+                  else
+                      props+=(-p:SlintCommunityPackage=true
+                              "-p:SlintPackageAuthors=${{ vars.SLINT_NUGET_AUTHORS || github.repository_owner }}"
+                              -p:SlintPackageRepositoryUrl="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY")
+                      # The README of the packages installs them by ID.
+                      sed -i "s/dotnet add package Slint /dotnet add package $SLINT_PACKAGE_ID /" README.md
+                      { head -n 1 README.md
+                        printf '\n> This is a community build of the Slint .NET bindings, not published by the Slint project.\n'
+                        tail -n +2 README.md; } > README.community.md
+                      mv README.community.md README.md
+                  fi
+                  dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
+                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native" -p:SlintAndroid=true -p:SlintIOSFramework="$GITHUB_WORKSPACE/artifacts/ios/slint_dotnet.xcframework"
+                  dotnet pack Templates -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}"
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: nuget-packages
+                  path: |
+                      packages/*.nupkg
+                      packages/*.snupkg
+
+    test_packages:
+        needs: pack
+        strategy:
+            fail-fast: false
+            matrix:
+                runner: [macos-14, ubuntu-22.04, windows-2022]
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            # winit loads libxkbcommon-x11 at run time.
+            - uses: ./.github/actions/install-linux-dependencies
+              if: runner.os == 'Linux'
+            - name: Setup headless display
+              if: runner.os == 'Linux'
+              uses: pyvista/setup-headless-display-action@v5
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            - name: Build and run a project with the packages
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  mkdir app && cd app
+                  dotnet new console
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet add package "$SLINT_PACKAGE_ID" --version "$version"
+                  mkdir ui
+                  printf 'export component App inherits Window { in-out property <int> counter: 41; }\n' > ui/app.slint
+                  sed -i.bak 's#</Project>#<ItemGroup><SlintFile Include="ui/app.slint" /></ItemGroup></Project>#' app.csproj
+                  # An explicit Main, since Windows needs [STAThread], like the README says.
+                  printf 'static class Program\n{\n    [System.STAThread]\n    static int Main()\n    {\n        using var a = app.App.Create();\n        a.Counter++;\n        if (a.Counter != 42) return 1;\n        System.Console.WriteLine("ok");\n        return 0;\n    }\n}\n' > Program.cs
+                  dotnet run
+            - name: Build apps from the templates with the packages
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  dotnet new install "packages/$SLINT_PACKAGE_ID.Templates.$version.nupkg"
+                  mkdir templates && cd templates
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet new slint -o Desktop --no-restore
+                  dotnet build Desktop
+                  dotnet publish Desktop -c Release --use-current-runtime
+                  dotnet new slint-xplat -o XPlat --platforms desktop --no-restore
+                  dotnet build XPlat/XPlat.slnx
+
+    test_android_package:
+        needs: pack
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: microsoft
+                  java-version: 21
+            - name: Install the .NET Android workload
+              run: |
+                  dotnet workload install android
+                  ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            - name: Build an APK with the packages
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  mkdir app && cd app
+                  dotnet new android
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet add package "$SLINT_PACKAGE_ID" --version "$version"
+                  mkdir ui
+                  printf 'export component App inherits Window { in-out property <int> counter: 41; }\n' > ui/app.slint
+                  sed -i 's#</Project>#<ItemGroup><SlintFile Include="ui/app.slint" /></ItemGroup></Project>#' app.csproj
+                  rm -f MainActivity.cs Resources/layout/activity_main.xml
+                  cat > MainActivity.cs <<'EOF'
+                  using Slint.Android;
+
+                  namespace app;
+
+                  [Activity(MainLauncher = true, ConfigurationChanges = SlintActivity.ConfigurationChanges)]
+                  [MetaData(SlintActivity.LibraryNameKey, Value = SlintActivity.LibraryName)]
+                  public class MainActivity : SlintActivity
+                  {
+                      protected override void SlintMain()
+                      {
+                          using var a = App.Create();
+                          a.Run();
+                      }
+                  }
+                  EOF
+                  dotnet build -c Release
+                  apk=$(find bin -name '*-Signed.apk' | head -1)
+                  contents=$(unzip -l "$apk")
+                  for file in lib/arm64-v8a/libslint_dotnet.so lib/x86_64/libslint_dotnet.so assets/slint/ui/app.slint; do
+                      grep -q "$file" <<<"$contents" || { echo "::error::$file is missing from $apk"; exit 1; }
+                  done
+                  echo ok
+            - name: Build apps from the templates with the packages
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  dotnet new install "packages/$SLINT_PACKAGE_ID.Templates.$version.nupkg"
+                  mkdir templates && cd templates
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet new slint-android -o Android --no-restore
+                  dotnet build Android
+                  contents=$(unzip -l "$(find Android/bin -name '*-Signed.apk' | head -1)")
+                  for file in lib/arm64-v8a/libslint_dotnet.so lib/x86_64/libslint_dotnet.so assets/slint/ui/app-window.slint; do
+                      grep -q "$file" <<<"$contents" || { echo "::error::$file is missing from the APK of slint-android"; exit 1; }
+                  done
+                  dotnet new slint-xplat -o XPlat --platforms android --no-restore
+                  dotnet build XPlat/XPlat.slnx
+
+    test_ios_package:
+        needs: pack
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            # The workload set with the .NET for iOS that the runner's Xcode supports, see the ".NET iOS" job of ci.yaml.
+            - name: Install the .NET iOS workload
+              run: dotnet workload install ios --version 10.0.401
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            - name: Build an iOS app with the packages and start it in a simulator
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  mkdir -p app/ui && cd app
+                  cat > app.csproj <<'EOF'
+                  <Project Sdk="Microsoft.NET.Sdk">
+                    <PropertyGroup>
+                      <TargetFramework>net10.0-ios</TargetFramework>
+                      <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+                      <OutputType>Exe</OutputType>
+                      <ApplicationId>dev.slint.dotnet.packagetest</ApplicationId>
+                      <RuntimeIdentifier>iossimulator-arm64</RuntimeIdentifier>
+                    </PropertyGroup>
+                    <ItemGroup>
+                      <SlintFile Include="ui/app.slint" />
+                    </ItemGroup>
+                  </Project>
+                  EOF
+                  cp "$GITHUB_WORKSPACE/examples/todo/dotnet-ios/Info.plist" .
+                  printf 'export component App inherits Window { in-out property <int> counter: 41; Text { text: "\{root.counter}"; } }\n' > ui/app.slint
+                  cat > Program.cs <<'EOF'
+                  internal static class Program
+                  {
+                      private static void Main()
+                      {
+                          using var a = app.App.Create();
+                          a.Counter++;
+                          a.Run();
+                      }
+                  }
+                  EOF
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet add package "$SLINT_PACKAGE_ID" --version "$version"
+                  dotnet build
+                  bundle=bin/Debug/net10.0-ios/iossimulator-arm64/app.app
+                  for file in Frameworks/slint_dotnet.framework/slint_dotnet ui/app.slint; do
+                      [ -e "$bundle/$file" ] || { echo "::error::$file is missing from $bundle"; exit 1; }
+                  done
+                  "$GITHUB_WORKSPACE/scripts/dotnet_ios_smoke_test.sh" "$bundle" dev.slint.dotnet.packagetest 30
+            - name: Build apps from the templates with the packages and start one in a simulator
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  dotnet new install "packages/$SLINT_PACKAGE_ID.Templates.$version.nupkg"
+                  mkdir templates && cd templates
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet new slint-ios -o IOSApp --app-id dev.slint.dotnet.templatetest --no-restore
+                  dotnet build IOSApp -r iossimulator-arm64
+                  "$GITHUB_WORKSPACE/scripts/dotnet_ios_smoke_test.sh" IOSApp/bin/Debug/net10.0-ios/iossimulator-arm64/IOSApp.app dev.slint.dotnet.templatetest 30
+                  dotnet new slint-xplat -o XPlat --platforms ios --no-restore
+                  dotnet build XPlat/XPlat.slnx
+
+    publish:
+        needs: [test_packages, test_android_package, test_ios_package]
+        if: ${{ inputs.publish }}
+        runs-on: ubuntu-22.04
+        environment:
+            name: nuget
+        # Trusted publishing: nuget.org trades the GitHub OIDC token for an API key that's valid for an hour.
+        # It needs a policy on nuget.org for this repository, this workflow file, and the nuget environment,
+        # and the secret NUGET_USER with the nuget.org profile name that owns the policy.
+        permissions:
+            id-token: write
+            contents: read
+        steps:
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            - name: Log in to nuget.org
+              id: login
+              uses: NuGet/login@v1
+              with:
+                  user: ${{ secrets.NUGET_USER }}
+            - name: Publish to nuget.org
+              run: dotnet nuget push "packages/*.nupkg" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json

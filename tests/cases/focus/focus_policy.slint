@@ -329,4 +329,41 @@ assert(!instance.fs2_has_focus);
 assert(instance.fs3_has_focus);
 assert.equal(instance.events, "2 Out Programmatic\n3 In Programmatic\n");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+// Asserts which focus scope has the focus, and the focus events since the last check.
+void Expect(int focused, string events)
+{
+    Assert.AreEqual(focused == 1, instance.Fs1HasFocus);
+    Assert.AreEqual(focused == 2, instance.Fs2HasFocus);
+    Assert.AreEqual(focused == 3, instance.Fs3HasFocus);
+    Assert.AreEqual(events, instance.Events);
+    instance.Events = "";
+}
+
+Testing.SendKeyboardStringSequence(instance.Instance, "\t");
+Expect(1, "1 In Tab\n");
+Testing.SendKeyboardStringSequence(instance.Instance, "\t");
+Expect(2, "1 Out Tab\n2 In Tab\n");
+// The tab skips fs3, which only takes the focus from a click.
+Testing.SendKeyboardStringSequence(instance.Instance, "\t");
+Expect(1, "2 Out Tab\n1 In Tab\n");
+Testing.SendMouseClick(instance.Instance, 5, 300);
+Expect(3, "1 Out Click\n3 In Click\n");
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Expect(1, "3 Out Click\n1 In Click\n");
+// A click doesn't focus fs2.
+Testing.SendMouseClick(instance.Instance, 5, 200);
+Expect(1, "");
+// A popup takes the focus.
+instance.ShowPopup();
+Expect(0, "1 Out Popup\n");
+instance.FocusFs1();
+Expect(1, "1 In Programmatic\n");
+instance.FocusFs2();
+Expect(2, "1 Out Programmatic\n2 In Programmatic\n");
+instance.FocusFs3();
+Expect(3, "2 Out Programmatic\n3 In Programmatic\n");
+```
 */

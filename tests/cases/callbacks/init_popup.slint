@@ -45,4 +45,9 @@ assert.equal(instance.popup_created, 1);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual(1, instance.PopupCreated);
+```
 */

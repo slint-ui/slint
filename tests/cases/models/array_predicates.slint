@@ -295,4 +295,50 @@ assert(instance.same_model_index == "Bob");
 assert(instance.same_model_nested == 3);
 assert(instance.same_model_any_and_all);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.IntsAllPositive, nameof(instance.IntsAllPositive));
+Assert.IsTrue(instance.IntsNotAllGtOne, nameof(instance.IntsNotAllGtOne));
+Assert.IsTrue(instance.IntsNoZero, nameof(instance.IntsNoZero));
+Assert.IsTrue(instance.IntsAnyFive, nameof(instance.IntsAnyFive));
+Assert.IsTrue(instance.IntsAnyUnderFive, nameof(instance.IntsAnyUnderFive));
+Assert.IsTrue(instance.StringsAllNonempty, nameof(instance.StringsAllNonempty));
+Assert.IsTrue(instance.StringsNotAllEmpty, nameof(instance.StringsNotAllEmpty));
+Assert.IsTrue(instance.StringsAnyHello, nameof(instance.StringsAnyHello));
+Assert.IsTrue(instance.StringsNoTest, nameof(instance.StringsNoTest));
+Assert.IsTrue(instance.StringsNoEmpty, nameof(instance.StringsNoEmpty));
+Assert.IsTrue(instance.PeopleAllAdults, nameof(instance.PeopleAllAdults));
+Assert.IsTrue(instance.PeopleNotAllUnderThirty, nameof(instance.PeopleNotAllUnderThirty));
+Assert.IsTrue(instance.PeopleAnyAlice, nameof(instance.PeopleAnyAlice));
+Assert.IsTrue(instance.PeopleNoEvan, nameof(instance.PeopleNoEvan));
+Assert.IsTrue(instance.PeopleAnyUnderThirty, nameof(instance.PeopleAnyUnderThirty));
+Assert.IsTrue(instance.GroupsAllOverTwenty, nameof(instance.GroupsAllOverTwenty));
+Assert.IsTrue(instance.GroupsNotAllUnderThirty, nameof(instance.GroupsNotAllUnderThirty));
+Assert.IsTrue(instance.GroupsAllHaveAdult, nameof(instance.GroupsAllHaveAdult));
+Assert.IsTrue(instance.GroupsNoAllAlice, nameof(instance.GroupsNoAllAlice));
+Assert.IsTrue(instance.GroupsAnyAllLongName, nameof(instance.GroupsAnyAllLongName));
+Assert.IsTrue(instance.GroupsAnySevenLetterName, nameof(instance.GroupsAnySevenLetterName));
+Assert.IsTrue(instance.NestedFindsAlice, nameof(instance.NestedFindsAlice));
+Assert.IsTrue(instance.NestedAllHaveAgeTwentyFive, nameof(instance.NestedAllHaveAgeTwentyFive));
+Assert.IsTrue(instance.NestedNoAllAlice, nameof(instance.NestedNoAllAlice));
+Assert.IsTrue(instance.PrecedenceAnd, nameof(instance.PrecedenceAnd));
+Assert.IsTrue(instance.PrecedenceOr, nameof(instance.PrecedenceOr));
+Assert.IsTrue(instance.PrecedenceAll, nameof(instance.PrecedenceAll));
+Assert.IsTrue(instance.EmptyAnyFalse, nameof(instance.EmptyAnyFalse));
+Assert.IsTrue(instance.EmptyAllTrue, nameof(instance.EmptyAllTrue));
+Assert.IsTrue(instance.ClosureArgShadowsLocal, nameof(instance.ClosureArgShadowsLocal));
+Assert.IsTrue(instance.ClosureArgShadowsSameTypeLocal, nameof(instance.ClosureArgShadowsSameTypeLocal));
+Assert.IsTrue(instance.NestedClosureArgShadows, nameof(instance.NestedClosureArgShadows));
+Assert.IsTrue(instance.SameModelAnyAndAll, nameof(instance.SameModelAnyAndAll));
+Assert.AreEqual(-1, instance.EmptyFindIndex);
+Assert.AreEqual(2, instance.IntsFindIndexThree);
+Assert.AreEqual(-1, instance.IntsFindIndexMissing);
+Assert.AreEqual(1, instance.StringsFindIndexWorld);
+Assert.AreEqual(-1, instance.StringsFindIndexMissing);
+Assert.AreEqual(2, instance.PeopleFindIndexCharlie);
+Assert.AreEqual(0, instance.PeopleFindIndexFirstAdult);
+Assert.AreEqual("Bob", instance.SameModelIndex);
+Assert.AreEqual(3, instance.SameModelNested);
+```
 */

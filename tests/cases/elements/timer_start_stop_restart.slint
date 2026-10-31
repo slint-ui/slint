@@ -402,4 +402,83 @@ slintlib.private_api.mock_elapsed_time(1);
 slintlib.private_api.mock_elapsed_time(50);
 assert.equal(instance.get_other_res(), "ttt");
 ```
+
+```csharp
+using var instance = TestCase.Create();
+void Wait(ulong milliseconds)
+{
+    Testing.MockElapsedTime(1);
+    Testing.MockElapsedTime(milliseconds);
+}
+
+Wait(3000);
+Assert.AreEqual("1", instance.Result3);
+Testing.MockElapsedTime(1000);
+Assert.AreEqual("1", instance.Result3);
+
+instance.StartTimer1();
+Wait(1000);
+Assert.AreEqual("1", instance.Result1);
+Testing.MockElapsedTime(1000);
+Assert.AreEqual("11", instance.Result1);
+instance.StopTimer1();
+Wait(1500);
+Assert.AreEqual("11", instance.Result1);
+instance.RestartTimer1();
+Wait(1000);
+Assert.AreEqual("111", instance.Result1);
+instance.StartTimer1();
+Wait(500);
+Assert.AreEqual("111", instance.Result1);
+instance.RestartTimer1();
+Wait(600);
+Assert.AreEqual("111", instance.Result1);
+Testing.MockElapsedTime(400);
+Assert.AreEqual("1111", instance.Result1);
+
+instance.StartTimer2();
+Wait(50);
+Assert.AreEqual("1", instance.Result2);
+Testing.MockElapsedTime(50);
+Assert.AreEqual("11", instance.Result2);
+instance.StopTimer2();
+Wait(1000);
+Assert.AreEqual("11", instance.Result2);
+instance.RestartTimer2();
+Wait(50);
+Assert.AreEqual("111", instance.Result2);
+instance.StartTimer2();
+Wait(25);
+Assert.AreEqual("111", instance.Result2);
+instance.RestartTimer2();
+Wait(30);
+Assert.AreEqual("111", instance.Result2);
+Testing.MockElapsedTime(20);
+Assert.AreEqual("1111", instance.Result2);
+
+instance.ValidRect = true;
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual("", instance.Result4);
+Wait(4000);
+Assert.AreEqual("1", instance.Result4);
+Testing.MockElapsedTime(4000);
+Assert.AreEqual("1", instance.Result4);
+
+Assert.AreEqual("", instance.GetOtherRes());
+instance.StartOtherTimer();
+Wait(250);
+Assert.AreEqual("t", instance.GetOtherRes());
+instance.StopOtherTimer();
+Wait(300);
+Assert.AreEqual("t", instance.GetOtherRes());
+instance.StartOtherTimer();
+Wait(250);
+Assert.AreEqual("tt", instance.GetOtherRes());
+Testing.MockElapsedTime(50);
+instance.RestartOtherTimer();
+Wait(200);
+Assert.AreEqual("tt", instance.GetOtherRes());
+Wait(50);
+Assert.AreEqual("ttt", instance.GetOtherRes());
+```
 */

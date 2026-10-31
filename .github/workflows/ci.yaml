@@ -194,6 +194,116 @@ jobs:
           name: "Node.js Windows"
           os: "windows-2022"
 
+    # For changes to the test cases, also run them through the generated C# code on Linux.
+    dotnet_test_linux:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') || contains(fromJSON(inputs.changes), 'tests') }}
+        uses: ./.github/workflows/dotnet_test_reusable.yaml
+        with:
+          name: ".NET Linux"
+          os: "ubuntu-22.04"
+    dotnet_test_macos:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
+        uses: ./.github/workflows/dotnet_test_reusable.yaml
+        with:
+          name: ".NET macOS"
+          os: "macos-14"
+    dotnet_test_windows:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
+        uses: ./.github/workflows/dotnet_test_reusable.yaml
+        with:
+          name: ".NET Windows"
+          os: "windows-2022"
+
+    # Builds the Android version of the todo example and starts it in an emulator.
+    dotnet_android:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') || contains(fromJSON(inputs.changes), 'android_backend') }}
+        name: ".NET Android"
+        runs-on: ubuntu-22.04
+        env:
+            DOTNET_CLI_TELEMETRY_OPTOUT: 1
+            DOTNET_NOLOGO: 1
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: x86_64-linux-android
+                  key: x-dotnet-android-v0
+            # The Android backend compiles a Java helper against an SDK platform, and links with the NDK.
+            - name: Set up the Android SDK and NDK
+              shell: bash
+              run: |
+                  ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
+                  bin=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+                  {
+                      echo "ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME"
+                      echo "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER=$bin/x86_64-linux-android26-clang"
+                      echo "CC_x86_64_linux_android=$bin/x86_64-linux-android26-clang"
+                      echo "CXX_x86_64_linux_android=$bin/x86_64-linux-android26-clang++"
+                      echo "AR_x86_64_linux_android=$bin/llvm-ar"
+                  } >> "$GITHUB_ENV"
+            - name: Build slint-compiler, and the native library for the emulator
+              run: |
+                  cargo build -p slint-compiler
+                  cargo build --release -p slint-dotnet --target x86_64-linux-android
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: microsoft
+                  java-version: 21
+            - name: Install the .NET Android workload
+              run: dotnet workload install android
+            # Not -p:RuntimeIdentifiers, which as a global property would also build Slint.Compiler per runtime identifier.
+            # The APK just lacks the library for arm64, which CI doesn't build.
+            - name: Build the todo example for Android
+              run: dotnet build examples/todo/dotnet-android/TodoAndroid.csproj -p:SlintAndroid=true
+            - name: Enable KVM for the emulator
+              run: |
+                  echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+                  sudo udevadm control --reload-rules
+                  sudo udevadm trigger --name-match=kvm
+            - name: Start the todo example in an emulator
+              uses: reactivecircus/android-emulator-runner@v2
+              with:
+                  api-level: 35
+                  arch: x86_64
+                  target: google_apis
+                  emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+                  script: scripts/dotnet_android_smoke_test.sh examples/todo/dotnet-android/bin/Debug/net10.0-android/dev.slint.dotnet.todo-Signed.apk dev.slint.dotnet.todo 30
+
+    # Builds the iOS version of the todo example and starts it in an iPhone simulator.
+    dotnet_ios:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
+        name: ".NET iOS"
+        runs-on: macos-26
+        env:
+            DOTNET_CLI_TELEMETRY_OPTOUT: 1
+            DOTNET_NOLOGO: 1
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: "aarch64-apple-ios aarch64-apple-ios-sim"
+                  key: x-dotnet-ios-v0
+            # Both targets, so that CI also catches what only breaks the build for devices.
+            - name: Build slint-compiler, and the native library for iOS
+              run: |
+                  cargo build -p slint-compiler
+                  scripts/build_dotnet_ios.sh
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            # Each .NET for iOS requires one Xcode: the workload set 10.0.401 has .NET for iOS 26.5,
+            # which requires the runner's default Xcode 26.6, while newer sets require Xcode 27.
+            - name: Install the .NET iOS workload
+              run: dotnet workload install ios --version 10.0.401
+            - name: Build the todo example for the iOS simulator
+              run: dotnet build examples/todo/dotnet-ios/TodoIOS.csproj
+            - name: Start the todo example in an iPhone simulator
+              run: scripts/dotnet_ios_smoke_test.sh examples/todo/dotnet-ios/bin/Debug/net10.0-ios/iossimulator-arm64/TodoIOS.app dev.slint.dotnet.todo 30
+
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_python') || contains(fromJSON(inputs.changes), 'tests') }}
@@ -981,7 +1091,7 @@ jobs:
                   CFLAGS: -msse2
                   CXXFLAGS: -msse2
               # The excluded crates need a dedicated toolchain or don't cross-compile here.
-              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia --exclude slint-editor
+              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude slint-node --exclude slint-cpp --exclude slint-python --exclude slint-dotnet --exclude slint-sc --exclude slint-doc-generator --exclude i-slint-renderer-skia --exclude slint-editor
 
     # `backend-linuxkms` is the bare backend and `compat-1-2` restores its pre-1.18
     # meaning of libseat + libinput. Getting that implication wrong still compiles,

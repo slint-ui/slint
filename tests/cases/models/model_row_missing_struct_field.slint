@@ -39,4 +39,21 @@ instance.rows = slint.ListModel[typing.Any]([{}])
 assert instance.ta_enabled
 assert instance.text == ""
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+
+// An untyped struct lacks the omitted fields.
+// A `Row` wouldn't: it initializes all of its fields.
+instance.Instance.SetProperty("rows", new ListModel<object?> { new Struct { ["name"] = "b" } });
+Assert.IsTrue(instance.TaEnabled);
+Assert.AreEqual("b", instance.Text);
+// Reading the row gives the missing field its declared default.
+Assert.AreEqual(new Row { Name = "b", On = true }, instance.Rows[0]);
+
+instance.Instance.SetProperty("rows", new ListModel<object?> { new Struct() });
+Assert.IsTrue(instance.TaEnabled);
+Assert.AreEqual("", instance.Text);
+```
 */

@@ -66,4 +66,19 @@ assert.equal(instance.value, 50);
 slintlib.private_api.mock_elapsed_time(500);
 assert.equal(instance.value, 100);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(0, instance.Value);
+instance.Value = 100;
+// No time has passed yet.
+Assert.AreEqual(0, instance.Value);
+Testing.MockElapsedTime(336);
+// 33.6 rounds to 34.
+Assert.AreEqual(34, instance.Value);
+Testing.MockElapsedTime(164);
+Assert.AreEqual(50, instance.Value);
+Testing.MockElapsedTime(500);
+Assert.AreEqual(100, instance.Value);
+```
 */

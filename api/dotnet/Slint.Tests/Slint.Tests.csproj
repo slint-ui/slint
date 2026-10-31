@@ -1,0 +1,35 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputType>Exe</OutputType>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Slint/Slint.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <SlintFile Include="ui/generated.slint" />
+    <SlintFile Include="ui/shared.slint" Generate="false" />
+    <SlintFile Include="ui/live.slint" LivePreview="true" />
+    <SlintFile Include="ui/import-paths.slint" />
+    <SlintFile Include="ui/translated.slint" />
+    <SlintProject Include="ui/project" />
+    <SlintLibraryPath Include="tags" Path="ui/lib/" />
+  </ItemGroup>
+  <PropertyGroup>
+    <SlintIncludePaths>ui/include</SlintIncludePaths>
+    <SlintTranslationDomain>greeting</SlintTranslationDomain>
+    <SlintBundledTranslations>translations</SlintBundledTranslations>
+  </PropertyGroup>
+  <!-- A package reference imports this automatically; a project reference doesn't. -->
+  <Import Project="../Slint/build/Slint.targets" />
+</Project>

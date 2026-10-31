@@ -88,5 +88,16 @@ assert.equal(instance.r4, "__abcdfghij__");
 assert.equal(instance.r5, "__abcdefghij__");
 
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 50, 50);
+Testing.SendKeyboardStringSequence(instance.Instance, "__abcdefghij__");
+Assert.AreEqual("__afghij__", instance.R1);
+Assert.AreEqual("__abfghij__", instance.R2);
+Assert.AreEqual("__abcfghij__", instance.R3);
+Assert.AreEqual("__abcdfghij__", instance.R4);
+Assert.AreEqual("__abcdefghij__", instance.R5);
+```
 */
 // cspell:enable

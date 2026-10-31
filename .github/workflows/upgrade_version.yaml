@@ -33,6 +33,8 @@ jobs:
 
                   # Version in package.json files
                   git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
+                  # Update the version of the .NET packages
+                  sed -i 's#<Version>[0-9]*\.[0-9]*\.[0-9]*</Version>#<Version>${{ github.event.inputs.new_version }}</Version>#' api/dotnet/Directory.Build.props
                   # Update version in Node.js binary package config
                   sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/' api/node/binaries.json api/node/binaries-dev.json
 

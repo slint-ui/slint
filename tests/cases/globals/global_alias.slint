@@ -73,4 +73,16 @@ assert.equal(instance[slintlib.globalsSymbol].MyGlobal, instance.MyGlobal);
 assert.equal(instance[slintlib.globalsSymbol].GlobalAlias.hello, 100);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.IsFalse(instance.TestGlobalPropValue);
+Assert.AreEqual(42, instance.MyGlobal.Hello);
+Assert.AreEqual(42, instance.GlobalAlias.Hello);
+// Both names reach the same global.
+instance.MyGlobal.Hello = 100;
+Assert.IsTrue(instance.TestGlobalPropValue);
+Assert.AreEqual(100, instance.MyGlobal.Hello);
+Assert.AreEqual(100, instance.GlobalAlias.Hello);
+Assert.AreEqual(12, instance.GlobalAlias.Scaled(3, 4));
+```
 */

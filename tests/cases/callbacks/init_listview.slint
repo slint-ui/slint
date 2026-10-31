@@ -81,4 +81,20 @@ assert.equal(instance.result, "(9)(8)");
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+// Each click lays out the list view, which creates the rows that scrolled into view.
+void Scroll(float y, string created)
+{
+    instance.Result = "";
+    instance.Scroll = y;
+    Testing.SendMouseClick(instance.Instance, 5, 5);
+    Assert.AreEqual(created, instance.Result);
+}
+Testing.SendMouseClick(instance.Instance, 5, 5);
+Assert.AreEqual("(0)(1)(2)", instance.Result);
+Scroll(-150, "(3)(4)");
+Scroll(-1000, "(10)(11)(12)");
+Scroll(-850, "(9)(8)");
+```
 */

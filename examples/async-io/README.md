@@ -17,3 +17,9 @@ Run the Rust version via `cargo run --manifest-path examples/async-io/Cargo.toml
 The Python version is contained in [`main.py`](./main.py). It uses the `aiohttp` library to establish a network connection and issue the HTTP get requests, using Python's `asyncio` library. The entire request is started from within the `refresh` function that's marked to be `async` and connected to the `refresh` callback in `stockticker.slint`. Slint detects that the callback is async in Python and runs it as a new task.
 
 Run the Python version via `uv run main.py` in the `examples/async-io` directory.
+
+# C#
+
+The C# version is contained in [`dotnet/Program.cs`](./dotnet/Program.cs). It uses `HttpClient` to issue the HTTP GET requests, from an `async` handler of the `refresh` callback. While the event loop runs, each `await` continues on the UI thread, so the handler updates the model directly.
+
+Run the C# version via `dotnet run --project examples/async-io/dotnet` from the root of the repository.

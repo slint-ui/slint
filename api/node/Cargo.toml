@@ -22,7 +22,7 @@ crate-type = ["cdylib"]
 path = "rust/lib.rs"
 
 [features]
-# Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, and api/python/slint/Cargo.toml
+# Keep in sync with features in nightly_snapshot.yaml, cpp_package.yaml, slint_tool_binary.yaml, api/python/slint/Cargo.toml, and api/dotnet/native/Cargo.toml
 default = ["backend-linuxkms-libinput", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
 backend-qt = ["slint-interpreter/backend-qt"]

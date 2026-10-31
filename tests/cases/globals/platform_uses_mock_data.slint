@@ -45,4 +45,10 @@ assert(instance.test);
 instance = TestCase()
 assert instance.test
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+Assert.AreEqual(0, instance.Data.RowCount);
+```
 */

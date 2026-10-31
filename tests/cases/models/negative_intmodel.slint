@@ -63,4 +63,15 @@ slintlib.private_api.mock_elapsed_time(16);
 assert.equal(instance.test_height, 20.);
 assert.equal(instance.creation_count, 2);
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(0, instance.CreationCount);
+Assert.AreEqual(0f, instance.TestHeight);
+Assert.AreEqual(0, instance.CreationCount);
+instance.RepeaterCount = 2;
+Testing.MockElapsedTime(16);
+Assert.AreEqual(20f, instance.TestHeight);
+Assert.AreEqual(2, instance.CreationCount);
+```
 */

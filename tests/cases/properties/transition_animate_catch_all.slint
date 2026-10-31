@@ -262,4 +262,45 @@ assert.equal(instance.child_width, 60.0);
 assert.equal(instance.inner_value, 60);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+void ExpectProps(int p1, int p2, float p3, byte gray, float p5)
+{
+    Assert.AreEqual(p1, instance.Prop1);
+    Assert.AreEqual(p2, instance.Prop2);
+    Assert.AreEqual(p3, instance.Prop3);
+    Assert.AreEqual(new Color(gray, gray, gray), instance.Prop4);
+    Assert.AreEqual(p5, instance.Prop5);
+}
+
+ExpectProps(0, 0, 100, 0, 0);
+Assert.IsFalse(instance.NotAnimatable);
+instance.Idx = 1;
+ExpectProps(0, 0, 100, 0, 0);
+Assert.IsTrue(instance.NotAnimatable);
+Testing.MockElapsedTime(50);
+ExpectProps(17, 50, 50, 0x7f, 50);
+Testing.MockElapsedTime(100);
+ExpectProps(50, 100, 0, 0xff, 100);
+Testing.MockElapsedTime(150);
+ExpectProps(100, 100, 0, 0xff, 100);
+
+void ExpectOthers(int value, int standalone, int named)
+{
+    Assert.AreEqual(standalone, instance.Standalone);
+    Assert.AreEqual(named, instance.Named);
+    Assert.AreEqual(value, instance.Fallback);
+    Assert.AreEqual((float)value, instance.ChildWidth);
+    Assert.AreEqual(value, instance.InnerValue);
+}
+ExpectOthers(0, 0, 0);
+instance.Idx = 2;
+Testing.MockElapsedTime(40);
+ExpectOthers(40, 4, 10);
+Testing.MockElapsedTime(960);
+ExpectOthers(100, 100, 100);
+instance.Idx = 0;
+Testing.MockElapsedTime(40);
+ExpectOthers(60, 96, 60);
+```
 */

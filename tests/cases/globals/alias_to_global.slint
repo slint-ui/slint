@@ -63,4 +63,15 @@ assert.equal(instance.direct, 99);
 assert.equal(instance.dual, 102);
 ```
 
+```csharp
+using var instance = TestCase.Create();
+Assert.IsTrue(instance.Test);
+Assert.AreEqual(42, instance.AliasToGlobal);
+instance.AliasToGlobal = 123;
+Assert.AreEqual(123, instance.AliasToGlobal);
+Assert.AreEqual(88, instance.Indirect);
+instance.Indirect = 99;
+Assert.AreEqual(99, instance.Direct);
+Assert.AreEqual(102, instance.Dual);
+```
 */

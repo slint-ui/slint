@@ -12,6 +12,7 @@ Slint provides language bindings for C++, Node.js, and Python, all built on top 
 - **C++ bindings**: cbindgen-generated headers with manual C++ wrapper classes
 - **Node.js bindings**: Neon/NAPI framework for native Node modules
 - **Python bindings**: PyO3 with maturin build system
+- **.NET bindings**: a handle-based C ABI with `[LibraryImport]`, see [dotnet-bindings.md](dotnet-bindings.md)
 - **Internal FFI**: `#[no_mangle] extern "C"` functions in core crates
 
 ## Key Files

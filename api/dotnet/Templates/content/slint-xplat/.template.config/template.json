@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Slint for .NET",
+  "classifications": ["Desktop", "Mobile", "Android", "iOS", "Slint", "UI"],
+  "identity": "@SlintPackageId@.Templates.CrossPlatform.CSharp",
+  "groupIdentity": "@SlintPackageId@.Templates.CrossPlatform",
+  "name": "Slint Cross-Platform App",
+  "description": "A solution with a Slint UI and C# logic that a desktop, an Android, and an iOS project share. Android and iOS need their .NET workloads.",
+  "shortName": "slint-xplat",
+  "sourceName": "SlintApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "solution"
+  },
+  "symbols": {
+    "platforms": {
+      "type": "parameter",
+      "datatype": "choice",
+      "allowMultipleValues": true,
+      "enableQuotelessLiterals": true,
+      "displayName": "Platforms",
+      "description": "The platforms to create a project for, such as --platforms desktop --platforms android.",
+      "defaultValue": "desktop|android|ios",
+      "choices": [
+        { "choice": "desktop", "description": "macOS, Linux, and Windows." },
+        { "choice": "android", "description": "Android 8 and later. Needs the .NET Android workload." },
+        { "choice": "ios", "description": "iOS 15 and later. Needs the .NET iOS workload." }
+      ]
+    },
+    "slint-version": {
+      "type": "parameter",
+      "datatype": "string",
+      "displayName": "Slint version",
+      "description": "The version of the Slint package that the app references.",
+      "defaultValue": "@SlintVersion@",
+      "replaces": "SLINT_VERSION"
+    },
+    "style": {
+      "type": "parameter",
+      "datatype": "choice",
+      "displayName": "Widget style",
+      "description": "The style of Slint's widgets.",
+      "defaultValue": "default",
+      "choices": [
+        { "choice": "default", "description": "The style of the platform." },
+        { "choice": "fluent", "description": "Fluent, like Windows." },
+        { "choice": "material", "description": "Material, like Android." },
+        { "choice": "cupertino", "description": "Cupertino, like macOS and iOS." },
+        { "choice": "cosmic", "description": "Cosmic, like the COSMIC desktop." }
+      ],
+      "replaces": "SLINT_STYLE"
+    },
+    "app-id": {
+      "type": "parameter",
+      "datatype": "string",
+      "displayName": "Application ID",
+      "description": "The Android package name and the iOS bundle ID, such as com.example.myapp; com.companyname.<name> by default."
+    },
+    "lowerName": {
+      "type": "generated",
+      "generator": "casing",
+      "parameters": {
+        "source": "name",
+        "toLower": true
+      }
+    },
+    "defaultAppId": {
+      "type": "generated",
+      "generator": "join",
+      "parameters": {
+        "symbols": [
+          { "type": "const", "value": "com.companyname" },
+          { "type": "ref", "value": "lowerName" }
+        ],
+        "separator": "."
+      }
+    },
+    "appId": {
+      "type": "generated",
+      "generator": "coalesce",
+      "parameters": {
+        "sourceVariableName": "app-id",
+        "fallbackVariableName": "defaultAppId"
+      },
+      "replaces": "SLINT_APP_ID"
+    },
+    "skipRestore": {
+      "type": "parameter",
+      "datatype": "bool",
+      "description": "Skips restoring the packages after creating the project.",
+      "defaultValue": "false"
+    },
+    "packageId": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": {
+        "value": "@SlintPackageId@"
+      },
+      "replaces": "SLINT_PACKAGE_ID"
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        { "condition": "(platforms != desktop)", "exclude": ["SlintApp.Desktop/**"] },
+        { "condition": "(platforms != android)", "exclude": ["SlintApp.Android/**"] },
+        { "condition": "(platforms != ios)", "exclude": ["SlintApp.iOS/**"] }
+      ]
+    }
+  ],
+  "primaryOutputs": [
+    { "condition": "(platforms == desktop)", "path": "SlintApp.Desktop/SlintApp.Desktop.csproj" },
+    { "condition": "(platforms == android)", "path": "SlintApp.Android/SlintApp.Android.csproj" },
+    { "condition": "(platforms == ios)", "path": "SlintApp.iOS/SlintApp.iOS.csproj" }
+  ],
+  "postActions": [
+    {
+      "condition": "(!skipRestore)",
+      "description": "Restore NuGet packages.",
+      "manualInstructions": [{ "text": "Run 'dotnet restore'." }],
+      "actionId": "210D431B-A78B-4D2F-B762-4ED3E3EA9025",
+      "continueOnError": true
+    }
+  ]
+}

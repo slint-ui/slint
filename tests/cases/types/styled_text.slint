@@ -277,4 +277,28 @@ export interface TestCase {
 export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 export declare function TestStruct(properties?: Partial<TestStruct>): TestStruct;
 ```
+
+```csharp
+using var instance = TestCase.Create();
+Assert.AreEqual(StyledText.FromMarkdown("Hello World"), instance.T1);
+Assert.AreEqual(StyledText.FromMarkdown("Hello \\*World\\*"), instance.T2);
+Assert.AreEqual(StyledText.FromMarkdown("Hello *World*"), instance.T3);
+
+Assert.AreEqual(new StyledText(), instance.DefaultStyledText);
+Assert.AreEqual(new StyledText(), instance.DefaultStruct.Text);
+
+var plain = StyledText.FromPlainText("Hello World");
+instance.PlainTextProp = plain;
+Assert.AreEqual(plain, instance.PlainTextProp);
+
+var markdown = StyledText.FromMarkdown("Hello *World*");
+instance.T1 = markdown;
+Assert.AreEqual(markdown, instance.T1);
+
+// Unstyled text is the same from plain text and from Markdown.
+Assert.AreEqual(StyledText.FromPlainText("plain text"), StyledText.FromMarkdown("plain text"));
+Assert.AreEqual(StyledText.FromPlainText("foo bar"), instance.FooBar);
+
+Assert.ThrowsExactly<SlintException>(() => StyledText.FromMarkdown("# heading"));
+```
 */

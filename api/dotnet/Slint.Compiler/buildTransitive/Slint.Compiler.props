@@ -1,0 +1,8 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<Project>
+  <PropertyGroup>
+    <!-- Slint.targets picks the binary for the runtime identifier of the SDK from here. -->
+    <SlintCompilerPackageDir>$(MSBuildThisFileDirectory)../tools/</SlintCompilerPackageDir>
+  </PropertyGroup>
+</Project>

@@ -65,4 +65,10 @@ assert.equal(instance.clicked, 1106);
 ```
 
 
+```csharp
+using var instance = TestCase.Create();
+Testing.SendMouseClick(instance.Instance, 50, 155);
+Assert.AreEqual("", instance.Error);
+Assert.AreEqual(1106, instance.Clicked);
+```
 */
