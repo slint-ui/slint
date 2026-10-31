@@ -2621,6 +2621,43 @@ fn call_builtin_function(
 
             panic!("internal error: invalid arguments to ListViewEnsureRowVisible {arguments:?}")
         }
+        BuiltinFunction::TextInputType => (|| {
+            let input_type = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.window_adapter_or_default())
+                .map(|adapter| {
+                    i_slint_core::window::WindowInner::from_pub(adapter.window()).text_input_type()
+                })
+                .unwrap_or_default();
+            Value::EnumerationValue("InputType".to_owned(), input_type.to_string())
+        })(),
+        BuiltinFunction::TextInputMethodHints => (|| {
+            let input_method_hints = ctx
+                .current
+                .as_ref()
+                .and_then(|c| c.root.get())
+                .and_then(|w| w.upgrade())
+                .and_then(|inst| inst.window_adapter_or_default())
+                .map(|adapter| {
+                    i_slint_core::window::WindowInner::from_pub(adapter.window())
+                        .text_input_method_hints()
+                })
+                .unwrap_or_default();
+            let mut s = crate::api::Struct::default();
+            s.set_field(
+                "capitalization".to_owned(),
+                Value::EnumerationValue(
+                    "CapitalizationMode".to_owned(),
+                    input_method_hints.capitalization.to_string(),
+                ),
+            );
+            s.set_field("auto-correct".to_owned(), Value::Bool(input_method_hints.auto_correct));
+            s.set_field("auto-complete".to_owned(), Value::Bool(input_method_hints.auto_complete));
+            Value::Struct(s)
+        })(),
     }
 }
 

@@ -594,6 +594,10 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
     #[pin]
     menubar_shortcuts: Property<SharedVector<MenuEntry>>,
+    #[pin]
+    text_input_type: Property<InputType>,
+    #[pin]
+    text_input_method_hints: Property<InputMethodHints>,
 }
 
 /// The outcome of dispatching a [`MouseEvent`] through [`WindowInner::process_mouse_input`].
@@ -782,6 +786,14 @@ impl WindowInner {
                 menubar_shortcuts: Property::new_named(
                     SharedVector::default(),
                     "i_slint_core::Window::menubar_shortcuts",
+                ),
+                text_input_type: Property::new_named(
+                    InputType::default(),
+                    "i_slint_core::Window::text_input_type",
+                ),
+                text_input_method_hints: Property::new_named(
+                    InputMethodHints::default(),
+                    "i_slint_core::Window::text_input_method_hints",
                 ),
             }),
             focus_item: Default::default(),
@@ -2548,6 +2560,26 @@ impl WindowInner {
         self.pinned_fields.text_input_focused.set(value)
     }
 
+    /// Reads the global property `TextInputInterface.text-input-type`
+    pub fn text_input_type(&self) -> InputType {
+        self.pinned_fields.as_ref().project_ref().text_input_type.get()
+    }
+
+    /// Sets the global property `TextInputInterface.text-input-type`
+    pub fn set_text_input_type(&self, value: InputType) {
+        self.pinned_fields.text_input_type.set(value)
+    }
+
+    /// Reads the global property `TextInputInterface.text-input-method-hints`
+    pub fn text_input_method_hints(&self) -> InputMethodHints {
+        self.pinned_fields.as_ref().project_ref().text_input_method_hints.get()
+    }
+
+    /// Sets the global property `TextInputInterface.text-input-method-hints`
+    pub fn set_text_input_method_hints(&self, value: InputMethodHints) {
+        self.pinned_fields.text_input_method_hints.set(value)
+    }
+
     /// Returns true if the window is visible
     pub fn is_visible(&self) -> bool {
         self.strong_component_ref.borrow().is_some()
@@ -2960,6 +2992,36 @@ pub mod ffi {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).set_text_input_focused(value)
+        }
+    }
+
+    /// Returns the text-input-type property value.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_get_text_input_type(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> InputType {
+        unsafe {
+            assert_eq!(
+                core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+                core::mem::size_of::<WindowAdapterRcOpaque>()
+            );
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).text_input_type()
+        }
+    }
+
+    /// Returns the text-input-method-hints property value.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_get_text_input_method_hints(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> InputMethodHints {
+        unsafe {
+            assert_eq!(
+                core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+                core::mem::size_of::<WindowAdapterRcOpaque>()
+            );
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).text_input_method_hints()
         }
     }
 

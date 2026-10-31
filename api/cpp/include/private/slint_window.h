@@ -126,6 +126,15 @@ public:
         slint_windowrc_set_text_input_focused(&inner, value);
     }
 
+    cbindgen_private::InputType text_input_type() const
+    {
+        return slint_windowrc_get_text_input_type(&inner);
+    }
+    cbindgen_private::InputMethodHints text_input_method_hints() const
+    {
+        return slint_windowrc_get_text_input_method_hints(&inner);
+    }
+
     template<typename Component, typename ItemArray>
     void unregister_item_tree(Component *c, ItemArray items) const
     {

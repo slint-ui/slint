@@ -5686,6 +5686,12 @@ fn compile_builtin_function_call(
                 a.next().unwrap()
             )
         })(),
+        BuiltinFunction::TextInputType => {
+            format!("{}.text_input_type()", access_window_field(ctx))
+        }
+        BuiltinFunction::TextInputMethodHints => {
+            format!("{}.text_input_method_hints()", access_window_field(ctx))
+        }
     }
 }
 
