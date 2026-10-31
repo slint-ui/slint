@@ -258,7 +258,7 @@ jobs:
                 build_vscode_cross_linux_lsp,
                 check-for-secrets,
             ]
-        runs-on: macos-14
+        runs-on: macos-15
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         env:
             PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
@@ -922,6 +922,13 @@ jobs:
               with:
                   name: android-demos
                   path: android-demos/
+
+    android_reproducible:
+        if: github.event.inputs.mode != 'release'
+        needs: [android]
+        uses: ./.github/workflows/android_reproducible.yaml
+        with:
+            signed-apks: android-demos
 
     # QA the freshly published nightly release: build an ESP-IDF demo against
     # the prebuilt Slint C++ packages and slint-compiler downloaded from the

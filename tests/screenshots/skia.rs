@@ -224,6 +224,7 @@ impl i_slint_renderer_skia::Surface for DirtySurface {
         _display_handle: std::sync::Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
         _size: i_slint_core::api::PhysicalSize,
         _requested_graphics_api: Option<i_slint_core::graphics::RequestedGraphicsAPI>,
+        _transparent: bool,
     ) -> Result<Self, PlatformError> {
         Err("DirtySurface is only created directly".into())
     }
