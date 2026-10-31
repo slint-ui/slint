@@ -69,6 +69,26 @@ fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPh
     }
 }
 
+/// Converts a wheel delta to Slint's logical pixels.
+/// `line_pixels` is in winit's logical pixels, see [`crate::BackendBuilder::with_wheel_line_pixels`].
+fn wheel_delta_to_logical(
+    delta: winit::event::MouseScrollDelta,
+    line_pixels: f32,
+    winit_scale_factor: f64,
+    slint_scale_factor: f32,
+) -> (f32, f32) {
+    match delta {
+        winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
+            let line = line_pixels * winit_scale_factor as f32 / slint_scale_factor;
+            (lx * line, ly * line)
+        }
+        winit::event::MouseScrollDelta::PixelDelta(d) => {
+            let d = d.to_logical(slint_scale_factor as f64);
+            (d.x, d.y)
+        }
+    }
+}
+
 pub(crate) fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
         corelib::api::WindowPosition::Logical(pos) => {
@@ -1570,13 +1590,12 @@ impl WinitWindowAdapter {
                 }
             }
             WinitWindowEvent::MouseWheel { delta, phase, .. } => {
-                let (delta_x, delta_y) = match delta {
-                    winit::event::MouseScrollDelta::LineDelta(lx, ly) => (lx * 60., ly * 60.),
-                    winit::event::MouseScrollDelta::PixelDelta(d) => {
-                        let d = d.to_logical(runtime_window.scale_factor() as f64);
-                        (d.x, d.y)
-                    }
-                };
+                let (delta_x, delta_y) = wheel_delta_to_logical(
+                    *delta,
+                    self.shared_backend_data.wheel_line_pixels,
+                    winit_window.scale_factor(),
+                    runtime_window.scale_factor(),
+                );
                 let phase = winit_touch_phase(*phase);
                 self.dispatch_internal_event(BackendMouseEvent::Wheel {
                     position: self.cursor_pos.get(),
@@ -2533,4 +2552,33 @@ fn canvas_has_explicit_size_set(canvas: &web_sys::HtmlCanvasElement) -> bool {
 
     computed_style.get_property_value("width").ok().as_deref() != Some("auto")
         || computed_style.get_property_value("height").ok().as_deref() != Some("auto")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wheel_delta_to_logical;
+    use winit::event::MouseScrollDelta;
+
+    #[test]
+    fn wheel_line_delta() {
+        assert_eq!(
+            wheel_delta_to_logical(MouseScrollDelta::LineDelta(1., -2.), 60., 1., 1.),
+            (60., -120.)
+        );
+        assert_eq!(
+            wheel_delta_to_logical(MouseScrollDelta::LineDelta(0., 1.), 120., 2., 2.),
+            (0., 120.)
+        );
+        // With `SLINT_SCALE_FACTOR` overriding the system's factor, a line keeps its size on screen.
+        assert_eq!(
+            wheel_delta_to_logical(MouseScrollDelta::LineDelta(0., 1.), 60., 1., 2.),
+            (0., 30.)
+        );
+    }
+
+    #[test]
+    fn wheel_pixel_delta() {
+        let delta = MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition::new(10., -20.));
+        assert_eq!(wheel_delta_to_logical(delta, 60., 1., 2.), (5., -10.));
+    }
 }
