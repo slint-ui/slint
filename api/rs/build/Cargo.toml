@@ -3,11 +3,11 @@
 
 [package]
 name = "slint-build"
-description = "Helper for Slint build script"
+description = "Compile .slint UI files to Rust code from a Cargo build script"
 authors.workspace = true
 edition = "2024"
 homepage = "https://slint.rs"
-keywords.workspace = true
+keywords = ["gui", "ui", "build-script", "codegen"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true

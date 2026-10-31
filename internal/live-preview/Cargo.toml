@@ -5,12 +5,12 @@
 
 [package]
 name = "i-slint-live-preview"
-description.workspace = true
+description = "Live preview and hot reload of .slint files, for the Slint language server and running apps"
 authors.workspace = true
 documentation.workspace = true
 edition.workspace = true
 homepage.workspace = true
-keywords.workspace = true
+keywords = ["live-preview", "hot-reload", "gui-designer", "ui-designer"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true

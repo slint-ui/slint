@@ -3,11 +3,11 @@
 
 [package]
 name = "slint-tr-extractor"
-description = "Tool used to update extract @tr string out of Slint files into gettext .po file"
+description = "Extract the @tr strings of .slint files into a gettext .pot file"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
-keywords.workspace = true
+keywords = ["gettext", "i18n", "translation", "gui", "ui"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true

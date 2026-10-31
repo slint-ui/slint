@@ -21,15 +21,23 @@
     "url": "https://github.com/slint-ui/slint"
   },
   "keywords": [
-    "GUI",
-    "UI",
+    "gui",
+    "ui",
     "native",
-    "node",
-    "Slint",
     "desktop",
+    "desktop-app",
+    "node",
+    "deno",
+    "bun",
+    "javascript",
+    "typescript",
+    "cross-platform",
+    "no-webview",
+    "electron-alternative",
+    "slint",
     "embedded"
   ],
-  "description": "Slint is a declarative GUI toolkit to build native user interfaces for desktop and embedded applications.",
+  "description": "Native GUI toolkit for JavaScript and TypeScript on Node.js, Deno, and Bun: build desktop and embedded apps without a webview or Chromium",
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@napi-rs/cli": "3.10.9",

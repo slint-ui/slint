@@ -4,12 +4,12 @@
 # cSpell: ignore hashbrown
 [package]
 name = "slint-interpreter"
-description = "Interpreter library for Slint"
+description = "Load .slint UI files at run time, without compiling them ahead of time"
 authors.workspace = true
 documentation.workspace = true
 edition = "2024"
 homepage.workspace = true
-keywords.workspace = true
+keywords = ["gui", "ui", "interpreter", "hot-reload"]
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true

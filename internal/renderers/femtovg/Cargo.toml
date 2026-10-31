@@ -4,6 +4,8 @@
 [package]
 name = "i-slint-renderer-femtovg"
 description = "FemtoVG based renderer for Slint"
+categories = ["gui", "rendering", "wasm"]
+keywords = ["femtovg", "opengl", "wgpu", "gui", "ui"]
 authors.workspace = true
 edition = "2024"
 homepage.workspace = true

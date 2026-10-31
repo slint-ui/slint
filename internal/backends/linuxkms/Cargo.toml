@@ -4,7 +4,9 @@
 # cSpell: ignore memmap xkbcommon
 [package]
 name = "i-slint-backend-linuxkms"
-description = "OpenGL rendering backend for Slint"
+description = "Linux KMS/DRM backend for Slint, to run full-screen on embedded Linux without a windowing system"
+categories = ["gui", "embedded", "os::linux-apis"]
+keywords = ["embedded-linux", "kms", "drm", "gui", "ui"]
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

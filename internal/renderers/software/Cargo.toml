@@ -3,7 +3,9 @@
 
 [package]
 name = "i-slint-renderer-software"
-description = "Slint's Software renderer implementation"
+description = "Software renderer of Slint, for embedded GUIs on microcontrollers like STM32, ESP32, and RP2040, and on devices without a GPU"
+categories = ["gui", "embedded", "no-std", "rendering"]
+keywords = ["gui", "ui", "mcu", "esp32", "stm32"]
 authors.workspace = true
 edition = "2024"
 homepage.workspace = true

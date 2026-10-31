@@ -1,15 +1,17 @@
 
+# Preliminary Slint Testing API
+
+This crate provides the preliminary API that we're developing to enable different
+user interface (UI) testing scenarios for Slint applications.
+Use it to write automated UI tests that run headless in CI.
+Its built-in MCP server also lets AI agents inspect and drive a running Slint app.
+
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).
 This crate should **not be used directly** by applications using Slint.
 You should use the `slint` crate instead.
 
 **WARNING**: This crate does not follow the semver convention for versioning and can
 only be used with `version = "=x.y.z"` in Cargo.toml.
-
-# Preliminary Slint Testing API
-
-This crate provides the preliminary API that we're developing to enable different
-user interface (UI) testing scenarios for Slint applications.
 
 To use this functionality, you need to be cautious when importing dependencies since
 this crate does not adhere to semver and may introduce breaking changes in any patch release.

@@ -1,8 +1,10 @@
 
 # Slint-python (Beta)
 
-[Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-python is the integration with Python.
+[Slint](https://slint.dev/) is a GUI toolkit to build native user interfaces for any device,
+with Python, Rust, C++, or JavaScript.
+Slint-python is the Python API, for desktop and embedded Linux apps.
+You describe the UI in the `.slint` language, and connect it to your Python code.
 
 **Warning**
 Slint-python is in a beta phase of development: the APIs, while mostly stable, may be subject to further changes. Any changes will be documented in the [ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md).

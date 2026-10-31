@@ -1,7 +1,15 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-description: "Slint — declarative GUI toolkit"
+description: "Slint — declarative GUI toolkit for touchscreens and displays"
+tags:
+  - gui
+  - ui
+  - hmi
+  - display
+  - lcd
+  - touchscreen
+  - graphics
 url: "https://slint.dev"
 license: "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 version: "1.19.0"

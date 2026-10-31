@@ -4,29 +4,24 @@
 [![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint)
 [![Docs.rs](https://docs.rs/slint/badge.svg)](https://docs.rs/slint)
 
-# A Rust UI toolkit
+[Slint](https://slint.rs) is a Rust GUI toolkit to build native user interfaces for any device.
+It scales from desktop apps to mobile apps on Android and iOS,
+and down to embedded Linux and microcontrollers such as STM32, ESP32, and RP2040.
+It also runs on the web.
 
-[Slint](https://slint.rs) is a Rust based UI toolkit to build native user interfaces on desktop platforms and for embedded devices.
-This crate provides the Rust APIs to interact with the user interface implemented in Slint.
+You describe the UI in the `.slint` language, and this crate connects it to your Rust code.
+The [crate documentation](https://slint.dev/docs/rust/slint/) covers the full API, with more examples.
 
-The complete Rust documentation for Slint can be viewed online at https://slint.rs/docs/rust/slint/.
+## Hello World
 
-## Getting Started
-
-The [crate documentation](https://slint.dev/docs/rust/slint/) shows how to use this crate.
-
-### Hello World
-
-The most basic "Hello world" application can be achieved with a few lines of code:
-
-In your `Cargo.toml` add:
+Add Slint to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 slint = "1.19.0"
 ```
 
-And in your `main.rs`:
+Then write the UI and run it in your `main.rs`:
 
 ```rust,no_run
 slint::slint!{
@@ -43,25 +38,14 @@ fn main() {
 }
 ```
 
-The [`slint` crate documentation](https://slint.dev/docs/rust/slint/)
-contains more advanced examples and alternative ways to use this crate.
+## Start From the Template
 
-To quickly get started, use the [Template Repository](https://github.com/slint-ui/slint-rust-template) with
-the code of a minimal application using Slint as a starting point for your program.
+The [Rust template](https://github.com/slint-ui/slint-rust-template) is a minimal Slint app to start your project from:
 
-1. Download and extract the [ZIP archive of the Rust Template](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip).
+1. Download and extract the [ZIP archive of the template](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip).
 2. Rename the extracted directory and change into it:
-
-```bash
-mv slint-rust-template-main my-project
-cd my-project
-```
-
-## More examples
-
-You can quickly try out the [examples](/examples) by cloning this repo and running them with `cargo run`
-
-```sh
-# Runs the "printerdemo" example
-cargo run --release --bin printerdemo
-```
+   ```bash
+   mv slint-rust-template-main my-project
+   cd my-project
+   ```
+3. Build and run it with `cargo run`.

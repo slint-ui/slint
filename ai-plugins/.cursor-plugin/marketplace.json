@@ -8,11 +8,11 @@
   "plugins": [
     {
       "name": "slint",
-      "description": "Enhances Cursor's ability to work with, debug, and build Slint GUI applications",
+      "description": "Write and debug Slint GUIs for desktop, embedded, and mobile apps, with the Slint documentation at hand",
       "source": "./",
       "version": "1.19.0",
       "category": "development",
-      "keywords": ["slint", "gui", "ui", "declarative", "rust", "cpp", "embedded"]
+      "keywords": ["slint", "gui", "ui", "hmi", "declarative", "rust", "cpp", "javascript", "python", "embedded", "mcu", "esp32", "stm32", "desktop", "mobile", "android", "ios", "live-preview"]
     }
   ]
 }

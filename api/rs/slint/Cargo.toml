@@ -3,7 +3,7 @@
 
 [package]
 name = "slint"
-description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+description = "Declarative GUI toolkit to build native user interfaces for desktop, Android, iOS, and embedded devices, from microcontrollers to embedded Linux. Also runs on the web."
 authors.workspace = true
 documentation.workspace = true
 edition = "2024"
@@ -13,7 +13,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-categories = ["gui", "rendering::engine", "no-std"]
+categories = ["gui", "embedded", "no-std", "rendering::engine", "wasm"]
 
 [lib]
 path = "lib.rs"

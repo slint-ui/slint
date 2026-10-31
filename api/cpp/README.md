@@ -1,12 +1,14 @@
 
 # Slint-cpp
 
-## A C++ UI toolkit
+## A C++ GUI Toolkit
 
-[Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint.cpp is the C++ API to interact with a Slint UI from C++.
+[Slint](https://slint.dev/) is a GUI toolkit to build native user interfaces for any device,
+with C++, Rust, JavaScript, or Python.
+Slint.cpp is the C++ API: you describe the UI in the `.slint` language, and connect it to your C++ code.
+Slint scales from desktop apps down to embedded Linux and microcontrollers such as STM32 and ESP32.
 
-The complete C++ documentation can be viewed online at https://slint.dev/docs/cpp/.
+The [C++ documentation](https://slint.dev/docs/cpp/) covers the full API.
 
 ## Installing or Building Slint
 
