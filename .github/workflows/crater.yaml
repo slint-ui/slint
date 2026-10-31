@@ -95,7 +95,6 @@ jobs:
                     - "https://github.com/Heng30/rssbox-android"
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     #- "https://github.com/Heng30/solana-wallet-sollet" # error in dependency (pyth-sdk-solana)
-                    - "https://github.com/nzhenev/vtbox"
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
                     - "https://github.com/tredeneo/simple-inventary-management" #uses sqlx that needs database access
@@ -152,7 +151,6 @@ jobs:
                     - "https://github.com/mq1/TinyWiiBackupManager"
                     - "https://github.com/jacquetc/qleany"
                     - https://github.com/Cheikh-Nakamoto/Generateur-d-architecture-
-                    - https://github.com/Spencer-0003/aletheia
                     - https://github.com/engels74/EasyHDR
 
                     - "https://github.com/Erik7354/slint_minesweeper"
@@ -450,9 +448,23 @@ jobs:
                     - git_url: "https://github.com/TsaoLun/always-blue"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev
-                    - git_url: "https://github.com/jturcotte/beskope"
+                    # uses the GraphicsAPI::WGPU27 surface fields of its own Slint fork, which Slint doesn't have
+                    #- git_url: "https://github.com/jturcotte/beskope"
+                    #  sub_path: "."
+                    #  extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
+                    - git_url: "https://github.com/Spencer-0003/aletheia"
                       sub_path: "."
-                      extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
+                      # its build.rs enables all experimental features with "1", which is no longer accepted
+                      extra_commands: |
+                          sed -i 's/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1"/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "match,closures"/' build.rs
+                          cargo update
+                    - git_url: "https://github.com/nzhenev/vtbox"
+                      sub_path: "."
+                      extra_packages: libclang-19-dev
+                      # bindgen 0.69, used by whisper-rs-sys, generates opaque structs with libclang 21
+                      extra_commands: |
+                          export LIBCLANG_PATH=/usr/lib/llvm-19/lib
+                          cargo update
                     # Depends on speakstream as a sibling checkout
                     - git_url: "https://github.com/sloganking/quick-assistant"
                       sub_path: "."
@@ -476,10 +488,10 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/nununoisy/nsf-presenter-rs"
                       sub_path: "."
-                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/RustOtomeLab/RustEng"
                       sub_path: "."
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     # playback-rs uses VaList::arg, a nightly API that was removed
                     #- git_url: "https://github.com/vonnieda/dimple"
                     #  sub_path: "dimple_ui_slint"
@@ -532,7 +544,7 @@ jobs:
                           sed -i 's/android-activity = {version = "=0.6.0"/android-activity = {version = "0.6"/' ../android/Cargo.toml
                           cargo update
                     - git_url: "https://github.com/heng30/wayshot"
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev
                       extra_commands: |
                           # the vendored i-slint crates are its own fork of 1.17.1
                           sed -i '/^i-slint-.* = { path = "vendor\//d' Cargo.toml
@@ -659,7 +671,13 @@ jobs:
                       extra_args: "--features=desktop"
                     - git_url: "https://github.com/suiflex/rdb"
                       sub_path: "app"
+                      # oracledb 26.0.0-beta.5 removed the timestamp offset methods that rdb uses
+                      extra_commands: |
+                          cargo update
+                          cargo update oracledb --precise 26.0.0-beta.4
+                    # The next commit doesn't build on Linux
                     - git_url: "https://github.com/myst6re/mumba"
+                      git_rev: "1f5801daaedd85ee85f6fffb6a791bc578090425"
                       sub_path: "gui"
                     # the repository is gone
                     #- git_url: "https://github.com/jpfaria/OpenRig"
@@ -691,17 +709,17 @@ jobs:
                       extra_packages: libasound2-dev
                     - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
                       sub_path: "."
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                       extra_commands: |
                           # derive_more 1.0 refuses to build without a derive feature, and nothing here uses it
                           cargo remove derive_more
                           cargo update
                     - git_url: "https://github.com/NateAGeek/SenToAni"
                       sub_path: "."
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/rahulkuzur3/KVPlayer"
                       sub_path: "."
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/wtvemac/mame_launcher"
                       sub_path: "."
                       extra_packages: libasound2-dev
@@ -1050,7 +1068,7 @@ jobs:
                     - git_url: "https://codeberg.org/vivi-ui/vivi"
                       files: "vivi/ui/magic/magic_window.slint"
                     - git_url: "https://github.com/Aquaticat/Monochromatic"
-                      files: "package/desktop-app/terminal/ui/app.slint"
+                      files: "package/ide/app/ui/app.slint"
                     - git_url: "https://github.com/Dominic485649/AWJimage"
                       files: "ui/awj_studio.slint"
                     # the repository no longer has .slint files
