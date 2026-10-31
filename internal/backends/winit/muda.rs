@@ -4,7 +4,7 @@
 // cSpell: ignore nsapp
 use super::CustomEvent;
 use super::WinitWindowAdapter;
-use crate::SlintEvent;
+use crate::{SharedBackendData, SlintEvent};
 use core::pin::Pin;
 use i_slint_core::SharedVector;
 use i_slint_core::api::LogicalPosition;
@@ -17,7 +17,6 @@ use muda::ContextMenu;
 use std::rc::Weak;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64};
-use winit::event_loop::EventLoopProxy;
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
@@ -66,10 +65,10 @@ impl MudaAdapter {
     pub fn setup(
         menubar: &vtable::VRc<MenuVTable>,
         winit_window: &Window,
-        proxy: EventLoopProxy<SlintEvent>,
+        shared_backend_data: &SharedBackendData,
         window_adapter_weak: Weak<WinitWindowAdapter>,
     ) -> Self {
-        install_event_handler_if_necessary(proxy);
+        install_event_handler_if_necessary(shared_backend_data);
 
         let tracker =
             Some(Box::pin(PropertyTracker::new_with_dirty_handler(MudaPropertyTracker {
@@ -85,9 +84,9 @@ impl MudaAdapter {
         context_menu: &vtable::VRc<MenuVTable>,
         winit_window: &Window,
         position: LogicalPosition,
-        proxy: EventLoopProxy<SlintEvent>,
+        shared_backend_data: &SharedBackendData,
     ) -> Option<Self> {
-        install_event_handler_if_necessary(proxy);
+        install_event_handler_if_necessary(shared_backend_data);
 
         let mut s = Self { entries: Default::default(), tracker: None, menu: None, generation: 0 };
         s.rebuild_menu(winit_window, Some(context_menu), MudaType::Context);
@@ -251,9 +250,9 @@ impl MudaAdapter {
 
     #[cfg(target_os = "macos")]
     pub fn setup_default_menu_bar(
-        proxy: EventLoopProxy<SlintEvent>,
+        shared_backend_data: &SharedBackendData,
     ) -> Result<Self, i_slint_core::api::PlatformError> {
-        install_event_handler_if_necessary(proxy);
+        install_event_handler_if_necessary(shared_backend_data);
         let menu_bar = muda::Menu::new();
         create_app_menu(&menu_bar, &[], |_, _| unreachable!())?;
         menu_bar.init_for_nsapp();
@@ -511,14 +510,23 @@ fn keys_to_accelerator(
     Some(KeyAccelerator::new(modifiers, key))
 }
 
-fn install_event_handler_if_necessary(proxy: EventLoopProxy<SlintEvent>) {
+fn install_event_handler_if_necessary(shared_backend_data: &SharedBackendData) {
     // `MenuEvent::set_event_handler()` in `muda` seems to use `OnceCell`, which is an
     // can only be set a single time.  Therefore, we need to take care to only call this
     // a single time
     //
     // Arguably, `set_event_handler()` is unsafe
     if !MUDA_SET_EVENT_HANDLER_INSTALLED.load(Ordering::Relaxed) {
-        muda::MenuEvent::set_event_handler(Some(move |e| {
+        let proxy = shared_backend_data.event_loop_proxy.clone();
+        #[cfg(target_os = "macos")]
+        let event_loop_generation = shared_backend_data.event_loop_generation.clone();
+        muda::MenuEvent::set_event_handler(Some(move |e: muda::MenuEvent| {
+            #[cfg(target_os = "macos")]
+            if e.id().0 == DEFAULT_QUIT_MENU_ID {
+                let generation = event_loop_generation.load(Ordering::Relaxed);
+                let _ = proxy.send_event(SlintEvent(CustomEvent::Exit(generation)));
+                return;
+            }
             let _ = proxy.send_event(SlintEvent(CustomEvent::Muda(e)));
         }));
 

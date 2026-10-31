@@ -14,7 +14,7 @@ fn main() {
     let Some(mode) =
         std::env::args().find_map(|arg| arg.strip_prefix("--mode=").map(str::to_owned))
     else {
-        for mode in ["default", "shortcut", "multiple", "menubar", "custom"] {
+        for mode in ["default", "shortcut", "multiple", "menubar", "custom", "restart"] {
             let output = std::process::Command::new(std::env::current_exe().unwrap())
                 .arg(format!("--mode={mode}"))
                 .output()
@@ -53,11 +53,8 @@ fn main() {
         }
     }
 
-    fn run(app: impl ComponentHandle, shortcut: bool) {
-        slint::Timer::single_shot(std::time::Duration::from_secs(5), || {
-            panic!("native Quit did not exit the event loop")
-        });
-        slint::Timer::single_shot(std::time::Duration::from_millis(200), move || unsafe {
+    fn native_quit_item(custom: bool) -> (*mut AnyObject, *mut AnyObject, *mut AnyObject) {
+        unsafe {
             let app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
             let menu: *mut AnyObject = msg_send![app, mainMenu];
             assert!(!menu.is_null(), "no application menu");
@@ -71,6 +68,26 @@ fn main() {
             assert_eq!(key.to_string(), "q");
             let modifiers: usize = msg_send![quit, keyEquivalentModifierMask];
             assert_eq!(modifiers, 1 << 20, "expected Command-Q");
+            let title: objc2::rc::Retained<objc2_foundation::NSString> = msg_send![quit, title];
+            let expected_title = if custom {
+                "Custom Quit".to_owned()
+            } else {
+                muda::PredefinedMenuItem::quit(None).text()
+            };
+            assert_eq!(title.to_string(), expected_title);
+            (app, menu, quit)
+        }
+    }
+
+    fn run(app: impl ComponentHandle, mode: &str) {
+        let shortcut = mode == "shortcut";
+        let custom = mode == "custom";
+        slint::Timer::single_shot(std::time::Duration::from_secs(5), || {
+            panic!("native Quit did not exit the event loop")
+        });
+        slint::Timer::single_shot(std::time::Duration::from_millis(200), move || unsafe {
+            let (app, menu, quit) = native_quit_item(custom);
+            let modifiers = 1usize << 20;
             // AppKit dispatches native menu actions outside Slint callbacks.
             if shortcut {
                 let key = objc2_foundation::NSString::from_str("q");
@@ -111,12 +128,32 @@ fn main() {
         .renderer_name("software".into())
         .select()
         .unwrap();
-    if matches!(mode.as_str(), "default" | "shortcut" | "multiple") {
+    if matches!(mode.as_str(), "default" | "shortcut" | "multiple" | "restart") {
         let second = (mode == "multiple").then(|| PlainApp::new().unwrap());
         if let Some(second) = &second {
             second.show().unwrap();
         }
-        run(PlainApp::new().unwrap(), mode == "shortcut");
+        let app = PlainApp::new().unwrap();
+        run(app.clone_strong(), &mode);
+        if mode == "restart" {
+            // Queue another native Quit after the first loop has returned.
+            let (application, _, quit) = native_quit_item(false);
+            unsafe {
+                let action: Option<Sel> = msg_send![quit, action];
+                let target: *mut AnyObject = msg_send![quit, target];
+                let sent: bool =
+                    msg_send![application, sendAction: action.unwrap(), to: target, from: quit];
+                assert!(sent);
+            }
+            let continued = Rc::new(Cell::new(false));
+            let timer_continued = continued.clone();
+            slint::Timer::single_shot(std::time::Duration::from_millis(200), move || {
+                timer_continued.set(true);
+                slint::quit_event_loop().unwrap();
+            });
+            app.run().unwrap();
+            assert!(continued.get(), "stale native Quit ended the next run");
+        }
     } else {
         let app = MenuApp::new().unwrap();
         app.set_custom_quit(mode == "custom");
@@ -130,7 +167,7 @@ fn main() {
                 slint::quit_event_loop().unwrap();
             });
         });
-        run(app, false);
+        run(app, &mode);
         assert_eq!(invoked.get(), if mode == "custom" { 2 } else { 0 });
     }
 }
