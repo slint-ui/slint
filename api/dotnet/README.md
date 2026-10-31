@@ -33,6 +33,7 @@ dotnet run
 ```
 
 The app has the counter below, live preview in Debug builds for `dotnet watch`, and Native AOT in Release builds.
+The desktop projects are `WinExe`, so Windows doesn't open a console window for them, see step 3 below.
 `--style fluent`, `material`, `cupertino`, or `cosmic` picks the widget style.
 
 | Template        | Creates                                                                                    |
@@ -83,13 +84,21 @@ Or set up the project yourself:
    }
    ```
 
-3. Add it to `MyApp.csproj`:
+3. Add it to `MyApp.csproj`, and change `OutputType` to `WinExe`:
 
    ```xml
+   <PropertyGroup>
+     <OutputType>WinExe</OutputType>
+   </PropertyGroup>
    <ItemGroup>
      <SlintFile Include="ui/app-window.slint" />
    </ItemGroup>
    ```
+
+   With `Exe`, Windows opens a console window next to the app's window.
+   `WinExe` has no console, like a WPF or Avalonia app, and is the same as `Exe` on macOS and Linux.
+   On Windows, the app's console output, such as Slint's `debug()` and live reload errors, then goes nowhere.
+   Keep `Exe` while you need it.
 
 4. Replace `Program.cs`:
 

@@ -1,5 +1,11 @@
 # What's New in Slint for .NET
 
+## 1.19.0-preview.11
+
+- Templates: the desktop apps of `dotnet new slint` and `slint-xplat` are `WinExe`,
+  so Windows no longer opens a console window next to the app's window.
+  To do the same in an existing app, set `<OutputType>WinExe</OutputType>`, see the README.
+
 ## 1.19.0-preview.10
 
 - On embedded Linux, the OpenGL renderers of the `linuxkms` backend work with display drivers without modifier support,

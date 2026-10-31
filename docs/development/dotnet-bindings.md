@@ -169,6 +169,9 @@ and a `buildTransitive` props file that tells `Slint.targets` where to look.
 since NuGet doesn't keep it.
 `Slint.Templates` has the `dotnet new` templates in `content/`, see roadmap item 20;
 its pack writes the IDs and the version of the other two into each `template.json`.
+The desktop templates set `OutputType` to `WinExe`, like those of WPF and Avalonia,
+so Windows opens no console window for the app.
+The README's manual setup does the same, after `dotnet new console`.
 
 Pack them with directories that have one sub-directory per runtime identifier:
 
