@@ -864,6 +864,7 @@ pub fn generate(
             &llr,
             None,
             Access::Public,
+            false,
             &mut file,
             &conditional_includes,
         );
@@ -1687,6 +1688,7 @@ fn generate_item_tree(
         root,
         parent_ctx,
         field_access,
+        true,
         file,
         conditional_includes,
     );
@@ -2071,132 +2073,95 @@ fn generate_item_tree_body(
         }),
     ));
 
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessible_role".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index) -> ::slint::cbindgen_private::AccessibleRole"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->accessible_role(index);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessible_string_property".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index, ::slint::cbindgen_private::AccessibleStringProperty what, ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "if (auto r = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what)) {{ *result = *r; return true; }} else {{ return false; }}",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "accessibility_action".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index, const ::slint::cbindgen_private::AccessibilityAction *action) -> void"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "reinterpret_cast<const {}*>(component.instance)->accessibility_action(index, *action);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "supported_accessibility_actions".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, uint32_t index) -> uint32_t"
-                    .into(),
-            is_static: true,
-            statements: Some(vec![format!(
-                "return reinterpret_cast<const {}*>(component.instance)->supported_accessibility_actions(index);",
-                item_tree_class_name
-            )]),
-            ..Default::default()
-        }),
-    ));
-
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "element_infos".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(if root.has_debug_info {
-                vec![
-                    format!("if (auto infos = reinterpret_cast<const {}*>(component.instance)->element_infos(index)) {{ *result = *infos; }};",
-                    item_tree_class_name),
-                    "return true;".into()
-                ]
-            } else {
-                vec!["return false;".into()]
+    let root_component = &root.sub_components[sub_tree.root];
+    let has_accessibility = root_component.has_accessibility(root);
+    let instance = format!("reinterpret_cast<const {item_tree_class_name}*>(component.instance)");
+    let mut vtable_function = |name: &str, signature: &str, statements: Vec<String>| {
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: name.into(),
+                signature: signature.into(),
+                is_static: true,
+                statements: Some(statements),
+                ..Default::default()
             }),
-            ..Default::default()
-        }),
-    ));
+        ));
+    };
 
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "element_testable_properties".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(if root.has_debug_info {
-                vec![
-                    format!("if (auto props = reinterpret_cast<const {}*>(component.instance)->element_testable_properties(index)) {{ *result = *props; }};",
-                    item_tree_class_name),
-                    "return true;".into()
-                ]
-            } else {
-                vec!["return false;".into()]
-            }),
-            ..Default::default()
-        }),
-    ));
+    vtable_function(
+        "accessible_role",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index) -> ::slint::cbindgen_private::AccessibleRole",
+        vec![if has_accessibility {
+            format!("return {instance}->accessible_role(index);")
+        } else {
+            "return {};".into()
+        }],
+    );
+    vtable_function(
+        "accessible_string_property",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::cbindgen_private::AccessibleStringProperty what, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        vec![if has_accessibility {
+            format!(
+                "if (auto r = {instance}->accessible_string_property(index, what)) {{ *result = *r; return true; }} else {{ return false; }}"
+            )
+        } else {
+            "return false;".into()
+        }],
+    );
+    vtable_function(
+        "accessibility_action",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] const ::slint::cbindgen_private::AccessibilityAction *action) -> void",
+        if has_accessibility {
+            vec![format!("{instance}->accessibility_action(index, *action);")]
+        } else {
+            vec![]
+        },
+    );
+    vtable_function(
+        "supported_accessibility_actions",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index) -> uint32_t",
+        vec![if has_accessibility {
+            format!("return {instance}->supported_accessibility_actions(index);")
+        } else {
+            "return 0;".into()
+        }],
+    );
 
-    target_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "element_testable_property_value".into(),
-            signature:
-                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::cbindgen_private::Slice<uint8_t> property_name, [[maybe_unused]] ::slint::SharedString *result) -> bool"
-                    .into(),
-            is_static: true,
-            statements: Some(if root.has_debug_info {
-                vec![
-                    format!("if (auto value = reinterpret_cast<const {}*>(component.instance)->element_testable_property_value(index, std::string_view(reinterpret_cast<const char*>(property_name.ptr), property_name.len))) {{ *result = *value; return true; }};",
-                    item_tree_class_name),
-                    "return false;".into()
-                ]
-            } else {
-                vec!["return false;".into()]
-            }),
-            ..Default::default()
-        }),
-    ));
+    let debug_info_query = |has: bool, query: &str| {
+        if !root.has_debug_info {
+            vec!["return false;".into()]
+        } else if has {
+            vec![
+                format!("if (auto r = {instance}->{query}(index)) {{ *result = *r; }};"),
+                "return true;".into(),
+            ]
+        } else {
+            vec!["return true;".into()]
+        }
+    };
+    let has_testable_properties = root_component.has_testable_properties(root);
+    vtable_function(
+        "element_infos",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        debug_info_query(root_component.has_element_infos(root), "element_infos"),
+    );
+    vtable_function(
+        "element_testable_properties",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        debug_info_query(has_testable_properties, "element_testable_properties"),
+    );
+    vtable_function(
+        "element_testable_property_value",
+        "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::cbindgen_private::Slice<uint8_t> property_name, [[maybe_unused]] ::slint::SharedString *result) -> bool",
+        has_testable_properties
+            .then(|| format!(
+                "if (auto value = {instance}->element_testable_property_value(index, std::string_view(reinterpret_cast<const char*>(property_name.ptr), property_name.len))) {{ *result = *value; return true; }};"
+            ))
+            .into_iter()
+            .chain(["return false;".into()])
+            .collect(),
+    );
 
     let window_adapter_vtable_statements = if needs_window_adapter {
         vec![format!(
@@ -2367,6 +2332,7 @@ fn generate_sub_component(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     field_access: Access,
+    is_item_tree_root: bool,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
@@ -2377,6 +2343,7 @@ fn generate_sub_component(
         root,
         parent_ctx,
         field_access,
+        is_item_tree_root,
         conditional_includes,
     );
 }
@@ -2452,6 +2419,7 @@ fn generate_sub_component_body(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     field_access: Access,
+    is_item_tree_root: bool,
     conditional_includes: &ConditionalIncludes,
 ) {
     let globals_type_ptr = "const class SharedGlobals*";
@@ -2613,7 +2581,9 @@ fn generate_sub_component_body(
         init.push(format!(
             "this->{sub_field}.init(globals, self_weak.into_dyn(), {global_index}, {global_children});"
         ));
-        user_init.push(format!("this->{sub_field}.user_init();"));
+        if sub_sc.needs_user_init(root) {
+            user_init.push(format!("this->{sub_field}.user_init();"));
+        }
 
         let sub_component_repeater_count = sub_sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
@@ -2852,15 +2822,18 @@ fn generate_sub_component_body(
         }),
     ));
 
-    target_struct.members.push((
-        field_access,
-        Declaration::Function(Function {
-            name: "user_init".into(),
-            signature: "() -> void".into(),
-            statements: Some(user_init),
-            ..Default::default()
-        }),
-    ));
+    debug_assert_eq!(component.needs_user_init(root), user_init.len() > 1);
+    if is_item_tree_root || component.needs_user_init(root) {
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "user_init".into(),
+                signature: "() -> void".into(),
+                statements: Some(user_init),
+                ..Default::default()
+            }),
+        ));
+    }
 
     target_struct.members.push((
         field_access,
@@ -2881,7 +2854,14 @@ fn generate_sub_component_body(
     ));
 
     let mut dispatch_item_function =
-        |name: &str, signature: &str, forward_args: &str, code: Vec<String>| {
+        |name: &str,
+         signature: &str,
+         forward_args: &str,
+         code: Vec<String>,
+         has: fn(&llr::SubComponent, &llr::CompilationUnit) -> bool| {
+            if !has(component, root) {
+                return;
+            }
             let mut code = ["[[maybe_unused]] auto self = this;".into()]
                 .into_iter()
                 .chain(code)
@@ -2890,6 +2870,9 @@ fn generate_sub_component_body(
             let mut else_ = "";
             for sub in &component.sub_components {
                 let sub_sc = &ctx.compilation_unit.sub_components[sub.ty];
+                if !has(sub_sc, root) {
+                    continue;
+                }
                 let sub_items_count = sub_sc.child_item_count(ctx.compilation_unit);
                 code.push(format!("{else_}if (index == {}) {{", sub.index_in_tree,));
                 code.push(format!(
@@ -2946,6 +2929,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> ::slint::cbindgen_private::Rect",
         "",
         item_geometry_cases,
+        |_, _| true,
     );
 
     let mut accessible_role_cases = vec!["switch (index) {".into()];
@@ -2994,12 +2978,14 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> ::slint::cbindgen_private::AccessibleRole",
         "",
         accessible_role_cases,
+        llr::SubComponent::has_accessibility,
     );
     dispatch_item_function(
         "accessible_string_property",
         "(uint32_t index, ::slint::cbindgen_private::AccessibleStringProperty what) const -> std::optional<::slint::SharedString>",
         ", what",
         accessible_string_cases,
+        llr::SubComponent::has_accessibility,
     );
 
     dispatch_item_function(
@@ -3007,6 +2993,7 @@ fn generate_sub_component_body(
         "(uint32_t index, const ::slint::cbindgen_private::AccessibilityAction &action) const -> void",
         ", action",
         accessibility_action_cases,
+        llr::SubComponent::has_accessibility,
     );
 
     dispatch_item_function(
@@ -3014,6 +3001,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> uint32_t",
         "",
         supported_accessibility_actions_cases,
+        llr::SubComponent::has_accessibility,
     );
 
     let mut element_infos_cases = vec!["switch (index) {".to_string()];
@@ -3030,6 +3018,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> std::optional<::slint::SharedString>",
         "",
         element_infos_cases,
+        llr::SubComponent::has_element_infos,
     );
 
     let mut element_testable_properties_cases = vec!["switch (index) {".to_string()];
@@ -3049,6 +3038,7 @@ fn generate_sub_component_body(
         "(uint32_t index) const -> std::optional<::slint::SharedString>",
         "",
         element_testable_properties_cases,
+        llr::SubComponent::has_testable_properties,
     );
 
     let mut element_testable_property_value_cases = vec!["switch (index) {".to_string()];
@@ -3075,6 +3065,7 @@ fn generate_sub_component_body(
         "(uint32_t index, [[maybe_unused]] std::string_view property_name) const -> std::optional<::slint::SharedString>",
         ", property_name",
         element_testable_property_value_cases,
+        llr::SubComponent::has_testable_properties,
     );
 
     {
