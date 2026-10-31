@@ -680,6 +680,20 @@ Next:
     which depends on `yurkinh.slint.net`, until Slint.NET has an official package ID.
   - Risks: on embedded Linux, SkiaSharp needs fontconfig and the fonts that the labels use.
     Native AOT on iOS links both Skias into one executable, which is untested.
+- **22.** Desktop apps published as one file, without the `ui/` directory and `slint_dotnet` next to the executable.
+  `dotnet publish -c Release -r win-x64` with Native AOT now writes `MyApp.exe`, `slint_dotnet.dll`, and `ui/`.
+  Until then, `-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true` without Native AOT gives one executable,
+  which .NET extracts to a temporary directory on its first start.
+  - Phase 1, embedding: a property such as `SlintEmbedFiles` makes `Slint.targets` embed the `.slint` files
+    and the images and fonts that they use into the assembly, as manifest resources.
+    The generated code compiles them through a file loader of the interpreter's `Compiler` that reads the resources.
+    To check: how the interpreter loads images and fonts, which it may read from disk outside the file loader;
+    and live reload, which keeps loading from the source files.
+  - Phase 2, static linking for Native AOT: `<DirectPInvoke Include="slint_dotnet" />`
+    and `<NativeLibrary Include="slint_dotnet.lib" />` link the native library into the executable.
+    It needs a `staticlib` build of `api/dotnet/native` for each runtime identifier, with the C runtime that Native AOT links,
+    such as `+crt-static` on Windows, and `Slint.targets` adding the items when `PublishAot` is set.
+    Prototype it on Windows first, and measure how much the static libraries add to the package.
 
 ## Live Reload
 
