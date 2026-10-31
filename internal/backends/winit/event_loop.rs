@@ -90,6 +90,15 @@ impl EventLoopState {
         }
     }
 
+    fn request_exit(&mut self, event_loop: &ActiveEventLoop) {
+        self.suspend_all_hidden_windows();
+        if let Some(pump) = &mut self.pump {
+            pump.exit_requested = true;
+        } else {
+            event_loop.exit();
+        }
+    }
+
     /// Free graphics resources for any hidden windows. Called when quitting the event loop, to work
     /// around #8795.
     fn suspend_all_hidden_windows(&self) {
@@ -178,12 +187,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                     .load(std::sync::atomic::Ordering::Relaxed)
                     == generation
                 {
-                    self.suspend_all_hidden_windows();
-                    if let Some(pump) = &mut self.pump {
-                        pump.exit_requested = true;
-                    } else {
-                        event_loop.exit()
-                    }
+                    self.request_exit(event_loop);
                 }
                 // else ignore the event, since it's from a previous run of the event loop
             }
@@ -207,6 +211,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             }
             #[cfg(muda)]
             CustomEvent::Muda(event) => {
+                #[cfg(target_os = "macos")]
+                if event.id().0 == crate::muda::DEFAULT_QUIT_MENU_ID {
+                    self.request_exit(event_loop);
+                    return;
+                }
                 if let Some((window_id, generation, entry_id, muda_type)) =
                     crate::muda::parse_menu_item_id(event.id())
                     && let Some(window) = self.shared_backend_data.window_by_id(window_id)

@@ -34,6 +34,9 @@ pub enum MudaType {
     Context,
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) const DEFAULT_QUIT_MENU_ID: &str = "slint-default-quit";
+
 static NEXT_MENU_GENERATION: AtomicU64 = AtomicU64::new(1);
 
 static MUDA_SET_EVENT_HANDLER_INSTALLED: AtomicBool = AtomicBool::new(false);
@@ -247,7 +250,10 @@ impl MudaAdapter {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn setup_default_menu_bar() -> Result<Self, i_slint_core::api::PlatformError> {
+    pub fn setup_default_menu_bar(
+        proxy: EventLoopProxy<SlintEvent>,
+    ) -> Result<Self, i_slint_core::api::PlatformError> {
+        install_event_handler_if_necessary(proxy);
         let menu_bar = muda::Menu::new();
         create_app_menu(&menu_bar, &[], |_, _| unreachable!())?;
         menu_bar.init_for_nsapp();
@@ -554,7 +560,17 @@ fn create_app_menu(
     items.push(Box::new(PredefinedMenuItem::separator()));
     items.push(match entry(MenuItemRole::Quit) {
         Some(quit) => Box::new(menu_item(quit, command_key("q"))),
-        None => Box::new(PredefinedMenuItem::quit(None)),
+        None => {
+            let quit = muda::MenuItem::with_id(
+                DEFAULT_QUIT_MENU_ID,
+                PredefinedMenuItem::quit(None).text(),
+                true,
+                None,
+            );
+            quit.set_key_accelerator(command_key("q"))
+                .map_err(|err| i_slint_core::api::PlatformError::Other(err.to_string()))?;
+            Box::new(quit)
+        }
     });
 
     let app_menu = muda::Submenu::new("App", true);
