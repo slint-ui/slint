@@ -95,7 +95,6 @@ jobs:
                     - "https://github.com/Heng30/rssbox-android"
                     #- "https://github.com/Heng30/bitbox" #pinned slint-build version
                     #- "https://github.com/Heng30/solana-wallet-sollet" # error in dependency (pyth-sdk-solana)
-                    - "https://github.com/nzhenev/vtbox"
                     #- "https://github.com/hambooooo/hamboo-rs" #uses nightly rust
                     # - "https://github.com/hambooooo/hamboo-embassy" #uses nightly rust
                     - "https://github.com/tredeneo/simple-inventary-management" #uses sqlx that needs database access
@@ -152,7 +151,6 @@ jobs:
                     - "https://github.com/mq1/TinyWiiBackupManager"
                     - "https://github.com/jacquetc/qleany"
                     - https://github.com/Cheikh-Nakamoto/Generateur-d-architecture-
-                    - https://github.com/Spencer-0003/aletheia
                     - https://github.com/engels74/EasyHDR
 
                     - "https://github.com/Erik7354/slint_minesweeper"
@@ -200,6 +198,74 @@ jobs:
                     - "https://github.com/dfaure/tunecall"
                     - "https://github.com/vlisivka/slint_kanban"
                     #- "https://github.com/bu5hm4nn/gossip-slint" # nostr-types pins a lightning-invoice git rev that no longer exists
+
+                    # from ecosystem survey (added 2026-10)
+                    - "https://github.com/gregoryraymond/slint-mobile-components"
+                    - "https://github.com/HELPMEEADICE/Netodia"
+                    - "https://github.com/GlitchAwakened/Favnyr"
+                    - "https://github.com/KenanSalar/Melodia"
+                    - "https://github.com/conic-apps/launcher"
+                    - "https://github.com/OpenRsG/OpenFadeR"
+                    - "https://github.com/zmactep/patinae"
+                    - "https://github.com/Moosync/Moosync"
+                    - "https://github.com/evanalyzer/evanalyzer"
+                    - "https://github.com/NekoRain404/NekoNetease"
+                    - "https://github.com/u2dm/u2dm-client"
+                    - "https://github.com/nixesty/now-bar"
+                    - "https://github.com/damione1/slint-kit"
+                    - "https://github.com/Power2All/nanotorrent"
+                    - "https://github.com/freakydude/freakymate"
+                    - "https://github.com/NobleDoodle/ferricone"
+                    - "https://github.com/NigelBreslaw/slint-headerless"
+                    - "https://github.com/Freedragonlancer/AudioLib-Explorer"
+                    - "https://github.com/zhugenanbei181/music-frog"
+                    - "https://github.com/PraxisGrove/Saymore"
+                    - "https://github.com/amit-voais/fortax-mail"
+                    - "https://github.com/talgonite/talgonite"
+                    - "https://github.com/matheusb432/tufo"
+                    - "https://github.com/GhostEagle68/umbriel-config"
+                    - "https://github.com/dimitribellini/manifold"
+                    - "https://github.com/ovoene/NewShell"
+                    - "https://github.com/trondegil/slintplot"
+                    - "https://github.com/x-labs-myid/UseDNS"
+                    - "https://github.com/sunlit-earth/sunlit-earth"
+                    - "https://github.com/wilssola/zapive"
+                    - "https://github.com/People-11/HMCL-rs"
+                    - "https://github.com/Loafer19/vivi"  # compiles with 1.18.1; master reports a binding loop on min-width
+                    - "https://github.com/gnukeith/snowpaw"
+                    - "https://github.com/gradetwo/yeban"
+                    - "https://github.com/lionxlover/ltk"
+                    - "https://github.com/M-Tre-Consulting/devkit"
+                    - "https://github.com/zkz098/limedl"
+                    - "https://github.com/ghitatruongle/ShieldGhita"
+                    - "https://github.com/Woffluon/BarePDF"
+                    - "https://github.com/horrorbringer/NativeVideoDownloader"
+                    - "https://github.com/neerajsunil/axi-launcher"
+                    - "https://github.com/2018wzh/AstraEngine"
+                    - "https://github.com/AbdurahmanAlmehdi/jidr"
+                    - "https://github.com/armanmaurya/arithmetic"
+                    - "https://github.com/LX-Audiolabs/lx-audiolabs-plugins"
+                    - "https://github.com/dliangx/chatx"
+                    - "https://github.com/littlephish/Parrotfish"
+                    - "https://github.com/wanghua98/cloudshell"
+                    - "https://github.com/eXeruvim/Takt"
+                    - "https://github.com/0xrariux/Atlas-UI"
+                    - "https://github.com/yazeed-01/winklet"
+                    - "https://github.com/mpwsh/baucord"
+                    - "https://github.com/thefoultarnished/zima"
+                    - "https://github.com/vitoluo/clash-ui"
+                    - "https://github.com/LuizFer1/Tex"
+                    - "https://github.com/qarmin/mykrut"
+                    - "https://github.com/theguy000/QuillScribe"
+                    - "https://github.com/nettanvirdev/sonicnet"
+                    - "https://github.com/NeutrinoMCL/Neutrino-Minecraft-Launcher"
+                    - "https://github.com/okcoe21/MYSQL-GUI"
+                    - "https://github.com/p-sodmann/maple"
+                    - "https://github.com/ABowlOfEleven/NeonPrime"
+                    - "https://github.com/T58574/Synapse"
+                    - "https://gitlab.com/joltedbot-public/accidental-synth"
+                    - "https://github.com/caprado/nightowl"
+                    - "https://github.com/themkoi/koia-shell"
 
                     # Missing images (hardcoded absolute path)
                     # - "https://github.com/Tricked-dev/stardew-mod-manager"
@@ -450,9 +516,23 @@ jobs:
                     - git_url: "https://github.com/TsaoLun/always-blue"
                       sub_path: "."
                       extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev
-                    - git_url: "https://github.com/jturcotte/beskope"
+                    # uses the GraphicsAPI::WGPU27 surface fields of its own Slint fork, which Slint doesn't have
+                    #- git_url: "https://github.com/jturcotte/beskope"
+                    #  sub_path: "."
+                    #  extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
+                    - git_url: "https://github.com/Spencer-0003/aletheia"
                       sub_path: "."
-                      extra_packages: libasound2-dev libfreetype-dev libfontconfig-dev libpipewire-0.3-dev
+                      # its build.rs enables all experimental features with "1", which is no longer accepted
+                      extra_commands: |
+                          sed -i 's/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1"/"SLINT_ENABLE_EXPERIMENTAL_FEATURES", "match,closures"/' build.rs
+                          cargo update
+                    - git_url: "https://github.com/nzhenev/vtbox"
+                      sub_path: "."
+                      extra_packages: libclang-19-dev
+                      # bindgen 0.69, used by whisper-rs-sys, generates opaque structs with libclang 21
+                      extra_commands: |
+                          export LIBCLANG_PATH=/usr/lib/llvm-19/lib
+                          cargo update
                     # Depends on speakstream as a sibling checkout
                     - git_url: "https://github.com/sloganking/quick-assistant"
                       sub_path: "."
@@ -476,10 +556,10 @@ jobs:
                           cargo update
                     - git_url: "https://github.com/nununoisy/nsf-presenter-rs"
                       sub_path: "."
-                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/RustOtomeLab/RustEng"
                       sub_path: "."
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     # playback-rs uses VaList::arg, a nightly API that was removed
                     #- git_url: "https://github.com/vonnieda/dimple"
                     #  sub_path: "dimple_ui_slint"
@@ -532,7 +612,7 @@ jobs:
                           sed -i 's/android-activity = {version = "=0.6.0"/android-activity = {version = "0.6"/' ../android/Cargo.toml
                           cargo update
                     - git_url: "https://github.com/heng30/wayshot"
-                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev libpostproc-dev
+                      extra_packages: alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libpipewire-0.3-dev libx264-dev libavfilter-dev libavdevice-dev libswscale-dev libswresample-dev
                       extra_commands: |
                           # the vendored i-slint crates are its own fork of 1.17.1
                           sed -i '/^i-slint-.* = { path = "vendor\//d' Cargo.toml
@@ -659,7 +739,13 @@ jobs:
                       extra_args: "--features=desktop"
                     - git_url: "https://github.com/suiflex/rdb"
                       sub_path: "app"
+                      # oracledb 26.0.0-beta.5 removed the timestamp offset methods that rdb uses
+                      extra_commands: |
+                          cargo update
+                          cargo update oracledb --precise 26.0.0-beta.4
+                    # The next commit doesn't build on Linux
                     - git_url: "https://github.com/myst6re/mumba"
+                      git_rev: "1f5801daaedd85ee85f6fffb6a791bc578090425"
                       sub_path: "gui"
                     # the repository is gone
                     #- git_url: "https://github.com/jpfaria/OpenRig"
@@ -691,17 +777,17 @@ jobs:
                       extra_packages: libasound2-dev
                     - git_url: "https://github.com/JeninSutradhar/ffmpeg-VideoPlayer-Rust_Slint"
                       sub_path: "."
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                       extra_commands: |
                           # derive_more 1.0 refuses to build without a derive feature, and nothing here uses it
                           cargo remove derive_more
                           cargo update
                     - git_url: "https://github.com/NateAGeek/SenToAni"
                       sub_path: "."
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/rahulkuzur3/KVPlayer"
                       sub_path: "."
-                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev libpostproc-dev
+                      extra_packages: libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev libavdevice-dev
                     - git_url: "https://github.com/wtvemac/mame_launcher"
                       sub_path: "."
                       extra_packages: libasound2-dev
@@ -784,6 +870,112 @@ jobs:
                       extra_commands: |
                           printf '\n[workspace]\n' >> Cargo.toml
                           cargo update
+                    # from ecosystem survey (added 2026-10)
+                    - git_url: "https://github.com/MohsenDastaran/uni-kit"
+                      sub_path: "crates/slint-component"
+                    - git_url: "https://github.com/AhmedEzo686/ezoo-download"
+                      sub_path: "crates/app"
+                    - git_url: "https://github.com/zhangxichang/pupu"
+                      sub_path: "app"
+                    - git_url: "https://github.com/coreyjj1679/gs-widget"
+                      sub_path: "widget"
+                    - git_url: "https://github.com/Amne-Dev/NLC"
+                      sub_path: "src/frontend"
+                    - git_url: "https://github.com/worflor/neuron"
+                      sub_path: "crates/neuron-app"
+                    - git_url: "https://github.com/sebastian-beca/opendj"
+                      sub_path: "crates/app"
+                    - git_url: "https://github.com/siggifly/ipod-emulator"
+                      sub_path: "tools/ipod-gui"
+                    - git_url: "https://github.com/ricercar-player/ricercar"
+                      sub_path: "crates/ricercar-ui"
+                    - git_url: "https://github.com/damione1/souffle"
+                      sub_path: "app/souffle-slint"
+                    - git_url: "https://github.com/ZaparooProject/zaparoo-frontend"
+                      sub_path: "rust/frontend"
+                    - git_url: "https://github.com/palaashatri/rust-loom"
+                      sub_path: "loom-core/crates/loom-ui"
+                    - git_url: "https://github.com/penumbra-mobile/penumbra-env"
+                      sub_path: "crates/penumbra-shell"
+                    - git_url: "https://github.com/roe-office/roe-desktop"
+                      sub_path: "crates/slint-shell"
+                    - git_url: "https://github.com/fatyzzz/multicore"
+                      sub_path: "apps/multicore-desktop"
+                    - git_url: "https://github.com/GT-610/Freya-NLE"
+                      sub_path: "rust/freya-nle"
+                    - git_url: "https://github.com/LucasPicoli/8B"
+                      sub_path: "crates/gui"
+                    - git_url: "https://codeberg.org/SoulCrafted/Slicer"
+                      sub_path: "apps/slicer-gui"
+                    - git_url: "https://github.com/RaunakxShrivastva/Raven-Island"
+                      sub_path: "raven-native"
+                    - git_url: "https://github.com/Z1xus/interpolini"
+                      sub_path: "crates/gui"
+                    - git_url: "https://github.com/yassersutojoyo/audiosync"
+                      sub_path: "desktop"
+                    - git_url: "https://github.com/florianaltendorfer/d4lc"
+                      sub_path: "crates/d4lc-app"
+                    - git_url: "https://github.com/evoggy/swarmkeeper"
+                      sub_path: "client"
+                    - git_url: "https://github.com/SeitiFurumori/morune"
+                      sub_path: "crates/morune-app"
+                    - git_url: "https://github.com/dimms0/maestro"
+                      sub_path: "crates/maestro-gui"
+                    - git_url: "https://github.com/theguy000/stremio-lightning"
+                      sub_path: "crates/stremio-lightning"
+                    - git_url: "https://github.com/ESO-Toolkit/kalpa"
+                      sub_path: "prototypes/slint-kalpa"
+                    - git_url: "https://github.com/Scrimas/MHGU-Save-editor"
+                      sub_path: "app/gui"
+                    - git_url: "https://github.com/KeRoDeveloper2026/KeRo-Smarter-Download"
+                      sub_path: "crates/app"
+                    - git_url: "https://github.com/kakadon000/highwater"
+                      sub_path: "crates/highwater"
+                    - git_url: "https://github.com/mrFrok/AniRust"
+                      sub_path: "gui"
+                    - git_url: "https://github.com/nglmercer/obs-rs"
+                      sub_path: "crates/obs-rs-gui"
+                    # compiles with 1.18.1; master stops at the maximum nesting level
+                    - git_url: "https://github.com/6oT9lpa/Snappix"
+                      sub_path: "apps"
+                    - git_url: "https://github.com/fathialamre/vento"
+                      sub_path: "crates/vento"
+                    - git_url: "https://github.com/flipperdevices/flipctl-slint"
+                      sub_path: "crates/flipper-ui"
+                    - git_url: "https://github.com/nyl/Penumbra-Shell"
+                      sub_path: "crates/penumbra-shell"
+                    - git_url: "https://github.com/ivall/viralflow"
+                      sub_path: "app"
+                    - git_url: "https://github.com/KimP0ssible-no/OpenCRT"
+                      sub_path: "crates/opencrt"
+                    - git_url: "https://github.com/pierregouedar/canape"
+                      sub_path: "crates/canape-shell"
+                    - git_url: "https://github.com/MarcoS0ft/ConMan"
+                      sub_path: "crates/cm-ui"
+                    - git_url: "https://github.com/Fab2bprog/Rust-Vendetta-Chess-GUI"
+                      sub_path: "crates/gui"
+                    - git_url: "https://github.com/JanezSedeljsak/calumma-v2"
+                      sub_path: "gui"
+                    - git_url: "https://github.com/xyzyt010/quickstt"
+                      sub_path: "quickstt-rust/quickstt-slint"
+                    - git_url: "https://github.com/MahmoudAhmed100/zero-download"
+                      sub_path: "crates/app"
+                    - git_url: "https://github.com/sebastienrousseau/nalufx"
+                      sub_path: "nalufx-ui"
+                    - git_url: "https://github.com/0xrariux/template-atlas"
+                      sub_path: "slint/forge"
+                    - git_url: "https://github.com/Dethon/lookout"
+                      sub_path: "crates/app"
+                    - git_url: "https://github.com/ashp0/SonicOS"
+                      sub_path: "sonic-shell"
+                    - git_url: "https://github.com/yasuflatland-lf/gashuu"
+                      sub_path: "crates/gashuu"
+                    - git_url: "https://github.com/HouseAlwaysWin/CliGJ"
+                      sub_path: "app"
+                    - git_url: "https://github.com/lemonxah/pithsim"
+                      sub_path: "dashboard"
+                    - git_url: "https://github.com/Trareon-com/Trareon-Lab"
+                      sub_path: "apps/lab-slint"
         runs-on: "ubuntu-latest"
         steps:
             - uses: actions/checkout@v7
@@ -1050,7 +1242,7 @@ jobs:
                     - git_url: "https://codeberg.org/vivi-ui/vivi"
                       files: "vivi/ui/magic/magic_window.slint"
                     - git_url: "https://github.com/Aquaticat/Monochromatic"
-                      files: "package/desktop-app/terminal/ui/app.slint"
+                      files: "package/ide/app/ui/app.slint"
                     - git_url: "https://github.com/Dominic485649/AWJimage"
                       files: "ui/awj_studio.slint"
                     # the repository no longer has .slint files
@@ -1266,6 +1458,98 @@ jobs:
                     # depends on a Slint fork via git, so the patch does not apply
                     - git_url: "https://github.com/zeroeightysix/polymodo"
                       files: "ui/ui.slint"
+                    # from ecosystem survey (added 2026-10)
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/suitable-name/pleochroma"
+                      files: "apps/pleochroma-cut/ui/app.slint apps/pleochroma-mobile-android/ui/app.slint apps/pleochroma-trainer/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/jub0t/Concat"
+                      files: "src/crates/concat/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/flectar/mail"
+                      files: "ui/app.slint ui/tray.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/kunkundi/crossdesk"
+                      files: "apps/desktop/src/gui/ui/main_window.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/R44VC0RP/isocast"
+                      files: "crates/isocast-ui/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/yapfast/yapfast"
+                      files: "ui/yapfast.slint"
+                    # depends on a Slint fork via git, so the patch does not apply
+                    - git_url: "https://github.com/jessolmstead/greycard"
+                      files: "crates/greycard-slint/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/Daturaxoxo/Aurora"
+                      files: "crates/installer/frontend/main.slint crates/installer/frontend/uninstall.slint frontend/icons.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/DanMarshall909/dandrum"
+                      files: "ui/advanced-sampler/AppWindow.slint ui/advanced-sampler/engine/BindingFixture.slint ui/slint/catalog/Catalog.slint"
+                    # depends on Slint internals via git, so the patch does not apply
+                    - git_url: "https://github.com/yehun/slint-demo"
+                      files: "crates/article-02/ui/app.slint crates/article-03/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/Ak4ai/Litecord"
+                      files: "ui/appwindow.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/NFRohan/Deskemy"
+                      files: "app/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/Siryu6/OpenRig"
+                      files: "ui/app.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/richardltc/boxwallet"
+                      files: "gui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/BearKouber/TiLex"
+                      files: "ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/koorinonaka/liveback"
+                      files: "ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/JuewenPeng/meatshell-custom"
+                      files: "ui/app.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/spice-projects/xyce-studio"
+                      files: "src/ui/widgets/main_window.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/JustRin/aurora-vpn"
+                      files: "spike-slint/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/norifm/nori"
+                      files: "crates/desktop-ui/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    # compiles with 1.18.1; master reports a binding loop on run-max-width
+                    - git_url: "https://github.com/Zealbase/snapflow"
+                      files: "panel-rust/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/ylsdamxssjxxdd/wunder"
+                      files: "frontend-slint/ui/main.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/wenlar/gezik"
+                      files: "crates/gezik/ui/app.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/Fohdeesha/takt4"
+                      files: "src/ui/about_window.slint src/ui/fixtures_window.slint src/ui/main_window.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/Blackwolf1337/quince"
+                      files: "ui/main.slint ui/mini-player.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/Sharior13/luvista"
+                      files: "ui/app.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/Malvaos/Malva-ui-toolkit"
+                      files: "gallery/gallery.slint"
+                    # depends on a Slint fork via git, so the patch does not apply
+                    - git_url: "https://github.com/postvak-app/postvak"
+                      files: "crates/postvak-gui/src/ui/app.slint"
+                    # not a Rust project
+                    - git_url: "https://github.com/MiyukiVigil/Hub_Moon"
+                      files: "gui/ui/app.slint"
+                    # vendors patched copies of Slint crates, so the patch does not apply
+                    - git_url: "https://github.com/vodolazny/burmalda57"
+                      files: "apps/web/ui/app.slint crates/ui/ui/app.slint"
         runs-on: "ubuntu-latest"
         steps:
             - uses: actions/download-artifact@v8

@@ -12,6 +12,20 @@ use alloc::boxed::Box;
 
 pub use wgpu_29 as wgpu;
 
+/// Get the default backend options given WGPU environment variables. Includes an override
+/// to default to a swapchain type that supports transparency under dx12.
+pub fn default_backend_options() -> wgpu::BackendOptions {
+    #[allow(unused_mut)]
+    let mut options = wgpu::BackendOptions::from_env_or_default();
+
+    // on windows with DX12, a composition swapchain is the only kind that supports transparency
+    #[cfg(target_family = "windows")]
+    if wgpu::Dx12SwapchainKind::from_env().is_none() {
+        options.dx12.presentation_system = wgpu::Dx12SwapchainKind::DxgiFromVisual;
+    }
+    options
+}
+
 #[cfg(feature = "unstable-wgpu-29")]
 pub mod api {
     /*!
@@ -55,7 +69,7 @@ pub mod api {
 
             Self {
                 backends,
-                backend_options: wgpu_29::BackendOptions::from_env_or_default(),
+                backend_options: super::default_backend_options(),
                 instance_flags: wgpu_29::InstanceFlags::from_build_config().with_env(),
                 instance_memory_budget_thresholds: wgpu_29::MemoryBudgetThresholds::default(),
 
@@ -170,6 +184,18 @@ pub fn mask_backends(
     if masked.is_empty() { requested } else { masked }
 }
 
+fn backends_for_request(
+    native_api: Option<&RequestedGraphicsAPI>,
+    backends_to_avoid: wgpu::Backends,
+) -> wgpu::Backends {
+    match native_api {
+        Some(RequestedGraphicsAPI::Metal) => wgpu::Backends::METAL & !backends_to_avoid,
+        Some(RequestedGraphicsAPI::Vulkan) => wgpu::Backends::VULKAN & !backends_to_avoid,
+        Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12 & !backends_to_avoid,
+        _ => mask_backends(wgpu::Backends::from_env().unwrap_or_default(), backends_to_avoid),
+    }
+}
+
 /// Internal helper to see if there are any GPU adapters for hardware accelerated rendering.
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
 /// software rendering, such as DX12's Warp adapter).
@@ -214,15 +240,19 @@ pub fn any_wgpu29_adapters_with_gpu(
                 backends,
             )
         }
-        None => {
-            let backends =
-                mask_backends(wgpu::Backends::from_env().unwrap_or_default(), backends_to_avoid);
+        maybe_native_api @ (None
+        | Some(
+            RequestedGraphicsAPI::Metal
+            | RequestedGraphicsAPI::Vulkan
+            | RequestedGraphicsAPI::Direct3D,
+        )) => {
+            let backends = backends_for_request(maybe_native_api.as_ref(), backends_to_avoid);
 
             (
                 wgpu::Instance::new(wgpu::InstanceDescriptor {
                     backends,
                     flags: wgpu::InstanceFlags::from_build_config().with_env(),
-                    backend_options: wgpu::BackendOptions::from_env_or_default(),
+                    backend_options: default_backend_options(),
                     memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
                     display: None,
                 }),
@@ -376,17 +406,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
             | RequestedGraphicsAPI::Vulkan
             | RequestedGraphicsAPI::Direct3D,
         )) => {
-            let requested_backends = match &maybe_native_api {
-                Some(RequestedGraphicsAPI::Metal) => wgpu::Backends::METAL,
-                Some(RequestedGraphicsAPI::Vulkan) => wgpu::Backends::VULKAN,
-                Some(RequestedGraphicsAPI::Direct3D) => wgpu::Backends::DX12,
-                _ => wgpu::Backends::from_env().unwrap_or_default(),
-            };
-            let backends = if maybe_native_api.is_none() {
-                mask_backends(requested_backends, backends_to_avoid)
-            } else {
-                requested_backends & !backends_to_avoid
-            };
+            let backends = backends_for_request(maybe_native_api.as_ref(), backends_to_avoid);
             if backends.is_empty() {
                 return Err(alloc::format!(
                     "The requested graphics API ({maybe_native_api:?}) is not supported under wgpu on this platform"
@@ -398,7 +418,7 @@ pub async fn async_init_instance_adapter_device_queue_surface(
                 wgpu::util::new_instance_with_webgpu_detection(wgpu::InstanceDescriptor {
                     backends,
                     flags: wgpu::InstanceFlags::from_build_config().with_env(),
-                    backend_options: wgpu::BackendOptions::from_env_or_default(),
+                    backend_options: default_backend_options(),
                     memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
                     display: None,
                 })

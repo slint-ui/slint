@@ -25,6 +25,7 @@ on:
         default: false
 
 env:
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
   # Use fat LTO for the published Python wheels: smaller size and better runtime perf.
   # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
   CARGO_PROFILE_RELEASE_LTO: "fat"
@@ -43,7 +44,7 @@ jobs:
             ubuntu-22.04-arm,
             windows-2022,
             windows-11-arm,
-            macos-14,
+            macos-15,
           ]
     steps:
       - uses: actions/checkout@v7

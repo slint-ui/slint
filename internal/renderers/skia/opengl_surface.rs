@@ -65,6 +65,7 @@ impl super::Surface for OpenGLSurface {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        _transparent: bool,
     ) -> Result<Self, PlatformError> {
         Self::new_with_config(
             window_handle,

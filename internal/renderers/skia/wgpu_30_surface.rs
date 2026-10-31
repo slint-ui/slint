@@ -51,6 +51,19 @@ pub struct WGPUSurface {
     alpha_modes: Vec<wgpu::CompositeAlphaMode>,
 }
 
+/// The alpha mode to composite the surface with: a translucent one when the window is
+/// transparent, and `Opaque` when it isn't. Metal (CAMetalLayer) only offers `PostMultiplied`,
+/// so it has to be a fallback. `None` when the surface advertises nothing suitable.
+fn composite_alpha_mode(
+    transparent: bool,
+    advertised: &[wgpu::CompositeAlphaMode],
+) -> Option<wgpu::CompositeAlphaMode> {
+    use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
+    let wanted: &[wgpu::CompositeAlphaMode] =
+        if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
+    wanted.iter().copied().find(|mode| advertised.contains(mode))
+}
+
 impl WGPUSurface {
     pub fn new_with_surface(
         surface_target: impl Into<i_slint_core::graphics::wgpu_30::SurfaceTarget>,
@@ -67,6 +80,7 @@ impl WGPUSurface {
             Rc::new(SharedWgpuState { instance, adapter, device, queue }),
             surface,
             size,
+            false,
         )
     }
 
@@ -74,6 +88,7 @@ impl WGPUSurface {
         wgpu: Rc<SharedWgpuState>,
         surface: wgpu::Surface<'static>,
         size: PhysicalWindowSize,
+        transparent: bool,
     ) -> Result<Self, PlatformError> {
         let SharedWgpuState { adapter, device, queue, .. } = &*wgpu;
         #[cfg(target_vendor = "apple")]
@@ -99,6 +114,9 @@ impl WGPUSurface {
         // With only `RENDER_ATTACHMENT`, wgpu makes the CAMetalLayer `framebufferOnly`,
         // which breaks Skia reading back the backdrop for backdrop-blur.
         surface_config.usage |= swapchain_capabilities.usages & wgpu::TextureUsages::COPY_SRC;
+        if let Some(mode) = composite_alpha_mode(transparent, &swapchain_capabilities.alpha_modes) {
+            surface_config.alpha_mode = mode;
+        }
 
         // Prefer FIFO modes over the Mailbox that `get_default_config` picks on some backends
         // (it takes the first advertised mode, and DX12 lists Mailbox first), for frame pacing
@@ -287,6 +305,7 @@ impl crate::Surface for WGPUSurface {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        transparent: bool,
     ) -> Result<Self, PlatformError> {
         let make_target = || -> Box<dyn wgpu::DisplayAndWindowHandle + 'static> {
             Box::new(WindowAndDisplayHandle(window_handle.clone(), display_handle.clone()))
@@ -330,7 +349,7 @@ impl crate::Surface for WGPUSurface {
                     && let Ok(surface) = shared.instance.create_surface(make_target())
                     && shared.adapter.is_surface_supported(&surface)
                 {
-                    match Self::init_with_parts(shared, surface, size) {
+                    match Self::init_with_parts(shared, surface, size, transparent) {
                         Ok(surface) => return Ok(surface),
                         Err(err) => {
                             // The shared device may be lost. Drop it and start over.
@@ -351,7 +370,7 @@ impl crate::Surface for WGPUSurface {
                 i_slint_core::graphics::wgpu_30::default_backends_to_avoid(),
             )?;
         let wgpu = Rc::new(SharedWgpuState { instance, adapter, device, queue });
-        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size)?;
+        let new_surface = Self::init_with_parts(wgpu.clone(), surface, size, transparent)?;
         if !manual_configuration {
             *shared_context.0.wgpu_30_state.borrow_mut() = Rc::downgrade(&wgpu);
         }
@@ -547,13 +566,22 @@ impl crate::Surface for WGPUSurface {
         self.backend.import_texture(canvas, texture)
     }
 
+    fn presentation_may_use_transparency(&self) -> bool {
+        use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+        self.surface_config.try_borrow().ok().is_some_and(|config| {
+            config
+                .as_ref()
+                .is_some_and(|config| matches!(config.alpha_mode, PreMultiplied | PostMultiplied))
+        })
+    }
+
     fn set_transparent(&self, transparent: bool) -> Result<(), PlatformError> {
-        // `Opaque` discards the scene's alpha; pick a translucent mode if offered.
-        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
-        use wgpu::CompositeAlphaMode::{Opaque, PostMultiplied, PreMultiplied};
-        let wanted: &[wgpu::CompositeAlphaMode] =
-            if transparent { &[PreMultiplied, PostMultiplied] } else { &[Opaque] };
-        let Some(mode) = wanted.iter().copied().find(|m| self.alpha_modes.contains(m)) else {
+        // DXGI's `ResizeBuffers`, which wgpu uses to reconfigure a swap chain, can't change
+        // its alpha mode.
+        if self.wgpu.adapter.get_info().backend == wgpu::Backend::Dx12 {
+            return Ok(());
+        }
+        let Some(mode) = composite_alpha_mode(transparent, &self.alpha_modes) else {
             return Ok(());
         };
 
