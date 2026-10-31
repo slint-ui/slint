@@ -3279,9 +3279,8 @@ fn generate_layout_item_info_decl(
         }
     }
     body.push_str(
-        // Phantom cell: return "unconstrained" info (matches Rust's LayoutInfo::default()).
-        // field order: max, max_percent, min, min_percent, preferred, stretch
-        "return { ::slint::cbindgen_private::LayoutInfo{ std::numeric_limits<float>::max(), 100.f, 0, 0, 0, 0 }, {}, {} };\n\
+        // Phantom cell: return "unconstrained" info
+        "return { ::slint::cbindgen_private::LayoutInfo{}, {}, {} };\n\
          }\n\
          return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o), {}, {} };",
     );

@@ -1009,7 +1009,10 @@ fn gen_corelib(
     );
     config.export.body.insert(
         "LayoutInfo".to_owned(),
-        "    inline LayoutInfo merge(const LayoutInfo &other) const;
+        "    constexpr LayoutInfo() : LayoutInfo(std::numeric_limits<float>::max(), 100, 0, 0, 0, 0) {}
+    constexpr LayoutInfo(float max, float max_percent, float min, float min_percent, float preferred, float stretch)
+        : max(max), max_percent(max_percent), min(min), min_percent(min_percent), preferred(preferred), stretch(stretch) {}
+    inline LayoutInfo merge(const LayoutInfo &other) const;
     friend inline LayoutInfo operator+(const LayoutInfo &a, const LayoutInfo &b) { return a.merge(b); }
     friend bool operator==(const LayoutInfo&, const LayoutInfo&) = default;".into(),
     );

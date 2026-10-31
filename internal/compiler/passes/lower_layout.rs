@@ -1456,7 +1456,7 @@ fn single_cell_layout_info_binding(
         let max = if stretch {
             min_max(MinMaxOp::Max, plus_pads(cell_max.clone()), min.clone())
         } else {
-            Expression::NumberLiteral(f32::MAX as f64, Unit::Px)
+            Expression::default_value_for_field(&info_ty, &"max".into())
         };
         let pref = plus_pads(min_max(
             MinMaxOp::Max,
@@ -1473,18 +1473,9 @@ fn single_cell_layout_info_binding(
         ));
         (plus_pads(cell_min), plus_pads(bounded_max), pref)
     };
-    let values = [
-        ("min", min),
-        ("max", max),
-        ("min_percent", Expression::NumberLiteral(0., Unit::None)),
-        ("max_percent", Expression::NumberLiteral(100., Unit::None)),
-        ("preferred", preferred),
-        ("stretch", cell_stretch),
-    ]
-    .into_iter()
-    .map(|(name, e)| (SmolStr::new_static(name), e))
-    .collect();
-    let info = Expression::Struct { ty: info_ty, values };
+    let values = [("min", min), ("max", max), ("preferred", preferred), ("stretch", cell_stretch)]
+        .map(|(name, e)| (SmolStr::new_static(name), e));
+    let info = Expression::struct_with_defaults(info_ty, values);
     Some(if prelude.is_empty() {
         info
     } else {

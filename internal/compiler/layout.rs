@@ -961,22 +961,10 @@ pub fn implicit_layout_info_call(
             ElementType::Builtin(base_type)
                 if let Some(stretch) = base_type.constant_layout_info_stretch =>
             {
-                Some(Expression::Struct {
-                    ty: crate::typeregister::layout_info_type(),
-                    values: [
-                        ("min", 0., Unit::Px),
-                        ("max", f32::MAX as f64, Unit::Px),
-                        ("preferred", 0., Unit::Px),
-                        ("min_percent", 0., Unit::None),
-                        ("max_percent", 100., Unit::None),
-                        ("stretch", stretch, Unit::None),
-                    ]
-                    .into_iter()
-                    .map(|(s, v, unit)| {
-                        (SmolStr::new_static(s), Expression::NumberLiteral(v, unit))
-                    })
-                    .collect(),
-                })
+                Some(Expression::struct_with_defaults(
+                    crate::typeregister::layout_info_type(),
+                    [("stretch".into(), Expression::NumberLiteral(stretch, Unit::None))],
+                ))
             }
             _ => Some(Expression::FunctionCall {
                 function: BuiltinFunction::ImplicitLayoutInfo(orientation).into(),

@@ -150,6 +150,7 @@ pub fn lower_expression(
             ty: ty.clone(),
             values: values
                 .iter()
+                .filter(|(field, value)| !is_default_field(ty, field, value))
                 .map(|(s, e)| (s.clone(), lower_expression(e, ctx)))
                 .collect::<_>(),
         },
@@ -209,6 +210,37 @@ pub fn lower_expression(
             expression: Box::new(lower_expression(expression, ctx)),
         },
         tree_Expression::DashArray(dash_array) => llr_Expression::DashArray(dash_array.clone()),
+    }
+}
+
+/// Whether `value` is the value that the generators give to the `field` of a struct literal
+/// that leaves it out, so that the LLR doesn't need to have it.
+fn is_default_field(ty: &Struct, field: &str, value: &tree_Expression) -> bool {
+    match (&ty.name, ty.field_defaults.get(field)) {
+        // Slint SC gives the zero value to the left out fields of user structs, even with a default
+        (StructName::User { .. }, Some(_)) => false,
+        (StructName::User { .. } | StructName::Builtin(BuiltinStruct::LayoutInfo), None) => {
+            is_zero(value)
+        }
+        (StructName::Builtin(BuiltinStruct::LayoutInfo), Some(default)) => {
+            matches!((value, default), (
+                tree_Expression::NumberLiteral(value, unit),
+                crate::langtype::ConstantExpression::NumberLiteral(default, default_unit),
+            ) if value == default && unit == default_unit)
+        }
+        _ => false,
+    }
+}
+
+fn is_zero(value: &tree_Expression) -> bool {
+    match value {
+        tree_Expression::NumberLiteral(n, _) => *n == 0.,
+        tree_Expression::BoolLiteral(b) => !b,
+        tree_Expression::StringLiteral(s) => s.is_empty(),
+        // C++ default-initializes an enum to the value 0
+        tree_Expression::EnumerationValue(v) => v.value == 0 && v.enumeration.default_value == 0,
+        tree_Expression::Cast { from, to: Type::Int32 | Type::Float32 } => is_zero(from),
+        _ => false,
     }
 }
 
@@ -962,4 +994,28 @@ pub fn make_struct(
         values.into_iter().map(|(field, value)| (SmolStr::new(field), value)).collect();
     debug_assert!(values.keys().eq(ty.fields.keys()), "{name:?} doesn't match its definition");
     llr_Expression::Struct { ty, values }
+}
+
+#[test]
+fn struct_literals_leave_out_default_fields() {
+    let root = crate::llr::lower_test_source(
+        r#"
+enum E { first, second }
+struct S { zero: int, one: int, empty: string, text: string, no: bool, yes: bool, e1: E, e2: E, declared: int = 5 }
+export component TestCase {
+    in-out property <S> s: { zero: 0, one: 1, empty: "", text: "a", no: false, yes: true, e1: E.first, e2: E.second, declared: 0 };
+}
+"#,
+    );
+    let mut fields = Vec::new();
+    root.for_each_expression(&mut |e, _| {
+        e.borrow().visit_recursive(&mut |e| {
+            if let llr_Expression::Struct { ty, values } = e
+                && ty.name.slint_name().is_some_and(|n| n == "S")
+            {
+                fields.push(values.keys().map(|k| k.as_str()).collect::<Vec<_>>().join(","));
+            }
+        })
+    });
+    assert_eq!(fields, ["declared,e2,one,text,yes"]);
 }
