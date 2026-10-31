@@ -1326,7 +1326,9 @@ impl WinitWindowAdapter {
                     && self.menubar().is_none()
                 {
                     *muda_adapter.borrow_mut() =
-                        Some(crate::muda::MudaAdapter::setup_default_menu_bar()?);
+                        Some(crate::muda::MudaAdapter::setup_default_menu_bar(
+                            self.event_loop_proxy.clone(),
+                        )?);
                 }
 
                 if let Some(muda_adapter) = muda_adapter.borrow().as_ref() {
