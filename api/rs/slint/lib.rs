@@ -680,7 +680,7 @@ pub mod winit_030 {
     //! Slint keeps managing the window, so not every combination of winit calls is supported.
     //! Slint may override state that it controls itself, such as the cursor, the size, or the IME state.
     //!
-    //! For example, use the [`WinitWindowAccessor`] to obtain access to the underlying [`winit::window::Window`]:
+    //! For example, use the [`WinitWindowAccessor`] to access the underlying [`winit::window::Window`]:
     //!
     //! `Cargo.toml`:
     //! ```toml
