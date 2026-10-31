@@ -314,7 +314,7 @@ pub fn generate(
         .iter()
         .map(|sub_compo| {
             let module = format_ident!("sc_{}", ident(&llr.sub_components[*sub_compo].name));
-            let code = generate_sub_component(*sub_compo, &llr, None, None, false);
+            let code = generate_sub_component(*sub_compo, &llr, None, None, false, false);
             quote!(mod #module { use super::*; #code } use #module::*;)
         })
         .collect::<Vec<_>>();
@@ -1386,6 +1386,7 @@ fn generate_sub_component(
     parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
     pinned_drop: bool,
+    is_item_tree_root: bool,
 ) -> TokenStream {
     let extra_components = generate_child_item_trees(component_idx, root, parent_ctx);
     generate_sub_component_body(
@@ -1394,6 +1395,7 @@ fn generate_sub_component(
         parent_ctx,
         index_property,
         pinned_drop,
+        is_item_tree_root,
         extra_components,
     )
 }
@@ -1429,6 +1431,7 @@ fn generate_sub_component_body(
     parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
     pinned_drop: bool,
+    is_item_tree_root: bool,
     extra_components: Vec<TokenStream>,
 ) -> TokenStream {
     let component = &root.sub_components[component_idx];
@@ -1733,9 +1736,11 @@ fn generate_sub_component_body(
             sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             #global_access.clone(), #global_index, #global_children
         )?;));
-        user_init_code.push(quote!(#sub_component_id::user_init(
-            sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
-        );));
+        if sc.needs_user_init(root) {
+            user_init_code.push(quote!(#sub_component_id::user_init(
+                sp::VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
+            );));
+        }
 
         let sub_component_repeater_count = sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
@@ -1762,45 +1767,54 @@ fn generate_sub_component_body(
         }
 
         let sub_items_count = sc.child_item_count(root);
-        accessible_role_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
-        ));
-        accessible_string_property_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
-        ));
-        accessibility_action_branch.push(quote!(
-            (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
-        ));
-        supported_accessibility_actions_branch.push(quote!(
-            #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
-        ));
+        let sub_has_accessibility = sc.has_accessibility(root);
+        if sub_has_accessibility {
+            accessible_role_branch.push(quote!(
+                #local_tree_index => #sub_compo_field.apply_pin(_self).accessible_role(0),
+            ));
+            accessible_string_property_branch.push(quote!(
+                (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(0, what),
+            ));
+            accessibility_action_branch.push(quote!(
+                (#local_tree_index, _) => #sub_compo_field.apply_pin(_self).accessibility_action(0, action),
+            ));
+            supported_accessibility_actions_branch.push(quote!(
+                #local_tree_index => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(0),
+            ));
+        }
         if sub_items_count > 1 {
             let range_begin = local_index_of_first_child;
             let range_end = range_begin + sub_items_count - 2 + sc.repeater_count(root);
-            accessible_role_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
-            ));
-            accessible_string_property_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what),
-            ));
             item_geometry_branch.push(quote!(
                 #range_begin..=#range_end => return #sub_compo_field.apply_pin(_self).item_geometry(index - #range_begin + 1),
             ));
-            accessibility_action_branch.push(quote!(
-                (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
-            ));
-            supported_accessibility_actions_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
-            ));
-            item_element_infos_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
-            ));
-            element_testable_properties_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_properties(index - #range_begin + 1),
-            ));
-            element_testable_property_value_branch.push(quote!(
-                #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_property_value(index - #range_begin + 1, property_name),
-            ));
+            if sub_has_accessibility {
+                accessible_role_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
+                ));
+                accessible_string_property_branch.push(quote!(
+                    (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessible_string_property(index - #range_begin + 1, what),
+                ));
+                accessibility_action_branch.push(quote!(
+                    (#range_begin..=#range_end, _) => #sub_compo_field.apply_pin(_self).accessibility_action(index - #range_begin + 1, action),
+                ));
+                supported_accessibility_actions_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).supported_accessibility_actions(index - #range_begin + 1),
+                ));
+            }
+            if sc.has_element_infos(root) {
+                item_element_infos_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).item_element_infos(index - #range_begin + 1),
+                ));
+            }
+            if sc.has_testable_properties(root) {
+                element_testable_properties_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_properties(index - #range_begin + 1),
+                ));
+                element_testable_property_value_branch.push(quote!(
+                    #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).element_testable_property_value(index - #range_begin + 1, property_name),
+                ));
+            }
         }
 
         sub_component_names.push(field_name);
@@ -2003,6 +2017,7 @@ fn generate_sub_component_body(
         )
     });
 
+    debug_assert_eq!(component.needs_user_init(root), !user_init_code.is_empty());
     let mut chunk_fns = Vec::new();
     let init = emit_in_chunks(
         "init",
@@ -2024,6 +2039,86 @@ fn generate_sub_component_body(
     );
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
+
+    let user_init_fn = (is_item_tree_root || component.needs_user_init(root)).then(|| {
+        quote!(
+            pub(super) fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
+                let _self = self_rc.as_pin_ref();
+                #(#user_init_code)*
+            }
+        )
+    });
+    let accessibility_fns = component.has_accessibility(root).then(|| {
+        quote!(
+            pub(super) fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
+                let _self = self;
+                match index {
+                    #(#accessible_role_branch)*
+                    _ => sp::AccessibleRole::default(),
+                }
+            }
+
+            pub(super) fn accessible_string_property(
+                self: ::core::pin::Pin<&Self>,
+                index: u32,
+                what: sp::AccessibleStringProperty,
+            ) -> sp::Option<sp::SharedString> {
+                let _self = self;
+                match (index, what) {
+                    #(#accessible_string_property_branch)*
+                    _ => sp::None,
+                }
+            }
+
+            pub(super) fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
+                let _self = self;
+                match (index, action) {
+                    #(#accessibility_action_branch)*
+                    _ => (),
+                }
+            }
+
+            pub(super) fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
+                let _self = self;
+                match index {
+                    #(#supported_accessibility_actions_branch)*
+                    _ => ::core::default::Default::default(),
+                }
+            }
+        )
+    });
+    let element_infos_fn = component.has_element_infos(root).then(|| {
+        quote!(
+            pub(super) fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+                let _self = self;
+                match index {
+                    #(#item_element_infos_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+        )
+    });
+    let testable_properties_fns = component.has_testable_properties(root).then(|| {
+        quote!(
+            pub(super) fn element_testable_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
+                #![allow(unused)]
+                let _self = self;
+                match index {
+                    #(#element_testable_properties_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+
+            pub(super) fn element_testable_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
+                #![allow(unused, unreachable_patterns)]
+                let _self = self;
+                match index {
+                    #(#element_testable_property_value_branch)*
+                    _ => { ::core::default::Default::default() }
+                }
+            }
+        )
+    });
 
     quote!(
         #[derive(sp::FieldOffsets, Default)]
@@ -2072,10 +2167,7 @@ fn generate_sub_component_body(
                 ::core::result::Result::Ok(())
             }
 
-            pub(super) fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
-                let _self = self_rc.as_pin_ref();
-                #(#user_init_code)*
-            }
+            #user_init_fn
 
             #(#chunk_fns)*
 
@@ -2147,68 +2239,11 @@ fn generate_sub_component_body(
                 sp::euclid::rect(x, y, w, h)
             }
 
-            pub(super) fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                let _self = self;
-                match index {
-                    #(#accessible_role_branch)*
-                    //#(#forward_sub_ranges => #forward_sub_field.apply_pin(_self).accessible_role())*
-                    _ => sp::AccessibleRole::default(),
-                }
-            }
+            #accessibility_fns
 
-            pub(super) fn accessible_string_property(
-                self: ::core::pin::Pin<&Self>,
-                index: u32,
-                what: sp::AccessibleStringProperty,
-            ) -> sp::Option<sp::SharedString> {
-                let _self = self;
-                match (index, what) {
-                    #(#accessible_string_property_branch)*
-                    _ => sp::None,
-                }
-            }
+            #element_infos_fn
 
-            pub(super) fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                let _self = self;
-                match (index, action) {
-                    #(#accessibility_action_branch)*
-                    _ => (),
-                }
-            }
-
-            pub(super) fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                let _self = self;
-                match index {
-                    #(#supported_accessibility_actions_branch)*
-                    _ => ::core::default::Default::default(),
-                }
-            }
-
-            pub(super) fn item_element_infos(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                let _self = self;
-                match index {
-                    #(#item_element_infos_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
-            }
-
-            pub(super) fn element_testable_properties(self: ::core::pin::Pin<&Self>, index: u32) -> sp::Option<sp::SharedString> {
-                #![allow(unused)]
-                let _self = self;
-                match index {
-                    #(#element_testable_properties_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
-            }
-
-            pub(super) fn element_testable_property_value(self: ::core::pin::Pin<&Self>, index: u32, property_name: &str) -> sp::Option<sp::SharedString> {
-                #![allow(unused, unreachable_patterns)]
-                let _self = self;
-                match index {
-                    #(#element_testable_property_value_branch)*
-                    _ => { ::core::default::Default::default() }
-                }
-            }
+            #testable_properties_fns
 
             #update_timers
 
@@ -2481,6 +2516,7 @@ fn generate_item_tree(
         parent_ctx,
         index_property,
         needs_window_adapter,
+        true,
     );
     generate_item_tree_body(sub_tree, root, parent_ctx, is_popup, needs_window_adapter, sub_comp)
 }
@@ -2611,25 +2647,22 @@ fn generate_item_tree_body(
     let item_tree_array_len = item_tree_array.len();
     let item_array_len = item_array.len();
 
-    let element_info_body = if root.has_debug_info {
-        quote!(
-            *_result = self.item_element_infos(_index).unwrap_or_default();
-            true
-        )
-    } else {
-        quote!(false)
+    let root_component = &root.sub_components[sub_tree.root];
+    let debug_info_query = |has: bool, query: TokenStream| {
+        let value = if has {
+            quote!(self.#query(_index).unwrap_or_default())
+        } else {
+            quote!(::core::default::Default::default())
+        };
+        if root.has_debug_info { quote!(*_result = #value; true) } else { quote!(false) }
     };
+    let element_info_body =
+        debug_info_query(root_component.has_element_infos(root), quote!(item_element_infos));
+    let has_testable_properties = root_component.has_testable_properties(root);
+    let element_testable_properties_body =
+        debug_info_query(has_testable_properties, quote!(element_testable_properties));
 
-    let element_testable_properties_body = if root.has_debug_info {
-        quote!(
-            *_result = self.element_testable_properties(_index).unwrap_or_default();
-            true
-        )
-    } else {
-        quote!(false)
-    };
-
-    let element_testable_property_value_body = if root.has_debug_info {
+    let element_testable_property_value_body = if has_testable_properties {
         quote!(
             let sp::Ok(name) = ::core::str::from_utf8(_property_name.as_slice()) else {
                 return false;
@@ -2754,6 +2787,32 @@ fn generate_item_tree_body(
         }
     };
 
+    let [
+        accessible_role_body,
+        accessible_string_property_body,
+        accessibility_action_body,
+        supported_accessibility_actions_body,
+    ] = if root_component.has_accessibility(root) {
+        [
+            quote!(self.accessible_role(index)),
+            quote!(if let Some(r) = self.accessible_string_property(index, what) {
+                *result = r;
+                true
+            } else {
+                false
+            }),
+            quote!(self.accessibility_action(index, action);),
+            quote!(self.supported_accessibility_actions(index)),
+        ]
+    } else {
+        [
+            quote!(sp::AccessibleRole::default()),
+            quote!(false),
+            quote!(),
+            quote!(::core::default::Default::default()),
+        ]
+    };
+
     quote!(
         #sub_comp
 
@@ -2852,7 +2911,7 @@ fn generate_item_tree_body(
             }
 
             fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
-                self.accessible_role(index)
+                #accessible_role_body
             }
 
             fn accessible_string_property(
@@ -2861,20 +2920,15 @@ fn generate_item_tree_body(
                 what: sp::AccessibleStringProperty,
                 result: &mut sp::SharedString,
             ) -> bool {
-                if let Some(r) = self.accessible_string_property(index, what) {
-                    *result = r;
-                    true
-                } else {
-                    false
-                }
+                #accessible_string_property_body
             }
 
             fn accessibility_action(self: ::core::pin::Pin<&Self>, index: u32, action: &sp::AccessibilityAction) {
-                self.accessibility_action(index, action);
+                #accessibility_action_body
             }
 
             fn supported_accessibility_actions(self: ::core::pin::Pin<&Self>, index: u32) -> sp::SupportedAccessibilityAction {
-                self.supported_accessibility_actions(index)
+                #supported_accessibility_actions_body
             }
 
             fn item_element_infos(
