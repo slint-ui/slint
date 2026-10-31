@@ -1000,6 +1000,7 @@ impl FocusScope {
             anchor_point: LogicalPosition::from_euclid(cursor_rect_origin + cursor_rect_size),
             input_type: self.ime_input_type(),
             input_method_hints: self.ime_input_method_hints(),
+            single_line: false,
             clip_rect: None,
         }
     }
