@@ -8,14 +8,24 @@
 # with the F-Droid recipe inside the F-Droid build server image, and require
 # identical bytes. Two Skia builds from source make this slow, so it runs
 # with the full CI only, not on pull requests.
+#
+# With `signed-apks`, check the APKs we publish instead, the way F-Droid does:
+# rebuild every ABI with the recipe, scan our signed APKs, and verify them
+# against the rebuilds.
 name: Android reproducible build
 
 on:
     workflow_dispatch:
     workflow_call:
+        inputs:
+            signed-apks:
+                description: "Artifact of this run with the signed slint-viewer-<abi>.apk files to verify"
+                type: string
+                default: ""
 
 jobs:
     build:
+        if: ${{ !inputs.signed-apks }}
         # An older runner image than the F-Droid job's, so the two builds share
         # as little as possible. disorderfs reverses every directory listing,
         # which catches build scripts that walk directories without sorting.
@@ -40,6 +50,9 @@ jobs:
                   path: /tmp/src/tools/viewer/android/app/build/outputs/apk/release/app-*-release-unsigned.apk
 
     fdroid:
+        strategy:
+            matrix:
+                abi: ${{ fromJSON(inputs.signed-apks && '["armeabi-v7a", "x86_64", "arm64-v8a"]' || '["arm64-v8a"]') }}
         runs-on: ubuntu-latest
         container:
             image: registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie
@@ -50,10 +63,12 @@ jobs:
             # JDK 21 as the default java. The recipe is this checkout's, pointed
             # at this commit and without the release assets to compare against;
             # the source is this checkout too, cloned where `fdroid build`
-            # expects it. Only the arm64 entry, the recipe's last, is built.
+            # expects it.
             - name: fdroid build
               # The image's default shell is sh.
               shell: bash
+              env:
+                  ABI: ${{ matrix.abi }}
               run: |
                   source /etc/profile.d/bsenv.sh
                   apt-get update
@@ -76,16 +91,37 @@ jobs:
                       tools/viewer/android/fdroid/dev.slint.viewer.yml > $home_vagrant/metadata/dev.slint.viewer.yml
                   git clone . $home_vagrant/build/dev.slint.viewer
                   git -C $home_vagrant/build/dev.slint.viewer remote set-url origin https://github.com/slint-ui/slint.git
+                  vercode=$(awk -v abi="$ABI" '/^    versionCode:/ { code = $2 } $0 ~ "build-native.sh " abi "$" { print code }' \
+                      $home_vagrant/metadata/dev.slint.viewer.yml)
                   chown -R vagrant $home_vagrant/{logs,tmp,unsigned,build,metadata,.android,.gradle}
                   cd $home_vagrant
                   sudo --preserve-env --user vagrant \
                       env PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples \
                       PYTHONUNBUFFERED=true HOME=$home_vagrant GRADLE_USER_HOME=$home_vagrant/.gradle \
-                      fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:${code}3
-            # What fdroiddata's `check apk` job runs on the APK we publish: no
-            # non-free code, no debug flags, no banned signing blocks. Those
-            # blocks only exist once signed, so sign with a throwaway key.
-            - name: fdroid scanner
+                      fdroid build --verbose --test --on-server --no-tarball dev.slint.viewer:$vercode
+            - uses: actions/download-artifact@v8
+              if: ${{ inputs.signed-apks }}
+              with:
+                  name: ${{ inputs.signed-apks }}
+                  path: published
+            # What `fdroid build` does with the recipe's `binary`: copy the
+            # signature of our APK onto the rebuild, which then has to verify.
+            - name: Verify the published APK against the rebuild
+              if: ${{ inputs.signed-apks }}
+              shell: bash
+              run: |
+                  source /etc/profile.d/bsenv.sh
+                  cd $home_vagrant
+                  PYTHONPATH=$fdroidserver python3 - "$GITHUB_WORKSPACE/published/slint-viewer-${{ matrix.abi }}.apk" tmp/dev.slint.viewer_*.apk <<'EOF'
+                  import sys, tempfile
+                  from fdroidserver import common
+                  common.read_config()
+                  with tempfile.TemporaryDirectory() as tmp_dir:
+                      sys.exit(common.verify_apks(sys.argv[1], sys.argv[2], tmp_dir))
+                  EOF
+            # The banned signing blocks only exist once signed.
+            - name: Sign the rebuild with a throwaway key
+              if: ${{ !inputs.signed-apks }}
               shell: bash
               run: |
                   source /etc/profile.d/bsenv.sh
@@ -93,18 +129,26 @@ jobs:
                   keytool -genkeypair -keystore $keystore -storepass 111111 -keypass 111111 -alias check \
                       -keyalg RSA -keysize 2048 -validity 1 -dname CN=check
                   apksigner sign --ks $keystore --ks-pass pass:111111 --in $home_vagrant/tmp/dev.slint.viewer_*.apk --out signed.apk
-                  PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples fdroid scanner --verbose --exit-code signed.apk
+            # What fdroiddata's `check apk` job runs on the APK we publish: no
+            # non-free code, no debug flags, no banned signing blocks.
+            - name: fdroid scanner
+              shell: bash
+              run: |
+                  source /etc/profile.d/bsenv.sh
+                  PATH=$fdroidserver:$PATH PYTHONPATH=$fdroidserver:$fdroidserver/examples \
+                      fdroid scanner --verbose --exit-code ${{ inputs.signed-apks && format('published/slint-viewer-{0}.apk', matrix.abi) || 'signed.apk' }}
             - uses: actions/upload-artifact@v7
               with:
-                  name: apk-fdroid
+                  name: apk-fdroid-${{ matrix.abi }}
                   path: /home/vagrant/tmp/dev.slint.viewer_*.apk
             - uses: actions/upload-artifact@v7
               if: failure()
               with:
-                  name: fdroid-build-logs
+                  name: fdroid-build-logs-${{ matrix.abi }}
                   path: /home/vagrant/logs/
 
     compare:
+        if: ${{ !inputs.signed-apks }}
         needs: [build, fdroid]
         runs-on: ubuntu-latest
         steps:
@@ -114,7 +158,7 @@ jobs:
                   path: ours
             - uses: actions/download-artifact@v8
               with:
-                  name: apk-fdroid
+                  name: apk-fdroid-arm64-v8a
                   path: fdroid
             - name: Compare the APKs
               run: |
