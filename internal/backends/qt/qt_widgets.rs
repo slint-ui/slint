@@ -32,15 +32,13 @@ use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
-use i_slint_core::window::{WindowAdapter, WindowAdapterRc, WindowInner};
+use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::{
     Callback, Coord, ItemVTable_static, Property, SharedString, SharedVector, declare_item_vtable,
 };
 use i_slint_core_macros::*;
 use std::ptr::NonNull;
 use std::rc::Rc;
-
-type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 
 /// Helper macro to get the size from the width and height property,
 /// and return Default::default in case the size is too small
