@@ -2278,6 +2278,7 @@ impl TextInput {
             anchor_point,
             input_type: self.input_type(),
             input_method_hints: self.input_method_hints(),
+            single_line: self.single_line(),
             clip_rect,
         }
     }

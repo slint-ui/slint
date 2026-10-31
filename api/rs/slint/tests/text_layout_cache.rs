@@ -112,6 +112,46 @@ fn text_change_invalidates_cache() {
 }
 
 #[test]
+fn text_change_repaints_after_eviction() {
+    let window = setup();
+
+    // A fixed geometry, because a size that follows the text would repaint it regardless.
+    slint::slint! {
+        #[edition = "1.19"]
+        export component EvictionComponent inherits Window {
+            in property <string> busy: "0";
+            in property <string> quiet: "Hello";
+            Text { y: 0px; width: 200px; height: 40px; text: busy; }
+            Text { y: 50px; width: 200px; height: 40px; text: quiet; }
+        }
+    }
+
+    let ui = EvictionComponent::new().unwrap();
+    ui.show().unwrap();
+    window.draw_if_needed(|renderer| {
+        render_and_get_miss_count(renderer);
+    });
+
+    // Every change reshapes, so this crosses the sweep threshold while `quiet` isn't redrawn.
+    for i in 1..=2048 {
+        ui.set_busy(i.to_string().into());
+        window.draw_if_needed(|renderer| {
+            render_and_get_miss_count(renderer);
+        });
+    }
+
+    ui.set_quiet("Goodbye".into());
+    let mut miss_count = 0u64;
+    assert!(
+        window.draw_if_needed(|renderer| {
+            miss_count = render_and_get_miss_count(renderer);
+        }),
+        "changing the evicted text must request a redraw"
+    );
+    assert!(miss_count > 0, "the evicted text must be reshaped");
+}
+
+#[test]
 fn font_size_change_invalidates_cache() {
     let window = setup();
 
