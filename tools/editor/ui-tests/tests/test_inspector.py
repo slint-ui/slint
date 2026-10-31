@@ -844,6 +844,42 @@ def test_each_image_fit_value_writes_exact_source(
         assert_rendered_element(window, "InspectorCases::inspect-image")
 
 
+@pytest.mark.parametrize(
+    ("initial", "rendering"), (("smooth", "pixelated"), ("pixelated", "smooth"))
+)
+def test_each_image_rendering_value_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    initial: str,
+    rendering: str,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    starting_source = replace_once(
+        source_file.read_bytes(),
+        b"        image-fit: contain;",
+        f"        image-fit: contain;\n        image-rendering: {initial};".encode(),
+    )
+    source_file.write_bytes(starting_source)
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Image")
+        edit_field(
+            window, "Image rendering", rendering, slint_testing.AccessibleRole.Combobox
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                starting_source,
+                f"        image-rendering: {initial};".encode(),
+                f"        image-rendering: {rendering};".encode(),
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
+        assert_rendered_element(window, "InspectorCases::inspect-image")
+
+
 def test_image_alignment_grid_writes_both_properties(
     editor_binary: Path,
     editor_environment: dict[str, str],
@@ -1034,6 +1070,45 @@ def test_each_font_weight_writes_exact_source(
             relative_path=INSPECTOR_SOURCE,
         )
         element(window, "Inspector text", role=slint_testing.AccessibleRole.Text)
+
+
+def test_font_italic_switch_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    def italic_switch() -> slint_testing.Element:
+        return inspector_field(window, "Italic", slint_testing.AccessibleRole.Switch)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        wait_for_source(source_file, baseline)
+        window = first_window(editor)
+        select_element(window, "Text")
+        expect(italic_switch()).to_be_checked(False)
+
+        italic_switch().invoke_accessible_default_action()
+        italic = wait_for_source_change(source_file, baseline)
+        assert italic == replace_once(
+            baseline,
+            b'        font-family: "Inter";',
+            b'        font-family: "Inter";\n        font-italic: true;',
+        )
+        expect(italic_switch()).to_be_checked()
+
+        italic_switch().invoke_accessible_default_action()
+        upright = wait_for_source_change(source_file, italic)
+        assert upright == replace_once(
+            italic, b"        font-italic: true;", b"        font-italic: false;"
+        )
+        expect(italic_switch()).to_be_checked(False)
+
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(italic, INSPECTOR_SOURCE)
+        expect(italic_switch()).to_be_checked()
 
 
 @pytest.mark.parametrize("wrap", ("no-wrap", "word-wrap", "char-wrap"))
@@ -1327,6 +1402,45 @@ def test_widget_text_content_writes_exact_source(
             relative_path=INSPECTOR_SOURCE,
         )
         element(window, rendered, role=role)
+
+
+def test_tooltip_text_content_writes_exact_source(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_outline_row(window, "inspect-tooltip")
+        wait_for_field(
+            window,
+            "Text content",
+            '@markdown("Inspector tooltip")',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        assert not elements(
+            window,
+            "Horizontal Alignment",
+            role=slint_testing.AccessibleRole.Combobox,
+        )
+        edit_field(
+            window,
+            "Text content",
+            '@markdown("**Tooltip** content")',
+            slint_testing.AccessibleRole.TextInput,
+        )
+        snapshot.wait_for_exact(
+            replace_once(
+                baseline,
+                b'            text: @markdown("Inspector tooltip");',
+                b'            text: @markdown("**Tooltip** content");',
+            ),
+            relative_path=INSPECTOR_SOURCE,
+        )
 
 
 def test_invalid_text_content_does_not_change_source(

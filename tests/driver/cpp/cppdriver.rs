@@ -35,8 +35,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.library_paths = library_paths;
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
-    compiler_config.edition =
-        test_driver_lib::parse_slint_edition(&source)?.or(compiler_config.edition);
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
     if source.contains("//bundle-translations") {
         compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
@@ -211,10 +210,6 @@ namespace slint_testing = slint::private_api::testing;
         cmd.arg(binary_path.deref());
     } else {
         cmd = std::process::Command::new(binary_path.deref());
-    }
-    // In live-preview mode, the test case compiles its .slint file again at run time.
-    if let Some(edition) = test_driver_lib::extract_slint_edition(&source) {
-        cmd.env("SLINT_EDITION", edition);
     }
 
     let output = cmd

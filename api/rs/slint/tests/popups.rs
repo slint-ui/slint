@@ -156,7 +156,7 @@ fn interaction_with_dead_popup_impossible() {
     }
 
     slint::slint! {
-            #[slint_edition = "1.19"]
+            #[edition = "1.19"]
             export component Ui inherits Window {
                 property <bool> condition: true;
                 out property <int> result;
@@ -254,7 +254,7 @@ fn interaction_with_dead_popup_panics() {
     }
 
     slint::slint! {
-        #[slint_edition = "1.19"]
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in-out property <bool> condition: true;
 

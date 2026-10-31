@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ffi::OsString,
     path::PathBuf,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use i_slint_live_preview::protocol::{
@@ -17,17 +17,18 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     LspToPreview,
-    child_process::ChildProcessLspToPreview,
-    remote_authentication::{PairingAnswer, PairingCredentials, PairingPrompt},
+    remote_authentication::{PairingAnswer, PairingCredentials},
     springboard_ui as ui,
 };
 
-mod remote;
+mod connection;
+mod discovery;
 mod remote_connection;
 mod settings;
-use remote::{DiscoveredViewer, Discovery, DiscoveryEvent};
-use remote_connection::{ConnectionEvent, RemoteConnection};
-use settings::{NamedEndpointIdentity, SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
+use connection::{Connection, ManualProbe};
+use discovery::{DiscoveredViewers, RemoteViewer};
+use remote_connection::ConnectionEvent;
+use settings::{SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
 pub type LocalPreviewArguments = Arc<dyn Fn() -> oneshot::Receiver<Vec<OsString>> + Send + Sync>;
 
@@ -44,28 +45,51 @@ type SpringboardAction = Box<dyn FnOnce(&mut SpringboardTask) + Send + 'static>;
 #[derive(Clone)]
 pub struct Springboard {
     task_sender: mpsc::UnboundedSender<SpringboardAction>,
-    displayed_endpoints: Arc<Mutex<Vec<EndpointIdentity>>>,
+    displayed_endpoints: Arc<RwLock<DisplayedEndpoints>>,
 }
 
-/// Identifies a preview endpoint: the Local child process, or a discovered
-/// viewer by its mDNS fullname. This is what the user picks and what `selected`
-/// tracks. It carries no display name, because while an endpoint is selected its
-/// name is looked up in `viewers`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// The identities behind the rows of the UI's endpoint lists, in row order.
+/// `update_ui` replaces them together with the lists, on the UI thread.
+// TODO: handle a poisoned lock instead of panicking on it.
+struct DisplayedEndpoints {
+    saved: Vec<EndpointIdentity>,
+    discovered: Vec<EndpointIdentity>,
+}
+
+impl DisplayedEndpoints {
+    fn saved(&self, row: i32) -> Option<EndpointIdentity> {
+        self.saved.get(usize::try_from(row).ok()?).cloned()
+    }
+
+    fn discovered(&self, row: i32) -> Option<EndpointIdentity> {
+        self.discovered.get(usize::try_from(row).ok()?).cloned()
+    }
+}
+
+/// Identifies a preview endpoint: the Local child process, a discovered
+/// viewer, or a viewer the user entered by address.
+/// This is what the user picks, what `selected` tracks, and what is saved.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 enum EndpointIdentity {
+    #[default]
     Local,
-    Remote(String),
-}
-
-enum Endpoint {
-    Local {
-        preview: ChildProcessLspToPreview,
-        receiver: mpsc::UnboundedReceiver<PreviewToLspMessage>,
-    },
-    Remote {
-        connection: RemoteConnection,
-        pairing_answer: Option<oneshot::Sender<PairingAnswer>>,
-    },
+    /// `host` is the name the viewer advertises, see `RemoteViewer::identity`.
+    /// The mDNS fullname isn't part of the identity: it changes when mDNS
+    /// resolves a name conflict, as "Pixel 8 (2)".
+    // TODO: add the viewer's custom name, once it advertises one next to its host.
+    Remote { host: String },
+    /// Never matched with a discovered viewer, even at the same address.
+    ///
+    /// NOTE: Viewers listen on a port the OS assigns on every start, so a saved
+    /// manual endpoint only reaches its viewer until that viewer restarts.
+    /// It's saved anyway: after a restart, the user edits the port instead of
+    /// entering the endpoint again.
+    /// This is subject to change: a desktop viewer can already pin its address
+    /// with `--remote-address`, a shorter `--port` would make that easier, and
+    /// a reserved default port would also cover mobile viewers, which take no flags.
+    // TODO: add an optional name the user gives it.
+    Manual { host: String, port: u16 },
 }
 
 struct SpringboardTask {
@@ -73,24 +97,16 @@ struct SpringboardTask {
     pending_local_launch: Option<oneshot::Receiver<Vec<OsString>>>,
     to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
     global: slint::Weak<ui::Springboard<'static>>,
-    displayed_endpoints: Arc<Mutex<Vec<EndpointIdentity>>>,
+    displayed_endpoints: Arc<RwLock<DisplayedEndpoints>>,
+    /// Without Local, in the order the user saved them.
+    saved_endpoints: Vec<EndpointIdentity>,
+    selected_endpoint: EndpointIdentity,
     state: ui::SpringboardState,
-    connection_state: ui::ConnectionState,
-    pairing_code_digits: u8,
-    error: String,
-    preview: Option<Endpoint>,
+    connection: Connection,
     highlight: Option<LspToPreviewMessage>,
-    discovery: Option<Discovery>,
-    viewers: Vec<DiscoveredViewer>,
-    advertised: HashSet<String>,
-    selected: Option<EndpointIdentity>,
-    /// The stored selection while it waits to be preselected in this run.
-    /// Any selection clears it, so a viewer that failed or was passed over by
-    /// the user isn't selected again when discovery re-advertises it.
-    last_selected: Option<NamedEndpointIdentity>,
-    credentials: HashMap<String, PairingCredentials>,
-    #[cfg(test)]
-    discovery_receiver: Option<mdns_sd::Receiver<mdns_sd::ServiceEvent>>,
+    discovery: DiscoveredViewers,
+    manual_probe: Option<ManualProbe>,
+    credentials: HashMap<EndpointIdentity, PairingCredentials>,
 }
 
 impl Springboard {
@@ -99,26 +115,77 @@ impl Springboard {
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
         global: slint::Weak<ui::Springboard<'static>>,
     ) -> Self {
+        Self::spawn(local_preview, to_editor, global, DiscoveredViewers::start())
+    }
+
+    fn spawn(
+        local_preview: LocalPreviewConfig,
+        to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
+        global: slint::Weak<ui::Springboard<'static>>,
+        discovery: DiscoveredViewers,
+    ) -> Self {
         let (task_sender, task_receiver) = mpsc::unbounded_channel::<SpringboardAction>();
-        let displayed_endpoints = Arc::new(Mutex::new(vec![EndpointIdentity::Local]));
+        let displayed_endpoints = Arc::new(RwLock::new(DisplayedEndpoints {
+            saved: vec![EndpointIdentity::Local],
+            discovered: Vec::new(),
+        }));
         let handle = Self { task_sender, displayed_endpoints: displayed_endpoints.clone() };
-        let close_handle = handle.clone();
-        let select_handle = handle.clone();
-        let code_handle = handle.clone();
-        let consent_handle = handle.clone();
+        let callback_handle = handle.clone();
         let _ = global.upgrade_in_event_loop(move |global| {
-            global.on_close(move || close_handle.close());
-            global.on_select_endpoint(move |index| select_handle.select_displayed(index));
+            let handle = callback_handle;
+            let bind = |action: fn(&mut SpringboardTask)| {
+                let handle = handle.clone();
+                move || {
+                    let _ = handle.task_sender.send(Box::new(action));
+                }
+            };
+            let bind_row =
+                |rows: fn(&DisplayedEndpoints, i32) -> Option<EndpointIdentity>,
+                 action: fn(&mut SpringboardTask, EndpointIdentity)| {
+                    let handle = handle.clone();
+                    move |row| {
+                        let Some(identity) = rows(&handle.displayed(), row) else { return };
+                        let _ =
+                            handle.task_sender.send(Box::new(move |task| action(task, identity)));
+                    }
+                };
+            global.on_close(bind(SpringboardTask::close));
+            global.on_discover_devices(bind(|task| {
+                task.discovery.restart();
+                task.update_ui();
+            }));
+            global.on_connect_manual_endpoint(bind(SpringboardTask::connect_manual_endpoint));
+            global.on_cancel_pairing(bind(SpringboardTask::cancel_pairing));
+            global.on_accept_unpaired_connection(bind(|task| {
+                task.connection.answer(PairingAnswer::AcceptUnpaired);
+                task.update_ui();
+            }));
+            global.on_select_endpoint(bind_row(
+                DisplayedEndpoints::saved,
+                SpringboardTask::select_endpoint,
+            ));
+            global.on_pair_endpoint(bind_row(
+                DisplayedEndpoints::discovered,
+                SpringboardTask::select_endpoint,
+            ));
+            global.on_forget_device(bind_row(
+                DisplayedEndpoints::saved,
+                SpringboardTask::forget_endpoint,
+            ));
+            let probe_handle = handle.clone();
+            global.on_probe_address(move |host, port| {
+                let host = host.trim().to_owned();
+                let _ = probe_handle.task_sender.send(Box::new(move |task| {
+                    task.manual_probe = ManualProbe::start(host, port);
+                    task.update_ui();
+                }));
+            });
             global.on_submit_pairing_code(move |code| {
                 let code = code.trim().to_owned();
-                let _ = code_handle
-                    .task_sender
-                    .send(Box::new(move |task| task.answer_pairing(PairingAnswer::Code(code))));
-            });
-            global.on_accept_unpaired_connection(move || {
-                let _ = consent_handle
-                    .task_sender
-                    .send(Box::new(|task| task.answer_pairing(PairingAnswer::AcceptUnpaired)));
+                let _ = handle.task_sender.send(Box::new(move |task| {
+                    task.connection.answer(PairingAnswer::Code(code));
+                    task.update_ui();
+                }));
             });
         });
         let task = SpringboardTask {
@@ -127,33 +194,23 @@ impl Springboard {
             to_editor,
             global,
             displayed_endpoints,
-            state: ui::SpringboardState::Stopped,
-            connection_state: ui::ConnectionState::None,
-            pairing_code_digits: 0,
-            error: String::new(),
-            preview: None,
+            saved_endpoints: Vec::new(),
+            selected_endpoint: EndpointIdentity::Local,
+            state: ui::SpringboardState::Idle,
+            connection: Connection::default(),
             highlight: None,
-            discovery: None,
-            viewers: Vec::new(),
-            advertised: HashSet::new(),
-            selected: None,
-            last_selected: None,
+            discovery,
+            manual_probe: None,
             credentials: HashMap::new(),
-            #[cfg(test)]
-            discovery_receiver: None,
         };
+        task.request_settings();
         task.update_ui();
         crate::spawn_local(task.run(task_receiver));
         handle
     }
 
-    fn select_displayed(&self, index: i32) {
-        let endpoint = usize::try_from(index)
-            .ok()
-            .and_then(|index| self.displayed_endpoints.lock().unwrap().get(index).cloned());
-        if let Some(endpoint) = endpoint {
-            let _ = self.task_sender.send(Box::new(move |task| task.select_endpoint(endpoint)));
-        }
+    fn displayed(&self) -> RwLockReadGuard<'_, DisplayedEndpoints> {
+        self.displayed_endpoints.read().expect("displayed endpoints lock is poisoned")
     }
 
     pub fn start(&self) {
@@ -168,7 +225,7 @@ impl Springboard {
 impl LspToPreview for Springboard {
     fn send(&self, message: &LspToPreviewMessage) {
         let message = message.clone();
-        let _ = self.task_sender.send(Box::new(move |task| task.send(message)));
+        let _ = self.task_sender.send(Box::new(move |task| task.recv(message)));
     }
 
     fn preview_target(&self) -> PreviewTarget {
@@ -203,483 +260,365 @@ impl SpringboardTask {
                 } => {
                     self.pending_local_launch = None;
                     match arguments {
-                        Some(arguments) => self.launch_local(arguments),
-                        None => self.fail_endpoint("Cannot prepare Local preview".into()),
+                        Some(arguments) => {
+                            self.connection = Connection::local(&self.local_preview, arguments);
+                        }
+                        None => self.connection.fail("Cannot prepare Local preview".into()),
                     }
+                    self.update_ui();
                 }
-                event = receive_endpoint(&mut self.preview) => {
+                event = self.connection.next_event() => {
                     match event {
                         Some(event) => self.handle_connection(event),
-                        None => self.fail_endpoint("Preview connection ended unexpectedly".into()),
-                    }
-                }
-                event = async {
-                    match &self.discovery {
-                        Some(discovery) => discovery.next_event().await,
-                        None => std::future::pending().await,
-                    }
-                } => {
-                    match event {
-                        Ok(event) => self.handle_discovery(event),
-                        Err(error) => {
-                            self.discovery = None;
-                            self.error = format!("Viewer discovery stopped: {error}");
+                        None => {
+                            self.connection.fail("Preview connection ended unexpectedly".into());
                             self.update_ui();
                         }
                     }
                 }
+                () = self.discovery.changed() => {
+                    self.connect();
+                    self.update_ui();
+                }
+                () = async {
+                    match &mut self.manual_probe {
+                        Some(probe) => probe.finished().await,
+                        None => std::future::pending().await,
+                    }
+                } => self.update_ui(),
             }
         }
         self.close();
     }
 
     fn start(&mut self) {
-        if self.state != ui::SpringboardState::Stopped {
+        if self.state != ui::SpringboardState::Idle {
             return;
         }
-        self.state = ui::SpringboardState::Idle;
-        self.request_last_selected();
-        #[cfg(test)]
-        if let Some(receiver) = &self.discovery_receiver {
-            self.discovery = Some(Discovery::from_receiver(receiver.clone()));
-            self.update_ui();
-            return;
-        }
-        match Discovery::start() {
-            Ok(discovery) => self.discovery = Some(discovery),
-            Err(error) => self.error = format!("Cannot discover viewers: {error}"),
-        }
+        self.state = ui::SpringboardState::Running;
+        // TODO: check in a follow-up: discovery that failed to start is only
+        // retried by "Pair nearby", so a saved remote may wait forever.
+        // Previously it retried on every play.
+        self.connect();
         self.update_ui();
     }
 
-    fn handle_discovery(&mut self, event: DiscoveryEvent) {
-        match event {
-            DiscoveryEvent::Updated(viewer) => {
-                self.advertised.insert(viewer.fullname.clone());
-                if let Some(existing) =
-                    self.viewers.iter_mut().find(|existing| existing.fullname == viewer.fullname)
-                {
-                    if existing == &viewer {
-                        // Already known and unchanged, but it may still be the
-                        // endpoint the last session used.
-                        self.apply_last_selected();
-                        return;
-                    }
-                    *existing = viewer;
-                } else {
-                    self.viewers.push(viewer);
-                }
-                self.apply_last_selected();
-            }
-            DiscoveryEvent::Removed(fullname) => {
-                self.advertised.remove(&fullname);
-                if self.selected == Some(EndpointIdentity::Remote(fullname.clone())) {
-                    if self.mark_unadvertised_selected() {
-                        self.update_ui();
-                    }
-                    return;
-                }
-                self.viewers.retain(|viewer| viewer.fullname != fullname);
-            }
-        }
-        self.update_ui();
-    }
-
-    fn mark_unadvertised_selected(&mut self) -> bool {
-        let Some(EndpointIdentity::Remote(fullname)) = &self.selected else { return false };
-        if self.preview.is_some() || self.advertised.contains(fullname) {
-            return false;
-        }
-        let Some(viewer) = self.viewers.iter_mut().find(|viewer| &viewer.fullname == fullname)
+    fn connect_manual_endpoint(&mut self) {
+        let Some(ManualProbe { host, port, state: ui::ManualEndpointState::Reachable, .. }) =
+            &self.manual_probe
         else {
-            return false;
+            return;
         };
-        viewer.unavailable_reason = "Viewer is no longer advertised".into();
-        true
+        self.select_endpoint(EndpointIdentity::Manual { host: host.clone(), port: *port });
     }
 
+    /// What clicking row `index` of `saved-endpoints` does.
     #[cfg(test)]
-    fn select(&mut self, index: i32) {
-        let identity = if index == 0 {
-            Some(EndpointIdentity::Local)
-        } else {
-            usize::try_from(index - 1)
-                .ok()
-                .and_then(|index| self.viewers.get(index))
-                .map(|viewer| EndpointIdentity::Remote(viewer.fullname.clone()))
-        };
-        if let Some(identity) = identity {
+    fn select_saved(&mut self, index: usize) {
+        let saved =
+            std::iter::once(EndpointIdentity::Local).chain(self.saved_endpoints.iter().cloned());
+        if let Some(identity) = saved.into_iter().nth(index) {
+            self.select_endpoint(identity);
+        }
+    }
+
+    /// What clicking Pair on row `index` of `discovered-endpoints` does.
+    #[cfg(test)]
+    fn pair(&mut self, index: usize) {
+        if let Some(identity) = self.discovery.discovered.get(index).map(RemoteViewer::identity) {
             self.select_endpoint(identity);
         }
     }
 
     fn select_endpoint(&mut self, identity: EndpointIdentity) {
-        if self.state == ui::SpringboardState::Stopped
-            || (self.selected.as_ref() == Some(&identity)
-                && self.connection_state != ui::ConnectionState::Failed)
+        if self.selected_endpoint == identity
+            && self.connection.state != ui::ConnectionState::Failed
         {
             return;
         }
-        // A remote endpoint is only selectable once discovery reported a usable
-        // address for it, and the same report is what names it.
-        let (viewer, named) = match &identity {
-            EndpointIdentity::Local => (None, NamedEndpointIdentity::Local),
-            EndpointIdentity::Remote(fullname) => {
-                let Some(viewer) = self.viewers.iter().find(|viewer| &viewer.fullname == fullname)
-                else {
-                    return;
-                };
-                if !viewer.unavailable_reason.is_empty() {
-                    self.error = viewer.unavailable_reason.clone();
-                    self.update_ui();
-                    return;
-                }
-                (
-                    Some(viewer.clone()),
-                    NamedEndpointIdentity::Remote {
-                        fullname: fullname.clone(),
-                        name: viewer.name.clone(),
-                    },
-                )
-            }
-        };
-        self.preview = None;
+        self.connection = Connection::default();
         self.pending_local_launch = None;
-        self.selected = Some(identity.clone());
-        self.store_last_selected(named);
-        self.error.clear();
-        self.viewers.retain(|viewer| {
-            self.advertised.contains(&viewer.fullname)
-                || self.selected == Some(EndpointIdentity::Remote(viewer.fullname.clone()))
-        });
-        if let Some(viewer) = viewer {
-            let credentials = self.credentials.get(&viewer.fullname).copied();
-            self.preview = Some(Endpoint::Remote {
-                connection: RemoteConnection::connect(viewer, credentials),
-                pairing_answer: None,
-            });
-            self.state = ui::SpringboardState::EndpointSelected;
-            self.connection_state = ui::ConnectionState::Connecting;
-        } else {
-            if let Some(prepare_arguments) = &self.local_preview.prepare_arguments {
-                self.pending_local_launch = Some(prepare_arguments());
-                self.state = ui::SpringboardState::Idle;
-                self.connection_state = ui::ConnectionState::Connecting;
-            } else {
-                self.launch_local(self.local_preview.arguments.clone());
-            }
+        self.selected_endpoint = identity;
+        // A new endpoint is saved once it connects, see `ConnectionEvent::Connected`.
+        if !self.is_unsaved(&self.selected_endpoint) {
+            self.store_settings();
         }
+        self.connect();
         self.update_ui();
     }
 
-    fn launch_local(&mut self, arguments: Vec<OsString>) {
-        let (sender, receiver) = mpsc::unbounded_channel();
-        let preview =
-            ChildProcessLspToPreview::new(self.local_preview.executable.clone(), arguments, sender)
-                .with_started_callback(self.local_preview.on_started.clone());
-        match preview.start_preview() {
-            Ok(()) => {
-                self.preview = Some(Endpoint::Local { preview, receiver });
-                self.state = ui::SpringboardState::EndpointSelected;
+    fn is_unsaved(&self, identity: &EndpointIdentity) -> bool {
+        identity != &EndpointIdentity::Local && !self.saved_endpoints.contains(identity)
+    }
+
+    /// Drop a connection that waits for the user to pair or to accept it.
+    fn cancel_pairing(&mut self) {
+        if matches!(
+            self.connection.state,
+            ui::ConnectionState::PairingRequired
+                | ui::ConnectionState::UnpairedConfirmationRequired
+        ) {
+            self.connection.fail("Pairing cancelled".into());
+            self.update_ui();
+        }
+    }
+
+    /// Start the preview for `selected`, unless stopped, already started, or
+    /// failed. A remote viewer is started once discovery reports it usable.
+    fn connect(&mut self) {
+        if self.state == ui::SpringboardState::Idle
+            || self.connection.is_started()
+            || self.pending_local_launch.is_some()
+            || self.connection.state == ui::ConnectionState::Failed
+        {
+            return;
+        }
+        match &self.selected_endpoint {
+            EndpointIdentity::Local => match &self.local_preview.prepare_arguments {
+                Some(prepare_arguments) => {
+                    self.pending_local_launch = Some(prepare_arguments());
+                    self.connection.state = ui::ConnectionState::Connecting;
+                }
+                None => {
+                    let arguments = self.local_preview.arguments.clone();
+                    self.connection = Connection::local(&self.local_preview, arguments);
+                }
+            },
+            EndpointIdentity::Remote { .. } => {
+                let Some(viewer) = self.discovery.find(&self.selected_endpoint) else { return };
+                if !viewer.unavailable_reason.is_empty() {
+                    let reason = viewer.unavailable_reason.clone();
+                    self.connection.fail(reason);
+                    return;
+                }
+                let credentials = self.credentials.get(&self.selected_endpoint).copied();
+                self.connection = Connection::remote(viewer.clone(), credentials);
             }
-            Err(error) => {
-                self.selected = None;
-                self.state = ui::SpringboardState::Idle;
-                self.error = format!("Failed to launch Local preview: {error}");
+            EndpointIdentity::Manual { host, port } => {
+                let credentials = self.credentials.get(&self.selected_endpoint).copied();
+                self.connection =
+                    Connection::remote(RemoteViewer::manual(host, *port), credentials);
             }
         }
-        self.connection_state = ui::ConnectionState::None;
-        self.update_ui();
     }
 
     fn handle_connection(&mut self, event: ConnectionEvent) {
         match event {
-            ConnectionEvent::Pairing { prompt, answer } => {
-                let Some(Endpoint::Remote { pairing_answer, .. }) = &mut self.preview else {
-                    return;
-                };
-                *pairing_answer = Some(answer);
-                match prompt {
-                    PairingPrompt::Code { attempts_left, expires_in_seconds, code_digits } => {
-                        self.connection_state = ui::ConnectionState::PairingRequired;
-                        self.pairing_code_digits = code_digits;
-                        self.error = if attempts_left < pairing::MAX_ATTEMPTS {
-                            format!(
-                                "Incorrect code. {attempts_left} attempts left, {expires_in_seconds}s remaining"
-                            )
-                        } else {
-                            String::new()
-                        };
-                    }
-                    PairingPrompt::Unpaired => {
-                        self.connection_state = ui::ConnectionState::UnpairedConfirmationRequired;
-                        self.error.clear();
-                    }
-                }
-            }
+            ConnectionEvent::Pairing { prompt, answer } => self.connection.prompt(prompt, answer),
             ConnectionEvent::CredentialsChanged(credentials) => {
-                if let Some(EndpointIdentity::Remote(fullname)) = &self.selected {
+                if let selected @ (EndpointIdentity::Remote { .. }
+                | EndpointIdentity::Manual { .. }) = &self.selected_endpoint
+                {
                     match credentials {
                         Some(credentials) => {
-                            self.credentials.insert(fullname.clone(), credentials);
+                            self.credentials.insert(selected.clone(), credentials);
                         }
                         None => {
-                            self.credentials.remove(fullname);
+                            self.credentials.remove(selected);
                         }
                     }
                 }
                 return;
             }
             ConnectionEvent::Connected => {
-                self.connection_state = ui::ConnectionState::Connected;
-                if let Some(Endpoint::Remote { pairing_answer, .. }) = &mut self.preview {
-                    *pairing_answer = None;
+                self.connection.connected();
+                if self.is_unsaved(&self.selected_endpoint) {
+                    self.saved_endpoints.push(self.selected_endpoint.clone());
+                    self.store_settings();
                 }
-                self.error.clear();
             }
             ConnectionEvent::Message(PreviewToLspMessage::Exited) => {
                 self.close();
                 return;
             }
             ConnectionEvent::Message(PreviewToLspMessage::SendShowMessage { message }) => {
-                if message.typ == lsp_types::MessageType::ERROR {
-                    self.fail_endpoint(message.message.clone());
-                }
+                let error =
+                    (message.typ == lsp_types::MessageType::ERROR).then(|| message.message.clone());
                 let _ = self.to_editor.send(PreviewToLspMessage::SendShowMessage { message });
-                return;
+                let Some(error) = error else { return };
+                self.connection.fail(error);
             }
             ConnectionEvent::Message(message) => {
                 let _ = self.to_editor.send(message);
                 return;
             }
             ConnectionEvent::Ended { error } => {
-                if error.is_none() && self.connection_state == ui::ConnectionState::Connected {
+                if error.is_none() && self.connection.state == ui::ConnectionState::Connected {
                     self.close();
-                } else {
-                    self.fail_endpoint(
-                        error.unwrap_or_else(|| "Viewer connection ended before connecting".into()),
-                    );
-                }
-                return;
-            }
-        }
-        self.update_ui();
-    }
-
-    fn fail_endpoint(&mut self, error: String) {
-        self.preview = None;
-        self.error = error;
-        if matches!(self.selected, Some(EndpointIdentity::Remote(_))) {
-            self.connection_state = ui::ConnectionState::Failed;
-            self.mark_unadvertised_selected();
-        } else {
-            self.selected = None;
-            self.state = ui::SpringboardState::Idle;
-            self.connection_state = ui::ConnectionState::None;
-        }
-        self.update_ui();
-    }
-
-    fn answer_pairing(&mut self, answer: PairingAnswer) {
-        match &answer {
-            PairingAnswer::Code(code)
-                if self.connection_state == ui::ConnectionState::PairingRequired =>
-            {
-                if !pairing::is_valid_code(code)
-                    || code.len() != usize::from(self.pairing_code_digits)
-                {
-                    self.error = format!("Enter {} numeric digits", self.pairing_code_digits);
-                    self.update_ui();
                     return;
                 }
+                self.connection.fail(
+                    error.unwrap_or_else(|| "Viewer connection ended before connecting".into()),
+                );
             }
-            PairingAnswer::AcceptUnpaired
-                if self.connection_state == ui::ConnectionState::UnpairedConfirmationRequired => {}
-            _ => return,
         }
-        let Some(Endpoint::Remote { pairing_answer, .. }) = &mut self.preview else {
-            return;
-        };
-        if let Some(sender) = pairing_answer.take() {
-            let _ = sender.send(answer);
-            self.connection_state = ui::ConnectionState::Connecting;
-            self.error.clear();
-            self.update_ui();
-        }
+        self.update_ui();
     }
 
     fn close(&mut self) {
-        self.error.clear();
-        self.preview = None;
+        self.connection = Connection::default();
         self.pending_local_launch = None;
-        self.discovery = None;
-        self.viewers.clear();
-        self.advertised.clear();
-        self.selected = None;
-        self.last_selected = None;
-        self.state = ui::SpringboardState::Stopped;
-        self.connection_state = ui::ConnectionState::None;
+        self.state = ui::SpringboardState::Idle;
         self.update_ui();
     }
 
-    /// Ask the editor for the blob holding the last selection, which it answers
-    /// with a `SetUserSettings` handled in [`Self::send`].
-    fn request_last_selected(&self) {
+    fn forget_endpoint(&mut self, identity: EndpointIdentity) {
+        self.saved_endpoints.retain(|saved| saved != &identity);
+        self.credentials.remove(&identity);
+        if self.selected_endpoint == identity {
+            self.selected_endpoint = EndpointIdentity::Local;
+            self.connection = Connection::default();
+            self.state = ui::SpringboardState::Idle;
+        }
+        self.store_settings();
+        self.update_ui();
+    }
+
+    /// Ask the editor for the blob holding the saved endpoints, which it answers
+    /// with a `SetUserSettings` handled in [`Self::recv`].
+    fn request_settings(&self) {
         let _ = self.to_editor.send(PreviewToLspMessage::RequestState {
             files: Vec::new(),
             settings: vec![SPRINGBOARD_SETTINGS_FILE.into()],
         });
     }
 
-    /// Persist the selection through the editor, which owns the filesystem,
-    /// and cancel the pending preselect, see `last_selected`.
-    /// The display name travels with the identity, see [`NamedEndpointIdentity`].
-    fn store_last_selected(&mut self, last_selected: NamedEndpointIdentity) {
-        self.last_selected = None;
-        let settings = SpringboardSettings::new(Some(last_selected));
+    /// Persist the saved endpoints and the selection through the editor, which
+    /// owns the filesystem.
+    fn store_settings(&self) {
+        let settings =
+            SpringboardSettings::new(self.saved_endpoints.clone(), self.selected_endpoint.clone());
         let _ = self.to_editor.send(PreviewToLspMessage::UpdateUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
             contents: settings.serialize(),
         });
     }
 
-    /// Preselect the endpoint the last session connected to, so the user does
-    /// not have to click it again.
-    ///
-    /// A no-op until both facts are known: the stored selection, and that the
-    /// endpoint is usable. `Local` is always usable; a remote viewer only once a
-    /// discovery report carried a usable address, which is the same condition
-    /// that makes its row clickable (`unavailable_reason` is what disables it).
-    /// Callers are the two places where one of those facts can arrive last:
-    /// the settings branch of [`Self::send`], and [`Self::handle_discovery`].
-    ///
-    /// Fires at most once per run, see `last_selected`.
-    fn apply_last_selected(&mut self) {
-        let Some(last_selected) = &self.last_selected else { return };
-        let available = match last_selected {
-            NamedEndpointIdentity::Local => true,
-            NamedEndpointIdentity::Remote { fullname, .. } => self.viewers.iter().any(|viewer| {
-                &viewer.fullname == fullname
-                    && viewer.unavailable_reason.is_empty()
-                    && !viewer.addresses.is_empty()
-            }),
-        };
-        if available && let Some(last_selected) = self.last_selected.take() {
-            self.select_endpoint(last_selected.into());
-        }
-    }
-
-    fn send(&mut self, message: LspToPreviewMessage) {
-        if matches!(message, LspToPreviewMessage::Quit) {
-            self.close();
-            return;
-        }
-        if let LspToPreviewMessage::SetUserSettings { name, contents } = &message
-            && name == SPRINGBOARD_SETTINGS_FILE
-        {
-            // A reply that arrives after the user already selected, or after the
-            // run ended, must not take the selection back.
-            if self.state == ui::SpringboardState::Idle
-                && let Some(settings) = SpringboardSettings::deserialize(contents)
+    fn recv(&mut self, message: LspToPreviewMessage) {
+        match message {
+            LspToPreviewMessage::Quit => self.close(),
+            LspToPreviewMessage::SetUserSettings { name, contents }
+                if name == SPRINGBOARD_SETTINGS_FILE =>
             {
-                self.last_selected = settings.last_selected;
-                self.apply_last_selected();
-                self.update_ui();
+                self.handle_settings(&contents)
             }
-            return;
-        }
-        if matches!(message, LspToPreviewMessage::HighlightFromEditor { .. }) {
-            self.highlight = Some(message.clone());
-        }
-        if let Some(preview) = &self.preview {
-            let send = |message| match preview {
-                Endpoint::Local { preview, .. } => preview.send_running(&message),
-                Endpoint::Remote { connection, .. }
-                    if self.connection_state == ui::ConnectionState::Connected =>
-                {
-                    connection.send(message)
+            LspToPreviewMessage::HighlightFromEditor { .. } => {
+                self.highlight = Some(message.clone());
+                self.connection.send(message);
+            }
+            LspToPreviewMessage::ShowPreview(_) => {
+                self.connection.send(message);
+                if let Some(highlight) = self.highlight.clone() {
+                    self.connection.send(highlight);
                 }
-                Endpoint::Remote { .. } => {}
-            };
-            let highlight = matches!(message, LspToPreviewMessage::ShowPreview(_))
-                .then(|| self.highlight.clone())
-                .flatten();
-            send(message);
-            if let Some(highlight) = highlight {
-                send(highlight);
             }
+            message => self.connection.send(message),
         }
     }
 
-    fn selected_index(&self) -> i32 {
-        match &self.selected {
-            Some(EndpointIdentity::Local) => 0,
-            Some(EndpointIdentity::Remote(fullname)) => self
-                .viewers
-                .iter()
-                .position(|viewer| &viewer.fullname == fullname)
-                .map(|index| (index + 1) as i32)
-                .unwrap_or(-1),
-            None => -1,
+    /// NOTE: The editor answers once its project is loaded, so a preview the user
+    /// started before that is stopped, and an endpoint paired meanwhile is lost.
+    /// Pairing takes longer than loading a project, so that isn't handled.
+    fn handle_settings(&mut self, contents: &str) {
+        let Some(settings) = SpringboardSettings::deserialize(contents) else { return };
+        self.saved_endpoints = settings.saved;
+        self.selected_endpoint = settings.selected;
+        self.update_ui();
+        // Only a hand-edited settings file selects an endpoint it doesn't save.
+        if self.is_unsaved(&self.selected_endpoint) {
+            self.selected_endpoint = EndpointIdentity::Local;
+        }
+        self.close();
+    }
+
+    fn discovered_row(&self, viewer: &RemoteViewer) -> ui::PreviewEndpoint {
+        ui::PreviewEndpoint {
+            name: viewer.name.clone().into(),
+            kind: ui::PreviewEndpointKind::Remote,
+            address: format!("{}:{}", viewer.addresses.join(", "), viewer.port).into(),
+            unavailable_reason: viewer.unavailable_reason.clone().into(),
+            saved: self.saved_endpoints.contains(&viewer.identity()),
+            ..Default::default()
+        }
+    }
+
+    fn saved_row(&self, identity: &EndpointIdentity) -> ui::PreviewEndpoint {
+        match identity {
+            EndpointIdentity::Local => ui::PreviewEndpoint {
+                name: "Local".into(),
+                kind: ui::PreviewEndpointKind::Local,
+                ..Default::default()
+            },
+            EndpointIdentity::Remote { host } => match self.discovery.find(identity) {
+                Some(viewer) => self.discovered_row(viewer),
+                // TODO: consider keeping unavailable saved endpoints selectable,
+                // since `connect` already waits until the viewer is discovered.
+                None => ui::PreviewEndpoint {
+                    name: host.into(),
+                    kind: ui::PreviewEndpointKind::Remote,
+                    // A live connection outlasts the viewer's mDNS records.
+                    unavailable_reason: if identity == &self.selected_endpoint
+                        && self.connection.is_started()
+                    {
+                        Default::default()
+                    } else {
+                        "Viewer isn't nearby".into()
+                    },
+                    ..Default::default()
+                },
+            },
+            // Never disabled: only dialing tells whether a manual endpoint answers.
+            EndpointIdentity::Manual { host, port } => ui::PreviewEndpoint {
+                name: format!("{host}:{port}").into(),
+                kind: ui::PreviewEndpointKind::Manual,
+                address: format!("{host}:{port}").into(),
+                ..Default::default()
+            },
         }
     }
 
     fn update_ui(&self) {
-        let viewers = self.viewers.clone();
-        let selected = self.selected_index();
-        let mapping = self.displayed_endpoints.clone();
+        let saved: Vec<_> = std::iter::once(EndpointIdentity::Local)
+            .chain(self.saved_endpoints.iter().cloned())
+            .collect();
+        let saved_rows: Vec<_> = saved.iter().map(|identity| self.saved_row(identity)).collect();
+        let discovered: Vec<_> =
+            self.discovery.discovered.iter().map(RemoteViewer::identity).collect();
+        let discovered_rows: Vec<_> =
+            self.discovery.discovered.iter().map(|viewer| self.discovered_row(viewer)).collect();
+        let selected =
+            saved.iter().position(|row| row == &self.selected_endpoint).map_or(-1, |i| i as i32);
+        let selected_row = self.saved_row(&self.selected_endpoint);
+        let displayed = self.displayed_endpoints.clone();
         let state = self.state;
-        let connection = self.connection_state;
-        let pairing_code_digits = self.pairing_code_digits;
-        let error = self.error.clone();
-        // Only a remembered viewer has a name to show. Local is started on
-        // demand and has no discovery report to name it.
-        let last_selected_name = match &self.last_selected {
-            Some(NamedEndpointIdentity::Remote { name, .. }) => name.clone(),
-            _ => String::new(),
+        let connection = ui::Connection {
+            state: self.connection.state,
+            pairing_code_length: self
+                .connection
+                .pairing_code_length
+                .unwrap_or(pairing::CODE_DIGITS as u8)
+                .into(),
+            error: self.connection.error.clone().into(),
+        };
+        let discovery_error = self.discovery.error.clone();
+        let manual_endpoint = match &self.manual_probe {
+            Some(probe) => {
+                ui::ManualEndpoint { state: probe.state, version: probe.version.clone().into() }
+            }
+            None => ui::ManualEndpoint::default(),
         };
         let _ = self.global.upgrade_in_event_loop(move |global| {
-            global.set_last_selected_endpoint_name(last_selected_name.into());
-            let mut identities = vec![EndpointIdentity::Local];
-            identities.extend(
-                viewers.iter().map(|viewer| EndpointIdentity::Remote(viewer.fullname.clone())),
-            );
-            *mapping.lock().unwrap() = identities;
-            let mut endpoints = vec![ui::PreviewEndpoint {
-                id: "local".into(),
-                name: "Local".into(),
-                kind: ui::PreviewEndpointKind::Local,
-                saved: true,
-                ..Default::default()
-            }];
-            endpoints.extend(viewers.into_iter().map(|viewer| ui::PreviewEndpoint {
-                id: viewer.fullname.into(),
-                name: viewer.name.into(),
-                kind: ui::PreviewEndpointKind::Remote,
-                address: format!("{}:{}", viewer.addresses.join(", "), viewer.port).into(),
-                unavailable_reason: viewer.unavailable_reason.into(),
-                saved: true,
-                nearby: true,
-                ..Default::default()
-            }));
-            global.set_saved_count(endpoints.len() as i32);
-            global.set_endpoints(ModelRc::new(slint::VecModel::from(endpoints)));
+            *displayed.write().expect("displayed endpoints lock is poisoned") =
+                DisplayedEndpoints { saved, discovered };
+            global.set_saved_endpoints(ModelRc::new(slint::VecModel::from(saved_rows)));
+            global.set_discovered_endpoints(ModelRc::new(slint::VecModel::from(discovered_rows)));
+            global.set_discovery_error(discovery_error.into());
             global.set_selected_endpoint_index(selected);
+            global.set_selected_endpoint(selected_row);
             global.set_state(state);
-            global.set_connection_state(connection);
-            global.set_pairing_code_digits(pairing_code_digits.into());
-            global.set_error_message(error.into());
+            global.set_connection(connection);
+            global.set_manual_endpoint(manual_endpoint);
         });
-    }
-}
-
-async fn receive_endpoint(preview: &mut Option<Endpoint>) -> Option<ConnectionEvent> {
-    match preview {
-        Some(Endpoint::Remote { connection, .. }) => connection.next_event().await,
-        Some(Endpoint::Local { receiver, .. }) => {
-            receiver.recv().await.map(ConnectionEvent::Message)
-        }
-        None => std::future::pending().await,
     }
 }
 
@@ -687,7 +626,10 @@ async fn receive_endpoint(preview: &mut Option<Endpoint>) -> Option<ConnectionEv
 mod tests {
     use super::*;
     use crate::child_process::tests::{component, fixture_config, receive, started};
+    use i_slint_live_preview::protocol::pairing;
 
+    /// A springboard whose discovery reports what the test sends.
+    /// It asks the editor for its settings right away; the request is consumed here.
     fn controller(
         name: &str,
     ) -> (
@@ -696,33 +638,33 @@ mod tests {
         flume::Sender<mdns_sd::ServiceEvent>,
     ) {
         let (executable, arguments) = fixture_config(name);
-        let (sender, receiver) = mpsc::unbounded_channel();
-        let controller = Springboard::new(
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let (discovered, discovery_receiver) = flume::unbounded();
+        let controller = Springboard::spawn(
             LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_started: None },
             sender,
             Default::default(),
+            DiscoveredViewers::from_receiver(discovery_receiver),
         );
-        let (discovered, discovery_receiver) = flume::unbounded();
-        controller
-            .task_sender
-            .send(Box::new(move |task| task.discovery_receiver = Some(discovery_receiver)))
-            .unwrap();
-        (controller, receiver, discovered)
-    }
-
-    fn select(controller: &Springboard, index: i32) {
-        controller.task_sender.send(Box::new(move |task| task.select(index))).unwrap();
-    }
-
-    /// The springboard asks the editor for its stored selection when it starts.
-    async fn assert_user_setting_request(
-        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
-    ) {
-        match receive(receiver).await {
-            PreviewToLspMessage::RequestState { settings, .. }
+        match receiver.try_recv() {
+            Ok(PreviewToLspMessage::RequestState { settings, .. })
                 if settings == [SPRINGBOARD_SETTINGS_FILE.to_string()] => {}
             other => panic!("Expected a request for the user settings, got {other:?}"),
         }
+        (controller, receiver, discovered)
+    }
+
+    fn select_saved(controller: &Springboard, index: usize) {
+        controller.task_sender.send(Box::new(move |task| task.select_saved(index))).unwrap();
+    }
+
+    fn pair(controller: &Springboard, index: usize) {
+        controller.task_sender.send(Box::new(move |task| task.pair(index))).unwrap();
+    }
+
+    /// The identity of the viewer `discovery::tests::service(host, …)` announces.
+    fn remote(host: &str) -> EndpointIdentity {
+        EndpointIdentity::Remote { host: host.into() }
     }
 
     /// The springboard stores the new selection through the editor, which owns
@@ -733,6 +675,25 @@ mod tests {
                 if name == SPRINGBOARD_SETTINGS_FILE => {}
             other => panic!("Expected the user settings to be stored, got {other:?}"),
         }
+    }
+
+    async fn stored_settings(
+        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+    ) -> SpringboardSettings {
+        match receive(receiver).await {
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == SPRINGBOARD_SETTINGS_FILE =>
+            {
+                SpringboardSettings::deserialize(&contents).unwrap()
+            }
+            other => panic!("Expected the user settings to be stored, got {other:?}"),
+        }
+    }
+
+    /// A port nothing listens on, so dialing a viewer there fails.
+    async fn closed_port() -> u16 {
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        listener.local_addr().unwrap().port()
     }
 
     async fn inspect<Result: Send + 'static>(
@@ -753,9 +714,9 @@ mod tests {
         inspect(controller, |task| task.state).await
     }
 
-    async fn wait_stopped(controller: &Springboard) {
+    async fn wait_idle(controller: &Springboard) {
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            while state(controller).await != ui::SpringboardState::Stopped {
+            while state(controller).await != ui::SpringboardState::Idle {
                 tokio::task::yield_now().await;
             }
         })
@@ -791,10 +752,6 @@ mod tests {
                 let mut last_process = None;
                 for cancelled in [true, false, false] {
                     controller.start();
-                    assert_user_setting_request(&mut receiver).await;
-                    assert!(preparations.try_recv().is_err());
-                    select(&controller, 0);
-                    assert_user_setting_set(&mut receiver).await;
                     let preparation = tokio::time::timeout(
                         std::time::Duration::from_secs(5),
                         preparations.recv(),
@@ -802,7 +759,10 @@ mod tests {
                     .await
                     .unwrap()
                     .unwrap();
-                    assert!(inspect(&controller, |task| task.preview.is_none()).await);
+                    // A second start waits for the same preparation.
+                    controller.start();
+                    assert!(inspect(&controller, |task| !task.connection.is_started()).await);
+                    assert!(preparations.try_recv().is_err());
                     assert!(receiver.try_recv().is_err());
                     let (_, arguments) = fixture_config("echo_child");
                     if cancelled {
@@ -815,7 +775,7 @@ mod tests {
                         last_process = Some(process);
                         controller.shutdown().await;
                     }
-                    assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                    assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 }
             })
             .await;
@@ -826,58 +786,42 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (controller, mut receiver, _discovery) = controller("echo_child");
-                select(&controller, 0);
-                assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
-                controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                controller.send(&LspToPreviewMessage::ShowPreview(component()));
-                for index in [-1, 1] {
-                    select(&controller, index);
-                }
+                // Nothing is saved or discovered, so these select nothing.
+                select_saved(&controller, 1);
+                pair(&controller, 0);
                 assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
-                assert!(inspect(&controller, |task| task.preview.is_none()).await);
                 assert!(receiver.try_recv().is_err());
-                select(&controller, 0);
-                assert_user_setting_set(&mut receiver).await;
-                let first_process = started(&mut receiver).await;
-                select(&controller, 0);
                 controller.start();
-                assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
+                let first_process = started(&mut receiver).await;
+                // Neither the selected endpoint nor a second start restarts it.
+                select_saved(&controller, 0);
+                controller.start();
+                assert_eq!(state(&controller).await, ui::SpringboardState::Running);
                 assert!(receiver.try_recv().is_err());
                 let (old_sender, old_receiver) = mpsc::unbounded_channel();
                 let queued_old_sender = old_sender.clone();
                 controller
                     .task_sender
                     .send(Box::new(move |task| {
-                        let Some(Endpoint::Local { receiver, .. }) = &mut task.preview else {
-                            panic!("Expected Local preview");
-                        };
-                        *receiver = old_receiver;
+                        task.connection.replace_local_receiver(old_receiver);
                         queued_old_sender.send(PreviewToLspMessage::Pong).unwrap();
                         queued_old_sender.send(PreviewToLspMessage::Exited).unwrap();
                         task.close();
                     }))
                     .unwrap();
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                select(&controller, 0);
-                assert_user_setting_set(&mut receiver).await;
                 let second_process = started(&mut receiver).await;
                 assert_ne!(first_process, second_process);
                 assert!(old_sender.send(PreviewToLspMessage::Exited).is_err());
-                assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Running);
                 assert!(receiver.try_recv().is_err());
                 tokio::join!(controller.shutdown(), controller.shutdown());
-                assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
                 controller.shutdown().await;
                 assert!(receiver.try_recv().is_err());
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
-                select(&controller, 0);
-                assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
-                assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Running);
                 controller.shutdown().await;
             })
             .await;
@@ -889,9 +833,6 @@ mod tests {
             .run_until(async {
                 let (controller, mut receiver, _discovery) = controller("echo_child");
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                select(&controller, 0);
-                assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
                 drop(controller);
                 assert!(
@@ -911,9 +852,6 @@ mod tests {
             let url = component().url;
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: Some(url.clone()), offset: 17 });
             controller.start();
-            assert_user_setting_request(&mut receiver).await;
-            select(&controller, 0);
-            assert_user_setting_set(&mut receiver).await;
             started(&mut receiver).await;
             let configuration = LspToPreviewMessage::SetConfiguration { config: Default::default() };
             controller.send(&configuration);
@@ -933,7 +871,7 @@ mod tests {
             assert!(matches!(echo(&mut receiver).await, LspToPreviewMessage::ShowPreview(_)));
             assert!(matches!(echo(&mut receiver).await, LspToPreviewMessage::HighlightFromEditor { url: None, .. }));
             controller.send(&LspToPreviewMessage::Quit);
-            assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+            assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
             controller.shutdown().await;
         }).await;
     }
@@ -951,30 +889,26 @@ mod tests {
                     }))
                     .unwrap();
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                select(&controller, 0);
-                assert_user_setting_set(&mut receiver).await;
-                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
-                assert!(
-                    inspect(&controller, |task| !task.error.is_empty() && task.preview.is_none())
-                        .await
-                );
+                let failed = |task: &SpringboardTask| {
+                    task.state == ui::SpringboardState::Running
+                        && task.connection.state == ui::ConnectionState::Failed
+                        && !task.connection.error.is_empty()
+                        && !task.connection.is_started()
+                };
+                assert!(inspect(&controller, failed).await);
                 controller.send(&LspToPreviewMessage::ShowPreview(component()));
                 controller.start();
-                assert!(
-                    inspect(&controller, |task| task.preview.is_none() && !task.error.is_empty())
-                        .await
-                );
+                assert!(inspect(&controller, failed).await);
                 controller
                     .task_sender
                     .send(Box::new(|task| {
                         task.local_preview.executable = std::env::current_exe().unwrap();
                     }))
                     .unwrap();
-                select(&controller, 0);
+                select_saved(&controller, 0);
                 assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
-                assert!(inspect(&controller, |task| task.error.is_empty()).await);
+                assert!(inspect(&controller, |task| task.connection.error.is_empty()).await);
                 controller.shutdown().await;
             })
             .await;
@@ -985,25 +919,23 @@ mod tests {
         tokio::task::LocalSet::new().run_until(async {
             let (controller, mut receiver, _discovery) = controller("crashing_child");
             controller.start();
-            assert_user_setting_request(&mut receiver).await;
-            select(&controller, 0);
-            assert_user_setting_set(&mut receiver).await;
             started(&mut receiver).await;
             assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::SendShowMessage { message } if message.typ == lsp_types::MessageType::ERROR));
-            assert!(inspect(&controller, |task| task.state == ui::SpringboardState::Idle
-                && task.discovery.is_some() && !task.error.is_empty()).await);
+            assert!(inspect(&controller, |task| task.state == ui::SpringboardState::Running
+                && task.connection.state == ui::ConnectionState::Failed
+                && task.discovery.is_browsing() && !task.connection.error.is_empty()).await);
             controller.send(&LspToPreviewMessage::ShowPreview(component()));
-            assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
-            assert!(inspect(&controller, |task| !task.error.is_empty() && task.preview.is_none()).await);
+            assert_eq!(state(&controller).await, ui::SpringboardState::Running);
+            assert!(inspect(&controller, |task| !task.connection.error.is_empty() && !task.connection.is_started()).await);
             controller.task_sender.send(Box::new(|task| {
                 task.local_preview.arguments = fixture_config("echo_child").1;
             })).unwrap();
-            select(&controller, 0);
+            select_saved(&controller, 0);
             assert_user_setting_set(&mut receiver).await;
             started(&mut receiver).await;
-            assert!(inspect(&controller, |task| task.error.is_empty()).await);
+            assert!(inspect(&controller, |task| task.connection.error.is_empty()).await);
             controller.close();
-            assert!(inspect(&controller, |task| task.error.is_empty()).await);
+            assert!(inspect(&controller, |task| task.connection.error.is_empty()).await);
             controller.shutdown().await;
         }).await;
     }
@@ -1014,27 +946,68 @@ mod tests {
             .run_until(async {
                 let (controller, mut receiver, _discovery) = controller("echo_child");
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                select(&controller, 0);
-                assert_user_setting_set(&mut receiver).await;
                 started(&mut receiver).await;
                 controller
                     .task_sender
                     .send(Box::new(|task| {
                         let (sender, endpoint) = mpsc::unbounded_channel();
                         sender.send(PreviewToLspMessage::Exited).unwrap();
-                        let Some(Endpoint::Local { receiver, .. }) = &mut task.preview else {
-                            panic!("Expected Local preview");
-                        };
-                        *receiver = endpoint;
+                        task.connection.replace_local_receiver(endpoint);
                     }))
                     .unwrap();
-                wait_stopped(&controller).await;
-                assert!(inspect(&controller, |task| task.error.is_empty()).await);
+                wait_idle(&controller).await;
+                assert!(inspect(&controller, |task| task.connection.error.is_empty()).await);
                 assert!(receiver.try_recv().is_err());
                 controller.start();
-                assert_user_setting_request(&mut receiver).await;
-                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
+                started(&mut receiver).await;
+                assert_eq!(state(&controller).await, ui::SpringboardState::Running);
+                controller.shutdown().await;
+            })
+            .await;
+    }
+
+    fn local_only_messages() -> Vec<PreviewToLspMessage> {
+        vec![
+            PreviewToLspMessage::RequestPreview { component: component() },
+            PreviewToLspMessage::ShowDocument {
+                file: component().url,
+                selection: Default::default(),
+                take_focus: true,
+            },
+            PreviewToLspMessage::SendWorkspaceEdit { label: None, edit: Default::default() },
+            PreviewToLspMessage::UpdateUserSettings {
+                name: "remote".into(),
+                contents: "{}".into(),
+            },
+            PreviewToLspMessage::HighlightInRunPreview { url: Some(component().url), offset: 1 },
+        ]
+    }
+
+    async fn assert_forwarded(
+        receiver: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>,
+        messages: &[PreviewToLspMessage],
+    ) {
+        for message in messages {
+            assert_eq!(format!("{:?}", receive(receiver).await), format!("{message:?}"));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_local_preview_passes_on_what_a_viewer_may_not_send() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut receiver, _discovery) = controller("echo_child");
+                controller.start();
+                started(&mut receiver).await;
+                let (sender, endpoint) = mpsc::unbounded_channel();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| task.connection.replace_local_receiver(endpoint)))
+                    .unwrap();
+                for message in local_only_messages() {
+                    sender.send(message).unwrap();
+                }
+                assert_forwarded(&mut receiver, &local_only_messages()).await;
                 controller.shutdown().await;
             })
             .await;
@@ -1143,14 +1116,41 @@ mod tests {
         sender.send(mdns_sd::ServiceEvent::ServiceResolved(Box::new(service))).unwrap();
         let expected = fullname.clone();
         wait_condition(controller, move |task| {
-            task.viewers.iter().any(|viewer| viewer.fullname == expected && viewer.port == port)
+            task.discovery
+                .discovered
+                .iter()
+                .any(|viewer| viewer.fullname == expected && viewer.port == port)
         })
         .await;
         fullname
     }
 
+    async fn withdraw(
+        controller: &Springboard,
+        sender: &flume::Sender<mdns_sd::ServiceEvent>,
+        fullname: &str,
+    ) {
+        sender
+            .send(mdns_sd::ServiceEvent::ServiceRemoved(
+                i_slint_live_preview::protocol::SERVICE_TYPE.into(),
+                fullname.into(),
+            ))
+            .unwrap();
+        let removed = fullname.to_owned();
+        wait_condition(controller, move |task| {
+            !task.discovery.discovered.iter().any(|viewer| viewer.fullname == removed)
+        })
+        .await;
+    }
+
     fn answer(controller: &Springboard, answer: PairingAnswer) {
-        controller.task_sender.send(Box::new(move |task| task.answer_pairing(answer))).unwrap();
+        controller
+            .task_sender
+            .send(Box::new(move |task| {
+                task.connection.answer(answer);
+                task.update_ui();
+            }))
+            .unwrap();
     }
 
     async fn initial_request(upstream: &mut mpsc::UnboundedReceiver<PreviewToLspMessage>) {
@@ -1210,9 +1210,9 @@ mod tests {
         tokio::task::LocalSet::new().run_until(async {
             let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
             let (controller, mut upstream, discovered) = controller("echo_child");
+            discover(&controller, &discovered, discovery::tests::service("Manifest", viewer.connection.local_port())).await;
+            pair(&controller, 0);
             controller.start();
-            discover(&controller, &discovered, remote::tests::service("Manifest", viewer.connection.local_port())).await;
-            select(&controller, 1);
             accept_plaintext(&controller).await;
             initial_request(&mut upstream).await;
             let directory = tempfile::tempdir().unwrap();
@@ -1221,11 +1221,11 @@ mod tests {
             controller.send(&LspToPreviewMessage::OpenProject { root: Some(manifest.join(".").unwrap()) });
             let target = i_slint_live_preview::protocol::PreviewComponent { url: source.clone(), component: None };
             controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(source, None), contents: "export component Main inherits Window { ComponentContainer {} }".into() });
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.19","experimental-features":["component-container"]}"#.into() });
             controller.send(&LspToPreviewMessage::ShowPreview(target.clone()));
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ShowPreview { .. })).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::Ready(_)));
-            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"slint-edition":"1.19","experimental-features":[]}"#.into() });
+            controller.send(&LspToPreviewMessage::SetContents { url: i_slint_live_preview::protocol::VersionedUrl::new(manifest.clone(), None), contents: r#"{"edition":"1.19","experimental-features":[]}"#.into() });
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::ContentsChanged)).await;
             assert!(matches!(viewer.session.compile_component(&target).await, PreviewCompilation::CompilationError { .. }));
             let component_container = i_slint_compiler::ExperimentalFeature::ComponentContainer.into();
@@ -1246,11 +1246,11 @@ mod tests {
 
     async fn accept_plaintext(controller: &Springboard) {
         wait_condition(controller, |task| {
-            task.connection_state == ui::ConnectionState::UnpairedConfirmationRequired
+            task.connection.state == ui::ConnectionState::UnpairedConfirmationRequired
         })
         .await;
         answer(controller, PairingAnswer::AcceptUnpaired);
-        wait_condition(controller, |task| task.connection_state == ui::ConnectionState::Connected)
+        wait_condition(controller, |task| task.connection.state == ui::ConnectionState::Connected)
             .await;
     }
 
@@ -1258,46 +1258,45 @@ mod tests {
     async fn discovery_updates_and_stale_display_indices_keep_identity() {
         tokio::task::LocalSet::new()
             .run_until(async {
+                // Discovery runs before the preview is started.
                 let (controller, _upstream, discovered) = controller("echo_child");
-                controller.start();
-                let mut first = remote::tests::service("First", 1);
-                first.fullname = "first-viewer".into();
-                first.host = "Duplicate".into();
-                let mut second = remote::tests::service("Second", 1);
-                second.fullname = "second-viewer".into();
-                second.host = "Duplicate".into();
+                let first = discovery::tests::service("First", 1);
+                let mut second = discovery::tests::service("Second", 1);
                 let first_id = discover(&controller, &discovered, first).await;
-                let second_id = discover(&controller, &discovered, second.clone()).await;
                 discover(&controller, &discovered, second.clone()).await;
-                assert!(
-                    inspect(&controller, |task| task.viewers.len() == 2
-                        && task.viewers[0].name == task.viewers[1].name)
-                    .await
-                );
+                discover(&controller, &discovered, second.clone()).await;
+                assert!(inspect(&controller, |task| task.discovery.discovered.len() == 2).await);
                 second.port = 2;
                 discover(&controller, &discovered, second).await;
-                *controller.displayed_endpoints.lock().unwrap() = vec![
-                    EndpointIdentity::Local,
-                    EndpointIdentity::Remote(first_id.clone()),
-                    EndpointIdentity::Remote(second_id.clone()),
-                ];
+                let second = remote("Second");
+                // The UI still shows the rows from before the removal below.
+                controller.displayed_endpoints.write().unwrap().discovered =
+                    vec![remote("First"), second.clone()];
+                withdraw(&controller, &discovered, &first_id).await;
+                // What clicking Pair on the second row does.
+                let identity = controller.displayed().discovered(1).unwrap();
                 controller
                     .task_sender
-                    .send(Box::new(move |task| {
-                        task.handle_discovery(DiscoveryEvent::Removed(first_id))
-                    }))
+                    .send(Box::new(move |task| task.select_endpoint(identity)))
                     .unwrap();
-                controller.select_displayed(2);
-                let expected = second_id.clone();
                 wait_condition(&controller, move |task| {
-                    task.selected == Some(EndpointIdentity::Remote(expected.clone()))
-                        && task.selected_index() == 1
+                    // It's saved once it connects, which this one never does.
+                    task.selected_endpoint == second && task.saved_endpoints.is_empty()
                 })
                 .await;
                 drop(discovered);
-                wait_condition(&controller, |task| task.discovery.is_none()).await;
-                select(&controller, 0);
-                assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
+                wait_condition(&controller, |task| {
+                    !task.discovery.is_browsing()
+                        && task.discovery.discovered.is_empty()
+                        && !task.discovery.error.is_empty()
+                })
+                .await;
+                select_saved(&controller, 0);
+                assert!(
+                    inspect(&controller, |task| task.selected_endpoint == EndpointIdentity::Local
+                        && task.state == ui::SpringboardState::Idle)
+                    .await
+                );
                 controller.close();
             })
             .await;
@@ -1310,17 +1309,17 @@ mod tests {
             let mut viewer = Viewer::start(PairingPolicy::Generated, 0).await;
             let (controller, mut upstream, discovered) = controller("echo_child");
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: Some(component().url), offset: 17 });
+            discover(&controller, &discovered, discovery::tests::service("Paired", viewer.connection.local_port())).await;
+            pair(&controller, 0);
             controller.start();
-            discover(&controller, &discovered, remote::tests::service("Paired", viewer.connection.local_port())).await;
-            select(&controller, 1);
             let ConnectionMessage::PairingStarted { code, .. } = viewer.event(|event| matches!(event, ConnectionMessage::PairingStarted { .. })).await else { unreachable!() };
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::PairingRequired).await;
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::PairingRequired).await;
             answer(&controller, PairingAnswer::Code("12".into()));
-            assert!(inspect(&controller, |task| matches!(&task.preview, Some(Endpoint::Remote { pairing_answer: Some(_), .. })) && task.error == "Enter 4 numeric digits").await);
+            assert!(inspect(&controller, |task| task.connection.awaits_answer() && task.connection.error == "Enter 4 numeric digits").await);
             answer(&controller, PairingAnswer::Code(if code == "0000" { "0001" } else { "0000" }.into()));
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::PairingRequired && task.error.contains("Incorrect code")).await;
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::PairingRequired && task.connection.error.contains("Incorrect code")).await;
             answer(&controller, PairingAnswer::Code(code));
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::Connected && task.credentials.len() == 1).await;
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::Connected && task.credentials.len() == 1).await;
             initial_request(&mut upstream).await;
             compile_source(&controller, &mut viewer, 42).await;
             viewer.connection.send(()).unwrap();
@@ -1341,12 +1340,12 @@ mod tests {
             assert!(matches!(viewer.preview_event(|event| matches!(event, PreviewSessionEvent::HighlightFromEditor { .. })).await, PreviewSessionEvent::HighlightFromEditor { url: Some(url), offset: 17 } if url == component().url));
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 });
             viewer.preview_event(|event| matches!(event, PreviewSessionEvent::HighlightFromEditor { url: None, .. })).await;
-            let (connection, error) = inspect(&controller, |task| (task.connection_state, task.error.clone())).await;
+            let (connection, error) = inspect(&controller, |task| (task.connection.state, task.connection.error.clone())).await;
             assert_eq!(connection, ui::ConnectionState::Connected, "{error}");
             controller.send(&LspToPreviewMessage::ShowPreview(component()));
             let event = tokio::time::timeout(Duration::from_secs(5), viewer.session_events.recv()).await;
             if event.is_err() {
-                let status = inspect(&controller, |task| (task.state, task.connection_state, task.error.clone())).await;
+                let status = inspect(&controller, |task| (task.state, task.connection.state, task.connection.error.clone())).await;
                 let mut events = Vec::new();
                 while let Ok(event) = viewer.connection_events.try_recv() { events.push(event); }
                 panic!("Follow-up preview timed out: {status:?}, viewer events: {events:?}");
@@ -1359,57 +1358,108 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_viewer_reaches_the_editor_only_with_what_it_may_send() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
+                let (controller, mut upstream, discovered) = controller("echo_child");
+                discover(
+                    &controller,
+                    &discovered,
+                    discovery::tests::service("Policy", viewer.connection.local_port()),
+                )
+                .await;
+                pair(&controller, 0);
+                controller.start();
+                accept_plaintext(&controller).await;
+                initial_request(&mut upstream).await;
+                let refused = local_only_messages().into_iter().chain([
+                    PreviewToLspMessage::SendShowMessage {
+                        message: lsp_types::ShowMessageParams {
+                            typ: lsp_types::MessageType::ERROR,
+                            message: "remote".into(),
+                        },
+                    },
+                    PreviewToLspMessage::Exited,
+                    PreviewToLspMessage::Pong,
+                ]);
+                let allowed = [
+                    PreviewToLspMessage::Diagnostics {
+                        uri: component().url,
+                        version: None,
+                        diagnostics: Vec::new(),
+                    },
+                    PreviewToLspMessage::DebugMessage { location: None, message: "remote".into() },
+                    PreviewToLspMessage::RequestState {
+                        files: vec![component().url],
+                        settings: Vec::new(),
+                    },
+                ];
+                for message in refused.chain(allowed.clone()) {
+                    viewer.connection.send(message).unwrap();
+                }
+                assert_forwarded(&mut upstream, &allowed).await;
+                let (connection, error) = inspect(&controller, |task| {
+                    (task.connection.state, task.connection.error.clone())
+                })
+                .await;
+                assert_eq!(connection, ui::ConnectionState::Connected, "{error}");
+                controller.close();
+                viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
     async fn switching_viewers_and_local_reuses_tokens_without_quit() {
         i_slint_backend_testing::init_no_event_loop();
         tokio::task::LocalSet::new().run_until(async {
             let mut first = Viewer::start(PairingPolicy::Generated, 0).await;
             let mut second = Viewer::start(PairingPolicy::Disabled, 0).await;
             let (controller, mut upstream, discovered) = controller("echo_child");
+            let first_id = discover(&controller, &discovered, discovery::tests::service("First", first.connection.local_port())).await;
+            discover(&controller, &discovered, discovery::tests::service("Second", second.connection.local_port())).await;
+            pair(&controller, 0);
             controller.start();
-            let first_id = discover(&controller, &discovered, remote::tests::service("First", first.connection.local_port())).await;
-            discover(&controller, &discovered, remote::tests::service("Second", second.connection.local_port())).await;
-            select(&controller, 1);
             let ConnectionMessage::PairingStarted { code, .. } = first.event(|event| matches!(event, ConnectionMessage::PairingStarted { .. })).await else { unreachable!() };
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::PairingRequired).await;
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::PairingRequired).await;
             answer(&controller, PairingAnswer::Code(code));
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::Connected).await;
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::Connected).await;
             initial_request(&mut upstream).await;
             compile_source(&controller, &mut first, 11).await;
-            select(&controller, 2);
+            pair(&controller, 1);
             first.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
             accept_plaintext(&controller).await;
             initial_request(&mut upstream).await;
             compile_source(&controller, &mut second, 22).await;
-            select(&controller, 1);
+            pair(&controller, 0);
             second.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::Connected).await;
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::Connected).await;
             initial_request(&mut upstream).await;
             let event = first.event(|event| matches!(event, ConnectionMessage::Connected { .. } | ConnectionMessage::PairingStarted { .. })).await;
             assert!(matches!(event, ConnectionMessage::Connected { .. }));
             compile_source(&controller, &mut first, 33).await;
             assert!(second.session_events.try_recv().is_err());
-            discovered.send(mdns_sd::ServiceEvent::ServiceRemoved(i_slint_live_preview::protocol::SERVICE_TYPE.into(), first_id.clone())).unwrap();
-            let removed = first_id.clone();
-            wait_condition(&controller, move |task| !task.advertised.contains(&removed) && task.selected == Some(EndpointIdentity::Remote(removed.clone())) && task.connection_state == ui::ConnectionState::Connected).await;
-            select(&controller, 0);
+            // The established connection outlives the viewer's mDNS records.
+            withdraw(&controller, &discovered, &first_id).await;
+            assert!(inspect(&controller, |task| task.selected_endpoint == remote("First") && task.connection.state == ui::ConnectionState::Connected).await);
+            select_saved(&controller, 0);
             first.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
             tokio::time::timeout(Duration::from_secs(5), async {
                 loop { if matches!(upstream.recv().await.unwrap(), PreviewToLspMessage::DebugMessage { message, .. } if message.parse::<u32>().is_ok()) { break; } }
             }).await.unwrap();
             initial_request(&mut upstream).await;
-            discover(&controller, &discovered, remote::tests::service("First", first.connection.local_port())).await;
-            let identity = EndpointIdentity::Remote(first_id.clone());
-            controller.task_sender.send(Box::new(move |task| task.select_endpoint(identity))).unwrap();
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::Connected).await;
+            discover(&controller, &discovered, discovery::tests::service("First", first.connection.local_port())).await;
+            controller.task_sender.send(Box::new(move |task| task.select_endpoint(remote("First")))).unwrap();
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::Connected).await;
             initial_request(&mut upstream).await;
             compile_source(&controller, &mut first, 44).await;
             controller.close();
             first.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
             assert!(inspect(&controller, |task| task.credentials.len() == 1).await);
+            // Stopping keeps the selection, so the next start reconnects it.
             controller.start();
-            discover(&controller, &discovered, remote::tests::service("First", first.connection.local_port())).await;
-            select(&controller, 1);
-            wait_condition(&controller, |task| task.connection_state == ui::ConnectionState::Connected).await;
+            wait_condition(&controller, |task| task.connection.state == ui::ConnectionState::Connected).await;
             initial_request(&mut upstream).await;
             compile_source(&controller, &mut first, 55).await;
             controller.close();
@@ -1425,40 +1475,37 @@ mod tests {
                 let port = listener.local_addr().unwrap().port();
                 drop(listener);
                 let (controller, mut upstream, discovered) = controller("echo_child");
+                discover(&controller, &discovered, discovery::tests::service("Retry", port)).await;
+                pair(&controller, 0);
                 controller.start();
-                let identity =
-                    discover(&controller, &discovered, remote::tests::service("Retry", port)).await;
-                select(&controller, 1);
                 wait_condition(&controller, |task| {
-                    task.connection_state == ui::ConnectionState::Failed && task.preview.is_none()
+                    task.connection.state == ui::ConnectionState::Failed
+                        && !task.connection.is_started()
                 })
                 .await;
-                let expected = identity.clone();
                 assert!(
-                    inspect(&controller, move |task| task.state
-                        == ui::SpringboardState::EndpointSelected
-                        && task.selected == Some(EndpointIdentity::Remote(expected)))
+                    inspect(&controller, move |task| task.state == ui::SpringboardState::Running
+                        && task.selected_endpoint == remote("Retry"))
                     .await
                 );
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, port).await;
-                assert_user_setting_request(&mut upstream).await;
-                assert_user_setting_set(&mut upstream).await;
+                // Nothing is stored before it connects.
                 assert!(upstream.try_recv().is_err());
-                select(&controller, 1);
+                pair(&controller, 0);
                 accept_plaintext(&controller).await;
                 initial_request(&mut upstream).await;
                 compile_source(&controller, &mut viewer, 77).await;
                 drop(viewer);
-                wait_stopped(&controller).await;
+                wait_idle(&controller).await;
                 assert!(
-                    inspect(&controller, |task| task.preview.is_none()
-                        && task.selected.is_none()
-                        && task.discovery.is_none()
-                        && task.error.is_empty())
+                    inspect(&controller, |task| !task.connection.is_started()
+                        && task.selected_endpoint == remote("Retry")
+                        && task.discovery.is_browsing()
+                        && task.connection.error.is_empty())
                     .await
                 );
-                select(&controller, 0);
-                assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                select_saved(&controller, 0);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Idle);
             })
             .await;
     }
@@ -1504,33 +1551,37 @@ mod tests {
                     })
                     .await;
                     let (controller, mut upstream, discovered) = controller("echo_child");
+                    discover(
+                        &controller,
+                        &discovered,
+                        discovery::tests::service("Interrupted", port),
+                    )
+                    .await;
+                    pair(&controller, 0);
                     controller.start();
-                    discover(&controller, &discovered, remote::tests::service("Interrupted", port))
-                        .await;
-                    select(&controller, 1);
                     accept_plaintext(&controller).await;
                     initial_request(&mut upstream).await;
                     disconnect.send(()).unwrap();
                     peer.await.unwrap();
                     wait_condition(&controller, |task| {
-                        task.connection_state == ui::ConnectionState::Failed
+                        task.connection.state == ui::ConnectionState::Failed
                     })
                     .await;
                     assert!(
-                        inspect(&controller, |task| task.state
-                            == ui::SpringboardState::EndpointSelected
-                            && task.discovery.is_some()
-                            && task.preview.is_none()
-                            && !task.error.is_empty())
+                        inspect(&controller, |task| task.state == ui::SpringboardState::Running
+                            && task.discovery.is_browsing()
+                            && !task.connection.is_started()
+                            && !task.connection.error.is_empty())
                         .await
                     );
-                    select(&controller, 0);
+                    select_saved(&controller, 0);
                     assert_user_setting_set(&mut upstream).await;
                     started(&mut upstream).await;
                     assert!(
-                        inspect(&controller, |task| task.selected == Some(EndpointIdentity::Local)
-                            && task.error.is_empty()
-                            && task.discovery.is_some())
+                        inspect(&controller, |task| task.selected_endpoint
+                            == EndpointIdentity::Local
+                            && task.connection.error.is_empty()
+                            && task.discovery.is_browsing())
                         .await
                     );
                     controller.close();
@@ -1547,16 +1598,16 @@ mod tests {
                     let generated = policy == PairingPolicy::Generated;
                     let mut viewer = Viewer::start(policy, 0).await;
                     let (controller, mut upstream, discovered) = controller("echo_child");
-                    controller.start();
                     discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Cancel", viewer.connection.local_port()),
+                        discovery::tests::service("Cancel", viewer.connection.local_port()),
                     )
                     .await;
-                    select(&controller, 1);
+                    pair(&controller, 0);
+                    controller.start();
                     wait_condition(&controller, move |task| {
-                        task.connection_state
+                        task.connection.state
                             == if generated {
                                 ui::ConnectionState::PairingRequired
                             } else {
@@ -1564,8 +1615,6 @@ mod tests {
                             }
                     })
                     .await;
-                    assert_user_setting_request(&mut upstream).await;
-                    assert_user_setting_set(&mut upstream).await;
                     assert!(upstream.try_recv().is_err());
                     controller.close();
                     viewer
@@ -1580,7 +1629,11 @@ mod tests {
                             }
                         })
                         .await;
-                    assert_eq!(state(&controller).await, ui::SpringboardState::Stopped);
+                    assert!(
+                        inspect(&controller, |task| task.state == ui::SpringboardState::Idle
+                            && task.saved_endpoints.is_empty())
+                        .await
+                    );
                     assert!(upstream.try_recv().is_err());
                 }
             })
@@ -1594,15 +1647,15 @@ mod tests {
             .run_until(async {
                 for replacement_requires_pairing in [true, false] {
                     let (controller, mut upstream, discovered) = controller("echo_child");
-                    controller.start();
                     let mut first = Viewer::start(PairingPolicy::Generated, 0).await;
-                    let fullname = discover(
+                    discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Restarted", first.connection.local_port()),
+                        discovery::tests::service("Restarted", first.connection.local_port()),
                     )
                     .await;
-                    select(&controller, 1);
+                    pair(&controller, 0);
+                    controller.start();
                     let ConnectionMessage::PairingStarted { code, .. } = first
                         .event(|event| matches!(event, ConnectionMessage::PairingStarted { .. }))
                         .await
@@ -1610,18 +1663,17 @@ mod tests {
                         unreachable!()
                     };
                     wait_condition(&controller, |task| {
-                        task.connection_state == ui::ConnectionState::PairingRequired
+                        task.connection.state == ui::ConnectionState::PairingRequired
                     })
                     .await;
                     answer(&controller, PairingAnswer::Code(code));
                     wait_condition(&controller, |task| {
-                        task.connection_state == ui::ConnectionState::Connected
+                        task.connection.state == ui::ConnectionState::Connected
                     })
                     .await;
                     initial_request(&mut upstream).await;
-                    let expected = fullname.clone();
                     let old_credentials =
-                        inspect(&controller, move |task| task.credentials[&expected]).await;
+                        inspect(&controller, |task| task.credentials[&remote("Restarted")]).await;
                     controller.close();
                     first
                         .event(|event| matches!(event, ConnectionMessage::Disconnected { .. }))
@@ -1636,16 +1688,14 @@ mod tests {
                         0,
                     )
                     .await;
-                    controller.start();
-                    assert_user_setting_request(&mut upstream).await;
                     discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Restarted", replacement.connection.local_port()),
+                        discovery::tests::service("Restarted", replacement.connection.local_port()),
                     )
                     .await;
-                    select(&controller, 1);
-                    assert_user_setting_set(&mut upstream).await;
+                    // The kept selection connects with the token of the replaced viewer.
+                    controller.start();
                     if replacement_requires_pairing {
                         let ConnectionMessage::PairingStarted { code, .. } = replacement
                             .event(|event| {
@@ -1656,18 +1706,18 @@ mod tests {
                             unreachable!()
                         };
                         wait_condition(&controller, |task| {
-                            task.connection_state == ui::ConnectionState::PairingRequired
+                            task.connection.state == ui::ConnectionState::PairingRequired
                                 && task.credentials.is_empty()
                         })
                         .await;
                         answer(&controller, PairingAnswer::Code(code));
                         wait_condition(&controller, |task| {
-                            task.connection_state == ui::ConnectionState::Connected
+                            task.connection.state == ui::ConnectionState::Connected
                         })
                         .await;
                     } else {
                         wait_condition(&controller, |task| {
-                            task.connection_state == ui::ConnectionState::Failed
+                            task.connection.state == ui::ConnectionState::Failed
                                 && task.credentials.is_empty()
                         })
                         .await;
@@ -1675,13 +1725,14 @@ mod tests {
                         replacement
                             .event(|event| matches!(event, ConnectionMessage::Disconnected { .. }))
                             .await;
-                        select(&controller, 1);
+                        pair(&controller, 0);
                         accept_plaintext(&controller).await;
                     }
                     initial_request(&mut upstream).await;
                     if replacement_requires_pairing {
                         assert_ne!(
-                            inspect(&controller, move |task| task.credentials[&fullname]).await,
+                            inspect(&controller, |task| task.credentials[&remote("Restarted")])
+                                .await,
                             old_credentials
                         );
                     }
@@ -1699,14 +1750,14 @@ mod tests {
             .run_until(async {
                 let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
                 let (controller, _upstream, discovered) = controller("echo_child");
-                controller.start();
                 discover(
                     &controller,
                     &discovered,
-                    remote::tests::service("Silent", listener.local_addr().unwrap().port()),
+                    discovery::tests::service("Silent", listener.local_addr().unwrap().port()),
                 )
                 .await;
-                select(&controller, 1);
+                pair(&controller, 0);
+                controller.start();
                 let (mut socket, _) =
                     tokio::time::timeout(Duration::from_secs(5), listener.accept())
                         .await
@@ -1720,14 +1771,14 @@ mod tests {
                         .unwrap()
                         > 0
                 );
-                select(&controller, 0);
+                select_saved(&controller, 0);
                 let read = tokio::time::timeout(Duration::from_secs(5), socket.read(&mut bytes))
                     .await
                     .unwrap();
                 assert!(matches!(read, Ok(0)) || read.is_err());
                 assert!(
-                    inspect(&controller, |task| task.selected == Some(EndpointIdentity::Local)
-                        && task.state == ui::SpringboardState::EndpointSelected)
+                    inspect(&controller, |task| task.selected_endpoint == EndpointIdentity::Local
+                        && task.state == ui::SpringboardState::Running)
                     .await
                 );
                 controller.close();
@@ -1769,23 +1820,22 @@ mod tests {
                 })
                 .await;
                 let (controller, mut upstream, discovered) = controller("echo_child");
+                discover(&controller, &discovered, discovery::tests::service("Expires", port))
+                    .await;
+                pair(&controller, 0);
                 controller.start();
-                discover(&controller, &discovered, remote::tests::service("Expires", port)).await;
-                select(&controller, 1);
                 wait_condition(&controller, |task| {
-                    task.connection_state == ui::ConnectionState::PairingRequired
+                    task.connection.state == ui::ConnectionState::PairingRequired
                 })
                 .await;
                 expire.send(()).unwrap();
                 wait_condition(&controller, |task| {
-                    task.connection_state == ui::ConnectionState::Failed
-                        && task.error.contains("expired")
+                    task.connection.state == ui::ConnectionState::Failed
+                        && task.connection.error.contains("expired")
                 })
                 .await;
-                assert_user_setting_request(&mut upstream).await;
-                assert_user_setting_set(&mut upstream).await;
                 assert!(upstream.try_recv().is_err());
-                assert_eq!(state(&controller).await, ui::SpringboardState::EndpointSelected);
+                assert_eq!(state(&controller).await, ui::SpringboardState::Running);
                 controller.close();
                 peer.await.unwrap();
             })
@@ -1793,75 +1843,52 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn withdrawn_failed_viewers_require_rediscovery_before_retry() {
+    async fn a_withdrawn_viewer_connects_once_it_is_rediscovered() {
         tokio::task::LocalSet::new()
             .run_until(async {
                 for removal_before_failure in [true, false] {
-                    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-                    let port = listener.local_addr().unwrap().port();
-                    drop(listener);
+                    let port = closed_port().await;
                     let (controller, mut upstream, discovered) = controller("echo_child");
-                    controller.start();
                     let fullname = discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Withdrawn", port),
+                        discovery::tests::service("Withdrawn", port),
                     )
                     .await;
-                    if removal_before_failure {
-                        let selected = fullname.clone();
-                        controller
-                            .task_sender
-                            .send(Box::new(move |task| {
-                                task.select_endpoint(EndpointIdentity::Remote(selected.clone()));
-                                task.handle_discovery(DiscoveryEvent::Removed(selected));
-                            }))
-                            .unwrap();
-                    } else {
-                        select(&controller, 1);
-                        wait_condition(&controller, |task| {
-                            task.connection_state == ui::ConnectionState::Failed
-                        })
-                        .await;
-                        discovered
-                            .send(mdns_sd::ServiceEvent::ServiceRemoved(
-                                i_slint_live_preview::protocol::SERVICE_TYPE.into(),
-                                fullname.clone(),
-                            ))
-                            .unwrap();
-                    }
+                    pair(&controller, 0);
                     wait_condition(&controller, |task| {
-                        task.connection_state == ui::ConnectionState::Failed
-                            && !task.viewers[0].unavailable_reason.is_empty()
+                        task.selected_endpoint == remote("Withdrawn")
                     })
                     .await;
-                    let (checked, result) = oneshot::channel();
-                    let selected = fullname.clone();
-                    controller
-                        .task_sender
-                        .send(Box::new(move |task| {
-                            task.select_endpoint(EndpointIdentity::Remote(selected));
-                            let _ = checked.send(
-                                task.preview.is_none()
-                                    && task.connection_state == ui::ConnectionState::Failed
-                                    && task.selected_index() == 1,
-                            );
-                        }))
-                        .unwrap();
-                    assert!(result.await.unwrap());
+                    if removal_before_failure {
+                        withdraw(&controller, &discovered, &fullname).await;
+                        controller.start();
+                    } else {
+                        controller.start();
+                        wait_condition(&controller, |task| {
+                            task.connection.state == ui::ConnectionState::Failed
+                        })
+                        .await;
+                        withdraw(&controller, &discovered, &fullname).await;
+                        // Picking it again waits for the viewer instead of failing.
+                        controller
+                            .task_sender
+                            .send(Box::new(|task| task.select_endpoint(remote("Withdrawn"))))
+                            .unwrap();
+                    }
+                    assert!(
+                        inspect(&controller, |task| task.selected_endpoint == remote("Withdrawn")
+                            && task.connection.state == ui::ConnectionState::None
+                            && !task.connection.is_started())
+                        .await
+                    );
                     let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
                     discover(
                         &controller,
                         &discovered,
-                        remote::tests::service("Withdrawn", viewer.connection.local_port()),
+                        discovery::tests::service("Withdrawn", viewer.connection.local_port()),
                     )
                     .await;
-                    assert!(
-                        inspect(&controller, |task| task.viewers[0].unavailable_reason.is_empty()
-                            && task.preview.is_none())
-                        .await
-                    );
-                    select(&controller, 1);
                     accept_plaintext(&controller).await;
                     initial_request(&mut upstream).await;
                     controller.close();
@@ -1873,57 +1900,33 @@ mod tests {
             .await;
     }
 
-    /// The editor replies to the request for the stored selection.
-    fn reply_last_selection(controller: &Springboard, last_selected: NamedEndpointIdentity) {
+    /// The editor replies to the request for the stored settings.
+    fn reply_settings(
+        controller: &Springboard,
+        saved: Vec<EndpointIdentity>,
+        selected: EndpointIdentity,
+    ) {
         controller.send(&LspToPreviewMessage::SetUserSettings {
             name: SPRINGBOARD_SETTINGS_FILE.into(),
-            contents: SpringboardSettings::new(Some(last_selected)).serialize(),
+            contents: SpringboardSettings::new(saved, selected).serialize(),
         });
     }
 
     #[tokio::test]
-    async fn a_remembered_local_is_started() {
+    async fn stored_settings_are_restored_before_the_preview_starts() {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (controller, mut upstream, _discovery) = controller("echo_child");
-                controller.start();
-                assert_user_setting_request(&mut upstream).await;
-                reply_last_selection(&controller, NamedEndpointIdentity::Local);
-                assert_user_setting_set(&mut upstream).await;
-                started(&mut upstream).await;
+                let saved = vec![remote("Remembered"), remote("Other")];
+                reply_settings(&controller, saved.clone(), remote("Remembered"));
                 assert!(
-                    inspect(&controller, |task| {
-                        task.selected == Some(EndpointIdentity::Local)
-                            && task.state == ui::SpringboardState::EndpointSelected
-                    })
+                    inspect(&controller, move |task| task.saved_endpoints == saved
+                        && task.selected_endpoint == remote("Remembered")
+                        && task.state == ui::SpringboardState::Idle)
                     .await
                 );
-                controller.close();
-            })
-            .await;
-    }
-
-    #[tokio::test]
-    async fn a_late_reply_keeps_the_user_selection() {
-        tokio::task::LocalSet::new()
-            .run_until(async {
-                let (controller, mut upstream, _discovery) = controller("echo_child");
-                controller.start();
-                assert_user_setting_request(&mut upstream).await;
-                select(&controller, 0);
-                assert_user_setting_set(&mut upstream).await;
-                started(&mut upstream).await;
-                reply_last_selection(
-                    &controller,
-                    NamedEndpointIdentity::Remote { fullname: "late".into(), name: String::new() },
-                );
-                assert!(
-                    inspect(&controller, |task| {
-                        task.selected == Some(EndpointIdentity::Local)
-                            && task.last_selected.is_none()
-                    })
-                    .await
-                );
+                // Restoring isn't a change, so nothing is stored back.
+                assert!(upstream.try_recv().is_err());
                 controller.close();
             })
             .await;
@@ -1934,32 +1937,207 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let (controller, mut upstream, discovered) = controller("echo_child");
-                controller.start();
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
-                let service = remote::tests::service("Remembered", viewer.connection.local_port());
-                let fullname = service.fullname.clone();
-                // The reply arrives before the viewer is announced, so it cannot
-                // apply yet.
-                reply_last_selection(
-                    &controller,
-                    NamedEndpointIdentity::Remote {
-                        fullname: fullname.clone(),
-                        name: String::new(),
-                    },
+                reply_settings(&controller, vec![remote("Remembered")], remote("Remembered"));
+                controller.start();
+                // Nothing to dial until the viewer is announced.
+                assert!(
+                    inspect(&controller, |task| task.state == ui::SpringboardState::Running
+                        && !task.connection.is_started())
+                    .await
                 );
-                assert!(inspect(&controller, |task| task.selected.is_none()).await);
-                discover(&controller, &discovered, service).await;
-                let expected = fullname.clone();
-                wait_condition(&controller, move |task| {
-                    task.selected == Some(EndpointIdentity::Remote(expected.clone()))
-                        && task.connection_state
-                            == ui::ConnectionState::UnpairedConfirmationRequired
-                })
+                discover(
+                    &controller,
+                    &discovered,
+                    discovery::tests::service("Remembered", viewer.connection.local_port()),
+                )
                 .await;
                 accept_plaintext(&controller).await;
                 initial_request(&mut upstream).await;
                 controller.close();
                 viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_selection_made_while_stopped_survives_stop() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, discovered) = controller("echo_child");
+                let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
+                discover(
+                    &controller,
+                    &discovered,
+                    discovery::tests::service("Chosen", viewer.connection.local_port()),
+                )
+                .await;
+                pair(&controller, 0);
+                assert!(inspect(&controller, |task| !task.connection.is_started()).await);
+                for round in 0..2 {
+                    controller.start();
+                    accept_plaintext(&controller).await;
+                    if round == 0 {
+                        // Saved once it connects.
+                        let settings = stored_settings(&mut upstream).await;
+                        assert_eq!(settings.saved, [remote("Chosen")]);
+                        assert_eq!(settings.selected, remote("Chosen"));
+                    }
+                    initial_request(&mut upstream).await;
+                    controller.close();
+                    viewer
+                        .event(|event| matches!(event, ConnectionMessage::Disconnected { .. }))
+                        .await;
+                    assert!(
+                        inspect(&controller, |task| task.selected_endpoint == remote("Chosen")
+                            && task.state == ui::SpringboardState::Idle)
+                        .await
+                    );
+                }
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn forgetting_the_selected_endpoint_stops_on_local() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, discovered) = controller("echo_child");
+                let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
+                discover(
+                    &controller,
+                    &discovered,
+                    discovery::tests::service("Saved", viewer.connection.local_port()),
+                )
+                .await;
+                pair(&controller, 0);
+                controller.start();
+                accept_plaintext(&controller).await;
+                assert_eq!(stored_settings(&mut upstream).await.saved, [remote("Saved")]);
+                initial_request(&mut upstream).await;
+                controller
+                    .task_sender
+                    .send(Box::new(|task| task.forget_endpoint(remote("Saved"))))
+                    .unwrap();
+                let settings = stored_settings(&mut upstream).await;
+                assert!(settings.saved.is_empty());
+                assert_eq!(settings.selected, EndpointIdentity::Local);
+                assert!(
+                    inspect(&controller, |task| task.selected_endpoint == EndpointIdentity::Local
+                        && task.state == ui::SpringboardState::Idle
+                        && task.connection.state == ui::ConnectionState::None
+                        && !task.connection.is_started())
+                    .await
+                );
+                viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_probed_manual_endpoint_is_saved_and_dialed() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, _discovery) = controller("echo_child");
+                let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
+                let port = viewer.connection.local_port();
+                let probe = |host: &'static str, port: i32| {
+                    controller
+                        .task_sender
+                        .send(Box::new(move |task| {
+                            task.manual_probe = ManualProbe::start(host.into(), port);
+                        }))
+                        .unwrap();
+                };
+                let probed =
+                    |task: &SpringboardTask| task.manual_probe.as_ref().map(|probe| probe.state);
+                probe("127.0.0.1", 0);
+                wait_condition(&controller, move |task| {
+                    probed(task) == Some(ui::ManualEndpointState::Unreachable)
+                })
+                .await;
+                probe("127.0.0.1", closed_port().await.into());
+                wait_condition(&controller, move |task| {
+                    probed(task) == Some(ui::ManualEndpointState::Unreachable)
+                })
+                .await;
+                probe("127.0.0.1", port.into());
+                wait_condition(&controller, move |task| {
+                    probed(task) == Some(ui::ManualEndpointState::Reachable)
+                })
+                .await;
+                controller
+                    .task_sender
+                    .send(Box::new(|task| task.connect_manual_endpoint()))
+                    .unwrap();
+                let manual = EndpointIdentity::Manual { host: "127.0.0.1".into(), port };
+                controller.start();
+                accept_plaintext(&controller).await;
+                let settings = stored_settings(&mut upstream).await;
+                assert_eq!(settings.saved, [manual.clone()]);
+                assert_eq!(settings.selected, manual);
+                initial_request(&mut upstream).await;
+                controller.close();
+                viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
+                probe("", 0);
+                assert!(inspect(&controller, |task| task.manual_probe.is_none()).await);
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn cancelling_a_pairing_saves_nothing() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, mut upstream, discovered) = controller("echo_child");
+                let mut viewer = Viewer::start(PairingPolicy::Generated, 0).await;
+                discover(
+                    &controller,
+                    &discovered,
+                    discovery::tests::service("Cancelled", viewer.connection.local_port()),
+                )
+                .await;
+                pair(&controller, 0);
+                controller.start();
+                wait_condition(&controller, |task| {
+                    task.connection.state == ui::ConnectionState::PairingRequired
+                })
+                .await;
+                controller.task_sender.send(Box::new(|task| task.cancel_pairing())).unwrap();
+                viewer
+                    .event(|event| {
+                        matches!(event, ConnectionMessage::PairingFinished { accepted: false, .. })
+                    })
+                    .await;
+                assert!(
+                    inspect(&controller, |task| task.connection.state
+                        == ui::ConnectionState::Failed
+                        && task.selected_endpoint == remote("Cancelled")
+                        && task.saved_endpoints.is_empty())
+                    .await
+                );
+                assert!(upstream.try_recv().is_err());
+                // Without a prompt there's nothing to cancel.
+                controller.task_sender.send(Box::new(|task| task.cancel_pairing())).unwrap();
+                assert!(
+                    inspect(&controller, |task| task.connection.error == "Pairing cancelled").await
+                );
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn restarting_discovery_drops_the_viewers_it_had() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, _upstream, discovered) = controller("echo_child");
+                discover(&controller, &discovered, discovery::tests::service("Vanished", 1)).await;
+                controller.task_sender.send(Box::new(|task| task.discovery.restart())).unwrap();
+                assert!(inspect(&controller, |task| task.discovery.discovered.is_empty()).await);
+                discover(&controller, &discovered, discovery::tests::service("Answered", 1)).await;
+                controller.close();
             })
             .await;
     }

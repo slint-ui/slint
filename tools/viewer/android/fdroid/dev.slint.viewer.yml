@@ -30,7 +30,6 @@ Builds:
     binary: https://github.com/slint-ui/slint/releases/download/v%v/slint-viewer-armeabi-v7a.apk
     prebuild:
       - sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1
     build:
       - export PATH=$HOME/.cargo/bin:$PATH
       - ./build-native.sh armeabi-v7a
@@ -50,7 +49,6 @@ Builds:
     binary: https://github.com/slint-ui/slint/releases/download/v%v/slint-viewer-x86_64.apk
     prebuild:
       - sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1
     build:
       - export PATH=$HOME/.cargo/bin:$PATH
       - ./build-native.sh x86_64
@@ -70,7 +68,6 @@ Builds:
     binary: https://github.com/slint-ui/slint/releases/download/v%v/slint-viewer-arm64-v8a.apk
     prebuild:
       - sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1
     build:
       - export PATH=$HOME/.cargo/bin:$PATH
       - ./build-native.sh arm64-v8a

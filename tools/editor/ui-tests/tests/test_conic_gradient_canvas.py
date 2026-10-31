@@ -22,6 +22,7 @@ from slint_testing import keys
 from source_snapshot import SourceSnapshot
 from ui_assertions import expect
 from ui_driver import (
+    double_click_at,
     elements,
     first_window,
     launch_editor,
@@ -363,8 +364,7 @@ def test_conic_ring_insertion(editor_binary, editor_environment, conic_scene, tm
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
         p = around(c, 126, 220 + 90)
-        gesture(window, p, p)
-        gesture(window, p, p)
+        double_click_at(window, p)
         control(window, "Gradient stop 4")
         assert float(
             control(
@@ -393,8 +393,7 @@ def test_conic_insertion_samples_straight_alpha(
         open_conic(window)
         c = center(control(window, "Gradient center handle"), 130)
         p = around(c, 126, 400)
-        gesture(window, p, p)
-        gesture(window, p, p)
+        double_click_at(window, p)
         click(window, "Edit stop 2 color")
         expect.poll(
             lambda: (

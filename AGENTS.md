@@ -15,6 +15,9 @@
   Use release builds for performance measurements.
 - Filter `.slint` cases with `SLINT_TEST_FILTER=<substring>` to avoid compiling every case.
   Example: `SLINT_TEST_FILTER=layout cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter`.
+- CI runs `test-driver-rust` with `--all-features`, which enables `build-time` mode.
+  To reproduce a CI-only failure or a lint in generated code, add `--features build-time`.
+  The live-preview job also sets `SLINT_LIVE_PREVIEW=1` and enables `slint/live-preview`.
 - In `tests/cases/*.slint`, declare the `test` property `out` or `in-out`; otherwise tests can pass without checking it.
 - For `api/slint-sc`, every line, function, code region, and branch outcome requires coverage, with no exclusions.
   Each requirement anchor `{#sls.…}` inside an `<SC>` block on an `SC: true` page needs a matching `//#sls.…` test in the same change.

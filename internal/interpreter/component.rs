@@ -6,15 +6,21 @@
 //! The public API wraps these thin structs so downstream callers never
 //! see the compilation-unit surface directly.
 
+#[cfg(feature = "std")]
 use crate::AnimationMode;
 use crate::prelude::*;
 use crate::public_api;
+#[cfg(feature = "std")]
 use i_slint_compiler::ComponentSelection;
+#[cfg(feature = "std")]
 use i_slint_compiler::builtin_functions::BuiltinFunction;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_compiler::llr::{CompilationUnit, Expression, GlobalComponent, PublicComponentIdx};
+#[cfg(feature = "std")]
+use i_slint_compiler::llr::Expression;
+use i_slint_compiler::llr::{CompilationUnit, GlobalComponent, PublicComponentIdx};
+use i_slint_compiler::names::normalize_identifier;
 use i_slint_compiler::native_class::PropertyVisibility;
-use i_slint_compiler::parser::normalize_identifier;
+#[cfg(feature = "std")]
 use i_slint_compiler::source_path::SourcePath;
 
 /// Pair of `TypeLoader`s retained alongside a compiled component for
@@ -28,8 +34,10 @@ use i_slint_compiler::source_path::SourcePath;
 /// the other; passes are destructive.
 #[derive(Clone, Default)]
 pub struct TypeLoaders {
+    #[cfg(feature = "std")]
     #[cfg_attr(not(any(feature = "internal", feature = "internal-highlight")), allow(dead_code))]
     pub type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
+    #[cfg(feature = "std")]
     #[cfg_attr(not(feature = "internal-highlight"), allow(dead_code))]
     pub raw_type_loader: Option<Rc<i_slint_compiler::typeloader::TypeLoader>>,
     /// The object-tree component of each public component, indexed like
@@ -37,6 +45,7 @@ pub struct TypeLoaders {
     /// resolve elements against the exact component the definition was
     /// built from — a name lookup could hit a same-named component from
     /// another document.
+    #[cfg(feature = "std")]
     pub originals: Rc<
         typed_index_collections::TiVec<
             PublicComponentIdx,
@@ -46,18 +55,19 @@ pub struct TypeLoaders {
 }
 
 /// Loads the contents of a resource file, such as an imported font, by its path or URL.
+#[cfg(feature = "std")]
 pub type ResourceLoader =
     Rc<dyn Fn(SourcePath) -> Pin<Box<dyn Future<Output = std::io::Result<Vec<u8>>>>>>;
 
 /// The contents of the imported font files that were loaded while compiling,
 /// keyed by the path that the compiled code registers each font with.
-pub type FontFiles = HashMap<String, std::sync::Arc<Vec<u8>>>;
+pub type FontFiles = HashMap<String, alloc::sync::Arc<Vec<u8>>>;
 
 /// What the compiled code refers to besides the compilation unit.
 #[derive(Clone, Default)]
 pub struct Resources {
     pub font_files: FontFiles,
-    #[cfg(feature = "internal-embed-textures")]
+    #[cfg(feature = "internal-mcu-interpreter")]
     pub pre_rendered: crate::static_resources::PreRendered,
 }
 
@@ -353,6 +363,7 @@ impl ComponentInstanceInner {
     }
 }
 
+#[cfg(feature = "std")]
 /// Lower a compiled `Document` to a `CompilationUnit` and wrap each public
 /// component in a `ComponentDefinitionInner`.
 pub fn build_from_document(
@@ -364,7 +375,7 @@ pub fn build_from_document(
 ) -> Vec<ComponentDefinitionInner> {
     let resources = Rc::new(Resources {
         font_files,
-        #[cfg(feature = "internal-embed-textures")]
+        #[cfg(feature = "internal-mcu-interpreter")]
         pre_rendered: crate::static_resources::PreRendered::from_document(document),
     });
     let mut unit =
@@ -387,6 +398,7 @@ pub fn build_from_document(
         .collect()
 }
 
+#[cfg(feature = "std")]
 fn make_static(compilation_unit: &mut CompilationUnit) {
     fn make_expression_static(expression: &mut Expression) {
         let replacement = match expression {
@@ -424,6 +436,7 @@ fn make_static(compilation_unit: &mut CompilationUnit) {
 /// Loads the imported fonts through `resource_loader`, or in the browser,
 /// which can't read them when a component is created, through `fetch`.
 /// Fonts that fail to load get a warning on their `import`.
+#[cfg(feature = "std")]
 #[cfg_attr(not(all(target_arch = "wasm32", target_os = "unknown")), allow(unused_variables))]
 async fn load_font_files(
     type_loader: &i_slint_compiler::typeloader::TypeLoader,
@@ -453,7 +466,7 @@ async fn load_font_files(
     for (path, token, load) in loads {
         match load.await {
             Ok(data) => {
-                files.insert(path.to_string(), std::sync::Arc::new(data));
+                files.insert(path.to_string(), alloc::sync::Arc::new(data));
             }
             Err(e) => diag.push_warning(format!("Cannot load the font: {e}"), &token),
         }
@@ -461,7 +474,7 @@ async fn load_font_files(
     files
 }
 
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(all(feature = "std", target_arch = "wasm32", target_os = "unknown"))]
 async fn mapped_url(path: &SourcePath, config: &i_slint_compiler::CompilerConfiguration) -> String {
     if let (Some(mapper), Some(url)) = (&config.resource_url_mapper, path.to_url())
         && let Some(mapped) = mapper(&url).await
@@ -472,7 +485,7 @@ async fn mapped_url(path: &SourcePath, config: &i_slint_compiler::CompilerConfig
 }
 
 /// Sends the request right away, so that several fetches overlap.
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(all(feature = "std", target_arch = "wasm32", target_os = "unknown"))]
 fn fetch(url: &str) -> impl Future<Output = std::io::Result<Vec<u8>>> + 'static {
     use wasm_bindgen::JsCast;
     use wasm_bindgen_futures::JsFuture;
@@ -498,6 +511,7 @@ fn fetch(url: &str) -> impl Future<Output = std::io::Result<Vec<u8>>> + 'static 
     }
 }
 
+#[cfg(feature = "std")]
 /// What [`build_from_source`] produces: the diagnostics, a map of public
 /// component name → `ComponentDefinitionInner` for each exported root in the
 /// document, and the extra document metadata that the `internal` API of
@@ -511,6 +525,7 @@ pub struct BuildResult {
     pub structs_and_enums: Vec<LangType>,
 }
 
+#[cfg(feature = "std")]
 /// Compile a `.slint` source string.
 pub async fn build_from_source(
     source_code: String,

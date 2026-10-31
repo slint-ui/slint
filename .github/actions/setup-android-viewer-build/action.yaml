@@ -7,8 +7,7 @@
 name: Set up the Android viewer build
 description: |
     Install what tools/viewer/android/build-native.sh and the gradle project
-    need, at the versions F-Droid rebuilds the viewer with. The NDK, cargo-ndk
-    and resvg pins live here; docs/internal/release.md says when to move them.
+    need, at the versions F-Droid rebuilds the viewer with.
 
 runs:
     using: composite
@@ -34,15 +33,15 @@ runs:
         - uses: gradle/actions/setup-gradle@v6.3.0
           with:
               gradle-version: ${{ env.GRADLE_VERSION }}
+        # With cargo's install records, build-native.sh only reinstalls a tool
+        # whose pin changed.
         - name: Cache cargo-ndk and resvg
-          id: cargo-tools-cache
           uses: actions/cache@v6
           with:
               path: |
                   ~/.cargo/bin/cargo-ndk
                   ~/.cargo/bin/resvg
-              key: android-viewer-cargo-tools-cargo-ndk-4.1.2-resvg-0.48.1
-        - name: Install cargo-ndk and resvg
-          if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
-          shell: bash
-          run: cargo install --locked cargo-ndk@4.1.2 resvg@0.48.1
+                  ~/.cargo/.crates.toml
+                  ~/.cargo/.crates2.json
+              key: android-viewer-cargo-tools-${{ hashFiles('tools/viewer/android/build-native.sh') }}
+              restore-keys: android-viewer-cargo-tools-

@@ -21,7 +21,7 @@ assert.equal(
 );
 const testScript = importParts.join("importInterpreter()");
 
-function startView({ fetch, captureError, compile } = {}) {
+function startView({ fetch, captureError, compile, toolCallError } = {}) {
     let onMessage;
     let resolveCapture;
     const captured = new Promise((resolve) => {
@@ -83,7 +83,10 @@ function startView({ fetch, captureError, compile } = {}) {
                             data: {
                                 jsonrpc: "2.0",
                                 id: message.id,
-                                result: {},
+                                ...(toolCallError &&
+                                message.method === "tools/call"
+                                    ? { error: toolCallError }
+                                    : { result: {} }),
                             },
                         }),
                     );
@@ -153,6 +156,7 @@ function startView({ fetch, captureError, compile } = {}) {
     return {
         captured,
         reported,
+        status: elements.get("status"),
         async preview() {
             await ready;
             onMessage({
@@ -206,10 +210,29 @@ test("publishes a terminal error when canvas capture fails", {
     assert.equal(capture.previewId, "test-preview");
     assert.ok(
         capture.error.includes(
-            "Couldn't capture the preview: Error: canvas unavailable",
+            "Couldn't capture the preview: canvas unavailable",
         ),
     );
     assert.equal(capture.png, undefined);
+});
+
+test("shows the message of a refused tool call", {
+    timeout: 3000,
+}, async () => {
+    const view = startView({
+        toolCallError: {
+            code: -32000,
+            message: "Tool 'publish_preview_capture' is not permitted",
+        },
+    });
+    await view.preview();
+    while (!view.status.textContent.startsWith("Couldn't capture")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(
+        view.status.textContent,
+        "Couldn't capture the preview: Tool 'publish_preview_capture' is not permitted",
+    );
 });
 
 test("diagnostics use version metadata that arrives during compilation", {

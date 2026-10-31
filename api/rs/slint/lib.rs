@@ -44,7 +44,7 @@ This method combines your Rust code with the `.slint` design markup in one file,
 
 ```rust,no_run
 slint::slint!{
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component HelloWorld inherits Window {
         Text {
             text: "hello world";
@@ -76,11 +76,11 @@ build = "build.rs"
 edition = "2021"
 
 [dependencies]
-slint = "1.16.0"
+slint = "1.19.0"
 ...
 
 [build-dependencies]
-slint-build = "1.16.0"
+slint-build = "1.19.0"
 ```
 
 Use the API of the slint-build crate in the `build.rs` file:
@@ -604,7 +604,7 @@ pub mod wgpu_30 {
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
-    //!    #[slint_edition = "1.19"]
+    //!    #[edition = "1.19"]
     //!    export component HelloWorld inherits Window {
     //!        preferred-width: 320px;
     //!        preferred-height: 300px;
@@ -691,7 +691,7 @@ pub mod winit_030 {
     //! use slint::winit_030::{WinitWindowAccessor, winit};
     //!
     //! slint::slint!{
-    //!     #[slint_edition = "1.19"]
+    //!     #[edition = "1.19"]
     //!     import { VerticalBox, Button } from "std-widgets.slint";
     //!     export component HelloWorld inherits Window {
     //!         callback clicked;

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
+import { Api, CoordinateSpace, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
 import { InspectorEnumOptions } from "../enum-options.slint";
 
 export global InspectorContext {
@@ -25,6 +25,13 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && (InspectorContext.element-information.type-name == "RadioGroup" || InspectorContext.element-information.type-name == "Slider" || InspectorContext.element-information.type-name == "TabWidget");
     }
 
+    public pure function has-current-index-selection() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "ComboBox"
+                || InspectorContext.element-information.type-name == "RadioGroup"
+                || InspectorContext.element-information.type-name == "TabWidget");
+    }
+
     public pure function is-rectangle-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Rectangle";
     }
@@ -41,6 +48,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StyledText";
     }
 
+    public pure function has-styled-text-property() -> bool {
+        return InspectorContext.element-information.type-name == "StyledText" || InspectorContext.element-information.type-name == "Tooltip";
+    }
+
     public pure function is-image-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Image";
     }
@@ -53,8 +64,20 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "Button";
     }
 
+    public pure function is-checkable() -> bool {
+        let runtime = Api.runtime-property-value-data("checkable", {});
+        return runtime.value-resolved
+            ? runtime.value-bool
+            : Api.source-property-value-data("checkable", {}).value-bool;
+    }
+
     public pure function is-checkbox-selection() -> bool {
         return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "CheckBox";
+    }
+
+    public pure function is-checked-selection() -> bool {
+        return InspectorContext.is-checkbox-selection()
+            || (InspectorContext.is-button-selection() && InspectorContext.is-checkable());
     }
 
     public pure function is-slider-selection() -> bool {
@@ -71,75 +94,60 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "Spinner");
     }
 
+    public pure function has-scrollbar-policy-selection() -> bool {
+        return InspectorContext.has-backend-rect() && Api.has-property("horizontal-scrollbar-policy");
+    }
+
     public pure function is-resizable-selection() -> bool {
         return InspectorContext.has-backend-rect() && Api.selection.is-resizable;
     }
 
     public pure function has-text-property-selection() -> bool {
+        return (Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "Tooltip")
+            || (InspectorContext.has-backend-rect() && Api.has-property("text"));
+    }
+
+    public pure function has-typography-selection() -> bool {
         return InspectorContext.has-backend-rect()
             && (InspectorContext.element-information.type-name == "Text"
-                || InspectorContext.element-information.type-name == "StyledText"
-                || InspectorContext.element-information.type-name == "Button"
-                || InspectorContext.element-information.type-name == "CheckBox"
                 || InspectorContext.element-information.type-name == "LineEdit"
-                || InspectorContext.element-information.type-name == "Switch"
                 || InspectorContext.element-information.type-name == "TextEdit"
-                || InspectorContext.element-information.type-name == "RadioButton"
-                || InspectorContext.element-information.type-name == "TextInput");
+                || InspectorContext.element-information.type-name == "SpinBox");
     }
 
     public pure function is-title-selection() -> bool {
         return Api.selection.highlight-index >= 0
-            && (InspectorContext.element-information.type-name == "GroupBox"
-                || InspectorContext.element-information.type-name == "RadioGroup"
-                || InspectorContext.element-information.type-name == "Tab");
+            && Api.has-property("title");
     }
 
     public pure function is-lineedit-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "LineEdit";
     }
 
+    public pure function has-placeholder-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && Api.has-property("placeholder-text");
+    }
+
+    public pure function has-only-horizontal-alignment() -> bool {
+        return InspectorContext.has-backend-rect()
+            && (InspectorContext.element-information.type-name == "LineEdit"
+                || InspectorContext.element-information.type-name == "SpinBox"
+                || InspectorContext.element-information.type-name == "TextEdit");
+    }
+
     public pure function is-standard-button-selection() -> bool {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StandardButton";
     }
 
-    public pure function is-enable-selection() -> bool {
+    public pure function is-interaction-selection() -> bool {
         return Api.selection.highlight-index >= 0
-            && (InspectorContext.element-information.type-name == "Button"
-                || InspectorContext.element-information.type-name == "CheckBox"
-                || InspectorContext.element-information.type-name == "ComboBox"
-                || InspectorContext.element-information.type-name == "ContextMenuArea"
-                || InspectorContext.element-information.type-name == "DragArea"
-                || InspectorContext.element-information.type-name == "DropArea"
-                || InspectorContext.element-information.type-name == "FocusScope"
-                || InspectorContext.element-information.type-name == "GroupBox"
-                || InspectorContext.element-information.type-name == "KeyBinding"
-                || InspectorContext.element-information.type-name == "LineEdit"
-                || InspectorContext.element-information.type-name == "ListView"
-                || InspectorContext.element-information.type-name == "MenuItem"
-                || InspectorContext.element-information.type-name == "RadioGroup"
-                || InspectorContext.element-information.type-name == "ScaleRotateGestureHandler"
-                || InspectorContext.element-information.type-name == "ScrollView"
-                || InspectorContext.element-information.type-name == "Slider"
-                || InspectorContext.element-information.type-name == "SpinBox"
-                || InspectorContext.element-information.type-name == "StandardButton"
-                || InspectorContext.element-information.type-name == "StandardListView"
-                || InspectorContext.element-information.type-name == "StandardTableView"
-                || InspectorContext.element-information.type-name == "SwipeGestureHandler"
-                || InspectorContext.element-information.type-name == "Switch"
-                || InspectorContext.element-information.type-name == "TextEdit"
-                || InspectorContext.element-information.type-name == "TextInput"
-                || InspectorContext.element-information.type-name == "TouchArea"
-                || InspectorContext.element-information.type-name == "RadioButton"
-                || InspectorContext.element-information.type-name == "WindowMoveArea");
+            && Api.has-property("enabled");
     }
 
     public pure function is-read-only-selection() -> bool {
         return Api.selection.highlight-index >= 0
-            && (InspectorContext.element-information.type-name == "LineEdit"
-                || InspectorContext.element-information.type-name == "SpinBox"
-                || InspectorContext.element-information.type-name == "TextEdit"
-                || InspectorContext.element-information.type-name == "TextInput");
+            && Api.has-property("read-only");
     }
 
     public pure function is-layout-selection() -> bool {
@@ -148,6 +156,17 @@ export global InspectorContext {
                 || InspectorContext.element-information.type-name == "HorizontalLayout"
                 || InspectorContext.element-information.type-name == "VerticalLayout"
                 || InspectorContext.element-information.type-name == "FlexboxLayout");
+    }
+
+    public pure function has-layout-alignment-selection() -> bool {
+        return Api.selection.highlight-index >= 0
+            && (InspectorContext.element-information.type-name == "HorizontalLayout"
+                || InspectorContext.element-information.type-name == "VerticalLayout"
+                || InspectorContext.element-information.type-name == "FlexboxLayout");
+    }
+
+    public pure function is-flexbox-layout-selection() -> bool {
+        return Api.selection.highlight-index >= 0 && InspectorContext.element-information.type-name == "FlexboxLayout";
     }
 
     public pure function selected-x() -> length {
@@ -227,6 +246,7 @@ export global InspectorContext {
             name == "y" ? value * 1px : InspectorContext.selected-y(),
             name == "width" ? value * 1px : InspectorContext.selected-width(),
             name == "height" ? value * 1px : InspectorContext.selected-height(),
+            CoordinateSpace.Root,
         );
         return true;
     }

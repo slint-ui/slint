@@ -1576,17 +1576,9 @@ async fn parse_source(
     let mut builder = slint_interpreter::Compiler::default();
 
     let cc = builder.compiler_configuration(i_slint_core::InternalToken);
-    cc.components_to_generate = if let Some(name) = component {
-        i_slint_compiler::ComponentSelection::Named(name)
-    } else {
-        i_slint_compiler::ComponentSelection::LastExported
-    };
+    editor_preview::document_cache::configure_preview(cc, component);
     cc.resource_url_mapper = resource_url_mapper();
     cc.embed_resources = EmbedResourcesKind::ListAllResources;
-    cc.no_native_menu = true;
-    // Otherwise this may cause a runtime panic because of the recursion
-    cc.error_on_binding_loop_with_window_layout = true;
-    cc.is_preview = true;
 
     let (open_file_fallback, source_file_versions) =
         editor_preview::document_cache::document_cache_parts_setup(
@@ -1598,6 +1590,10 @@ async fn parse_source(
     let mut overrides = config.overrides;
     if !style.is_empty() {
         overrides.style = Some(style);
+    }
+    if overrides.project.edition.is_none() {
+        overrides.project.edition =
+            path.to_url().and_then(|url| config.rust_macro_editions.get(&url).copied());
     }
     builder.set_overrides(overrides, i_slint_core::InternalToken);
     builder.set_project_root(
@@ -1868,33 +1864,20 @@ fn convert_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
     file_versions: &editor_preview::document_cache::SourceFileVersionMap,
 ) -> HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> {
-    let mut result: HashMap<Url, (SourceFileVersion, Vec<lsp_types::Diagnostic>)> =
-        Default::default();
-
-    // Pre-fill version info and an empty diagnostics to reset the state for the url
-    for (path, version) in file_versions.iter() {
-        result.extend(path.to_url().map(|url| (url, (*version, Vec::new()))));
-    }
-
     PREVIEW_STATE.with_borrow(|preview_state| {
-        for d in diagnostics {
-            let Some(uri) = i_slint_live_preview::protocol::diagnostic_url(d) else {
-                continue;
-            };
-            let new_version = preview_state.source_code.get(&uri).and_then(|e| e.version);
-            if let Some(data) = result.get_mut(&uri) {
-                if data.0.is_some() && new_version.is_some() && data.0 != new_version {
-                    continue;
-                }
-                data.1.push(i_slint_live_preview::protocol::to_lsp_diagnostic(
-                    d,
-                    preview_state.format(),
-                ));
+        let mut result = i_slint_live_preview::protocol::diagnostics_by_url(
+            diagnostics,
+            file_versions.iter().filter_map(|(path, version)| Some((path.to_url()?, *version))),
+            preview_state.format(),
+        );
+        for (url, (version, file_diagnostics)) in &mut result {
+            let new_version = preview_state.source_code.get(url).and_then(|e| e.version);
+            if version.is_some() && new_version.is_some() && *version != new_version {
+                file_diagnostics.clear();
             }
         }
-    });
-
-    result
+        result
+    })
 }
 
 fn set_drop_mark(mark: &Option<drop_location::DropMark>) {
@@ -2194,6 +2177,14 @@ pub mod test {
 
     use crate::editor_preview::test::main_test_file_name;
 
+    /// The configuration that the LSP sends, with the edition of this Slint.
+    pub fn preview_config() -> super::PreviewConfig {
+        let mut config = super::PreviewConfig::default();
+        config.overrides.project.edition =
+            Some(i_slint_compiler::project_file::SlintEdition::current());
+        config
+    }
+
     #[track_caller]
     pub fn interpret_test_with_sources(
         style: &str,
@@ -2213,7 +2204,7 @@ pub mod test {
         let path = main_test_file_name();
         let source_code = code.get(&path).unwrap().clone();
         let (diagnostics, component_definition, _, _) = spin_on::spin_on(super::parse_source(
-            Default::default(),
+            crate::preview::test::preview_config(),
             path,
             Some(24),
             Some(source_code.to_string()),
@@ -2283,7 +2274,7 @@ mod tests {
         let source = r#"import { Button } from "std-widgets.slint";
             export component Main inherits Window { Button {} }"#;
         let (diagnostics, compiled, imports, versions) = spin_on::spin_on(parse_source(
-            Default::default(),
+            crate::preview::test::preview_config(),
             SourcePath::from_url(&target.url),
             None,
             Some(source.into()),
@@ -2326,7 +2317,7 @@ mod tests {
             });
             let switched_target = replacement.clone();
             let (diagnostics, _, _, _) = spin_on::spin_on(parse_source(
-                Default::default(), SourcePath::from_url(&original.url), None,
+                crate::preview::test::preview_config(), SourcePath::from_url(&original.url), None,
                 Some(r#"import { Dependency } from "dependency.slint"; export component Main inherits Dependency {}"#.into()),
                 String::new(), None,
                 move |path| {
@@ -2354,7 +2345,7 @@ mod tests {
         let manifest_path = directory.path().join("slint-project.json");
         std::fs::write(
             &manifest_path,
-            r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#,
+            r#"{"edition":"1.19","experimental-features":["component-container"]}"#,
         )
         .unwrap();
         let manifest = Url::from_file_path(&manifest_path).unwrap();
@@ -2367,11 +2358,11 @@ mod tests {
             (None, true),
             (
                 Some(
-                    r#"{"slint-edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#,
+                    r#"{"edition":"1.19","main":"other.slint","experimental-features":["component-container"]}"#,
                 ),
                 false,
             ),
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), true),
         ] {
             PREVIEW_STATE.with_borrow_mut(|state| {
                 if let Some(contents) = contents {
@@ -2384,7 +2375,7 @@ mod tests {
                 }
             });
             let (diagnostics, compiled, _, _) = spin_on::spin_on(parse_source(
-                Default::default(),
+                crate::preview::test::preview_config(),
                 source.clone(),
                 Some(2),
                 Some(code.into()),
@@ -2412,7 +2403,7 @@ mod tests {
         for file_name in ["main.slint", "main.rs"] {
             let path = SourcePath::new(directory.path().join(file_name));
             let (diagnostics, compiled, _, versions) = spin_on::spin_on(parse_source(
-                Default::default(),
+                crate::preview::test::preview_config(),
                 path.clone(),
                 None,
                 None,
@@ -2448,8 +2439,8 @@ mod tests {
         });
         assert_eq!(get_url_from_cache(&manifest).unwrap_err().kind(), std::io::ErrorKind::NotFound);
         for (contents, reload) in [
-            (Some(r#"{"slint-edition":"1.19"}"#), true),
-            (Some(r#"{"slint-edition":"1.19"}"#), false),
+            (Some(r#"{"edition":"1.19"}"#), true),
+            (Some(r#"{"edition":"1.19"}"#), false),
             (Some("{broken"), true),
             (None, true),
             (None, true),

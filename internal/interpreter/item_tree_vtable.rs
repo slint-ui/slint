@@ -13,8 +13,7 @@ use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
 use i_slint_core::item_tree::{
-    IndexRange, ItemTree, ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder,
-    VisitChildrenResult,
+    IndexRange, ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
 };
 use i_slint_core::items::{AccessibleRole, ItemVTable};
 use i_slint_core::layout::{LayoutInfo, Orientation};
@@ -399,7 +398,7 @@ impl i_slint_core::item_tree::ItemTree for Instance {
             if let Some(props) = sc.testable_properties.get(&local_idx) {
                 let mut encoded = String::new();
                 for p in props {
-                    use std::fmt::Write;
+                    use core::fmt::Write;
                     writeln!(encoded, "{}:{}", p.name, p.ty).unwrap();
                 }
                 *result = encoded.as_str().into();
@@ -535,7 +534,7 @@ fn sub_component_levels(
     let entry = instance.item_table.get(item_index as usize).and_then(Option::as_ref);
     let mut path = entry.map_or(&[][..], |(path, _)| &path[..]).iter();
     let mut next = entry.map(|_| (instance.root_sub_component.clone(), item_index));
-    std::iter::from_fn(move || {
+    core::iter::from_fn(move || {
         let (owner, local_idx) = next.take()?;
         let sc = &owner.compilation_unit.sub_components[owner.sub_component_idx];
         let Some(&sub_idx) = path.next() else {
@@ -583,7 +582,7 @@ fn eval_accessible_prop(
 /// PascalCase form the lowering derives from the enum's kebab-case
 /// `Display` (see `lower_to_item_tree`).
 fn accessible_string_property_name(what: AccessibleStringProperty) -> String {
-    i_slint_compiler::generator::to_pascal_case(&what.to_string())
+    i_slint_compiler::names::to_pascal_case(&what.to_string())
 }
 
 fn accessibility_action_name(action: &AccessibilityAction) -> &'static str {

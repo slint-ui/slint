@@ -434,11 +434,24 @@ impl Item for StyledTextItem {
 
     fn key_event(
         self: Pin<&Self>,
-        _: &InternalKeyEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        event: &InternalKeyEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> KeyEventResult {
-        KeyEventResult::EventIgnored
+        if !self.selectable() || event.event_type != KeyEventType::KeyPressed {
+            return KeyEventResult::EventIgnored;
+        }
+        match event.shortcut() {
+            Some(StandardShortcut::Copy) => {
+                self.copy_clipboard(window_adapter, Clipboard::DefaultClipboard);
+                KeyEventResult::EventAccepted
+            }
+            Some(StandardShortcut::SelectAll) => {
+                self.select_all();
+                KeyEventResult::EventAccepted
+            }
+            _ => KeyEventResult::EventIgnored,
+        }
     }
 
     fn focus_event(
@@ -590,6 +603,14 @@ impl StyledTextItem {
 
     /// Copies the selected text to the clipboard, without markup.
     pub fn copy(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _self_rc: &ItemRc) {
+        self.copy_clipboard(window_adapter, Clipboard::DefaultClipboard);
+    }
+
+    fn copy_clipboard(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        clipboard: Clipboard,
+    ) {
         let Some(range) = self.selection_range() else {
             return;
         };
@@ -598,7 +619,7 @@ impl StyledTextItem {
         WindowInner::from_pub(window_adapter.window())
             .context()
             .platform()
-            .set_clipboard_text(&text[range], Clipboard::DefaultClipboard);
+            .set_clipboard_text(&text[range], clipboard);
     }
 
     /// Selects the text between two byte offsets, clamped to the raw text.
@@ -691,7 +712,11 @@ impl StyledTextItem {
                 // in `input_event`. (A Shift-click extends the selection without moving.)
                 let clicked = self.mouse_selection.take().get() == Some(SelectionUnit::Character)
                     && !self.has_selection();
-                (!clicked).then_some(InputEventResult::EventAccepted)
+                if clicked {
+                    return None;
+                }
+                self.copy_clipboard(window_adapter, Clipboard::SelectionClipboard);
+                Some(InputEventResult::EventAccepted)
             }
             MouseEvent::Exit => {
                 self.mouse_selection.take();
@@ -994,7 +1019,14 @@ fn text_layout_info(
                     let unwrapped_width = implicit_size(width_text, None).width;
                     let min = match text.overflow() {
                         TextOverflow::Elide => unwrapped_width.min(
-                            window_adapter.renderer().char_size(width_text, self_rc, '…').width,
+                            window_adapter
+                                .renderer()
+                                .char_size(
+                                    width_text.font_request(self_rc),
+                                    width_text.line_height_factor(),
+                                    '…',
+                                )
+                                .width,
                         ),
                         TextOverflow::Clip => match wrap {
                             TextWrap::NoWrap => unwrapped_width,
@@ -1897,7 +1929,10 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window_adapter.renderer().char_size(self, self_rc, ' ').height;
+        let font_height = window_adapter
+            .renderer()
+            .char_size(self.font_request(self_rc), RenderString::line_height_factor(self), ' ')
+            .height;
 
         let mut reset_preferred_x_pos = true;
 
@@ -2243,6 +2278,7 @@ impl TextInput {
             anchor_point,
             input_type: self.input_type(),
             input_method_hints: self.input_method_hints(),
+            single_line: self.single_line(),
             clip_rect,
         }
     }

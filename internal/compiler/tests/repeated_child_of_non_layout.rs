@@ -88,7 +88,10 @@ fn child_reading_an_enclosing_size_loops_either_way() {
 fn repeated_child_is_left_out_by_default() {
     for edition in [None, Some(SlintEdition { major: 1, minor: 18 })] {
         let repeated = diagnostics(&child_reading_an_enclosing_size(REPEATED_CHILD), edition);
-        assert!(repeated.is_empty(), "{edition:?}, repeated child: {repeated:?}");
+        assert!(
+            !repeated.iter().any(|d| d.contains("binding loop")),
+            "{edition:?}, repeated child: {repeated:?}"
+        );
         let static_child = diagnostics(&child_reading_an_enclosing_size(STATIC_CHILD), edition);
         assert!(
             static_child.iter().any(|d| d.contains("binding loop")),

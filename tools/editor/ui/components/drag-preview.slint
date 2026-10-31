@@ -172,7 +172,7 @@ export component DragPreview inherits Rectangle {
 
     if !root.row-preview && root.text-drag: PaletteTextDragPreview { }
 
-    if !root.row-preview && (AppState.palette-drag-kind == ElementKind.image || AppState.palette-drag-kind == ElementKind.touch-area || AppState.palette-drag-kind == ElementKind.widget): PalettePlaceholderDragPreview {
+    if !root.row-preview && (root.palette-drag-active && AppState.palette-drag-kind != ElementKind.rectangle && !root.text-drag): PalettePlaceholderDragPreview {
             style: root.style;
         corner-radius: root.border-radius;
         show-thumbnail: root.presentation.show-thumbnail;

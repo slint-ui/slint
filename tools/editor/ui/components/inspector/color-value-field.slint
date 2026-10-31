@@ -54,7 +54,7 @@ export component InspectorColorValueField inherits Rectangle {
     segmented-field := InputSurface {
         style: root.style.field;
         enabled: root.enabled;
-        focused: root.input-focused;
+        focused: root.input-focused || swatch-focus.has-focus;
         x: 0px;
         y: 0px;
         clip: true;
@@ -94,7 +94,6 @@ export component InspectorColorValueField inherits Rectangle {
                 commit-key: root.commit-key;
                 normalize-accepted: true;
                 scrubbable: true;
-                scrub-on-suffix: true;
                 scrub-value: root.data.opacity;
                 scrub-has-minimum: true;
                 scrub-has-maximum: true;

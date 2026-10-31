@@ -21,7 +21,7 @@ impl slint::platform::Platform for TestPlatform {
 }
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component TestCase inherits Window {
         in property <image> source;
         in property <brush> tint;
@@ -46,10 +46,10 @@ fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     buffer
 }
 
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 struct LineBuffer<'a>(&'a mut [Rgb8Pixel]);
 
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 impl slint::platform::software_renderer::LineBufferProvider for LineBuffer<'_> {
     type TargetPixel = Rgb8Pixel;
 
@@ -63,7 +63,7 @@ impl slint::platform::software_renderer::LineBufferProvider for LineBuffer<'_> {
     }
 }
 
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 fn render_by_line(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); SIZE * SIZE];
     window.request_redraw();
@@ -114,11 +114,11 @@ fn optional_pixel_formats_render() {
         assert_eq!(*p, expected, "rgb565 mismatch at {i}");
     }
 
-    #[cfg(feature = "image-owned-textures")]
+    #[cfg(feature = "owned-pre-rendered-resources")]
     alpha_map_renders_in_its_color_or_the_colorize_color(&window, &ui);
 }
 
-#[cfg(feature = "image-owned-textures")]
+#[cfg(feature = "owned-pre-rendered-resources")]
 fn alpha_map_renders_in_its_color_or_the_colorize_color(
     window: &MinimalSoftwareWindow,
     ui: &TestCase,

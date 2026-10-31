@@ -127,8 +127,8 @@ pub trait RendererSealed {
     #[cfg(not(feature = "shared-parley"))]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::RenderString>,
-        item_rc: &crate::item_tree::ItemRc,
+        font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize;
 
@@ -138,14 +138,19 @@ pub trait RendererSealed {
     #[cfg(feature = "shared-parley")]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::RenderString>,
-        item_rc: &crate::item_tree::ItemRc,
+        font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize {
         self.slint_context()
             .and_then(|ctx| {
                 let mut font_ctx = ctx.font_context().borrow_mut();
-                crate::textlayout::sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+                crate::textlayout::sharedparley::char_size(
+                    &mut font_ctx,
+                    &font_request,
+                    line_height_factor,
+                    ch,
+                )
             })
             .unwrap_or_default()
     }
@@ -361,6 +366,7 @@ pub trait RendererSealed {
 
     /// Like [`Self::register_bitmap_font`], for a font that the renderer keeps until its
     /// last owner drops it.
+    #[cfg(feature = "owned-pre-rendered-resources")]
     fn register_shared_bitmap_font(
         &self,
         _font: &Rc<crate::graphics::BitmapFont<crate::graphics::OwnedStorage>>,

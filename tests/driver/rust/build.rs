@@ -140,11 +140,6 @@ fn main() -> std::io::Result<()> {
         "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
         test_driver_lib::ALL_EXPERIMENTAL_FEATURES
     );
-    println!(
-        "cargo:rustc-env=SLINT_EDITION={}.{}",
-        env!("CARGO_PKG_VERSION_MAJOR"),
-        env!("CARGO_PKG_VERSION_MINOR")
-    );
     println!("cargo:rustc-env=SLINT_EMIT_DEBUG_INFO=1");
     Ok(())
 }
@@ -168,8 +163,6 @@ fn process_case(
         "#[ignore = \"Ignored JS testcases ignored in live-preview mode\"]"
     } else if live_preview && testcase.is_ignored("live-preview") {
         "#[ignore = \"testcase ignored in live-preview mode\"]"
-    } else if live_preview && test_driver_lib::extract_slint_edition(&source).is_some() {
-        "#[ignore = \"live preview takes the edition from SLINT_EDITION, for all test cases\"]"
     } else if live_preview && module_name.contains("write_to_model") {
         "#[ignore = \"Interpreted model don't forward to underlying models for anonymous structs\"]"
     } else {
@@ -293,11 +286,9 @@ fn generate_macro(
         output.write_all(b"\"#]\n")?;
     }
 
-    if let Some(edition) = test_driver_lib::extract_slint_edition(source) {
-        output.write_all(b"#[slint_edition=\"")?;
-        output.write_all(edition.as_bytes())?;
-        output.write_all(b"\"]\n")?;
-    }
+    output.write_all(b"#[edition=\"")?;
+    output.write_all(test_driver_lib::edition_or_current(source).as_bytes())?;
+    output.write_all(b"\"]\n")?;
 
     let mut abs_path = testcase.absolute_path.clone();
     abs_path.pop();
@@ -358,11 +349,7 @@ fn compile_and_generate(
     );
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition = Some(
-        test_driver_lib::parse_slint_edition(source)
-            .unwrap()
-            .unwrap_or_else(i_slint_compiler::project_file::SlintEdition::current),
-    );
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(source).parse().unwrap());
     compiler_config.include_paths = include_paths;
     compiler_config.library_paths = library_paths;
     compiler_config.style = Some(testcase.requested_style.unwrap_or("fluent").to_string());

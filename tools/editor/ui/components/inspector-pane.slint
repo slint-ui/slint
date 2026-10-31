@@ -8,10 +8,11 @@ import { Diagnostics } from "../diagnostics.slint";
 import { EdgeDivider, HorizontalResizeDivider } from "index.slint";
 import { OutlinePane } from "outline-pane.slint";
 import {
-    InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorEffectsSection,
-    InspectorEnabledSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorLayoutSection,
-    InspectorOrientationSection, InspectorProgressSection, InspectorRangeSection, InspectorStandardButtonKindSection,
-    InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
+    InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorCurrentIndexSection,
+    InspectorEffectsSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorInteractionSection,
+    InspectorLayoutAlignmentSection, InspectorLayoutSection, InspectorMouseCursorSection,
+    InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
+    InspectorStandardButtonKindSection, InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
@@ -90,9 +91,15 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.is-title-selection(): InspectorTitleSection { }
 
-                if InspectorContext.is-enable-selection(): InspectorEnabledSection { }
+                if InspectorContext.is-interaction-selection(): InspectorInteractionSection { }
 
-                if InspectorContext.is-checkbox-selection(): InspectorCheckedSection { }
+                if InspectorContext.is-checked-selection(): InspectorCheckedSection { }
+
+                if InspectorContext.has-current-index-selection(): InspectorCurrentIndexSection { }
+
+                if InspectorContext.is-touch-area-selection(): InspectorMouseCursorSection {
+                    popup-bottom: root.popup-bottom;
+                }
 
                 if InspectorContext.is-lineedit-selection(): InspectorInputTypeSection {
                     popup-bottom: root.popup-bottom;
@@ -104,11 +111,19 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.is-layout-selection(): InspectorLayoutSection { }
 
+                if InspectorContext.has-layout-alignment-selection(): InspectorLayoutAlignmentSection {
+                    popup-bottom: root.popup-bottom;
+                }
+
                 if InspectorContext.is-slider-selection() || InspectorContext.is-spinbox-selection(): InspectorRangeSection { }
 
                 if InspectorContext.is-progress-selection(): InspectorProgressSection { }
 
                 if InspectorContext.has-orientation-selection(): InspectorOrientationSection {
+                    popup-bottom: root.popup-bottom;
+                }
+
+                if InspectorContext.has-scrollbar-policy-selection(): InspectorScrollBarPolicySection {
                     popup-bottom: root.popup-bottom;
                 }
 
@@ -127,13 +142,15 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.has-text-property-selection(): InspectorTextContentSection { }
 
-                if InspectorContext.is-text-selection(): InspectorTypographySection {
+                if InspectorContext.has-placeholder-selection(): InspectorPlaceholderSection { }
+
+                if InspectorContext.has-typography-selection(): InspectorTypographySection {
                     field-width: root.field-width;
                     popup-bottom: root.popup-bottom;
                 }
-                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() || InspectorContext.is-lineedit-selection(): InspectorTextAlignmentSection {
+                if InspectorContext.is-text-selection() || InspectorContext.is-styled-text-selection() || InspectorContext.has-only-horizontal-alignment(): InspectorTextAlignmentSection {
                     popup-bottom: root.popup-bottom;
-                    show-vertical: !InspectorContext.is-lineedit-selection();
+                    show-vertical: !InspectorContext.has-only-horizontal-alignment();
                 }
                 if InspectorContext.is-text-selection(): InspectorTextWrapSection {
                     popup-bottom: root.popup-bottom;

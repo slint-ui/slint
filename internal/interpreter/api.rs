@@ -8,20 +8,23 @@ use alloc::sync::Arc;
 use core::future::Future;
 use core::time::Duration;
 use i_slint_compiler::langtype::Type as LangType;
+#[cfg(any(feature = "std", feature = "internal"))]
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::Coord;
-use i_slint_core::PathData;
 use i_slint_core::component_factory::ComponentFactory;
 #[cfg(feature = "internal")]
 use i_slint_core::component_factory::FactoryContext;
+use i_slint_core::graphics::PathData;
 use i_slint_core::graphics::euclid::approxeq::ApproxEq as _;
 use i_slint_core::items::*;
 use i_slint_core::model::{Model, ModelExt, ModelRc};
 use i_slint_core::styled_text::StyledText;
 #[cfg(feature = "internal")]
 use i_slint_core::window::WindowInner;
+#[cfg(feature = "std")]
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "std")]
 #[doc(inline)]
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
@@ -30,7 +33,12 @@ pub use i_slint_core::api::*;
 
 /// Argument of [`Compiler::set_default_translation_context()`]
 ///
+#[cfg(feature = "std")]
 pub use i_slint_compiler::DefaultTranslationContext;
+
+#[doc(hidden)]
+#[cfg(all(feature = "internal", feature = "internal-mcu-interpreter"))]
+pub use crate::static_resources::LoadedResource;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -529,7 +537,7 @@ fn value_model_conversion() {
 }
 
 pub(crate) fn normalize_identifier(ident: &str) -> SmolStr {
-    i_slint_compiler::parser::normalize_identifier(ident)
+    i_slint_compiler::names::normalize_identifier(ident)
 }
 
 /// This type represents a runtime instance of structure in `.slint`.
@@ -558,7 +566,7 @@ pub struct Struct(pub(crate) HashMap<SmolStr, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
-        if i_slint_compiler::parser::is_identifier_normalized(name) {
+        if i_slint_compiler::names::is_identifier_normalized(name) {
             self.0.get(name)
         } else {
             self.0.get(&*normalize_identifier(name))
@@ -593,6 +601,7 @@ fn struct_field_name_normalization() {
     assert_eq!(s.get_field("cross_axis_self_alignment"), Some(&Value::Number(2.)));
 }
 
+#[cfg(feature = "std")]
 /// ComponentCompiler is deprecated, use [`Compiler`] instead
 #[deprecated(note = "Use slint_interpreter::Compiler instead")]
 pub struct ComponentCompiler {
@@ -601,6 +610,7 @@ pub struct ComponentCompiler {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[cfg(feature = "std")]
 #[allow(deprecated)]
 impl Default for ComponentCompiler {
     fn default() -> Self {
@@ -612,6 +622,7 @@ impl Default for ComponentCompiler {
     }
 }
 
+#[cfg(feature = "std")]
 #[allow(deprecated)]
 impl ComponentCompiler {
     /// Returns a new ComponentCompiler.
@@ -633,7 +644,7 @@ impl ComponentCompiler {
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     ///
-    /// This wins over the include paths of the project file.
+    /// These paths come before the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.overrides.project.include_paths = Some(include_paths.clone());
         self.config.include_paths = include_paths;
@@ -646,7 +657,8 @@ impl ComponentCompiler {
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
     ///
-    /// This wins over the library paths of the project file.
+    /// A library here replaces the project file's library of the same name.
+    /// The project file's other libraries stay available.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
         self.overrides.project.library_paths = Some(library_paths.clone());
         self.config.library_paths = library_paths;
@@ -797,6 +809,7 @@ impl ComponentCompiler {
     }
 }
 
+#[cfg(feature = "std")]
 /// This is the entry point of the crate, it can be used to load a `.slint` file and
 /// compile it into a [`CompilationResult`].
 pub struct Compiler {
@@ -807,6 +820,7 @@ pub struct Compiler {
     resource_loader: Option<crate::component::ResourceLoader>,
 }
 
+#[cfg(feature = "std")]
 impl Default for Compiler {
     fn default() -> Self {
         let config = i_slint_compiler::CompilerConfiguration::new(
@@ -822,6 +836,7 @@ impl Default for Compiler {
     }
 }
 
+#[cfg(feature = "std")]
 impl Compiler {
     /// Returns a new Compiler.
     pub fn new() -> Self {
@@ -874,7 +889,7 @@ impl Compiler {
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     ///
-    /// This wins over the include paths of the project file.
+    /// These paths come before the include paths of the project file.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.overrides.project.include_paths = Some(include_paths);
     }
@@ -886,7 +901,8 @@ impl Compiler {
 
     /// Sets the library paths used for looking up `@library` imports to the specified map of library names to paths.
     ///
-    /// This wins over the library paths of the project file.
+    /// A library here replaces the project file's library of the same name.
+    /// The project file's other libraries stay available.
     pub fn set_library_paths(&mut self, library_paths: HashMap<String, PathBuf>) {
         self.overrides.project.library_paths = Some(library_paths);
     }
@@ -914,6 +930,16 @@ impl Compiler {
     /// Returns the widget style the compiler is currently using when compiling .slint files.
     pub fn style(&self) -> Option<&String> {
         self.overrides.style.as_ref().or(self.config.style.as_ref())
+    }
+
+    #[i_slint_core_macros::slint_doc]
+    /// Selects the [edition](slint:Editions) whose language behavior to use,
+    /// as its major and minor version, such as `(1, 19)`.
+    ///
+    /// This wins over the edition of the project file.
+    /// If the edition is newer than this version of Slint, compilation fails.
+    pub fn set_edition(&mut self, edition: (u32, u32)) {
+        self.overrides.project.edition = Some(edition.into());
     }
 
     /// The domain used for translations
@@ -1117,6 +1143,7 @@ impl Compiler {
     }
 }
 
+#[cfg(feature = "std")]
 pub(crate) enum AnimationMode {
     /// In static mode, all timers & animations are disabled.
     /// The item tree should not update anything without interaction.
@@ -1125,6 +1152,7 @@ pub(crate) enum AnimationMode {
     Running,
 }
 
+#[cfg(feature = "std")]
 async fn build_compilation_result(
     source_code: String,
     path: SourcePath,
@@ -1179,12 +1207,13 @@ async fn build_compilation_result(
 /// ```
 pub struct SendableCompilationResult {
     /// `None` when the compilation produced no component.
-    compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
+    pub(crate) compilation_unit: Option<i_slint_compiler::llr::CompilationUnit>,
     /// The index of each component within the unit, by name.
     components: HashMap<String, i_slint_compiler::llr::PublicComponentIdx>,
     font_files: crate::component::FontFiles,
-    #[cfg(feature = "internal-embed-textures")]
-    pre_rendered: Vec<Option<crate::static_resources::SendableResource>>,
+    #[cfg(feature = "internal-mcu-interpreter")]
+    pub(crate) pre_rendered: Vec<Option<i_slint_common::pre_rendered::PreRenderedResource>>,
+    #[cfg(feature = "std")]
     diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     watch_paths: Vec<SourcePath>,
@@ -1198,13 +1227,33 @@ const _: () = {
 };
 
 impl From<SendableCompilationResult> for CompilationResult {
-    fn from(sent: SendableCompilationResult) -> Self {
+    #[cfg_attr(not(feature = "internal-mcu-interpreter"), allow(unused_mut))]
+    fn from(mut sent: SendableCompilationResult) -> Self {
+        #[cfg(feature = "internal-mcu-interpreter")]
+        let pre_rendered = crate::static_resources::PreRendered::from_sendable(core::mem::take(
+            &mut sent.pre_rendered,
+        ));
+        Self::from_sendable(
+            sent,
+            #[cfg(feature = "internal-mcu-interpreter")]
+            pre_rendered,
+        )
+    }
+}
+
+impl CompilationResult {
+    fn from_sendable(
+        sent: SendableCompilationResult,
+        #[cfg(feature = "internal-mcu-interpreter")]
+        pre_rendered: crate::static_resources::PreRendered,
+    ) -> Self {
         let SendableCompilationResult {
             compilation_unit,
             components,
             font_files,
-            #[cfg(feature = "internal-embed-textures")]
-            pre_rendered,
+            #[cfg(feature = "internal-mcu-interpreter")]
+                pre_rendered: _,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1214,8 +1263,8 @@ impl From<SendableCompilationResult> for CompilationResult {
         let compilation_unit = compilation_unit.map(Rc::new);
         let resources = Rc::new(crate::component::Resources {
             font_files,
-            #[cfg(feature = "internal-embed-textures")]
-            pre_rendered: crate::static_resources::PreRendered::from_sendable(pre_rendered),
+            #[cfg(feature = "internal-mcu-interpreter")]
+            pre_rendered,
         });
         let components = components
             .into_iter()
@@ -1231,6 +1280,7 @@ impl From<SendableCompilationResult> for CompilationResult {
             .collect();
         Self {
             components,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1249,6 +1299,7 @@ impl From<SendableCompilationResult> for CompilationResult {
 #[derive(Clone)]
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
+    #[cfg(feature = "std")]
     pub(crate) diagnostics: Vec<Diagnostic>,
     #[cfg(feature = "internal")]
     pub(crate) watch_paths: Vec<SourcePath>,
@@ -1257,17 +1308,19 @@ pub struct CompilationResult {
 }
 
 impl core::fmt::Debug for CompilationResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CompilationResult")
-            .field("components", &self.components.keys())
-            .field("diagnostics", &self.diagnostics)
-            .finish()
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut f = f.debug_struct("CompilationResult");
+        f.field("components", &self.components.keys());
+        #[cfg(feature = "std")]
+        f.field("diagnostics", &self.diagnostics);
+        f.finish()
     }
 }
 
 impl CompilationResult {
     /// Returns true if the compilation failed.
     /// The errors can be retrieved using the [`Self::diagnostics()`] function.
+    #[cfg(feature = "std")]
     pub fn has_errors(&self) -> bool {
         self.diagnostics().any(|diag| diag.level() == DiagnosticLevel::Error)
     }
@@ -1275,6 +1328,7 @@ impl CompilationResult {
     /// Return an iterator over the diagnostics.
     ///
     /// You can also call [`Self::print_diagnostics()`] to output the diagnostics to stderr
+    #[cfg(feature = "std")]
     pub fn diagnostics(&self) -> impl Iterator<Item = Diagnostic> + '_ {
         self.diagnostics.iter().cloned()
     }
@@ -1296,11 +1350,12 @@ impl CompilationResult {
 
     /// This is an internal function without API stability guarantees.
     /// A result holding `unit`, such as one that `i_slint_compiler::llr::serialize` read,
-    /// with neither diagnostics nor watch paths.
+    /// and its `resources`, with neither diagnostics nor watch paths.
     #[doc(hidden)]
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "internal-mcu-interpreter"))]
     pub fn from_compilation_unit(
         unit: i_slint_compiler::llr::CompilationUnit,
+        resources: impl IntoIterator<Item = LoadedResource>,
         _: i_slint_core::InternalToken,
     ) -> Self {
         let components = unit
@@ -1308,23 +1363,24 @@ impl CompilationResult {
             .iter_enumerated()
             .map(|(public_index, component)| (component.name.to_string(), public_index))
             .collect();
-        SendableCompilationResult {
+        let sent = SendableCompilationResult {
             compilation_unit: Some(unit),
             components,
             font_files: HashMap::new(),
-            #[cfg(feature = "internal-embed-textures")]
             pre_rendered: Vec::new(),
+            #[cfg(feature = "std")]
             diagnostics: Vec::new(),
             watch_paths: Vec::new(),
             structs_and_enums: Vec::new(),
-        }
-        .into()
+        };
+        Self::from_sendable(sent, crate::static_resources::PreRendered::from_loaded(resources))
     }
 
     /// Consume the result so that it can be sent to another thread.
     pub fn into_send(self) -> SendableCompilationResult {
         let Self {
             components,
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1360,8 +1416,9 @@ impl CompilationResult {
             compilation_unit,
             components,
             font_files: resources.font_files,
-            #[cfg(feature = "internal-embed-textures")]
+            #[cfg(feature = "internal-mcu-interpreter")]
             pre_rendered: resources.pre_rendered.into_sendable(),
+            #[cfg(feature = "std")]
             diagnostics,
             #[cfg(feature = "internal")]
             watch_paths,
@@ -1644,7 +1701,7 @@ impl ComponentDefinition {
     }
 
     /// This gives access to the tree of Elements.
-    #[cfg(feature = "internal")]
+    #[cfg(all(feature = "internal", feature = "std"))]
     #[doc(hidden)]
     pub fn root_component(&self) -> Rc<i_slint_compiler::object_tree::Component> {
         self.inner
@@ -1693,7 +1750,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
     for d in diagnostics {
         build_diagnostics.push_compiler_error(d.clone())
     }
-    build_diagnostics.print();
+    build_diagnostics.print_styled_if_terminal();
 }
 
 /// This represents an instance of a dynamic component
@@ -1767,6 +1824,7 @@ impl ComponentInstance {
     ///     }
     /// "#;
     /// let mut compiler = Compiler::default();
+    /// compiler.set_edition((1, 19));
     /// let result = spin_on::spin_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
@@ -1801,8 +1859,10 @@ impl ComponentInstance {
     ///         in-out property <int> my_prop: 12;
     ///     }
     /// "#;
+    /// let mut compiler = Compiler::default();
+    /// compiler.set_edition((1, 19));
     /// let result = spin_on::spin_on(
-    ///     Compiler::default().build_from_source(code.into(), Default::default()));
+    ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
     /// let instance_weak = instance.as_weak();
@@ -1851,6 +1911,7 @@ impl ComponentInstance {
     ///     }
     /// "#;
     /// let mut compiler = Compiler::default();
+    /// compiler.set_edition((1, 19));
     /// let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
     /// assert_eq!(result.diagnostics().count(), 0, "{:?}", result.diagnostics().collect::<Vec<_>>());
     /// let instance = result.component("MyWin").unwrap().create().unwrap();
@@ -1942,6 +2003,18 @@ impl ComponentInstance {
         offset: u32,
     ) -> Vec<crate::highlight::HighlightedRect> {
         crate::highlight::component_positions(self.inner.vrc(), path, offset)
+    }
+
+    #[doc(hidden)]
+    #[cfg(all(feature = "internal", feature = "internal-highlight"))]
+    pub fn snapping_geometry(
+        &self,
+        path: &SourcePath,
+        offset: u32,
+        instance_index: usize,
+        _: i_slint_core::InternalToken,
+    ) -> Option<crate::snapping::SnappingGeometry> {
+        crate::snapping::snapping_geometry(self.inner.vrc(), path, offset, instance_index)
     }
 
     #[doc(hidden)]
@@ -2558,8 +2631,10 @@ fn lang_type_to_value_type() {
 #[test]
 fn test_multi_components() {
     i_slint_backend_testing::init_no_event_loop();
+    let mut compiler = Compiler::default();
+    compiler.set_edition((1, 19));
     let result = spin_on::spin_on(
-        Compiler::default().build_from_source(
+        compiler.build_from_source(
             r#"
         export struct Settings {
             string_value: string,
@@ -2977,7 +3052,7 @@ mod project_file_tests {
     #[test]
     #[allow(deprecated)]
     fn missing_source_files_have_no_line_or_column() {
-        with_project(r#"{"slint-edition":"1.19"}"#, |root| {
+        with_project(r#"{"edition":"1.19"}"#, |root| {
             let source = root.join("missing.slint");
             let result = spin_on::spin_on(Compiler::default().build_from_path(&source));
             assert!(result.has_errors());
@@ -2992,6 +3067,53 @@ mod project_file_tests {
                 assert_eq!(diagnostics[0].line_column(), (0, 0));
             }
         });
+    }
+
+    /// Edition 1.19 reports the inner binding loop as an error, 1.18 only warns.
+    const EDITION_DEPENDENT_BODY: &str = "export component Main inherits Window {
+        HorizontalLayout { Rectangle { VerticalLayout { Rectangle { width: parent.width; } } } }
+    }";
+
+    #[test]
+    fn set_edition_wins_over_the_project_file() {
+        with_project(r#"{"edition":"1.18","main":"main.slint"}"#, |root| {
+            std::fs::write(root.join("main.slint"), EDITION_DEPENDENT_BODY).unwrap();
+            let build = |edition: Option<(u32, u32)>| {
+                let mut compiler = Compiler::default();
+                if let Some(edition) = edition {
+                    compiler.set_edition(edition);
+                }
+                spin_on::spin_on(compiler.build_from_path(root))
+            };
+            assert!(!build(None).has_errors());
+            assert!(build(Some((1, 19))).has_errors());
+            let newer = build(Some((999, 0)));
+            let messages = newer.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+            assert!(
+                messages.iter().any(|m| m.starts_with("The edition 999.0 is newer than Slint")),
+                "{messages:?}"
+            );
+        });
+    }
+
+    #[test]
+    fn a_rust_file_uses_the_edition_of_its_macro() {
+        let directory = tempfile::TempDir::new().unwrap();
+        let main = directory.path().join("main.rs");
+        let build = |attribute: &str| {
+            let source = format!("slint::slint! {{ {attribute} {EDITION_DEPENDENT_BODY} }}");
+            std::fs::write(&main, source).unwrap();
+            spin_on::spin_on(Compiler::default().build_from_path(&main))
+        };
+        assert!(!build("").has_errors());
+        assert!(!build(r#"#[edition = "1.18"]"#).has_errors());
+        assert!(build(r#"#[style = "fluent"] #[edition = "1.19"]"#).has_errors());
+        let invalid = build(r#"#[edition = "1.19.0"]"#);
+        let messages = invalid.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
+        assert!(
+            messages.iter().any(|m| m.starts_with("'1.19.0' is not a Slint edition")),
+            "{messages:?}"
+        );
     }
 
     #[cfg(feature = "internal")]
@@ -3025,7 +3147,7 @@ mod project_file_tests {
         let source =
             r#"import { Shared } from "lib.slint"; export component Main inherits Shared {}"#;
         std::fs::write(&main, source).unwrap();
-        std::fs::write(directory.path().join(FILE_NAME), r#"{"slint-edition":"1.19"}"#).unwrap();
+        std::fs::write(directory.path().join(FILE_NAME), r#"{"edition":"1.19"}"#).unwrap();
         for remote in [false, true] {
             let calls = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
             let loader_calls = calls.clone();
@@ -3063,7 +3185,7 @@ mod project_file_tests {
         let directory = tempfile::TempDir::new().unwrap();
         let manifest = directory.path().join(FILE_NAME);
         let entry = directory.path().join("main.slint");
-        std::fs::write(&manifest, r#"{"slint-edition":"1.19","main":"main.slint"}"#).unwrap();
+        std::fs::write(&manifest, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
         let loader_entry = entry.clone();
         let mut compiler = Compiler::default();
         compiler.set_project_file_loader(
@@ -3104,7 +3226,7 @@ mod project_file_tests {
                 compiler.project_file_loader = Some(std::rc::Rc::new(move |path| {
                     let contents = if path == loader_manifest {
                         Ok(format!(
-                            r#"{{"slint-edition":"1.19","experimental-features":{}}}"#,
+                            r#"{{"edition":"1.19","experimental-features":{}}}"#,
                             loader_experimental.borrow()
                         ))
                     } else {
@@ -3189,7 +3311,7 @@ mod project_file_tests {
         let main = directory.path().join("main.slint");
         let compiler = Compiler::default();
         let source = "export component Main inherits Window {}";
-        for contents in [None, Some(r#"{"slint-edition":"1.19"}"#), Some("{")] {
+        for contents in [None, Some(r#"{"edition":"1.19"}"#), Some("{")] {
             if let Some(contents) = contents {
                 std::fs::write(&manifest, contents).unwrap();
             }
@@ -3264,7 +3386,7 @@ mod project_file_tests {
             let main = root.join("ui/main.slint").unwrap();
             let manifest = root.join(FILE_NAME).unwrap();
             for manifest_contents in
-                [r#"{"slint-edition":"1.19"}"#, r#"{"slint-edition":"1.19","main":"other.slint"}"#]
+                [r#"{"edition":"1.19"}"#, r#"{"edition":"1.19","main":"other.slint"}"#]
             {
                 for static_compilation in [false, true] {
                     let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
@@ -3307,9 +3429,10 @@ mod project_file_tests {
         compiler.set_project_file_loader(
             std::rc::Rc::new(move |path| {
                 let contents = if path == enabled_manifest {
-                    Ok(r#"{"slint-edition":"1.19","experimental-features":["component-container"]}"#.into())
+                    Ok(r#"{"edition":"1.19","experimental-features":["component-container"]}"#
+                        .into())
                 } else {
-                    Ok(r#"{"slint-edition":"1.19","experimental-features":[]}"#.into())
+                    Ok(r#"{"edition":"1.19","experimental-features":[]}"#.into())
                 };
                 Box::pin(async move { Some(contents) })
             }),
@@ -3327,7 +3450,7 @@ mod project_file_tests {
     #[test]
     fn the_project_file_include_paths_are_used() {
         with_project(
-            r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
             |root| {
                 let include = root.join("include");
                 std::fs::create_dir_all(&include).unwrap();
@@ -3346,7 +3469,7 @@ mod project_file_tests {
 
     #[test]
     fn explicit_empty_include_paths_win_for_both_interpreter_compilers() {
-        with_project(r#"{"slint-edition":"1.19","include-paths":["include"]}"#, |root| {
+        with_project(r#"{"edition":"1.19","include-paths":["include"]}"#, |root| {
             let include = root.join("include");
             std::fs::create_dir_all(&include).unwrap();
             std::fs::write(include.join("shared.slint"), "export component Shared {}").unwrap();
@@ -3384,7 +3507,7 @@ mod project_file_tests {
     #[cfg(feature = "internal")]
     #[test]
     fn explicit_empty_include_paths_apply_to_source_path_compilation() {
-        with_project(r#"{ "slint-edition": "1.19" }"#, |root| {
+        with_project(r#"{ "edition": "1.19" }"#, |root| {
             let include_directory = root.join("include");
             std::fs::create_dir(&include_directory).unwrap();
             std::fs::write(include_directory.join("shared.slint"), "export component Shared {}")
@@ -3442,7 +3565,7 @@ mod project_file_tests {
     #[test]
     fn the_deprecated_compiler_reads_the_project_file() {
         with_project(
-            r#"{ "slint-edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["include"] }"#,
             |root| {
                 std::fs::create_dir(root.join("include")).unwrap();
                 std::fs::write(root.join("include/shared.slint"), "export component Shared {}")
@@ -3461,7 +3584,7 @@ mod project_file_tests {
 
     #[test]
     fn a_project_directory_compiles_its_main_file() {
-        with_project(r#"{ "slint-edition": "1.19", "main": "ui/main.slint" }"#, |root| {
+        with_project(r#"{ "edition": "1.19", "main": "ui/main.slint" }"#, |root| {
             std::fs::create_dir_all(root.join("ui")).unwrap();
             std::fs::write(root.join("ui/main.slint"), "export component Main inherits Window { }")
                 .unwrap();
@@ -3474,7 +3597,7 @@ mod project_file_tests {
 
     #[test]
     fn a_project_directory_without_an_entry_is_an_error() {
-        with_project(r#"{"slint-edition":"1.19"}"#, |root| {
+        with_project(r#"{"edition":"1.19"}"#, |root| {
             let result = spin_on::spin_on(Compiler::default().build_from_path(root));
             assert!(result.has_errors());
             assert!(
@@ -3488,7 +3611,7 @@ mod project_file_tests {
 
     #[test]
     fn a_project_file_path_is_an_error() {
-        with_project(r#"{"slint-edition": "1.19", "main":"main.slint"}"#, |root| {
+        with_project(r#"{"edition": "1.19", "main":"main.slint"}"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
             let result =
@@ -3509,7 +3632,7 @@ mod project_file_tests {
 
     #[test]
     fn the_deprecated_compiler_compiles_the_main_file_of_a_project_directory() {
-        with_project(r#"{ "slint-edition": "1.19", "main": "main.slint" }"#, |root| {
+        with_project(r#"{ "edition": "1.19", "main": "main.slint" }"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
 
@@ -3549,7 +3672,7 @@ mod project_file_tests {
         std::fs::create_dir(project_directory.path().join("ui")).unwrap();
         std::fs::write(
             project_directory.path().join(FILE_NAME),
-            r#"{"slint-edition":"1.19","main":"main.slint"}"#,
+            r#"{"edition":"1.19","main":"main.slint"}"#,
         )
         .unwrap();
         std::fs::write(

@@ -96,7 +96,7 @@ impl Platform for MemoryPlatform {
 }
 
 slint::slint! {
-    #[slint_edition = "1.19"]
+    #[edition = "1.19"]
     export component CursorScene inherits Window {
         // One of the `Shape`s below.
         in property <int> shape;
