@@ -189,6 +189,24 @@ pub fn is_project_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == FILE_NAME)
 }
 
+pub fn project_root(path: &Path) -> &Path {
+    if is_project_file(path) {
+        path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
+    } else {
+        path
+    }
+}
+
+pub fn normalize_project_root(root: SourcePath) -> SourcePath {
+    if let Some(path) = root.as_native_path() {
+        SourcePath::File(project_root(path).to_path_buf())
+    } else if root.file_name() == Some(FILE_NAME) {
+        root.parent()
+    } else {
+        root
+    }
+}
+
 fn project_file_input_error(input: &SourcePath) -> String {
     let project_directory = input.parent();
     let project_directory =
@@ -207,9 +225,7 @@ fn project_file_input_error(input: &SourcePath) -> String {
 /// A directory resolves to the main file specified by its `slint-project.json`.
 /// A source file resolves to itself without loading a project file.
 pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), String> {
-    if is_project_file(input) {
-        return Err(project_file_input_error(&SourcePath::File(input.to_path_buf())));
-    }
+    let input = project_root(input);
     if !input.is_dir() {
         return Ok((input.to_path_buf(), None));
     }
@@ -282,7 +298,9 @@ pub async fn load_input(
             },
         ) as crate::OpenImportCallback
     };
-    let resolved = if input.file_name() == Some(FILE_NAME) {
+    let resolved = if input.file_name() == Some(FILE_NAME)
+        && (source_code.is_some() || project_root.is_some() || input.as_native_path().is_none())
+    {
         Err(project_file_input_error(input))
     } else if let Some(root) = project_root {
         load_from_root_with_file_loader(root, Some(&file_loader))
@@ -800,7 +818,8 @@ pub fn resolve_relative_path(directory: &Path, path: PathBuf) -> PathBuf {
 mod tests {
     use super::{
         FILE_NAME, Overrides, ProjectFile, ProjectFileData, SlintEdition, is_project_file,
-        resolve_input, resolve_relative_path, resolve_source_relative_path,
+        normalize_project_root, project_root, resolve_input, resolve_relative_path,
+        resolve_source_relative_path,
     };
     use crate::{ExperimentalFeature, ExperimentalFeatures};
     use crate::{generator::OutputFormat, source_path::SourcePath};
@@ -1425,19 +1444,53 @@ mod tests {
     }
 
     #[test]
-    fn a_project_file_input_is_an_error() {
+    fn a_project_file_input_resolves_its_main_file() {
         with_project_file_contents(r#"{ "edition": "1.19", "main": "main.slint" }"#, |path| {
-            for (input, directory) in [
-                (path.to_path_buf(), path.parent().unwrap().display().to_string()),
-                (PathBuf::from(FILE_NAME), ".".into()),
-            ] {
-                assert_eq!(
-                    resolve_input(&input).unwrap_err(),
-                    format!(
-                        "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({directory})"
-                    )
-                );
-            }
+            let (source, project) = resolve_input(path).unwrap();
+            assert_eq!(source, path.parent().unwrap().join("main.slint"));
+            assert!(project.is_some());
+        });
+    }
+
+    #[test]
+    fn other_json_is_not_a_project_input() {
+        with_project_file_contents(r#"{ "edition": "1.19", "main": "main.slint" }"#, |path| {
+            let other = path.parent().unwrap().join("other.json");
+            fs::copy(path, &other).unwrap();
+            let (source, project) = resolve_input(&other).unwrap();
+            assert_eq!(source, other);
+            assert!(project.is_none());
+            fs::remove_file(other).unwrap();
+        });
+    }
+
+    #[test]
+    fn a_relative_project_file_input_resolves_its_main_file() {
+        const CHILD: &str = "SLINT_TEST_RELATIVE_PROJECT_INPUT";
+        if std::env::var_os(CHILD).is_some() {
+            let (source, project) = resolve_input(Path::new(FILE_NAME)).unwrap();
+            assert_eq!(source, std::env::current_dir().unwrap().join("main.slint"));
+            assert!(project.is_some());
+            return;
+        }
+        with_project_file_contents(r#"{ "edition": "1.19", "main": "main.slint" }"#, |path| {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .current_dir(path.parent().unwrap())
+                .env(CHILD, "1")
+                .args([
+                    "--exact",
+                    "project_file::tests::a_relative_project_file_input_resolves_its_main_file",
+                    "--nocapture",
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
         });
     }
 
@@ -1446,6 +1499,19 @@ mod tests {
         assert!(is_project_file(Path::new("ui/slint-project.json")));
         assert!(!is_project_file(Path::new("ui/other.json")));
         assert!(!is_project_file(Path::new("ui/main.slint")));
+    }
+
+    #[test]
+    fn project_root_accepts_only_the_exact_manifest_name() {
+        for (input, expected) in [
+            ("slint-project.json", "."),
+            ("ui/slint-project.json", "ui"),
+            ("ui/other.json", "ui/other.json"),
+            ("ui", "ui"),
+        ] {
+            assert_eq!(project_root(Path::new(input)), Path::new(expected));
+            assert_eq!(normalize_project_root(SourcePath::new(input)), SourcePath::new(expected));
+        }
     }
 
     fn callback_loader(

@@ -4,3 +4,5 @@
 add_executable(project_file_main main.cpp)
 target_link_libraries(project_file_main PRIVATE Slint::Slint)
 slint_target_sources(project_file_main .)
+
+add_subdirectory(manifest-input)
