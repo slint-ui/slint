@@ -258,7 +258,7 @@ jobs:
                 build_vscode_cross_linux_lsp,
                 check-for-secrets,
             ]
-        runs-on: macos-14
+        runs-on: macos-15
         if: ${{ needs.check-for-secrets.outputs.has-openvsx-pat == 'yes' && needs.check-for-secrets.outputs.has-vscode-marketplace-pat == 'yes' }}
         env:
             PUBLISH: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
