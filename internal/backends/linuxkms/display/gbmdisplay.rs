@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore SCANOUT
-use drm::control::Device;
 use gbm::AsRaw;
 use i_slint_core::platform::PlatformError;
 
@@ -13,6 +12,7 @@ pub struct GbmDisplay {
     gbm_surface: gbm::Surface<OwnedFramebufferHandle>,
     gbm_device: gbm::Device<SharedFd>,
     surface_format: drm::buffer::DrmFourcc,
+    display_takes_modifiers: bool,
 }
 
 impl GbmDisplay {
@@ -33,7 +33,15 @@ impl GbmDisplay {
             )
             .map_err(|e| format!("Error creating gbm surface: {e}"))?;
 
-        Ok(GbmDisplay { drm_output, gbm_surface, gbm_device, surface_format })
+        let display_takes_modifiers = drm_output.takes_modifiers();
+
+        Ok(GbmDisplay {
+            drm_output,
+            gbm_surface,
+            gbm_device,
+            surface_format,
+            display_takes_modifiers,
+        })
     }
 
     pub fn config_template_builder(&self) -> glutin::config::ConfigTemplateBuilder {
@@ -68,21 +76,12 @@ impl super::Presenter for GbmDisplay {
                 .map_err(|err| format!("Could not lock gbm front buffer: {err}"))?
         };
 
-        // Same logic as in drm-rs' `add_planar_framebuffer` function.
-        let flags = if drm::buffer::PlanarBuffer::modifier(&front_buffer)
-            .filter(|modifier| !matches!(modifier, drm::buffer::DrmModifier::Invalid))
-            .is_some()
-        {
-            drm::control::FbCmd2Flags::MODIFIERS
-        } else {
-            drm::control::FbCmd2Flags::empty()
-        };
-
-        let fb = self
-            .drm_output
-            .drm_device
-            .add_planar_framebuffer(&front_buffer, flags)
-            .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
+        let fb = super::add_framebuffer(
+            &self.drm_output.drm_device,
+            &front_buffer,
+            self.display_takes_modifiers,
+        )
+        .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
         front_buffer.set_userdata(OwnedFramebufferHandle {
             handle: fb,
