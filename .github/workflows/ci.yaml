@@ -60,8 +60,8 @@ jobs:
                       # The platform-independent interpreter test driver only runs on macOS
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-interpreter"
                       pr_test_styles: "fluent"
-                    - os: macos-14
-                      name: "MacOS 14 beta"
+                    - os: macos-15
+                      name: "MacOS 15 beta"
                       rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
                       pr_test_styles: "qt"
@@ -91,7 +91,7 @@ jobs:
             matrix:
                 include:
                     - name: Rust and UI on macOS
-                      os: macos-14
+                      os: macos-15
                       run_ui_tests: true
                     - name: Rust and UI on Linux
                       os: ubuntu-22.04
@@ -185,7 +185,7 @@ jobs:
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js macOS"
-          os: "macos-14"
+          os: "macos-15"
 
     node_test_windows:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_node') }}
@@ -206,7 +206,7 @@ jobs:
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
-          os: "macos-14"
+          os: "macos-15"
     python_test_windows:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_python') }}
         uses: ./.github/workflows/python_test_reusable.yaml
@@ -224,7 +224,7 @@ jobs:
             matrix:
                 include:
                     # Linux C++ is covered by cpp_test_driver_32bit
-                    - os: macos-14
+                    - os: macos-15
                       rust_version: beta
                     - os: windows-2022
                       rust_version: "1.95"
@@ -288,7 +288,7 @@ jobs:
         strategy:
             matrix:
                 include: ${{ fromJSON((inputs.full || contains(fromJSON(inputs.changes), 'api_cpp'))
-                    && '[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-14","rust_version":"1.95"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
+                    && '[{"os":"windows-2022","rust_version":"nightly"},{"os":"macos-15","rust_version":"1.95"},{"os":"ubuntu-22.04","rust_version":"stable"}]'
                     || '[{"os":"windows-2022","rust_version":"nightly"}]') }}
         runs-on: ${{ matrix.os }}
         steps:
@@ -563,7 +563,7 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
         strategy:
             matrix:
-                os: [macos-14, windows-2022]
+                os: [macos-15, windows-2022]
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v7
@@ -927,8 +927,8 @@ jobs:
                       name: "Windows 2022 nightly (cargo update)"
                       rust_version: "nightly"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player"
-                    - os: macos-14
-                      name: "MacOS 14 nightly (cargo update)"
+                    - os: macos-15
+                      name: "MacOS 15 nightly (cargo update)"
                       rust_version: "nightly"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude plotter"
         uses: ./.github/workflows/build_and_test_reusable.yaml
