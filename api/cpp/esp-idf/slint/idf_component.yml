@@ -4,7 +4,7 @@
 description: "Slint — declarative GUI toolkit for touchscreens and displays"
 tags:
   - gui
-  - ui
+  - user-interface
   - hmi
   - display
   - lcd
