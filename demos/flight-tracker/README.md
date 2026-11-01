@@ -39,12 +39,13 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 - `main.rs` requires wgpu with `BackendSelector::require_wgpu_30()`, and gets the device in the rendering notifier.
   Before Slint renders each frame, the demo renders the globe into a texture, and shows it in an `Image` underneath the UI.
 - `globe.wgsl` ray traces the globe, its atmosphere, and the stars in a single pass over the screen, so the globe needs no mesh.
+  The natural style shows NASA's Blue Marble for July, 4096 pixels wide.
 - `map.rs` computes a map with mip levels from the outlines in `data/` at startup.
   It holds the distances to the coasts and the borders, so that the shader draws them sharp at any zoom, and the lights of the cities.
 - The route, the aircraft, the airports, and the city names are ordinary Slint elements.
   Each frame, `main.rs` projects them to the screen with the camera's matrices, and passes their positions to Slint.
 
-The map data comes from [Natural Earth](https://www.naturalearthdata.com/), and the airports from [OurAirports](https://ourairports.com/), both in the public domain.
-`data/convert.py` converts them into the compact text files in `data/`.
+The map data comes from [Natural Earth](https://www.naturalearthdata.com/), the airports from [OurAirports](https://ourairports.com/), and the imagery from [NASA's Visible Earth](https://visibleearth.nasa.gov/), all in the public domain.
+`data/convert.py` converts them into the files in `data/`.
 
 Without a GPU, set `SLINT_WGPU_CPU=1` to render on the CPU, for example with Mesa's lavapipe.
