@@ -165,17 +165,31 @@ fn optional_pixel_formats_and_upscaled_images_render() {
     }
     ui.set_source(slint::Image::from_rgb8(pixels));
 
-    for pixelated in [false, true] {
+    for pixelated in [true, false] {
         ui.set_pixelated(pixelated);
         let rendered = render_upscaled(&window);
         let last_column = rendered[10 * 340 + 300];
         let last_row = rendered[300 * 340 + 10];
+        let final_column = rendered[15 * 340 + 334];
+        let final_row = rendered[334 * 340 + 15];
         if pixelated {
+            assert_eq!(final_column, Rgb8Pixel::new(0xff, 0, 0));
+            assert_eq!(final_row, Rgb8Pixel::new(0, 0xff, 0));
+            assert_eq!(rendered[334 * 340 + 334], Rgb8Pixel::new(0xff, 0, 0));
+
+            let last_column_start =
+                (0..330).find(|x| rendered[15 * 340 + 5 + x] == Rgb8Pixel::new(0xff, 0, 0));
+            assert!(
+                last_column_start.is_some_and(|x| (x as isize - 264).abs() <= 1),
+                "last source column starts at {last_column_start:?}, expected around 264"
+            );
             assert_eq!(last_column, Rgb8Pixel::new(0xff, 0, 0));
             assert_eq!(last_row, Rgb8Pixel::new(0, 0xff, 0));
         } else {
             assert!(last_column.r > last_column.g && last_column.r > last_column.b);
             assert!(last_row.g > last_row.r && last_row.g > last_row.b);
+            assert!(final_column.r > final_column.g && final_column.r > final_column.b);
+            assert!(final_row.g > final_row.r && final_row.g > final_row.b);
         }
     }
 }
