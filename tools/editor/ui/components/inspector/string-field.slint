@@ -1,0 +1,167 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, TextEdit } from "std-widgets.slint";
+import { Api, PropertyValue, PropertyValueKind } from "../../api.slint";
+import { Style, Metrics, Typography, Colors } from "../../style.slint";
+import { FloatingSurface } from "../floating-surface.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
+import { InspectorIconButton } from "icon-button.slint";
+import { FillSession } from "fill-session.slint";
+
+export component InspectorStringField inherits Rectangle {
+    in property <string> accessible-name;
+    in property <PropertyValue> source-value;
+    in property <string> default-value;
+    in property <string> commit-key;
+    in property <bool> expandable: false;
+    in property <string> clear-label: @tr("Clear text");
+    callback accepted(string) -> bool;
+    callback preview(string) -> bool;
+    callback canceled();
+    private property <bool> plain-text: root.source-value.kind == PropertyValueKind.string || root.source-value.code == "";
+    private property <string> value: root.plain-text
+        ? (root.source-value.code == "" ? root.default-value : root.source-value.value-string)
+        : root.source-value.code;
+    private property <string> draft;
+    private property <string> editing-key;
+    private property <bool> previewing;
+    private property <bool> expanded-open: expanded.is-open;
+
+    horizontal-stretch: 1;
+    min-width: 0px;
+    preferred-width: 0px;
+    height: Style.code-field.height * (root.expandable ? 2 : 1);
+
+    changed commit-key => { expanded.close(); root.cancel-preview(); }
+    changed expanded-open => { if !root.expanded-open { root.cancel-preview(); } }
+
+    function preview-value(value: string) {
+        if root.plain-text { root.previewing = root.preview(value); }
+    }
+
+    function cancel-preview() {
+        if root.previewing { root.canceled(); }
+        root.previewing = false;
+    }
+
+    function accept-value(value: string) -> bool {
+        let accepted = root.accepted(root.plain-text
+            ? Api.string-to-code(value, root.source-value.is-translatable, root.source-value.tr-context, root.source-value.tr-plural, root.source-value.tr-plural-expression)
+            : value);
+        if !accepted { root.cancel-preview(); }
+        root.previewing = false;
+        return accepted;
+    }
+
+    row := HorizontalLayout {
+        x: 0px; y: 0px;
+        width: 100%; height: 100%;
+        spacing: Metrics.space-small;
+        cross-axis-alignment: center;
+
+        field := InspectorTextFieldBase {
+            style: Style.code-field;
+            min-width: 0px;
+            horizontal-stretch: 1;
+            height: root.height;
+            multiline: root.expandable;
+            accessible-name: root.accessible-name;
+            value: root.value;
+            clearable: root.plain-text;
+            clear-label: root.clear-label;
+            commit-key: root.commit-key;
+            accepted(text) => { return root.accept-value(text); }
+            text-edited(text) => { root.preview-value(text); }
+            keyboard(event) => {
+                if event.text == Key.Escape {
+                    root.cancel-preview();
+                    self.take-draft();
+                    return accept;
+                }
+                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
+                if !self.has-uncommitted-edits && (event.modifiers.control || event.modifiers.meta)
+                    && (event.text == "z" || event.text == "Z" || redo-y) {
+                    FillSession.apply-history(event.modifiers.shift || redo-y);
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        if root.expandable: InspectorIconButton {
+            icon: @image-url("../../assets/lucide/maximize-2.svg");
+            label: @tr("Edit text");
+            focus-on-click: false;
+            clicked => {
+                root.draft = field.take-draft();
+                root.editing-key = root.commit-key;
+                root.preview-value(root.draft);
+                expanded.show();
+            }
+            Tooltip { text: @markdown("Expand text editor"); }
+        }
+    }
+
+    expanded := PopupWindow {
+        x: root.width - self.width;
+        y: root.height + Metrics.space-small;
+        width: 400px;
+        height: 300px;
+        forward-focus: editor;
+
+        FloatingSurface {
+            background: Style.floating-surface.background;
+            border-color: Style.floating-surface.border;
+            border-width: Metrics.border-width;
+            border-radius: Metrics.radius-large;
+
+            FocusScope {
+                capture-key-pressed(event) => {
+                    if event.text == Key.Escape {
+                        expanded.close();
+                        return accept;
+                    }
+                    return reject;
+                }
+
+                VerticalLayout {
+                    padding: Metrics.space-large;
+                    spacing: Metrics.space-medium;
+
+                    Text {
+                        text: @tr("Edit text");
+                        color: Colors.foreground;
+                        font-size: Typography.heading.size;
+                        font-weight: Typography.heading.weight;
+                    }
+
+                    editor := TextEdit {
+                        text <=> root.draft;
+                        wrap: word-wrap;
+                        accessible-label: @tr("Expanded text");
+                        edited(text) => { root.preview-value(text); }
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: Metrics.space-small;
+                        Button {
+                            text: @tr("Cancel");
+                            clicked => { expanded.close(); }
+                        }
+                        Button {
+                            text: @tr("Apply");
+                            primary: true;
+                            clicked => {
+                                if root.editing-key == root.commit-key && root.accept-value(root.draft) {
+                                    expanded.close();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

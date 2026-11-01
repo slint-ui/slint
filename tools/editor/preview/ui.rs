@@ -2756,6 +2756,7 @@ mod tests {
         selection.highlight_index = 0;
         api.set_selection(selection);
         properties_api.on_test_code_binding(|_, _, _, _, _| true);
+        properties_api.on_string_to_code(super::string_to_code);
         let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let recorded = commits.clone();
         properties_api.on_set_code_binding(move |_, _, _, name, value| {
@@ -2774,7 +2775,7 @@ mod tests {
                         == Some(i_slint_backend_testing::AccessibleRole::TextInput)
                 })
                 .unwrap();
-        field.set_accessible_value("\"Settings\"");
+        field.set_accessible_value("Settings");
         assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
     }
 

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { InputSurface } from "input-surface.slint";
+import { ButtonBase } from "../../controls/src/headless.slint";
+import { Metrics } from "../style.slint";
 
 export component EditorInput inherits InputSurface {
     in property <string> accessible-name: "";
@@ -16,20 +18,34 @@ export component EditorInput inherits InputSurface {
     in property <bool> show-focus-border: true;
     in property <string> placeholder;
     in property <InputType> input-type: InputType.text;
+    in property <bool> clearable: false;
+    in property <bool> multiline: false;
+    in property <string> clear-label: @tr("Clear text");
     in property <MouseCursor> unfocused-cursor: MouseCursor.text;
     callback keyboard(KeyEvent) -> EventResult;
     callback focus-lost();
+    callback text-edited(string);
     keyboard(event) => { return reject; }
     public function focus-input() { input.focus(); }
     public function select-range(start: int, end: int) { input.set-selection-offsets(start, end); }
+    public function take-draft() -> string {
+        let draft = input.text;
+        input.text = root.value;
+        root.scroll-offset = 0px;
+        root.edited = false;
+        return draft;
+    }
     focused: input.has-focus;
     hovered: touch.has-hover;
     framed: root.show-focus-border;
     out property <color> paint-foreground: root.paint.foreground;
     out property <bool> input-focused: input.has-focus;
+    out property <string> input-value: input.text;
     in property <string> commit-key: "";
     private property <string> active-commit-key: root.commit-key;
     private property <bool> edited: false;
+    private property <length> scroll-offset;
+    out property <bool> has-uncommitted-edits: root.edited;
     callback edit-started();
     callback accepted(string) -> bool;
     callback normalized(string) -> string;
@@ -58,6 +74,7 @@ export component EditorInput inherits InputSurface {
     changed commit-key => {
         root.edited = false;
         input.text = root.value;
+        root.scroll-offset = 0px;
         root.active-commit-key = root.commit-key;
     }
 
@@ -89,6 +106,8 @@ export component EditorInput inherits InputSurface {
         clicked => { input.focus(); }
 
         HorizontalLayout {
+            x: 0px; y: 0px;
+            width: 100%; height: 100%;
             padding-left: root.style.padding-inline;
             padding-right: root.style.padding-end + (root.suffix-width > 0px
                 ? root.suffix-width + root.style.gap
@@ -98,67 +117,110 @@ export component EditorInput inherits InputSurface {
 
             @children
 
-            input := TextInput {
-                // Disable TextInput's built-in accessibility support as the frame takes care of that.
-                accessible-role: none;
+            viewport := Rectangle {
+                min-width: 0px;
                 horizontal-stretch: 1;
-                text: root.value;
-                enabled: root.enabled;
-                horizontal-alignment: root.horizontal-alignment;
-                color: root.muted-value ? root.style.appearance.muted : root.paint.foreground;
-                font-size: root.style.text.size;
-                font-weight: root.style.text.weight;
-                vertical-alignment: center;
-                selection-background-color: root.style.appearance.selection;
-                selection-foreground-color: root.style.appearance.selection-foreground;
-                text-cursor-width: 1phx;
-                input-type: root.input-type;
-                key-pressed(event) => { return root.keyboard(event); }
+                height: parent.height - (root.multiline ? 2 * root.style.padding-inline : 0px);
+                clip: true;
 
-                if input.text == "": Text {
-                    x: 0px; y: 0px;
-                    width: parent.width; height: parent.height;
+                input := TextInput {
+                    x: 0px; y: -root.scroll-offset;
+                    width: parent.width;
+                    height: root.multiline ? max(parent.height, self.preferred-height) : parent.height;
+                    // Disable TextInput's built-in accessibility support as the frame takes care of that.
+                    accessible-role: none;
+                    text: root.value;
+                    enabled: root.enabled;
                     horizontal-alignment: root.horizontal-alignment;
-                    text: root.placeholder;
-                    color: root.style.appearance.muted;
+                    color: root.muted-value ? root.style.appearance.muted : root.paint.foreground;
                     font-size: root.style.text.size;
-                    vertical-alignment: center;
-                }
-
-                edited => {
-                    root.begin-edit();
-                    if root.live-edit { root.accept-input(self.text, false); }
-                }
-
-                accepted => {
-                    if !root.accept-input(self.text, true) {
-                        self.text = root.value;
-                    }
-                }
-
-                TouchArea {
-                    enabled: root.enabled && !input.has-focus;
-                    mouse-cursor: root.unfocused-cursor;
-                    clicked => { input.focus(); }
-                    pointer-event(event) => {
-                        if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {
-                            input.focus();
+                    font-weight: root.style.text.weight;
+                    vertical-alignment: root.multiline ? top : center;
+                    single-line: !root.multiline;
+                    wrap: root.multiline ? word-wrap : no-wrap;
+                    selection-background-color: root.style.appearance.selection;
+                    selection-foreground-color: root.style.appearance.selection-foreground;
+                    text-cursor-width: 1phx;
+                    input-type: root.input-type;
+                    key-pressed(event) => { return root.keyboard(event); }
+                    cursor-position-changed(position) => {
+                        if root.multiline {
+                            let line-height = root.style.text.size * 1.5;
+                            root.scroll-offset = max(0px, min(position.y, max(root.scroll-offset, position.y + line-height - viewport.height)));
                         }
                     }
-                }
 
-                changed has-focus => {
-                    if self.has-focus {
-                        root.active-commit-key = root.commit-key;
-                        if root.select-all-on-focus { self.select-all(); }
+                    if input.text == "": Text {
+                        x: 0px; y: 0px;
+                        width: parent.width; height: parent.height;
+                        horizontal-alignment: root.horizontal-alignment;
+                        text: root.placeholder;
+                        color: root.style.appearance.muted;
+                        font-size: root.style.text.size;
+                        vertical-alignment: center;
                     }
-                    if !self.has-focus && self.text != root.value {
+
+                    edited => {
+                        root.begin-edit();
+                        root.text-edited(self.text);
+                        if root.live-edit { root.accept-input(self.text, false); }
+                    }
+
+                    accepted => {
                         if !root.accept-input(self.text, true) {
                             self.text = root.value;
                         }
                     }
-                    if !self.has-focus { root.edited = false; root.focus-lost(); }
+
+                    TouchArea {
+                        enabled: root.enabled && !input.has-focus;
+                        mouse-cursor: root.unfocused-cursor;
+                        clicked => { input.focus(); }
+                        pointer-event(event) => {
+                            if event.kind == PointerEventKind.down && event.button == PointerEventButton.middle {
+                                input.focus();
+                            }
+                        }
+                    }
+
+                    changed has-focus => {
+                        if self.has-focus {
+                            root.active-commit-key = root.commit-key;
+                            if root.select-all-on-focus { self.select-all(); }
+                        }
+                        if !self.has-focus && self.text != root.value {
+                            if !root.accept-input(self.text, true) {
+                                self.text = root.value;
+                            }
+                        }
+                        if !self.has-focus { root.edited = false; root.focus-lost(); }
+                    }
                 }
+            }
+
+            if root.clearable && input.text != "": clear := ButtonBase {
+                width: Metrics.icon-large;
+                height: Metrics.icon-large;
+                accessible-label: root.clear-label;
+                background << Rectangle {
+                    border-radius: root.style.radius;
+                    background: clear.hovered || clear.has-focus ? root.style.appearance.hover.background : transparent;
+                }
+                content << Image {
+                    width: Metrics.icon-medium;
+                    height: self.width;
+                    source: @image-url("../assets/lucide/x.svg");
+                    colorize: root.paint.foreground;
+                }
+                clicked => {
+                    if root.accept-input("", true) {
+                        input.text = "";
+                    } else {
+                        input.text = root.value;
+                    }
+                    input.focus();
+                }
+                Tooltip { text: @markdown("\{root.clear-label}"); }
             }
 
             if root.suffix != "" && root.suffix-width == 0px: Text {

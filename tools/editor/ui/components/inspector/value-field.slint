@@ -29,6 +29,7 @@ export component InspectorValueField inherits FocusScope {
     in property <bool> scrub-has-maximum: false;
     in property <float> scrub-maximum;
     out property <bool> input-focused: field.input-focused;
+    out property <string> input-value: field.input-value;
     callback accepted(string) -> bool;
     callback normalized(string) -> string;
     callback scrub-started();
