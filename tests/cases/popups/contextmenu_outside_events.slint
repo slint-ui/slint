@@ -1,0 +1,95 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// #14368: while a context menu is open, the items outside it get no pointer events,
+// like with native context menus. The press that closes the menu doesn't reach them either.
+
+component Recorder inherits TouchArea {
+    in-out property <string> events;
+    pointer-event(e) => {
+        if e.kind == PointerEventKind.move {
+            events += "move(" + self.mouse-x / 1px + "," + self.mouse-y / 1px + ")";
+        } else if e.kind == PointerEventKind.down {
+            events += "down(" + self.mouse-x / 1px + "," + self.mouse-y / 1px + ")";
+        }
+    }
+    clicked => {
+        events += "clicked";
+    }
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    out property <string> nested-events: nested.events;
+    out property <bool> nested-has-hover: nested.has-hover;
+
+    Rectangle {
+        x: 100px;
+        y: 50px;
+        width: 250px;
+        height: 200px;
+        background: #ddd;
+        Rectangle {
+            x: 30px;
+            y: 20px;
+            width: 200px;
+            height: 160px;
+            background: #eee;
+            nested := Recorder { }
+            ContextMenuArea {
+                Menu {
+                    MenuItem { title: "Item"; }
+                }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+let move_to = |x: f32, y: f32| {
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, y) });
+};
+let press = |x: f32, y: f32, button: PointerEventButton| {
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(x, y), button });
+};
+let release = |x: f32, y: f32, button: PointerEventButton| {
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(x, y), button });
+};
+let click = |x: f32, y: f32, button: PointerEventButton| {
+    press(x, y, button);
+    release(x, y, button);
+};
+
+move_to(140., 80.);
+click(140., 80., PointerEventButton::Right);
+// Outside the menu, but over the TouchArea.
+move_to(300., 200.);
+assert_eq!(instance.get_nested_events(), "move(10,10)");
+assert!(!instance.get_nested_has_hover());
+click(300., 200., PointerEventButton::Left);
+// The release, after the menu closed, restores the hover but isn't a click.
+assert_eq!(instance.get_nested_events(), "move(10,10)");
+assert!(instance.get_nested_has_hover());
+move_to(301., 201.);
+assert_eq!(instance.get_nested_events(), "move(10,10)move(171,131)");
+
+// Escape closes the menu without a press
+click(140., 80., PointerEventButton::Right);
+move_to(300., 200.);
+assert!(!instance.get_nested_has_hover());
+slint_testing::send_keyboard_string_sequence(&instance, &slint::SharedString::from(slint::platform::Key::Escape));
+move_to(301., 201.);
+assert!(instance.get_nested_has_hover());
+assert_eq!(instance.get_nested_events(), "move(10,10)move(171,131)move(171,131)");
+```
+*/
