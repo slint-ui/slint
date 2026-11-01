@@ -123,7 +123,6 @@ All notable changes to this project are documented in this file.
    - Fixed the size of a fully transparent embedded image.
    - Fixed bitmap fonts being registered again for every component. (#14033)
    - Fixed issues with partial rendering on rotated displays and with rounded rectangles.
-   - Fixed a `Path` drawing over the elements above it during partial rendering.
    - Fixed a panic when a rectangle extends past 32767 physical pixels.
  - LinuxKMS:
    - Added support for wheel and touch pad scrolling. (#13570)
