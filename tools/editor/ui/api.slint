@@ -24,8 +24,6 @@ export struct GeometryResult {
     geometry: Geometry,
 }
 
-export enum InspectorCommitResult { rejected, unchanged, pending }
-
 export enum CanvasCorner {
     top-left,
     top-right,
@@ -550,6 +548,11 @@ export global Api {
     in-out property <[PropertyGroup]> properties;
     callback properties-search(string);
     pure callback source-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    pure callback hooked-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
+    hooked-property-value-data(property-name, fallback) => { return fallback; }
+    public pure function editor-property-value-data(property-name: string) -> PropertyValue {
+        return Api.hooked-property-value-data(property-name, Api.source-property-value-data(property-name, {}));
+    }
     pure callback has-property(property-name: string) -> bool;
     pure callback runtime-property-value-data(property-name: string, fallback: PropertyValue) -> PropertyValue;
     pure callback source-property-value(property-name: string, fallback: string) -> string;
@@ -559,6 +562,9 @@ export global Api {
         let property = Api.source-property-value-data(name, {});
         return property.code != "" && (property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float)
             ? property.value-float : fallback;
+    }
+    public pure function editor-number-property(name: string, fallback: float) -> float {
+        return Api.hooked-property-value-data(name, { value-float: Api.number-property(name, fallback) }).value-float;
     }
     public pure function shadow-prefix(inner: bool) -> string {
         return inner ? "inner-shadow-" : "drop-shadow-";
@@ -686,7 +692,7 @@ export global Api {
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> InspectorCommitResult;
+    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-fill-preview(key: string, name: string, value: FillData, rotation: float, rotate-element: bool) -> bool;
     callback inspector-fill-commit(key: string, name: string, value: FillData, rotation: float, fill-changed: bool, rotation-changed: bool) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);
@@ -707,6 +713,7 @@ export global Api {
     pure callback string-to-code(value: string, is_translatable: bool, tr_context: string, tr_plural: string, tr_plural_expression: string) -> string;
 
     pure callback fill-brush(value: FillData) -> brush;
+    pure callback brush-fill(value: brush) -> FillData;
     pure callback fill-expression(value: FillData) -> string;
     pure callback linear-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
     pure callback radial-gradient-axis(value: FillData, size: Size) -> LinearGradientAxis;
