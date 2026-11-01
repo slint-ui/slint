@@ -345,6 +345,7 @@ export component CanvasInteractionLayer inherits TouchArea {
     }
     changed has-hover => {
         if !root.has-hover && !root.hover-selection-active {
+            CanvasView.pointer-inside = false;
             root.suppress-hover();
         }
     }
@@ -462,6 +463,8 @@ export component CanvasInteractionLayer inherits TouchArea {
             x: canvas-origin.x + position.x,
             y: canvas-origin.y + position.y,
         };
+        CanvasView.pointer = CanvasView.to-preview(position);
+        CanvasView.pointer-inside = true;
         if root.text-editing || FillSession.canvas-active || ShadowSession.canvas-visible || root.hover-selection-active || root.pressed {
             return;
         }
