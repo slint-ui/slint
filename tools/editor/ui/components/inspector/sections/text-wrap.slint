@@ -7,7 +7,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorTextWrapSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
 
     title: @tr("Text Wrap");
 
@@ -21,9 +20,8 @@ export component InspectorTextWrapSection inherits InspectorSection {
             selected-index: InspectorEnumOptions.option-index("wrap", "no-wrap", InspectorEnumOptions.text-word-wrap-options);
             options: InspectorEnumOptions.text-word-wrap-options;
             wide: true;
-            popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("wrap", text);
+                return InspectorContext.commit-code("wrap", text);
             }
         }
     }

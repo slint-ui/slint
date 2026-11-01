@@ -683,6 +683,7 @@ export global Api {
     in property <bool> inspector-fill-refresh-pending;
     pure callback inspector-values(key: string) -> [float];
     callback inspector-preview(key: string, name: string, value: float) -> bool;
+    callback inspector-preview-string(key: string, name: string, value: string) -> bool;
     callback inspector-commit(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;

@@ -1,15 +1,30 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
+import { Style, Theme, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
 import { Api } from "../../../api.slint";
 import { InspectorComboBox, InspectorEnumOptions, InspectorFieldLabel, InspectorImageAlignment, InspectorImageSourceField, InspectorInfoIcon, InspectorSection } from "../index.slint";
 import { InspectorContext } from "context.slint";
+import { InspectorPreviewToggle } from "../preview-toggle.slint";
 
 export component InspectorImageSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
-    in property <length> popup-bottom;
+
+    private property <string> selection-key: InspectorContext.selection-key;
+    private property <bool> preview-visible;
+    private property <string> fit: InspectorEnumOptions.option-value("image-fit", "fill", InspectorEnumOptions.image-fit-options);
+    private property <bool> fit-menu-open: fit-combo.expanded;
+    private property <string> pending-fit;
+    private property <string> displayed-fit: fit-combo.preview-value != "" ? fit-combo.preview-value : root.pending-fit != "" ? root.pending-fit : root.fit;
+    private property <image> preview-picture: @image-url("../../../assets/image-fit-preview.svg");
+
+    changed selection-key => {
+        root.preview-visible = false;
+        root.pending-fit = "";
+    }
+    changed fit => { root.pending-fit = ""; }
+    changed fit-menu-open => { if root.fit-menu-open { root.preview-visible = true; } }
 
     title: @tr("Image");
 
@@ -50,16 +65,48 @@ export component InspectorImageSection inherits InspectorSection {
                 }
             }
 
-            InspectorComboBox {
-                accessible-name: @tr("Image fit");
-                value: InspectorEnumOptions.option-value("image-fit", "fill", InspectorEnumOptions.image-fit-options);
-                selected-index: InspectorEnumOptions.option-index("image-fit", "fill", InspectorEnumOptions.image-fit-options);
-                options: InspectorEnumOptions.image-fit-options;
-                wide: true;
-                width: root.field-width;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
-                accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("image-fit", text);
+            HorizontalLayout {
+                spacing: Metrics.space-compact;
+                fit-combo := InspectorComboBox {
+                    accessible-name: @tr("Image fit");
+                    value: root.fit;
+                    selected-index: InspectorEnumOptions.option-index("image-fit", "fill", InspectorEnumOptions.image-fit-options);
+                    options: InspectorEnumOptions.image-fit-options;
+                    wide: true;
+                    width: root.field-width - preview-toggle.width - Metrics.space-compact;
+                    popup-above: true;
+                    accepted(text) => {
+                        if InspectorContext.commit-code("image-fit", text) {
+                            root.pending-fit = text;
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+                preview-toggle := InspectorPreviewToggle {
+                    text: @tr("Image fit preview");
+                    picture: root.preview-picture;
+                    checked <=> root.preview-visible;
+                }
+            }
+            if root.preview-visible: Rectangle {
+                height: 128px;
+                background: Theme.surfaces.recessed;
+                border-width: Metrics.border-width;
+                border-color: Colors.border;
+                border-radius: Metrics.radius-small;
+                clip: true;
+                accessible-role: image;
+                accessible-label: @tr("Image fit example");
+                accessible-value: root.displayed-fit;
+                Image {
+                    x: 1px; y: 1px;
+                    width: parent.width - 2px;
+                    height: parent.height - 2px;
+                    source: root.preview-picture;
+                    image-fit: root.displayed-fit == "contain" ? contain
+                        : root.displayed-fit == "cover" ? cover
+                        : root.displayed-fit == "preserve" ? preserve : fill;
                 }
             }
         }
@@ -90,9 +137,8 @@ export component InspectorImageSection inherits InspectorSection {
                 options: InspectorEnumOptions.image-rendering-options;
                 wide: true;
                 width: root.field-width;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("image-rendering", text);
+                    return InspectorContext.commit-code("image-rendering", text);
                 }
             }
         }
@@ -149,9 +195,8 @@ export component InspectorImageSection inherits InspectorSection {
                 options: InspectorEnumOptions.image-tiling-options;
                 wide: true;
                 width: root.field-width;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("horizontal-tiling", text);
+                    return InspectorContext.commit-code("horizontal-tiling", text);
                 }
             }
         }
@@ -182,9 +227,8 @@ export component InspectorImageSection inherits InspectorSection {
                 options: InspectorEnumOptions.image-tiling-options;
                 wide: true;
                 width: root.field-width;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("vertical-tiling", text);
+                    return InspectorContext.commit-code("vertical-tiling", text);
                 }
             }
         }

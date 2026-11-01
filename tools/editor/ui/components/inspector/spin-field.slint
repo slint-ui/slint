@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../../controls/src/headless.slint";
+import { Style, Metrics } from "../../style.slint";
+import { InputSurface } from "../input-surface.slint";
+import { InspectorValueField } from "value-field.slint";
+
+component StepButton inherits ButtonBase {
+    in property <bool> increase;
+    width: 22px;
+    height: 13px;
+    background << Rectangle {
+        border-radius: 3px;
+        background: root.hovered || root.pressed || root.has-focus ? Style.field.appearance.hover.background : transparent;
+    }
+    content << Image {
+        width: 12px; height: 12px;
+        source: @image-url("../../assets/lucide/chevron-down.svg");
+        colorize: root.enabled ? Style.field.appearance.muted : Style.field.appearance.disabled.foreground;
+        transform-rotation: root.increase ? 180deg : 0deg;
+    }
+    Tooltip { text: @markdown("\{root.accessible-label}"); }
+}
+
+export component InspectorSpinField inherits InputSurface {
+    in property <string> accessible-name;
+    in property <string> value;
+    in property <float> number;
+    in property <float> minimum: 1;
+    in property <float> step: 1;
+    in property <string> commit-key;
+    callback accepted(string) -> bool;
+    callback preview(float) -> bool;
+    callback scrub-accepted(float) -> bool;
+    callback canceled();
+
+    width: Style.inspector-layout.column-width;
+    focused: field.input-focused || increase.has-focus || decrease.has-focus;
+
+    function change-value(delta: float) {
+        let value = field.input-focused && field.input-value.is-float()
+            ? field.input-value.to-float() : root.number;
+        root.accepted("\{max(root.minimum, value + delta)}");
+    }
+
+    FocusScope {
+        capture-key-pressed(event) => {
+            if !root.enabled { return reject; }
+            let delta = root.step * (event.modifiers.shift ? 10 : 1);
+            if event.text == Key.UpArrow { root.change-value(delta); return accept; }
+            if event.text == Key.DownArrow { root.change-value(-delta); return accept; }
+            return reject;
+        }
+
+        HorizontalLayout {
+            x: 0px; y: 0px;
+            width: 100%; height: 100%;
+            spacing: 0px;
+            padding-right: Metrics.space-tight;
+            cross-axis-alignment: center;
+
+            field := InspectorValueField {
+                width: parent.width - increase.width - 3px;
+                enabled: root.enabled;
+                style: root.style;
+                accessible-name: root.accessible-name;
+                value: root.value;
+                commit-key: root.commit-key;
+                show-focus-border: false;
+                scrubbable: true;
+                scrub-value: root.number;
+                scrub-has-minimum: true;
+                scrub-minimum: root.minimum;
+                accepted(text) => { return root.accepted(text); }
+                scrub-preview(value) => { return root.preview(value); }
+                scrub-accepted(value) => { return root.scrub-accepted(value); }
+                scrub-canceled(value) => { root.canceled(); }
+            }
+
+            Rectangle {
+                width: Metrics.border-width;
+                height: root.height - 10px;
+                background: Style.color-field.divider;
+            }
+
+            VerticalLayout {
+                width: 22px;
+                padding-top: 1px; padding-bottom: 1px;
+                increase := StepButton {
+                    enabled: root.enabled;
+                    increase: true;
+                    accessible-label: @tr("Increase {}", root.accessible-name);
+                    clicked => { root.change-value(root.step); }
+                }
+                decrease := StepButton {
+                    enabled: root.enabled;
+                    accessible-label: @tr("Decrease {}", root.accessible-name);
+                    clicked => { root.change-value(-root.step); }
+                }
+            }
+        }
+    }
+}

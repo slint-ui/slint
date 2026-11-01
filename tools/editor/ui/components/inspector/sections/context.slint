@@ -340,7 +340,15 @@ export global InspectorContext {
     }
 
     public pure function text-font-size-value() -> string {
-        return InspectorContext.property-length-label("font-size", @tr("Default size"));
+        let value = Api.source-property-value-data("font-size", {});
+        if value.code == "" {
+            let runtime = Api.runtime-property-value-data("font-size", { value-float: Api.preview-default-font-size });
+            return "\{runtime.value-float}";
+        }
+        if value.kind == PropertyValueKind.float && value.visual-items[value.value-int] == "px" {
+            return "\{value.value-float}";
+        }
+        return value.code;
     }
 
     public function set-image-alignment(column: int, row: int) -> bool {

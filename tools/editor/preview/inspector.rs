@@ -154,9 +154,8 @@ fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, So
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
-        "transform-rotation" | "border-width" | "backdrop-blur" | "padding" | "spacing" => {
-            Some(vec![name])
-        }
+        "transform-rotation" | "border-width" | "backdrop-blur" | "padding" | "spacing"
+        | "font-size" => Some(vec![name]),
         name if CORNERS.contains(&name) => Some(vec![name]),
         _ => None,
     }
@@ -172,8 +171,13 @@ fn validate<'a>(
         return None;
     };
     let names = names(name)?;
-    (value.is_finite() && (name == "transform-rotation" || value >= 0.))
-        .then_some((node, url, version, names))
+    (value.is_finite()
+        && if name == "font-size" {
+            value > 0.
+        } else {
+            name == "transform-rotation" || value >= 0.
+        })
+    .then_some((node, url, version, names))
 }
 
 pub(super) fn cancel() {
@@ -235,6 +239,17 @@ pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool
         node,
         names.into_iter().map(|name| (name, slint_interpreter::Value::Number(value as f64))),
     )
+}
+
+pub(super) fn preview_string(key: SharedString, name: SharedString, value: SharedString) -> bool {
+    let target = matches!(name.as_str(), "text" | "title")
+        .then(|| target_with_root(&key, name == "title"))
+        .flatten();
+    let Some((node, _, _)) = target else {
+        cancel();
+        return false;
+    };
+    preview_values(key, node, [(name.as_str(), slint_interpreter::Value::String(value))])
 }
 
 fn valid_shadow_changes(changes: &[ui::InspectorNumberChange]) -> bool {
@@ -461,6 +476,7 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
                 "backdrop-blur" => "Changing backdrop blur",
                 "padding" => "Changing layout padding",
                 "spacing" => "Changing layout spacing",
+                "font-size" => "Changing font size",
                 _ => "Changing border radius",
             }
             .into(),

@@ -1,0 +1,86 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ButtonBase } from "../../../controls/src/headless.slint";
+import { Theme, ThemeKind, Colors, Metrics } from "../../style.slint";
+
+component AlignmentButton inherits ButtonBase {
+    private property <bool> dark: Theme.current == ThemeKind.dark;
+    private property <bool> down: root.checked || root.pressed;
+
+    horizontal-stretch: 1;
+    min-width: 0px;
+    height: Metrics.control-small;
+    focus-on-click: true;
+    accessible-role: radio-button;
+    accessible-checkable: true;
+
+    background << Rectangle {
+        border-radius: Metrics.radius-small + Metrics.space-tight;
+        background: root.down
+            ? @linear-gradient(180deg, Colors.selection.darker(root.dark ? 0.17 : 0.08), Colors.selection.brighter(root.dark ? 0.06 : 0.015))
+            : root.hovered ? Colors.selection.with-alpha(0.55) : transparent;
+        border-width: root.down ? Metrics.border-width : 0px;
+        border-color: Colors.accent.with-alpha(root.dark ? 0.42 : 0.22);
+        inner-shadow-color: root.down ? Theme.surfaces.key-shadow : transparent;
+        inner-shadow-offset-y: 1px;
+        inner-shadow-blur: 2px;
+
+        if root.down: Rectangle {
+            x: 3px;
+            y: parent.height - 2px;
+            width: parent.width - 6px;
+            height: 1px;
+            border-radius: 1px;
+            background: root.dark ? #ffffff19 : #ffffffcc;
+        }
+        if root.focus-visible: Rectangle {
+            x: -Metrics.space-tight;
+            y: -Metrics.space-tight;
+            width: parent.width + 2 * Metrics.space-tight;
+            height: parent.height + 2 * Metrics.space-tight;
+            border-radius: Metrics.radius-small + 2 * Metrics.space-tight;
+            border-width: Metrics.focus-width;
+            border-color: Colors.focus;
+        }
+    }
+    content << Image {
+        width: Metrics.icon-small;
+        height: Metrics.icon-small;
+        horizontal-stretch: 0;
+        vertical-stretch: 0;
+        image-fit: contain;
+        source: root.icon;
+        colorize: root.checked ? Colors.accent : Colors.muted;
+    }
+    Tooltip { text: @markdown("\{root.text}"); }
+}
+
+export component InspectorAlignmentGroup inherits Rectangle {
+    in property <bool> vertical;
+    in property <int> selected-index;
+    in property <string> accessible-name;
+    callback chosen(int);
+
+    height: Metrics.control-small;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    accessible-role: radio-group;
+    accessible-label: root.accessible-name;
+
+    HorizontalLayout {
+        x: 0px; y: 0px;
+        width: 100%; height: 100%;
+        spacing: 3px;
+        for index in 3: AlignmentButton {
+            checked: root.selected-index == index;
+            text: root.vertical
+                ? [@tr("Align top"), @tr("Align middle"), @tr("Align bottom")][index]
+                : [@tr("Align left"), @tr("Align center"), @tr("Align right")][index];
+            icon: root.vertical
+                ? [@image-url("../../assets/lucide/align-start-horizontal.svg"), @image-url("../../assets/lucide/align-center-horizontal.svg"), @image-url("../../assets/lucide/align-end-horizontal.svg")][index]
+                : [@image-url("../../assets/lucide/text-align-start.svg"), @image-url("../../assets/lucide/text-align-center.svg"), @image-url("../../assets/lucide/text-align-end.svg")][index];
+            clicked => { if root.selected-index != index { root.chosen(index); } }
+        }
+    }
+}

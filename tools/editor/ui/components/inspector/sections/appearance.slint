@@ -6,12 +6,11 @@ import { Api, PropertyValue } from "../../../api.slint";
 import { InspectorColorField, InspectorCornerEditor, InspectorSection } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
-export component InspectorAppearanceSection inherits InspectorSection {
+export component InspectorAppearanceFields inherits VerticalLayout {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> pane-width;
 
-    title: @tr("APPEARANCE");
-    use-shared-title: true;
+    spacing: Metrics.space-small;
 
     pure function corner-property(index: int) -> string {
         return index < 0 ? "all-corners" : ["border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius"][index];
@@ -91,5 +90,18 @@ export component InspectorAppearanceSection inherits InspectorSection {
             }
             canceled => { Api.inspector-cancel(); }
         }
+    }
+}
+
+export component InspectorAppearanceSection inherits InspectorSection {
+    in property <InspectorStyle> style: Style.inspector-layout;
+    in property <length> pane-width;
+
+    title: @tr("APPEARANCE");
+    use-shared-title: true;
+
+    InspectorAppearanceFields {
+        style: root.style;
+        pane-width: root.pane-width;
     }
 }
