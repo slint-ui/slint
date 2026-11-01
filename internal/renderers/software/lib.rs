@@ -2827,8 +2827,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             // color already is mixed with global alpha
                             alpha: color.alpha(),
                             rotation: self.rotation.orientation,
-                            dx: scale_delta,
-                            dy: scale_delta,
+                            dx: Fixed::from_fixed(scale_delta),
+                            dy: Fixed::from_fixed(scale_delta),
                             off_x: Fixed::try_from_fixed(off_x).unwrap(),
                             off_y: Fixed::try_from_fixed(off_y).unwrap(),
                         };

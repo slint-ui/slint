@@ -427,8 +427,8 @@ impl<'a> SceneTexture<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct SceneTextureExtra {
     /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
-    pub dx: Fixed<u16, 8>,
-    pub dy: Fixed<u16, 8>,
+    pub dx: Fixed<i64, 32>,
+    pub dy: Fixed<i64, 32>,
     /// Offset which is the coordinate of the "image pixel" which going to be drawn at location SceneItem::pos
     pub off_x: Fixed<u16, 4>,
     pub off_y: Fixed<u16, 4>,
@@ -474,28 +474,42 @@ impl SceneTextureExtra {
             let _ = tiling.gap_x;
             let _ = tiling.gap_y;
 
-            (Fixed::from_f32(tiling.scale_x)?, Fixed::from_f32(tiling.scale_y)?)
+            let dx = Fixed::<i32, 8>::from_f32(tiling.scale_x)?;
+            let dy = Fixed::<i32, 8>::from_f32(tiling.scale_y)?;
+            (Fixed::<i64, 32>::from_fixed(dx), Fixed::<i64, 32>::from_fixed(dy))
         } else {
             let (dst_w, dst_h) = if texture.rotation.is_transpose() {
                 (texture.dst_height as i32, texture.dst_width as i32)
             } else {
                 (texture.dst_width as i32, texture.dst_height as i32)
             };
-            // Ensure at least 1/256 to avoid division by zero in draw_texture_line
-            let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w).max(Fixed(1));
-            let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h).max(Fixed(1));
-            (dx, dy)
+            let source_step = |source_size: i32, dst_size: i32| {
+                let q8_step = Fixed::<i32, 8>::from_fraction(source_size, dst_size).max(Fixed(1));
+                let last_source_index = (q8_step * (dst_size - 1)).truncate();
+                if source_size < dst_size
+                    && (last_source_index < source_size - 1 || last_source_index >= source_size)
+                {
+                    // 32 fractional bits keep the final sample inside the source for u16 destination sizes.
+                    Fixed::<i64, 32>::from_fraction(source_size as i64, dst_size as i64)
+                        .max(Fixed(1))
+                } else {
+                    Fixed::<i64, 32>::from_fixed(q8_step)
+                }
+            };
+            (source_step(source_size.width, dst_w), source_step(source_size.height, dst_h))
         };
+        Fixed::<u16, 8>::try_from_fixed(dx).ok()?;
+        Fixed::<u16, 8>::try_from_fixed(dy).ok()?;
 
         Some((
             Self {
                 colorize: texture.colorize.unwrap_or_default(),
                 alpha: texture.alpha,
                 rotation: texture.rotation,
-                dx: Fixed::try_from_fixed(dx).ok()?,
-                dy: Fixed::try_from_fixed(dy).ok()?,
-                off_x: Fixed::try_from_fixed(dx * offset.x).ok()?,
-                off_y: Fixed::try_from_fixed(dy * offset.y).ok()?,
+                dx,
+                dy,
+                off_x: Fixed::try_from_fixed(dx * offset.x as i64).ok()?,
+                off_y: Fixed::try_from_fixed(dy * offset.y as i64).ok()?,
             },
             clipped_geometry.to_rect().cast(),
         ))
