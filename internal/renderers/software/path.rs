@@ -250,6 +250,7 @@ pub fn render_filled_path<T: TargetPixel>(
     );
 }
 
+#[derive(Clone, Copy)]
 pub struct StrokeStyle<'a> {
     pub width: f32,
     pub line_cap: i_slint_core::items::LineCap,
