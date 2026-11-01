@@ -85,11 +85,13 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.has-backend-rect(): InspectorGeometrySection { }
 
-                if (InspectorContext.is-root-selection() || InspectorContext.is-rectangle-selection() || InspectorContext.is-text-selection()): InspectorAppearanceSection {
+                if InspectorContext.is-title-selection(): InspectorTitleSection { }
+
+                if InspectorContext.has-text-property-selection(): InspectorTextContentSection { }
+
+                if ((InspectorContext.is-root-selection() && !InspectorContext.is-title-selection()) || InspectorContext.is-rectangle-selection()): InspectorAppearanceSection {
                     pane-width: root.width;
                 }
-
-                if InspectorContext.is-title-selection(): InspectorTitleSection { }
 
                 if InspectorContext.is-interaction-selection(): InspectorInteractionSection { }
 
@@ -141,8 +143,6 @@ export component InspectorPane inherits Rectangle {
                     field-width: root.field-width;
                     popup-bottom: root.popup-bottom;
                 }
-
-                if InspectorContext.has-text-property-selection(): InspectorTextContentSection { }
 
                 if InspectorContext.has-placeholder-selection(): InspectorPlaceholderSection { }
 

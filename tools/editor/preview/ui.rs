@@ -246,6 +246,7 @@ pub fn initialize_editor(
 
     api.on_inspector_values(super::inspector::values);
     api.on_inspector_preview(super::inspector::preview);
+    api.on_inspector_preview_string(super::inspector::preview_string);
     api.on_inspector_commit(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
     api.on_inspector_preview_shadow(super::inspector::preview_shadow);
@@ -2587,6 +2588,7 @@ mod tests {
         selection.highlight_index = 0;
         api.set_selection(selection);
         api.on_test_code_binding(|_, _, _, _, _| true);
+        api.on_string_to_code(super::string_to_code);
         let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
         let recorded = commits.clone();
         api.on_set_code_binding(move |_, _, _, name, value| {
@@ -2605,7 +2607,7 @@ mod tests {
                         == Some(i_slint_backend_testing::AccessibleRole::TextInput)
                 })
                 .unwrap();
-        field.set_accessible_value("\"Settings\"");
+        field.set_accessible_value("Settings");
         assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
     }
 
