@@ -634,7 +634,6 @@ export component AppWindow inherits Window {
     in-out property <AirportItem> planned-origin;
     in-out property <AirportItem> planned-destination;
     in-out property <bool> sunlight: true;
-    in-out property <bool> night-style: true;
     in-out property <bool> borders: true;
 
     /// Restarts the time until the kiosk takes over again.
@@ -675,9 +674,6 @@ export component AppWindow inherits Window {
     background: black;
 
     changed sunlight => {
-        root.settings-changed();
-    }
-    changed night-style => {
         root.settings-changed();
     }
     changed borders => {
@@ -943,14 +939,6 @@ export component AppWindow inherits Window {
             Toggle {
                 text: "Random flights";
                 checked <=> root.kiosk;
-                toggled => {
-                    root.interacted();
-                }
-            }
-
-            Toggle {
-                text: "Night style";
-                checked <=> root.night-style;
                 toggled => {
                     root.interacted();
                 }
