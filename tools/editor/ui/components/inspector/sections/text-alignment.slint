@@ -26,13 +26,11 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
     }
 
     HorizontalLayout {
-        alignment: start;
         padding-left: root.style.padding;
         padding-right: root.style.padding;
         spacing: Metrics.space-small + Metrics.space-tight;
 
         VerticalLayout {
-            width: root.style.column-width;
             spacing: Metrics.space-compact;
             Text {
                 text: @tr("Horizontal");
@@ -50,12 +48,11 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
             width: Metrics.border-width;
             VerticalLayout {
                 Rectangle { vertical-stretch: 1; }
-                Rectangle { height: Style.inspector-icon-button.height; background: Colors.border; }
+                Rectangle { height: Metrics.control-medium; background: Colors.border; }
             }
         }
 
         if root.show-vertical: VerticalLayout {
-            width: root.style.column-width;
             spacing: Metrics.space-compact;
             Text {
                 text: @tr("Vertical");
