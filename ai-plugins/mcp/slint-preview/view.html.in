@@ -12,7 +12,6 @@
     --text: light-dark(#171717, #fafafa);
     --muted: light-dark(#6b6b6b, #a3a3a3);
     --error: light-dark(#b42318, #f97066);
-    --warning: light-dark(#a15c07, #fdb022);
   }
   body {
     margin: 0;
@@ -39,7 +38,6 @@
   #diagnostics:empty { display: none; }
   #diagnostics li { white-space: pre-wrap; }
   .error { color: var(--error); }
-  .warning { color: var(--warning); }
 </style>
 </head>
 <body>
@@ -305,10 +303,6 @@
   }
 
   function reportMissingImage(path, message) {
-    const li = document.createElement("li");
-    li.className = "warning";
-    li.textContent = `Couldn't load image ${path}: ${message}`;
-    diagnosticsEl.append(li);
     reportToModel(`The Slint preview couldn't load image ${path}: ${message}`);
   }
 
@@ -379,7 +373,7 @@
         : slint.compile_from_string(source, url, loadImport, loadResource, projectRootUrl),
     );
 
-    diagnosticsEl.replaceChildren(...diagnostics.map((d) => {
+    diagnosticsEl.replaceChildren(...diagnostics.filter((d) => d.level === 0).map((d) => {
       const li = document.createElement("li");
       li.className = LEVELS[d.level] ?? "";
       li.textContent = `${location(d)}: ${LEVELS[d.level]}: ${d.message}`;
