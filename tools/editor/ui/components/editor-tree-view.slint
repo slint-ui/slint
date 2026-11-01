@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Metrics, TreeStyle } from "../style.slint";
-import { DropLocation, OutlineTreeNode } from "../api.slint";
+import { Api, DropLocation, OutlineTreeNode } from "../api.slint";
 import { AppState } from "index.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { OutlineDragRow } from "drag-preview.slint";
@@ -23,6 +23,7 @@ component EditorTreeRow {
     in property <int> row-index: -1;
     in property <string> hovered-source-uri;
     in property <int> hovered-offset: -1;
+    in property <bool> editing-id;
 
     in property <bool> hide-drag-source;
     in property <bool> gap-before;
@@ -40,6 +41,9 @@ component EditorTreeRow {
     callback row-hover-changed(int, bool);
     callback expanded-changed(int, bool);
     callback add-tab-requested(string, int);
+    callback id-edit-requested();
+    callback id-edit-finished(string, int, string);
+    callback id-edit-cancelled();
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -88,6 +92,17 @@ component EditorTreeRow {
 
     function select() {
         root.current-requested(root.node.uri, root.node.offset);
+    }
+
+    function finish-id-edit(text: string) {
+        if !root.editing-id {
+            return;
+        }
+        if text == root.node.element-id {
+            root.id-edit-cancelled();
+        } else {
+            root.id-edit-finished(root.node.uri, root.node.offset, text);
+        }
     }
 
     function toggle-expanded() {
@@ -274,6 +289,9 @@ component EditorTreeRow {
                         clicked => {
                             root.select();
                         }
+                        double-clicked => {
+                            root.id-edit-requested();
+                        }
                     }
 
                     HorizontalLayout {
@@ -281,7 +299,7 @@ component EditorTreeRow {
                         y: root.content-y;
                         width: parent.width;
                         height: Metrics.outline-row-height;
-                        alignment: start;
+                        alignment: root.editing-id ? LayoutAlignment.stretch : LayoutAlignment.start;
                         cross-axis-alignment: center;
                         padding-left: root.style.row.padding-inline;
                         padding-right: root.style.row.padding-inline;
@@ -318,8 +336,9 @@ component EditorTreeRow {
                         }
 
                         row-content := HorizontalLayout {
+                            horizontal-stretch: 1;
                             spacing: root.style.row.gap;
-                            alignment: start;
+                            alignment: root.editing-id ? LayoutAlignment.stretch : LayoutAlignment.start;
                             cross-axis-alignment: center;
                             padding-right: root.style.row.padding-inline;
                             min-height: Metrics.outline-row-height;
@@ -332,13 +351,66 @@ component EditorTreeRow {
                                 opacity: root.current ? 1 : root.style.row.icon-opacity;
                             }
 
-                            Text {
+                            if !root.editing-id: Text {
                                 horizontal-stretch: 1;
                                 vertical-alignment: center;
                                 text: root.row-label;
                                 color: root.style.row.foreground;
                                 font-size: root.style.row.font-size;
                                 overflow: elide;
+                            }
+
+                            if root.editing-id: Rectangle {
+                                horizontal-stretch: 1;
+                                height: Metrics.outline-row-height - 4px;
+                                border-width: Metrics.border-width;
+                                border-color: root.style.row.accent;
+                                border-radius: root.style.row.radius;
+                                background: Style.field.appearance.focus.background;
+
+                                id-input := TextInput {
+                                    x: root.style.row.padding-inline;
+                                    width: parent.width - 2 * self.x;
+                                    height: parent.height;
+                                    text: root.node.element-id;
+                                    vertical-alignment: center;
+                                    color: root.style.row.foreground;
+                                    font-size: root.style.row.font-size;
+                                    selection-background-color: Style.field.appearance.selection;
+                                    selection-foreground-color: Style.field.appearance.selection-foreground;
+                                    accessible-label: @tr("Element id");
+                                    init => {
+                                        self.focus();
+                                        self.select-all();
+                                    }
+                                    key-pressed(event) => {
+                                        if event.text == Key.Escape {
+                                            root.id-edit-cancelled();
+                                            return accept;
+                                        }
+                                        return reject;
+                                    }
+                                    edited => {
+                                        self.text = Api.normalize-element-id(self.text);
+                                    }
+                                    accepted => {
+                                        root.finish-id-edit(self.text);
+                                    }
+                                    changed has-focus => {
+                                        if !self.has-focus {
+                                            root.finish-id-edit(self.text);
+                                        }
+                                    }
+
+                                    if id-input.text == "": Text {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        vertical-alignment: center;
+                                        text: root.node.element-type;
+                                        color: root.style.row.muted;
+                                        font-size: root.style.row.font-size;
+                                    }
+                                }
                             }
                         }
 
@@ -409,6 +481,7 @@ export component EditorTreeView inherits FocusScope {
     in property <string> hovered-source-uri;
     in property <int> hovered-offset: -1;
     callback row-hovered(string, int, string);
+    callback row-element-id-changed(string, int, string);
     private property <int> drop-row: -1;
     private property <DropLocation> drop-location: DropLocation.onto;
     private property <Point> drag-pointer: AppState.outline-drag-pointer-position;
@@ -420,6 +493,7 @@ export component EditorTreeView inherits FocusScope {
         && root.drag-pointer.y < tree.absolute-position.y + tree.height;
     private property <int> hovered-row-index: -1;
     private property <int> focused-row-index: 0;
+    private property <int> editing-row: -1;
 
     pure callback make-row-drag-data(string, int) -> data-transfer;
     callback row-can-drop(DropEvent, string, int, DropLocation) -> DragAction;
@@ -456,7 +530,21 @@ export component EditorTreeView inherits FocusScope {
         }
     }
 
+    function edit-id(index: int) {
+        root.focus-row(index);
+        root.editing-row = index;
+    }
+
+    function end-id-edit() {
+        root.editing-row = -1;
+        root.focus();
+    }
+
     key-pressed(event) => {
+        if event.text == Key.F2 && root.focused-row-index >= 0 && root.focused-row-index < root.rows.length {
+            root.edit-id(root.focused-row-index);
+            return accept;
+        }
         if event.text == Key.Tab {
             let next = root.focused-row-index + (event.modifiers.shift ? -1 : 1);
             if next >= 0 && next < root.rows.length {
@@ -483,6 +571,7 @@ export component EditorTreeView inherits FocusScope {
             row-index: i;
             hovered-source-uri: root.hovered-source-uri;
             hovered-offset: root.hovered-offset;
+            editing-id: i == root.editing-row;
             hide-drag-source: root.show-gap;
             gap-before: root.show-gap && root.drop-location == DropLocation.before && i == root.drop-row;
             gap-after: root.show-gap
@@ -538,6 +627,16 @@ export component EditorTreeView inherits FocusScope {
             }
             add-tab-requested(uri, offset) => {
                 root.row-add-tab-requested(uri, offset);
+            }
+            id-edit-requested => {
+                root.edit-id(i);
+            }
+            id-edit-finished(uri, offset, new-id) => {
+                root.end-id-edit();
+                root.row-element-id-changed(uri, offset, new-id);
+            }
+            id-edit-cancelled => {
+                root.end-id-edit();
             }
         }
     }
