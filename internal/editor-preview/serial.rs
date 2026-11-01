@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore JTAG
+// cSpell: ignore COMX JTAG usbmodem
 
 //! The transport to a microcontroller connected to a serial port, such as an ESP32-S3-BOX-3
 //! running `examples/mcu-viewer`. The device can't compile, so the host compiles the design
@@ -30,8 +30,10 @@ use i_slint_live_preview::{REBUILD_DEBOUNCE, SLINT_VERSION};
 use lsp_types::Url;
 use tokio::sync::mpsc as tokio_mpsc;
 
-/// How long a device may take to answer the handshake, and to show a design.
-const READY_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long a device may take to answer the handshake: the viewer firmware answers between
+/// two frames, so a port that stays silent longer doesn't run it.
+const READY_TIMEOUT: Duration = Duration::from_secs(1);
+/// How long a device may take to show a design.
 const LOAD_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long a write may wait for the device to read, which it does between its other work.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -100,6 +102,7 @@ impl SerialConnection {
         (Self { inputs, session: Some(session) }, event_receiver)
     }
 
+    /// Sends `message` to the session, which keeps what arrives before the device answers.
     pub fn send(&self, message: &LspToPreviewMessage) {
         let _ = self.inputs.send(Input::Lsp(Box::new(message.clone())));
     }
@@ -120,8 +123,17 @@ pub struct UsbSerialPort {
     pub product: String,
 }
 
-/// How often a UI lists the USB serial ports again while it shows them.
+/// How often a UI lists the USB serial ports again.
 pub const SERIAL_SCAN_INTERVAL: Duration = Duration::from_secs(2);
+
+/// Whether `input`, which a user typed, names a serial port rather than a network address.
+pub fn is_serial_port_name(input: &str) -> bool {
+    let input = input.trim();
+    let is_com_port = input.get(..3).is_some_and(|com| com.eq_ignore_ascii_case("COM"))
+        && input.len() > 3
+        && input[3..].bytes().all(|b| b.is_ascii_digit());
+    input.starts_with("/dev/") || input.starts_with(r"\\.\") || is_com_port
+}
 
 /// The USB serial ports of this computer.
 pub fn usb_serial_ports() -> Vec<UsbSerialPort> {
@@ -620,7 +632,7 @@ fn handshake(
                 }
                 if protocol != PROTOCOL_VERSION {
                     return Err(format!(
-                        "The device speaks protocol {protocol}, not {PROTOCOL_VERSION}: flash the firmware built from these Slint sources"
+                        "The device speaks protocol {protocol}, not {PROTOCOL_VERSION}: flash the viewer firmware of this exact Slint version"
                     ));
                 }
                 log(format!("Connected to {board}"));
@@ -636,7 +648,7 @@ fn handshake(
             Ok(Input::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(None),
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 return Err(
-                    "The device didn't answer: is it running the Slint viewer firmware built from these Slint sources?".into()
+                    "The device didn't answer: does it run the viewer firmware of this exact Slint version?".into()
                 );
             }
         }
@@ -679,6 +691,16 @@ mod tests {
     use i_slint_live_preview::protocol::VersionedUrl;
     use i_slint_live_preview::serial::{DeviceEvent, DeviceSession};
     use slint_interpreter::LoadedResource;
+
+    #[test]
+    fn recognizes_serial_port_names() {
+        for name in ["/dev/ttyACM0", " /dev/cu.usbmodem1101 ", "COM3", "com12", r"\\.\COM10"] {
+            assert!(is_serial_port_name(name), "{name}");
+        }
+        for name in ["192.168.1.42:9000", "phone.local:1234", "COM", "COMX", "computer:80"] {
+            assert!(!is_serial_port_name(name), "{name}");
+        }
+    }
 
     /// Plays the device: starts, answers the handshake with `slint_version`, and reads back
     /// each unit it receives. Returns the components it showed, once the host cleared the screen.

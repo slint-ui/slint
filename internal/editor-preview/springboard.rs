@@ -18,6 +18,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::{
     LspToPreview,
     remote_authentication::{PairingAnswer, PairingCredentials},
+    serial::{SERIAL_SCAN_INTERVAL, UsbSerialPort, usb_serial_ports},
     springboard_ui as ui,
 };
 
@@ -67,7 +68,8 @@ impl DisplayedEndpoints {
 }
 
 /// Identifies a preview endpoint: the Local child process, a discovered
-/// viewer, or a viewer the user entered by address.
+/// viewer, a viewer the user entered by address, or a microcontroller on a
+/// USB serial port.
 /// This is what the user picks, what `selected` tracks, and what is saved.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -90,6 +92,8 @@ enum EndpointIdentity {
     /// a reserved default port would also cover mobile viewers, which take no flags.
     // TODO: add an optional name the user gives it.
     Manual { host: String, port: u16 },
+    /// A device running the Slint viewer firmware, by the name of its port.
+    Serial { port: String },
 }
 
 struct SpringboardTask {
@@ -107,6 +111,7 @@ struct SpringboardTask {
     discovery: DiscoveredViewers,
     manual_probe: Option<ManualProbe>,
     credentials: HashMap<EndpointIdentity, PairingCredentials>,
+    serial_ports: Vec<UsbSerialPort>,
 }
 
 impl Springboard {
@@ -202,10 +207,22 @@ impl Springboard {
             discovery,
             manual_probe: None,
             credentials: HashMap::new(),
+            serial_ports: Vec::new(),
         };
         task.request_settings();
         task.update_ui();
         crate::spawn_local(task.run(task_receiver));
+        let scan_sender = handle.task_sender.downgrade();
+        crate::spawn_local(async move {
+            // Listing the ports blocks, for long on Windows
+            while let Ok(ports) = tokio::task::spawn_blocking(usb_serial_ports).await
+                && let Some(sender) = scan_sender.upgrade()
+                && sender.send(Box::new(move |task| task.set_serial_ports(ports))).is_ok()
+            {
+                drop(sender);
+                tokio::time::sleep(SERIAL_SCAN_INTERVAL).await;
+            }
+        });
         handle
     }
 
@@ -304,12 +321,16 @@ impl SpringboardTask {
     }
 
     fn connect_manual_endpoint(&mut self) {
-        let Some(ManualProbe { host, port, state: ui::ManualEndpointState::Reachable, .. }) =
-            &self.manual_probe
-        else {
-            return;
+        let identity = match &self.manual_probe {
+            Some(ManualProbe { host, port, state: ui::ManualEndpointState::Reachable, .. }) => {
+                EndpointIdentity::Manual { host: host.clone(), port: *port }
+            }
+            Some(ManualProbe { host, state: ui::ManualEndpointState::SerialPort, .. }) => {
+                EndpointIdentity::Serial { port: host.clone() }
+            }
+            _ => return,
         };
-        self.select_endpoint(EndpointIdentity::Manual { host: host.clone(), port: *port });
+        self.select_endpoint(identity);
     }
 
     /// What clicking row `index` of `saved-endpoints` does.
@@ -399,6 +420,11 @@ impl SpringboardTask {
                 self.connection =
                     Connection::remote(RemoteViewer::manual(host, *port), credentials);
             }
+            EndpointIdentity::Serial { port } => {
+                if self.serial_port_exists(port) {
+                    self.connection = Connection::serial(port.clone());
+                }
+            }
         }
     }
 
@@ -420,8 +446,9 @@ impl SpringboardTask {
                 }
                 return;
             }
-            ConnectionEvent::Connected => {
+            ConnectionEvent::Connected { problem } => {
                 self.connection.connected();
+                self.connection.error = problem.unwrap_or_default();
                 if self.is_unsaved(&self.selected_endpoint) {
                     self.saved_endpoints.push(self.selected_endpoint.clone());
                     self.store_settings();
@@ -542,6 +569,39 @@ impl SpringboardTask {
         }
     }
 
+    /// Whether `port` is a USB serial port of this computer, or another one that exists,
+    /// such as the pseudo-terminal of a simulator.
+    fn serial_port_exists(&self, port: &str) -> bool {
+        self.serial_ports.iter().any(|serial_port| serial_port.name == port)
+            || std::path::Path::new(port).exists()
+    }
+
+    fn set_serial_ports(&mut self, ports: Vec<UsbSerialPort>) {
+        if ports != self.serial_ports {
+            self.serial_ports = ports;
+            self.connect();
+            self.update_ui();
+        }
+    }
+
+    fn serial_row(&self, port: &str) -> ui::PreviewEndpoint {
+        let listed = self.serial_ports.iter().find(|serial_port| serial_port.name == port);
+        ui::PreviewEndpoint {
+            name: listed
+                .map_or_else(|| port.into(), |listed| format!("USB: {}", listed.product))
+                .into(),
+            kind: ui::PreviewEndpointKind::Serial,
+            address: port.into(),
+            unavailable_reason: if self.serial_port_exists(port) {
+                Default::default()
+            } else {
+                "Device isn't connected".into()
+            },
+            saved: self.saved_endpoints.contains(&EndpointIdentity::Serial { port: port.into() }),
+            ..Default::default()
+        }
+    }
+
     fn saved_row(&self, identity: &EndpointIdentity) -> ui::PreviewEndpoint {
         match identity {
             EndpointIdentity::Local => ui::PreviewEndpoint {
@@ -567,6 +627,7 @@ impl SpringboardTask {
                     ..Default::default()
                 },
             },
+            EndpointIdentity::Serial { port } => self.serial_row(port),
             // Never disabled: only dialing tells whether a manual endpoint answers.
             EndpointIdentity::Manual { host, port } => ui::PreviewEndpoint {
                 name: format!("{host}:{port}").into(),
@@ -582,10 +643,16 @@ impl SpringboardTask {
             .chain(self.saved_endpoints.iter().cloned())
             .collect();
         let saved_rows: Vec<_> = saved.iter().map(|identity| self.saved_row(identity)).collect();
-        let discovered: Vec<_> =
-            self.discovery.discovered.iter().map(RemoteViewer::identity).collect();
-        let discovered_rows: Vec<_> =
-            self.discovery.discovered.iter().map(|viewer| self.discovered_row(viewer)).collect();
+        let serial_ports = self.serial_ports.iter().map(|port| {
+            (EndpointIdentity::Serial { port: port.name.clone() }, self.serial_row(&port.name))
+        });
+        let (discovered, discovered_rows): (Vec<_>, Vec<_>) = self
+            .discovery
+            .discovered
+            .iter()
+            .map(|viewer| (viewer.identity(), self.discovered_row(viewer)))
+            .chain(serial_ports)
+            .unzip();
         let selected =
             saved.iter().position(|row| row == &self.selected_endpoint).map_or(-1, |i| i as i32);
         let selected_row = self.saved_row(&self.selected_endpoint);
@@ -2030,6 +2097,60 @@ mod tests {
                     .await
                 );
                 viewer.event(|event| matches!(event, ConnectionMessage::Disconnected { .. })).await;
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_usb_device_that_does_not_open_stays_selected_unsaved() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, _upstream, _discovered) = controller("echo_child");
+                controller.start();
+                let port = "/dev/no-such-port".to_string();
+                let identity = EndpointIdentity::Serial { port: port.clone() };
+                let selected = identity.clone();
+                controller
+                    .task_sender
+                    .send(Box::new(move |task| {
+                        task.serial_ports =
+                            vec![UsbSerialPort { name: port, product: "Box".into() }];
+                        task.select_endpoint(selected);
+                    }))
+                    .unwrap();
+                wait_condition(&controller, move |task| {
+                    task.connection.state == ui::ConnectionState::Failed
+                        && task.selected_endpoint == identity
+                        && task.connection.error.starts_with("Cannot open /dev/no-such-port")
+                        && task.saved_endpoints.is_empty()
+                })
+                .await;
+                controller.close();
+            })
+            .await;
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_typed_serial_port_is_opened_without_probing() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, _upstream, _discovered) = controller("echo_child");
+                controller.start();
+                controller
+                    .task_sender
+                    .send(Box::new(|task| {
+                        task.manual_probe = ManualProbe::start("/dev/null".into(), 9000);
+                        task.connect_manual_endpoint();
+                    }))
+                    .unwrap();
+                wait_condition(&controller, |task| {
+                    task.selected_endpoint == EndpointIdentity::Serial { port: "/dev/null".into() }
+                        && task.connection.state == ui::ConnectionState::Failed
+                        && task.connection.error.starts_with("Cannot open /dev/null")
+                })
+                .await;
                 controller.close();
             })
             .await;

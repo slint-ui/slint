@@ -12,6 +12,7 @@ use super::remote_connection::{self, ConnectionEvent, DialError, RemoteConnectio
 use crate::{
     child_process::ChildProcessLspToPreview,
     remote_authentication::{PairingAnswer, PairingCredentials, PairingPrompt},
+    serial::{SerialConnection, SerialEvent, is_serial_port_name},
     springboard_ui as ui,
 };
 
@@ -23,6 +24,10 @@ enum ActivePreview {
     Remote {
         connection: RemoteConnection,
         pairing_answer: Option<oneshot::Sender<PairingAnswer>>,
+    },
+    Serial {
+        connection: SerialConnection,
+        events: mpsc::UnboundedReceiver<SerialEvent>,
     },
 }
 
@@ -65,6 +70,15 @@ impl Connection {
         }
     }
 
+    pub(super) fn serial(port: String) -> Self {
+        let (connection, events) = SerialConnection::connect(port, None);
+        Self {
+            state: ui::ConnectionState::Connecting,
+            preview: Some(ActivePreview::Serial { connection, events }),
+            ..Default::default()
+        }
+    }
+
     pub(super) fn is_started(&self) -> bool {
         self.preview.is_some()
     }
@@ -76,6 +90,11 @@ impl Connection {
             Some(ActivePreview::Local { receiver, .. }) => {
                 receiver.recv().await.map(ConnectionEvent::Message)
             }
+            Some(ActivePreview::Serial { events, .. }) => Some(match events.recv().await? {
+                SerialEvent::Connected { problem } => ConnectionEvent::Connected { problem },
+                SerialEvent::Failed(error) => ConnectionEvent::Ended { error: Some(error) },
+                SerialEvent::Message(message) => ConnectionEvent::Message(message),
+            }),
             None => std::future::pending().await,
         }
     }
@@ -168,6 +187,7 @@ impl Connection {
             {
                 connection.send(message)
             }
+            Some(ActivePreview::Serial { connection, .. }) => connection.send(&message),
             _ => {}
         }
     }
@@ -195,9 +215,13 @@ impl ManualProbe {
         let port = u16::try_from(port).ok().filter(|port| *port != 0);
         let viewer = port.map(|port| RemoteViewer::manual(&host, port));
         Some(Self {
+            state: if is_serial_port_name(&host) {
+                ui::ManualEndpointState::SerialPort
+            } else {
+                ui::ManualEndpointState::Probing
+            },
             host,
             port: port.unwrap_or_default(),
-            state: ui::ManualEndpointState::Probing,
             version: String::new(),
             dial: Box::pin(async move {
                 let viewer = viewer.ok_or_else(|| DialError::Unreachable("Invalid port".into()))?;

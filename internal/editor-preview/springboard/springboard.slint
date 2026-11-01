@@ -5,6 +5,7 @@ export enum PreviewEndpointKind {
     Local,
     Remote,
     Manual,
+    Serial,
 }
 
 export struct PreviewEndpoint {
@@ -43,6 +44,8 @@ export enum ManualEndpointState {
     Reachable,
     Unreachable,
     Incompatible,
+    // A serial port, which only connecting tries.
+    SerialPort,
 }
 
 export struct ManualEndpoint {

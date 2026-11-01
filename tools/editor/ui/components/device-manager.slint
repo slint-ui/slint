@@ -210,7 +210,7 @@ export component DeviceManager inherits Rectangle {
 
     if root.page == 2: Rectangle {
         Text { x: (24px * ViewerStyle.scale); y: (76px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); text: @tr("Enter the address shown in Slint Preview\non your device."); color: ViewerStyle.muted; font-size: (15px * ViewerStyle.scale); }
-        Text { x: (24px * ViewerStyle.scale); y: (150px * ViewerStyle.scale); text: @tr("IP address"); color: ViewerStyle.muted; font-size: 11px; }
+        Text { x: (24px * ViewerStyle.scale); y: (150px * ViewerStyle.scale); text: @tr("IP address or serial port"); color: ViewerStyle.muted; font-size: 11px; }
         Text { x: parent.width - (122px * ViewerStyle.scale); y: (150px * ViewerStyle.scale); text: @tr("Port"); color: ViewerStyle.muted; font-size: 11px; }
         DeviceField { x: (24px * ViewerStyle.scale); y: (175px * ViewerStyle.scale); width: parent.width - (162px * ViewerStyle.scale); text <=> root.host; placeholder: "192.168.1.42"; }
         DeviceField { x: parent.width - (122px * ViewerStyle.scale); y: (175px * ViewerStyle.scale); width: (98px * ViewerStyle.scale); text <=> root.port; placeholder: "9000"; numeric: true; }
@@ -219,7 +219,8 @@ export component DeviceManager inherits Rectangle {
             text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Enter an address and port")
                 : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Looking for Slint Preview…")
                 : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Couldn’t connect to this address")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? @tr("Incompatible Slint version") : @tr("Slint Preview found");
+                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? @tr("Incompatible Slint version")
+                : Springboard.manual-endpoint.state == ManualEndpointState.SerialPort ? @tr("Serial port") : @tr("Slint Preview found");
             color: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable || Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? ViewerStyle.warning : ViewerStyle.ink;
             font-size: 12px; font-weight: 500;
         }
@@ -228,15 +229,16 @@ export component DeviceManager inherits Rectangle {
             text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Use the address shown on your device.")
                 : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Checking the viewer at this address.")
                 : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Check the IP address and port, and make sure\nSlint Preview is open on your device.")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? Springboard.version-description(Springboard.manual-endpoint.version) + "\n" + @tr("Update Slint Preview on this device.") : @tr("Connect to pair with this device.");
+                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? Springboard.version-description(Springboard.manual-endpoint.version) + "\n" + @tr("Update Slint Preview on this device.")
+                : Springboard.manual-endpoint.state == ManualEndpointState.SerialPort ? @tr("Connect to try the Slint viewer firmware on this port.") : @tr("Connect to pair with this device.");
             color: ViewerStyle.muted; font-size: 11px; wrap: word-wrap;
         }
         SoftButton {
             x: (24px * ViewerStyle.scale); y: (344px * ViewerStyle.scale); width: parent.width - (48px * ViewerStyle.scale); height: (46px * ViewerStyle.scale);
             label: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Search again") : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Searching…") : @tr("Connect"); primary: true;
-            enabled: Springboard.manual-endpoint.state == ManualEndpointState.Reachable || Springboard.manual-endpoint.state == ManualEndpointState.Unreachable;
+            enabled: Springboard.manual-endpoint.state == ManualEndpointState.Reachable || Springboard.manual-endpoint.state == ManualEndpointState.SerialPort || Springboard.manual-endpoint.state == ManualEndpointState.Unreachable;
             activated => {
-                if Springboard.manual-endpoint.state == ManualEndpointState.Reachable {
+                if Springboard.manual-endpoint.state == ManualEndpointState.Reachable || Springboard.manual-endpoint.state == ManualEndpointState.SerialPort {
                     if !Preview.is-running { Preview.run(); }
                     Springboard.connect-manual-endpoint();
                     root.page = 3;
