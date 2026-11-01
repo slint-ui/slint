@@ -11,6 +11,7 @@
 members = [
   'analogclock/rust',
   'energy-monitor',
+  'flight-tracker',
   'food-processor/rust',
   'home-automation/rust',
   'launcher',

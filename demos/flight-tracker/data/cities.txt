@@ -1,0 +1,1255 @@
+# Natural Earth ne_50m_populated_places_simple, converted by convert.py.
+# cSpell: disable
+# Longitude and latitude in hundredths of a degree, the population in thousands,
+# and the name.
+3253 58 75 Bombo
+3028 67 43 Fort Portal
+1580 4064 69 Potenza
+1466 4156 51 Campobasso
+732 4574 34 Aosta
+1995 6010 11 Mariehamn
+3521 3190 25 Ramallah
+1245 4190 1 Vatican City
+33 4658 86 Poitier
+308 4578 233 Clermont-Ferrand
+603 4723 128 Besançon
+-5886 -6217 1 Artigas Base
+3264 -1363 86 Chipata
+3320 44 302 Jinja
+3090 302 250 Arua
+3417 109 402 Mbale
+3464 254 1 Moroto
+3173 -33 65 Masaka
+3065 -60 84 Mbarara
+1664 -2046 25 Otjiwarongo
+1134 4450 488 Bologna
+910 3922 292 Cagliari
+1660 3890 95 Catanzaro
+1687 4111 501 Bari
+1339 4235 69 L'Aquila
+1350 4360 101 Ancona
+1239 4311 149 Perugia
+1380 4565 216 Trieste
+1112 4608 108 Trento
+-6108 1461 254 Fort-de-France
+13676 3542 413 Gifu
+-5403 550 24 Saint-Laurent-du-Maroni
+-35 4918 190 Caen
+-159 4721 439 Nantes
+873 4193 54 Ajaccio
+387 4361 327 Montpellier
+503 4733 170 Dijon
+190 4790 217 Orléans
+108 4943 533 Rouen
+403 4925 197 Reims
+230 4990 143 Amiens
+620 4868 269 Nancy
+-6171 1601 1 Basse-terre
+1985 4525 225 Novi Sad
+1718 4478 222 Banja Luka
+-8133 1928 4 George Town
+-7114 2147 6 Grand Turk
+-448 5415 36 Douglas
+1244 4394 30 San Marino
+-6902 1220 147 Willemstad
+-7003 1253 69 Oranjestad
+952 4713 36 Vaduz
+-5968 -6250 1 Capitan Arturo Prat Station
+-5665 -6423 1 Marambio Base
+16422 -7462 1 Zucchelli Station
+-6812 -6756 1 Rothera Station
+-6405 -6476 1 Palmer Station
+-5891 -6218 1 Base Presidente Montalva
+-5865 -6222 1 Carlini Base
+-5877 -6222 1 King Sejong Station
+-5897 -6222 1 Great Wall Station
+-5895 -6219 1 Escudero Base
+-5800 -6200 1 Elephant Island
+16675 -7785 1 Scott Base
+16687 -7773 1 McMurdo Station
+7634 -6943 1 Zhongshan Station
+10680 -7847 1 Vostok Station
+-9058 -6880 1 Peter I Island
+9301 -6658 1 Mirny Station
+6288 -6761 1 Mawson Station
+7814 -6878 1 Davis Station
+12417 -7467 1 Concordia Research Station
+11054 -6629 1 Casey Station
+17699 -9000 1 Amundsen–Scott South Pole Station
+-1342 -7305 1 Wasa Station
+253 -7202 1 Troll Station
+-1122 -7458 1 Svea Station
+-1185 -7130 1 Novolazarevskaya Station
+-784 -7089 1 Neumayer Station III
+1173 -7078 1 Maitri Station
+-2647 -7609 1 Halley Station
+-3462 -7787 1 Belgrano II Base
+-4050 -8118 1 Sobral Base
+-1342 -7505 1 Aboa Station
+-6710 -6812 1 San Martín Base
+-5789 -6333 1 Gen. O'Higgins Base
+-5703 -6338 1 Esperanza Base
+-4473 -6073 1 Orcadas Station
+-4560 -6063 1 Signy Research Station
+13996 -6678 1 Dumont d'Urville Station
+3975 -6903 1 Showa Station
+-538 3613 187 Gibraltar
+3120 -2647 10 Lobamba
+-322 5595 505 Edinburgh
+-323 5150 861 Cardiff
+1555 7822 1 Longyearbyen
+613 4961 107 Luxembourg
+767 4507 1652 Turin
+16644 -2226 93 Nouméa
+13277 3385 534 Matsuyama
+-167 4810 209 Rennes
+145 4362 847 Toulouse
+125 4583 152 Limoges
+308 5065 1044 Lille
+775 4858 440 Strasbourg
+4163 4160 156 Batumi
+-1688 3265 205 Funchal
+2535 1363 253 El Fasher
+1813 -2657 18 Keetmanshoop
+1454 -2267 29 Swakopmund
+893 4441 647 Genoa
+4102 4302 82 Sukhumi
+15815 692 5 Palikir
+17138 710 25 Majuro
+14475 1347 122 Agana
+17922 -852 5 Funafuti
+13463 749 7 Melekeok
+-965 2612 1 Bir Lehlou
+741 4374 36 Monaco
+17302 134 29 Tarawa
+4324 -1170 129 Moroni
+11355 2220 569 Macau
+152 4250 54 Andorra
+-11730 3412 1745 San Bernardino
+-7320 4118 1018 Bridgeport
+-7762 4317 755 Rochester
+-225 5350 2230 Manchester
+7418 3216 1513 Gujranwala
+12664 3748 2550 Incheon
+562 634 1190 Benin City
+11808 2445 2519 Xiamen
+10613 3078 2174 Nanchong
+10505 2958 1466 Neijiang
+11253 3300 1944 Nanyang
+12083 4075 2426 Jinxi
+12140 3753 2116 Yantai
+11757 3488 2145 Zaozhuang
+12062 3130 1650 Suzhou
+11718 3428 2091 Xuzhou
+12030 3158 1749 Wuxi
+12655 4385 2396 Jilin
+7678 3072 979 Chandigarh
+7484 3271 791 Jammu
+7590 1767 1057 Sholapur
+7532 1990 1113 Aurangabad
+7378 2000 1473 Nasik
+9177 2614 16 Dispur
+7557 3134 855 Jullundur
+8184 2546 1201 Allahabad
+7875 2884 787 Moradabad
+7741 2866 1341 Ghaziabad
+7801 2717 1592 Agra
+7806 2789 805 Aligarh
+7770 2900 1398 Meerut
+8642 2380 1246 Dhanbad
+7818 2623 978 Gwalior
+7318 2231 1756 Vadodara
+7080 2231 1260 Rajkot
+-5651 -3341 34 Durazno
+-9341 4860 15 International Falls
+-9308 4494 735 St.  Paul
+-10854 4579 105 Billings
+-11130 4750 67 Great Falls
+-11399 4687 73 Missoula
+-10130 4823 39 Minot
+-9679 4688 163 Fargo
+-15509 1970 52 Hilo
+-12290 4704 157 Olympia
+-11742 4767 348 Spokane
+-12264 4563 526 Vancouver
+-11165 3520 64 Flagstaff
+-11089 3221 823 Tucson
+-11972 3443 182 Santa Barbara
+-11977 3675 616 Fresno
+-12415 4080 42 Eureka
+-10479 3886 494 Colorado Springs
+-11982 3953 329 Reno
+-11576 4083 19 Elko
+-10664 3510 899 Albuquerque
+-12302 4493 229 Salem
+-10631 4287 61 Casper
+-9567 3905 132 Topeka
+-9461 3911 1469 Kansas City
+-9593 3612 947 Tulsa
+-9673 4355 156 Sioux Falls
+-9377 3250 248 Shreveport
+-9114 3046 422 Baton Rouge
+-9734 3274 1440 Ft.  Worth
+-9740 2774 277 Corpus Christi
+-9774 3027 1161 Austin
+-10183 3523 182 Amarillo
+-10651 3178 753 El Paso
+-9951 2751 435 Laredo
+-7113 840 345 Mérida
+-7321 4448 94 Burlington
+-8628 3236 198 Montgomery
+-8428 3045 221 Tallahassee
+-8138 2851 1350 Orlando
+-8167 3033 988 Jacksonville
+-8111 3202 180 Savannah
+-8090 3404 398 Columbia
+-8617 3975 1436 Indianapolis
+-7795 3423 162 Wilmington
+-8392 3597 655 Knoxville
+-7745 3755 912 Richmond
+-8163 3835 124 Charleston
+-7662 3930 2255 Baltimore
+-7615 4305 663 Syracuse
+-6762 566 53 Puerto Ayacucho
+-6152 1065 295 Port-of-Spain
+-6978 4431 24 Augusta
+-8435 4650 84 Sault Ste. Marie
+112 753 81 Atakpamé
+1063 3583 327 Sousse
+4404 1361 751 Taizz
+-13533 5706 9 Sitka
+2403 4983 804 Lviv
+3071 4649 991 Odessa
+2866 5025 282 Zhytomyr
+3500 4848 1050 Dnipro
+3783 4800 988 Donetsk
+3625 5000 1461 Kharkiv
+5297 4002 68 Türkmenbaşy
+6443 3978 319 Bukhara
+5962 4247 230 Nukus
+6358 3911 235 Türkmenabat
+6183 3760 179 Mary
+7234 4079 650 Andijan
+10668 2083 1969 Haiphong
+10825 1606 1000 Da Nang
+2845 -1444 189 Kabwe
+2826 -1255 154 Mufulira
+2822 -1281 405 Kitwe
+2586 -1786 165 Livingstone
+3110 -1800 340 Chitungwiza
+971 406 1906 Douala
+-192 5248 2285 Birmingham
+-596 5460 450 Belfast
+2715 3844 2587 İzmir
+2907 4020 1492 Bursa
+3634 4128 609 Samsun
+3247 3788 919 Konya
+3532 3700 1293 Adana
+3228 278 147 Gulu
+3006 -195 860 Kigali
+-5423 385 29 Cottica
+-477 3788 321 Córdoba
+710 1349 233 Niamey
+526 1490 116 Tahoua
+2861 4420 303 Constanța
+2216 6560 49 Luleå
+1732 6240 73 Sundsvall
+2757 4717 326 Iași
+9934 915 158 Surat Thani
+9898 1880 397 Chiang Mai
+10210 1500 335 Nakhon Ratchasima
+3113 -2632 90 Mbabane
+-8063 -521 397 Piura
+-7153 -1642 815 Arequipa
+-7857 -907 350 Chimbote
+-7453 -837 311 Pucallpa
+-7325 -375 459 Iquitos
+-7520 -1208 413 Huancayo
+-5462 -2552 321 Ciudad del Este
+-2567 3775 62 Ponta Delgada
+-873 4222 379 Vigo
+-293 4325 876 Bilbao
+-1610 1415 278 Kaolack
+-1350 1615 22 Kaédi
+2244 1345 163 Geneina
+3958 2450 1010 Medina
+3655 2838 548 Tabuk
+3158 483 112 Juba
+3166 954 161 Malakal
+3248 1562 2395 Omdurman
+3022 1318 393 Al-Ubayyid
+427 5208 1406 The Hague
+800 5817 64 Kristiansand
+1451 4606 315 Ljubljana
+1712 4815 424 Bratislava
+2369 7066 10 Hammerfest
+5153 2529 1450 Doha
+6702 3022 768 Quetta
+6821 2756 364 Larkana
+1788 -2967 10 Springbok
+2123 -2846 71 Upington
+1944 -3364 128 Worcester
+2245 -3395 175 George
+3358 -1617 129 Tete
+4053 -1298 111 Pemba
+3929 -1514 389 Nampula
+2673 -2797 432 Welkom
+3364 -2504 129 Xai-Xai
+14539 -608 40 Goroka
+14422 -586 59 Mt.  Hagen
+15214 -421 8 Rabaul
+14699 -673 131 Lae
+-8243 843 110 David
+-191 3469 409 Oujda
+-924 3232 353 Safi
+1927 4247 146 Podgorica
+3689 -1788 189 Quelimane
+2787 -3297 339 East London
+2501 -3150 18 Middelburg
+4362 4350 308 Nalchik
+4198 4505 363 Stavropol
+17770 6473 3 Ugolnye Kopi
+2050 5470 435 Kaliningrad
+2833 5783 202 Pskov
+3443 5326 427 Bryansk
+3205 5478 321 Smolensk
+3428 6185 265 Petrozavodsk
+3589 5686 400 Tver
+3992 5921 295 Vologda
+3987 5762 607 Yaroslavl
+3971 4724 1052 Rostov
+3973 4359 328 Sochi
+3900 4502 650 Krasnodar
+4500 5318 513 Penza
+3972 5462 520 Ryazan
+3927 5173 844 Voronezh
+5898 5342 413 Magnitogorsk
+6144 5516 1091 Chelyabinsk
+6401 6750 80 Vorkuta
+4967 5859 457 Kirov
+5997 5792 381 Nizhny Tagil
+4805 4635 503 Astrakhan
+5511 5178 550 Orenburg
+4603 5158 843 Saratov
+4841 5433 641 Ulyanovsk
+7340 5499 1135 Omsk
+6553 5714 519 Tyumen
+8711 5375 540 Novokuznetsk
+8609 5534 477 Kemerovo
+4570 4332 226 Grozny
+8067 728 112 Kandy
+7995 690 116 Sri Jayawardenepura Kotte
+12742 3634 1468 Daejeon
+12691 3517 1440 Gwangju
+12901 3510 3480 Busan
+12208 692 773 Zamboanga
+12059 1820 207 Laoag
+12057 1643 448 Baguio
+12517 611 951 General Santos
+10263 5799 100 Ust-Ilimsk
+10392 5256 243 Angarsk
+9145 5370 167 Abakan
+8822 6934 166 Norilsk
+10247 7204 3 Khatanga
+9438 5171 108 Kyzyl
+10762 5182 360 Ulan-Ude
+12753 5027 221 Blagoveshchensk
+11692 5298 3 Bukachacha
+13552 4454 8 Dalnegorsk
+16233 6965 1 Ambarchik
+13464 6766 4 Batagay
+14789 7062 3 Chokurdakh
+14320 6457 9 Ust-Nera
+11495 6073 26 Lensk
+12539 5860 24 Aldan
+11396 6254 40 Mirny
+12337 6677 3 Zhigansk
+14322 5938 6 Okhotsk
+13512 4845 579 Khabarovsk
+14295 5357 27 Okha
+14274 4696 176 Yuzhno Sakhalinsk
+-11548 3265 885 Mexicali
+-11032 2414 190 La Paz
+-10342 2557 1144 Torreón
+-10738 2483 809 Culiacán
+-11094 3130 178 Nogales
+-11095 2910 596 Hermosillo
+-11089 2793 103 Guaymas
+-10100 2217 992 San Luis Potosí
+-9750 2588 539 Matamoros
+-9955 2750 350 Nuevo Laredo
+-10372 1923 223 Colima
+-9050 1983 205 Campeche
+-9667 1708 531 Oaxaca
+-10170 2115 1488 León
+1316 1185 896 Maiduguri
+701 481 1020 Port Harcourt
+853 773 293 Makurdi
+393 738 2628 Ibadan
+424 813 951 Ogbomosho
+576 552 830 Warri
+744 1052 1442 Kaduna
+1864 5436 740 Gdańsk
+1996 5006 756 Kraków
+10444 4358 15 Dalandzadgad
+12743 3916 329 Wonsan
+12442 4009 288 Sinuiju
+9163 4802 30 Dund-Us
+11451 4807 33 Choibalsan
+1516 -2665 15 Lüderitz
+1451 -2296 52 Walvis Bay
+3293 -252 494 Mwanza
+3766 -682 251 Morogoro
+3575 -618 218 Dodoma
+3667 -336 341 Arusha
+747 4692 275 Bern
+1303 5558 269 Malmö
+-1320 2715 188 Laayoune
+12736 79 188 Ternate
+12820 -372 356 Ambon
+11877 -845 106 Raba
+14070 -253 169 Jayapura
+1125 4378 1500 Florence
+1508 3750 675 Catania
+2117 4267 465 Pristina
+3764 6 47 Meru
+3527 52 353 Eldoret
+9532 555 514 Banda Aceh
+10033 541 2500 George Town
+10045 3893 231 Zhangye
+10264 3793 493 Wuwei
+9466 4014 140 Dunhuang
+10592 3460 1225 Tianshui
+9827 3617 1 Dulan
+9488 3642 107 Golmud
+11015 2263 1127 Yulin
+10661 2390 175 Bose
+11132 2348 442 Wuzhou
+10483 2660 1221 Liupanshui
+11858 2490 1463 Quanzhou
+11728 3185 2035 Hefei
+11698 3364 1964 Suzhou
+11038 2120 1590 Zhanjiang
+11358 2480 720 Shaoguan
+11683 -125 446 Balikpapan
+11033 153 570 Kuching
+4931 -1228 83 Antsiranana
+4708 -2143 184 Fianarantsoa
+4635 -1567 155 Mahajanga
+4369 -2336 115 Toliara
+11083 -756 555 Surakarta
+10527 -543 865 Bandar Lampung
+10765 -275 62 Tanjung Pandan
+11261 -798 805 Malang
+12358 -1018 282 Kupang
+11963 -402 88 Parepare
+-7900 -290 287 Cuenca
+-9035 -53 11 Santa Cruz
+-8303 1000 85 Limón
+-7582 2003 556 Santiago de Cuba
+-7067 1950 1551 Santiago
+-7552 506 376 Manizales
+-7728 121 382 Pasto
+-7480 1096 1798 Barranquilla
+-6139 1530 23 Roseau
+1826 4 275 Mbandaka
+1609 855 157 Moundou
+3255 3000 508 Suez
+3229 3126 624 Bur Said
+3084 2931 317 El Faiyum
+3290 2409 313 Aswan
+3118 2719 421 Asyut
+2522 52 578 Kisangani
+4273 1301 105 Assab
+4315 1160 923 Djibouti
+1375 5105 618 Dresden
+8888 2925 80 Xigaze
+7725 3843 851 Shache
+8135 4390 543 Yining
+8812 4787 142 Altay
+10170 291 68 Putrajaya
+10677 3923 137 Shizuishan
+10973 3828 156 Yulin
+10902 3268 1100 Ankang
+11121 3562 102 Houma
+11310 2938 826 Yueyang
+11259 2688 1016 Hengyang
+10477 3147 1396 Mianyang
+10230 2788 380 Xichang
+9915 2512 1000 Baoshan
+10315 2338 149 Gejiu
+11448 3805 2417 Shijiazhuang
+11448 3658 1631 Handan
+12294 4112 1639 Anshan
+12163 3892 3167 Dalian
+12033 3609 2866 Qingdao
+11833 3508 2082 Linyi
+11903 3358 1264 Huaiyin
+12065 2802 2350 Wenzhou
+12155 2988 1923 Ningbo
+13041 3360 2792 Fukuoka
+13142 3192 324 Miyazaki
+12767 2621 905 Naha
+13354 3356 336 Kōchi
+12307 55 365 Gorontalo
+12227 4362 884 Tongliao
+11166 4082 1726 Hohhot
+11895 4227 1277 Chifeng
+12208 4608 242 Ulan Hot
+11970 4920 231 Hailar
+13035 4683 1020 Jiamusi
+12648 4824 155 Bei'an
+12500 4658 1693 Daqing
+13097 4530 965 Jixi
+13691 3516 3230 Nagoya
+13817 3665 594 Nagano
+14437 4297 199 Kushiro
+14074 4179 303 Hakodate
+13575 3503 1805 Kyoto
+14102 3829 2250 Sendai
+13985 3892 100 Sakata
+1738 -331 118 Bandundu
+2240 -589 765 Kananga
+2666 -445 63 Kasongo
+2360 -615 1295 Mbuji-Mayi
+2920 -593 206 Kalemie
+2928 13 286 Butembo
+2922 -168 144 Goma
+3402 -1146 110 Mzuzu
+3499 -1579 585 Blantyre
+-9152 1483 575 Quetzaltenango
+-1659 1345 43 Banjul
+7731 2844 1394 Faridabad
+7481 3410 1140 Srinagar
+8063 1652 1137 Vijayawada
+7695 850 954 Thiruvananthapuram
+7622 1002 1519 Kochi
+8589 2047 580 Cuttack
+7512 1536 890 Hubballi
+7485 1290 777 Mangaluru
+7666 1231 887 Mysuru
+7682 1735 484 Kalaburagi
+7422 1670 750 Kolhapur
+7730 1917 624 Nanded
+7701 2071 504 Akola
+9177 2616 983 Guwahati
+1328 -418 63 Kayes
+1358 -163 43 Franceville
+-60 4485 803 Bordeaux
+537 4329 1400 Marseille
+10 4950 242 Le Havre
+-5 1627 117 Gao
+-7207 -4557 46 Coihaique
+-7029 -1850 186 Arica
+-7034 -2736 129 Copiapó
+-7125 -2990 155 La Serena
+-7236 -3746 145 Los Angeles
+-4542 6117 1 Narsarsuaq
+-5367 6695 5 Sisimiut
+-5614 7271 1 Upernavik
+-6933 7748 1 Qaanaaq
+-1706 2090 87 Nouadhibou
+-1144 1445 77 Kayes
+-962 1667 1 Ayoun el Atrous
+-626 1344 123 Ségou
+2143 4200 494 Skopje
+2329 2420 24 Al Jawf
+1580 2637 1 Tmassa
+1510 3238 386 Misrata
+1208 3293 180 Zuwara
+4439 3547 601 Kirkuk
+4314 3635 1316 Mosul
+4434 3200 666 Najaf
+3738 1160 207 Bahir Dar
+3947 1350 96 Mekele
+4186 959 252 Dire Dawa
+2572 6650 35 Rovaniemi
+2160 6310 57 Vaasa
+2375 6150 259 Tampere
+5717 5028 262 Aqtobe
+6313 5295 124 Rudniy
+6546 4480 300 Qyzylorda
+5192 4711 183 Atyrau
+7532 5173 128 Ekibastuz
+7695 5230 329 Pavlodar
+8028 5043 311 Semey
+8261 4999 319 Oskemen
+5437 3192 478 Yazd
+4872 3128 996 Ahvaz
+4781 3052 870 Basra
+5627 2720 461 Bandar-e-Abbas
+4852 3480 528 Hamadan
+4630 3809 1413 Tabriz
+7587 3093 1649 Ludhiana
+7583 2518 827 Kota
+7301 2629 995 Jodhpur
+6960 4232 465 Shymkent
+7136 4290 358 Taraz
+8091 2686 2695 Lucknow
+7755 2997 485 Saharanpur
+8533 2337 1044 Ranchi
+8698 2523 362 Bhagalpur
+8163 2124 875 Raipur
+7995 2318 1285 Jabalpur
+7586 2272 2026 Indore
+7983 1193 227 Puducherry
+7818 1167 873 Salem
+7869 1081 951 Tiruchirappalli
+1188 -477 659 Pointe-Noire
+-931 1039 114 Kankan
+-883 776 168 Nzérékoré
+-503 769 567 Bouaké
+5545 -2088 190 St.-Denis
+-6780 -997 258 Rio Branco
+-4427 -251 1038 São Luís
+-6390 -875 306 Porto Velho
+-4908 -1247 10 Alvorada
+-5765 -1902 97 Corumbá
+-4392 -1991 5575 Belo Horizonte
+-4386 -1672 332 Montes Claros
+-4828 -1890 564 Uberlândia
+-5545 -1082 27 Colíder
+-5591 -990 40 Alta Floresta
+-5609 -1557 806 Cuiabá
+-5233 -3175 321 Pelotas
+-5117 -2918 381 Caxias do Sul
+-5016 -2509 292 Ponta Grossa
+-4278 -509 907 Teresina
+-3573 -962 1186 Maceió
+-4084 -1485 308 Vitória da Conquista
+-4500 -1214 158 Barreiras
+-4032 -2037 1209 Vila Velha
+-3524 -578 1088 Natal
+-9787 5575 14 Thompson
+-9995 4983 28 Brandon
+-11188 6000 1 Fort Smith
+-11138 5673 22 Fort McMurray
+-11728 5623 5 Peace River
+-12083 5625 19 Fort St. John
+-6850 6375 6 Iqaluit
+-10503 6912 1 Cambridge Bay
+-11513 6780 1 Kugluktuk
+-9070 6334 1 Chesterfield Inlet
+-9406 6111 2 Arviat
+-9353 6953 1 Taloyoak
+-8179 6926 2 Igloolik
+-13942 6407 1 Dawson City
+-8133 4847 35 Timmins
+-7945 4630 50 North Bay
+-7777 5528 1 Kuujjuarapik
+-6840 5810 1 Kuujjuaq
+-6018 4607 38 Sydney
+-6692 5294 10 Labrador City
+1115 290 88 Ebolowa
+2067 576 62 Bambari
+1233 4544 271 Venice
+-7230 -5033 8 El Calafate
+-6852 -3155 447 San Juan
+-6510 -4330 26 Rawson
+-6806 -3895 242 Neuquén
+-6490 -1483 84 Trinidad
+-6430 -3662 111 Santa Rosa
+-7130 -4115 95 Bariloche
+-6542 -2478 513 Salta
+-6522 -2681 830 Tucumán
+-5818 -2617 221 Formosa
+-6069 -3162 490 Santa Fe
+-6067 -3295 1203 Rosario
+-4710 -2290 2791 Campinas
+-4747 -2349 563 Sorocaba
+-4783 -2117 551 Ribeirão Preto
+-4051 -938 261 Petrolina
+1015 596 445 Bamenda
+1339 930 437 Garoua
+6217 3433 481 Herat
+6710 3670 458 Mazar-i-Sharif
+10320 1310 155 Battambang
+10385 1337 109 Siem Reap
+1634 -954 126 Malanje
+1341 -1258 151 Benguela
+1349 -1491 126 Lubango
+1216 -1519 133 Moçâmedes
+-6475 -2152 159 Tarija
+-5962 1310 191 Bridgetown
+776 3692 504 Annaba
+262 934 189 Parakou
+262 648 300 Porto-Novo
+660 3636 605 Constantine
+2370 5210 301 Brest
+8956 2284 1553 Khulna
+2750 -2117 90 Francistown
+2682 -2310 51 Mahalapye
+2671 -2239 49 Serowe
+13227 -1447 10 Katherine
+11535 -3366 10 Busselton
+11575 -3252 73 Mandurah
+12223 -1796 13 Broome
+12146 -3074 37 Kalgoorlie
+11789 -3502 26 Albany
+11861 -2031 14 Port Hedland
+11687 -2073 17 Karratha
+11460 -2877 27 Geraldton
+14604 -3429 15 Griffith
+14910 -3328 39 Orange
+14860 -3226 32 Dubbo
+15167 -3051 23 Armidale
+14143 -3195 17 Broken Hill
+13587 -3473 14 Port Lincoln
+13756 -3303 23 Whyalla
+14159 -3834 12 Portland
+14428 -3676 82 Bendigo
+14630 -3636 14 Wangaratta
+14265 -2543 1 Windorah
+13949 -2072 33 Mount Isa
+15052 -2336 66 Rockhampton
+14576 -1689 154 Cairns
+15345 -2808 528 Gold Coast
+14633 -4119 19 Devonport
+-429 1118 360 Bobo Dioulasso
+8860 2438 810 Rajshahi
+9608 2197 1300 Mandalay
+9288 2014 179 Sittwe
+2936 -338 332 Bujumbura
+-17071 -1428 13 Pago Pago
+-6121 1315 49 Kingstown
+-6100 1400 38 Castries
+-6272 1730 22 Basseterre
+-1543 2810 378 Las Palmas
+4502 1044 242 Berbera
+5750 -2017 595 Port Louis
+3445 3153 506 Gaza City
+-6174 1205 34 Saint George's
+-14957 -1753 132 Papeete
+5058 2624 564 Manama
+-7870 2653 25 Freeport
+-6185 1712 35 Saint John's
+12068 2415 2629 Taichung
+17693 -3949 58 Napier
+17488 -3700 376 Manukau
+17529 -3778 148 Hamilton
+17395 -4151 30 Blenheim
+17049 -4589 118 Dunedin
+7757 3416 31 Leh
+8052 1653 5800 Amaravati
+7577 1125 953 Kozhikode
+8583 2027 844 Bhubaneswar
+8620 2279 1300 Jamshedpur
+-5617 -3486 1513 Montevideo
+-11204 4659 39 Helena
+-10078 4681 64 Bismarck
+-11623 4361 338 Boise
+-12185 3730 1668 San Jose
+-12147 3858 1604 Sacramento
+-11522 3621 1823 Las Vegas
+-10594 3569 93 Santa Fe
+-12268 4552 1875 Portland
+-11193 4078 966 Salt Lake City
+-10482 4114 73 Cheyenne
+-9362 4158 381 Des Moines
+-9601 4124 877 Omaha
+-9752 3547 788 Oklahoma City
+-10035 4437 14 Pierre
+-9851 2949 1473 San Antonio
+-7225 777 439 San Cristóbal
+-6798 1023 1770 Valencia
+-9018 3230 251 Jackson
+-7864 3582 1164 Raleigh
+-8170 4147 1890 Cleveland
+-8446 3916 1636 Cincinnati
+-8678 3617 877 Nashville
+-9000 3512 1081 Memphis
+-7628 3685 1048 Norfolk
+-8792 4305 1388 Milwaukee
+-7888 4288 1016 Buffalo
+-8000 4043 1838 Pittsburgh
+-6262 837 747 Ciudad Guayana
+122 613 1452 Lomé
+1018 3680 2412 Tunis
+-15241 5779 9 Kodiak
+-16272 5520 1 Cold Bay
+-16176 6079 6 Bethel
+-16681 6835 1 Point Hope
+-15679 7129 4 Utqiaġvik
+-16541 6451 3 Nome
+-14635 6114 4 Valdez
+-13442 5831 31 Juneau
+-14771 6484 57 Fairbanks
+-14867 7029 2 Prudhoe Bay
+3346 4460 379 Sevastopol
+5437 2447 603 Abu Dhabi
+5838 3795 728 Ashgabat
+6694 3967 708 Samarkand
+2828 -1541 1328 Lusaka
+3104 -1782 1572 Harare
+2858 -2017 699 Bulawayo
+12558 -856 234 Dili
+16832 -1773 44 Port Vila
+-8722 1410 946 Tegucigalpa
+-5817 680 264 Georgetown
+-2195 6415 166 Reykjavík
+-7234 1854 1998 Port-au-Prince
+-425 5588 1160 Glasgow
+3258 32 1420 Kampala
+4501 1278 1000 Aden
+-5517 584 254 Paramaribo
+-598 3741 1212 Seville
+898 1380 230 Zinder
+211 1352 915 Niamey
+3722 1962 490 Port Sudan
+6877 3856 1086 Dushanbe
+-7197 -1353 361 Cusco
+-7025 -1800 280 Tacna
+-7902 -812 765 Trujillo
+-7573 -1407 279 Ica
+-5764 -2529 1870 Asunción
+-8627 1215 920 Managua
+-1324 847 827 Freetown
+798 1700 118 Agadez
+2489 1206 392 Nyala
+2799 770 127 Wau
+3048 1917 26 Dongola
+3639 1546 401 Kassala
+1899 6964 52 Tromsø
+1042 6342 147 Trondheim
+532 6039 214 Bergen
+7316 3370 780 Islamabad
+7145 3020 1522 Multan
+6837 2538 1459 Hyderabad
+7153 3401 1303 Peshawar
+8531 2772 895 Kathmandu
+4072 -1452 225 Nacala
+2623 -2912 463 Bloemfontein
+2823 -2570 1338 Pretoria
+14719 -946 284 Port Moresby
+15995 -944 76 Honiara
+-7953 897 1281 Panama City
+-500 3406 1002 Fez
+-684 3403 1705 Rabat
+-800 3163 872 Marrakesh
+2886 4701 688 Chișinău
+3487 -1982 531 Beira
+2560 -3397 1021 Port Elizabeth
+3259 -2595 1446 Maputo
+8498 5649 535 Tomsk
+17747 6474 10 Anadyr
+3310 6897 319 Murmansk
+4055 6457 356 Archangel
+4400 5633 1278 Nizhny Novgorod
+4450 4871 984 Volgograd
+5604 5479 1018 Ufa
+6060 5685 1313 Yekaterinburg
+5015 5320 1137 Samara
+4912 5575 1115 Kazan
+7343 6126 400 Surgut
+8375 5335 600 Barnaul
+8296 5503 1389 Novosibirsk
+4536 207 1100 Mogadishu
+5859 2361 735 Muscat
+7986 693 217 Colombo
+12390 1032 815 Cebu
+12255 1071 388 Iloilo
+12563 711 1402 Davao
+10162 5616 246 Bratsk
+10425 5232 587 Irkutsk
+9286 5602 925 Krasnoyarsk
+8055 7351 1 Dikson
+11347 5206 308 Chita
+13191 4313 587 Vladivostok
+13607 7143 1 Nizhneyansk
+12974 6203 236 Yakutsk
+12883 7163 6 Tiksi
+15081 5957 95 Magadan
+-11708 3250 1553 Tijuana
+-10609 2865 793 Chihuahua
+-10642 2322 368 Mazatlán
+-9787 2230 859 Tampico
+-9992 1685 716 Acapulco
+-9616 1918 579 Veracruz
+-9315 1675 481 Tuxtla Gutiérrez
+-8683 2117 542 Cancún
+-8962 2097 965 Mérida
+750 645 689 Enugu
+524 1306 732 Sokoto
+5625 5800 997 Perm
+10412 4905 80 Erdenet
+10691 4792 885 Ulaanbaatar
+3343 -889 292 Mbeya
+1708 -2257 268 Windhoek
+1812 -1957 24 Grootfontein
+3920 -616 404 Zanzibar
+-40 3949 808 Valencia
+15995 5908 4 Palana
+15862 5306 187 Petropavlovsk-Kamchatsky
+753 909 1576 Abuja
+10036 -96 855 Padang
+-1560 1187 403 Bissau
+1335 3813 863 Palermo
+3593 3195 1060 Amman
+2532 5468 542 Vilnius
+2410 5695 743 Riga
+7458 4288 837 Bishkek
+9830 3982 148 Jiayuguan
+10177 3662 1048 Xining
+11028 2528 987 Guilin
+11698 3263 1451 Huainan
+11667 2337 1601 Shantou
+11763 330 193 Tarakan
+3969 -404 882 Mombasa
+2748 -2932 361 Maseru
+4751 -1891 1697 Antananarivo
+11042 -696 1396 Semarang
+10475 -298 1749 Palembang
+11458 -333 604 Bandjarmasin
+11943 -514 1262 Makassar
+483 4577 1423 Lyon
+-7850 -21 1701 Quito
+-8409 994 1284 San José
+-8920 1371 1433 San Salvador
+-7677 1798 938 Kingston
+-7552 1040 887 Cartagena
+-7017 120 6 Mitú
+2246 219 161 Bumba
+1505 1212 989 N'Djamena
+2083 1384 158 Abéché
+878 375 156 Malabo
+3265 2570 609 Luxor
+3893 1533 621 Asmara
+1600 4580 723 Zagreb
+2473 5943 394 Tallinn
+9110 2965 220 Lhasa
+9352 4283 580 Hami
+7993 3710 409 Hotan
+7597 3948 507 Kashgar
+10627 3847 991 Yinchuan
+11385 2762 961 Pingxiang
+12989 3276 435 Nagasaki
+12399 4735 1641 Qiqihar
+1885 -503 638 Kikwit
+1345 -582 246 Matadi
+2547 -1072 418 Kolwezi
+2748 -1168 1352 Lubumbashi
+3378 -1398 647 Lilongwe
+-9053 1462 1024 Guatemala City
+-5233 493 62 Cayenne
+946 39 578 Libreville
+8330 1773 1529 Vishakhapatnam
+17844 -1813 175 Suva
+878 -72 117 Port-Gentil
+-302 1677 69 Timbuktu
+-7094 -5316 117 Punta Arenas
+-7013 -2025 227 Iquique
+-7040 -2365 310 Antofagasta
+-7162 -3305 854 Valparaíso
+-7325 -3980 160 Valdivia
+-7305 -3683 890 Concepción
+-7293 -4147 175 Puerto Montt
+-5173 6420 15 Nuuk
+-1598 1809 742 Nouakchott
+-800 1265 1494 Bamako
+-1305 2052 44 Atar
+-455 1390 33 Djenné
+1443 2703 100 Sabha
+2006 3212 1180 Banghazi
+2288 4070 828 Thessaloniki
+3551 3387 1846 Beirut
+4479 4173 1100 Tbilisi
+3746 1261 156 Gondar
+7143 5118 346 Nur-Sultan
+7312 4988 452 Qaraghandy
+7691 4333 1209 Almaty
+5170 3270 1628 Isfahan
+5257 2963 1240 Shiraz
+7487 3164 1212 Amritsar
+8300 2533 1352 Varanasi
+8698 2369 1328 Asansol
+8143 2122 1097 Bhilai
+7741 2325 1727 Bhopal
+7812 992 1294 Madurai
+7695 1100 1696 Coimbatore
+10260 1797 754 Vientiane
+1528 -426 1355 Brazzaville
+-1368 953 1494 Conakry
+-528 682 206 Yamoussoukro
+-7267 -763 57 Cruzeiro do Sul
+-6996 -420 60 Leticia
+-6000 -310 1753 Manaus
+-4335 -483 135 Caxias
+-5470 -243 230 Santarém
+-4912 -535 166 Marabá
+-6012 -1272 63 Vilhena
+-6197 -1083 65 Ji-Paraná
+-5462 -2045 778 Campo Grande
+-4852 -2758 1023 Florianópolis
+-3897 -1225 482 Feira de Santana
+-9717 4988 632 Winnipeg
+-9417 5877 1 Churchill
+-10462 5045 176 Regina
+-10667 5217 199 Saskatoon
+-11408 5108 1110 Calgary
+-13033 5432 15 Prince Rupert
+-12335 4843 290 Victoria
+-8517 7303 1 Arctic Bay
+-9490 7468 1 Resolute
+-8628 6653 1 Naujaat
+-11440 6244 19 Yellowknife
+-12863 6627 1 Fort Good Hope
+-13505 6072 23 Whitehorse
+-6067 282 235 Boa Vista
+-5105 3 499 Macapá
+-7570 4542 1145 Ottawa
+-8765 5598 1 Fort Severn
+-8927 4845 99 Thunder Bay
+-7125 4684 624 Québec
+-6360 4465 359 Halifax
+-5268 4758 131 St. John's
+-6169 5655 1 Nain
+-6313 4625 42 Charlottetown
+2065 841 12 N'Délé
+2047 4482 1099 Belgrade
+2650 540 13 Obo
+11493 488 296 Bandar Seri Begawan
+-6590 -4775 3 Puerto Deseado
+-6922 -5163 86 Río Gallegos
+-6750 -4587 141 Comodoro Rivadavia
+-6882 -3288 893 Mendoza
+-6526 -1904 225 Sucre
+-6610 -1098 74 Riberalta
+-6227 -3874 282 Bahía Blanca
+-5758 -3800 556 Mar del Plata
+-6418 -3140 1452 Córdoba
+-5589 -2736 357 Posadas
+-8877 1725 15 Belmopan
+1856 437 832 Bangui
+1432 1060 320 Maroua
+1151 387 1611 Yaoundé
+1982 4133 895 Tirana
+4451 4018 1102 Yerevan
+4986 4040 2122 Baku
+6569 3161 716 Kandahar
+10491 1155 1466 Phnom Penh
+1770 -1467 13 Menongue
+1576 -1275 1100 Huambo
+-6815 -1650 1590 La Paz
+-6323 -1775 2103 Santa Cruz
+-62 3571 798 Oran
+252 640 762 Cotonou
+552 2279 76 Tamanrasset
+367 3249 125 Ghardaia
+2331 4269 1185 Sofia
+2756 5390 1805 Minsk
+8964 2747 99 Thimphu
+2591 -2465 208 Gaborone
+13085 -1243 93 Darwin
+13388 -2370 28 Alice Springs
+14913 -3528 328 Canberra
+15182 -3285 541 Newcastle
+13860 -3493 1145 Adelaide
+14677 -1925 139 Townsville
+15303 -2745 1860 Brisbane
+14730 -4285 81 Hobart
+-153 1237 1149 Ouagadougou
+1838 4385 697 Sarajevo
+9612 1977 930 Naypyidaw
+-6613 1844 2479 San Juan
+-5785 -5170 2 Stanley
+-6478 3229 52 Hamilton
+-17522 -2114 43 Nuku'alofa
+4407 956 478 Hargeisa
+5545 -462 34 Victoria
+673 33 88 São Tomé
+-17174 -1384 62 Apia
+1451 3590 368 Valletta
+7350 417 113 Malé
+3521 3178 1029 Jerusalem
+-2352 1492 113 Praia
+-7735 2508 228 Nassau
+3337 3517 224 Nicosia
+12027 2263 2769 Kaohsiung
+17478 -4130 393 Wellington
+17263 -4354 363 Christchurch
+11412 2255 7581 Shenzhen
+11805 3680 3061 Zibo
+-9325 4498 2616 Minneapolis
+-15786 2131 786 Honolulu
+-12234 4757 3074 Seattle
+-11207 3354 3551 Phoenix
+-11718 3282 2916 San Diego
+-9024 3864 2199 St. Louis
+-9004 3000 785 New Orleans
+-9684 3282 4798 Dallas
+-7166 1073 2072 Maracaibo
+-7107 4233 4467 Boston
+-8246 2795 2314 Tampa
+-7517 4000 5492 Philadelphia
+-8308 4233 4101 Detroit
+-14990 6122 260 Anchorage
+10585 2104 4378 Hanoi
+10669 1078 5314 Ho Chi Minh City
+3286 3993 3716 Ankara
+1908 4750 1679 Budapest
+4420 1536 2008 Sanaa
+218 4139 4920 Barcelona
+2610 4444 1942 Bucharest
+3717 3623 2738 Aleppo
+3630 3350 2466 Damascus
+855 4738 1108 Zürich
+-915 3872 2812 Lisbon
+3253 1559 4754 Khartoum
+3922 2152 3012 Jeddah
+3982 2143 1385 Makkah
+1075 5992 835 Oslo
+7435 3156 6577 Lahore
+6699 2487 12130 Karachi
+3098 -2986 2729 Durban
+3031 5994 4553 St.  Petersburg
+-10333 2067 4198 Guadalajara
+-9820 1905 2195 Puebla
+852 1200 3140 Kano
+2100 5225 1707 Warsaw
+12575 3902 3300 Pyongyang
+3927 -680 2930 Dar es Salaam
+9865 358 2115 Medan
+-625 5334 1059 Dublin
+-1080 631 1041 Monrovia
+1424 4084 2250 Naples
+920 4547 2945 Milan
+10170 317 1448 Kuala Lumpur
+10379 3606 2561 Lanzhou
+10832 2282 2167 Nanning
+10672 2658 3662 Guiyang
+10659 2957 6461 Chongqing
+11930 2608 2606 Fuzhou
+11332 2315 8829 Guangzhou
+11374 2305 4528 Dongguan
+10757 -695 2394 Bandung
+11275 -725 2845 Surabaya
+-7992 -222 2514 Guayaquil
+-7558 628 3297 Medellín
+-7650 340 2254 Cali
+-8237 2313 2174 Havana
+2995 3120 4165 Alexandria
+868 5010 2895 Frankfurt
+1000 5355 1757 Hamburg
+1157 4813 1275 Munich
+1446 5009 1162 Prague
+4798 2937 2063 Kuwait City
+10889 3428 4009 Xian
+11254 3788 2913 Taiyuan
+11427 3058 7243 Wuhan
+11297 2820 2604 Changsha
+10268 2507 2931 Kunming
+11366 3476 2636 Zhengzhou
+12345 4181 4787 Shenyeng
+11699 3668 2798 Jinan
+11720 3913 7180 Tianjin
+11588 2868 2350 Nanchang
+11878 3205 3679 Nanjing
+12017 3025 3007 Hangzhou
+13244 3439 2045 Hiroshima
+12534 4387 3183 Changchun
+10982 4065 2036 Baotou
+12665 4575 3621 Harbin
+14134 4308 2544 Sapporo
+-6990 1847 2154 Santo Domingo
+-22 555 2121 Accra
+7723 2867 15926 Delhi
+7848 1740 6376 Hyderabad
+7385 1853 4672 Pune
+7909 2117 2454 Nagpur
+1318 3289 2189 Tripoli
+3477 3208 3112 Tel Aviv
+2493 6018 1115 Helsinki
+5957 3627 2469 Mashhad
+7581 2692 2917 Jaipur
+8032 2646 3162 Kanpur
+8513 2563 2158 Patna
+8028 1309 7163 Chennai
+7258 2303 5375 Ahmedabad
+7284 2120 3842 Surat
+1256 5568 1085 København
+-404 532 3802 Abidjan
+-4848 -145 2167 Belém
+-4792 -1578 3717 Brasília
+-5120 -3005 3917 Porto Alegre
+-4932 -2542 3084 Curitiba
+-3858 -375 3602 Fortaleza
+-3848 -1297 3484 Salvador
+-11350 5355 1058 Edmonton
+-7359 4550 3678 Montréal
+-4930 -1672 2022 Goiânia
+-3492 -807 3651 Recife
+433 5084 1743 Brussels
+9041 2373 12797 Dhaka
+1323 -884 5173 Luanda
+305 3677 3354 Algiers
+9180 2233 4529 Chattogram
+11584 -3195 1532 Perth
+9616 1679 4088 Yangon
+-12242 3777 3450 San Francisco
+-10499 3974 2313 Denver
+-9534 2982 4459 Houston
+-8023 2579 5585 Miami
+-8440 3383 4506 Atlanta
+-8775 4183 8990 Chicago
+-6692 1050 2985 Caracas
+3051 5044 2709 Kyiv
+5528 2523 1379 Dubai
+6929 4131 2184 Tashkent
+-369 4040 5567 Madrid
+614 4621 1240 Geneva
+1810 5935 1264 Stockholm
+10051 1375 6704 Bangkok
+-7705 -1205 8012 Lima
+-1748 1472 2604 Dakar
+2803 -2617 3435 Johannesburg
+491 5235 1031 Amsterdam
+-762 3360 3181 Casablanca
+12700 3757 9796 Seoul
+12098 1461 11100 Manila
+-10033 2567 3712 Monterrey
+1340 5252 3406 Berlin
+8757 4381 3575 Ürümqi
+10407 3067 4123 Chengdu
+13546 3475 11294 Ōsaka
+1531 -433 7843 Kinshasa
+7720 2860 318 New Delhi
+7756 1297 6787 Bengaluru
+2373 3799 3242 Athens
+4439 3334 5054 Baghdad
+3870 904 3100 Addis Ababa
+5142 3567 7873 Tehran
+-12312 4928 2313 Vancouver
+-7942 4370 5213 Toronto
+-5840 -3460 12795 Buenos Aires
+6918 3452 3277 Kabul
+1636 4820 2400 Vienna
+14497 -3782 4170 Melbourne
+12157 2504 6900 Taipei
+17476 -3685 1377 Auckland
+-11818 3399 12500 Los Angeles
+-7701 3890 4338 Washington,  D.C.
+-7398 4075 19040 New York
+-12 5150 8567 London
+2901 4111 10061 Istanbul
+4677 2464 4465 Riyadh
+1843 -3392 3215 Cape Town
+3761 5575 10452 Moscow
+-9913 1944 19028 Mexico City
+339 645 9466 Lagos
+1248 4190 3339 Rome
+11639 3993 11106 Beijing
+3681 -128 3010 Nairobi
+10683 -617 9125 Jakarta
+-7409 460 7772 Bogota
+3125 3005 11893 Cairo
+12143 3122 14987 Shanghai
+13975 3569 35676 Tokyo
+7286 1902 18978 Mumbai
+233 4887 9904 Paris
+-7067 -3345 5720 Santiago
+8832 2250 14787 Kolkata
+-4323 -2292 11748 Rio de Janeiro
+-4663 -2356 18845 São Paulo
+15118 -3392 4630 Sydney
+10385 129 5184 Singapore
+11418 2231 7206 Hong Kong

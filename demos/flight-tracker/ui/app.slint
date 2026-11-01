@@ -1,0 +1,1100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ListView } from "std-widgets.slint";
+
+global Theme {
+    out property <color> text: #e8eef6;
+    out property <color> muted: #8b98a9;
+    out property <color> accent: #2379f4;
+    out property <color> accent-light: #6aaeff;
+    out property <color> glass: #0a111ac0;
+    out property <color> line: #ffffff1c;
+    out property <color> hover: #ffffff14;
+    out property <length> margin: 16px;
+}
+
+export enum View { follow, route, globe, free }
+
+export enum Phase { boarding, flying, arrived }
+
+export struct AirportItem {
+    index: int,
+    code: string,
+    city: string,
+    country: string,
+    name: string,
+}
+
+export struct FlightInfo {
+    phase: Phase,
+    origin: AirportItem,
+    destination: AirportItem,
+    /// The flown part of the distance, from 0 to 1.
+    progress: float,
+    remaining-time: string,
+    remaining-distance: string,
+    flown-distance: string,
+    total-distance: string,
+    speed: string,
+    altitude: string,
+    temperature: string,
+    heading: string,
+    arrival-light: string,
+}
+
+/// An airport's place on the screen, in logical pixels.
+export struct Marker {
+    shown: bool,
+    x: float,
+    y: float,
+    code: string,
+}
+
+export struct Aircraft {
+    shown: bool,
+    x: float,
+    y: float,
+    /// Clockwise from pointing up.
+    angle: float,
+}
+
+export struct Label {
+    x: float,
+    y: float,
+    name: string,
+    opacity: float,
+}
+
+component Glass inherits Rectangle {
+    background: Theme.glass;
+    backdrop-blur: 16px;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: Theme.line;
+}
+
+component PillButton inherits Rectangle {
+    in property <string> text;
+    /// An icon before the text, in the text's color.
+    in property <image> icon;
+    in property <bool> primary;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 36px;
+    min-width: content.preferred-width + 28px;
+    border-radius: self.height / 2;
+    opacity: root.enabled ? 1 : 0.4;
+    background: root.primary
+        ? (touch.pressed ? Theme.accent.darker(0.2) : touch.has-hover ? Theme.accent.brighter(0.15) : Theme.accent)
+        : (touch.pressed ? #ffffff2a : touch.has-hover ? #ffffff1f : #ffffff12);
+    content := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        if root.icon.width > 0: Image {
+            y: (parent.height - self.height) / 2;
+            width: 16px;
+            height: 16px;
+            source: root.icon;
+            colorize: Theme.text;
+            transform-rotation: 90deg;
+        }
+        if root.text != "": Text {
+            text: root.text;
+            color: Theme.text;
+            font-size: 13px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component RoundButton inherits Glass {
+    in property <string> text;
+    /// An icon instead of the text, in the text's color.
+    in property <image> icon;
+    in property <bool> checked;
+    callback clicked;
+    width: 40px;
+    height: 40px;
+    border-radius: self.width / 2;
+    background: root.checked ? Theme.accent : touch.pressed ? #26334a : touch.has-hover ? #1a2433d0 : Theme.glass;
+    if root.icon.width == 0: Text {
+        text: root.text;
+        color: Theme.text;
+        font-size: 18px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.icon.width > 0: Image {
+        width: 18px;
+        height: 18px;
+        source: root.icon;
+        colorize: Theme.text;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component Toggle {
+    in property <string> text;
+    in-out property <bool> checked;
+    callback toggled();
+    height: 32px;
+    Text {
+        x: 0;
+        text: root.text;
+        color: Theme.text;
+        font-size: 14px;
+        vertical-alignment: center;
+    }
+
+    Rectangle {
+        x: parent.width - self.width;
+        width: 38px;
+        height: 22px;
+        border-radius: self.height / 2;
+        background: root.checked ? Theme.accent : #ffffff26;
+        animate background { duration: 150ms; }
+        Rectangle {
+            x: root.checked ? parent.width - self.width - 3px : 3px;
+            width: 16px;
+            height: 16px;
+            border-radius: self.height / 2;
+            background: white;
+            animate x {
+                duration: 150ms;
+                easing: ease-out;
+            }
+        }
+    }
+
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
+}
+
+/// Options side by side; none is highlighted while `current` is -1.
+component Segmented {
+    in property <[string]> options;
+    in property <int> current;
+    callback picked(index: int);
+    height: 36px;
+    Rectangle {
+        border-radius: self.height / 2;
+        background: #ffffff12;
+    }
+
+    if root.current >= 0: Rectangle {
+        x: root.width / root.options.length * root.current + 2px;
+        y: 2px;
+        width: root.width / root.options.length - 4px;
+        height: root.height - 4px;
+        border-radius: self.height / 2;
+        background: Theme.accent;
+        animate x {
+            duration: 200ms;
+            easing: ease-out;
+        }
+    }
+
+    for option[index] in root.options: Text {
+        x: root.width / root.options.length * index;
+        width: root.width / root.options.length;
+        text: option;
+        color: index == root.current ? white : Theme.muted;
+        font-size: 13px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.picked(index);
+            }
+        }
+    }
+}
+
+component Caption inherits Text {
+    color: Theme.muted;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+}
+
+component Stat {
+    in property <string> label;
+    in property <string> value;
+    in property <length> value-size: 18px;
+    VerticalLayout {
+        spacing: 2px;
+        Caption {
+            text: root.label;
+        }
+
+        Text {
+            text: root.value;
+            color: Theme.text;
+            font-size: root.value-size;
+            font-weight: 600;
+        }
+    }
+}
+
+/// An airliner seen from above, nose up.
+component AircraftIcon inherits Image {
+    source: @image-url("icons/aircraft.svg");
+}
+
+/// The route from the origin to the destination, and how far along the aircraft is.
+component FlightCard inherits Glass {
+    in property <FlightInfo> flight;
+    in property <bool> kiosk;
+    /// Smaller, for phones.
+    in property <bool> small;
+    /// Leaves out the light at arrival, for short windows.
+    in property <bool> brief;
+    property <length> code-size: root.small ? 26px : 32px;
+    height: layout.preferred-height;
+    layout := VerticalLayout {
+        padding: root.small ? 14px : 18px;
+        spacing: root.small ? 8px : 10px;
+        HorizontalLayout {
+            Caption {
+                text: root.flight.phase == Phase.boarding ? "BOARDING" : root.flight.phase == Phase.arrived ? "LANDED" : "IN FLIGHT";
+                color: Theme.accent-light;
+            }
+
+            Caption {
+                horizontal-alignment: right;
+                text: root.kiosk ? "RANDOM FLIGHTS" : "YOUR FLIGHT";
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                Text {
+                    text: root.flight.origin.code;
+                    color: Theme.text;
+                    font-size: root.code-size;
+                    font-weight: 800;
+                }
+
+                Text {
+                    text: root.flight.origin.city;
+                    color: Theme.muted;
+                    font-size: 13px;
+                    overflow: elide;
+                }
+            }
+
+            // The progress along the route.
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: 60px;
+                Rectangle {
+                    y: 19px;
+                    height: 2px;
+                    background: #ffffff30;
+                }
+
+                Rectangle {
+                    y: 19px;
+                    width: parent.width * root.flight.progress;
+                    height: 2px;
+                    background: Theme.accent-light;
+                }
+
+                AircraftIcon {
+                    x: (parent.width - self.width) * root.flight.progress;
+                    y: 8px;
+                    width: 24px;
+                    height: 24px;
+                    transform-rotation: 90deg;
+                }
+            }
+
+            VerticalLayout {
+                Text {
+                    text: root.flight.destination.code;
+                    color: Theme.text;
+                    font-size: root.code-size;
+                    font-weight: 800;
+                    horizontal-alignment: right;
+                }
+
+                Text {
+                    text: root.flight.destination.city;
+                    color: Theme.muted;
+                    font-size: 13px;
+                    horizontal-alignment: right;
+                    overflow: elide;
+                }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: Theme.line;
+        }
+
+        HorizontalLayout {
+            spacing: 16px;
+            Stat {
+                label: "TIME TO GO";
+                value: root.flight.remaining-time;
+                value-size: root.small ? 16px : 18px;
+            }
+
+            Stat {
+                label: "DISTANCE TO GO";
+                value: root.flight.remaining-distance;
+                value-size: root.small ? 16px : 18px;
+            }
+        }
+
+        if !root.brief: Text {
+            text: root.flight.arrival-light;
+            color: Theme.muted;
+            font-size: 13px;
+        }
+    }
+}
+
+/// The aircraft's readings in flight, or the flight before boarding and after landing.
+component StatusCard inherits Glass {
+    in property <FlightInfo> flight;
+    /// Smaller, for phones, with one row of readings.
+    in property <bool> small;
+    height: layout.preferred-height;
+    layout := VerticalLayout {
+        padding: root.small ? 14px : 18px;
+        spacing: 12px;
+        if root.flight.phase == Phase.flying: GridLayout {
+            spacing-horizontal: root.small ? 12px : 20px;
+            spacing-vertical: 12px;
+            Row {
+                Stat {
+                    label: "GROUND SPEED";
+                    value: root.flight.speed;
+                    value-size: root.small ? 16px : 18px;
+                }
+
+                Stat {
+                    label: "ALTITUDE";
+                    value: root.flight.altitude;
+                    value-size: root.small ? 16px : 18px;
+                }
+
+                Stat {
+                    label: "OUTSIDE AIR";
+                    value: root.flight.temperature;
+                    value-size: root.small ? 16px : 18px;
+                }
+            }
+
+            if !root.small: Row {
+                Stat {
+                    label: "HEADING";
+                    value: root.flight.heading;
+                }
+
+                Stat {
+                    label: "FLOWN";
+                    value: root.flight.flown-distance;
+                }
+
+                Stat {
+                    label: "TOTAL";
+                    value: root.flight.total-distance;
+                }
+            }
+        }
+        if root.flight.phase == Phase.boarding: VerticalLayout {
+            spacing: 4px;
+            Caption {
+                text: "NEXT FLIGHT";
+            }
+
+            Text {
+                text: "\{root.flight.origin.city} to \{root.flight.destination.city}";
+                color: Theme.text;
+                font-size: 22px;
+                font-weight: 700;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: "\{root.flight.total-distance}  ·  \{root.flight.remaining-time}";
+                color: Theme.muted;
+                font-size: 14px;
+            }
+        }
+        if root.flight.phase == Phase.arrived: VerticalLayout {
+            spacing: 4px;
+            Caption {
+                text: "WELCOME TO";
+            }
+
+            Text {
+                text: root.flight.destination.city;
+                color: Theme.text;
+                font-size: 28px;
+                font-weight: 800;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: "\{root.flight.destination.name}, \{root.flight.destination.country}";
+                color: Theme.muted;
+                font-size: 14px;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component AirportMarker {
+    in property <Marker> marker;
+    in property <bool> destination;
+    width: 0;
+    height: 0;
+    visible: root.marker.shown;
+    Rectangle {
+        x: -self.width / 2;
+        y: -self.height / 2;
+        width: 12px;
+        height: 12px;
+        border-radius: self.width / 2;
+        background: root.destination ? Theme.accent-light : white;
+        border-width: 2px;
+        border-color: root.destination ? white : Theme.accent;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: #0009;
+    }
+
+    Rectangle {
+        x: 12px;
+        y: -self.height / 2;
+        height: 22px;
+        width: code.preferred-width + 16px;
+        border-radius: self.height / 2;
+        background: root.destination ? Theme.accent : #0a111ad0;
+        border-width: 1px;
+        border-color: Theme.line;
+        code := Text {
+            x: 8px;
+            text: root.marker.code;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component AirportRow inherits Rectangle {
+    in property <AirportItem> airport;
+    callback clicked();
+    height: 46px;
+    border-radius: 8px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    Text {
+        x: 10px;
+        width: 44px;
+        text: root.airport.code;
+        color: Theme.accent-light;
+        font-size: 15px;
+        font-weight: 700;
+        vertical-alignment: center;
+    }
+
+    VerticalLayout {
+        x: 60px;
+        width: parent.width - 70px;
+        alignment: center;
+        Text {
+            text: "\{root.airport.city}, \{root.airport.country}";
+            color: Theme.text;
+            font-size: 14px;
+            overflow: elide;
+        }
+
+        Text {
+            text: root.airport.name;
+            color: Theme.muted;
+            font-size: 12px;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+/// A search field for an airport.
+component AirportField inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    in-out property <string> text <=> input.text;
+    callback activated();
+    callback edited(text: string);
+    callback accepted();
+    height: 50px;
+    border-radius: 10px;
+    background: #ffffff10;
+    border-width: 1px;
+    border-color: root.active ? Theme.accent : Theme.line;
+    forward-focus: input;
+
+    TouchArea {
+        mouse-cursor: MouseCursor.text;
+        clicked => {
+            input.focus();
+        }
+    }
+
+    Caption {
+        x: 14px;
+        text: root.label;
+        vertical-alignment: center;
+    }
+
+    if input.text == "": Text {
+        x: input.x;
+        text: "City, airport, or code";
+        color: #ffffff50;
+        font-size: 16px;
+        vertical-alignment: center;
+    }
+
+    input := TextInput {
+        x: 64px;
+        width: parent.width - 78px;
+        color: Theme.text;
+        font-size: 16px;
+        vertical-alignment: center;
+        single-line: true;
+        changed has-focus => {
+            if self.has-focus {
+                root.activated();
+            }
+        }
+        edited => {
+            root.edited(self.text);
+        }
+        accepted => {
+            root.accepted();
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    in property <image> texture;
+    in property <FlightInfo> flight;
+    in property <Marker> origin-marker;
+    in property <Marker> destination-marker;
+    in property <Aircraft> aircraft;
+    /// The route behind and ahead of the aircraft, as path commands in logical pixels.
+    in property <string> flown-path;
+    in property <string> remaining-path;
+    in property <[Label]> labels;
+    in property <View> view;
+    /// The airports that match the planner's search.
+    in property <[AirportItem]> results;
+    in property <string> gpu-text;
+    in property <string> fps-text;
+
+    /// Whether the demo flies between random airports on its own.
+    in-out property <bool> kiosk: true;
+    in-out property <bool> planner-open;
+    in-out property <AirportItem> planned-origin;
+    in-out property <AirportItem> planned-destination;
+    in-out property <bool> sunlight: true;
+    in-out property <bool> night-style: true;
+    in-out property <bool> borders: true;
+
+    /// Restarts the time until the kiosk takes over again.
+    callback interacted();
+    callback drag-started();
+    callback dragged(dx: float, dy: float);
+    callback drag-ended();
+    /// Zooms in for a `factor` above 1.
+    callback zoom(factor: float);
+    callback choose-view(view: View);
+    callback search(query: string);
+    callback open-planner();
+    callback take-off(origin: int, destination: int);
+    callback settings-changed();
+
+    property <bool> settings-open;
+    /// Which of the planner's fields the search results are for: 0 for the origin, 1 for
+    /// the destination.
+    property <int> active-field: 1;
+    /// A phone held upright.
+    property <bool> narrow: root.width < 600px;
+    /// A phone held sideways.
+    property <bool> short: root.height < 500px;
+    property <bool> compact: root.width < 900px || root.height < 620px;
+    property <length> margin: root.narrow || root.short ? 10px : Theme.margin;
+    // The edges of the area for controls, clear of a phone's notch and home indicator.
+    property <length> left-edge: root.safe-area-insets.left + root.margin;
+    property <length> right-edge: root.safe-area-insets.right + root.margin;
+    property <length> top-edge: root.safe-area-insets.top + root.margin;
+    property <length> bottom-edge: root.safe-area-insets.bottom + root.margin;
+    property <length> content-width: root.width - root.left-edge - root.right-edge;
+
+    title: "Slint Flight Tracker";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    min-width: 320px;
+    min-height: 320px;
+    background: black;
+
+    changed sunlight => {
+        root.settings-changed();
+    }
+    changed night-style => {
+        root.settings-changed();
+    }
+    changed borders => {
+        root.settings-changed();
+    }
+    changed kiosk => {
+        root.settings-changed();
+    }
+    changed planner-open => {
+        if root.planner-open {
+            from-field.text = root.planned-origin.index >= 0 ? "\{root.planned-origin.code}  ·  \{root.planned-origin.city}" : "";
+            to-field.text = "";
+            root.search("");
+            to-field.focus();
+        }
+    }
+
+    function choose(airport: AirportItem) {
+        if root.active-field == 0 {
+            root.planned-origin = airport;
+            from-field.text = "\{airport.code}  ·  \{airport.city}";
+            if root.planned-destination.index < 0 {
+                to-field.focus();
+            }
+        } else {
+            root.planned-destination = airport;
+            to-field.text = "\{airport.code}  ·  \{airport.city}";
+        }
+        root.interacted();
+    }
+
+    Image {
+        source: root.texture;
+        width: 100%;
+        height: 100%;
+        image-fit: fill;
+    }
+
+    ScaleRotateGestureHandler {
+        property <float> last-scale: 1;
+        started => {
+            self.last-scale = 1;
+        }
+        updated => {
+            root.zoom(self.scale / self.last-scale);
+            self.last-scale = self.scale;
+        }
+
+        TouchArea {
+            property <length> last-x;
+            property <length> last-y;
+            pointer-event(event) => {
+                if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                    self.last-x = self.mouse-x;
+                    self.last-y = self.mouse-y;
+                    root.settings-open = false;
+                    root.drag-started();
+                } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                    root.drag-ended();
+                }
+            }
+            moved => {
+                root.dragged((self.mouse-x - self.last-x) / 1px, (self.mouse-y - self.last-y) / 1px);
+                self.last-x = self.mouse-x;
+                self.last-y = self.mouse-y;
+            }
+            double-clicked => {
+                root.zoom(1.6);
+            }
+            scroll-event(event) => {
+                root.zoom(Math.pow(1.0015, event.delta-y / 1px));
+                accept
+            }
+        }
+    }
+
+    for label in root.labels: Rectangle {
+        x: label.x * 1px;
+        y: label.y * 1px;
+        width: 0;
+        height: 0;
+        opacity: label.opacity;
+        visible: label.opacity > 0;
+        Rectangle {
+            x: -2px;
+            y: -2px;
+            width: 4px;
+            height: 4px;
+            border-radius: 2px;
+            background: #ffffffb0;
+        }
+
+        Text {
+            x: 6px;
+            y: -self.height / 2;
+            text: label.name;
+            color: #e8eef6d0;
+            font-size: 11px;
+            stroke: #00000080;
+            stroke-width: 2px;
+            stroke-style: outside;
+        }
+    }
+
+    Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+        commands: root.remaining-path;
+        stroke: #ffffffa0;
+        stroke-width: 2px;
+        visible: root.remaining-path != "";
+    }
+
+    Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+        commands: root.flown-path;
+        stroke: Theme.accent-light.with-alpha(0.3);
+        stroke-width: 7px;
+        visible: root.flown-path != "";
+    }
+
+    Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: self.width / 1px;
+        viewbox-height: self.height / 1px;
+        commands: root.flown-path;
+        stroke: Theme.accent-light;
+        stroke-width: 2.5px;
+        visible: root.flown-path != "";
+    }
+
+    AirportMarker {
+        x: root.origin-marker.x * 1px;
+        y: root.origin-marker.y * 1px;
+        marker: root.origin-marker;
+    }
+
+    AirportMarker {
+        x: root.destination-marker.x * 1px;
+        y: root.destination-marker.y * 1px;
+        marker: root.destination-marker;
+        destination: true;
+    }
+
+    if root.aircraft.shown: Rectangle {
+        x: root.aircraft.x * 1px - self.width / 2;
+        y: root.aircraft.y * 1px - self.height / 2;
+        width: 34px;
+        height: 34px;
+        transform-rotation: root.aircraft.angle * 1deg;
+        // The shadow on the ground.
+        AircraftIcon {
+            x: 3px;
+            y: 4px;
+            width: 100%;
+            height: 100%;
+            colorize: #00000070;
+        }
+
+        AircraftIcon {
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    flight-card := FlightCard {
+        x: root.left-edge;
+        y: root.top-edge;
+        width: root.narrow ? root.content-width : min(420px, root.content-width - 56px);
+        flight: root.flight;
+        kiosk: root.kiosk;
+        small: root.narrow || root.short;
+        brief: root.short;
+    }
+
+    if root.narrow || !root.compact || root.flight.phase != Phase.flying: StatusCard {
+        x: root.left-edge;
+        y: root.narrow ? controls.y - self.height - 10px : root.height - self.height - root.bottom-edge - 14px;
+        width: root.narrow ? root.content-width : min(420px, root.content-width);
+        flight: root.flight;
+        small: root.narrow || root.short;
+    }
+
+    // Below the flight card on a phone held upright, where it takes the whole width.
+    VerticalLayout {
+        x: root.width - self.width - root.right-edge;
+        y: root.narrow ? flight-card.y + flight-card.height + 10px : root.top-edge;
+        width: 40px;
+        spacing: 8px;
+        RoundButton {
+            text: "+";
+            clicked => {
+                root.zoom(1.5);
+            }
+        }
+
+        RoundButton {
+            text: "−";
+            clicked => {
+                root.zoom(1 / 1.5);
+            }
+        }
+    }
+
+    // The views, the planner, and the settings.
+    controls := Glass {
+        x: root.width - self.width - root.right-edge;
+        y: root.height - self.height - root.bottom-edge - (root.narrow ? 0 : 14px);
+        width: root.narrow ? root.content-width : bar.preferred-width;
+        height: bar.preferred-height;
+        border-radius: self.height / 2;
+        bar := HorizontalLayout {
+            padding: 6px;
+            spacing: 8px;
+            Segmented {
+                preferred-width: 240px;
+                min-width: 150px;
+                horizontal-stretch: 1;
+                options: ["Follow", "Route", "Globe"];
+                current: root.view == View.follow ? 0 : root.view == View.route ? 1 : root.view == View.globe ? 2 : -1;
+                picked(index) => {
+                    root.choose-view(index == 0 ? View.follow : index == 1 ? View.route : View.globe);
+                }
+            }
+
+            PillButton {
+                text: root.narrow ? "" : "Plan a flight";
+                icon: @image-url("icons/aircraft.svg");
+                primary: true;
+                clicked => {
+                    root.settings-open = false;
+                    root.open-planner();
+                }
+            }
+
+            RoundButton {
+                width: 36px;
+                height: 36px;
+                icon: @image-url("icons/settings.svg");
+                checked: root.settings-open;
+                clicked => {
+                    root.settings-open = !root.settings-open;
+                    root.interacted();
+                }
+            }
+        }
+    }
+
+    if root.settings-open: Glass {
+        x: root.width - self.width - root.right-edge;
+        y: controls.y - self.height - 10px;
+        width: min(260px, root.content-width);
+        height: settings.preferred-height;
+        settings := VerticalLayout {
+            padding: 16px;
+            spacing: 6px;
+            Toggle {
+                text: "Random flights";
+                checked <=> root.kiosk;
+                toggled => {
+                    root.interacted();
+                }
+            }
+
+            Toggle {
+                text: "Night style";
+                checked <=> root.night-style;
+                toggled => {
+                    root.interacted();
+                }
+            }
+
+            Toggle {
+                text: "Borders";
+                checked <=> root.borders;
+                toggled => {
+                    root.interacted();
+                }
+            }
+
+            Toggle {
+                text: "Sunlight";
+                checked <=> root.sunlight;
+                toggled => {
+                    root.interacted();
+                }
+            }
+        }
+    }
+
+    if !root.narrow: Text {
+        x: root.width - self.width - root.right-edge;
+        y: root.height - self.height - root.safe-area-insets.bottom - 4px;
+        text: "\{root.gpu-text}  ·  \{root.fps-text}";
+        color: #ffffff50;
+        font-size: 10px;
+    }
+
+    // The planner stays instantiated, so its fields keep their text while it's hidden.
+    Rectangle {
+        visible: root.planner-open;
+        background: #000000a0;
+        TouchArea {
+            clicked => {
+                root.planner-open = false;
+                root.interacted();
+            }
+        }
+
+        // At the top on a phone, where the on-screen keyboard covers the lower half.
+        Glass {
+            y: root.narrow ? root.top-edge : (parent.height - self.height) / 2;
+            width: min(560px, root.content-width);
+            height: min(640px, root.height - root.top-edge - root.bottom-edge);
+            TouchArea { }
+
+            VerticalLayout {
+                padding: root.narrow ? 14px : 20px;
+                spacing: 12px;
+                HorizontalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Plan a flight";
+                        color: Theme.text;
+                        font-size: root.narrow ? 19px : 22px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+
+                    PillButton {
+                        text: "Take off";
+                        primary: true;
+                        enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
+                        clicked => {
+                            root.take-off(root.planned-origin.index, root.planned-destination.index);
+                        }
+                    }
+
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        border-radius: self.width / 2;
+                        background: close.has-hover ? Theme.hover : transparent;
+                        Image {
+                            width: 16px;
+                            height: 16px;
+                            source: @image-url("icons/close.svg");
+                            colorize: Theme.muted;
+                        }
+
+                        close := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.planner-open = false;
+                                root.interacted();
+                            }
+                        }
+                    }
+                }
+
+                from-field := AirportField {
+                    label: "FROM";
+                    active: root.active-field == 0;
+                    activated => {
+                        root.active-field = 0;
+                        root.search(self.text == "\{root.planned-origin.code}  ·  \{root.planned-origin.city}" ? "" : self.text);
+                    }
+                    edited(text) => {
+                        root.planned-origin.index = -1;
+                        root.search(text);
+                    }
+                    accepted => {
+                        if root.results.length > 0 {
+                            root.choose(root.results[0]);
+                        }
+                    }
+                }
+
+                to-field := AirportField {
+                    label: "TO";
+                    active: root.active-field == 1;
+                    activated => {
+                        root.active-field = 1;
+                        root.search(self.text == "\{root.planned-destination.code}  ·  \{root.planned-destination.city}" ? "" : self.text);
+                    }
+                    edited(text) => {
+                        root.planned-destination.index = -1;
+                        root.search(text);
+                    }
+                    accepted => {
+                        if root.results.length > 0 {
+                            root.choose(root.results[0]);
+                        }
+                    }
+                }
+
+                Caption {
+                    text: root.results.length == 1 ? "1 AIRPORT" : "\{root.results.length} AIRPORTS";
+                }
+
+                ListView {
+                    vertical-stretch: 1;
+                    for airport in root.results: AirportRow {
+                        airport: airport;
+                        clicked => {
+                            root.choose(airport);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

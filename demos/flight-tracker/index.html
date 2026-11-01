@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+
+<html>
+<!--
+    This is a static html file used to display the wasm build.
+    In order to generate the build
+     - uncomment the #wasm# lines in Cargo.toml
+     - Run `wasm-pack build --release --target web` in this directory.
+  -->
+
+<head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Slint Flight Tracker</title>
+    <style>
+        /* Keeps the demo clear of a phone's notch and home indicator. */
+        body { box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+        html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: black; }
+        /* Overrides the preferred size that Slint sets on the canvas, so the demo fills the page. */
+        canvas {
+            display: block; outline: none;
+            width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+            /* Mobile Safari's toolbars come and go, which the dynamic viewport height follows. */
+            height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+            height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+            /* Leaves dragging and pinching to the demo, instead of scrolling or zooming the page. */
+            touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <script type="module">
+        import init from "./pkg/flight_tracker.js";
+        init();
+    </script>
+</body>
+
+</html>
