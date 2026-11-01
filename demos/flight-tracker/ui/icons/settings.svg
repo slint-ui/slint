@@ -1,0 +1,7 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<path d="M3 7H21M3 17H21" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="9.5" cy="7" r="2.5" fill="white" stroke="white" stroke-width="1.8"/>
+<circle cx="14.5" cy="17" r="2.5" fill="white" stroke="white" stroke-width="1.8"/>
+</svg>
