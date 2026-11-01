@@ -734,8 +734,8 @@ impl ComponentCompiler {
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-    /// The project file provides the settings that were not set on this compiler.
+    /// If the path points to a project file (`slint-project.json`) or to a directory containing
+    /// a project file, Slint loads the project file and applies the settings not set on this compiler.
     /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
@@ -856,7 +856,7 @@ impl Compiler {
     #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub fn set_project_root(&mut self, root: Option<SourcePath>, _: i_slint_core::InternalToken) {
-        self.project_root = root;
+        self.project_root = root.map(i_slint_compiler::project_file::normalize_project_root);
     }
 
     #[doc(hidden)]
@@ -1020,8 +1020,8 @@ impl Compiler {
     /// [`CompilationResult::component()`].
     ///
     /// If the path is `"-"`, the file will be read from stdin.
-    /// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-    /// The project file provides the settings that were not set on this compiler.
+    /// If the path points to a project file (`slint-project.json`) or to a directory containing
+    /// a project file, Slint loads the project file and applies the settings not set on this compiler.
     /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
     /// A `.slint` file path compiles without loading a project file.
     /// If the extension of the file .rs, the first `slint!` macro from a rust file will be extracted
@@ -3388,12 +3388,17 @@ mod project_file_tests {
             for manifest_contents in
                 [r#"{"edition":"1.19"}"#, r#"{"edition":"1.19","main":"other.slint"}"#]
             {
-                for static_compilation in [false, true] {
+                for (project_root, static_compilation) in [
+                    (root.clone(), false),
+                    (root.clone(), true),
+                    (manifest.clone(), false),
+                    (manifest.clone(), true),
+                ] {
                     let requested = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
                     let loader_requested = requested.clone();
                     let loader_manifest = manifest.clone();
                     let mut compiler = Compiler::default();
-                    compiler.set_project_root(Some(root.clone()), i_slint_core::InternalToken);
+                    compiler.set_project_root(Some(project_root), i_slint_core::InternalToken);
                     compiler.set_project_file_loader(
                         std::rc::Rc::new(move |path| {
                             loader_requested.borrow_mut().push(path.clone());
@@ -3610,23 +3615,14 @@ mod project_file_tests {
     }
 
     #[test]
-    fn a_project_file_path_is_an_error() {
+    fn a_project_file_path_loads_its_main_file() {
         with_project(r#"{"edition": "1.19", "main":"main.slint"}"#, |root| {
             std::fs::write(root.join("main.slint"), "export component Main inherits Window { }")
                 .unwrap();
             let result =
                 spin_on::spin_on(Compiler::default().build_from_path(root.join(FILE_NAME)));
-            assert!(result.has_errors());
-            assert_eq!(
-                result
-                    .diagnostics()
-                    .map(|diagnostic| diagnostic.message().to_string())
-                    .collect::<Vec<_>>(),
-                [format!(
-                    "A `{FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
-                    root.display()
-                )]
-            );
+            assert!(!result.has_errors(), "{result:?}");
+            assert!(result.component_names().any(|name| name == "Main"));
         });
     }
 

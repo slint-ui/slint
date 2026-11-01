@@ -11,8 +11,8 @@ The generated code must be included in your crate by using the `slint::include_m
 
 ## Project File
 
-If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-The project file provides settings not specified through [`CompilerConfiguration`].
+If the path points to a project file (`slint-project.json`) or to a directory containing
+a project file, Slint loads the project file and applies settings not specified through [`CompilerConfiguration`].
 It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 Passing a `.slint` file compiles it without loading a project file.
 
@@ -401,7 +401,8 @@ fn project_file_path_in(manifest_dir: impl AsRef<Path>) -> PathBuf {
 ///
 /// This function can only be called within a build script run by cargo.
 ///
-/// If the path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
+/// If the path points to a project file (`slint-project.json`) or to a directory containing
+/// a project file, Slint loads the project file.
 /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 /// A `.slint` file path compiles without loading a project file.
 ///
@@ -502,8 +503,8 @@ pub fn compile_with_config(
 ///
 /// Doesn't print any cargo messages.
 ///
-/// If the input path is a directory, Slint loads the project file (`slint-project.json`) inside that directory.
-/// The project file provides the settings that `config` does not specify.
+/// If the input path points to a project file (`slint-project.json`) or to a directory containing
+/// a project file, Slint loads the project file and applies the settings that `config` does not specify.
 /// It must contain a `main` entry, which specifies the `.slint` file the compiler loads.
 ///
 /// Returns a list of all input files that were used to generate the output file. (dependencies)
@@ -1107,25 +1108,18 @@ fn directory_without_project_file_is_a_compilation_error() {
 }
 
 #[test]
-fn project_file_cannot_be_compiled_directly() {
+fn project_file_can_be_compiled_directly() {
     with_temp_test_dir("direct-project-file", |test_root| {
         let project_file = project_file_path_in(test_root);
         std::fs::write(&project_file, r#"{"edition":"1.19","main":"main.slint"}"#).unwrap();
-        let error = compile_with_output_path(
+        std::fs::write(test_root.join("main.slint"), "export component Main inherits Window { }")
+            .unwrap();
+        let dependencies = compile_with_output_path(
             &project_file,
             test_root.join("main.rs"),
             CompilerConfiguration::new(),
         )
-        .unwrap_err();
-        let CompileError::CompileError(messages) = error else {
-            panic!("Expected a compilation error, got {error:?}");
-        };
-        assert_eq!(
-            messages,
-            vec![format!(
-                "A `{PROJECT_FILE_NAME}` cannot be compiled directly; pass its directory instead ({})",
-                test_root.display()
-            )]
-        );
+        .unwrap();
+        assert!(dependencies.contains(&i_slint_compiler::source_path::clean_path(&project_file)));
     });
 }

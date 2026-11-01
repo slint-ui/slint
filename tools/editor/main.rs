@@ -176,7 +176,12 @@ struct Cli {
     preview_window_placement: Option<preview_window::Placement>,
     file: Option<String>,
     component: Option<String>,
-    #[arg(short = 'p', long, requires = "file", help = "Use this directory as the project root")]
+    #[arg(
+        short = 'p',
+        long,
+        requires = "file",
+        help = "Use a directory or slint-project.json file as the project root"
+    )]
     project_root: Option<PathBuf>,
 }
 

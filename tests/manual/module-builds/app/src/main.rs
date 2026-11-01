@@ -4,6 +4,10 @@
 // cSpell: ignore blociga
 use std::error::Error;
 
+mod directory_input {
+    include!(concat!(env!("OUT_DIR"), "/directory.rs"));
+}
+
 slint::include_modules!();
 
 fn main() -> Result<(), Box<dyn Error>> {

@@ -115,13 +115,7 @@ impl Project {
         path: impl AsRef<Path>,
         component: Option<String>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path = path.as_ref();
-        let input = if i_slint_compiler::project_file::is_project_file(path) {
-            path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."))
-        } else {
-            path
-        };
-        Self::from_input(input, component, None)
+        Self::from_input(path, component, None)
     }
 
     pub(crate) fn from_input(
@@ -129,8 +123,8 @@ impl Project {
         component: Option<String>,
         project_root: Option<&Path>,
     ) -> i_slint_editor_preview::Result<Self> {
-        let path =
-            std::fs::canonicalize(path.as_ref()).unwrap_or(std::path::absolute(path.as_ref())?);
+        let path = i_slint_compiler::project_file::project_root(path.as_ref());
+        let path = std::fs::canonicalize(path).unwrap_or(std::path::absolute(path)?);
         if path.is_dir() {
             if project_root.is_some() {
                 return Err("A project directory cannot be combined with --project-root".into());
@@ -138,8 +132,9 @@ impl Project {
             let (main, _) = i_slint_compiler::project_file::resolve_input(&path)?;
             return Self::from_root(&path, &main, component);
         }
-        let root =
-            project_root.unwrap_or(path.parent().ok_or("Project input has no parent directory")?);
+        let root = project_root
+            .map(i_slint_compiler::project_file::project_root)
+            .unwrap_or(path.parent().ok_or("Project input has no parent directory")?);
         Self::from_root(root, &path, component)
     }
 
@@ -478,7 +473,11 @@ mod tests {
         let directory = Project::from_input(&root, None, None).unwrap();
         assert_eq!(directory.preview.url, Url::from_file_path(&source).unwrap());
         assert!(Project::from_input(&root, None, Some(&nested)).is_err());
-        assert!(Project::from_input(&manifest, None, None).is_err());
+        let project = Project::from_input(&manifest, None, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
+        let explicit_manifest = Project::from_input(&source, None, Some(&manifest)).unwrap();
+        assert_eq!(explicit_manifest.root, root);
         let missing_root = root.join("unavailable");
         let path = missing_root.join("main.slint");
         assert_eq!(Project::from_root(&missing_root, &path, None).unwrap().root, missing_root);
@@ -498,7 +497,9 @@ mod tests {
         let project = Project::from_selected_file(&manifest, None).unwrap();
         assert_eq!(project.root, root);
         assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
-        assert!(Project::from_input(&manifest, None, None).is_err());
+        let project = Project::from_input(&manifest, None, None).unwrap();
+        assert_eq!(project.root, root);
+        assert_eq!(project.preview.url, Url::from_file_path(&source).unwrap());
 
         std::fs::write(&manifest, r#"{"edition":"1.19"}"#).unwrap();
         assert!(Project::from_selected_file(&manifest, None).is_err());

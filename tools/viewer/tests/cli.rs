@@ -314,78 +314,112 @@ fn project_with_shared_component(project_file: &str) -> tempfile::TempDir {
     tmp
 }
 
+fn project_input(project: &tempfile::TempDir, manifest: bool) -> std::path::PathBuf {
+    if manifest { project.path().join("slint-project.json") } else { project.path().to_path_buf() }
+}
+
 #[test]
 fn project_file_include_paths_are_used() {
-    let project = project_with_shared_component(
-        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
-    );
-    let main = project.path().join("main.slint");
-    std::fs::write(
-        &main,
-        "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
-    )
-    .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
-    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    for manifest in [false, true] {
+        let project = project_with_shared_component(
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
+        );
+        let main = project.path().join("main.slint");
+        std::fs::write(
+            &main,
+            "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
+        )
+        .unwrap();
+        let input = project_input(&project, manifest);
+        let (code, _stdout, stderr) = run(&["--check", input.to_str().unwrap()]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+    }
 }
 
 #[test]
 fn an_old_project_file_edition_warns() {
-    let project = project_with_shared_component(r#"{ "edition": "1.18", "main": "main.slint" }"#);
-    let main = project.path().join("main.slint");
-    std::fs::write(&main, "export component App { }\n").unwrap();
-    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
-    assert_eq!(code, 0, "stderr was:\n{stderr}");
-    assert!(stderr.contains("'edition' is 1.18, so"), "stderr was:\n{stderr}");
+    for manifest in [false, true] {
+        let project =
+            project_with_shared_component(r#"{ "edition": "1.18", "main": "main.slint" }"#);
+        let main = project.path().join("main.slint");
+        std::fs::write(&main, "export component App { }\n").unwrap();
+        let (code, _stdout, stderr) =
+            run(&["--check", project_input(&project, manifest).to_str().unwrap()]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+        assert!(stderr.contains("'edition' is 1.18, so"), "stderr was:\n{stderr}");
 
-    let (code, _stdout, stderr) =
-        run(&["--check", "--edition", "1.19", project.path().to_str().unwrap()]);
-    assert_eq!(code, 0, "stderr was:\n{stderr}");
-    assert!(!stderr.contains("don't apply"), "stderr was:\n{stderr}");
+        let (code, _stdout, stderr) = run(&[
+            "--check",
+            "--edition",
+            "1.19",
+            project_input(&project, manifest).to_str().unwrap(),
+        ]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+        assert!(!stderr.contains("don't apply"), "stderr was:\n{stderr}");
 
-    let (code, _stdout, stderr) =
-        run(&["--check", "--edition", "999.0", project.path().to_str().unwrap()]);
-    assert_ne!(code, 0, "stderr was:\n{stderr}");
-    assert!(stderr.contains("is newer than"), "stderr was:\n{stderr}");
+        let (code, _stdout, stderr) = run(&[
+            "--check",
+            "--edition",
+            "999.0",
+            project_input(&project, manifest).to_str().unwrap(),
+        ]);
+        assert_ne!(code, 0, "stderr was:\n{stderr}");
+        assert!(stderr.contains("is newer than"), "stderr was:\n{stderr}");
+    }
 }
 
 #[test]
 fn project_file_library_paths_are_used() {
-    let project = project_with_shared_component(
-        r#"{ "edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
-    );
-    let main = project.path().join("main.slint");
-    std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
+    for manifest in [false, true] {
+        let project = project_with_shared_component(
+            r#"{ "edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
+        );
+        let main = project.path().join("main.slint");
+        std::fs::write(
+            &main,
+            "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n",
+        )
         .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", project.path().to_str().unwrap()]);
-    assert_eq!(code, 0, "stderr was:\n{stderr}");
+        let input = project_input(&project, manifest);
+        let (code, _stdout, stderr) = run(&["--check", input.to_str().unwrap()]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+    }
 }
 
 #[test]
 fn an_empty_include_path_keeps_the_project_file_paths() {
-    let project = project_with_shared_component(
-        r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
-    );
-    let main = project.path().join("main.slint");
-    std::fs::write(
-        &main,
-        "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
-    )
-    .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", "-I", "", project.path().to_str().unwrap()]);
-    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    for manifest in [false, true] {
+        let project = project_with_shared_component(
+            r#"{ "edition": "1.19", "main": "main.slint", "include-paths": ["shared"] }"#,
+        );
+        let main = project.path().join("main.slint");
+        std::fs::write(
+            &main,
+            "import { Shared } from \"shared.slint\";\nexport component App { Shared {} }\n",
+        )
+        .unwrap();
+        let (code, _stdout, stderr) =
+            run(&["--check", "-I", "", project_input(&project, manifest).to_str().unwrap()]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+    }
 }
 
 #[test]
 fn an_empty_library_path_keeps_the_project_file_paths() {
-    let project = project_with_shared_component(
-        r#"{ "edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
-    );
-    let main = project.path().join("main.slint");
-    std::fs::write(&main, "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n")
+    for manifest in [false, true] {
+        let project = project_with_shared_component(
+            r#"{ "edition": "1.19", "main": "main.slint", "library-paths": { "lib": "shared/shared.slint" } }"#,
+        );
+        let main = project.path().join("main.slint");
+        std::fs::write(
+            &main,
+            "import { Shared } from \"@lib\";\nexport component App { Shared {} }\n",
+        )
         .unwrap();
-    let (code, _stdout, stderr) = run(&["--check", "-L", "", project.path().to_str().unwrap()]);
-    assert_eq!(code, 0, "stderr was:\n{stderr}");
+        let (code, _stdout, stderr) =
+            run(&["--check", "-L", "", project_input(&project, manifest).to_str().unwrap()]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+    }
 }
 
 #[test]
@@ -400,40 +434,45 @@ fn file_with_project_root_keeps_the_selected_file() {
         if let Some(project_file) = project_file {
             std::fs::write(project.path().join("slint-project.json"), project_file).unwrap();
         }
-        let (code, _stdout, stderr) = run(&[
-            "--check",
-            "--project-root",
-            project.path().to_str().unwrap(),
-            main.to_str().unwrap(),
-        ]);
-        assert_eq!(code, 0, "stderr was:\n{stderr}");
+        let mut roots = vec![project.path().to_path_buf()];
+        if project_file.is_some() {
+            roots.push(project.path().join("slint-project.json"));
+        }
+        for root in roots {
+            let (code, _stdout, stderr) =
+                run(&["--check", "--project-root", root.to_str().unwrap(), main.to_str().unwrap()]);
+            assert_eq!(code, 0, "stderr was:\n{stderr}");
+        }
     }
 }
 
 #[test]
 fn file_with_project_root_uses_only_the_direct_project_file() {
-    let container = tempfile::tempdir().unwrap();
-    let root = container.path().join("project");
-    let source_directory = root.join("ui");
-    std::fs::create_dir_all(&source_directory).unwrap();
-    std::fs::create_dir(root.join("include")).unwrap();
-    std::fs::write(container.path().join("slint-project.json"), "{").unwrap();
-    std::fs::write(source_directory.join("slint-project.json"), "{").unwrap();
-    std::fs::write(
-        root.join("slint-project.json"),
-        r#"{"edition":"1.19","include-paths":["include"]}"#,
-    )
-    .unwrap();
-    std::fs::write(root.join("include/shared.slint"), "export component Shared {}").unwrap();
-    let main = source_directory.join("main.slint");
-    std::fs::write(
+    for manifest in [false, true] {
+        let container = tempfile::tempdir().unwrap();
+        let root = container.path().join("project");
+        let source_directory = root.join("ui");
+        std::fs::create_dir_all(&source_directory).unwrap();
+        std::fs::create_dir(root.join("include")).unwrap();
+        std::fs::write(container.path().join("slint-project.json"), "{").unwrap();
+        std::fs::write(source_directory.join("slint-project.json"), "{").unwrap();
+        std::fs::write(
+            root.join("slint-project.json"),
+            r#"{"edition":"1.19","include-paths":["include"]}"#,
+        )
+        .unwrap();
+        std::fs::write(root.join("include/shared.slint"), "export component Shared {}").unwrap();
+        let main = source_directory.join("main.slint");
+        std::fs::write(
         &main,
         r#"import { Shared } from "shared.slint"; export component Main inherits Window { Shared {} }"#,
     )
     .unwrap();
-    let (code, _stdout, stderr) =
-        run(&["--check", "-p", root.to_str().unwrap(), main.to_str().unwrap()]);
-    assert_eq!(code, 0, "stderr was:\n{stderr}");
+        let input = if manifest { root.join("slint-project.json") } else { root.clone() };
+        let (code, _stdout, stderr) =
+            run(&["--check", "-p", input.to_str().unwrap(), main.to_str().unwrap()]);
+        assert_eq!(code, 0, "stderr was:\n{stderr}");
+    }
 }
 
 #[test]

@@ -7,12 +7,12 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
 
 Use a `slint-project.json` file to configure your project's main file and compiler settings, such as include paths.
-To apply these settings, pass the project directory to the compiler.
+To apply these settings, pass the project directory or the project file to the compiler.
 
 ## Location
 
-Place `slint-project.json` inside the project directory.
-For example, passing `/projects/app` loads `/projects/app/slint-project.json`.
+The project file must be named `slint-project.json` and placed inside the project directory.
+For example, pass `/projects/app` or `/projects/app/slint-project.json` to load that project file.
 Compiling `/projects/app/ui/main.slint` directly doesn't load a project file.
 
 ## Example
@@ -30,7 +30,7 @@ Compiling `/projects/app/ui/main.slint` directly doesn't load a project file.
 
 The file uses JSON syntax and accepts `//` and `/* */` comments.
 `edition` is required.
-When you pass a project directory to the compiler, `main` is required, too.
+When you pass a project directory or project file to the compiler, `main` is required, too.
 All other settings are optional.
 
 ## Settings
@@ -38,7 +38,7 @@ All other settings are optional.
 | Setting | Type | Description |
 |---------|------|-------------|
 | `edition` | string | Required. The Slint release whose language behavior your project uses, such as `"1.19"`. See [Editions](../../language/concepts/editions/). |
-| `main` | string | The `.slint` file to compile when you pass the project directory. See [Compiling a Project](#compiling-a-project). |
+| `main` | string | The `.slint` file to compile when you pass the project directory or project file. See [Compiling a Project](#compiling-a-project). |
 | `include-paths` | array of strings | Directories to search for imported `.slint` files. |
 | `library-paths` | object | Maps a library name to a file or directory, for `@library` imports. |
 | `experimental-features` | array of strings | The [experimental features](https://snapshots.slint.dev/master/docs/slint/guide/experimental/overview/) to turn on, such as `["interfaces", "match"]`. |
@@ -70,7 +70,7 @@ To compile your project, first set `main` to the main `.slint` file of your appl
 }
 ```
 
-Then, pass the project directory wherever a `.slint` file is expected:
+Compile or load the project by passing its directory or `slint-project.json` file:
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust" icon="seti:rust">
@@ -95,7 +95,7 @@ CMake rebuilds your target when the project file changes.
 CMake passes the `SLINT_STYLE` variable to the compiler as `--style`.
 For more details, see <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>.
 
-The interpreter also reads the project file when you load a project directory at run time.
+The interpreter also reads the project file when you load the project directory or its `slint-project.json` file at run time.
 </TabItem>
 <TabItem label="NodeJS" icon="node">
 ```javascript
@@ -117,10 +117,10 @@ The arguments you pass to `slint.load_file` win over the project file.
 </TabItem>
 </Tabs>
 
-The `slint-compiler` command line tool accepts directories, too:
+The `slint-compiler` command line tool accepts project directories and project files, too:
 
 ```bash
-slint-compiler . -o main.h
+slint-compiler slint-project.json -o main.h
 ```
 
 ## Editor Support
@@ -130,5 +130,6 @@ When you edit multiple projects, it combines their settings.
 The live preview uses the project root that the language server selects for the previewed file.
 
 When you open a `.slint` file in the Visual Editor without `--project-root`, the file's parent directory becomes the project root.
-To select another root, pass `--project-root <directory>` to the Visual Editor or the [viewer](../slint-viewer/).
+To select another root, pass `--project-root <path>` to the Visual Editor or the [viewer](../slint-viewer/).
+The path can be a project directory or its `slint-project.json` file.
 The `.slint` file you specify stays the entry point.
