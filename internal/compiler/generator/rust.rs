@@ -707,14 +707,16 @@ fn generate_shared_globals(
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
 
     let (library_shared_globals_names, library_shared_globals_types): (Vec<_>, Vec<_>) = doc
-        .imports
-        .iter()
-        .filter_map(|import| import.library_info.clone())
+        .library_exports
+        .values()
+        .map(|library_info| (library_info.name.as_str(), library_info))
+        .collect::<std::collections::BTreeMap<_, _>>()
+        .into_values()
         .map(|library_info| {
             let struct_name = format_ident!("{}SharedGlobals", library_info.name);
             let shared_globals_var_name =
                 format_ident!("library_{}_shared_globals", library_info.name);
-            let shared_globals_type_name = library_symbol_path(&library_info, struct_name);
+            let shared_globals_type_name = library_symbol_path(library_info, struct_name);
             (quote!(#shared_globals_var_name), shared_globals_type_name)
         })
         .unzip();
