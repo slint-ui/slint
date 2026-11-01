@@ -1853,7 +1853,7 @@ def test_window_title_uses_plain_text_without_expand_button(
 
 
 @pytest.mark.parametrize("kind", ["Text", "Window"])
-def test_string_field_clear_is_undoable(
+def test_string_field_clear_supports_undo(
     editor_binary: Path,
     editor_environment: dict[str, str],
     fixture_project: Path,
