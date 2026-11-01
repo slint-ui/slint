@@ -35,6 +35,30 @@ slint::slint! {
             image-rendering: pixelated;
         }
     }
+
+    export component UpscaledImageCase inherits Window {
+        in property <image> source;
+        in property <bool> pixelated;
+        background: black;
+        Image {
+            x: 5px; y: 5px;
+            width: 330px;
+            height: 330px;
+            source: root.source;
+            image-fit: fill;
+            image-rendering: ImageRendering.smooth;
+            visible: !root.pixelated;
+        }
+        Image {
+            x: 5px; y: 5px;
+            width: 330px;
+            height: 330px;
+            source: root.source;
+            image-fit: fill;
+            image-rendering: ImageRendering.pixelated;
+            visible: root.pixelated;
+        }
+    }
 }
 
 fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
@@ -42,6 +66,15 @@ fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     window.request_redraw();
     assert!(window.draw_if_needed(|renderer| {
         renderer.render(&mut buffer, SIZE);
+    }));
+    buffer
+}
+
+fn render_upscaled(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
+    let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); 340 * 340];
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        renderer.render(&mut buffer, 340);
     }));
     buffer
 }
@@ -74,7 +107,7 @@ fn render_by_line(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
 }
 
 #[test]
-fn optional_pixel_formats_render() {
+fn optional_pixel_formats_and_upscaled_images_render() {
     let window = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(TestPlatform(window.clone()))).unwrap();
     let ui = TestCase::new().unwrap();
@@ -116,6 +149,35 @@ fn optional_pixel_formats_render() {
 
     #[cfg(feature = "owned-pre-rendered-resources")]
     alpha_map_renders_in_its_color_or_the_colorize_color(&window, &ui);
+
+    drop(ui);
+    let ui = UpscaledImageCase::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(340, 340));
+    ui.show().unwrap();
+
+    let mut pixels = SharedPixelBuffer::<Rgb8Pixel>::new(5, 5);
+    for (index, pixel) in pixels.make_mut_slice().iter_mut().enumerate() {
+        *pixel = match (index % 5, index / 5) {
+            (4, _) => Rgb8Pixel::new(0xff, 0, 0),
+            (_, 4) => Rgb8Pixel::new(0, 0xff, 0),
+            _ => Rgb8Pixel::new(0, 0, 0),
+        };
+    }
+    ui.set_source(slint::Image::from_rgb8(pixels));
+
+    for pixelated in [false, true] {
+        ui.set_pixelated(pixelated);
+        let rendered = render_upscaled(&window);
+        let last_column = rendered[10 * 340 + 300];
+        let last_row = rendered[300 * 340 + 10];
+        if pixelated {
+            assert_eq!(last_column, Rgb8Pixel::new(0xff, 0, 0));
+            assert_eq!(last_row, Rgb8Pixel::new(0, 0xff, 0));
+        } else {
+            assert!(last_column.r > last_column.g && last_column.r > last_column.b);
+            assert!(last_row.g > last_row.r && last_row.g > last_row.b);
+        }
+    }
 }
 
 #[cfg(feature = "owned-pre-rendered-resources")]

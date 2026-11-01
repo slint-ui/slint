@@ -481,9 +481,21 @@ impl SceneTextureExtra {
             } else {
                 (texture.dst_width as i32, texture.dst_height as i32)
             };
+            let source_step = |source_size: i32, destination_size: i32| {
+                let delta = Fixed::<i32, 8>::from_fraction(source_size, destination_size);
+                // Round upscaled steps so truncation doesn't clip the last source pixel.
+                let delta = if source_size < destination_size
+                    && (source_size << 8) % destination_size != 0
+                {
+                    Fixed(delta.0 + 1)
+                } else {
+                    delta
+                };
+                delta.max(Fixed(1))
+            };
             // Ensure at least 1/256 to avoid division by zero in draw_texture_line
-            let dx = Fixed::<i32, 8>::from_fraction(source_size.width, dst_w).max(Fixed(1));
-            let dy = Fixed::<i32, 8>::from_fraction(source_size.height, dst_h).max(Fixed(1));
+            let dx = source_step(source_size.width, dst_w);
+            let dy = source_step(source_size.height, dst_h);
             (dx, dy)
         };
 
