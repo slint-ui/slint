@@ -10,7 +10,7 @@ component AlignmentButton inherits ButtonBase {
 
     horizontal-stretch: 1;
     min-width: 0px;
-    height: Metrics.control-medium;
+    height: Metrics.control-small;
     focus-on-click: true;
     accessible-role: radio-button;
     accessible-checkable: true;
@@ -62,7 +62,7 @@ export component InspectorAlignmentGroup inherits Rectangle {
     in property <string> accessible-name;
     callback chosen(int);
 
-    height: Metrics.control-medium;
+    height: Metrics.control-small;
     horizontal-stretch: 1;
     min-width: 0px;
     accessible-role: radio-group;
