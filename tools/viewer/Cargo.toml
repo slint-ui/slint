@@ -4,7 +4,7 @@
 # cSpell: ignore shlex
 [package]
 name = "slint-viewer"
-description = "The viewer binary for Slint"
+description = "Preview .slint UI files, with hot reload"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -13,7 +13,7 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 categories = ["gui", "development-tools", "command-line-utilities"]
-keywords = ["viewer", "gui", "ui", "toolkit"]
+keywords = ["viewer", "preview", "hot-reload", "gui", "ui"]
 
 [features]
 # Enable the embedded MCP server; requires SLINT_MCP_PORT to be set at runtime.

@@ -74,12 +74,12 @@ default-members = [
 resolver = "3"
 
 [workspace.package]
-description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+description = "Declarative GUI toolkit to build native user interfaces for desktop, Android, iOS, and embedded devices, from microcontrollers to embedded Linux. Also runs on the web."
 authors = ["Slint Developers <info@slint.dev>"]
 documentation = "https://slint.dev/docs"
 edition = "2024"
 homepage = "https://slint.dev"
-keywords = ["gui", "toolkit", "graphics", "design", "ui"]
+keywords = ["gui", "ui", "hmi", "embedded", "framework"]
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
 repository = "https://github.com/slint-ui/slint"
 rust-version = "1.95"

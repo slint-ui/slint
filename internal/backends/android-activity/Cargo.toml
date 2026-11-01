@@ -4,7 +4,9 @@
 # cSpell: ignore androideabi
 [package]
 name = "i-slint-backend-android-activity"
-description = "OpenGL rendering backend for Slint"
+description = "Android backend for Slint"
+categories = ["gui", "os::android-apis"]
+keywords = ["android", "mobile", "gui", "ui", "native-activity"]
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

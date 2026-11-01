@@ -2,12 +2,14 @@
 
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
-[Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-node is the integration with Node.js.
+[Slint](https://slint.dev/) is a GUI toolkit to build native user interfaces for any device,
+with JavaScript, Rust, C++, or Python.
+Slint-node is the JavaScript and TypeScript API, for Node.js, Deno, and Bun.
+You describe the UI in the `.slint` language, and connect it to your JavaScript code.
+Slint renders the UI itself, so desktop and embedded Linux apps don't need a webview or a bundled Chromium.
 
-To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart).
-We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
-the code of a minimal application using Slint that can be used as a starting point to your program.
+To get started, follow the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart),
+or start from the [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template), a minimal app.
 
 **Warning: Beta**
 Slint-node is still in the early stages of development: APIs will change and important features are still being developed.

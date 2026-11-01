@@ -7,9 +7,32 @@
     "GUI",
     "UI",
     "HMI",
-    "Qt/QML Alternative",
+    "GUI framework",
+    "GUI designer",
+    "UI designer",
+    "GUI builder",
+    "visual editor",
+    "WYSIWYG",
     "live preview",
-    "drag-and-drop editor"
+    "drag-and-drop editor",
+    "declarative UI",
+    "embedded",
+    "MCU",
+    "STM32",
+    "ESP32",
+    "RP2040",
+    "desktop",
+    "Android",
+    "iOS",
+    "Rust",
+    "C++",
+    "JavaScript",
+    "TypeScript",
+    "Python",
+    "Qt/QML Alternative",
+    "LVGL Alternative",
+    "Electron Alternative",
+    "Tauri Alternative"
   ],
   "version": "1.19.0",
   "publisher": "Slint",
@@ -23,8 +46,11 @@
     "vscode": "^1.82.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Snippets",
+    "Formatters"
   ],
+  "homepage": "https://slint.dev",
   "qna": "https://github.com/slint-ui/slint/discussions/categories/q-a",
   "activationEvents": [
     "onLanguage:rust",
