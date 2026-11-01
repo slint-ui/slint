@@ -105,7 +105,7 @@ export component CheckBox inherits CheckBoxBase {
     private property <CheckBoxStateStyles> selected-styles: root.checked ? root.style.checked : root.style.unchecked;
     private property <CheckBoxStateStyle> state-style: root.selected-styles.rest;
 
-    font-size: 14px;
+    font-size: 1rem;
     font-weight: 400;
     spacing: root.text == "" ? 0px : 6px;
     horizontal-padding: 6px;
