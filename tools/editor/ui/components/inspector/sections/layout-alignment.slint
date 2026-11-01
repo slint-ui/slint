@@ -28,7 +28,7 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
                 selected-index: InspectorEnumOptions.option-index("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
                 options: InspectorEnumOptions.layout-alignment-options;
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("alignment", text);
+                    return InspectorContext.commit-code("alignment", text);
                 }
             }
 
@@ -48,7 +48,7 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
                 selected-index: InspectorEnumOptions.option-index("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
                 options: InspectorEnumOptions.layout-alignment-options;
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("cross-axis-line-alignment", text);
+                    return InspectorContext.commit-code("cross-axis-line-alignment", text);
                 }
             }
 

@@ -23,7 +23,7 @@ export component InspectorOrientationSection inherits InspectorSection {
             options: InspectorEnumOptions.orientation-options;
             wide: true;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("orientation", text);
+                return InspectorContext.commit-code("orientation", text);
             }
         }
     }

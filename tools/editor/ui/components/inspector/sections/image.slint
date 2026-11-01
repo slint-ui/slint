@@ -14,17 +14,17 @@ export component InspectorImageSection inherits InspectorSection {
     private property <string> selection-key: InspectorContext.selection-key;
     private property <bool> preview-visible;
     private property <string> fit: InspectorEnumOptions.option-value("image-fit", "fill", InspectorEnumOptions.image-fit-options);
-    private property <string> hover-fit;
+    private property <bool> fit-menu-open: fit-combo.expanded;
     private property <string> pending-fit;
-    private property <string> displayed-fit: root.hover-fit != "" ? root.hover-fit : root.pending-fit != "" ? root.pending-fit : root.fit;
+    private property <string> displayed-fit: fit-combo.preview-value != "" ? fit-combo.preview-value : root.pending-fit != "" ? root.pending-fit : root.fit;
     private property <image> preview-picture: @image-url("../../../assets/image-fit-preview.svg");
 
     changed selection-key => {
         root.preview-visible = false;
-        root.hover-fit = "";
         root.pending-fit = "";
     }
     changed fit => { root.pending-fit = ""; }
+    changed fit-menu-open => { if root.fit-menu-open { root.preview-visible = true; } }
 
     title: @tr("Image");
 
@@ -67,7 +67,7 @@ export component InspectorImageSection inherits InspectorSection {
 
             HorizontalLayout {
                 spacing: Metrics.space-compact;
-                InspectorComboBox {
+                fit-combo := InspectorComboBox {
                     accessible-name: @tr("Image fit");
                     value: root.fit;
                     selected-index: InspectorEnumOptions.option-index("image-fit", "fill", InspectorEnumOptions.image-fit-options);
@@ -75,11 +75,8 @@ export component InspectorImageSection inherits InspectorSection {
                     wide: true;
                     width: root.field-width - preview-toggle.width - Metrics.space-compact;
                     popup-above: true;
-                    popup-opened => { root.preview-visible = true; }
-                    previewed(value) => { root.hover-fit = value; }
-                    popup-closed => { root.hover-fit = ""; }
                     accepted(text) => {
-                        if text != "" && InspectorContext.commit-code("image-fit", text) {
+                        if InspectorContext.commit-code("image-fit", text) {
                             root.pending-fit = text;
                             return true;
                         }
@@ -141,7 +138,7 @@ export component InspectorImageSection inherits InspectorSection {
                 wide: true;
                 width: root.field-width;
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("image-rendering", text);
+                    return InspectorContext.commit-code("image-rendering", text);
                 }
             }
         }
@@ -199,7 +196,7 @@ export component InspectorImageSection inherits InspectorSection {
                 wide: true;
                 width: root.field-width;
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("horizontal-tiling", text);
+                    return InspectorContext.commit-code("horizontal-tiling", text);
                 }
             }
         }
@@ -231,7 +228,7 @@ export component InspectorImageSection inherits InspectorSection {
                 wide: true;
                 width: root.field-width;
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("vertical-tiling", text);
+                    return InspectorContext.commit-code("vertical-tiling", text);
                 }
             }
         }

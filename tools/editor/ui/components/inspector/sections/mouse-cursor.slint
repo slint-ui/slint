@@ -21,7 +21,7 @@ export component InspectorMouseCursorSection inherits InspectorSection {
             options: InspectorEnumOptions.mouse-cursor-options;
             wide: true;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("mouse-cursor", text);
+                return InspectorContext.commit-code("mouse-cursor", text);
             }
         }
     }

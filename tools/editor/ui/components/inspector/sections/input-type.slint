@@ -21,7 +21,7 @@ export component InspectorInputTypeSection inherits InspectorSection {
             options: InspectorEnumOptions.input-type-options;
             wide: true;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("input-type", text);
+                return InspectorContext.commit-code("input-type", text);
             }
         }
     }

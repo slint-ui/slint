@@ -22,9 +22,8 @@ export component InspectorComboBox inherits InputSurface {
     in property <string> commit-key: InspectorContext.inspector-key;
     out property <bool> expanded: popup.is-open;
     callback accepted(string) -> bool;
-    callback previewed(string);
-    callback popup-opened();
-    callback popup-closed();
+    out property <string> preview-value: root.expanded && root.highlighted-index >= 0 && root.highlighted-index < root.options.length
+        ? root.options[root.highlighted-index].value : "";
     focused: root.expanded || root.focus-visible;
     hovered: field-touch.has-hover;
     forward-focus: combo-focus;
@@ -72,13 +71,9 @@ export component InspectorComboBox inherits InputSurface {
     changed commit-key => { popup.close(); }
     changed enabled => { if !root.enabled { popup.close(); } }
     changed options => { popup.close(); }
-    changed expanded => {
-        if root.expanded { root.popup-opened(); }
-        else { root.highlighted-index = -1; root.popup-closed(); }
-    }
+    changed expanded => { if !root.expanded { root.highlighted-index = -1; } }
     changed highlighted-index => {
         if root.expanded && root.highlighted-index >= 0 && root.highlighted-index < root.options.length {
-            root.previewed(root.options[root.highlighted-index].value);
             root.reveal-option(root.highlighted-index);
         }
     }
@@ -160,17 +155,12 @@ export component InspectorComboBox inherits InputSurface {
             overflow: elide;
         }
 
-        Rectangle {
+        Image {
             width: Metrics.icon-medium;
             height: Metrics.icon-medium;
-
-            Image {
-                width: parent.width;
-                height: parent.height;
-                source: @image-url("../../assets/lucide/chevron-down.svg");
-                transform-rotation: root.expanded ? 180deg : 0deg;
-                colorize: root.style.appearance.muted;
-            }
+            source: @image-url("../../assets/lucide/chevron-down.svg");
+            transform-rotation: root.expanded ? 180deg : 0deg;
+            colorize: root.style.appearance.muted;
         }
     }
 
@@ -189,7 +179,6 @@ export component InspectorComboBox inherits InputSurface {
 
         popup-surface := FloatingSurface {
             background: root.menu-style.background;
-            border-width: Metrics.border-width;
             border-color: root.menu-style.border;
             border-radius: Metrics.radius-large;
         }
@@ -264,7 +253,7 @@ export component InspectorComboBox inherits InputSurface {
                                 overflow: elide;
                             }
 
-                            row-touch := TouchArea {
+                            TouchArea {
                                 clicked => {
                                     root.choose(index);
                                 }

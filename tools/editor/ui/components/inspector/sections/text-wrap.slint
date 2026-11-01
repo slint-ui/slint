@@ -21,7 +21,7 @@ export component InspectorTextWrapSection inherits InspectorSection {
             options: InspectorEnumOptions.text-word-wrap-options;
             wide: true;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("wrap", text);
+                return InspectorContext.commit-code("wrap", text);
             }
         }
     }

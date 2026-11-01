@@ -49,7 +49,7 @@ export component InspectorTypographySection inherits InspectorSection {
                     selected-index: InspectorEnumOptions.text-font-weight-index();
                     options: InspectorEnumOptions.text-font-weight-options;
                     accepted(text) => {
-                        return text != "" && InspectorContext.commit-code("font-weight", text);
+                        return InspectorContext.commit-code("font-weight", text);
                     }
                 }
             }

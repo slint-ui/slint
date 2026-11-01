@@ -27,7 +27,7 @@ export component InspectorScrollBarPolicySection inherits InspectorSection {
                 selected-index: InspectorEnumOptions.option-index("horizontal-scrollbar-policy", "as-needed", InspectorEnumOptions.scrollbar-policy-options);
                 options: InspectorEnumOptions.scrollbar-policy-options;
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("horizontal-scrollbar-policy", text);
+                    return InspectorContext.commit-code("horizontal-scrollbar-policy", text);
                 }
             }
 
@@ -47,7 +47,7 @@ export component InspectorScrollBarPolicySection inherits InspectorSection {
                 selected-index: InspectorEnumOptions.option-index("vertical-scrollbar-policy", "as-needed", InspectorEnumOptions.scrollbar-policy-options);
                 options: InspectorEnumOptions.scrollbar-policy-options;
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("vertical-scrollbar-policy", text);
+                    return InspectorContext.commit-code("vertical-scrollbar-policy", text);
                 }
             }
 

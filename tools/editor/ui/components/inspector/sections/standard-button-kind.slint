@@ -21,7 +21,7 @@ export component InspectorStandardButtonKindSection inherits InspectorSection {
             options: InspectorEnumOptions.standard-button-kind-options;
             wide: true;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("kind", text);
+                return InspectorContext.commit-code("kind", text);
             }
         }
     }

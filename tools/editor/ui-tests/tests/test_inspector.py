@@ -2486,9 +2486,12 @@ def test_image_fit_hover_preview_is_transient_and_survives_commit(
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
         expect(preview).to_have_value("contain")
+        combo.single_click(slint_testing.PointerEventButton.Left)
         select_element(window, "Text")
+        expect(query(window, id="InspectorComboBox::options-content")).to_be_hidden()
         select_element(window, "Image")
         expect(query(window, "Image fit example")).to_be_hidden()
+        snapshot.assert_unchanged()
 
 
 def test_combo_keyboard_navigation_scrolls_and_commits_one_edit(
