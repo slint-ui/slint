@@ -1,27 +1,38 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Api } from "../../../api.slint";
 import { Style, Metrics, Colors, Typography, InspectorStyle } from "../../../style.slint";
-import { InspectorEnumOptions, InspectorSection } from "../index.slint";
+import { InspectorEnumOptions, InspectorComboOption, InspectorSection } from "../index.slint";
 import { InspectorAlignmentGroup } from "../alignment-group.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorTextAlignmentSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <bool> show-vertical: true;
-    private property <int> horizontal-option: InspectorEnumOptions.option-index("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
+    private property <int> horizontal-option: root.effective-index("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
     private property <int> horizontal-index: root.horizontal-option == 0 || root.horizontal-option == 2 ? 0
         : root.horizontal-option == 3 ? 1 : root.horizontal-option == 1 || root.horizontal-option == 4 ? 2 : -1;
-    private property <int> vertical-index: InspectorEnumOptions.option-index("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
+    private property <int> vertical-index: root.effective-index("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
 
     title: @tr("Alignment");
 
+    pure function effective-index(name: string, fallback: string, options: [InspectorComboOption]) -> int {
+        let runtime = Api.runtime-property-value-data(name, {});
+        let value = runtime.value-resolved && runtime.value-int >= 0 && runtime.value-int < runtime.visual-items.length
+            ? runtime.visual-items[runtime.value-int] : Api.source-property-value(name, fallback);
+        let index = Api.combo-option-index(value, options);
+        return index >= 0 ? index : Api.combo-option-index(fallback, options);
+    }
+
     HorizontalLayout {
+        alignment: start;
         padding-left: root.style.padding;
         padding-right: root.style.padding;
         spacing: Metrics.space-small + Metrics.space-tight;
 
         VerticalLayout {
+            width: root.style.column-width;
             spacing: Metrics.space-compact;
             Text {
                 text: @tr("Horizontal");
@@ -39,11 +50,12 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
             width: Metrics.border-width;
             VerticalLayout {
                 Rectangle { vertical-stretch: 1; }
-                Rectangle { height: Metrics.control-medium; background: Colors.border; }
+                Rectangle { height: Style.inspector-icon-button.height; background: Colors.border; }
             }
         }
 
         if root.show-vertical: VerticalLayout {
+            width: root.style.column-width;
             spacing: Metrics.space-compact;
             Text {
                 text: @tr("Vertical");
