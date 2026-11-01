@@ -1657,6 +1657,7 @@ dependencies = [
  "bytemuck",
  "console_error_panic_hook",
  "glam",
+ "image",
  "slint",
  "slint-build",
  "wasm-bindgen",

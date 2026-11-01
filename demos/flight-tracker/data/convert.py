@@ -1,15 +1,18 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-# cSpell: ignore Peucker texel
+# cSpell: ignore bathy Peucker texel topo
 
 """Converts Natural Earth GeoJSON files into the compact text files that the demo embeds.
 
 Download the GeoJSON files from
 https://github.com/nvkelso/natural-earth-vector/tree/master/geojson,
-and airports.csv and countries.csv from https://ourairports.com/data/, then run:
+airports.csv and countries.csv from https://ourairports.com/data/, and NASA's Blue Marble
+for July, world.topo.bathy.200407.3x5400x2700.jpg from https://visibleearth.nasa.gov/, then run:
 
-    python3 convert.py <geojson directory> <airports directory> <output directory>
+    python3 convert.py <geojson directory> <airports directory> <blue marble> <output directory>
+
+The Blue Marble needs Pillow.
 """
 
 import csv
@@ -93,7 +96,8 @@ def write(name, rings, header):
 
 
 def main():
-    source, airports, target = sys.argv[1], sys.argv[2], sys.argv[3]
+    source, airports, imagery, target = sys.argv[1:5]
+    write_imagery(imagery, target)
     header = (
         "# Natural Earth {layer}, simplified by convert.py.\n"
         "# One ring per line: the first point, then the steps to each next one,\n"
@@ -123,6 +127,15 @@ def main():
             )
 
     write_airports(airports, target)
+
+
+def write_imagery(path, target):
+    from PIL import Image
+
+    image = Image.open(path).convert("RGB").resize((4096, 2048), Image.LANCZOS)
+    image.save(
+        os.path.join(target, "earth.jpg"), quality=80, optimize=True, progressive=True
+    )
 
 
 def read_csv(path):
