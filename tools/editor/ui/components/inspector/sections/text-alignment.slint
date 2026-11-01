@@ -1,61 +1,61 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Metrics, InspectorStyle } from "../../../style.slint";
-import { InspectorComboBox, InspectorEnumOptions, InspectorFieldLabel, InspectorSection } from "../index.slint";
+import { Style, Metrics, Colors, Typography, InspectorStyle } from "../../../style.slint";
+import { InspectorEnumOptions, InspectorSection } from "../index.slint";
+import { InspectorAlignmentGroup } from "../alignment-group.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorTextAlignmentSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
     in property <bool> show-vertical: true;
+    private property <int> horizontal-option: InspectorEnumOptions.option-index("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
+    private property <int> horizontal-index: root.horizontal-option == 0 || root.horizontal-option == 2 ? 0
+        : root.horizontal-option == 3 ? 1 : root.horizontal-option == 1 || root.horizontal-option == 4 ? 2 : -1;
+    private property <int> vertical-index: InspectorEnumOptions.option-index("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
 
     title: @tr("Alignment");
 
-    GridLayout {
+    HorizontalLayout {
         padding-left: root.style.padding;
-        spacing: Metrics.space-compact;
+        padding-right: root.style.padding;
+        spacing: Metrics.space-small + Metrics.space-tight;
 
-        Row {
-            InspectorFieldLabel {
+        VerticalLayout {
+            spacing: Metrics.space-compact;
+            Text {
                 text: @tr("Horizontal");
-                vertical-alignment: center;
-                horizontal-stretch: 0;
+                color: Colors.muted;
+                font-size: Typography.control.size;
             }
-
-            InspectorComboBox {
+            InspectorAlignmentGroup {
                 accessible-name: @tr("Horizontal Alignment");
-                value: InspectorEnumOptions.option-label("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
-                selected-index: InspectorEnumOptions.option-index("horizontal-alignment", "start", InspectorEnumOptions.text-horizontal-alignment-options);
-                options: InspectorEnumOptions.text-horizontal-alignment-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
-                accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("horizontal-alignment", text);
-                }
+                selected-index: root.horizontal-index;
+                chosen(index) => { InspectorContext.commit-code("horizontal-alignment", ["left", "center", "right"][index]); }
             }
-
-            Rectangle { }
         }
 
-        if root.show-vertical: Row {
-            InspectorFieldLabel {
+        if root.show-vertical: Rectangle {
+            width: Metrics.border-width;
+            VerticalLayout {
+                Rectangle { vertical-stretch: 1; }
+                Rectangle { height: Metrics.control-medium; background: Colors.border; }
+            }
+        }
+
+        if root.show-vertical: VerticalLayout {
+            spacing: Metrics.space-compact;
+            Text {
                 text: @tr("Vertical");
-                vertical-alignment: center;
-                horizontal-stretch: 0;
+                color: Colors.muted;
+                font-size: Typography.control.size;
             }
-
-            InspectorComboBox {
+            InspectorAlignmentGroup {
+                vertical: true;
                 accessible-name: @tr("Vertical Alignment");
-                value: InspectorEnumOptions.option-label("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
-                selected-index: InspectorEnumOptions.option-index("vertical-alignment", "top", InspectorEnumOptions.text-vertical-alignment-options);
-                options: InspectorEnumOptions.text-vertical-alignment-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
-                accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("vertical-alignment", text);
-                }
+                selected-index: root.vertical-index;
+                chosen(index) => { InspectorContext.commit-code("vertical-alignment", ["top", "center", "bottom"][index]); }
             }
-
-            Rectangle { }
         }
     }
 }
