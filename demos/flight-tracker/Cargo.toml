@@ -22,6 +22,7 @@ path = "main.rs"
 [dependencies]
 bytemuck = "1.13.1"
 glam = "0.32"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 web-time = "1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell: ignore multisampled
+// cSpell: ignore equirectangular multisampled
 
 use glam::{Mat4, Vec3, Vec4};
 use slint::wgpu_30::wgpu;
@@ -21,6 +21,38 @@ pub struct Frame {
     pub time: f32,
 }
 
+/// Satellite imagery of the earth, equirectangular like the map, with its mip levels in sRGB
+/// RGBA.
+pub struct Imagery {
+    pub width: u32,
+    pub height: u32,
+    pub levels: Vec<Vec<u8>>,
+}
+
+impl Imagery {
+    /// Decodes a JPEG or PNG image, and computes its mip levels.
+    pub fn decode(bytes: &[u8]) -> Result<Self, image::ImageError> {
+        let base = image::load_from_memory(bytes)?.to_rgba8();
+        let (width, height) = base.dimensions();
+        let mut levels = vec![base];
+        while levels.last().is_some_and(|level| level.width() > 1 || level.height() > 1) {
+            let last = levels.last().unwrap();
+            let size = ((last.width() / 2).max(1), (last.height() / 2).max(1));
+            levels.push(image::imageops::resize(
+                last,
+                size.0,
+                size.1,
+                image::imageops::FilterType::Triangle,
+            ));
+        }
+        Ok(Self {
+            width,
+            height,
+            levels: levels.into_iter().map(|level| level.into_raw()).collect(),
+        })
+    }
+}
+
 pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -29,11 +61,14 @@ pub struct Renderer {
     pipeline: wgpu::RenderPipeline,
 }
 
+const GLOBAL_FLOATS: usize = 32;
+
 impl Renderer {
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         map: &Map,
+        imagery: &Imagery,
         format: wgpu::TextureFormat,
     ) -> Self {
         let texture = device.create_texture_with_data(
@@ -55,6 +90,26 @@ impl Renderer {
             wgpu::util::TextureDataOrder::LayerMajor,
             &map.levels.concat(),
         );
+        let day = imagery;
+        let day_texture = device.create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label: Some("globe imagery"),
+                size: wgpu::Extent3d {
+                    width: day.width,
+                    height: day.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: day.levels.len() as u32,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            &day.levels.concat(),
+        );
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -66,7 +121,7 @@ impl Renderer {
         });
         let globals = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("globe globals"),
-            size: std::mem::size_of::<[f32; 28]>() as u64,
+            size: std::mem::size_of::<[f32; GLOBAL_FLOATS]>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -99,9 +154,20 @@ impl Renderer {
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
         let view = texture.create_view(&Default::default());
+        let day_view = day_texture.create_view(&Default::default());
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("globe"),
             layout: &layout,
@@ -114,6 +180,10 @@ impl Renderer {
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&day_view),
                 },
             ],
         });
@@ -152,17 +222,15 @@ impl Renderer {
     }
 
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
-        let options = Vec4::new(
-            frame.night_style as u8 as f32,
-            frame.borders as u8 as f32,
-            frame.time,
-            map::SPREAD,
-        );
-        let mut globals = [0.0f32; 28];
+        let options =
+            Vec4::new(frame.night_style as u8 as f32, frame.borders as u8 as f32, frame.time, 0.0);
+        let spreads = Vec4::new(map::SPREAD, map::SIDE_SPREAD, 0.0, 0.0);
+        let mut globals = [0.0f32; GLOBAL_FLOATS];
         globals[..16].copy_from_slice(&frame.view_projection.inverse().to_cols_array());
         globals[16..20].copy_from_slice(&frame.eye.extend(1.0).to_array());
         globals[20..24].copy_from_slice(&frame.sun.extend(frame.night).to_array());
         globals[24..28].copy_from_slice(&options.to_array());
+        globals[28..32].copy_from_slice(&spreads.to_array());
         self.queue.write_buffer(&self.globals, 0, bytemuck::cast_slice(&globals));
 
         let mut encoder = self.device.create_command_encoder(&Default::default());

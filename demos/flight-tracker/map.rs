@@ -10,11 +10,16 @@
 //! the south pole. Red holds the signed distance to the coast, 0.5 on the coast and more on
 //! land, so that the shader draws sharp coasts however far it magnifies the map. Green holds
 //! the distance to the nearest border, 1 on a border, and blue the lights of the cities.
+//! Alpha holds the distance to the nearest border signed by its side, 0.5 on a border: unlike
+//! the unsigned distance, it interpolates exactly across a border, so the shader draws thin
+//! borders where it magnifies the map.
 
 pub const WIDTH: u32 = 4096;
 pub const HEIGHT: u32 = WIDTH / 2;
 /// How many texels the distances in the map reach.
 pub const SPREAD: f32 = 6.0;
+/// How many texels the signed distances to the borders reach, see `Map`.
+pub const SIDE_SPREAD: f32 = 2.0;
 
 /// The map and its mip levels, each in RGBA.
 pub struct Map {
@@ -89,37 +94,69 @@ fn inside(polygons: impl Iterator<Item = Vec<Point>>) -> Vec<bool> {
 }
 
 /// The distance in texels from the center of each texel to the nearest of the `lines`, up to
-/// `SPREAD`. Natural Earth cuts polygons along the date line and the south pole; those edges
-/// aren't coasts, so they don't count.
-fn distances(lines: impl Iterator<Item = Vec<Point>>) -> Vec<f32> {
+/// `SPREAD`, and that distance signed by the side of the line the texel is on. Natural Earth
+/// cuts polygons along the date line and the south pole; those edges aren't coasts, so they
+/// don't count.
+fn distances(lines: impl Iterator<Item = Vec<Point>>) -> (Vec<f32>, Vec<f32>) {
     let mut distance = vec![SPREAD; (WIDTH * HEIGHT) as usize];
+    let mut signed = vec![SPREAD; (WIDTH * HEIGHT) as usize];
     let reach = SPREAD + 1.0;
+    let normal = |(x0, y0): (f32, f32), (x1, y1): (f32, f32)| {
+        let (dx, dy) = (x1 - x0, y1 - y0);
+        let length = (dx * dx + dy * dy).sqrt().max(1e-6);
+        (-dy / length, dx / length)
+    };
     for line in lines {
-        for pair in line.windows(2) {
+        let points: Vec<(f32, f32)> = line.iter().map(|&point| to_map(point)).collect();
+        // Beyond a segment's ends, the side comes from the average of the normals that meet
+        // there, so that the sign doesn't flip outside a bend.
+        let segment_normals: Vec<(f32, f32)> =
+            points.windows(2).map(|pair| normal(pair[0], pair[1])).collect();
+        let vertex_normal = |index: usize| {
+            let before = segment_normals.get(index.wrapping_sub(1)).copied();
+            let after = segment_normals.get(index).copied();
+            let (nx, ny) = match (before, after) {
+                (Some(a), Some(b)) => (a.0 + b.0, a.1 + b.1),
+                (Some(n), None) | (None, Some(n)) => n,
+                (None, None) => (0.0, 1.0),
+            };
+            (nx, ny)
+        };
+        for (index, pair) in line.windows(2).enumerate() {
             let ((lon0, lat0), (lon1, lat1)) = (pair[0], pair[1]);
             if (lon0.abs() >= 179.99 && lon1.abs() >= 179.99) || (lat0 <= -89.99 && lat1 <= -89.99)
             {
                 continue;
             }
-            let ((x0, y0), (x1, y1)) = (to_map(pair[0]), to_map(pair[1]));
+            let ((x0, y0), (x1, y1)) = (points[index], points[index + 1]);
             let (dx, dy) = (x1 - x0, y1 - y0);
             let length_squared = (dx * dx + dy * dy).max(1e-6);
+            let side_normal = segment_normals[index];
             let x_range = (x0.min(x1) - reach).floor() as i32..=(x0.max(x1) + reach) as i32;
             let y_range = ((y0.min(y1) - reach).floor() as i32).max(0)
                 ..=((y0.max(y1) + reach) as i32).min(HEIGHT as i32 - 1);
             for y in y_range {
                 for x in x_range.clone() {
                     let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
-                    let t = (((px - x0) * dx + (py - y0) * dy) / length_squared).clamp(0.0, 1.0);
+                    let t = ((px - x0) * dx + (py - y0) * dy) / length_squared;
+                    let (normal, t) = match t {
+                        t if t <= 0.0 => (vertex_normal(index), 0.0),
+                        t if t >= 1.0 => (vertex_normal(index + 1), 1.0),
+                        t => (side_normal, t),
+                    };
                     let (ex, ey) = (px - (x0 + dx * t), py - (y0 + dy * t));
-                    let texel = &mut distance
-                        [(y as u32 * WIDTH + x.rem_euclid(WIDTH as i32) as u32) as usize];
-                    *texel = texel.min((ex * ex + ey * ey).sqrt());
+                    let length = (ex * ex + ey * ey).sqrt();
+                    let i = (y as u32 * WIDTH + x.rem_euclid(WIDTH as i32) as u32) as usize;
+                    if length < distance[i] {
+                        distance[i] = length;
+                        let side = ex * normal.0 + ey * normal.1;
+                        signed[i] = if side < 0.0 { -length } else { length };
+                    }
                 }
             }
         }
     }
-    distance
+    (distance, signed)
 }
 
 /// Glows around the cities, larger and brighter for larger ones.
@@ -154,8 +191,8 @@ impl Map {
         let lakes = rings(include_str!("data/lakes.txt"));
         let land_inside = inside(rings(include_str!("data/land.txt")));
         let lake_inside = inside(rings(include_str!("data/lakes.txt")));
-        let coast = distances(land.chain(lakes));
-        let borders = distances(rings(include_str!("data/borders.txt")));
+        let (coast, _) = distances(land.chain(lakes));
+        let (borders, border_sides) = distances(rings(include_str!("data/borders.txt")));
         let lights = lights();
         let byte = |value: f32| (value.clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
         let mut base = Vec::with_capacity((WIDTH * HEIGHT * 4) as usize);
@@ -163,7 +200,8 @@ impl Map {
             let sign = if land_inside[i] && !lake_inside[i] { 1.0 } else { -1.0 };
             let land = 0.5 + 0.5 * sign * coast[i] / SPREAD;
             let border = 1.0 - borders[i] / SPREAD;
-            base.extend_from_slice(&[byte(land), byte(border), byte(lights[i]), 255]);
+            let border_side = 0.5 + 0.5 * border_sides[i] / SIDE_SPREAD;
+            base.extend_from_slice(&[byte(land), byte(border), byte(lights[i]), byte(border_side)]);
         }
 
         let mut levels = vec![base];

@@ -12,14 +12,17 @@ struct Globals {
     // xyz: the direction towards the sun, w: how dark the night side is.
     sun: vec4<f32>,
     // x: 0 for the natural style, 1 for the night style, y: the borders' opacity,
-    // z: the seconds since the start, for the twinkling stars, w: how many texels the map's
-    // distances reach.
+    // z: the seconds since the start, for the twinkling stars.
     options: vec4<f32>,
+    // x: how many texels the map's distances reach, y: the same for its signed distances to
+    // the borders.
+    spreads: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> globals: Globals;
 @group(0) @binding(1) var map: texture_2d<f32>;
 @group(0) @binding(2) var map_sampler: sampler;
+@group(0) @binding(3) var day_imagery: texture_2d<f32>;
 
 const PI: f32 = 3.14159265;
 const TAU: f32 = 6.2831853;
@@ -39,29 +42,6 @@ fn hash3(p: vec3<f32>) -> vec3<f32> {
     var q = fract(p * vec3<f32>(0.1031, 0.1030, 0.0973));
     q += dot(q, q.yxz + 33.33);
     return fract((q.xxy + q.yxx) * q.zyx);
-}
-
-fn noise(p: vec3<f32>) -> f32 {
-    let i = floor(p);
-    let f = fract(p);
-    let u = f * f * (3.0 - 2.0 * f);
-    let n000 = hash3(i).x;
-    let n100 = hash3(i + vec3<f32>(1.0, 0.0, 0.0)).x;
-    let n010 = hash3(i + vec3<f32>(0.0, 1.0, 0.0)).x;
-    let n110 = hash3(i + vec3<f32>(1.0, 1.0, 0.0)).x;
-    let n001 = hash3(i + vec3<f32>(0.0, 0.0, 1.0)).x;
-    let n101 = hash3(i + vec3<f32>(1.0, 0.0, 1.0)).x;
-    let n011 = hash3(i + vec3<f32>(0.0, 1.0, 1.0)).x;
-    let n111 = hash3(i + vec3<f32>(1.0, 1.0, 1.0)).x;
-    return mix(
-        mix(mix(n000, n100, u.x), mix(n010, n110, u.x), u.y),
-        mix(mix(n001, n101, u.x), mix(n011, n111, u.x), u.y),
-        u.z
-    );
-}
-
-fn fbm(p: vec3<f32>) -> f32 {
-    return 0.5 * noise(p) + 0.3 * noise(p * 2.3) + 0.2 * noise(p * 5.1);
 }
 
 fn stars(direction: vec3<f32>) -> vec3<f32> {
@@ -114,26 +94,41 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         vec2<f32>(du_smooth.x, dv.x),
         vec2<f32>(du_smooth.y, dv.y)
     );
+    let imagery = textureSampleGrad(
+        day_imagery,
+        map_sampler,
+        uv,
+        vec2<f32>(du_smooth.x, dv.x),
+        vec2<f32>(du_smooth.y, dv.y)
+    ).rgb;
     // The land and the borders, a pixel wide at their edges however far the map is magnified.
     let size = vec2<f32>(textureDimensions(map));
     let texels_per_pixel = max(
         max(length(vec2<f32>(du_smooth.x, dv.x) * size), length(vec2<f32>(du_smooth.y, dv.y) * size)),
         1e-3
     );
-    let spread = globals.options.w;
+    let spread = globals.spreads.x;
     let coast_distance = map_texel.r - 0.5;
     let coast_change = max(fwidth(coast_distance), 1e-4);
     let land = clamp(coast_distance / coast_change + 0.5, 0.0, 1.0);
     let coast_pixels = abs(coast_distance) / coast_change;
     // Between texels, the interpolated distance to a border is up to half a texel too far, so
-    // borders are at least a texel wide.
+    // where a texel is about a pixel, borders are at least a texel wide.
     let border_texels = (1.0 - map_texel.g) * spread;
     let border_half_width = max(0.6, 0.5 * texels_per_pixel);
-    let border = (1.0 - smoothstep(
+    let minified_border = 1.0 - smoothstep(
         border_half_width - 0.5 * texels_per_pixel,
         border_half_width + 0.5 * texels_per_pixel,
         border_texels
-    )) * globals.options.y;
+    );
+    // Where the map is magnified, the signed distance draws borders a pixel wide. It also
+    // changes sign between unrelated borders, which only counts within the half texel that
+    // the unsigned distance can be off by.
+    let side_pixels = abs(map_texel.a - 0.5) * 2.0 * globals.spreads.y / texels_per_pixel;
+    let magnified_border = (1.0 - smoothstep(0.2, 1.2, side_pixels))
+        * (1.0 - smoothstep(0.55, 0.85, border_texels));
+    let border = mix(magnified_border, minified_border, smoothstep(0.5, 1.0, texels_per_pixel))
+        * globals.options.y;
     let edge = clamp((1.0 - miss_distance) / max(fwidth(miss_distance), 1e-5) + 0.5, 0.0, 1.0);
     let coverage = select(0.0, edge, along > 0.0);
 
@@ -166,19 +161,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var ground: vec3<f32>;
     if night_style < 0.5 {
-        let variation = fbm(normal * 9.0);
-        let abs_lat = abs(lat) * 180.0 / PI;
-        let ocean = mix(vec3<f32>(0.01, 0.05, 0.16), vec3<f32>(0.03, 0.16, 0.34), facing);
-        var terrain = mix(vec3<f32>(0.10, 0.26, 0.07), vec3<f32>(0.24, 0.30, 0.12), variation);
-        let dry = smoothstep(0.55, 0.75, variation + 0.5 * (1.0 - smoothstep(6.0, 14.0, abs(abs_lat - 24.0))));
-        terrain = mix(terrain, vec3<f32>(0.55, 0.45, 0.28), dry * (1.0 - smoothstep(40.0, 50.0, abs_lat)));
-        terrain = mix(terrain, vec3<f32>(0.85, 0.89, 0.93), smoothstep(66.0, 76.0, abs_lat + variation * 8.0));
-        var lit = mix(ocean, terrain, land) * diffuse;
+        var lit = imagery * diffuse;
         let half_way = normalize(sun + view);
         let glint = pow(max(dot(normal, half_way), 0.0), 300.0) * (1.0 - land) * 0.5 * day;
         lit += vec3<f32>(1.0, 0.92, 0.8) * glint;
         lit = mix(lit, vec3<f32>(0.95, 0.95, 0.85), border * 0.45 * day);
-        let night_ground = mix(vec3<f32>(0.004, 0.008, 0.02), vec3<f32>(0.01, 0.012, 0.016), land);
+        let night_ground = imagery * vec3<f32>(0.02, 0.025, 0.04);
         let lights = vec3<f32>(1.0, 0.72, 0.38) * city_light * land * 1.6;
         ground = mix(night_ground + lights + vec3<f32>(0.09, 0.05, 0.06) * twilight, lit, day);
         ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * mix(0.05, 0.7, day);
