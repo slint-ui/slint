@@ -2,15 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { ButtonBase } from "../../../controls/src/headless.slint";
-import { Theme, ThemeKind, Colors, Metrics } from "../../style.slint";
+import { Style, Theme, ThemeKind, Colors, Metrics } from "../../style.slint";
 
 component AlignmentButton inherits ButtonBase {
     private property <bool> dark: Theme.current == ThemeKind.dark;
     private property <bool> down: root.checked || root.pressed;
 
-    horizontal-stretch: 1;
-    min-width: 0px;
-    height: Metrics.control-medium;
+    width: Style.inspector-icon-button.height;
+    height: Style.inspector-icon-button.height;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
     focus-on-click: true;
     accessible-role: radio-button;
     accessible-checkable: true;
@@ -45,8 +46,11 @@ component AlignmentButton inherits ButtonBase {
         }
     }
     content << Image {
-        width: 18px;
-        height: self.width;
+        width: Metrics.icon-medium;
+        height: Metrics.icon-medium;
+        horizontal-stretch: 0;
+        vertical-stretch: 0;
+        image-fit: contain;
         source: root.icon;
         colorize: root.checked ? Colors.accent : Colors.muted;
     }
@@ -59,16 +63,16 @@ export component InspectorAlignmentGroup inherits Rectangle {
     in property <string> accessible-name;
     callback chosen(int);
 
-    height: Metrics.control-medium;
-    horizontal-stretch: 1;
-    min-width: 0px;
+    width: 3 * Style.inspector-icon-button.height + 2 * Metrics.space-tight;
+    height: Style.inspector-icon-button.height;
+    horizontal-stretch: 0;
     accessible-role: radio-group;
     accessible-label: root.accessible-name;
 
     HorizontalLayout {
         x: 0px; y: 0px;
         width: 100%; height: 100%;
-        spacing: 3px;
+        spacing: Metrics.space-tight;
         for index in 3: AlignmentButton {
             checked: root.selected-index == index;
             text: root.vertical
