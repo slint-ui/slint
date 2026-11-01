@@ -732,6 +732,30 @@ impl SubComponent {
         count
     }
 
+    /// Whether `pred` holds for this sub-component or any sub-component nested in it
+    pub fn any_in_tree(&self, cu: &CompilationUnit, pred: &dyn Fn(&SubComponent) -> bool) -> bool {
+        pred(self)
+            || self.sub_components.iter().any(|x| cu.sub_components[x.ty].any_in_tree(cu, pred))
+    }
+
+    pub fn has_accessibility(&self, cu: &CompilationUnit) -> bool {
+        self.any_in_tree(cu, &|sc| !sc.accessible_prop.is_empty())
+    }
+
+    pub fn has_element_infos(&self, cu: &CompilationUnit) -> bool {
+        cu.has_debug_info && self.any_in_tree(cu, &|sc| !sc.element_infos.is_empty())
+    }
+
+    pub fn has_testable_properties(&self, cu: &CompilationUnit) -> bool {
+        cu.has_debug_info && self.any_in_tree(cu, &|sc| !sc.testable_properties.is_empty())
+    }
+
+    pub fn needs_user_init(&self, cu: &CompilationUnit) -> bool {
+        self.any_in_tree(cu, &|sc| {
+            !sc.init_code.is_empty() || !sc.change_callbacks.is_empty() || !sc.timers.is_empty()
+        })
+    }
+
     /// total count of items, including in sub components
     pub fn child_item_count(&self, cu: &CompilationUnit) -> u32 {
         let mut count = self.items.len() as u32;
