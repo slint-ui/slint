@@ -1,0 +1,1157 @@
+# The large airports with scheduled service from OurAirports, converted by convert.py.
+# cSpell: disable
+# The IATA code, the longitude and latitude in hundredths of a degree,
+# then the city, the country, and the airport's name, separated by |.
+AAC 3383 3106 El Arish|Egypt|El Arish International Airport
+AAE 781 3683 Annaba|Algeria|Annaba Rabah Bitat Airport
+AAL 985 5709 Aalborg|Denmark|Aalborg Airport
+AAN 5561 2426 Al Ain|United Arab Emirates|Al Ain International Airport
+AAR 1062 5630 Aarhus|Denmark|Aarhus Airport
+ABA 9139 5374 Abakan|Russia|Abakan International Airport
+ABB 667 620 Asaba|Nigeria|Asaba International Airport
+ABD 4823 3037 Abadan|Iran|Abadan Ayatollah Jami International Airport
+ABJ -393 526 Abidjan|Côte d'Ivoire|Félix-Houphouët-Boigny International Airport
+ABQ -10661 3504 Albuquerque|United States|Albuquerque International Sunport
+ABV 726 901 Abuja|Nigeria|Nnamdi Azikiwe International Airport
+ABZ -220 5720 Aberdeen|United Kingdom|Aberdeen International Airport
+ACA -9975 1676 Acapulco|Mexico|General Juan N. Álvarez International Airport
+ACC -17 561 Accra|Ghana|Kotoka International Airport
+ACE -1361 2895 San Bartolomé|Spain|César Manrique-Lanzarote Airport
+ADB 2716 3829 Gaziemir|Turkey|Adnan Menderes International Airport
+ADD 3880 898 Addis Ababa|Ethiopia|Addis Ababa Bole International Airport
+ADE 4503 1283 Aden|Yemen|Aden International Airport
+ADJ 3599 3197 Amman|Jordan|Marka International (Amman Civil) Airport
+ADL 13853 -3495 Adelaide|Australia|Adelaide International Airport
+ADZ -8171 1258 San Andrés|Colombia|Gustavo Rojas Pinilla International Airport
+AEP -5842 -3456 Buenos Aires|Argentina|Aeroparque Jorge Newbery
+AER 3996 4345 Sochi|Russia|Sochi International Airport
+AES 611 6256 Ålesund|Norway|Ålesund Airport
+AEY -1807 6566 Akureyri|Iceland|Akureyri International Airport
+AGA -941 3032 Agadir|Morocco|Al Massira Airport
+AGP -450 3668 Málaga|Spain|Málaga-Costa del Sol Airport
+AGT -5484 -2546 Ciudad del Este|Paraguay|Guaraní International Airport
+AGU -10232 2170 Aguascalientes|Mexico|Aguascalientes International Airport
+AHB 4266 1824 Abha|Saudi Arabia|Abha International Airport
+AJF 4010 2978 Al-Jawf|Saudi Arabia|Al-Jawf International Airport
+AKL 17479 -3701 Auckland|New Zealand|Auckland International Airport
+AKX 5720 5025 Aktobe|Kazakhstan|Aktobe International Airport
+ALA 7704 4335 Almaty|Kazakhstan|Almaty International Airport
+ALB -7380 4275 Albany|United States|Albany International Airport
+ALC -56 3828 Alicante|Spain|Alicante-Elche Miguel Hernández Airport
+ALG 321 3669 Algiers|Algeria|Houari Boumediene Airport
+ALP 3723 3618 Aleppo|Syria|Aleppo International Airport
+AMD 7263 2308 Ahmedabad|India|Sardar Vallabh Patel International Airport
+AMM 3599 3172 Amman|Jordan|Queen Alia International Airport
+AMQ 12809 -371 Ambon|Indonesia|Pattimura International Airport
+AMS 476 5231 Amsterdam|Netherlands|Amsterdam Airport Schiphol
+ANC -14999 6118 Anchorage|United States|Ted Stevens Anchorage International Airport
+ANF -7045 -2345 Antofagasta|Chile|Andrés Sabella Gálvez International Airport
+ANU -6179 1714 Osbourn|Antigua and Barbuda|V. C. Bird International Airport
+AOE 3052 3981 Eskişehir|Turkey|Hasan Polatkan Airport
+AOJ 14069 4073 Aomori|Japan|Aomori Airport
+APL 3928 -1511 Nampula|Mozambique|Nampula Airport
+APW -17201 -1383 Apia|Samoa|Faleolo International Airport
+AQI 4613 2834 Qaisumah|Saudi Arabia|Qaisumah–Hafar Al-Batin International Airport
+AQJ 3502 2961 Aqaba|Jordan|King Hussein International Airport
+AQP -7157 -1634 Arequipa|Peru|Rodríguez Ballón International Airport
+ARN 1793 5965 Stockholm|Sweden|Stockholm-Arlanda Airport
+ASB 5836 3799 Ashgabat|Turkmenistan|Ashgabat International Airport
+ASF 4801 4628 Astrakhan|Russia|Astrakhan Narimanovo Boris M. Kustodiev International Airport
+ASR 3550 3877 Kayseri|Turkey|Kayseri Erkilet International Airport
+ASU -5752 -2524 Asunción|Paraguay|Silvio Pettirossi International Airport
+ASW 3282 2396 Aswan|Egypt|Aswan International Airport
+ATH 2394 3794 Spata-Artemida|Greece|Athens Eleftherios Venizelos International Airport
+ATL -8443 3364 Atlanta|United States|Hartsfield Jackson Atlanta International Airport
+ATQ 7480 3171 Amritsar|India|Sri Guru Ram Das Ji International Airport
+ATZ 3101 2705 Asyut|Egypt|Asyut International Airport
+AUA -7001 1250 Oranjestad|Aruba|Queen Beatrix International Airport
+AUH 5465 2444 Abu Dhabi|United Arab Emirates|Zayed International Airport
+AUS -9766 3020 Austin|United States|Austin Bergstrom International Airport
+AVV 14447 -3804 Geelong/Melbourne|Australia|Melbourne Avalon International Airport
+AWA 3840 710 Hawassa|Ethiopia|Hawassa International Airport
+AWZ 4876 3134 Ahvaz|Iran|Qasem Soleimani International Airport
+AYT 3080 3690 Antalya|Turkey|Antalya International Airport
+BAH 5064 2627 Manama|Bahrain|Bahrain International Airport
+BAQ -7478 1089 Barranquilla|Colombia|Ernesto Cortissoz International Airport
+BAV 11000 4056 Baotou|China|Baotou Donghe International Airport
+BAX 8354 5336 Barnaul|Russia|Barnaul Gherman Titov International Airport
+BBI 8581 2025 Bhubaneswar|India|Biju Patnaik International Airport
+BBK 2517 -1783 Kasane|Botswana|Kasane International Airport
+BBU 2610 4450 Bucharest|Romania|Bucharest Băneasa Aurel Vlaicu International Airport
+BCD 12302 1078 Bacolod City|Philippines|Bacolod-Silay International Airport
+BCM 2691 4652 Bacău|Romania|Bacău George Enescu International  Airport
+BCN 208 4130 Barcelona|Spain|Josep Tarradellas Barcelona-El Prat Airport
+BCU 974 1048 Bauchi|Nigeria|Sir Abubakar Tafawa Balewa Bauchi State International Airport
+BDA -6468 3236 Hamilton|Bermuda|L.F. Wade International Airport
+BDJ 11476 -344 Banjarbaru|Indonesia|Syamsudin Noor International Airport
+BDL -7269 4194 Hartford|United States|Bradley International Airport
+BDQ 7323 2234 Vadodara|India|Vadodara International Airport
+BDS 1795 4066 Brindisi|Italy|Brindisi Airport
+BEG 2031 4482 Belgrade|Serbia|Belgrade Nikola Tesla Airport
+BEL -4848 -138 Belém|Brazil|Val de Cans/Júlio Cezar Ribeiro International Airport
+BEM -632 3240 Oulad Yaich|Morocco|Beni Mellal Airport
+BEN 2027 3210 Benina|Libya|Benina International Airport
+BER 1350 5236 Berlin|Germany|Berlin Brandenburg Airport
+BES -442 4845 Brest|France|Brest Bretagne airport
+BEW 3491 -1980 Beira|Mozambique|Beira International Airport
+BEY 3549 3382 Beirut|Lebanon|Beirut Rafic Hariri International Airport
+BFN 2630 -2909 Bloemfontein|South Africa|Bram Fischer International Airport
+BFS -622 5466 Belfast|United Kingdom|Belfast International Airport
+BGF 1852 440 Bangui|Central African Republic|Bangui M'Poko International Airport
+BGI -5949 1307 Bridgetown|Barbados|Grantley Adams International Airport
+BGO 522 6029 Bergen|Norway|Bergen Airport, Flesland
+BGW 4423 3326 Baghdad|Iraq|Baghdad International Airport / New Al Muthana Air Base
+BGY 971 4567 Orio al Serio|Italy|Il Caravaggio International Airport
+BHK 6448 3978 Bukhara|Uzbekistan|Bukhara International Airport
+BHM -8675 3356 Birmingham|United States|Birmingham-Shuttlesworth International Airport
+BHO 7734 2329 Bhopal|India|Raja Bhoj International Airport
+BHX -175 5245 Birmingham|United Kingdom|Birmingham Airport
+BIA 948 4255 Bastia|France|Bastia-Poretta International airport
+BIO -291 4330 Bilbao|Spain|Bilbao Airport
+BJA 507 3671 Béjaïa|Algeria|Soummam–Abane Ramdane Airport
+BJL -1665 1334 Banjul|Gambia|Banjul International Airport
+BJM 2932 -332 Bujumbura|Burundi|Bujumbura Melchior Ndadaye International Airport
+BJV 2766 3725 Bodrum|Turkey|Milas Bodrum International Airport
+BJX -10148 2099 Silao|Mexico|Guanajuato International Airport
+BKI 11605 593 Kota Kinabalu|Malaysia|Kota Kinabalu International Airport
+BKK 10075 1368 Bangkok|Thailand|Suvarnabhumi Airport
+BKO -795 1253 Bamako|Mali|Modibo Keita International Airport
+BLA -6469 1011 Barcelona|Venezuela|General José Antonio Anzoategui International Airport
+BLJ 631 3575 Batna|Algeria|Batna Mostefa Ben Boulaid Airport
+BLL 916 5574 Billund|Denmark|Billund Airport
+BLQ 1129 4454 Bologna|Italy|Bologna Guglielmo Marconi Airport
+BLR 7771 1320 Bengaluru|India|Kempegowda International Airport Bengaluru
+BLZ 3497 -1568 Blantyre|Malawi|Chileka International Airport
+BME 12223 -1795 Broome|Australia|Broome International Airport
+BNA -8668 3612 Nashville|United States|Nashville International Airport
+BND 5638 2722 Bandar Abbas|Iran|Bandar Abbas International Airport
+BNE 15312 -2738 Brisbane|Australia|Brisbane International Airport
+BNX 1730 4494 Mahovljani|Bosnia and Herzegovina|Banja Luka International Airport
+BOD -72 4483 Bordeaux|France|Bordeaux–Mérignac Airport
+BOG -7415 470 Bogota|Colombia|El Dorado International Airport
+BOI -11622 4356 Boise|United States|Boise Air Terminal/Gowen Field
+BOJ 2752 4257 Burgas|Bulgaria|Burgas Airport
+BOM 7287 1909 Mumbai|India|Chhatrapati Shivaji Maharaj International Airport
+BON -6827 1213 Kralendijk|Caribbean Netherlands|Flamingo International Airport
+BOO 1437 6727 Bodø|Norway|Bodø Airport
+BOS -7101 4236 Boston|United States|Boston Logan International Airport
+BOY -433 1116 Bobo Dioulasso|Burkina Faso|Bobo Dioulasso Airport
+BPN 11689 -127 Balikpapan|Indonesia|Sultan Aji Muhammad Sulaiman Sepinggan International Airport
+BPS -3908 -1644 Porto Seguro|Brazil|Porto Seguro International Airport
+BQT 2390 5211 Brest|Belarus|Brest International Airport
+BRC -7116 -4115 San Carlos de Bariloche|Argentina|Teniente Luis Candelaria International Airport
+BRE 879 5305 Bremen|Germany|Bremen Airport
+BRI 1676 4114 Bari|Italy|Bari Karol Wojtyła International Airport
+BRM -6936 1004 Barquisimeto|Venezuela|Jacinto Lara International Airport
+BRS -272 5138 Bristol|United Kingdom|Bristol Airport
+BRU 448 5090 Zaventem|Belgium|Brussels Airport
+BSA 4914 1128 Bosaso|Somalia|Bender Qassim International Airport
+BSB -4792 -1587 Brasília|Brazil|Presidente Juscelino Kubitschek International Airport
+BSG 981 191 Bata|Equatorial Guinea|Bata International Airport
+BSK 574 3479 Biskra|Algeria|Biskra - Mohamed Khider Airport
+BSL 752 4760 Bâle / Mulhouse|France|EuroAirport Basel–Mulhouse–Freiburg
+BSR 4766 3055 Basra|Iraq|Basra International Airport
+BSZ 7448 4306 Bishkek|Kyrgyzstan|Manas International Airport
+BTH 10412 112 Batam|Indonesia|Hang Nadim International Airport
+BTJ 9542 553 Banda Aceh|Indonesia|Sultan Iskandar Muda International Airport
+BTS 1721 4817 Bratislava|Slovakia|M. R. Štefánik Airport
+BUD 1926 4743 Budapest|Hungary|Budapest Liszt Ferenc International Airport
+BUF -7873 4294 Buffalo|United States|Buffalo Niagara International Airport
+BUQ 2862 -2002 Bulawayo|Zimbabwe|Joshua Mqabuko Nkomo International Airport
+BUR -11836 3420 Burbank|United States|Hollywood Burbank/Bob Hope Airport
+BUS 4160 4161 Batumi|Georgia|Alexander Kartveli Batumi International Airport
+BVA 211 4945 Beauvais|France|Beauvais-Tillé airport
+BVB -6069 285 Boa Vista|Brazil|Atlas Brasil Cantanhede International Airport
+BVC -2289 1614 Rabil|Cape Verde|Aristides Pereira International Airport
+BWA 8341 2750 Siddharthanagar|Nepal|Gautam Buddha International Airport
+BWI -7667 3918 Baltimore|United States|Baltimore/Washington International Thurgood Marshall Airport
+BWN 11493 494 Bandar Seri Begawan|Brunei|Brunei International Airport
+BXY 6321 4562 Baikonur|Kazakhstan|Baikonur Krayniy International Airport
+BZE -8830 1754 Belize City|Belize|Philip S. W. Goldson International Airport
+BZV 1525 -425 Brazzaville|Republic of the Congo|Maya-Maya International Airport
+CAG 905 3925 Cagliari|Italy|Cagliari Elmas Airport
+CAI 3140 3011 Cairo|Egypt|Cairo International Airport
+CAN 11330 2339 Guangzhou|China|Guangzhou Baiyun International Airport
+CAP -7220 1973 Cap Haitien|Haiti|Cap Haitien International Airport
+CAY -5236 482 Matoury|French Guiana|Cayenne – Félix Eboué Airport
+CBB -6618 -1742 Cochabamba|Bolivia|Jorge Wilsterman International Airport
+CCJ 7596 1114 Calicut|India|Calicut International Airport
+CCK 9683 -1219 West Island|Cocos (Keeling) Islands|Cocos (Keeling) Islands Airport
+CCP -7306 -3677 Concepcion|Chile|Carriel Sur International Airport
+CCS -6699 1060 Maiquetía|Venezuela|Maiquetía Simón Bolívar International Airport
+CCU 8845 2265 Kolkata|India|Netaji Subhash Chandra Bose International Airport
+CDG 255 4901 Paris|France|Charles de Gaulle International Airport
+CEB 12398 1031 Cebu City/Lapu-Lapu City|Philippines|Mactan Cebu International Airport
+CEI 9988 1995 Chiang Rai|Thailand|Mae Fah Luang - Chiang Rai International Airport
+CEK 6150 5530 Chelyabinsk|Russia|Kurchatov Chelyabinsk International Airport
+CFE 317 4579 Clermont-Ferrand|France|Clermont-Ferrand Auvergne airport
+CFK 134 3622 Chlef|Algeria|Chlef Aboubakr Belkaid International Airport
+CFU 1991 3960 Kerkyra|Greece|Corfu Ioannis Kapodistrias International Airport
+CGB -5612 -1565 Cuiabá|Brazil|Várzea Grande–Marechal Rondon International Airport
+CGH -4665 -2363 São Paulo|Brazil|Congonhas–Deputado Freitas Nobre Airport
+CGK 10666 -613 Jakarta|Indonesia|Soekarno-Hatta International Airport
+CGN 714 5087 Köln|Germany|Cologne Bonn Airport
+CGO 11385 3453 Zhengzhou|China|Zhengzhou Xinzheng International Airport
+CGP 9181 2225 Chattogram|Bangladesh|Shah Amanat International Airport
+CGQ 12568 4400 Changchun|China|Changchun Longjia International Airport
+CGY 12446 861 Laguindingan|Philippines|Laguindingan International Airport
+CHC 17253 -4349 Christchurch|New Zealand|Christchurch International Airport
+CHQ 2415 3553 Souda|Greece|Chania International Airport
+CHS -8004 3290 Charleston|United States|Charleston International Airport
+CIA 1260 4180 Rome|Italy|Ciampino–G. B. Pastine International Airport
+CIT 6948 4237 Shymkent|Kazakhstan|Shymkent International Airport
+CIX -7983 -679 Chiclayo|Peru|Capitán FAP José A. Quiñones González International Airport
+CJB 7704 1103 Coimbatore|India|Coimbatore International Airport
+CJJ 12750 3672 Cheongju|South Korea|Cheongju International Airport/Cheongju Air Base (K-59/G-513)
+CJS -10643 3164 Ciudad Juárez|Mexico|Abraham González International Airport
+CJU 12649 3351 Jeju City|South Korea|Jeju International Airport
+CKG 10665 2971 Chongqing|China|Chongqing Jiangbei International Airport
+CKY -1361 958 Conakry|Guinea|Ahmed Sékou Touré International Airport
+CLE -8185 4141 Cleveland|United States|Cleveland Hopkins International Airport
+CLJ 2369 4679 Cluj-Napoca|Romania|Avram Iancu Cluj International Airport
+CLO -7638 354 Cali|Colombia|Alfonso Bonilla Aragon International Airport
+CLT -8094 3521 Charlotte|United States|Charlotte Douglas International Airport
+CMB 7988 718 Colombo|Sri Lanka|Bandaranaike International Colombo Airport
+CMH -8289 4000 Columbus|United States|John Glenn Columbus International Airport
+CMN -759 3337 Casablanca|Morocco|Mohammed V International Airport
+CMW -7785 2142 Camaguey|Cuba|Ignacio Agramonte International Airport
+CND 2849 4436 Constanța|Romania|Mihail Kogălniceanu International Airport
+CNF -4397 -1964 Belo Horizonte|Brazil|Tancredo Neves International Airport
+CNN 7554 1192 Kannur|India|Kannur International Airport
+CNS 14575 -1688 Cairns|Australia|Cairns International Airport
+CNX 9896 1877 Chiang Mai|Thailand|Chiang Mai International Airport
+COK 7640 1015 Kochi|India|Cochin International Airport
+COO 238 636 Cotonou|Benin|Cotonou Cadjehoun International Airport
+COR -6421 -3131 Cordoba|Argentina|Ingeniero Aeronáutico Ambrosio L.V. Taravella International Airport
+COS -10470 3881 Colorado Springs|United States|City of Colorado Springs Municipal Airport
+COV 3507 3689 Tarsus|Turkey|Çukurova International Airport
+CPH 1266 5562 Copenhagen|Denmark|Copenhagen Kastrup Airport
+CPT 1860 -3397 Cape Town|South Africa|Cape Town International Airport
+CRA 2389 4432 Craiova|Romania|Craiova International Airport
+CRD -6746 -4579 Comodoro Rivadavia|Argentina|General Enrique Mosconi International Airport
+CRK 12056 1519 Mabalacat|Philippines|Clark International Airport / Clark Air Base
+CRL 446 5046 Charleroi|Belgium|Brussels South Charleroi Airport
+CRZ 6356 3893 Türkmenabat|Turkmenistan|Türkmenabat International Airport
+CSX 11322 2819 Changsha|China|Changsha Huanghua International Airport
+CTA 1507 3747 Catania|Italy|Catania-Fontanarossa Airport
+CTG -7551 1044 Cartagena|Colombia|Rafael Nuñez International Airport
+CTS 14169 4277 Sapporo|Japan|New Chitose Airport
+CTU 10395 3056 Chengdu|China|Chengdu Shuangliu International Airport
+CUL -10748 2477 Culiacán|Mexico|Bachigualato Federal International Airport
+CUN -8687 2104 Cancún|Mexico|Cancún International Airport
+CUR -6896 1219 Willemstad|Curaçao|Hato International Airport
+CUU -10596 2870 Chihuahua|Mexico|General Roberto Fierro Villalobos International Airport
+CUZ -7194 -1354 Cusco|Peru|Alejandro Velasco Astete International Airport
+CVG -8467 3905 Cincinnati / Covington|United States|Cincinnati Northern Kentucky International Airport
+CWB -4918 -2553 Curitiba|Brazil|Curitiba-Afonso Pena International Airport
+CWL -334 5140 Cardiff|United Kingdom|Cardiff International Airport
+CXI -15735 199 Kiritimati|Kiribati|Cassidy International Airport
+CXR 10922 1200 Nha Trang/nha Trang aiurportCam Ranh|Vietnam|Cam Ranh International Airport / Cam Ranh Air Base
+CZL 662 3628 Constantine|Algeria|Mohamed Boudiaf International Airport
+CZM -8693 2051 Cozumel|Mexico|Cozumel International Airport
+DAC 9040 2384 Dhaka|Bangladesh|Hazrat Shahjalal International Airport
+DAD 10820 1604 Da Nang|Vietnam|Da Nang International Airport
+DAL -9685 3284 Dallas|United States|Dallas Love Field
+DAM 3652 3341 Damascus|Syria|Damascus International Airport
+DAR 3921 -687 Dar es Salaam|Tanzania|Julius Nyerere International Airport
+DAT 11348 4006 Datong|China|Datong Yungang International Airport
+DBB 2846 3092 El Alamein|Egypt|El Alamein International Airport
+DBV 1827 4256 Dubrovnik|Croatia|Dubrovnik Ruđer Bošković Airport
+DCA -7704 3885 Washington|United States|Ronald Reagan Washington National Airport
+DEB 2162 4749 Debrecen|Hungary|Debrecen International Airport
+DEL 7710 2856 New Delhi|India|Indira Gandhi International Airport
+DEN -10467 3986 Denver|United States|Denver International Airport
+DFW -9704 3290 Dallas-Fort Worth|United States|Dallas Fort Worth International Airport
+DIA 5157 2526 Doha|Qatar|Doha International Airport
+DIL 12552 -855 Dili|Timor-Leste|Presidente Nicolau Lobato International Airport
+DIR 4186 962 Dire Dawa|Ethiopia|Aba Tenna Dejazmach Yilma International Airport
+DJE 1078 3387 Mellita|Tunisia|Djerba Zarzis International Airport
+DJG 946 2429 Djanet|Algeria|Tiska Djanet Airport
+DJJ 14052 -258 Sentani|Indonesia|Dortheys Hiyo Eluay International Airport
+DJT -8010 2668 West Palm Beach|United States|President Donald J. Trump International Airport
+DLA 972 401 Douala|Cameroon|Douala International Airport
+DLC 12154 3897 Dalian|China|Dalian Zhoushuizi International Airport
+DLM 2879 3671 Dalaman|Turkey|Dalaman International Airport
+DMB 7130 4285 Taraz|Kazakhstan|Taraz International Airport
+DME 3791 5541 Moscow|Russia|Domodedovo International Airport
+DMK 10061 1391 Bangkok|Thailand|Don Mueang International Airport
+DMM 4980 2647 Ad Dammam|Saudi Arabia|King Fahd International Airport
+DNH 9481 4016 Dunhuang|China|Dunhuang Mogao International Airport
+DOH 5161 2527 Doha|Qatar|Hamad International Airport
+DPS 11517 -875 Kuta|Indonesia|Denpasar I Gusti Ngurah Rai International Airport
+DQM 5763 1950 Duqm|Oman|Duqm International Airport
+DRP 12368 1311 Legazpi|Philippines|Bicol International Airport
+DRS 1377 5113 Dresden|Germany|Dresden Airport
+DRW 13088 -1241 Darwin|Australia|Darwin International Airport / RAAF Darwin
+DSM -9366 4153 Des Moines|United States|Des Moines International Airport
+DSN 10986 3949 Ordos|China|Ordos Ejin Horo International Airport
+DSS -1707 1467 Dakar|Senegal|Blaise Diagne International Airport
+DSY 10323 1091 Ta Noun|Cambodia|Dara Sakor International Airport
+DTM 761 5152 Dortmund|Germany|Dortmund Airport
+DTW -8335 4221 Detroit|United States|Detroit Metropolitan Wayne County Airport
+DUB -626 5343 Dublin|Ireland|Dublin Airport
+DUR 3112 -2961 Durban|South Africa|King Shaka International Airport
+DUS 677 5129 Düsseldorf|Germany|Düsseldorf Airport
+DVO 12565 713 Davao|Philippines|Francisco Bangoy International Airport
+DWC 5516 2490 Dubai|United Arab Emirates|Al Maktoum International Airport
+DXB 5537 2525 Dubai|United Arab Emirates|Dubai International Airport
+DXN 7761 2818 Gautam Buddha Nagar|India|Noida International Airport
+DYG 11044 2910 Zhangjiajie|China|Zhangjiajie Hehua International Airport
+DYU 6882 3854 Dushanbe|Tajikistan|Dushanbe International Airport
+DZA 4528 -1281 Dzaoudzi|Mayotte|Dzaoudzi Pamandzi International Airport
+DZN 6774 4771 Zhezkazgan|Kazakhstan|Zhezkazgan National Airport
+EBB 3244 4 Entebbe|Uganda|Entebbe International Airport
+EBL 4395 3624 Arbil|Iraq|Erbil International Airport
+ECN 3351 3515 Tymbou|Cyprus|Ercan International Airport
+EDI -337 5595 Ingliston|United Kingdom|Edinburgh Airport
+EDL 3524 40 Eldoret|Kenya|Eldoret International Airport
+EDO 2701 3955 Edremit|Turkey|Balıkesir Koca Seyit Airport
+EFL 2050 3812 Kefallinia Island|Greece|Kefalonia International Airport "Anna Pollatou"
+EHU 11504 3034 Ezhou|China|Ezhou Huahu International Airport
+EIN 537 5145 Eindhoven|Netherlands|Eindhoven Airport
+EIS -6454 1845 Beef Island|British Virgin Islands|Terrance B. Lettsome International Airport
+ELP -10638 3181 El Paso|United States|El Paso International Airport
+ELQ 4377 2630 Qassim|Saudi Arabia|Prince Naif bin Abdulaziz International Airport
+ELS 2783 -3304 East London|South Africa|King Phalo Airport
+EMA -133 5283 Nottingham|United Kingdom|East Midlands Airport
+ENO -5584 -2723 Encarnación|Paraguay|Teniente Ramon A. Ayub Gonzalez International Airport
+ENU 756 647 Enegu|Nigeria|Akanu Ibiam International Airport
+ERF 1096 5098 Erfurt|Germany|Erfurt-Weimar Airport
+ESB 3300 4013 Ankara|Turkey|Esenboğa International Airport
+ESM -7963 98 Tachina|Ecuador|Carlos Concha Torres International Airport
+ETM 3501 2973 Eilat|Israel|Ramon International Airport
+EUN -1322 2714 El Aaiún|Western Sahara (disputed territory)|Laayoune Hassan I International Airport
+EVE 1668 6849 Evenes|Norway|Harstad/Narvik Airport
+EVN 4440 4015 Yerevan|Armenia|Zvartnots International Airport
+EWR -7417 4069 Newark|United States|Newark Liberty International Airport
+EZE -5854 -3482 Buenos Aires|Argentina|Ezeiza International Airport - Ministro Pistarini
+FAE -728 6206 Vágar|Faroe Islands|Vágar Airport
+FAO -797 3702 Faro|Portugal|Faro - Gago Coutinho International Airport
+FAT -11972 3678 Fresno|United States|Fresno Yosemite International Airport
+FBM 2753 -1159 Lubumbashi|Democratic Republic of the Congo|Lubumbashi International Airport
+FCO 1225 4180 Rome|Italy|Rome–Fiumicino Leonardo da Vinci International Airport
+FDF -6100 1459 Fort-de-France|Martinique|Martinique Aimé Césaire International Airport
+FDH 951 4767 Friedrichshafen|Germany|Bodensee Airport Friedrichshafen
+FEZ -498 3393 Saïss|Morocco|Fes Saïss International Airport
+FIH 1544 -439 Kinshasa|Democratic Republic of the Congo|Ndjili International Airport
+FJR 5633 2511 Fujairah|United Arab Emirates|Fujairah International Airport
+FKB 808 4878 Rheinmünster|Germany|Karlsruhe Baden-Baden Airport
+FKI 2534 48 Kisangani|Democratic Republic of the Congo|Bangoka International Airport
+FLL -8015 2607 Fort Lauderdale|United States|Fort Lauderdale Hollywood International Airport
+FLN -4855 -2767 Florianópolis|Brazil|Hercílio Luz International Airport
+FLR 1120 4381 Firenze|Italy|Florence Airport, Peretola
+FMM 1024 4799 Memmingen|Germany|Memmingen Allgau Airport
+FMO 769 5213 Greven|Germany|Münster Osnabrück Airport
+FNA -1320 862 Freetown|Sierra Leone|Lungi International Airport
+FNC -1677 3270 Funchal|Portugal|Cristiano Ronaldo International Airport
+FNJ 12567 3922 Pyongyang|North Korea|Pyongyang Sunan International Airport
+FOC 11967 2593 Fuzhou|China|Fuzhou Changle International Airport
+FOR -3853 -378 Fortaleza|Brazil|Pinto Martins International Airport
+FPO -7870 2656 Freeport|Bahamas|Grand Bahama International Airport
+FRA 856 5003 Frankfurt am Main|Germany|Frankfurt Main Airport
+FRW 2747 -2116 Francistown|Botswana|Phillip Gaonwe Matante International Airport
+FSC 910 4150 Figari|France|Figari Sud-Corse Airport
+FSZ 13819 3480 Makinohara / Shimada|Japan|Mount Fuji Shizuoka Airport
+FUE -1386 2845 El Matorral|Spain|Fuerteventura Airport
+FUK 13045 3359 Fukuoka|Japan|Fukuoka Airport
+GAN 7315 -69 Gan|Maldives|Gan International Airport
+GAU 9159 2611 Guwahati|India|Lokpriya Gopinath Bordoloi International Airport
+GBE 2592 -2456 Gaborone|Botswana|Sir Seretse Khama International Airport
+GCM -8136 1929 George Town|Cayman Islands|Owen Roberts International Airport
+GDL -10331 2052 Guadalajara|Mexico|Guadalajara International Airport
+GDN 1847 5438 Gdańsk|Poland|Gdańsk Lech Wałęsa Airport
+GEG -11753 4762 Spokane|United States|Spokane International Airport
+GEO -5825 650 Georgetown|Guyana|Cheddi Jagan International Airport
+GES 12510 606 General Santos|Philippines|General Santos International Airport
+GHV 2552 4571 Brașov|Romania|Brașov-Ghimbav International Airport
+GIB -535 3615 Gibraltar|Gibraltar|Gibraltar Airport
+GIG -4325 -2281 Rio De Janeiro|Brazil|Rio de Janeiro Galeão – Tom Jobim International Airport
+GJL 587 3679 Tahir|Algeria|Jijel Ferhat Abbas Airport
+GLA -443 5587 Glasgow|United Kingdom|Glasgow Airport
+GMP 12679 3756 Seoul|South Korea|Seoul Gimpo International Airport
+GND -6179 1200 Saint George's|Grenada|Maurice Bishop International Airport
+GNJ 4632 4074 Ganja|Azerbaijan|Ganja International Airport
+GNY 3890 3745 Şanlıurfa|Turkey|Şanlıurfa GAP Airport
+GOA 884 4441 Genova|Italy|Genoa Cristoforo Colombo Airport
+GOH -5168 6419 Nuuk|Greenland|Nuuk International Airport
+GOI 7383 1538 Vasco da Gama|India|Goa Dabolim International Airport
+GOJ 4379 5623 Nizhny Novgorod|Russia|Nizhny Novgorod / Strigino International Airport
+GOM 2924 -167 Goma|Democratic Republic of the Congo|Goma International Airport
+GOT 1228 5766 Göteborg|Sweden|Göteborg Landvetter Airport
+GOU 1337 933 Garoua|Cameroon|Garoua International Airport
+GOX 7386 1574 Mopa|India|Manohar International Airport
+GRJ 2238 -3401 George|South Africa|George Airport
+GRO 276 4190 Girona|Spain|Girona-Costa Brava Airport
+GRQ 658 5312 Groningen|Netherlands|Groningen Airport Eelde
+GRR -8552 4288 Grand Rapids|United States|Gerald R. Ford International Airport
+GRU -4647 -2343 São Paulo|Brazil|São Paulo/Guarulhos–Governor André Franco Montoro International Airport
+GRV 4570 4339 Grozny|Russia|Akhmat Kadyrov Grozny International Airport
+GRZ 1544 4699 Feldkirchen bei Graz|Austria|Graz Airport
+GSM 5590 2675 Qeshm|Iran|Qeshm International Airport
+GSO -7994 3610 Greensboro|United States|Piedmont Triad International Airport
+GSV 4617 5171 Saratov|Russia|Gagarin International Airport
+GUA -9053 1458 Guatemala City|Guatemala|La Aurora International Airport
+GUM 14480 1348 Hagåtña|Guam|Antonio B. Won Pat International Airport
+GUW 5182 4712 Atyrau|Kazakhstan|Atyrau International Airport
+GVA 611 4624 Geneva|Switzerland|Geneva International Airport
+GWD 6250 2530 Gurandani|Pakistan|New Gwadar International Airport
+GXF 4879 1597 Seiyun|Yemen|Seiyun Hadhramaut International Airport
+GYD 5005 4047 Baku|Azerbaijan|Heydar Aliyev International Airport
+GYE -7988 -216 Guayaquil|Ecuador|José Joaquín de Olmedo International Airport
+GYN -4922 -1663 Goiânia|Brazil|Santa Genoveva International Airport
+GZT 3748 3695 Gaziantep|Turkey|Gaziantep Oğuzeli International Airport
+HAJ 969 5246 Hannover|Germany|Hannover Airport
+HAK 11046 1993 Haikou|China|Haikou Meilan International Airport
+HAM 999 5363 Hamburg|Germany|Hamburg Helmut Schmidt Airport
+HAN 10581 2122 Hanoi|Vietnam|Noi Bai International Airport
+HAQ 7317 674 Haa Dhaalu Atoll|Maldives|Hanimaadhoo International Airport
+HAS 4169 2744 Hail|Saudi Arabia|Hail International Airport
+HAV -8241 2299 Havana|Cuba|José Martí International Airport
+HBA 14751 -4284 Hobart|Australia|Hobart International Airport
+HBE 2970 3093 Alexandria|Egypt|Alexandria International Airport
+HDY 10039 693 Hat Yai|Thailand|Hat Yai International Airport
+HEA 6223 3421 Guzara|Afghanistan|Herat - Khwaja Abdullah Ansari International Airport
+HEL 2496 6032 Helsinki|Finland|Helsinki Vantaa Airport
+HER 2518 3534 Heraklion|Greece|Heraklion International Nikos Kazantzakis Airport
+HET 11182 4085 Hohhot|China|Hohhot Baita International Airport
+HFE 11698 3199 Hefei|China|Hefei Xinqiao International Airport
+HGA 4408 951 Hargeisa|Somalia|Egal International Airport
+HGH 12043 3024 Hangzhou|China|Hangzhou Xiaoshan International Airport
+HHN 726 4995 Frankfurt am Main|Germany|Frankfurt-Hahn Airport
+HIA 11913 3379 Huai'an|China|Huai'an Lianshui Airport
+HIJ 13292 3444 Hiroshima|Japan|Hiroshima Airport
+HIR 16005 -943 Honiara|Solomon Islands|Honiara International Airport
+HKD 14082 4177 Hakodate|Japan|Hakodate Airport
+HKG 11391 2231 Hong Kong|Hong Kong|Hong Kong International Airport
+HKT 9832 811 Phuket|Thailand|Phuket International Airport
+HLA 2793 -2594 Johannesburg|South Africa|Lanseria International Airport
+HLD 11982 4921 Hailar|China|Hulunbuir Hailar Airport
+HLP 10689 -627 Jakarta|Indonesia|Halim Perdanakusuma International Airport
+HMB 3174 2634 Suhaj|Egypt|Suhaj International Airport
+HMO -11105 2909 Hermosillo|Mexico|General Ignacio L. Pesqueira International Airport
+HND 13979 3555 Tokyo|Japan|Tokyo Haneda International Airport
+HNL -15793 2132 Honolulu|United States|Daniel K. Inouye International Airport
+HOF 4949 2529 Hofuf|Saudi Arabia|Al-Ahsa International Airport
+HOG -7632 2079 Holguin|Cuba|Frank Pais International Airport
+HOU -9528 2965 Houston|United States|William P. Hobby Airport
+HPH 10672 2082 Haiphong|Vietnam|Cat Bi International Airport
+HRB 12625 4562 Harbin|China|Harbin Taiping International Airport
+HRE 3109 -1793 Harare|Zimbabwe|Robert Gabriel Mugabe International Airport
+HRG 3380 2718 Hurghada|Egypt|Hurghada International Airport
+HSA 6855 4331 Turkıstan|Kazakhstan|Hazrat Sultan International Airport
+HSG 13030 3315 Saga|Japan|Kyushu Saga International Airport
+HSN 12236 2993 Zhoushan|China|Zhoushan Putuoshan International Airport
+HSR 7104 2238 Rajkot|India|Rajkot International Airport
+HSS 7574 2919 Hisar|India|Maharaja Agrasen International Airport
+HTA 11331 5202 Chita|Russia|Chita-Kadala International Airport
+HUI 10770 1640 Huế|Vietnam|Phu Bai International Airport
+HUN 12162 2402 Hualien City|Taiwan|Hualien Chiashan Airport
+HUX -9626 1578 Huatulco|Mexico|Bahías de Huatulco International Airport
+HWR 7563 3075 Halwara|India|Halwara International Airport
+HYD 7843 1723 Hyderabad|India|Rajiv Gandhi International Airport
+IAD -7746 3894 Dulles|United States|Washington Dulles International Airport
+IAH -9534 2998 Houston|United States|George Bush Intercontinental Airport
+IAR 4016 5756 Tunoshna|Russia|Golden Ring Yaroslavl International Airport
+IAS 2762 4718 Iaşi|Romania|Iaşi International Airport
+IBR 14041 3618 Omitama|Japan|Ibaraki Airport
+IBZ 137 3887 Ibiza|Spain|Ibiza Airport
+ICN 12645 3747 Seoul|South Korea|Incheon International Airport
+IDR 7580 2272 Indore|India|Devi Ahilya Bai Holkar International Airport
+IFN 5188 3276 Isfahan|Iran|Isfahan Shahid Beheshti International Airport
+IGU -5449 -2559 Foz do Iguaçu|Brazil|Cataratas International Airport
+IKA 5115 3542 Tehran|Iran|Imam Khomeini International Airport
+IKT 10440 5227 Irkutsk|Russia|Irkutsk International Airport
+IKU 7670 4259 Tamchy|Kyrgyzstan|Issyk-Kul International Airport
+ILO 12249 1083 Cabatuan|Philippines|Iloilo International Airport
+ILR 449 844 Ilorin/Ogbomosho|Nigeria|General Tunde Idiagbon International Airport
+IMF 9390 2476 Imphal|India|Bir Tikendrajit International Airport
+INC 10639 3832 Yinchuan|China|Yinchuan Hedong International Airport
+IND -8629 3972 Indianapolis|United States|Indianapolis International Airport
+INI 2186 4334 Niš|Serbia|Niš Constantine the Great Airport
+INN 1134 4726 Innsbruck|Austria|Innsbruck Airport
+IOM -462 5408 Castletown|Isle of Man|Isle of Man Airport
+IPC -10942 -2717 Isla De Pascua|Chile|Mataveri International Airport
+IPH 10109 457 Ipoh|Malaysia|Sultan Azlan Shah Airport
+IQQ -7018 -2054 Iquique|Chile|Diego Aracena International Airport
+IQT -7331 -378 Iquitos|Peru|Coronel FAP Francisco Secada Vignetta International Airport
+ISB 7283 3355 Attock|Pakistan|Islamabad International Airport
+ISK 7391 2012 Nashik|India|Nashik International Airport
+IST 2873 4127 Istanbul|Turkey|İstanbul Airport
+ITM 13544 3478 Osaka|Japan|Osaka Itami International Airport
+IVL 2741 6861 Ivalo|Finland|Ivalo Airport
+IXB 8833 2668 Siliguri|India|Bagdogra Airport
+IXC 7679 3067 Chandigarh|India|Shaheed Bhagat Singh International Airport
+IXE 7489 1295 Mangaluru|India|Mangaluru International Airport
+IXZ 9273 1164 Port Blair|India|Veer Savarkar International Airport / INS Utkrosh
+JAF 8007 979 Jaffna|Sri Lanka|Jaffna International Airport
+JAI 7581 2682 Jaipur|India|Jaipur International Airport
+JAV -5105 6925 Ilulissat|Greenland|Ilulissat Airport
+JAX -8169 3049 Jacksonville|United States|Jacksonville International Airport
+JCL 1443 4895 České Budějovice|Czech Republic|České Budějovice South Bohemian Airport
+JED 3916 2168 Jeddah|Saudi Arabia|King Abdulaziz International Airport
+JFK -7378 4064 New York|United States|John F. Kennedy International Airport
+JGN 9834 3986 Jiayuguan|China|Jiayuguan International Airport
+JHB 10367 164 Johor Bahru|Malaysia|Senai International Airport
+JHG 10076 2197 Jinghong|China|Xishuangbanna Gasa International Airport
+JIB 4316 1155 Djibouti City|Djibouti|Djibouti-Ambouli Airport
+JIJ 4291 933 Jijiga|Ethiopia|Gerad Wilwal International Airport
+JJN 11859 2480 Quanzhou|China|Quanzhou Jinjiang International Airport
+JNB 2825 -2614 Johannesburg|South Africa|O.R. Tambo International Airport
+JPA -3495 -715 João Pessoa|Brazil|Presidente Castro Pinto International Airport
+JRO 3707 -343 Arusha|Tanzania|Kilimanjaro International Airport
+JTR 2548 3640 Santorini Island|Greece|Santorini International Airport
+JUB 3160 487 Juba|South Sudan|Juba International Airport
+JUJ -6510 -2439 San Salvador de Jujuy|Argentina|Gobernador Horacio Guzman International Airport
+JUL -7016 -1547 Juliaca|Peru|Inca Manco Capac International Airport
+KAD 732 1070 Kaduna|Nigeria|Kaduna International Airport
+KAN 852 1205 Kano|Nigeria|Mallam Aminu Kano International Airport
+KBL 6921 3457 Kabul|Afghanistan|Kabul International Airport
+KBV 9899 810 Krabi|Thailand|Krabi International Airport
+KCH 11035 149 Kuching|Malaysia|Kuching International Airport
+KCZ 13367 3355 Nankoku|Japan|Kochi Ryoma Airport
+KDH 6585 3151 Kandahar|Afghanistan|Ahmad Shah Baba International Airport
+KDU 7554 3534 Skardu|Pakistan|Skardu International Airport
+KEF -2261 6399 Reykjavík|Iceland|Keflavik International Airport
+KEJ 8611 5527 Kemerovo|Russia|Alexei Leonov Kemerovo International Airport
+KER 5695 3027 Kerman|Iran|Ayatollah Hashemi Rafsanjani International Airport
+KGD 2060 5489 Kaliningrad|Russia|Khrabrovo Airport
+KGF 7333 4967 Karaganda|Kazakhstan|Sary-Arka Airport
+KGL 3014 -197 Kigali|Rwanda|Kigali International Airport
+KGS 2709 3679 Kos Island|Greece|Kos International Airport "Ippokratis"
+KHG 7602 3954 Kashgar|China|Kashgar Laining International Airport
+KHH 12035 2258 Kaohsiung|Taiwan|Kaohsiung International Airport
+KHI 6716 2491 Karachi|Pakistan|Jinnah International Airport
+KHN 11590 2886 Nanchang|China|Nanchang Changbei International Airport
+KIH 5398 2653 Kish Island|Iran|Kish International Airport
+KIJ 13911 3795 Niigata|Japan|Niigata Airport
+KIK 4435 3547 Kirkuk|Iraq|Kirkuk International Airport
+KIM 2476 -2881 Kimberley|South Africa|Kimberley Airport
+KIN -7679 1794 Kingston|Jamaica|Norman Manley International Airport
+KIS 3473 -9 Kisumu|Kenya|Kisumu International Airport
+KIX 13524 3443 Osaka|Japan|Kansai International Airport
+KJA 9249 5618 Krasnoyarsk|Russia|Krasnoyarsk International Airport
+KKJ 13104 3385 Kitakyushu|Japan|Kitakyushu Airport
+KLO 12238 1168 Kalibo|Philippines|Kalibo International Airport
+KLU 1434 4664 Klagenfurt am Wörthersee|Austria|Klagenfurt Airport
+KLV 1292 5020 Karlovy Vary|Czech Republic|Karlovy Vary Airport
+KMG 10294 2511 Kunming|China|Kunming Changshui International Airport
+KMI 13145 3188 Miyazaki|Japan|Miyazaki Airport
+KMJ 13085 3284 Kumamoto|Japan|Kumamoto Airport
+KMQ 13641 3639 Kanazawa|Japan|Komatsu Airport / JASDF Komatsu Air Base
+KMS -159 671 Kumasi|Ghana|Prempeh I International Airport
+KNO 9887 364 Beringin|Indonesia|Kualanamu International Airport
+KOA -15605 1974 Kailua-Kona|United States|Ellison Onizuka Kona International Airport at Keāhole
+KOJ 13072 3180 Kagoshima|Japan|Kagoshima Airport
+KOS 10363 1057 Preah Sihanouk|Cambodia|Sihanouk International Airport
+KOV 6959 5333 Kokshetau|Kazakhstan|Kokshetau International Airport
+KQT 6886 3787 Bokhtar|Tajikistan|Bokhtar International Airport
+KRK 1978 5008 Balice|Poland|Kraków John Paul II International Airport
+KRN 2034 6782 Kiruna|Sweden|Kiruna Airport
+KRR 3917 4503 Krasnodar|Russia|Krasnodar Pashkovsky International Airport
+KRS 809 5820 Kristiansand|Norway|Kristiansand Airport
+KRT 3255 1559 Khartoum|Sudan|Khartoum International Airport
+KSA 16296 536 Okat|Micronesia|Kosrae International Airport
+KSF 939 5142 Calden|Germany|Kassel Airport
+KSN 6355 5321 Kostanay|Kazakhstan|Kostanay International Airport
+KTI 10492 1136 Phnom Penh|Cambodia|Techo International Airport
+KTM 8536 2770 Kathmandu|Nepal|Tribhuvan International Airport
+KTT 2485 6770 Kittilä|Finland|Kittilä International Airport
+KTW 1908 5048 Katowice|Poland|Katowice Wojciech Korfanty International Airport
+KUF 5016 5350 Samara|Russia|Kurumoch International Airport
+KUL 10171 275 Sepang|Malaysia|Kuala Lumpur International Airport
+KUN 2409 5496 Kaunas|Lithuania|Kaunas International Airport
+KUO 2780 6301 Kuopio / Siilinjärvi|Finland|Kuopio Airport
+KUT 4249 4218 Kopitnari|Georgia|David the Builder Kutaisi International Airport
+KVA 2462 4091 Kavala|Greece|Kavala Alexander the Great International Airport
+KWE 10680 2654 Guiyang|China|Guiyang Longdongbao International Airport
+KWI 4797 2922 Kuwait City|Kuwait|Kuwait International Airport
+KWL 11004 2522 Guilin|China|Guilin Liangjiang International Airport
+KYA 3256 3798 Konya|Turkey|Konya Airport
+KZN 4928 5561 Kazan|Russia|Kazan International Airport
+KZO 6559 4471 Kyzylorda|Kazakhstan|Korkyt Ata International Airport
+LAD 1323 -886 Luanda|Angola|Quatro de Fevereiro International Airport
+LAE 14673 -657 Lae|Papua New Guinea|Nadzab Tomodachi International Airport
+LAO 12053 1818 Laoag City|Philippines|Laoag International Airport
+LAQ 2195 3279 Al Albraq|Libya|Al Abraq International Airport
+LAS -11515 3608 Las Vegas|United States|Harry Reid International Airport
+LAX -11841 3394 Los Angeles|United States|Los Angeles International Airport
+LBA -166 5387 Leeds|United Kingdom|Leeds Bradford Airport
+LBD 6969 4022 Khujand|Tajikistan|Khujand International Airport
+LBV 941 46 Libreville|Gabon|Libreville Leon M'ba International Airport
+LCA 3362 3488 Larnaca|Cyprus|Larnaca International Airport
+LCJ 1940 5172 Łódź|Poland|Łódź Władysław Reymont Airport
+LED 3026 5980 St. Petersburg|Russia|Pulkovo Airport
+LEJ 1223 5142 Schkeuditz|Germany|Leipzig/Halle Airport
+LFW 125 617 Lomé|Togo|Lomé–Tokoin International Airport
+LGA -7387 4078 New York|United States|LaGuardia Airport
+LGB -11815 3382 Long Beach|United States|Long Beach International Airport
+LGK 9973 633 Langkawi|Malaysia|Langkawi International Airport
+LGW -19 5115 London|United Kingdom|London Gatwick Airport
+LHE 7440 3152 Lahore|Pakistan|Allama Iqbal International Airport
+LHR -46 5147 London|United Kingdom|London Heathrow Airport
+LHW 10362 3652 Lanzhou|China|Lanzhou Zhongchuan International Airport
+LIH -15934 2197 Lihue|United States|Lihue Airport
+LIL 310 5057 Lesquin|France|Lille Airport
+LIM -7711 -1202 Lima|Peru|Jorge Chávez International Airport
+LIN 928 4545 Segrate|Italy|Milano Linate Airport
+LIR -8554 1059 Liberia|Costa Rica|Daniel Oduber Quirós International Airport
+LIS -914 3878 Lisbon|Portugal|Lisbon Humberto Delgado Airport
+LJG 10024 2668 Lijiang|China|Lijiang Sanyi International Airport
+LJU 1446 4622 Zgornji Brnik|Slovenia|Ljubljana Jože Pučnik Airport
+LKO 8089 2676 Lucknow|India|Chaudhary Charan Singh International Airport
+LLA 2212 6554 Luleå|Sweden|Luleå Airport
+LLW 3378 -1379 Lumbadzi|Malawi|Kamuzu International Airport
+LNZ 1419 4824 Linz|Austria|Linz-Hörsching Airport
+LOP 11628 -876 Mataram|Indonesia|Lombok International Airport
+LOS 332 658 Lagos|Nigeria|Murtala Muhammed International Airport
+LPA -1539 2793 Gran Canaria Island|Spain|Gran Canaria Airport
+LPB -6819 -1651 La Paz / El Alto|Bolivia|El Alto International Airport
+LPI 1568 5840 Linköping|Sweden|Linköping City Airport
+LPL -285 5333 Liverpool|United Kingdom|Liverpool John Lennon Airport
+LPP 2814 6104 Lappeenranta|Finland|Lappeenranta Airport
+LPQ 10217 1990 Luang Phabang|Laos|Luang Phabang International Airport
+LRM -6891 1845 La Romana|Dominican Republic|Casa De Campo International Airport
+LTN -37 5187 Luton|United Kingdom|London Luton Airport
+LTO -11135 2599 Loreto|Mexico|Loreto International Airport
+LUN 2845 -1533 Lusaka|Zambia|Kenneth Kaunda International Airport
+LUX 621 4963 Luxembourg|Luxembourg|Luxembourg-Findel International Airport
+LUZ 2271 5124 Lublin|Poland|Lublin Airport
+LVI 2582 -1782 Livingstone|Zambia|Harry Mwanga Nkumbula International Airport
+LWN 4386 4075 Gyumri|Armenia|Shirak International Airport
+LXA 9091 2930 Shannan|China|Lhasa Gonggar International Airport
+LXR 3271 2567 Luxor|Egypt|Luxor International Airport
+LYA 11239 3474 Luoyang|China|Luoyang Beijiao Airport
+LYG 11918 3441 Lianyungang|China|Lianyungang Huaguoshan International Airport
+LYP 7300 3136 Faisalabad|Pakistan|Faisalabad International Airport
+LYS 509 4573 Colombier-Saugnieu|France|Lyon Saint-Exupéry Airport
+MAA 8017 1299 Chennai|India|Chennai International Airport
+MAD -357 4049 Madrid|Spain|Adolfo Suárez Madrid–Barajas Airport
+MAH 422 3986 Mahón|Spain|Menorca Airport
+MAJ 17127 707 Majuro Atoll|Marshall Islands|Marshall Islands International Airport
+MAN -228 5335 Manchester|United Kingdom|Manchester Airport
+MAO -6005 -304 Manaus|Brazil|Eduardo Gomes International Airport
+MAR -7173 1056 Maracaibo|Venezuela|La Chinita International Airport
+MBA 3959 -403 Mombasa|Kenya|Moi International Airport
+MBJ -7791 1850 Montego Bay|Jamaica|Sangster International Airport
+MCI -9471 3930 Kansas City|United States|Kansas City International Airport
+MCO -8131 2843 Orlando|United States|Orlando International Airport
+MCT 5829 2360 Muscat/Seeb|Oman|Muscat International Airport
+MCX 4765 4282 Makhachkala|Russia|Makhachkala Uytash International Airport
+MCY 15308 -2659 Maroochydore|Australia|Sunshine Coast Airport
+MCZ -3579 -951 Maceió|Brazil|Zumbi dos Palmares International Airport
+MDC 12493 155 Manado|Indonesia|Sam Ratulangi International Airport
+MDE -7542 616 Medellín|Colombia|Jose Maria Córdova International Airport
+MDL 9598 2170 Mandalay|Myanmar|Mandalay International Airport
+MDW -8775 4179 Chicago|United States|Chicago Midway International Airport
+MDZ -6879 -3283 Mendoza|Argentina|Governor Francisco Gabrielli International Airport
+MED 3971 2455 Medina|Saudi Arabia|Prince Mohammad Bin Abdulaziz Airport
+MEL 14484 -3767 Melbourne|Australia|Melbourne Airport
+MEM -8998 3504 Memphis|United States|Frederick W. Smith International Airport
+MEX -9907 1944 Mexico City|Mexico|Mexico City Benito Juárez International Airport
+MFM 11359 2215 Nossa Senhora do Carmo|Macau|Macau International Airport
+MFU 3194 -1326 Mfuwe|Zambia|Mfuwe International Airport
+MGA -8617 1214 Managua|Nicaragua|Augusto C. Sandino (Managua) International Airport
+MGQ 4530 201 Mogadishu|Somalia|Aden Adde International Airport
+MHD 5964 3623 Mashhad|Iran|Mashhad International Airport
+MIA -8029 2580 Miami|United States|Miami International Airport
+MID -8965 2093 Mérida|Mexico|Manuel Crescencio Rejón International Airport
+MIU 1308 1185 Maiduguri|Nigeria|Maiduguri International Airport
+MJI 1329 3289 Tripoli|Libya|Mitiga International Airport
+MJN 4635 -1567 Mahajanga|Madagascar|Amborovy Airport
+MKE -8790 4295 Milwaukee|United States|General Mitchell International Airport
+MLA 1449 3585 Valletta|Malta|Malta International Airport
+MLE 7353 419 Malé|Maldives|Velana International Airport
+MLM -10103 1985 Morelia|Mexico|General Francisco J. Mujica International Airport
+MMK 3275 6878 Murmansk|Russia|Emperor Nicholas II Murmansk Airport
+MMX 1338 5554 Malmö|Sweden|Malmö Sturup Airport
+MNI -6219 1679 Gerald's Park|Montserrat|John A. Osborne Airport
+MNL 12102 1451 Manila|Philippines|Ninoy Aquino International Airport
+MPL 396 4358 Montpellier/Méditerranée|France|Montpellier-Méditerranée Airport
+MPM 3257 -2592 Maputo|Mozambique|Maputo Airport
+MQF 5876 5339 Magnitogorsk|Russia|Magnitogorsk International Airport
+MQP 3111 -2538 Mbombela|South Africa|Kruger Mpumalanga International Airport
+MRS 521 4344 Marignane|France|Marseille Provence Airport
+MRU 5768 -2043 Plaine Magnien|Mauritius|Sir Seewoosagur Ramgoolam International Airport
+MRV 4308 4423 Mineralnyye Vody|Russia|Mineralnye Vody Airport
+MSP -9322 4488 Minneapolis|United States|Minneapolis–Saint Paul International Airport / Wold–Chamberlain Field
+MSQ 2804 5389 Minsk|Belarus|Minsk National Airport
+MST 577 5091 Maastricht|Netherlands|Maastricht Aachen Airport
+MSU 2755 -2946 Maseru|Lesotho|Moshoeshoe I International Airport
+MSY -9026 2999 New Orleans|United States|Louis Armstrong New Orleans International Airport
+MTY -10011 2578 Monterrey|Mexico|Monterrey International Airport
+MUB 2343 -1997 Maun|Botswana|Maun International Airport
+MUC 1179 4835 Munich|Germany|Munich Airport
+MUH 2722 3132 Marsa Matruh|Egypt|Mersa Matruh International Airport
+MUX 7142 3020 Multan|Pakistan|Multan International Airport
+MVD -5603 -3484 Ciudad de la Costa|Uruguay|Carrasco General Cesáreo L. Berisso International Airport
+MWX 12638 3499 Muan|South Korea|Muan International Airport
+MWZ 3294 -245 Mwanza|Tanzania|Mwanza International Airport
+MXP 873 4563 Ferno|Italy|Milan Malpensa International Airport
+MYJ 13270 3383 Matsuyama|Japan|Matsuyama Airport
+MYR -7893 3368 Myrtle Beach|United States|Myrtle Beach International Airport
+MZG 11963 2357 Huxi|Taiwan|Penghu Magong Airport
+MZR 6721 3670 Mazar-i-Sharif|Afghanistan|Mazar-i-Sharif International Airport
+MZT -10626 2316 Mazatlàn|Mexico|General Rafael Buelna International Airport
+NAG 7905 2109 Nagpur|India|Dr. Babasaheb Ambedkar International Airport
+NAJ 4546 3919 Nakhchivan|Azerbaijan|Nakhchivan International Airport
+NAN 17744 -1776 Nadi|Fiji|Nadi International Airport
+NAP 1429 4089 Napoli|Italy|Naples International Airport
+NAS -7747 2504 Nassau|Bahamas|Lynden Pindling International Airport
+NAT -3537 -577 Natal|Brazil|Rio Grande do Norte/São Gonçalo do Amarante–Governador Aluízio Alves International Airport
+NAV 3453 3877 Nevşehir|Turkey|Nevşehir Kapadokya Airport
+NBJ 1350 -905 Luanda|Angola|Dr. Antonio Agostinho Neto International Airport
+NBO 3693 -132 Nairobi|Kenya|Jomo Kenyatta International Airport
+NCE 722 4366 Nice|France|Nice-Côte d'Azur Airport
+NCL -169 5504 Newcastle upon Tyne|United Kingdom|Newcastle International Airport
+NCU 5962 4249 Nukus|Uzbekistan|Nukus International Airport
+NDB -1703 2093 Nouadhibou|Mauritania|Nouadhibou International Airport
+NDG 12391 4723 Qiqihar|China|Qiqihar Sanjiazi Airport
+NDJ 1503 1213 N'Djamena|Chad|N'Djamena International Airport
+NDR -303 3499 Al Aaroui|Morocco|Nador Al Aaroui International Airport
+NGB 12146 2983 Ningbo|China|Ningbo Lishe International Airport
+NGO 13680 3486 Tokoname|Japan|Chubu Centrair International Airport
+NGS 12991 3292 Nagasaki|Japan|Nagasaki Airport
+NIM 218 1348 Niamey|Niger|Diori Hamani International Airport
+NJC 7648 6095 Nizhnevartovsk|Russia|Nizhnevartovsk Airport
+NJF 4441 3199 Najaf|Iraq|Al Najaf International Airport
+NKC -1597 1831 Nouakchott|Mauritania|Nouakchott–Oumtounsy International Airport
+NKG 11887 3174 Nanjing|China|Nanjing Lukou International Airport
+NLA 2852 -1297 Ndola|Zambia|Simon Mwansa Kapwepwe International Airport
+NLU -9902 1974 Mexico City|Mexico|Felipe Ángeles International Airport
+NMA 7156 4098 Namangan|Uzbekistan|Namangan International Airport
+NMI 7307 1898 Navi Mumbai|India|Navi Mumbai International Airport
+NNG 10818 2260 Nanning|China|Nanning Wuxu International Airport
+NOC -882 5391 Charlestown|Ireland|Ireland West Airport Knock
+NOS 4831 -1331 Nosy Be|Madagascar|Nosy Be International Airport
+NOU 16621 -2201 Nouméa|New Caledonia|La Tontouta International Airport
+NQN -6816 -3895 Neuquén|Argentina|Presidente Perón International Airport
+NQZ 7147 5103 Astana|Kazakhstan|Nursultan Nazarbayev International Airport
+NRN 614 5160 Weeze|Germany|Weeze (Niederrhein) Airport
+NRT 14039 3577 Narita|Japan|Narita International Airport
+NSI 1155 372 Yaoundé|Cameroon|Yaoundé Nsimalen International Airport
+NSK 8733 6931 Norilsk|Russia|Alykel International Airport
+NTE -161 4715 Nantes|France|Nantes Atlantique Airport
+NTL 15184 -3280 Williamtown|Australia|Newcastle Airport
+NUE 1108 4950 Nuremberg|Germany|Nuremberg Airport
+NUM 3529 2792 Sharma|Saudi Arabia|Neom Bay Airport
+NVT -4865 -2688 Navegantes|Brazil|Ministro Victor Konder International Airport
+NYO 1691 5879 Nyköping|Sweden|Stockholm Skavsta Airport
+NYT 9620 1962 Naypyitaw|Myanmar|Nay Pyi Taw International Airport
+OAK -12222 3772 Oakland|United States|Oakland San Francisco Bay Airport
+OAX -9673 1700 Oaxaca|Mexico|Xoxocotlán International Airport
+OCS 933 91 Corisco Island|Equatorial Guinea|Corisco International Airport
+ODE 1033 5548 Odense|Denmark|Odense Hans Christian Andersen Airport
+OEC 12434 -920 Oecussi-Ambeno|Timor-Leste|Oecusse Route of the Sandalwood International Airport
+OGG -15643 2090 Kahului|United States|Kahului International Airport
+OHD 2074 4118 Ohrid|North Macedonia|Ohrid St. Paul the Apostle Airport
+OHS 5663 2439 Suhar|Oman|Suhar International Airport
+OKA 12764 2619 Naha|Japan|Naha International Airport
+OKC -9760 3539 Oklahoma City|United States|OKC Will Rogers World Airport
+OKJ 13385 3476 Okayama|Japan|Okayama Momotaro Airport
+OLB 952 4090 Olbia|Italy|Olbia Costa Smeralda Airport
+OMA -9589 4130 Omaha|United States|Eppley Airfield
+OMO 1785 4328 Mostar|Bosnia and Herzegovina|Mostar International Airport
+OMR 2190 4703 Oradea|Romania|Oradea International Airport
+OMS 7331 5496 Omsk|Russia|Omsk Central Airport
+ONT -11760 3406 Ontario|United States|Ontario International Airport
+OOL 15351 -2817 Gold Coast|Australia|Gold Coast Airport
+OPO -868 4125 Porto|Portugal|Francisco de Sá Carneiro Airport
+ORD -8790 4198 Chicago|United States|Chicago O'Hare International Airport
+ORF -7620 3690 Norfolk|United States|Norfolk International Airport
+ORK -849 5184 Cork|Ireland|Cork International Airport
+ORN -62 3562 Es-Sénia|Algeria|Oran Es-Sénia (Ahmed Ben Bella) International Airport
+ORU -6708 -1796 Oruro|Bolivia|Juan Mendoza International Airport
+ORY 236 4873 Paris|France|Paris-Orly Airport
+OSL 1110 6019 Oslo|Norway|Oslo-Gardermoen International Airport
+OSR 1811 4970 Mošnov|Czech Republic|Leoš Janáček Airport Ostrava
+OSS 7279 4061 Osh|Kyrgyzstan|Osh International Airport
+OST 287 5120 Oostende|Belgium|Ostend-Bruges International Airport
+OTP 2610 4457 Otopeni|Romania|Bucharest Henri Coandă International Airport
+OUA -151 1235 Ouagadougou|Burkina Faso|Ouagadougou Thomas Sankara International Airport
+OUD -193 3479 Ahl Angad|Morocco|Oujda Angads Airport
+OUL 2535 6493 Oulu / Oulunsalo|Finland|Oulu Airport
+OVB 8262 5502 Novosibirsk|Russia|Novosibirsk Tolmachevo Airport
+OVD -603 4356 Ranón|Spain|Asturias Airport
+OXB -1565 1189 Bissau|Guinea-Bissau|Osvaldo Vieira International Airport
+OZG -586 3027 Zagora|Morocco|Zagora Airport
+OZZ -691 3094 Ouarzazate|Morocco|Ouarzazate International Airport
+PAD 862 5161 Büren|Germany|Paderborn Lippstadt Airport
+PAP -7229 1858 Port-au-Prince|Haiti|Toussaint Louverture International Airport
+PBC -9837 1916 Puebla|Mexico|Hermanos Serdán International Airport
+PBH 8942 2740 Paro|Bhutan|Paro International Airport
+PBM -5519 545 Paramaribo|Suriname|Johan Adolf Pengel International Airport
+PCL -7457 -838 Pucallpa|Peru|Cap FAP David Abenzur Rengifo International Airport
+PDG 10028 -79 Padang|Indonesia|Minangkabau International Airport
+PDL -2570 3774 Ponta Delgada|Portugal|João Paulo II Airport
+PDV 2485 4207 Plovdiv|Bulgaria|Plovdiv International Airport
+PDX -12260 4559 Portland|United States|Portland International Airport
+PED 1574 5002 Pardubice|Czech Republic|Pardubice Airport
+PEE 5602 5791 Perm|Russia|Perm International Airport
+PEG 1251 4310 Perugia|Italy|Perugia San Francesco d'Assisi – Umbria International Airport
+PEK 11660 4008 Beijing|China|Beijing Capital International Airport
+PEN 10028 530 Penang|Malaysia|Penang International Airport
+PER 11597 -3194 Perth|Australia|Perth International Airport
+PEV 1824 4599 Pécs|Hungary|Pécs-Pogány International Airport
+PEW 7151 3399 Peshawar|Pakistan|Bacha Khan International Airport
+PFO 3249 3472 Paphos|Cyprus|Paphos International Airport
+PHC 695 502 Port Harcourt|Nigeria|Port Harcourt International Airport
+PHE 11863 -2038 Port Hedland|Australia|Port Hedland International Airport
+PHH 8401 2818 Pokhara|Nepal|Pokhara International Airport
+PHL -7524 3987 Philadelphia|United States|Philadelphia International Airport
+PHX -11201 3344 Phoenix|United States|Phoenix Sky Harbor International Airport
+PIE -8269 2791 Pinellas Park|United States|St. Petersburg Clearwater International Airport
+PIK -458 5550 Prestwick|United Kingdom|Glasgow Prestwick Airport
+PIT -8023 4049 Pittsburgh|United States|Pittsburgh International Airport
+PKC 15845 5317 Petropavlovsk-Kamchatsky|Russia|Yelizovo Airport
+PKX 11641 3950 Beijing|China|Beijing Daxing International Airport
+PKZ 10578 1513 Pakse|Laos|Pakse International Airport
+PLQ 2109 5597 Palanga|Lithuania|Palanga International Airport
+PLS -7227 2177 Providenciales|Turks and Caicos Islands|Providenciales International Airport
+PLX 8023 5035 Semey|Kazakhstan|Semei International Airport
+PLZ 2562 -3399 Gqeberha|South Africa|Chief Dawid Stuurman International Airport
+PMC -7309 -4144 Puerto Montt|Chile|El Tepual International Airport
+PMI 274 3955 Palma de Mallorca|Spain|Palma de Mallorca Airport
+PMO 1309 3818 Palermo|Italy|Falcone–Borsellino Airport
+PMV -6397 1091 Isla Margarita|Venezuela|Del Caribe Santiago Mariño International Airport
+PNK 10940 -15 Pontianak|Indonesia|Supadio International Airport
+PNQ 7392 1858 Pune|India|Pune International Airport
+PNR 1189 -482 Pointe Noire|Republic of the Congo|Antonio Agostinho-Neto International Airport
+PNS -8719 3047 Pensacola|United States|Pensacola International Airport
+POA -5117 -2999 Porto Alegre|Brazil|Porto Alegre-Salgado Filho International Airport
+POG 875 -71 Port Gentil|Gabon|Port Gentil International Airport
+POM 14722 -944 Port Moresby|Papua New Guinea|Port Moresby Jacksons International Airport
+POS -6134 1060 Port of Spain|Trinidad and Tobago|Piarco International Airport
+POZ 1682 5242 Poznań|Poland|Poznań-Ławica Airport
+PPG -17071 -1433 Pago Pago|American Samoa|Pago Pago International Airport
+PPK 6919 5478 Petropavl|Kazakhstan|Petropavl International Airport
+PPS 11876 974 Puerto Princesa|Philippines|Puerto Princesa International Airport / PAF Antonio Bautista Air Base
+PPT -14961 -1755 Papeete|French Polynesia|Fa'a'ā International Airport
+PQC 10399 1017 Phu Quoc Island|Vietnam|Phú Quốc International Airport
+PRG 1426 5010 Prague|Czech Republic|Václav Havel Airport Prague
+PRN 2104 4257 Prishtina|Kosovo|Priština Adem Jashari International Airport
+PSA 1039 4368 Pisa|Italy|Pisa International Airport
+PSD 3224 3128 Port Said|Egypt|Port Said International Airport
+PSP -11651 3383 Palm Springs|United States|Palm Springs International Airport
+PSR 1418 4243 Pescara|Italy|Abruzzo Airport
+PTG 2946 -2385 Polokwane|South Africa|Polokwane International Airport
+PTP -6153 1627 Pointe-à-Pitre|Guadeloupe|Maryse Condé International Airport
+PTY -7938 907 Tocumen|Panama|Tocumen International Airport
+PUJ -6836 1857 Punta Cana|Dominican Republic|Punta Cana International Airport
+PUQ -7085 -5300 Punta Arenas|Chile|President Carlos Ibáñez International Airport
+PUS 12894 3518 Busan|South Korea|Gimhae International Airport
+PUY 1392 4489 Pula|Croatia|Pula Airport
+PVD -7143 4173 Providence/Warwick|United States|Rhode Island T. F. Green International Airport
+PVG 12180 3114 Shanghai|China|Shanghai Pudong International Airport
+PVH -6390 -871 Porto Velho|Brazil|Governador Jorge Teixeira de Oliveira International Airport
+PVR -10525 2068 Puerto Vallarta|Mexico|Puerto Vallarta International Airport
+PWM -7031 4365 Portland|United States|Portland International Jetport
+PWQ 7707 5219 Pavlodar|Kazakhstan|Pavlodar International Airport
+PYK 5083 3578 Karaj|Iran|Payam International Airport
+PZO -6276 829 Guyana City|Venezuela|General Manuel Carlos Piar International Airport
+PZU 3723 1943 Port Sudan|Sudan|Port Sudan New International Airport
+QRO -10019 2062 Querétaro|Mexico|Querétaro Intercontinental Airport
+RAI -2348 1494 Praia|Cape Verde|Nelson Mandela International Airport
+RAK -804 3160 Marrakesh|Morocco|Marrakesh Menara Airport
+RAR -15981 -2120 Avarua|Cook Islands|Rarotonga International Airport
+RBA -675 3405 Rabat|Morocco|Rabat-Salé Airport
+RBR -6789 -987 Rio Branco|Brazil|Rio Branco-Plácido de Castro International Airport
+RDU -7879 3588 Raleigh/Durham|United States|Raleigh-Durham International Airport
+REC -3492 -813 Recife|Brazil|Recife/Guararapes - Gilberto Freyre International Airport
+RES -5906 -2745 Resistencia|Argentina|Resistencia International Airport
+REU 117 4115 Reus|Spain|Reus Airport
+RGL -6931 -5161 Rio Gallegos|Argentina|Piloto Civil Norberto Fernández International Airport
+RGN 9613 1691 Yangon|Myanmar|Yangon International Airport
+RHO 2809 3641 Rhodes|Greece|Rhodes International Airport "Diagoras"
+RIC -7732 3751 Richmond|United States|Richmond International Airport
+RIX 2397 5692 Riga|Latvia|Riga International Airport
+RIY 4938 1466 Mukalla|Yemen|Riyan International Airport
+RJK 1457 4522 Rijeka|Croatia|Rijeka Airport
+RKT 5594 2561 Ras Al Khaimah|United Arab Emirates|Ras Al Khaimah International Airport
+RKZ 8930 2935 Xigazê|China|Xigaze Peace Airport / Shigatse Air Base
+RMF 3459 2556 Marsa Alam|Egypt|Marsa Alam International Airport
+RMI 1261 4402 Rimini|Italy|Federico Fellini International Airport
+RML 7989 682 Colombo|Sri Lanka|Colombo Ratmalana International Airport
+RMO 2893 4693 Chişinău|Moldova|Chişinău International Airport
+RMQ 12062 2426 Taichung|Taiwan|Taichung International Airport / Ching Chuang Kang Air Base
+RMU -112 3780 Corvera|Spain|Region of Murcia International Airport
+RNO -11977 3950 Reno|United States|Reno Tahoe International Airport
+ROB -1036 623 Monrovia|Liberia|Roberts International Airport
+ROC -7767 4312 Rochester|United States|Frederick Douglass Greater Rochester International Airport
+ROP 14524 1417 Rota Island|Northern Mariana Islands|Rota International Airport
+ROR 13454 737 Babelthuap Island|Palau|Roman Tmetuchl International Airport
+ROS -6078 -3290 Rosario|Argentina|Rosario Islas Malvinas International Airport
+RSI 3709 2563 Hanak|Saudi Arabia|Red Sea International Airport
+RSW -8175 2653 Fort Myers|United States|Southwest Florida International Airport
+RTB -8652 1632 Coxen Hole|Honduras|Juan Manuel Gálvez International Airport
+RTM 444 5196 Rotterdam|Netherlands|Rotterdam The Hague Airport
+RUH 4670 2496 Riyadh|Saudi Arabia|King Khalid International Airport
+RUN 5552 -2089 Sainte-Marie|Réunion|Roland Garros Airport
+RVN 2583 6656 Rovaniemi|Finland|Rovaniemi Airport
+RZE 2202 5011 Jasionka|Poland|Rzeszów-Jasionka Airport
+SAG 7437 1969 Kakadi|India|Shirdi International Airport
+SAH 4422 1548 Sanaa|Yemen|Sanaa International Airport
+SAI 10422 1337 Siem Reap|Cambodia|Siem Reap-Angkor International Airport
+SAL -8906 1344 San Salvador|El Salvador|El Salvador International Airport Saint Óscar Arnulfo Romero y Galdámez
+SAN -11719 3273 San Diego|United States|San Diego International Airport
+SAP -8792 1545 San Pedro Sula|Honduras|Ramón Villeda Morales International Airport
+SAT -9847 2953 San Antonio|United States|San Antonio International Airport
+SAV -8120 3213 Savannah|United States|Savannah Hilton Head International Airport
+SAW 2931 4090 Pendik|Turkey|Istanbul Sabiha Gökçen International Airport
+SBD -11724 3410 San Bernardino|United States|San Bernardino International Airport
+SBZ 2409 4579 Sibiu|Romania|Sibiu International Airport
+SCL -7079 -3339 Santiago|Chile|Comodoro Arturo Merino Benítez International Airport
+SCO 5109 4386 Aktau|Kazakhstan|Aktau International Airport
+SCQ -842 4290 Santiago de Compostela|Spain|Santiago-Rosalía de Castro Airport
+SCR 1283 6117 Malung-Sälen|Sweden|Scandinavian Mountains Airport
+SCU -7584 1997 Santiago|Cuba|Antonio Maceo International Airport
+SCV 2635 4769 Suceava|Romania|Suceava Ștefan cel Mare International Airport
+SDF -8574 3817 Louisville|United States|Louisville Muhammad Ali International Airport
+SDJ 14092 3814 Natori|Japan|Sendai Airport
+SDQ -6967 1843 Santo Domingo|Dominican Republic|Las Américas International Airport
+SDU -4316 -2291 Rio de Janeiro|Brazil|Santos Dumont Airport
+SEA -12231 4745 Seattle|United States|Seattle–Tacoma International Airport
+SEZ 5552 -467 Victoria|Seychelles|Seychelles International Airport
+SFB -8123 2877 Orlando|United States|Orlando Sanford International Airport
+SFO -12237 3762 San Francisco|United States|San Francisco International Airport
+SFS 12027 1479 Olongapo|Philippines|Subic Bay International Airport / Naval Air Station Cubi Point
+SGC 7341 6134 Surgut|Russia|Surgut International Airport
+SGN 10665 1082 Ho Chi Minh City|Vietnam|Tan Son Nhat International Airport
+SHA 12133 3120 Shanghai|China|Shanghai Hongqiao International Airport
+SHE 12348 4164 Shenyang|China|Shenyang Taoxian International Airport
+SHJ 5552 2533 Sharjah|United Arab Emirates|Sharjah International Airport
+SHO 3172 -2636 Mpaka|Eswatini|King Mswati III International Airport
+SID -2295 1674 Espargos|Cape Verde|Amílcar Cabral International Airport
+SIN 10399 135 Singapore|Singapore|Singapore Changi Airport
+SJC -12193 3736 San Jose|United States|Mineta San Jose International Airport
+SJD -10972 2315 San José del Cabo|Mexico|Los Cabos International Airport
+SJJ 1833 4382 Sarajevo|Bosnia and Herzegovina|Sarajevo International Airport
+SJO -8421 999 San José|Costa Rica|Juan Santamaría International Airport
+SJU -6600 1844 San Juan|Puerto Rico|Luis Munoz Marin International Airport
+SJW 11470 3828 Shijiazhuang|China|Shijiazhuang Zhengding International Airport
+SKB -6272 1731 Basseterre|Saint Kitts and Nevis|Robert L. Bradshaw International Airport
+SKD 6698 3970 Samarkand|Uzbekistan|Samarkand International Airport
+SKG 2297 4052 Thessaloniki|Greece|Thessaloniki Macedonia International Airport
+SKO 521 1292 Sokoto|Nigeria|Sadiq Abubakar III International Airport
+SKP 2162 4196 Ilinden|North Macedonia|Skopje International Airport
+SKT 7436 3254 Sialkot|Pakistan|Sialkot International Airport
+SKX 4521 5413 Saransk|Russia|Saransk International Airport
+SLA -6549 -2486 Salta|Argentina|Martín Miguel de Güemes International Airport
+SLC -11198 4079 Salt Lake City|United States|Salt Lake City International Airport
+SLL 5409 1704 Salalah|Oman|Salalah International Airport
+SLZ -4424 -259 São Luís|Brazil|Marechal Cunha Machado International Airport
+SMF -12159 3870 Sacramento|United States|Sacramento International Airport
+SNA -11787 3368 Santa Ana|United States|John Wayne Orange County International Airport
+SNC -8099 -221 Salinas/La Libertad|Ecuador|General Ulpiano Paez International Airport
+SNN -892 5270 Shannon|Ireland|Shannon Airport
+SNU -7994 2249 Santa Clara|Cuba|Abel Santamaria International Airport
+SOC 11076 -752 Surakarta|Indonesia|Adisoemarmo International Airport
+SOF 2342 4270 Sofia|Bulgaria|Sofia Airport
+SPU 1630 4354 Split|Croatia|Split Saint Jerome Airport
+SPX 3090 3011 Al Jiza|Egypt|Sphinx International Airport
+SRE -6515 -1925 Sucre|Bolivia|Alcantarí International Airport
+SRG 11037 -697 Semarang|Indonesia|Jenderal Ahmad Yani Airport
+SRQ -8255 2739 Sarasota/Bradenton|United States|Sarasota Bradenton International Airport
+SSA -3832 -1291 Salvador|Brazil|Deputado Luiz Eduardo Magalhães International Airport
+SSG 871 376 Malabo|Equatorial Guinea|Malabo International Airport
+SSH 3439 2798 Sharm El Sheikh|Egypt|Sharm El Sheikh International Airport
+STI -7060 1940 Santiago|Dominican Republic|Cibao International Airport
+STL -9037 3875 St Louis|United States|St. Louis Lambert International Airport
+STN 24 5188 London|United Kingdom|London Stansted Airport
+STR 922 4869 Stuttgart|Germany|Stuttgart Airport
+STT -6498 1834 Charlotte Amalie|U.S. Virgin Islands|Cyril E. King Airport
+STV 7274 2112 Surat|India|Surat International Airport
+SUB 11279 -738 Surabaya|Indonesia|Juanda International Airport
+SUF 1625 3891 Lamezia Terme|Italy|Lamezia Terme Sant'Eufemia International Airport
+SUI 4113 4286 Sukhumi|Georgia|Vladislav Ardzinba Sukhum International Airport
+SUV 17856 -1804 Nausori|Fiji|Nausori International Airport
+SVD -6115 1316 Kingstown|Saint Vincent and the Grenadines|Argyle International Airport
+SVG 564 5888 Stavanger|Norway|Stavanger Airport, Sola
+SVO 3739 5598 Moscow|Russia|Sheremetyevo International Airport
+SVQ -589 3742 Seville|Spain|Seville Airport
+SVX 6080 5674 Yekaterinburg|Russia|Koltsovo Airport
+SWA 11650 2355 Jieyang|China|Jieyang Chaoshan International Airport
+SXB 763 4854 Strasbourg|France|Strasbourg Airport
+SXM -6311 1804 Sint Maarten|Sint Maarten|Princess Juliana International Airport
+SXR 7477 3399 Srinagar|India|Srinagar International Airport
+SYD 15118 -3395 Sydney|Australia|Sydney Kingsford Smith International Airport
+SYR -7611 4311 Syracuse|United States|Syracuse Hancock International Airport
+SYX 10941 1830 Sanya|China|Sanya Phoenix International Airport
+SYZ 5259 2954 Shiraz|Iran|Shiraz Shahid Dastghaib International Airport
+SZB 10155 313 Subang|Malaysia|Sultan Abdul Aziz Shah International Airport
+SZG 1300 4779 Salzburg|Austria|Salzburg Airport
+SZX 11380 2264 Shenzhen|China|Shenzhen Bao'an International Airport
+SZZ 1490 5358 Szczecin|Poland|Solidarity Szczecin–Goleniów Airport
+TAB -6083 1115 Scarborough|Trinidad and Tobago|A.N.R. Robinson International Airport
+TAE 12866 3589 Daegu|South Korea|Daegu International Airport
+TAG 12377 957 Panglao|Philippines|Bohol-Panglao International Airport
+TAK 13402 3421 Takamatsu|Japan|Takamatsu Airport
+TAO 12009 3636 Qingdao|China|Qingdao Jiaodong International Airport
+TAS 6928 4126 Tashkent|Uzbekistan|Tashkent International Airport
+TAZ 5984 4176 Daşoguz|Turkmenistan|Dashoguz International Airport
+TBS 4495 4167 Tbilisi|Georgia|Tbilisi International Airport
+TBU -17515 -2124 Nuku'alofa|Tonga|Fua'amotu International Airport
+TBZ 4624 3813 Tabriz|Iran|Tabriz International Airport
+TET 3364 -1610 Tete|Mozambique|Tete Airport
+TFN -1634 2848 Tenerife|Spain|Tenerife Norte-Ciudad de La Laguna Airport
+TFS -1657 2804 Tenerife|Spain|Tenerife Sur Airport
+TFU 10444 3031 Chengdu|China|Chengdu Tianfu International Airport
+TGD 1925 4236 Podgorica|Montenegro|Podgorica Airport / Podgorica Golubovci Airbase
+THR 5131 3569 Tehran|Iran|Mehrabad International Airport
+TIA 1972 4141 Rinas|Albania|Tirana International Airport Mother Teresa
+TIF 4054 2148 Taif|Saudi Arabia|Taif International Airport
+TIJ -11697 3254 Tijuana|Mexico|General Abelardo L. Rodriguez International Airport
+TIR 7954 1363 Tirupati|India|Tirupati International Airport
+TJM 6533 5718 Tyumen|Russia|Roshchino International Airport
+TJU 6981 3799 Kulob|Tajikistan|Kulob International Airport
+TKK 15184 746 Weno Island|Micronesia|Chuuk International Airport
+TKS 13461 3413 Tokushima|Japan|Tokushima Awaodori Airport / JMSDF Tokushima Air Base
+TKU 2226 6051 Turku|Finland|Turku Airport
+TLC -9957 1934 Toluca|Mexico|Adolfo López Mateos International Airport
+TLL 2483 5941 Tallinn|Estonia|Lennart Meri Tallinn Airport
+TLM -146 3501 Zenata|Algeria|Zenata – Messali El Hadj Airport
+TLS 136 4363 Toulouse/Blagnac|France|Toulouse-Blagnac Airport
+TLV 3489 3201 Tel Aviv|Israel|Ben Gurion International Airport
+TML -87 955 Tamale|Ghana|Yakubu Tali International Airport
+TMM 4939 -1811 Toamasina|Madagascar|Toamasina Ambalamanasy Airport
+TMP 2360 6141 Tampere / Pirkkala|Finland|Tampere-Pirkkala Airport
+TMR 545 2281 Tamanrasset|Algeria|Aguenar – Hadj Bey Akhamok Airport
+TMS 671 38 São Tomé|São Tomé and Principe|São Tomé International Airport
+TNA 11722 3686 Jinan|China|Jinan Yaoqiang International Airport
+TNG -592 3573 Tangier|Morocco|Tangier Ibn Battuta Airport
+TNN 12021 2295 Tainan|Taiwan|Tainan International Airport / Tainan Air Base
+TNR 4748 -1880 Antananarivo|Madagascar|Ivato International Airport
+TOF 8521 5638 Tomsk|Russia|Tomsk Kamov Airport
+TOM -301 1673 Timbuktu|Mali|Tombouktou Airport
+TOS 1892 6968 Tromsø|Norway|Tromsø Airport
+TPA -8253 2798 Tampa|United States|Tampa International Airport
+TPE 12123 2508 Taoyuan|Taiwan|Taiwan Taoyuan International Airport
+TQO -8766 2017 Tulum|Mexico|Felipe Carrillo Puerto International Airport Tulum
+TRD 1092 6346 Trondheim|Norway|Trondheim Airport, Værnes
+TRF 1026 5919 Sandefjord|Norway|Sandefjord Airport, Torp
+TRN 765 4520 Caselle Torinese|Italy|Turin Airport
+TRS 1347 4583 Ronchi dei Legionari/Trieste|Italy|Trieste Airport
+TRU -7911 -808 Trujillo|Peru|Capitán FAP Carlos Martínez de Pinillos International Airport
+TRV 7692 848 Thiruvananthapuram|India|Thiruvananthapuram International Airport
+TRW 17315 138 South Tarawa|Kiribati|Bonriki International Airport
+TRZ 7872 1076 Tiruchirappalli|India|Tiruchirappalli International Airport
+TSA 12155 2507 Taipei|Taiwan|Taipei Songshan International Airport
+TSF 1219 4565 Treviso|Italy|Treviso Airport
+TSN 11735 3912 Tianjin|China|Tianjin Binhai International Airport
+TSR 2134 4581 Timişoara|Romania|Timișoara Traian Vuia International Airport
+TTU -532 3559 Tétouan|Morocco|Sania Ramel Airport
+TUC -6510 -2684 San Miguel de Tucumán|Argentina|Teniente Benjamín Matienzo International Airport
+TUK 6303 2598 Turbat|Pakistan|Turbat International Airport
+TUL -9589 3620 Tulsa|United States|Tulsa International Airport
+TUN 1023 3685 Tunis|Tunisia|Tunis Carthage International Airport
+TUS -11094 3212 Tucson|United States|Tucson International Airport
+TUU 3662 2837 Tabuk|Saudi Arabia|Prince Sultan bin Abdulaziz International Airport
+TXN 11826 2973 Huangshan|China|Huangshan Tunxi International Airport
+TYN 11263 3775 Taiyuan|China|Taiyuan Wusu International Airport
+TYS -8399 3581 Knoxville/Maryville|United States|McGhee Tyson Airport
+TZL 1872 4446 Dubrave Gornje|Bosnia and Herzegovina|Tuzla International Airport
+UBN 10682 4765 Ulaanbaatar|Mongolia|Ulaanbaatar Chinggis Khaan International Airport
+UET 6694 3025 Quetta|Pakistan|Quetta International Airport
+UFA 5587 5456 Ufa|Russia|Ufa International Airport
+UGC 6064 4158 Urgench|Uzbekistan|Urgench International Airport
+UIO -7835 -13 Quito|Ecuador|Mariscal Sucre International Airport
+UKB 13522 3463 Kobe|Japan|Kobe Airport
+UKK 8250 5004 Ust-Kamenogorsk|Kazakhstan|Oskemen International Airport
+ULH 3812 2648 Al-Ula|Saudi Arabia|Al-Ula International Airport
+UME 2028 6379 Umeå|Sweden|Umeå Airport
+UPG 11955 -508 Makassar|Indonesia|Sultan Hasanuddin International Airport
+URA 5154 5115 Uralsk|Kazakhstan|Manshuk Mametova International Airport
+URC 8748 4391 Ürümqi|China|Ürümqi Tianshan International Airport
+USM 10006 955 Na Thon|Thailand|Samui International Airport
+UTH 10279 1739 Udon Thani|Thailand|Udon Thani International Airport
+UTP 10100 1268 Rayong|Thailand|U-Tapao–Rayong–Pattaya International Airport
+UUD 10744 5181 Ulan Ude|Russia|Baikal International Airport
+UUS 14272 4689 Yuzhno-Sakhalinsk|Russia|Yuzhno-Sakhalinsk International Airport
+UVF -6095 1373 Vieux Fort|Saint Lucia|Hewanorra International Airport
+UYU -6686 -2044 Quijarro|Bolivia|Joya Andina International Airport
+VAA 2176 6305 Vaasa|Finland|Vaasa Airport
+VAR 2783 4323 Varna|Bulgaria|Varna Airport
+VAV -17396 -1859 Vava'u Island|Tonga|Vava'u International Airport
+VBY 1835 5766 Visby|Sweden|Visby Airport
+VCA 10571 1008 Can Tho|Vietnam|Can Tho International Airport
+VCE 1235 4551 Venezia|Italy|Venice Marco Polo Airport
+VCP -4713 -2301 Campinas|Brazil|Viracopos International Airport
+VER -9619 1914 Veracruz|Mexico|General Heriberto Jara International Airport
+VFA 2584 -1810 Victoria Falls|Zimbabwe|Victoria Falls International Airport
+VGA 8080 1653 Vijayawada|India|Vijayawada International Airport
+VIE 1657 4811 Vienna|Austria|Vienna International Airport
+VIL -1593 2372 Dakhla|Western Sahara (disputed territory)|Dakhla Airport
+VIX -4028 -2026 Vitória|Brazil|Eurico de Aguiar Salles International Airport
+VKO 3726 5559 Moscow|Russia|Vnukovo International Airport
+VLC -48 3949 Valencia|Spain|Valencia Airport
+VLI 16832 -1770 Port Vila|Vanuatu|Bauerfield International Airport
+VLN -6793 1015 Valencia|Venezuela|Arturo Michelena International Airport
+VNO 2529 5463 Vilnius|Lithuania|Vilnius International Airport
+VNS 8286 2545 Varanasi|India|Lal Bahadur Shastri International Airport
+VOG 4434 4878 Volgograd|Russia|Volgograd International Airport
+VRA -8144 2303 Matanzas|Cuba|Juan Gualberto Gomez International Airport
+VRN 1089 4539 Caselle|Italy|Verona Villafranca Valerio Catullo Airport
+VSA -9282 1799 Villahermosa|Mexico|Carlos Rovirosa Pérez International Airport
+VST 1663 5959 Stockholm / Västerås|Sweden|Stockholm Västerås Airport
+VTE 10257 1799 Vientiane|Laos|Wattay International Airport
+VTZ 8350 1797 Visakhapatnam|India|Alluri Sitarama Raju International Airport (Vizag)
+VVI -6314 -1764 Santa Cruz|Bolivia|Viru Viru International Airport
+VVO 13215 4340 Artyom|Russia|Vladivostok International Airport
+VXE -2506 1683 São Pedro|Cape Verde|Cesaria Evora International Airport
+WAW 2097 5217 Warsaw|Poland|Warsaw Chopin Airport
+WDH 1747 -2248 Windhoek|Namibia|Hosea Kutako International Airport
+WLG 17481 -4133 Wellington|New Zealand|Wellington International Airport
+WLS -17620 -1324 Wallis Island|Wallis and Futuna|Hihifo Airport
+WMI 2065 5245 Nowy Dwór Mazowiecki|Poland|Warsaw Modlin Airport
+WNZ 12085 2791 Wenzhou|China|Wenzhou Longwan International Airport
+WRO 1688 5110 Wrocław|Poland|Copernicus Wrocław Airport
+WSI 15071 -3388 Sydney|Australia|Western Sydney International (Nancy-Bird Walton) Airport
+WTB 15179 -2756 Toowoomba|Australia|Toowoomba Wellcamp Airport
+WUH 11421 3077 Wuhan|China|Wuhan Tianhe International Airport
+WUX 12043 3150 Wuxi|China|Sunan Shuofang International Airport
+WVB 1465 -2298 Walvis Bay|Namibia|Walvis Bay International Airport
+XBJ 5928 3290 Birjand|Iran|Birjand International Airport
+XIY 10876 3444 Xi'an|China|Xi'an Xianyang International Airport
+XMN 11813 2454 Xiamen|China|Xiamen Gaoqi International Airport
+XNN 10204 3653 Haidong|China|Xining Caojiabao International Airport
+XPL -8762 1438 Palmerola|Honduras|Palmerola International Airport
+YAP 13808 950 Yap Island|Micronesia|Yap International Airport
+YCU 11103 3512 Yuncheng|China|Yuncheng Yanhu International Airport
+YEG -11358 5331 Edmonton|Canada|Edmonton International Airport
+YHM -7993 4317 Hamilton|Canada|John C. Munro Hamilton International Airport
+YHZ -6351 4488 Halifax|Canada|Halifax / Stanfield International Airport
+YIA 11006 -791 Yogyakarta|Indonesia|Yogyakarta International Airport
+YIW 12003 2934 Yiwu/Jinhua|China|Yiwu Airport
+YKS 12977 6209 Yakutsk|Russia|Platon Oyunsky Yakutsk International Airport
+YLW -11938 4996 Kelowna|Canada|Kelowna International Airport
+YNB 3806 2414 Yanbu|Saudi Arabia|Prince Abdulmohsen Bin Abdulaziz International Airport
+YNT 12098 3766 Yantai|China|Yantai Penglai International Airport
+YNY 12867 3806 Gonghang-ro|South Korea|Yangyang International Airport
+YNZ 12021 3343 Yancheng|China|Yancheng Nanyang International Airport
+YOW -7567 4532 Ottawa|Canada|Ottawa Macdonald-Cartier International Airport
+YQB -7139 4679 Quebec|Canada|Quebec Jean Lesage International Airport
+YQG -8296 4228 Windsor|Canada|Windsor International Airport
+YUL -7374 4547 Montréal|Canada|Montreal / Pierre Elliott Trudeau International Airport
+YVR -12318 4919 Vancouver|Canada|Vancouver International Airport
+YWG -9724 4991 Winnipeg|Canada|Winnipeg / James Armstrong Richardson International Airport
+YXE -10670 5217 Saskatoon|Canada|Saskatoon John G. Diefenbaker International Airport
+YYC -11401 5112 Calgary|Canada|Calgary International Airport
+YYJ -12343 4865 Victoria|Canada|Victoria International Airport
+YYT -5275 4762 St. John's|Canada|St. John's International Airport
+YYZ -7963 4368 Toronto|Canada|Toronto Pearson International Airport
+ZAD 1535 4410 Zadar|Croatia|Zadar Airport
+ZAG 1607 4574 Velika Gorica|Croatia|Zagreb Franjo Tuđman International Airport
+ZAH 6091 2948 Zahedan|Iran|Zahedan International Airport
+ZAM 12206 692 Zamboanga|Philippines|Zamboanga International Airport
+ZAZ -104 4167 Zaragoza|Spain|Zaragoza Airport
+ZCO -7265 -3893 Temuco|Chile|La Araucanía International Airport
+ZHA 11059 2148 Zhanjiang|China|Zhanjiang Wuchuan International Airport
+ZIA 3815 5555 Moscow|Russia|Zhukovsky International Airport
+ZIH -10146 1760 Ixtapa|Mexico|Ixtapa-Zihuatanejo International Airport
+ZNZ 3922 -622 Zanzibar|Tanzania|Abeid Amani Karume International Airport
+ZQN 16875 -4502 Queenstown|New Zealand|Queenstown Airport
+ZRH 855 4746 Zurich|Switzerland|Zürich Airport
+ZSA -7452 2406 San Salvador|Bahamas|San Salvador International Airport
+ZSE 5542 -2132 Saint-Pierre|Réunion|Saint-Pierre Pierrefonds Airport
+ZTH 2088 3775 Zakynthos|Greece|Zakynthos International Airport "Dionysios Solomos"
+ZUH 11338 2201 Zhuhai|China|Zhuhai Jinwan Airport
+ZYL 9186 2496 Sylhet|Bangladesh|Osmany International Airport
