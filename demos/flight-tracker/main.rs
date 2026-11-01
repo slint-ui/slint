@@ -12,7 +12,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4Swizzles};
 use slint::wgpu_30::{WGPUConfiguration, WGPUSettings, wgpu};
 
 use atlas::{Airport, City};
-use camera::{Camera, FOV_Y, Pose, surface};
+use camera::{Camera, FOV_Y, MIN_RANGE, Pose, surface};
 use flight::{EARTH_RADIUS_KM, Flight};
 use renderer::{Frame, Renderer};
 
@@ -280,25 +280,46 @@ impl Demo {
     }
 
     /// Where `view` puts the camera.
+    /// How far from the ground `view` puts the camera before the user zooms.
+    fn base_range(&self, view: View, aspect: f32) -> f32 {
+        match view {
+            View::Follow => 0.6,
+            View::Route => {
+                let flight = &self.flight;
+                let half = flight.point(0.0).angle_between(flight.point(1.0)) / 2.0;
+                // The angle from the screen's center that keeps the ends off the edges.
+                let fit = 0.7 * ((FOV_Y / 2.0).tan() * aspect.min(1.0)).atan();
+                (half.sin() / fit.tan() - (1.0 - half.cos())).clamp(MIN_RANGE, 4.5)
+            }
+            View::Globe => 2.6,
+            View::Free => self.camera.pose.range,
+        }
+    }
+
+    /// Where `view` puts the camera.
     fn goal(&self, view: View, aspect: f32) -> Pose {
         let flight = &self.flight;
+        let range = self.base_range(view, aspect) * self.zoom;
         match view {
             View::Follow => Pose {
                 target: flight.position(),
                 heading: flight.heading_degrees().to_radians(),
                 tilt: 50f32.to_radians(),
-                range: 0.6 * self.zoom,
+                range,
             },
-            View::Route => {
-                let (from, to) = (flight.point(0.0), flight.point(1.0));
-                let half = from.angle_between(to) / 2.0;
-                // The angle from the screen's center that keeps the ends off the edges.
-                let fit = 0.7 * ((FOV_Y / 2.0).tan() * aspect.min(1.0)).atan();
-                let range = half.sin() / fit.tan() - (1.0 - half.cos());
-                Pose::top_down(flight.point(0.5), range.clamp(0.25, 4.5) * self.zoom)
-            }
-            View::Globe => Pose::top_down(flight.position(), 2.6 * self.zoom),
+            View::Route => Pose::top_down(flight.point(0.5), range),
+            View::Globe => Pose::top_down(flight.position(), range),
             View::Free => self.camera.pose,
+        }
+    }
+
+    /// Zooms in by `factor`, down to `MIN_RANGE`.
+    fn zoom_by(&mut self, factor: f32, aspect: f32) {
+        if self.view == View::Free {
+            self.camera.pose.range = Camera::zoomed(self.camera.pose.range, factor);
+        } else {
+            let base = self.base_range(self.view, aspect);
+            self.zoom = (self.zoom / factor).clamp(MIN_RANGE / base, 3.0);
         }
     }
 
@@ -509,6 +530,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = AppWindow::new()?;
     let map = map::Map::new();
+    // NASA's Blue Marble for July, see `data/convert.py`.
+    let imagery = renderer::Imagery::decode(include_bytes!("data/earth.jpg"))?;
     let demo = Rc::new(RefCell::new(Demo::new()));
     let labels = Rc::new(slint::VecModel::<Label>::default());
     app.set_labels(labels.clone().into());
@@ -584,12 +607,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     app.on_zoom({
         let interact = interact.clone();
         move |factor| {
-            interact(&|demo, _| {
-                if demo.view == View::Free {
-                    demo.camera.pose.range = Camera::zoomed(demo.camera.pose.range, factor);
-                } else {
-                    demo.zoom = (demo.zoom / factor).clamp(0.25, 3.0);
-                }
+            interact(&|demo, app| {
+                let size = logical_size(app.window());
+                demo.zoom_by(factor, size.x / size.y.max(1.0));
             })
         }
     });
@@ -662,8 +682,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             };
             let info = device.adapter_info();
             app.set_gpu_text(format!("{} ({:?})", info.name, info.backend).into());
-            graphics =
-                Some((Renderer::new(device, queue, &map, FRAME_VIEW_FORMAT), device.clone()));
+            graphics = Some((
+                Renderer::new(device, queue, &map, &imagery, FRAME_VIEW_FORMAT),
+                device.clone(),
+            ));
             return;
         }
         if !matches!(rendering_state, slint::RenderingState::BeforeRendering) {
