@@ -512,7 +512,10 @@ export struct InspectorSliderStyle {
 }
 
 export struct ComboMenuStyle {
-    row-height: length = 26px,
+    row-height: length = 30px,
+    padding: length = 6px,
+    spacing: length = 2px,
+    highlight: brush,
     max-height: length = 220px,
     background: brush,
     border: brush,
@@ -1806,6 +1809,7 @@ export global Style {
     };
 
     out property <ComboMenuStyle> combo-menu: {
+        highlight: Theme.surfaces.raised-hover,
         background: root.floating-surface.background,
         border: root.floating-surface.border,
     };
