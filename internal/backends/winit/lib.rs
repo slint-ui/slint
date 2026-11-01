@@ -203,7 +203,7 @@ fn try_create_window_with_fallback_renderer(
             shared_backend_data.clone(),
             renderer_factory(shared_backend_data).ok()?,
             attrs.clone(),
-            #[cfg(any(enable_accesskit, muda))]
+            #[cfg(enable_accesskit)]
             _proxy.clone(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
@@ -948,7 +948,7 @@ impl i_slint_core::platform::Platform for Backend {
                     self.shared_data.clone(),
                     renderer,
                     attrs.clone(),
-                    #[cfg(any(enable_accesskit, muda))]
+                    #[cfg(enable_accesskit)]
                     self.shared_data.event_loop_proxy.clone(),
                     #[cfg(all(muda, target_os = "macos"))]
                     self.muda_enable_default_menu_bar_bar,

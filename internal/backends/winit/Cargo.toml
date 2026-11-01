@@ -175,6 +175,11 @@ cfg_aliases = { workspace = true }
 [dev-dependencies]
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "raw-window-handle-06", "unstable-winit-030"] }
 
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSEvent"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSGeometry", "NSString"] }
+
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 x11rb = { version = "0.13.2", default-features = false }
 
@@ -203,3 +208,8 @@ harness = false
 name = "initial_window_icon"
 harness = false
 required-features = ["x11", "renderer-software"]
+
+[[test]]
+name = "default_quit"
+harness = false
+required-features = ["muda", "renderer-software"]

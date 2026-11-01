@@ -42,7 +42,7 @@ use corelib::items::{BuiltInMouseCursor, ColorScheme, PointerEventButton};
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
-#[cfg(any(enable_accesskit, muda))]
+#[cfg(enable_accesskit)]
 use crate::SlintEvent;
 use crate::{EventResult, SharedBackendData};
 use corelib::api::PhysicalSize;
@@ -53,7 +53,7 @@ use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::{Coord, graphics::*};
 use i_slint_core::{self as corelib};
 use winit::event::WindowEvent as WinitWindowEvent;
-#[cfg(any(enable_accesskit, muda))]
+#[cfg(enable_accesskit)]
 use winit::event_loop::EventLoopProxy;
 use winit::keyboard::Key;
 use winit::window::{
@@ -543,7 +543,7 @@ pub struct WinitWindowAdapter {
     #[cfg(target_os = "macos")]
     reveal_on_first_frame: RefCell<Option<crate::macos::RevealOnFirstFrame>>,
 
-    #[cfg(any(enable_accesskit, muda))]
+    #[cfg(enable_accesskit)]
     event_loop_proxy: EventLoopProxy<SlintEvent>,
 
     pub(crate) window_event_filter: Cell<
@@ -591,7 +591,7 @@ impl WinitWindowAdapter {
         shared_backend_data: Rc<SharedBackendData>,
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
-        #[cfg(any(enable_accesskit, muda))] proxy: EventLoopProxy<SlintEvent>,
+        #[cfg(enable_accesskit)] proxy: EventLoopProxy<SlintEvent>,
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
     ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
@@ -620,7 +620,7 @@ impl WinitWindowAdapter {
             virtual_keyboard_helper: Default::default(),
             #[cfg(target_os = "macos")]
             reveal_on_first_frame: Default::default(),
-            #[cfg(any(enable_accesskit, muda))]
+            #[cfg(enable_accesskit)]
             event_loop_proxy: proxy,
             window_event_filter: Cell::new(None),
             #[cfg(target_os = "macos")]
@@ -885,7 +885,7 @@ impl WinitWindowAdapter {
                 crate::muda::MudaAdapter::setup(
                     menubar,
                     &winit_window,
-                    self.event_loop_proxy.clone(),
+                    &self.shared_backend_data,
                     self.self_weak.clone(),
                 )
             });
@@ -1417,7 +1417,9 @@ impl WinitWindowAdapter {
                     && self.menubar().is_none()
                 {
                     *muda_adapter.borrow_mut() =
-                        Some(crate::muda::MudaAdapter::setup_default_menu_bar()?);
+                        Some(crate::muda::MudaAdapter::setup_default_menu_bar(
+                            &self.shared_backend_data,
+                        )?);
                 }
 
                 if let Some(muda_adapter) = muda_adapter.borrow().as_ref() {
@@ -2387,7 +2389,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             muda_adapter.replace(Some(crate::muda::MudaAdapter::setup(
                 &menubar,
                 &self.winit_window().unwrap(),
-                self.event_loop_proxy.clone(),
+                &self.shared_backend_data,
                 self.self_weak.clone(),
             )));
         }
@@ -2415,7 +2417,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 self.context_menu.borrow().as_ref().unwrap(),
                 &self.winit_window().unwrap(),
                 position,
-                self.event_loop_proxy.clone(),
+                &self.shared_backend_data,
             ) {
                 context_menu_muda_adapter.replace(Some(new_adapter));
                 return true;
