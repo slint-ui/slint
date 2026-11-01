@@ -167,3 +167,17 @@ The Emscripten backend has these limits for now:
 
 </TabItem>
 </Tabs>
+
+## Safe Area
+
+On phones, the browser reports the areas covered by the notch, the camera cutout, and the home indicator.
+Rust applications expose them in the <Link type="Window.safe-area-insets"/> property of the <Link type="Window"/> element.
+An edge only gets an inset where the canvas reaches that edge of the browser's viewport.
+
+Safari reports insets only when the page opts in with `viewport-fit=cover`:
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+```
+
+Desktop browsers report zero insets.

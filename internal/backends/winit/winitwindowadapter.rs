@@ -2509,6 +2509,16 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             })
             .unwrap_or_default()
     }
+
+    #[cfg(target_arch = "wasm32")]
+    fn safe_area_inset(&self) -> i_slint_core::lengths::PhysicalEdges {
+        self.winit_window_or_none
+            .borrow()
+            .as_window()
+            .and_then(|winit_window| winit_window.canvas())
+            .and_then(|canvas| wasm_safe_area_inset(&canvas, self.size.get()))
+            .unwrap_or_default()
+    }
 }
 
 impl Drop for WinitWindowAdapter {
@@ -2595,6 +2605,63 @@ fn query_wasm_accent_color() -> Color {
         Some(Color::from_argb_u8(255, parts.next()??, parts.next()??, parts.next()??))
     })()
     .unwrap_or_default()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn wasm_safe_area_inset(
+    canvas: &web_sys::HtmlCanvasElement,
+    physical_size: PhysicalSize,
+) -> Option<i_slint_core::lengths::PhysicalEdges> {
+    use wasm_bindgen::JsCast;
+
+    thread_local! {
+        static PROBE: RefCell<Option<web_sys::HtmlElement>> = const { RefCell::new(None) };
+    }
+
+    let window = web_sys::window()?;
+    let document = window.document()?;
+    let probe = PROBE.with_borrow_mut(|probe| {
+        if probe.as_ref().is_none_or(|probe| !probe.is_connected()) {
+            let element: web_sys::HtmlElement =
+                document.create_element("div").ok()?.dyn_into().ok()?;
+            element.style().set_css_text(
+                "position: fixed; visibility: hidden; pointer-events: none; \
+                 padding: env(safe-area-inset-top) env(safe-area-inset-right) \
+                 env(safe-area-inset-bottom) env(safe-area-inset-left)",
+            );
+            document.body()?.append_child(&element).ok()?;
+            *probe = Some(element);
+        }
+        probe.clone()
+    })?;
+
+    let style = window.get_computed_style(&probe).ok()??;
+    let inset = |side: &str| -> f64 {
+        style
+            .get_property_value(&format!("padding-{side}"))
+            .ok()
+            .and_then(|value| value.strip_suffix("px")?.parse().ok())
+            .unwrap_or_default()
+    };
+
+    let rect = canvas.get_bounding_client_rect();
+    let viewport_width = window.inner_width().ok()?.as_f64()?;
+    let viewport_height = window.inner_height().ok()?.as_f64()?;
+    if rect.width() <= 0. || rect.height() <= 0. {
+        return None;
+    }
+    let scale_x = physical_size.width as f64 / rect.width();
+    let scale_y = physical_size.height as f64 / rect.height();
+    let to_physical = |inset: f64, distance_from_edge: f64, scale: f64| {
+        ((inset - distance_from_edge.max(0.)).max(0.) * scale).ceil() as i32
+    };
+
+    Some(i_slint_core::lengths::PhysicalEdges::new(
+        to_physical(inset("top"), rect.top(), scale_y),
+        to_physical(inset("bottom"), viewport_height - rect.bottom(), scale_y),
+        to_physical(inset("left"), rect.left(), scale_x),
+        to_physical(inset("right"), viewport_width - rect.right(), scale_x),
+    ))
 }
 
 #[cfg(target_family = "wasm")]

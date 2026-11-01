@@ -122,7 +122,7 @@ muda = { version = "0.21.1", optional = true, default-features = false }
 vtable = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { workspace = true, features = ["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "EventTarget", "FocusEvent", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer", "Node", "WebGlContextEvent"] }
+web-sys = { workspace = true, features = ["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "EventTarget", "FocusEvent", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer", "Node", "WebGlContextEvent", "HtmlElement", "CssStyleDeclaration", "Element", "DomRect"] }
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(all(target_vendor = "apple", not(target_os = "macos")))))'.dependencies]
