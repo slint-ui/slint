@@ -7,7 +7,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorLayoutAlignmentSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
     property <string> default-alignment: InspectorContext.is-flexbox-layout-selection() ? "start" : "stretch";
 
     title: @tr("Alignment");
@@ -28,7 +27,6 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
                 value: InspectorEnumOptions.option-label("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
                 selected-index: InspectorEnumOptions.option-index("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
                 options: InspectorEnumOptions.layout-alignment-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
                     return text != "" && InspectorContext.commit-code("alignment", text);
                 }
@@ -49,7 +47,6 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
                 value: InspectorEnumOptions.option-label("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
                 selected-index: InspectorEnumOptions.option-index("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
                 options: InspectorEnumOptions.layout-alignment-options;
-                popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
                     return text != "" && InspectorContext.commit-code("cross-axis-line-alignment", text);
                 }

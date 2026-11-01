@@ -11,6 +11,7 @@ from canvas_interactions import center as element_center
 from editor_sync import wait_for_source
 from inspector_interactions import (
     FIELDS,
+    combo_popup_position,
     edit_field,
     inspector_field,
     slider_position,
@@ -25,6 +26,7 @@ from ui_driver import (
     first_window,
     launch_editor,
     outline_rows,
+    press_key,
     press_keys,
     press_shortcut,
     query,
@@ -54,35 +56,25 @@ def open_combo_and_accept(
     label: str,
     expected_options: tuple[str, ...],
     value: str,
+    *,
+    selected_label: str | None = None,
 ) -> None:
     combo = inspector_field(window, label, slint_testing.AccessibleRole.Combobox)
     combo.invoke_accessible_expand_action()
 
-    def menu_labels() -> tuple[str, ...] | None:
-        # Linux uses list-item rows in a custom popup; macOS and Windows use MenuItem.
-        items = (
-            window.root_element.query_descendants()
-            .match_type_name("MenuItem")
-            .find_all()
-        ) + (
-            window.root_element.query_descendants()
-            .match_id("InspectorComboBox::options-content")
-            .match_descendants()
-            .match_accessible_role(slint_testing.AccessibleRole.ListItem)
-            .find_all()
-        )
-        labels = tuple(
-            text.accessible_label
-            for item in items
-            for text in item.query_descendants()
-            .match_accessible_role(slint_testing.AccessibleRole.Text)
-            .find_all()
-            if text.accessible_label and text.accessible_label != "✓"
-        )
-        return labels if labels == expected_options else None
-
-    wait_until(menu_labels)
-    combo.accessible_value = value
+    options = element(window, id="InspectorComboBox::options-content")
+    press_key(window, keys.Home)
+    for option_label in expected_options:
+        expect(
+            query(options, option_label, role=slint_testing.AccessibleRole.ListItem)
+        ).to_be_visible()
+        press_key(window, keys.DownArrow)
+    press_key(window, keys.Home)
+    for _ in range(expected_options.index(selected_label or value)):
+        press_key(window, keys.DownArrow)
+    element(
+        options, selected_label or value, role=slint_testing.AccessibleRole.ListItem
+    ).single_click(slint_testing.PointerEventButton.Left)
 
 
 def assert_rendered_element(window: slint_testing.Window, element_id: str) -> None:
@@ -1057,6 +1049,7 @@ def test_each_font_weight_writes_exact_source(
                     "Black",
                 ),
                 weight,
+                selected_label="Bold",
             )
         else:
             edit_field(
@@ -1139,6 +1132,7 @@ def test_each_text_wrap_writes_exact_source(
                 "Text Wrap",
                 ("No wrap", "Word wrap", "Character wrap"),
                 wrap,
+                selected_label="Character wrap",
             )
         else:
             edit_field(window, "Text Wrap", wrap, slint_testing.AccessibleRole.Combobox)
@@ -1250,7 +1244,11 @@ def test_each_orientation_writes_exact_source(
             slint_testing.AccessibleRole.Combobox,
         )
         open_combo_and_accept(
-            window, "Orientation", ("Horizontal", "Vertical"), orientation
+            window,
+            "Orientation",
+            ("Horizontal", "Vertical"),
+            orientation,
+            selected_label=orientation.capitalize(),
         )
         snapshot.wait_for_exact(
             replace_once(
@@ -1914,10 +1912,16 @@ def test_string_field_clear_is_undoable(
 
 
 @pytest.mark.parametrize(
-    ("label", "property_name", "initial", "value"),
+    ("label", "property_name", "initial", "value", "button"),
     [
-        ("Horizontal Alignment", "horizontal-alignment", "start", "end"),
-        ("Vertical Alignment", "vertical-alignment", "top", "bottom"),
+        (
+            "Horizontal Alignment",
+            "horizontal-alignment",
+            "start",
+            "right",
+            "Align right",
+        ),
+        ("Vertical Alignment", "vertical-alignment", "top", "bottom", "Align bottom"),
     ],
     ids=("horizontal", "vertical"),
 )
@@ -1929,6 +1933,7 @@ def test_styled_text_alignment_writes_exact_source(
     property_name: str,
     initial: str,
     value: str,
+    button: str,
 ) -> None:
     source_file = fixture_project / INSPECTOR_SOURCE
     baseline = source_file.read_bytes()
@@ -1941,7 +1946,10 @@ def test_styled_text_alignment_writes_exact_source(
             window, FIELDS["width"], "152", slint_testing.AccessibleRole.TextInput
         )
         inspector_field(window, "Text content", slint_testing.AccessibleRole.TextInput)
-        edit_field(window, label, value, slint_testing.AccessibleRole.Combobox)
+        group = inspector_field(window, label, slint_testing.AccessibleRole.RadioGroup)
+        element(
+            group, button, role=slint_testing.AccessibleRole.RadioButton
+        ).single_click(slint_testing.PointerEventButton.Left)
         snapshot.wait_for_exact(
             replace_once(
                 baseline,
@@ -2388,3 +2396,136 @@ def test_invalid_rectangle_color_does_not_change_source(
             slint_testing.AccessibleRole.TextInput,
         )
         element(window, "Selected Rectangle", role=slint_testing.AccessibleRole.Region)
+
+
+@pytest.mark.parametrize("kind", ("Text", "StyledText"))
+def test_text_alignment_defaults_select_one_button_per_axis(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+    kind: str,
+) -> None:
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(
+        editor_binary, editor_environment, fixture_project / INSPECTOR_SOURCE
+    ) as editor:
+        window = first_window(editor)
+        select_element(window, kind)
+        for axis, selected in (("Horizontal", "Align left"), ("Vertical", "Align top")):
+            group = inspector_field(
+                window, f"{axis} Alignment", slint_testing.AccessibleRole.RadioGroup
+            )
+            expect(
+                element(group, selected, role=slint_testing.AccessibleRole.RadioButton)
+            ).to_be_checked()
+            assert (
+                sum(
+                    button.accessible_checked
+                    for button in elements(
+                        group, role=slint_testing.AccessibleRole.RadioButton
+                    )
+                )
+                == 1
+            )
+        snapshot.assert_unchanged()
+
+
+def test_image_fit_hover_preview_is_transient_and_survives_commit(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Image")
+        expect(query(window, "Image fit example")).to_be_hidden()
+        combo = inspector_field(
+            window, "Image fit", slint_testing.AccessibleRole.Combobox
+        )
+        combo.single_click(slint_testing.PointerEventButton.Left)
+        preview = element(window, "Image fit example")
+        expect(preview).to_have_value("contain")
+        value_text = element(combo, id="InspectorComboBox::value-text")
+        options = element(window, id="InspectorComboBox::options-content")
+        cover = element(options, "cover", role=slint_testing.AccessibleRole.ListItem)
+        option_text = element(cover, id="InspectorComboBox::option-text")
+        assert (
+            value_text.absolute_position.x
+            == combo.absolute_position.x + option_text.absolute_position.x
+        )
+        window.dispatch_event(
+            slint_testing.PointerMoveEvent(
+                combo_popup_position(window, combo, cover, above=True)
+            )
+        )
+        expect(preview).to_have_value("cover")
+        expect(
+            element(options, "contain", role=slint_testing.AccessibleRole.ListItem)
+        ).to_be_checked()
+        snapshot.assert_unchanged()
+        press_key(window, keys.Escape)
+        expect(query(window, id="InspectorComboBox::options-content")).to_be_hidden()
+        expect(preview).to_have_value("contain")
+        snapshot.assert_unchanged()
+
+        combo.single_click(slint_testing.PointerEventButton.Left)
+        cover.single_click(slint_testing.PointerEventButton.Left)
+        expected = replace_once(
+            baseline, b"        image-fit: contain;", b"        image-fit: cover;"
+        )
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+        expect(preview).to_have_value("cover")
+        expect(
+            element(
+                window, "Image fit preview", role=slint_testing.AccessibleRole.Button
+            )
+        ).to_be_checked()
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+        expect(preview).to_have_value("contain")
+        select_element(window, "Text")
+        select_element(window, "Image")
+        expect(query(window, "Image fit example")).to_be_hidden()
+
+
+def test_combo_keyboard_navigation_scrolls_and_commits_one_edit(
+    editor_binary: Path,
+    editor_environment: dict[str, str],
+    fixture_project: Path,
+) -> None:
+    source_file = fixture_project / INSPECTOR_SOURCE
+    baseline = source_file.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source_file) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        combo = inspector_field(
+            window, "Font weight", slint_testing.AccessibleRole.Combobox
+        )
+        combo.single_click(slint_testing.PointerEventButton.Left)
+        press_key(window, keys.End)
+        row = element(
+            element(window, id="InspectorComboBox::options-content"),
+            "Black",
+            role=slint_testing.AccessibleRole.ListItem,
+        )
+        viewport = element(window, id="InspectorComboBox::options-scroll")
+        expect.poll(
+            lambda: (
+                row.absolute_position.y + row.size.height
+                <= viewport.absolute_position.y + viewport.size.height
+            )
+        ).to_equal(True)
+        snapshot.assert_unchanged()
+        press_key(window, keys.Return)
+        expected = replace_once(
+            baseline, b"        font-weight: 400;", b"        font-weight: 900;"
+        )
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+        expect(combo).to_have_value("Black")
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+        expect(combo).to_have_value("Normal")

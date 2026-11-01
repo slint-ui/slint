@@ -7,7 +7,6 @@ import { InspectorContext } from "context.slint";
 
 export component InspectorInputTypeSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
-    in property <length> popup-bottom;
 
     title: @tr("Input Type");
 
@@ -21,7 +20,6 @@ export component InspectorInputTypeSection inherits InspectorSection {
             selected-index: InspectorEnumOptions.option-index("input-type", "text", InspectorEnumOptions.input-type-options);
             options: InspectorEnumOptions.input-type-options;
             wide: true;
-            popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
             accepted(text) => {
                 return text != "" && InspectorContext.commit-code("input-type", text);
             }

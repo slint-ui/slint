@@ -10,7 +10,6 @@ import { InspectorSpinField } from "../spin-field.slint";
 export component InspectorTypographySection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
-    in property <length> popup-bottom;
     private property <PropertyValue> runtime-italic: Api.runtime-property-value-data("font-italic", {});
     private property <PropertyValue> source-italic: Api.source-property-value-data("font-italic", {});
     private property <bool> italic: root.runtime-italic.value-resolved
@@ -46,11 +45,9 @@ export component InspectorTypographySection inherits InspectorSection {
                 }
                 InspectorComboBox {
                     accessible-name: @tr("Font weight");
-                    fit-options: true;
                     value: InspectorEnumOptions.text-font-weight-label();
                     selected-index: InspectorEnumOptions.text-font-weight-index();
                     options: InspectorEnumOptions.text-font-weight-options;
-                    popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                     accepted(text) => {
                         return text != "" && InspectorContext.commit-code("font-weight", text);
                     }
