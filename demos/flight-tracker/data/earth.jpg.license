@@ -1,0 +1,4 @@
+# cSpell: ignore bathy topo
+SPDX-License-Identifier: CC-PDDC
+SPDX-FileCopyrightText: NASA Earth Observatory, Blue Marble: Next Generation (https://visibleearth.nasa.gov/). This work is in the public domain.
+Comment: Converted with convert.py from world.topo.bathy.200407.3x5400x2700.jpg

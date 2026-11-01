@@ -10,7 +10,9 @@ use std::f32::consts::PI;
 use glam::{Mat4, Vec2, Vec3};
 
 pub const FOV_Y: f32 = 30.0 * PI / 180.0;
-const MIN_RANGE: f32 = 0.06;
+/// The closest the camera gets to the ground, where the imagery, 4096 texels wide, still looks
+/// sharp.
+pub const MIN_RANGE: f32 = 0.27;
 const MAX_RANGE: f32 = 6.0;
 
 /// The point on the unit sphere at `lon` and `lat`, in radians.
