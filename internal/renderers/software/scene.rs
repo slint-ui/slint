@@ -25,6 +25,7 @@ pub struct SceneVectors {
     pub radial_gradients: Vec<RadialGradientCommand>,
     pub conic_gradients: Vec<ConicGradientCommand>,
     pub box_shadows: Vec<BoxShadowCommand>,
+    pub clips: Vec<ShapeClip>,
 }
 
 pub struct Scene {
@@ -259,6 +260,9 @@ impl Scene {
 
     /// Whether drawing `item` overwrites every pixel it spans on the current line.
     pub fn covers_line(&self, item: &SceneItem) -> bool {
+        if item.clip_len != 0 {
+            return false;
+        }
         match &item.command {
             SceneCommand::Rectangle { color } => color.alpha == 255,
             SceneCommand::Texture { texture_index } => {
@@ -291,10 +295,7 @@ impl Scene {
                 opaque_format && buffer.extra.alpha == 255
             }
             SceneCommand::LinearGradient { linear_gradient_index } => {
-                self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line(
-                    &PhysicalRect { origin: item.pos, size: item.size },
-                    self.current_line,
-                )
+                self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line()
             }
             _ => false,
         }
@@ -308,6 +309,18 @@ pub struct SceneItem {
     // this is the order of the item from which it is in the item tree
     pub z: u16,
     pub command: SceneCommand,
+    /// Index in [`SceneVectors::clips`] of this item's clip run.
+    /// The item is drawn only inside every shape of the run:
+    /// the rounded `Clip` ancestors whose corners it reaches, and a gradient's own shape.
+    pub clip_start: u16,
+    /// Number of clips in the run; 0 means the item isn't clipped.
+    pub clip_len: u16,
+}
+
+impl SceneItem {
+    pub fn clips<'a>(&self, vectors: &'a SceneVectors) -> &'a [ShapeClip] {
+        &vectors.clips[self.clip_start as usize..][..self.clip_len as usize]
+    }
 }
 
 /// Orders by `y` (top to bottom), then by `z` (front to back).
@@ -629,15 +642,41 @@ pub struct RoundedShape {
     pub bottom_clip: PhysicalLength,
 }
 
-/// The clip of a gradient drawn below a [`RoundedRectangle`], or `default()` for none.
+/// A rounded shape that clips a command.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct GradientClip {
-    /// A zero radius means no clip.
+pub struct ShapeClip {
     pub shape: RoundedShape,
-    /// The width of the opaque border drawn over the gradient, or 0.
-    /// When set, the gradient is clipped without anti-aliasing to the border's inner edge.
+    /// The width of an opaque border drawn over the command, or 0.
+    /// When set, the command is clipped without anti-aliasing to the border's inner edge.
     /// This keeps it from bleeding through the border's anti-aliased outer edge.
     pub opaque_border: PhysicalLength,
+}
+
+impl ShapeClip {
+    /// Whether a command of `size` reaches into one of the shape's rounded corners.
+    /// Outside of them, the clip has no effect.
+    pub fn touches_corner(&self, size: PhysicalSize) -> bool {
+        let s = &self.shape;
+        let left = s.left_clip.get() as i32;
+        let top = s.top_clip.get() as i32;
+        let right = left + size.width as i32;
+        let bottom = top + size.height as i32;
+        let width = right + s.right_clip.get() as i32;
+        let height = bottom + s.bottom_clip.get() as i32;
+        let touches = |r: i16, x: i32, y: i32| {
+            let r = r as i32;
+            r > 0 && x < right && x + r > left && y < bottom && y + r > top
+        };
+        let r = &s.radius;
+        touches(r.top_left, 0, 0)
+            || touches(r.top_right, width - r.top_right as i32, 0)
+            || touches(
+                r.bottom_right,
+                width - r.bottom_right as i32,
+                height - r.bottom_right as i32,
+            )
+            || touches(r.bottom_left, 0, height - r.bottom_left as i32)
+    }
 }
 
 #[derive(Debug)]
@@ -655,30 +694,88 @@ pub enum AnyGradientCommand {
     Conic(ConicGradientCommand),
 }
 
-/// Goes from color 1 to color2
+/// A linear gradient, as the gradient position at each pixel center.
 ///
-/// depending of `flags & 0b1`
-///  - if false: on the left side, goes from `start` to 1, on the right side, goes from 0 to `1-start`
-///  - if true: on the left side, goes from 0 to `1-start`, on the right side, goes from `start` to `1`
+/// Positions are along the gradient line: 0 at its start, 1 at its end.
 #[derive(Debug)]
 pub struct LinearGradientCommand {
-    pub color1: PremultipliedRgbaColor,
-    pub color2: PremultipliedRgbaColor,
-    pub start: u8,
-    /// bit 0: if the slope is positive or negative
-    /// bit 1: if we should fill with color1 on the left side when left_clip is negative (or transparent)
-    /// bit 2: if we should fill with color2 on the left side when right_clip is negative (or transparent)
-    pub flags: u8,
-    /// If positive, the clip has the same meaning as in RoundedRectangle.
-    /// If negative, that means the "stop" is only starting or stopping at that point
-    pub left_clip: PhysicalLength,
-    pub right_clip: PhysicalLength,
-    pub top_clip: PhysicalLength,
-    pub bottom_clip: PhysicalLength,
-    pub clip: GradientClip,
+    pub stops: i_slint_core::SharedVector<LinearGradientStop>,
+    /// The position at the center of the rect's top-left pixel.
+    pub position: LinearGradientPosition,
+    /// The position's change per pixel to the right.
+    pub dx: LinearGradientPosition,
+    /// The position's change per line down.
+    pub dy: LinearGradientPosition,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LinearGradientStop {
+    pub color: PremultipliedRgbaColor,
+    /// See [`LinearGradientCommand`].
+    pub position: LinearGradientPosition,
+    /// The next stop's color minus this one's, per channel (red, green, blue, alpha).
+    pub delta: [i32; 4],
+    /// The interpolation factor's change per Q16 position towards the next stop, in Q31,
+    /// rounded down. 0 when the next stop isn't after this one.
+    pub factor_step: u32,
+    /// The change of each Q15 channel per pixel to the right, rounded towards zero.
+    pub step: [i32; 4],
+}
+
+impl LinearGradientStop {
+    /// Keeps the distance between two positions within an i32.
+    const MAX_POSITION: f32 = 63.;
+
+    pub fn collect(
+        stops: impl Iterator<Item = (PremultipliedRgbaColor, f32)>,
+        dx: LinearGradientPosition,
+    ) -> i_slint_core::SharedVector<Self> {
+        let mut previous = Fixed(i32::MIN);
+        let mut stops: i_slint_core::SharedVector<Self> = stops
+            .map(|(color, position)| {
+                let position =
+                    Fixed::from_f32(position.clamp(-Self::MAX_POSITION, Self::MAX_POSITION))
+                        .unwrap_or_default();
+                // As in CSS, a stop before the previous one is moved to it.
+                previous = previous.max(position);
+                Self { color, position: previous, ..Self::default() }
+            })
+            .collect();
+        let out = stops.make_mut_slice();
+        for i in 1..out.len() {
+            let next = out[i];
+            out[i - 1].link(&next, dx);
+        }
+        stops
+    }
+
+    pub fn channels(&self) -> [u8; 4] {
+        let c = self.color;
+        [c.red, c.green, c.blue, c.alpha]
+    }
+
+    fn link(&mut self, next: &Self, dx: LinearGradientPosition) {
+        let distance = next.position - self.position;
+        if distance.0 <= 0 {
+            return;
+        }
+        let (a, b) = (self.channels(), next.channels());
+        self.delta = core::array::from_fn(|i| b[i] as i32 - a[i] as i32);
+        self.factor_step =
+            (1u32 << 31).checked_div(GradientPosition::from_fixed(distance).0 as u32).unwrap_or(0);
+        // The factor's change per pixel in Q22, made smaller by one so that rounding
+        // can't step past the next stop's color. Clamped for a segment narrower than
+        // a pixel, which never steps.
+        let limit = (1 << 23) as f32;
+        let factor_dx =
+            (dx.0 as f32 / distance.0 as f32 * (1 << 22) as f32).clamp(-limit, limit) as i32;
+        let factor_dx = factor_dx - factor_dx.signum();
+        self.step = core::array::from_fn(|i| self.delta[i] * factor_dx / 128);
+    }
 }
 
 pub(crate) type GradientPosition = Fixed<i32, 16>;
+pub(crate) type LinearGradientPosition = Fixed<i32, 24>;
 /// An interpolation factor between two stops, or its rate of change.
 pub(crate) type GradientFactor = Fixed<u32, 12>;
 
@@ -746,7 +843,6 @@ pub struct RadialGradientCommand {
     /// Radii in physical pixels. Always resolved (positive) before command construction.
     pub radius_x: f32,
     pub radius_y: f32,
-    pub clip: GradientClip,
 }
 
 /// Conic gradient that interpolates colors around a center point
@@ -764,7 +860,6 @@ pub struct ConicGradientCommand {
     /// Stored as f32 to avoid i16 saturation for off-bbox centers at high scale factors.
     pub center_x: f32,
     pub center_y: f32,
-    pub clip: GradientClip,
     /// Clockwise rotation of the whole gradient, in radians.
     pub rotation: f32,
 }
@@ -784,6 +879,8 @@ fn next_line_skipping_a_gap_drops_items_ending_at_the_new_line() {
         size: PhysicalSize::new(10, height),
         z,
         command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+        clip_start: 0,
+        clip_len: 0,
     };
     // Both start inside the gap: the first covers lines 15..20, the second lines 15..21.
     let mut scene =
@@ -823,6 +920,8 @@ fn next_line_keeps_exactly_the_items_on_the_current_line() {
             size: PhysicalSize::new(10, 1 + if z % 5 == 0 { next(120) } else { next(12) }),
             z,
             command: SceneCommand::Rectangle { color: PremultipliedRgbaColor::default() },
+            clip_start: 0,
+            clip_len: 0,
         })
         .collect();
 
@@ -839,4 +938,41 @@ fn next_line_keeps_exactly_the_items_on_the_current_line() {
         assert_eq!(active, expected, "line {line}");
         scene.next_line();
     }
+}
+
+#[test]
+fn touches_corner() {
+    let clip =
+        |radius: PhysicalBorderRadius, left: i16, top: i16, right: i16, bottom: i16| ShapeClip {
+            shape: RoundedShape {
+                radius,
+                left_clip: Length::new(left),
+                top_clip: Length::new(top),
+                right_clip: Length::new(right),
+                bottom_clip: Length::new(bottom),
+            },
+            opaque_border: PhysicalLength::new(0),
+        };
+    let size = PhysicalSize::new(10, 10);
+    let all = PhysicalBorderRadius::new_uniform(4);
+    // The whole shape.
+    assert!(clip(all, 0, 0, 0, 0).touches_corner(size));
+    // Exactly next to the top-left corner box, and one pixel into it.
+    let top_left = PhysicalBorderRadius::new(4, 0, 0, 0);
+    assert!(!clip(top_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    assert!(clip(top_left, 3, 0, 0, 0).touches_corner(PhysicalSize::new(7, 10)));
+    assert!(!clip(top_left, 0, 4, 0, 0).touches_corner(PhysicalSize::new(10, 6)));
+    // Each other corner on its own.
+    let top_right = PhysicalBorderRadius::new(0, 4, 0, 0);
+    assert!(clip(top_right, 0, 0, 0, 0).touches_corner(size));
+    assert!(!clip(top_right, 0, 0, 4, 0).touches_corner(PhysicalSize::new(6, 10)));
+    let bottom_right = PhysicalBorderRadius::new(0, 0, 4, 0);
+    assert!(!clip(bottom_right, 0, 0, 0, 4).touches_corner(PhysicalSize::new(10, 6)));
+    assert!(clip(bottom_right, 0, 0, 0, 3).touches_corner(PhysicalSize::new(10, 7)));
+    let bottom_left = PhysicalBorderRadius::new(0, 0, 0, 4);
+    assert!(!clip(bottom_left, 4, 0, 0, 0).touches_corner(PhysicalSize::new(6, 10)));
+    // A command in the middle touches no corner.
+    assert!(!clip(all, 4, 4, 4, 4).touches_corner(PhysicalSize::new(2, 2)));
+    // Zero radii have no corner at all.
+    assert!(!clip(PhysicalBorderRadius::default(), 0, 0, 0, 0).touches_corner(size));
 }

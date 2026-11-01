@@ -115,6 +115,7 @@ imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 bytemuck = { workspace = true, optional = true, features = ["derive"] }
 webbrowser = "1.2.0"
+itertools.workspace = true
 
 [target.'cfg(any(target_os = "macos", target_family = "windows"))'.dependencies]
 muda = { version = "0.21.1", optional = true, default-features = false }
@@ -165,7 +166,7 @@ objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["
 block2 = "0.6.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm"] }
+windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Graphics_Dwm", "Win32_System_Threading"] }
 arboard = { version = "3.6", default-features = false }
 
 [build-dependencies]
@@ -192,6 +193,10 @@ harness = false
 
 [[test]]
 name = "hide_with_external_reference"
+harness = false
+
+[[test]]
+name = "redraw_before_reshow"
 harness = false
 
 [[test]]

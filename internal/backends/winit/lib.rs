@@ -86,6 +86,11 @@ mod renderer {
         // Got WindowEvent::Occluded
         fn occluded(&self, _: bool) {}
 
+        #[cfg(target_os = "windows")]
+        fn presentation_may_use_transparency(&self) -> bool {
+            false
+        }
+
         fn suspend(&self) -> Result<(), PlatformError>;
 
         // The window's transparency changed after the window was created. Renderers that pick
@@ -655,8 +660,13 @@ impl SharedBackendData {
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
-            if let Some(err) = window_weak.upgrade().and_then(|w| w.ensure_window(event_loop).err())
-            {
+            let Some(window) = window_weak.upgrade() else { continue };
+            // A Wayland window is mapped as soon as it exists, and task bars list one that never gets
+            // content, so a hidden one waits: showing it registers it here again.
+            if self.is_wayland && matches!(window.visibility(), WindowVisibility::Hidden) {
+                continue;
+            }
+            if let Err(err) = window.ensure_window(event_loop) {
                 result = Err(err);
                 break;
             }
@@ -1148,7 +1158,8 @@ mod private {
 ///   created when certain conditions of the event loop are met. For example, on Android the application can't be suspended. Therefore,
 ///   functions like [`Self::has_winit_window()`] or [`Self::with_winit_window()`] will only succeed when the event loop is active.
 ///   This is typically the case when callbacks are invoked from the event loop, such as through timers, user input events, or when window
-///   receives events (see also [`Self::on_winit_window_event()`]).
+///   receives events (see also [`Self::on_winit_window_event()`]). On Wayland, where creating a window maps it, the winit window
+///   is created only once the Slint window is shown.
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend.
@@ -1331,13 +1342,17 @@ fn create_renderer(
         }
         #[cfg(feature = "renderer-femtovg-wgpu")]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
-            if let Some(_api) = maybe_graphics_api {
+            match maybe_graphics_api {
+                None
+                | Some(
+                    RequestedGraphicsAPI::Metal
+                    | RequestedGraphicsAPI::Vulkan
+                    | RequestedGraphicsAPI::Direct3D,
+                ) => {}
                 #[cfg(feature = "unstable-wgpu-30")]
-                if !matches!(_api, RequestedGraphicsAPI::WGPU30(..)) {
-                    return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU30 graphics API selection"
-                            .into(),
-                    );
+                Some(RequestedGraphicsAPI::WGPU30(..)) => {}
+                Some(_) => {
+                    return Err("The FemtoVG WGPU renderer supports only the Metal, Vulkan, Direct3D, or WGPU30 graphics API selection".into());
                 }
             }
             renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)

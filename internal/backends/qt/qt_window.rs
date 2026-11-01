@@ -2282,6 +2282,11 @@ cpp! {{
             } else {
                 // Otherwise, use normal delete as it would otherwise cause crash at exit (#7570)
                 delete widget_ptr;
+                // Without a running event loop, the objects that styles such as Breeze or Adwaita
+                // deleteLater() would only be deleted at exit, after Qt's animation timer (#8945).
+                if (QThread::currentThread()->loopLevel() == 0) {
+                    QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+                }
             }
         }
     };
