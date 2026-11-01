@@ -3703,18 +3703,16 @@ struct GlyphBrush {
 /// `draw_glyph_run` quantizes the glyph origin and the clip it cuts glyphs with. Truncating would
 /// put a selection highlight edge a whole pixel away from the glyph clip meant to line up with
 /// it, as soon as the item's own offset lands on a fractional device pixel.
-/// A fill thinner than a pixel, such as an underline at small font sizes, keeps one pixel
-/// centered on it: rounding both of its edges would make it vanish depending on where it lands.
+/// A fill less than a pixel high, such as an underline or a strikethrough at small font sizes,
+/// keeps one pixel row centered on it: rounding both of its edges would make it vanish depending
+/// on where it lands. Widths are rounded edge by edge, so a narrow selection keeps lining up with
+/// the glyph clip.
 #[cfg(feature = "systemfonts")]
 fn snap_fill_rect(rect: sharedparley::PhysicalRect) -> PhysicalRect {
     let mut snapped = rect.round();
     if rect.size.height > 0. && snapped.size.height < 1. {
         snapped.origin.y = (rect.center().y - 0.5).round();
         snapped.size.height = 1.;
-    }
-    if rect.size.width > 0. && snapped.size.width < 1. {
-        snapped.origin.x = (rect.center().x - 0.5).round();
-        snapped.size.width = 1.;
     }
     snapped.cast()
 }
@@ -3731,9 +3729,8 @@ fn snap_fill_rect_keeps_thin_fills() {
         assert_eq!(snapped.origin.y, (y + 0.35 - 0.5f32).round() as i16, "y = {y}");
         assert_eq!((snapped.origin.x, snapped.size.width), (5, 41));
     }
-    // A thin vertical fill, like a text cursor at a fractional scale factor.
-    let snapped = snap_fill_rect(r(7.6, 2.0, 0.8, 14.0));
-    assert_eq!((snapped.origin.x, snapped.size.width), (8, 1));
+    // Narrow fills, like a selection over a tiny glyph, are rounded edge by edge.
+    assert!(snap_fill_rect(r(7.6, 2.0, 0.8, 14.0)).is_empty());
     // Fills of a pixel or more are rounded edge by edge, empty ones stay empty.
     assert_eq!(snap_fill_rect(r(1.4, 2.6, 3.4, 4.2)), euclid::rect(1, 3, 4, 4));
     assert!(snap_fill_rect(r(1.0, 2.0, 0.0, 5.0)).is_empty());
