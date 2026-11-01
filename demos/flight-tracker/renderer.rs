@@ -16,7 +16,6 @@ pub struct Frame {
     pub sun: Vec3,
     /// 0 lights the whole globe, 1 darkens the side away from the sun.
     pub night: f32,
-    pub night_style: bool,
     pub borders: bool,
     pub time: f32,
 }
@@ -222,8 +221,7 @@ impl Renderer {
     }
 
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
-        let options =
-            Vec4::new(frame.night_style as u8 as f32, frame.borders as u8 as f32, frame.time, 0.0);
+        let options = Vec4::new(0.0, frame.borders as u8 as f32, frame.time, 0.0);
         let spreads = Vec4::new(map::SPREAD, map::SIDE_SPREAD, 0.0, 0.0);
         let mut globals = [0.0f32; GLOBAL_FLOATS];
         globals[..16].copy_from_slice(&frame.view_projection.inverse().to_cols_array());

@@ -767,7 +767,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 eye,
                 sun,
                 night: if app.get_sunlight() { 1.0 } else { 0.0 },
-                night_style: app.get_night_style(),
                 borders: app.get_borders(),
                 time: demo.time,
             },
