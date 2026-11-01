@@ -263,6 +263,45 @@ fn to_physical_region(
     physical_region
 }
 
+/// Snaps a fill from the text layout (a text decoration, a selection highlight, a cursor) to
+/// whole pixels. The edges are rounded instead of truncated, so that they quantize the way
+/// `draw_glyph_run` quantizes the glyph origin and the clip it cuts glyphs with. Truncating would
+/// put a selection highlight edge a whole pixel away from the glyph clip meant to line up with
+/// it, as soon as the item's own offset lands on a fractional device pixel.
+/// A fill thinner than a pixel, such as an underline at small font sizes, keeps one pixel
+/// centered on it: rounding both of its edges would make it vanish depending on where it lands.
+fn snap_fill_rect(rect: sharedparley::PhysicalRect) -> PhysicalRect {
+    let mut snapped = rect.round();
+    if rect.size.height > 0. && snapped.size.height < 1. {
+        snapped.origin.y = (rect.center().y - 0.5).round();
+        snapped.size.height = 1.;
+    }
+    if rect.size.width > 0. && snapped.size.width < 1. {
+        snapped.origin.x = (rect.center().x - 0.5).round();
+        snapped.size.width = 1.;
+    }
+    snapped.cast()
+}
+
+#[test]
+fn snap_fill_rect_keeps_thin_fills() {
+    let r = |x: f32, y: f32, w: f32, h: f32| euclid::rect(x, y, w, h);
+    // An underline about 0.7px thick: rounding both edges used to drop it whenever its
+    // top landed in the upper half of a pixel.
+    for y in [10.0, 10.2, 10.4, 10.6, 10.8] {
+        let snapped = snap_fill_rect(r(5.3, y, 40.4, 0.7));
+        assert_eq!(snapped.size.height, 1, "y = {y}");
+        assert_eq!(snapped.origin.y, (y + 0.35 - 0.5f32).round() as i16, "y = {y}");
+        assert_eq!((snapped.origin.x, snapped.size.width), (5, 41));
+    }
+    // A thin vertical fill, like a text cursor at a fractional scale factor.
+    let snapped = snap_fill_rect(r(7.6, 2.0, 0.8, 14.0));
+    assert_eq!((snapped.origin.x, snapped.size.width), (8, 1));
+    // Fills of a pixel or more are rounded edge by edge, empty ones stay empty.
+    assert_eq!(snap_fill_rect(r(1.4, 2.6, 3.4, 4.2)), euclid::rect(1, 3, 4, 4));
+    assert!(snap_fill_rect(r(1.0, 2.0, 0.0, 5.0)).is_empty());
+}
+
 #[test]
 fn region_iter() {
     let mut region = PhysicalRegion::default();
@@ -3749,11 +3788,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
 
         physical_rect.origin += global_offset;
-        // Round the edges instead of truncating them, so that they quantize the way `draw_glyph_run`
-        // quantizes the glyph origin and the clip it cuts glyphs with. Truncating here puts a
-        // selection highlight edge a whole pixel away from the glyph clip meant to line up with it,
-        // as soon as the item's own offset lands on a fractional device pixel.
-        let geometry: PhysicalRect = physical_rect.round().cast().transformed(self.rotation);
+        let geometry: PhysicalRect = snap_fill_rect(physical_rect).transformed(self.rotation);
         // These fills reach the processor directly rather than through `draw_rectangle`, so they
         // have to bring the clip along themselves. Without it a text decoration, a selection
         // highlight or a cursor taller than the item it belongs to paints right over its
