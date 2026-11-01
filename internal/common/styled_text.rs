@@ -399,9 +399,13 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
     let mut interleaved_count: usize = 0;
 
     let mut current_paragraph: Option<StyledTextParagraph> = None;
+    // Set by the start of a list item, for the next event only. In a loose list the item's
+    // text comes in a paragraph, which then continues the item's line rather than starting one.
+    let mut item_started = false;
 
     for (event, event_range) in parser.into_offset_iter() {
         let indentation = list_state_stack.len().saturating_sub(1) as _;
+        let follows_item_start = core::mem::take(&mut item_started);
 
         match event {
             pulldown_cmark::Event::SoftBreak | pulldown_cmark::Event::HardBreak => {
@@ -423,12 +427,14 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
             pulldown_cmark::Event::Start(tag) => {
                 let style = match tag {
                     pulldown_cmark::Tag::Paragraph => {
-                        start_paragraph(
-                            &mut paragraphs,
-                            &mut current_paragraph,
-                            &mut style_stack,
-                            begin_paragraph(indentation, None),
-                        );
+                        if !follows_item_start {
+                            start_paragraph(
+                                &mut paragraphs,
+                                &mut current_paragraph,
+                                &mut style_stack,
+                                begin_paragraph(indentation, None),
+                            );
+                        }
                         continue;
                     }
                     pulldown_cmark::Tag::Item => {
@@ -448,6 +454,7 @@ pub fn parse_interpolated<S: AsRef<[StyledTextParagraph]>>(
                             &mut style_stack,
                             new_paragraph,
                         );
+                        item_started = true;
                         continue;
                     }
                     pulldown_cmark::Tag::List(index) => {
@@ -845,6 +852,52 @@ fn markdown_style_across_line_break() {
                 formatting: alloc::vec![FormattedSpan { range: 0..1, style: Style::Link }],
                 links: alloc::vec![(0..1, "http://x".into())]
             }
+        ]
+    );
+}
+
+#[cfg(feature = "markdown")]
+#[test]
+fn markdown_loose_list() {
+    // In a loose list (items apart by blank lines), each item's text is in a paragraph of its
+    // own. Its first paragraph goes on the bullet's line, as in a tight list.
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("- a\n\n- **b**", &[])),
+        [
+            StyledTextParagraph { text: "• a".into(), formatting: Vec::new(), links: Vec::new() },
+            StyledTextParagraph {
+                text: "• b".into(),
+                formatting: alloc::vec![FormattedSpan { range: 4..5, style: Style::Strong }],
+                links: Vec::new()
+            }
+        ]
+    );
+
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("1. a\n\n2. b\n\n   - c\n\n   - d", &[])),
+        [
+            StyledTextParagraph { text: "1. a".into(), formatting: Vec::new(), links: Vec::new() },
+            StyledTextParagraph { text: "2. b".into(), formatting: Vec::new(), links: Vec::new() },
+            StyledTextParagraph {
+                text: "    ◦ c".into(),
+                formatting: Vec::new(),
+                links: Vec::new()
+            },
+            StyledTextParagraph {
+                text: "    ◦ d".into(),
+                formatting: Vec::new(),
+                links: Vec::new()
+            }
+        ]
+    );
+
+    // A later paragraph of the item still starts a line of its own, indented as a line after a
+    // soft break in the item is.
+    assert_eq!(
+        assert_no_errors(parse_interpolated::<&[_]>("- a\n\n  b", &[])),
+        [
+            StyledTextParagraph { text: "• a".into(), formatting: Vec::new(), links: Vec::new() },
+            StyledTextParagraph { text: "b".into(), formatting: Vec::new(), links: Vec::new() }
         ]
     );
 }
