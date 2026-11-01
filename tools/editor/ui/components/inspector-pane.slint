@@ -11,7 +11,7 @@ import {
     InspectorAppearanceSection, InspectorBorderSection, InspectorCheckedSection, InspectorContext, InspectorCurrentIndexSection,
     InspectorEffectsSection, InspectorGeometrySection, InspectorImageSection, InspectorInputTypeSection, InspectorInteractionSection,
     InspectorLayoutAlignmentSection, InspectorLayoutSection, InspectorMouseCursorSection,
-    InspectorOrientationSection, InspectorPlaceholderSection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
+    InspectorOrientationSection, InspectorPlaceholderSection, InspectorPrimarySection, InspectorProgressSection, InspectorRangeSection, InspectorScrollBarPolicySection,
     InspectorStandardButtonKindSection, InspectorTextAlignmentSection, InspectorTextContentSection, InspectorTextWrapSection, InspectorTitleSection,
     InspectorTypographySection,
 } from "inspector/sections/index.slint";
@@ -100,6 +100,8 @@ export component InspectorPane inherits Rectangle {
                 if InspectorContext.is-touch-area-selection(): InspectorMouseCursorSection {
                     popup-bottom: root.popup-bottom;
                 }
+
+                if InspectorContext.is-primary-selection(): InspectorPrimarySection { }
 
                 if InspectorContext.is-lineedit-selection(): InspectorInputTypeSection {
                     popup-bottom: root.popup-bottom;
