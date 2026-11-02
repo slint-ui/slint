@@ -682,6 +682,14 @@ export component AppWindow inherits Window {
     callback settings-changed();
 
     property <bool> settings-open;
+    /// How far the flight's panels have slid in, from 0 to 1.
+    property <float> flight-in: root.screen == Screen.flight ? 1 : 0;
+    animate flight-in {
+        duration: 450ms;
+        easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    /// Where the controls rest at the bottom.
+    property <length> controls-y: root.height - controls.height - root.bottom-edge - (root.narrow ? 0 : 14px);
     /// Whether the globe shows a route: during a flight, or once the planner has one.
     property <bool> route-shown: root.screen != Screen.entry || (root.planned-origin.index >= 0 && root.planned-destination.index >= 0);
     /// Which of the planner's fields the search results are for: 0 for the origin, 1 for
@@ -941,12 +949,12 @@ export component AppWindow inherits Window {
     // The planner, beside the globe, or below it on a phone held upright. It stays instantiated,
     // so its fields keep their text during a flight.
     Glass {
+        property <length> rest-y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
         visible: root.zoom-progress < 1;
-        opacity: 1 - root.zoom-progress;
-        x: root.left-edge - root.zoom-progress * 40px;
-        y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
+        x: root.narrow ? root.left-edge : root.left-edge - root.zoom-progress * (self.width + root.left-edge + 30px);
+        y: root.narrow ? self.rest-y + root.zoom-progress * (root.height - self.rest-y + 30px) : self.rest-y;
         width: root.narrow ? root.content-width : root.panel-width;
-        height: root.height - self.y - root.bottom-edge;
+        height: root.height - self.rest-y - root.bottom-edge;
         VerticalLayout {
             padding: root.narrow ? 14px : 20px;
             spacing: 12px;
@@ -1042,11 +1050,9 @@ export component AppWindow inherits Window {
     }
 
     flight-card := FlightCard {
-        opacity: root.screen == Screen.flight ? 1 : 0;
-        visible: self.opacity > 0;
-        animate opacity { duration: 300ms; }
+        visible: root.flight-in > 0;
         x: root.left-edge;
-        y: root.top-edge;
+        y: root.top-edge - (1 - root.flight-in) * (self.height + root.top-edge + 30px);
         width: root.narrow ? root.content-width : min(420px, root.content-width - 56px);
         flight: root.flight;
         kiosk: root.kiosk;
@@ -1055,11 +1061,10 @@ export component AppWindow inherits Window {
     }
 
     if root.narrow || !root.compact || root.flight.phase != Phase.flying: StatusCard {
-        opacity: root.screen == Screen.flight ? 1 : 0;
-        visible: self.opacity > 0;
-        animate opacity { duration: 300ms; }
+        visible: root.flight-in > 0;
         x: root.left-edge;
-        y: root.narrow ? controls.y - self.height - 10px : root.height - self.height - root.bottom-edge - 14px;
+        y: (root.narrow ? root.controls-y - self.height - 10px : root.height - self.height - root.bottom-edge - 14px)
+            + (1 - root.flight-in) * (root.height - root.controls-y + self.height + 30px);
         width: root.narrow ? root.content-width : min(420px, root.content-width);
         flight: root.flight;
         small: root.narrow || root.short;
@@ -1067,11 +1072,9 @@ export component AppWindow inherits Window {
 
     // Below the flight card on a phone held upright, where it takes the whole width.
     VerticalLayout {
-        opacity: root.screen == Screen.flight ? 1 : 0;
-        visible: self.opacity > 0;
-        animate opacity { duration: 300ms; }
-        x: root.width - self.width - root.right-edge;
-        y: root.narrow ? flight-card.y + flight-card.height + 10px : root.top-edge;
+        visible: root.flight-in > 0;
+        x: root.width - self.width - root.right-edge + (1 - root.flight-in) * (self.width + root.right-edge + 30px);
+        y: root.narrow ? root.top-edge + flight-card.height + 10px : root.top-edge;
         width: 40px;
         spacing: 8px;
         RoundButton {
@@ -1091,11 +1094,9 @@ export component AppWindow inherits Window {
 
     // The views, the planner, and the settings.
     controls := Glass {
-        opacity: root.screen == Screen.flight ? 1 : 0;
-        visible: self.opacity > 0;
-        animate opacity { duration: 300ms; }
+        visible: root.flight-in > 0;
         x: root.width - self.width - root.right-edge;
-        y: root.height - self.height - root.bottom-edge - (root.narrow ? 0 : 14px);
+        y: root.controls-y + (1 - root.flight-in) * (root.height - root.controls-y + 30px);
         width: root.narrow ? root.content-width : bar.preferred-width;
         height: bar.preferred-height;
         border-radius: self.height / 2;
