@@ -8,7 +8,7 @@
 //! Must be done before inlining and many other passes because the lowered code must
 //! be further inlined as it may expand to a native widget that needs inlining
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Callable, Expression, NamedReference};
 use crate::expression_types::{MinMaxOp, Unit};
@@ -21,6 +21,7 @@ use std::rc::Rc;
 pub async fn lower_tabwidget(
     doc: &Document,
     type_loader: &mut crate::typeloader::TypeLoader,
+    forwarded_references: &mut forward_inherited_expression::ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
     // Collect before lowering: lowering rewrites base_type, which would hide
@@ -56,7 +57,9 @@ pub async fn lower_tabwidget(
     let tab_widgets: Vec<_> = tab_widgets
         .into_iter()
         .filter(|elem| {
-            if !base_chain_declares_children(&elem.borrow().base_type, &seen) {
+            if !tabwidget_bases(elem).iter().any(|base| {
+                base.root_element.borrow().children.iter().any(is_tab)
+            }) {
                 return true;
             }
             if !elem.borrow().children.is_empty() {
@@ -74,6 +77,15 @@ pub async fn lower_tabwidget(
             false
         })
         .collect();
+
+    for elem in &tab_widgets {
+        if tabwidget_bases(elem)
+            .iter()
+            .any(|base| base.root_element.borrow().children.iter().any(is_bar))
+        {
+            inline_bar_bases(elem, doc, type_loader, forwarded_references, diag);
+        }
+    }
 
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
@@ -159,6 +171,70 @@ pub async fn lower_tabwidget(
             &contracts,
             diag,
         );
+    }
+}
+
+fn is_bar(elem: &ElementRc) -> bool {
+    elem.borrow().slot_target.as_deref() == Some("bar")
+}
+
+fn is_tab(elem: &ElementRc) -> bool {
+    matches!(elem.borrow().builtin_type(), Some(builtin) if builtin.name == "Tab")
+}
+
+fn tabwidget_bases(elem: &ElementRc) -> Vec<Rc<Component>> {
+    let mut bases = Vec::new();
+    let mut base_type = elem.borrow().base_type.clone();
+    while let ElementType::Component(base) = base_type {
+        base_type = base.root_element.borrow().base_type.clone();
+        bases.push(base);
+    }
+    bases
+}
+
+fn inline_bar_bases(
+    elem: &ElementRc,
+    doc: &Document,
+    type_loader: &crate::typeloader::TypeLoader,
+    forwarded_references: &mut forward_inherited_expression::ForwardedReferenceCache,
+    diag: &mut BuildDiagnostics,
+) {
+    let ElementType::Component(base) = elem.borrow().base_type.clone() else { return };
+    inline_bar_bases(&base.root_element, doc, type_loader, forwarded_references, diag);
+    super::lower_states::lower_states(
+        &base,
+        &doc.local_registry,
+        &type_loader.symbol_counters,
+        forwarded_references,
+        type_loader.compiler_config.edition,
+        diag,
+    );
+    super::collect_init_code::collect_init_code(&base);
+
+    // Builtin TabWidget slots have no declared insertion points for the generic inliner.
+    let bar = base.root_element.borrow().children.iter().position(is_bar);
+    if let Some(index) = bar {
+        base.root_element.borrow().children[index].borrow_mut().slot_default = Some("bar".into());
+    }
+    base.child_insertion_points.borrow_mut().insert(
+        "bar".into(),
+        ChildrenInsertionPoint {
+            parent: base.root_element.clone(),
+            insertion_index: bar.unwrap_or(0),
+            node: ChildInsertionPointNode::DefaultChildrenPlaceHolder(
+                base.node.as_ref().unwrap().clone().into(),
+            ),
+        },
+    );
+    let component = elem.borrow().enclosing_component.upgrade().unwrap();
+    super::inlining::inline_element(elem, &base, &component, diag);
+    base.child_insertion_points.borrow_mut().remove("bar");
+    if let Some(index) = bar {
+        base.root_element.borrow().children[index].borrow_mut().slot_default = None;
+    }
+    let mut init_code = component.init_code.borrow_mut();
+    if let Some(inlined) = init_code.inlined_init_code.remove(&elem.borrow().span().offset) {
+        init_code.constructor_code.extend(inlined);
     }
 }
 
