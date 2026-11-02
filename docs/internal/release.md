@@ -9,9 +9,9 @@ This document describes the Slint release process
   - Corrosion in api/cpp/CMakeLists.txt
   - Tree sitter: in `.github/workflows/ci.yaml` for the `tree-sitter` job, bump the `tag`
     to the latest release as per https://github.com/tree-sitter/tree-sitter/releases
-  - The pins of the reproducible Android viewer build, which F-Droid's recipe has to match:
+  - The pins of the reproducible Android viewer build, which F-Droid's rebuild follows:
     the Rust toolchain in `tools/viewer/android/rust-toolchain.toml` to the current stable,
-    and the `cargo-ndk` and `resvg` versions in `.github/actions/setup-android-viewer-build/action.yaml`
+    and the `cargo-ndk` and `resvg` versions in `tools/viewer/android/build-native.sh`
     to the latest on crates.io.
 
 * Verify that the list of supported platforms in docs/astro/src/content/docs/guide/platforms/desktop/ matches what we
@@ -28,9 +28,12 @@ This document describes the Slint release process
   (see the comment in `scripts/publish.sh`)
 
 * Update version number in the documentation  (Only for major release)
-  - Crate documentation have sample .toml files (api/rs/lib.rs, api/rs/build/lib.rs, api/rs/README)
+  - The `slint = "…"` and `slint-build = "…"` lines of the crate documentation
+    (api/rs/slint/lib.rs, api/rs/build/lib.rs, api/rs/slint/README.md, api/rs/slint/mcu.md)
       - `sed --follow-symlinks -i 's/^\(slint.*\) = ".*"$/\1 = "1.16.0"/' **/*.rs **/*.md`
-  - The `[dependencies.slint]` in mcu.md
+  - The `slint = { version = "…", … }` lines in api/rs/slint/android.rs and in the guide pages under docs/astro/src/content/docs/guide/
+  - The `[dependencies.slint]` version and the `cargo add slint@…` lines in api/rs/slint/mcu.md
+  - Check that all of them show the new version: `git grep -E 'slint[a-z-]*(@| = "| = \{ ?version = ")1\.[0-9]' -- '*.rs' '*.md' '*.mdx' ':!CHANGELOG.md'`
 
 * Update the `zed` extension commit hash of the tree-sitter repo in editors/zed/extension.toml in the `grammars.slint` section.
   Take the **commit** hash from the [**nightly** branch](https://github.com/slint-ui/tree-sitter-slint/tree/nightly).

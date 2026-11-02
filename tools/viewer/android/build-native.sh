@@ -12,9 +12,9 @@
 # script too, is byte-identical. Keep everything that influences the
 # binaries in here rather than in the callers.
 #
-# Requires: rustup, cargo-ndk, resvg; an Android SDK with the platform and
-# build-tools of app/build.gradle.kts, NDK r27, ANDROID_HOME and
-# ANDROID_NDK_HOME set; JDK 21 like F-Droid; clang, python3 and ninja for Skia.
+# Requires: rustup; an Android SDK with the platform and build-tools of
+# app/build.gradle.kts, NDK r27, ANDROID_HOME and ANDROID_NDK_HOME set;
+# JDK 21 like F-Droid; clang, python3 and ninja for Skia.
 
 set -euo pipefail
 
@@ -40,6 +40,15 @@ export ANDROID_BUILD_TOOLS_VERSION="$(gradle_setting buildToolsVersion)"
 export FORCE_SKIA_BUILD=1
 export ANDROID_NDK="$ANDROID_NDK_HOME"
 
+# rust-toolchain.toml applies to cargo runs from this directory; the fallback
+# installs its toolchain on rustup 1.28, which doesn't do so on demand.
+cd "$PROJECT_DIR"
+rustup show active-toolchain >/dev/null 2>&1 || rustup toolchain install --no-self-update >/dev/null
+
+# F-Droid's auto-update copies the recipe's install commands, versions
+# included, from the previous release; replace those with the pinned versions.
+cargo install --locked cargo-ndk@4.1.2 resvg@0.49.0
+
 # Skia's build refers to its sources in the cargo registry by a path relative
 # to the build directory, and that path ends up in the binary. A cargo home
 # inside the target directory keeps it the same on every machine; the crate
@@ -63,10 +72,6 @@ JNI_DIR="$PROJECT_DIR/app/src/main/jniLibs"
 rm -rf "$JNI_DIR"
 mkdir -p "$JNI_DIR"
 
-# rust-toolchain.toml applies to cargo runs from this directory; the fallback
-# installs its toolchain on rustup 1.28, which doesn't do so on demand.
-cd "$PROJECT_DIR"
-rustup show active-toolchain >/dev/null 2>&1 || rustup toolchain install --no-self-update >/dev/null
 cargo ndk --manifest-path "$REPO_ROOT/Cargo.toml" "${ABIS[@]/#/--target=}" \
     --platform "$(gradle_setting minSdk)" -o "$JNI_DIR" \
     build --profile package-release --locked -p slint-viewer --lib --features remote

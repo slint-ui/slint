@@ -42,7 +42,7 @@ jobs:
 #                    - runner: windows-11-arm
 #                      target: aarch64
 #                      container: auto
-                    - runner: macos-14
+                    - runner: macos-15
                       target: aarch64
                       container: auto
                     - runner: ubuntu-22.04
@@ -133,14 +133,14 @@ jobs:
                 if-no-files-found: error
 
     ios_binaries:
-        runs-on: macos-14
+        runs-on: macos-15
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v4.3.4
+              uses: pypa/cibuildwheel@v4.3.5
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse

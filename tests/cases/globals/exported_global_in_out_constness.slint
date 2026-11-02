@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export global Glob {
+    in property <int> input: 5;
+    out property <int> output: 10;
+}
+
+export component TestCase inherits Window {
+    in property <int> root-input: 1;
+    out property <int> sum: Glob.input + Glob.output;
+    out property <int> doubled: root-input * 2;
+    out property <bool> test: sum == 15 && doubled == 2;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.global::<Glob<'_>>().get_output(), 10);
+instance.global::<Glob<'_>>().set_input(7);
+assert_eq!(instance.get_sum(), 17);
+instance.set_root_input(4);
+assert_eq!(instance.get_doubled(), 8);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.global<Glob>().get_output(), 10);
+instance.global<Glob>().set_input(7);
+assert_eq(instance.get_sum(), 17);
+instance.set_root_input(4);
+assert_eq(instance.get_doubled(), 8);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.Glob.output, 10);
+instance.Glob.input = 7;
+assert.equal(instance.sum, 17);
+instance.root_input = 4;
+assert.equal(instance.doubled, 8);
+```
+*/

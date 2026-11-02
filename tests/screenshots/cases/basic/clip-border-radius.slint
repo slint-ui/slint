@@ -1,0 +1,154 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=184x76
+// ROTATION_THRESHOLD=60  - gradients and the border radius algorithm are imprecise in rotation
+
+// Children that cross the corners of a rounded `clip: true` are cut to the rounded shape.
+// Every cell is a blue rounded clip with a border.
+// Top row: an image, a linear and a radial gradient with their own radius,
+// a rounded rectangle with a border, and a translucent rectangle.
+// Bottom row: a Flickable that cuts the corners away, a child that stays clear of the corners,
+// the translucent rectangle in two identical nested clips (it must match the single clip),
+// and nested clips with different radii and offsets.
+
+component Cell inherits Rectangle {
+    width: 32px;
+    height: 32px;
+    background: blue;
+    border-width: 2px;
+    border-color: #ff00006f;
+    border-radius: 10px;
+    clip: true;
+}
+
+component Oversized inherits Rectangle {
+    x: -8px;
+    y: -8px;
+    width: 48px;
+    height: 48px;
+    background: #00800080;
+}
+
+export component TestCase inherits Window {
+    width: 184px;
+    height: 76px;
+    background: black;
+
+    Cell {
+        x: 4px;
+        y: 4px;
+        Image {
+            x: -4px;
+            y: -4px;
+            width: 40px;
+            height: 40px;
+            source: @image-url("../image/image-add.png");
+        }
+    }
+
+    Cell {
+        x: 40px;
+        y: 4px;
+        Rectangle {
+            x: -4px;
+            y: -4px;
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            background: @linear-gradient(90deg, red, yellow);
+        }
+    }
+
+    Cell {
+        x: 76px;
+        y: 4px;
+        Rectangle {
+            x: -4px;
+            y: -4px;
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            background: @radial-gradient(circle, yellow, red);
+        }
+    }
+
+    Cell {
+        x: 112px;
+        y: 4px;
+        Rectangle {
+            x: -4px;
+            y: -4px;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            border-width: 5px;
+            border-color: yellow;
+            background: green;
+        }
+    }
+
+    Cell {
+        x: 148px;
+        y: 4px;
+        Oversized { }
+    }
+
+    Cell {
+        x: 4px;
+        y: 40px;
+        Flickable {
+            y: 11px;
+            width: 32px;
+            height: 10px;
+            Oversized {
+                y: -19px;
+                background: orange;
+            }
+        }
+    }
+
+    Cell {
+        x: 40px;
+        y: 40px;
+        Rectangle {
+            x: 11px;
+            y: 11px;
+            width: 10px;
+            height: 10px;
+            background: orange;
+        }
+    }
+
+    Cell {
+        x: 76px;
+        y: 40px;
+        // The outer clip's shape: inset by the 2px border.
+        Rectangle {
+            x: 2px;
+            y: 2px;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            clip: true;
+            Oversized {
+                x: -10px;
+                y: -10px;
+            }
+        }
+    }
+
+    Cell {
+        x: 112px;
+        y: 40px;
+        Rectangle {
+            x: 7px;
+            y: -7px;
+            width: 32px;
+            height: 32px;
+            border-radius: 14px;
+            clip: true;
+            Oversized { }
+        }
+    }
+}
