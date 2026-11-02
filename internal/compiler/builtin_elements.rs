@@ -1278,6 +1278,12 @@ fn build(l: &mut Loader) {
         /// Values less than or equal to zero don't limit the number of lines.
         /// \default 0
         in property <int> max-lines;
+        /// The line height as a unitless factor (or a percentage: `150%` equals `1.5`) applied to
+        /// the font's natural line height, as for `Text`: `1` keeps the natural line height,
+        /// larger values spread the lines apart, smaller values pull them together, and `0`
+        /// collapses them onto each other. Negative or non-numeric values behave like `1`.
+        /// \default 1
+        in property <float> line-height-factor: 1;
         /// The styled text rendered, using CommonMark markup with additional HTML tags for styling.
         /// \default ""
         in property <styled-text> text;

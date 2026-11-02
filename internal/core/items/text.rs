@@ -249,6 +249,7 @@ pub struct StyledTextItem {
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub max_lines: Property<i32>,
+    pub line_height_factor: Property<f32>,
     pub link_clicked: Callback<StringArg>,
     pub link_color: Property<Color>,
     pub selectable: Property<bool>,
@@ -534,6 +535,10 @@ impl RenderString for StyledTextItem {
 
     fn link_color(self: Pin<&Self>) -> Color {
         self.link_color()
+    }
+
+    fn line_height_factor(self: Pin<&Self>) -> Option<f32> {
+        resolve_line_height_factor(Self::FIELD_OFFSETS.line_height_factor().apply_pin(self).get())
     }
 }
 

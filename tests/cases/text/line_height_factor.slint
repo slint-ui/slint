@@ -48,6 +48,15 @@ export component TestCase inherits Window {
             line-height-factor: 2;
         }
 
+        default-styled-text := StyledText {
+            text: @markdown("One");
+        }
+
+        styled-text := StyledText {
+            text: @markdown("One");
+            line-height-factor: 2;
+        }
+
     }
 
     hit-test-input := TextInput {
@@ -70,6 +79,8 @@ export component TestCase inherits Window {
         && text-input.height == 40phx
         && zero-text.height == 0phx
         && negative-text.height == 20phx
+        && default-styled-text.height == 10phx
+        && styled-text.height == 20phx
         // Text-block heights are rounded up to whole physical pixels, so doubling the
         // reference height can differ from the factor-2 height by up to 2 pixels.
         && Math.abs((parley-text.height - 2 * parley-default-text.height) / 1phx) < 2;
