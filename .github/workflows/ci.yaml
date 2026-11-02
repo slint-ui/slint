@@ -75,8 +75,8 @@ jobs:
             fail-fast: false
             matrix:
                 include: ${{ fromJSON(inputs.full
-                    && '[{"name":"Rust and UI on macOS","os":"blacksmith-6vcpu-macos-15","run_ui_tests":true},{"name":"Rust and UI on Linux","os":"blacksmith-4vcpu-ubuntu-2204","run_ui_tests":true},{"name":"Rust on Windows","os":"blacksmith-4vcpu-windows-2025","run_ui_tests":false}]'
-                    || '[{"name":"Rust and UI on Linux","os":"blacksmith-4vcpu-ubuntu-2204","run_ui_tests":true}]') }}
+                    && '[{"name":"Rust and UI on macOS","os":"macos-15","run_ui_tests":true},{"name":"Rust and UI on Linux","os":"ubuntu-22.04","run_ui_tests":true},{"name":"Rust on Windows","os":"windows-2022","run_ui_tests":false}]'
+                    || '[{"name":"Rust and UI on Linux","os":"ubuntu-22.04","run_ui_tests":true}]') }}
         runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         permissions:
@@ -204,9 +204,9 @@ jobs:
             matrix:
                 include:
                     # Linux C++ is covered by cpp_test_driver_32bit
-                    - os: blacksmith-6vcpu-macos-15
+                    - os: macos-15
                       rust_version: beta
-                    - os: blacksmith-4vcpu-windows-2025
+                    - os: windows-2022
                       rust_version: "1.95"
         runs-on: ${{ matrix.os }}
 
@@ -239,7 +239,7 @@ jobs:
             PKG_CONFIG_ALLOW_CROSS: 1
             SLINT_TEST_STYLES: ${{ !inputs.full && !contains(fromJSON(inputs.changes), 'widget_tests') && !contains(fromJSON(inputs.changes), 'api_cpp') && 'cosmic' || '' }}
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   add-architecture: i386
@@ -346,11 +346,11 @@ jobs:
         needs: cpp_cmake
         # cpp_cmake_config is part of api_cpp, which adds ubuntu-22.04 to the cpp_cmake matrix
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'cpp_cmake_config') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        runs-on: ubuntu-22.04
         env:
             QT_QPA_PLATFORM: offscreen
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
@@ -380,9 +380,9 @@ jobs:
 
     vsce_build_test:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'vsce') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        runs-on: ubuntu-22.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: pnpm/action-setup@v6.1.0
             - uses: Swatinem/rust-cache@v2
               with:
@@ -425,9 +425,9 @@ jobs:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        runs-on: ubuntu-22.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf,armv7-unknown-linux-gnueabihf
@@ -504,7 +504,7 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
         runs-on: ubuntu-26.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   extra-packages: >-
@@ -543,7 +543,7 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc_driver') }}
         strategy:
             matrix:
-                os: [blacksmith-6vcpu-macos-15, blacksmith-4vcpu-windows-2025]
+                os: [macos-15, windows-2022]
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v7
@@ -590,9 +590,9 @@ jobs:
         env:
             SLINT_NO_QT: 1
             RUSTFLAGS: -D warnings
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
             - name: run the formatter
@@ -620,7 +620,7 @@ jobs:
             matrix:
                 # v5.3 is the minimum supported version; home-automation needs IDF 6
                 esp-idf-version: ${{ fromJSON(inputs.full && '["release-v5.3","release-v6.0"]' || '["release-v5.3"]') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        runs-on: ubuntu-22.04
         container: espressif/idf:${{ matrix.esp-idf-version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -630,7 +630,7 @@ jobs:
                   . ${IDF_PATH}/export.sh
                   cd $IDF_PYTHON_ENV_PATH
                   bin/pip install pydantic==2.11.10
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y libfontconfig1-dev
             - uses: dtolnay/rust-toolchain@stable
             - uses: esp-rs/xtensa-toolchain@v1.7
@@ -668,7 +668,7 @@ jobs:
 
     android:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_rs') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
             # cargo-apk2 does not honor the repository's relative `build.target-dir`
@@ -676,7 +676,7 @@ jobs:
             # where cargo actually writes the artifacts.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Android API level 36
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
@@ -718,9 +718,9 @@ jobs:
 
     android_cpp:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') || contains(fromJSON(inputs.changes), 'android_backend') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -745,9 +745,9 @@ jobs:
     emscripten_cpp:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_cpp') || contains(fromJSON(inputs.changes), 'examples') }}
         name: Emscripten C++
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: wasm32-unknown-emscripten
@@ -768,7 +768,7 @@ jobs:
 
     ios_cpp:
         if: ${{ inputs.full }}
-        runs-on: blacksmith-6vcpu-macos-26
+        runs-on: macos-26
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
@@ -782,9 +782,9 @@ jobs:
 
     test-ai-plugins:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'ai_plugins') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: actions/setup-node@v7
               with:
                   node-version: 24
@@ -794,9 +794,9 @@ jobs:
 
     test-slint-preview-view:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_preview_view') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: actions/setup-node@v7
               with:
                   node-version: 24
@@ -822,9 +822,9 @@ jobs:
 
     test-figma-inspector:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'figma_inspector') }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: actions/setup-node@v7
               with:
                   node-version: 24
@@ -877,9 +877,9 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'rust_files') }}
         env:
             RUSTFLAGS: -D warnings
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        runs-on: ubuntu-22.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   extra-packages: clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good
@@ -923,7 +923,7 @@ jobs:
         if: ${{ inputs.full }}
         runs-on: ubuntu-26.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: i686-pc-windows-msvc
@@ -967,7 +967,7 @@ jobs:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'linuxkms_backend') || contains(fromJSON(inputs.changes), 'api_cpp') }}
         runs-on: ubuntu-26.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-linuxkms-features
@@ -996,7 +996,7 @@ jobs:
                       features: "compat-1-18,backend-linuxkms,backend-linuxkms-libseat,backend-linuxkms-libinput,renderer-software"
         name: LinuxKMS ${{ matrix.name }}
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -1021,9 +1021,9 @@ jobs:
                     - sdk_url: https://nextcloud.slint.dev/s/SN5REo4B8zyYYoL/download/poky-glibc-x86_64-core-image-weston-sdk-cortexa15t2hf-neon-qemuarm-toolchain-6.0.1.sh
                       env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
                       target: armv7-unknown-linux-gnueabihf
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        runs-on: ubuntu-22.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - name: Fetch Yocto SDK
               run: |
                   # Fetch pre-built SDK built via populate_sdk for core-image-weston with setup from https://github.com/slint-ui/meta-slint/blob/main/.github/workflows/ci.yml
@@ -1076,9 +1076,9 @@ jobs:
             fail-fast: false
         # native_sim compiles against the host's glibc headers,
         # which Zephyr's `__unused` macro breaks on Ubuntu 26.04.
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-24.04
         steps:
-          - uses: useblacksmith/checkout@v1
+          - uses: actions/checkout@v7
             with:
                 path: slint
           - name: Install linux dependencies, including Zephyr dependencies
@@ -1105,9 +1105,9 @@ jobs:
 
     uefi-demo:
         if: ${{ inputs.full }}
-        runs-on: blacksmith-4vcpu-ubuntu-2204
+        runs-on: ubuntu-22.04
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: stable
@@ -1136,7 +1136,7 @@ jobs:
                   scheme: "slint-viewer"
                   bundle_id: dev.slint.slint-viewer
                   device: iPhone 17
-        runs-on: blacksmith-6vcpu-macos-26
+        runs-on: macos-26
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
@@ -1249,12 +1249,12 @@ jobs:
 
     android_wgpu:
         if: ${{ inputs.full }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         env:
             # cargo-apk2 does not honor the repository's relative `build.target-dir`.
             CARGO_TARGET_DIR: ${{ github.workspace }}/target
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - name: Install Android API level 36
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-36"
             - uses: dtolnay/rust-toolchain@stable
@@ -1270,9 +1270,9 @@ jobs:
 
     miri:
         if: ${{ inputs.full }}
-        runs-on: blacksmith-4vcpu-ubuntu-2404
+        runs-on: ubuntu-latest
         steps:
-            - uses: useblacksmith/checkout@v1
+            - uses: actions/checkout@v7
             - name: Install system dependencies
               run: bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" update && bash "$GITHUB_WORKSPACE/.github/actions/apt-get-retry.sh" install -y libfontconfig-dev
             - uses: ./.github/actions/setup-rust
