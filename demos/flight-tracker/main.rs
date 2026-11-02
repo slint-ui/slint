@@ -735,6 +735,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             })
         }
     });
+    app.on_twisted({
+        let interact = interact.clone();
+        move |degrees| {
+            interact(&|demo, _| {
+                demo.view = View::Free;
+                demo.view_chosen = true;
+                demo.camera.twist(degrees.to_radians());
+            })
+        }
+    });
     app.on_dragged({
         let interact = interact.clone();
         move |dx, dy| {

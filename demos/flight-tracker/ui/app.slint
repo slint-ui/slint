@@ -670,6 +670,8 @@ export component AppWindow inherits Window {
     callback drag-ended();
     /// Zooms in for a `factor` above 1.
     callback zoom(factor: float);
+    /// Turns the view by `degrees` clockwise, as two fingers twist.
+    callback twisted(degrees: float);
     callback choose-view(view: View);
     callback search(query: string);
     /// Starts the planned flight.
@@ -767,12 +769,16 @@ export component AppWindow inherits Window {
     ScaleRotateGestureHandler {
         enabled: root.screen == Screen.flight;
         property <float> last-scale: 1;
+        property <angle> last-rotation;
         started => {
             self.last-scale = 1;
+            self.last-rotation = 0deg;
         }
         updated => {
             root.zoom(self.scale / self.last-scale);
             self.last-scale = self.scale;
+            root.twisted((self.rotation - self.last-rotation) / 1deg);
+            self.last-rotation = self.rotation;
         }
 
         TouchArea {
