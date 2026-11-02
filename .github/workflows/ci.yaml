@@ -23,21 +23,6 @@ on:
             description: "JSON list of the matched groups from ci_path_filters.yaml"
             type: string
             default: '[]'
-      secrets:
-        CLOUDFLARE_API_TOKEN:
-          required: true
-        CLOUDFLARE_ACCOUNT_ID:
-          required: true
-        CLOUDFLARE_API_TOKEN_2:
-          required: true
-        CLOUDFLARE_ACCOUNT_ID_2:
-          required: true
-        ANDROID_KEYSTORE_PASSWORD:
-          required: true
-        ANDROID_KEYSTORE_BASE64:
-          required: true
-        READ_WRITE_PRIVATE_KEY:
-          required: true
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
@@ -580,11 +565,8 @@ jobs:
     docs:
         if: ${{ !inputs.full && (contains(fromJSON(inputs.changes), 'docs_build') || contains(fromJSON(inputs.changes), 'slint_sc')) }}
         uses: ./.github/workflows/build_docs.yaml
-        secrets:
-          READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
         with:
           release: false
-          app-id: ${{ vars.READ_WRITE_APP_ID }}
           slint-sc-coverage: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') || contains(fromJSON(inputs.changes), 'safety_docs') }}
           node-python-docs: ${{ contains(fromJSON(inputs.changes), 'node_python_docs') }}
 
@@ -881,8 +863,6 @@ jobs:
         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
         CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
-        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
 
     servo_example:
