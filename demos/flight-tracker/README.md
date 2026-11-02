@@ -42,6 +42,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   Before Slint renders each frame, the demo renders the globe into a texture, and shows it in an `Image` underneath the UI.
 - `globe.wgsl` ray traces the globe, its atmosphere, and the stars in a single pass over the screen, so the globe needs no mesh.
   The ground is NASA's Blue Marble for July, 4096 pixels wide.
+  `compress.rs` compresses it at startup to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
 - `map.rs` computes a map with mip levels from the outlines in `data/` at startup.
   It holds the distances to the coasts and the borders, so that the shader draws them sharp at any zoom, and the lights of the cities.
 - The board renders one tile's globe each frame, for the whole window, and shows the middle of it.

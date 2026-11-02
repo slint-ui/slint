@@ -18,6 +18,7 @@ use renderer::{Frame, Renderer};
 
 mod atlas;
 mod camera;
+mod compress;
 mod flight;
 mod map;
 mod renderer;
@@ -707,9 +708,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .select()?;
 
     let app = AppWindow::new()?;
-    let map = map::Map::new();
-    // NASA's Blue Marble for July, see `data/convert.py`.
-    let imagery = renderer::Imagery::decode(include_bytes!("data/earth.jpg"))?;
     let demo = Rc::new(RefCell::new(Demo::new()));
     let labels = Rc::new(slint::VecModel::<Label>::default());
     app.set_labels(labels.clone().into());
@@ -907,8 +905,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let slint::GraphicsAPI::WGPU30 { device, queue, .. } = graphics_api else {
                 return;
             };
+            // The map and the imagery are only needed until they're on the GPU.
+            let map = map::Map::new();
+            // NASA's Blue Marble for July, see `data/convert.py`.
+            let imagery = renderer::Imagery::decode(include_bytes!("data/earth.jpg"))
+                .expect("the imagery is a valid JPEG")
+                .compress(device.features());
             let info = device.adapter_info();
-            app.set_gpu_text(format!("{} ({:?})", info.name, info.backend).into());
+            app.set_gpu_text(
+                format!("{} ({:?}, {:?})", info.name, info.backend, imagery.format).into(),
+            );
             graphics = Some((
                 Renderer::new(device, queue, &map, &imagery, FRAME_VIEW_FORMAT),
                 device.clone(),
