@@ -7,7 +7,7 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use super::scene::{TexturePosition, add_positions_mod, scaled_position_mod, texture_position};
+use super::scene::texture_offset;
 use super::{Fixed, PhysicalLength, PhysicalRect};
 use crate::scene::{
     GradientFactor, GradientPosition, LinearGradientPosition, PremultipliedGradientStop,
@@ -33,18 +33,7 @@ pub(super) fn draw_texture_line(
         data,
         format,
         pixel_stride,
-        extra:
-            super::SceneTextureExtra {
-                colorize,
-                alpha,
-                rotation,
-                dx,
-                dy,
-                off_x,
-                off_y,
-                destination_width,
-                destination_height,
-            },
+        extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
     } = *texture;
 
     let source_size = texture.source_size().cast::<i32>();
@@ -59,98 +48,9 @@ pub(super) fn draw_texture_line(
     let bpp = format.bpp();
     let sdf_delta = Fixed::<i32, 8>::from_fixed(dy).max(Fixed(1));
 
-    if destination_width > 0 && destination_height > 0 {
-        let len = len as i32;
-        if len == 0 {
-            return;
-        }
-
-        if !rotation.is_transpose() {
-            let row =
-                texture_position(source_height, destination_height as i32, off_y.truncate() + y);
-            let row_offset = row.truncate() as usize * pixel_stride as usize;
-            let row_fract = row.fract();
-            let first_index = off_x.truncate()
-                + if rotation.mirror_height() {
-                    extra_clip_end as i32 + len - 1
-                } else {
-                    extra_clip_begin as i32
-                };
-            let mut pos = TexturePosition::new(
-                source_width,
-                destination_width as i32,
-                first_index,
-                rotation.mirror_height(),
-            );
-            let contiguous = !rotation.mirror_height()
-                && dx == Fixed::from_integer(1)
-                && alpha == 0xff
-                && has_contiguous_path(format, colorize);
-            if contiguous {
-                draw_contiguous_pixels(
-                    line_buffer,
-                    format,
-                    &data[(row_offset + pos.position().truncate() as usize) * bpp..]
-                        [..len as usize * bpp],
-                );
-            } else {
-                fetch_blend_pixel(
-                    line_buffer,
-                    format,
-                    data,
-                    alpha,
-                    colorize,
-                    (pixel_stride as usize, sdf_delta),
-                    |bpp| {
-                        let position = pos.position();
-                        pos.advance();
-                        (
-                            (row_offset + position.truncate() as usize) * bpp,
-                            position.fract(),
-                            row_fract,
-                        )
-                    },
-                );
-            }
-        } else {
-            let col_position =
-                texture_position(source_width, destination_width as i32, off_x.truncate() + y);
-            let col_fract = col_position.fract();
-            let col = col_position.truncate() as usize * bpp;
-            let stride = pixel_stride as usize * bpp;
-            let first_index = off_y.truncate()
-                + if rotation.mirror_height() {
-                    extra_clip_end as i32 + len - 1
-                } else {
-                    extra_clip_begin as i32
-                };
-            let mut row = TexturePosition::new(
-                source_height,
-                destination_height as i32,
-                first_index,
-                rotation.mirror_height(),
-            );
-            fetch_blend_pixel(
-                line_buffer,
-                format,
-                data,
-                alpha,
-                colorize,
-                (stride, sdf_delta),
-                |_| {
-                    let position = row.position();
-                    row.advance();
-                    (position.truncate() as usize * stride + col, col_fract, position.fract())
-                },
-            );
-        }
-        return;
-    }
-
     if !rotation.is_transpose() {
         let mut delta = dx;
-        let row =
-            add_positions_mod(off_y, scaled_position_mod(dy, y, source_height), source_height);
+        let row = texture_offset(off_y, dy, y, source_height);
         // The position where to start in the image array for a this row
         let row_offset = (row.truncate() % source_height) as usize * pixel_stride as usize;
         let mut tile_start = 0;
@@ -166,11 +66,8 @@ pub(super) fn draw_texture_line(
         // the accumulated error in image pixels
         let mut acc_err;
         if rotation.mirror_height() {
-            let o = add_positions_mod(
-                off_x,
-                scaled_position_mod(delta, extra_clip_end as i32 + len as i32 - 1, source_width),
-                source_width,
-            );
+            let o =
+                texture_offset(off_x, delta, extra_clip_end as i32 + len as i32 - 1, source_width);
             pos = o;
             tile_start = source_width;
             end = (o / delta) as usize + 1;
@@ -178,11 +75,7 @@ pub(super) fn draw_texture_line(
             delta = -delta;
             remainder = -remainder;
         } else {
-            let o = add_positions_mod(
-                off_x,
-                scaled_position_mod(delta, extra_clip_begin as i32, source_width),
-                source_width,
-            );
+            let o = texture_offset(off_x, delta, extra_clip_begin as i32, source_width);
             pos = o;
             end = ((Fixed::from_integer(source_width) - o) / delta) as usize;
             acc_err = (Fixed::from_integer(source_width) - o) % delta;
@@ -239,7 +132,7 @@ pub(super) fn draw_texture_line(
             end = end.min(len);
         }
     } else {
-        let col = add_positions_mod(off_x, scaled_position_mod(dx, y, source_width), source_width);
+        let col = texture_offset(off_x, dx, y, source_width);
         let col_fract = col.fract();
         let col = (col.truncate() % source_width) as usize * bpp;
         let stride = pixel_stride as usize * bpp;
@@ -252,13 +145,10 @@ pub(super) fn draw_texture_line(
         let mut acc_err;
         if rotation.mirror_height() {
             row_init = Fixed::from_integer(source_height);
-            row = add_positions_mod(
+            row = texture_offset(
                 off_y,
-                scaled_position_mod(
-                    row_delta,
-                    extra_clip_end as i32 + len as i32 - 1,
-                    source_height,
-                ),
+                row_delta,
+                extra_clip_end as i32 + len as i32 - 1,
                 source_height,
             );
             end = (row / row_delta) as usize + 1;
@@ -266,11 +156,7 @@ pub(super) fn draw_texture_line(
             row_delta = -row_delta;
             remainder = -remainder;
         } else {
-            row = add_positions_mod(
-                off_y,
-                scaled_position_mod(row_delta, extra_clip_begin as i32, source_height),
-                source_height,
-            );
+            row = texture_offset(off_y, row_delta, extra_clip_begin as i32, source_height);
             end = ((Fixed::from_integer(source_height) - row) / row_delta) as usize;
             acc_err = (Fixed::from_integer(source_height) - row) % row_delta;
             if acc_err != Fixed::default() {
@@ -2226,8 +2112,6 @@ fn unscaled_texture_line_wraps_into_next_tile() {
                 dy: Fixed::from_integer(1),
                 off_x: Fixed(98_304),
                 off_y: Fixed(0),
-                destination_width: 0,
-                destination_height: 0,
                 colorize: Color::default(),
                 alpha: 0xff,
                 rotation: Default::default(),

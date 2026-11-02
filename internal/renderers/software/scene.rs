@@ -424,108 +424,28 @@ impl<'a> SceneTexture<'a> {
     }
 }
 
-// Physical dimensions are i16, so the largest fixed-point source coordinate is 32767 << 16.
-// Q16 is the highest precision that fits in i32, and Q8 input bounds steps below 256, so
-// mirroring by negating a step cannot overflow either.
+// i16 texture bounds make Q16 fit in i32, including negated steps.
 const TEXTURE_STEP_SHIFT: usize = 16;
 pub(super) type TextureStep = Fixed<i32, TEXTURE_STEP_SHIFT>;
 
-pub(super) fn scaled_position_mod(step: TextureStep, index: i32, source_size: i32) -> TextureStep {
-    let modulus = source_size << TEXTURE_STEP_SHIFT;
-    let mut factor = step.0.rem_euclid(modulus);
-    let mut multiplier = index.unsigned_abs();
-    let mut product = 0;
-    while multiplier != 0 {
-        if multiplier & 1 != 0 {
-            product = if product >= modulus - factor {
-                product - (modulus - factor)
-            } else {
-                product + factor
-            };
-        }
-        factor =
-            if factor >= modulus - factor { factor - (modulus - factor) } else { factor + factor };
-        multiplier >>= 1;
-    }
-    if index < 0 && product != 0 { Fixed(modulus - product) } else { Fixed(product) }
-}
-
-pub(super) fn add_positions_mod(
-    left: TextureStep,
-    right: TextureStep,
+pub(super) fn texture_offset(
+    offset: TextureStep,
+    step: TextureStep,
+    index: i32,
     source_size: i32,
 ) -> TextureStep {
-    let modulus = source_size << TEXTURE_STEP_SHIFT;
-    let left = left.0.rem_euclid(modulus);
-    let right = right.0.rem_euclid(modulus);
-    if left >= modulus - right { Fixed(left - (modulus - right)) } else { Fixed(left + right) }
+    let modulus = (source_size as i64) << TEXTURE_STEP_SHIFT;
+    Fixed(((offset.0 as i64 + step.0 as i64 * index as i64).rem_euclid(modulus)) as i32)
 }
 
 pub(super) fn texture_step(source_size: i32, destination_size: i32) -> TextureStep {
-    Fixed::<i32, TEXTURE_STEP_SHIFT>::from_fraction(source_size, destination_size).max(Fixed(1))
-}
-
-pub(super) fn texture_position(
-    source_size: i32,
-    destination_size: i32,
-    destination_index: i32,
-) -> TextureStep {
-    TexturePosition::new(source_size, destination_size, destination_index, false).position()
-}
-
-pub(super) struct TexturePosition {
-    position: TextureStep,
-    step: TextureStep,
-    remainder: i32,
-    denominator: i32,
-    error: i32,
-    reverse: bool,
-}
-
-impl TexturePosition {
-    pub(super) fn new(
-        source_size: i32,
-        destination_size: i32,
-        destination_index: i32,
-        reverse: bool,
-    ) -> Self {
-        debug_assert!(source_size > 0);
-        debug_assert!(destination_size > 0);
-        debug_assert!(destination_index >= 0 && destination_index < destination_size);
-
-        let numerator = source_size << TEXTURE_STEP_SHIFT;
-        let step = texture_step(source_size, destination_size);
-        let remainder = numerator % destination_size;
-        // The quotient product is at most source_size << 16, and the remainder product
-        // is below i16::MAX squared, so neither intermediate exceeds i32.
-        let error = remainder * destination_index % destination_size;
-        let position =
-            Fixed(step.0 * destination_index + remainder * destination_index / destination_size);
-
-        Self { position, step, remainder, denominator: destination_size, error, reverse }
-    }
-
-    pub(super) fn position(&self) -> TextureStep {
-        self.position
-    }
-
-    pub(super) fn advance(&mut self) {
-        if self.reverse {
-            self.position -= self.step;
-            if self.error < self.remainder {
-                self.position -= Fixed(1);
-                self.error += self.denominator - self.remainder;
-            } else {
-                self.error -= self.remainder;
-            }
-        } else {
-            self.position += self.step;
-            self.error += self.remainder;
-            if self.error >= self.denominator {
-                self.position += Fixed(1);
-                self.error -= self.denominator;
-            }
-        }
+    let step = Fixed::<i32, TEXTURE_STEP_SHIFT>::from_fraction(source_size, destination_size);
+    let last = step.0 as i64 * (destination_size - 1) as i64;
+    let last_pixel = ((source_size - 1) as i64) << TEXTURE_STEP_SHIFT;
+    if source_size < destination_size && last < last_pixel {
+        Fixed(step.0 + 1).max(Fixed(1))
+    } else {
+        step.max(Fixed(1))
     }
 }
 
@@ -534,12 +454,8 @@ pub struct SceneTextureExtra {
     /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
     pub dx: Fixed<i32, 16>,
     pub dy: Fixed<i32, 16>,
-    /// Offset in Q16 units, in destination pixels for exact scaling and source pixels otherwise.
     pub off_x: Fixed<i32, 16>,
     pub off_y: Fixed<i32, 16>,
-    /// Destination size for exact sampling, or zero for tiled textures and SDF glyphs.
-    pub destination_width: i16,
-    pub destination_height: i16,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     pub colorize: Color,
@@ -575,8 +491,12 @@ impl SceneTextureExtra {
         };
 
         let source_size = texture.source_size().cast::<i32>();
-        let (dx, dy, destination_width, destination_height) = if let Some(tiling) = &texture.tiling
-        {
+        let (dst_width, dst_height) = if texture.rotation.is_transpose() {
+            (texture.dst_height, texture.dst_width)
+        } else {
+            (texture.dst_width, texture.dst_height)
+        };
+        let (dx, dy) = if let Some(tiling) = &texture.tiling {
             offset -= euclid::vec2(tiling.offset_x, tiling.offset_y).cast();
 
             // FIXME: gap
@@ -587,26 +507,19 @@ impl SceneTextureExtra {
                 TextureStep::from_fixed(Fixed::<i32, 8>::from_f32(tiling.scale_x)?).max(Fixed(1));
             let dy =
                 TextureStep::from_fixed(Fixed::<i32, 8>::from_f32(tiling.scale_y)?).max(Fixed(1));
-            (dx, dy, 0, 0)
+            (dx, dy)
         } else {
-            let (dst_w, dst_h) = if texture.rotation.is_transpose() {
-                (texture.dst_height as i32, texture.dst_width as i32)
-            } else {
-                (texture.dst_width as i32, texture.dst_height as i32)
-            };
             (
-                texture_step(source_size.width, dst_w),
-                texture_step(source_size.height, dst_h),
-                dst_w.try_into().ok()?,
-                dst_h.try_into().ok()?,
+                texture_step(source_size.width, dst_width as i32),
+                texture_step(source_size.height, dst_height as i32),
             )
         };
         Fixed::<u16, 8>::try_from_fixed(dx).ok()?;
         Fixed::<u16, 8>::try_from_fixed(dy).ok()?;
 
         let (off_x, off_y) = if texture.tiling.is_some() {
-            let off_x = scaled_position_mod(dx, offset.x, source_size.width);
-            let off_y = scaled_position_mod(dy, offset.y, source_size.height);
+            let off_x = texture_offset(Fixed::default(), dx, offset.x, source_size.width);
+            let off_y = texture_offset(Fixed::default(), dy, offset.y, source_size.height);
             (
                 Fixed::<i32, 16>::from_fixed(Fixed::<i32, 4>::from_fixed(off_x)),
                 Fixed::<i32, 16>::from_fixed(Fixed::<i32, 4>::from_fixed(off_y)),
@@ -624,8 +537,6 @@ impl SceneTextureExtra {
                 dy,
                 off_x,
                 off_y,
-                destination_width,
-                destination_height,
             },
             clipped_geometry.to_rect().cast(),
         ))
@@ -1109,18 +1020,14 @@ fn touches_corner() {
 
 #[test]
 fn texture_positions_cover_upscaled_source_edges() {
-    assert!(core::mem::align_of::<SceneTextureExtra>() <= 4);
+    assert_eq!(core::mem::align_of::<SceneTextureExtra>(), 4);
     assert!(core::mem::size_of::<SceneTextureExtra>() <= 32);
-    std::eprintln!(
-        "SceneTextureExtra size={} align={}",
-        core::mem::size_of::<SceneTextureExtra>(),
-        core::mem::align_of::<SceneTextureExtra>()
-    );
 
     for source_size in 1..=64 {
         for destination_size in source_size..=4096 {
-            let first = texture_position(source_size, destination_size, 0);
-            let last = texture_position(source_size, destination_size, destination_size - 1);
+            let step = texture_step(source_size, destination_size);
+            let first = texture_offset(Fixed(0), step, 0, source_size);
+            let last = texture_offset(Fixed(0), step, destination_size - 1, source_size);
 
             assert_eq!(first.truncate(), 0, "{source_size} → {destination_size}");
             assert_eq!(last.truncate(), source_size - 1, "{source_size} → {destination_size}");
@@ -1128,54 +1035,28 @@ fn texture_positions_cover_upscaled_source_edges() {
 
             for sample in 0..=16 {
                 let index = sample * (destination_size - 1) / 16;
-                let forward = texture_position(source_size, destination_size, index);
-                let reverse = TexturePosition::new(
-                    source_size,
-                    destination_size,
-                    destination_size - 1 - index,
-                    true,
-                )
-                .position();
+                let forward = texture_offset(Fixed(0), step, index, source_size);
+                let reverse =
+                    texture_offset(last, -step, destination_size - 1 - index, source_size);
                 assert!(forward >= Fixed::default());
                 assert!(forward < Fixed::from_integer(source_size));
                 assert!(reverse >= Fixed::default());
                 assert!(reverse < Fixed::from_integer(source_size));
             }
         }
-
-        for destination_size in [source_size, source_size + 1, 330.max(source_size), 2048, 4096] {
-            let mut forward = TexturePosition::new(source_size, destination_size, 0, false);
-            let mut reverse =
-                TexturePosition::new(source_size, destination_size, destination_size - 1, true);
-            assert_eq!(reverse.position().truncate(), source_size - 1);
-            for index in 0..destination_size {
-                assert_eq!(
-                    forward.position().truncate(),
-                    texture_position(source_size, destination_size, index).truncate()
-                );
-                assert!(forward.position() < Fixed::from_integer(source_size));
-                assert!(reverse.position() < Fixed::from_integer(source_size));
-                if index + 1 < destination_size {
-                    forward.advance();
-                    reverse.advance();
-                }
-            }
-            assert_eq!(forward.position().truncate(), source_size - 1);
-            assert_eq!(reverse.position().truncate(), 0);
-        }
     }
 
-    let last = texture_position(32_766, 32_767, 32_766);
+    let last = texture_offset(Fixed(0), texture_step(32_766, 32_767), 32_766, 32_766);
     assert_eq!(last.truncate(), 32_765);
     assert!(last < Fixed::from_integer(32_766));
 
-    let max_dimension = texture_position(32_767, 32_767, 32_766);
+    let max_dimension = texture_offset(Fixed(0), texture_step(32_767, 32_767), 32_766, 32_767);
     assert_eq!(max_dimension.truncate(), 32_766);
     assert!(max_dimension < Fixed::from_integer(32_767));
 
     let max_accepted_step = texture_step(32_767, 128);
     assert!(max_accepted_step.0 < (256 << TEXTURE_STEP_SHIFT));
     assert!((-max_accepted_step).0 > i32::MIN);
-    let downscaled_position = texture_position(32_767, 128, 127);
+    let downscaled_position = texture_offset(Fixed(0), max_accepted_step, 127, 32_767);
     assert!(downscaled_position < Fixed::from_integer(32_767));
 }

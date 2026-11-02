@@ -2829,19 +2829,11 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let fract_x = Fixed::<i32, 16>::from_fixed(normalize(
                             (-glyph.x) - Fixed::from_integer(gl_x.get() as _),
                         ));
-                        let off_x = add_positions_mod(
-                            scaled_position_mod(delta, off_x as i32, map_width),
-                            fract_x,
-                            map_width,
-                        );
+                        let off_x = texture_offset(fract_x, delta, off_x as i32, map_width);
                         let fract_y = Fixed::<i32, 16>::from_fixed(normalize(
                             glyph.y - Fixed::from_integer(gl_y.get() as _),
                         ));
-                        let off_y = add_positions_mod(
-                            scaled_position_mod(delta, off_y as i32, map_height),
-                            fract_y,
-                            map_height,
-                        );
+                        let off_y = texture_offset(fract_y, delta, off_y as i32, map_height);
                         let extra = SceneTextureExtra {
                             colorize: color,
                             // color already is mixed with global alpha
@@ -2851,8 +2843,6 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             dy: delta.max(Fixed(1)),
                             off_x,
                             off_y,
-                            destination_width: 0,
-                            destination_height: 0,
                         };
                         let geometry = geometry.transformed(self.rotation);
                         match &glyph.alpha_map {
