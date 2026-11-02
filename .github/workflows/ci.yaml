@@ -752,7 +752,7 @@ jobs:
               with:
                   distribution: temurin
                   java-version: '17'
-            - uses: gradle/actions/setup-gradle@v6.4.0
+            - uses: gradle/actions/setup-gradle@v6.4.1
             # The Android Gradle plugin installs the NDK and CMake versions it needs
             # itself, without retrying a failed download.
             - name: Install the Android NDK and CMake
