@@ -1,4 +1,4 @@
 {
   "edition": 1.19
-//              |error{Cannot load 📂/tests/syntax/project-file/edition-float/slint-project.json: invalid type: floating point `1.19`, expected a Slint edition string, such as "1.19" at line 2 column 17}
+//              |error{invalid type: floating point `1.19`, expected a Slint edition string, such as "1.19"}
 }

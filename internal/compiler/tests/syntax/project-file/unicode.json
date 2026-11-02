@@ -1,5 +1,5 @@
 {
   "$schema": "é", "main": 42,
-//                          |error{Cannot load 📂/tests/syntax/project-file/unicode/slint-project.json: invalid type: integer `42`, expected path string at line 2 column 29}
+//                          |error{invalid type: integer `42`, expected path string}
   "edition": "1.19"
 }

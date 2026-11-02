@@ -1,4 +1,4 @@
 {
   "edition": "1.x"
-//               |error{Cannot load 📂/tests/syntax/project-file/edition-nonnumeric/slint-project.json: '1.x' is not a Slint edition: write the major and minor version, such as "1.19" at line 2 column 18}
+//               |error{'1.x' is not a Slint edition: write the major and minor version, such as "1.19"}
 }
