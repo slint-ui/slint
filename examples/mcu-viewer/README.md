@@ -108,3 +108,16 @@ cargo test --release --manifest-path examples/mcu-board-support/esp32_s3_box_3/t
   The compiler embeds `@image-url` images and imported fonts when it compiles the design.
 - If a design crashes the firmware, the board restarts.
   The live preview then reports the panic, and sends the design again only once you edit it.
+
+## Measure Serial Preview Latency
+
+Set `SLINT_MCU_PREVIEW_PROFILE` to an output file path when launching the editor or another serial-preview host.
+Use the BOX firmware's `mcu-board-support/box-display-profile` feature.
+Make isolated edits to a static design so each load acknowledgment corresponds to the following display batch.
+The profile records source-queue time, cumulative compilation, device loading, rendering, transfer, and total elapsed time in microseconds.
+The total ends at host receipt of the first transfer-completion log after the load acknowledgment.
+It includes the log's return path and excludes physical LCD scanout.
+The start is the updated-source message leaving the editor, rather than the operating system's mouse or keyboard event.
+`host_other_us` includes coalescing, channel waiting, and superseded work before the final compilation finishes.
+Device rendering and transfer durations are separate measurements; they aren't additional time to add to the total.
+Leave the environment variable unset and firmware profiling disabled for normal use.

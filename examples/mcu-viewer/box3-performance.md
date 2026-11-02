@@ -186,3 +186,35 @@ These figures exclude the edit delay, USB transfer, and rendering on the device.
 A direct collection microbenchmark measures repeated font discovery at about 45 ms, versus less than 0.1 ms for snapshot cloning.
 The imported-font isolation regression test and all six serial transport tests pass.
 All five BOX scenes retain their pixel checksums and complete USB replacement or timer-update checks.
+
+## Final Qualification
+
+The attached BOX-3 runs the accepted firmware with profiling disabled, the LCD at 40 MHz, and octal PSRAM at 80 MHz.
+Flash uses QIO; cache lines and SPI code placement retain their defaults.
+The normal firmware completes six successive USB design replacements and load acknowledgments.
+The rebuilt release editor reconnects to the saved 320 × 240 counter design.
+A background edit and restoration leave the editor connected.
+The backlight stays on during display transfers.
+
+## Editor-to-Transfer Baseline Before Generated-Resource Caches
+
+The timing-enabled release editor sends six settled background edits through the actual inspector.
+The BOX runs the accepted profile firmware, with a 40 MHz LCD, 80 MHz PSRAM, QIO flash, and 32-byte cache lines.
+The test preserves the current user scene, including its checkable button.
+The first connection and cold compilation are excluded.
+
+| Metric | Median |
+| --- | ---: |
+| Source queued to transfer-completion log received | 276.469 ms |
+| Compilation | 67.180 ms |
+| Other host work before final compilation finishes | 83.808 ms |
+| Compiled design to load acknowledgment | 52.287 ms |
+| Load acknowledgment to transfer-completion log | 74.519 ms |
+| Device render and queue | 35.821 ms |
+| Device display transfer | 31.615 ms |
+
+Each column has its own median, so summing columns doesn't reproduce the median total.
+The compilation measurement includes serialization.
+The total includes compilation, coalescing, channel waiting, USB/device loading, display work, and the completion log's return path.
+It measures neither the operating system input event nor physical panel scanout.
+All six serial transport tests pass with the opt-in timing instrumentation.

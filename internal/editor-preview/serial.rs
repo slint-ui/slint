@@ -42,7 +42,7 @@ const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// What a session's thread works on, in the order it arrived.
 enum Input {
-    Lsp(Box<LspToPreviewMessage>),
+    Lsp(Box<LspToPreviewMessage>, Instant),
     Device(DeviceMessage),
     /// A line of the device's log output.
     DeviceOutput(String),
@@ -106,7 +106,7 @@ impl SerialConnection {
     }
 
     pub fn send(&self, message: &LspToPreviewMessage) {
-        let _ = self.inputs.send(Input::Lsp(Box::new(message.clone())));
+        let _ = self.inputs.send(Input::Lsp(Box::new(message.clone()), Instant::now()));
     }
 }
 
@@ -364,6 +364,69 @@ struct Showing {
     started: Instant,
 }
 
+/// Measures isolated edits in a static design with the BOX display-profile firmware.
+/// The end is host receipt of the first transfer-completion log after the load acknowledgment.
+struct LatencyTrace {
+    path: std::path::PathBuf,
+    queued: Instant,
+    compile_start: Option<Instant>,
+    compiled: Option<Instant>,
+    loaded: Option<Instant>,
+    id: Option<u32>,
+    render_us: Option<u64>,
+    compilation_us: u128,
+    attempts: u32,
+}
+
+impl LatencyTrace {
+    fn new(queued: Instant) -> Option<Self> {
+        Some(Self {
+            path: std::env::var_os("SLINT_MCU_PREVIEW_PROFILE")?.into(),
+            queued,
+            compile_start: None,
+            compiled: None,
+            loaded: None,
+            id: None,
+            render_us: None,
+            compilation_us: 0,
+            attempts: 0,
+        })
+    }
+
+    fn transfer(&self, line: &str) -> Option<String> {
+        let loaded = self.loaded?;
+        let compiled = self.compiled?;
+
+        let transfer = line
+            .split("BOX_TRANSFER,")
+            .nth(1)?
+            .split(',')
+            .find_map(|part| part.strip_prefix("transfer_us="))?
+            .parse::<u64>()
+            .ok()?;
+        let now = Instant::now();
+        let result = format!(
+            "MCU_LATENCY,id={},host_other_us={},compile_us={},compile_attempts={},send_load_us={},loaded_to_transfer_log_us={},render_us={},transfer_us={},total_us={}",
+            self.id?,
+            compiled.duration_since(self.queued).as_micros().saturating_sub(self.compilation_us),
+            self.compilation_us,
+            self.attempts,
+            loaded.duration_since(compiled).as_micros(),
+            now.duration_since(loaded).as_micros(),
+            self.render_us?,
+            transfer,
+            now.duration_since(self.queued).as_micros(),
+        );
+        match std::fs::OpenOptions::new().create(true).append(true).open(&self.path) {
+            Ok(mut file) => {
+                let _ = writeln!(file, "{result}");
+            }
+            Err(err) => return Some(format!("Cannot write MCU latency profile: {err}")),
+        }
+        Some(result)
+    }
+}
+
 /// Whether a [`Session`] goes on.
 enum Flow {
     Continue,
@@ -388,6 +451,7 @@ struct Session<'a, P> {
     last_panic: Option<String>,
     /// The design the device crashed showing, which isn't sent again.
     crashed: Option<Shown>,
+    latency: Option<LatencyTrace>,
 }
 
 /// Shows the design on the device at the other end of `port` until the editor stops the
@@ -420,6 +484,7 @@ fn run_session(
         sent: None,
         last_panic: None,
         crashed: None,
+        latency: None,
     };
     loop {
         let load_deadline = session.showing.as_ref().map(|showing| showing.started + LOAD_TIMEOUT);
@@ -461,9 +526,13 @@ impl<P: Write> Session<'_, P> {
                 let _ = self.port.write_all(&encode_frame(&HostMessage::Clear));
                 return Ok(Flow::Stop);
             }
-            Input::Lsp(message) => {
+            Input::Lsp(message, queued) => {
+                let source_edit = matches!(&*message, LspToPreviewMessage::SetContents { .. });
                 if self.design.apply(*message) {
                     self.send_at = Some(Instant::now() + SERIAL_REBUILD_DEBOUNCE);
+                    if source_edit || self.latency.is_none() {
+                        self.latency = LatencyTrace::new(queued);
+                    }
                 }
             }
             // The answer to the handshake's `Hello`, after the device's start
@@ -500,6 +569,10 @@ impl<P: Write> Session<'_, P> {
             }
             Input::Device(DeviceMessage::Loaded { id, heap_free }) => {
                 if let Some(showing) = self.showing.take_if(|showing| showing.id == id) {
+                    if let Some(trace) = self.latency.as_mut().filter(|trace| trace.id == Some(id))
+                    {
+                        trace.loaded = Some(Instant::now());
+                    }
                     self.crashed = None;
                     self.report_problem(None);
                     log(format!(
@@ -512,6 +585,18 @@ impl<P: Write> Session<'_, P> {
                 }
             }
             Input::DeviceOutput(line) => {
+                if let Some(trace) = self.latency.as_mut() {
+                    if trace.loaded.is_some() {
+                        if let Some(value) = line.split("BOX_FRAME,render_and_queue_us=").nth(1) {
+                            trace.render_us =
+                                value.split(',').next().and_then(|value| value.parse().ok());
+                        }
+                        if let Some(result) = trace.transfer(&line) {
+                            log(result);
+                            self.latency = None;
+                        }
+                    }
+                }
                 log(format!("[device] {line}"));
                 // The board's panic handler prints this before it restarts the board
                 if line.starts_with("Panic") {
@@ -541,6 +626,10 @@ impl<P: Write> Session<'_, P> {
     /// changes again meanwhile. The device confirms showing it later, with
     /// [`DeviceMessage::Loaded`].
     fn send(&mut self) -> Result<Flow, String> {
+        if let Some(trace) = self.latency.as_mut() {
+            trace.compile_start = Some(Instant::now());
+            trace.attempts += 1;
+        }
         let compiled = match self.design.compile(self.device.scale_factor) {
             Ok(compiled) => compiled,
             Err(err) => {
@@ -548,6 +637,12 @@ impl<P: Write> Session<'_, P> {
                 return Ok(Flow::Continue);
             }
         };
+        if let Some(trace) = self.latency.as_mut() {
+            let now = Instant::now();
+            trace.compilation_us +=
+                now.duration_since(trace.compile_start.take().unwrap()).as_micros();
+            trace.compiled = Some(now);
+        }
         let shown = Shown {
             component: compiled.component.clone(),
             unit: blob_key(&compiled.unit),
@@ -609,6 +704,9 @@ impl<P: Write> Session<'_, P> {
         write_patiently(&mut self.port, &show)
             .map_err(|err| format!("Cannot send the design: {err}"))?;
         self.last_id += 1;
+        if let Some(trace) = self.latency.as_mut() {
+            trace.id = Some(self.last_id);
+        }
         self.device.resources = shown.resources.iter().copied().collect();
         self.device.shown = Some(shown);
         self.showing = Some(Showing { id: self.last_id, sent, started });
@@ -662,7 +760,7 @@ fn handshake(
             }
             Ok(Input::Device(DeviceMessage::Error { message, .. })) => return Err(message),
             Ok(Input::Device(DeviceMessage::Loaded { .. })) => {}
-            Ok(Input::Lsp(message)) => {
+            Ok(Input::Lsp(message, _)) => {
                 design.apply(*message);
             }
             Ok(Input::DeviceOutput(line)) => log(format!("[device] {line}")),
@@ -868,7 +966,7 @@ mod tests {
                 }
                 SerialEvent::Message(PreviewToLspMessage::RequestState { .. }) => {
                     for message in &messages {
-                        let _ = feeder.send(Input::Lsp(Box::new(message.clone())));
+                        let _ = feeder.send(Input::Lsp(Box::new(message.clone()), Instant::now()));
                     }
                 }
                 _ => {}
@@ -975,10 +1073,13 @@ mod tests {
         let url = Url::from_file_path(dir.path().join("main.slint")).unwrap();
         let source = "export component Main inherits Window { Rectangle { background: red; } }";
         let edit = |contents: String| {
-            Input::Lsp(Box::new(LspToPreviewMessage::SetContents {
-                url: VersionedUrl::new(url.clone(), None),
-                contents: contents.into_bytes(),
-            }))
+            Input::Lsp(
+                Box::new(LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url.clone(), None),
+                    contents: contents.into_bytes(),
+                }),
+                Instant::now(),
+            )
         };
         let fake = start_against_fake_device(SLINT_VERSION, show(&url, source));
         fake.wait_for("The device shows ");
