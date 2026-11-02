@@ -285,7 +285,15 @@ fn project_load_error(
     error: Box<dyn Error>,
     source: Option<Vec<u8>>,
 ) -> Diagnostic {
-    let message = format!("Cannot load {path}: {error}");
+    let mut message = error.to_string();
+    if let Some(error) = error.downcast_ref::<serde_json::Error>() {
+        // serde_json adds a "at line X columy Y" suffix to the error message.
+        // Strip it, as our diagnostics already contain the line/column info.
+        let suffix = format!(" at line {} column {}", error.line(), error.column());
+        if let Some(without_location) = message.strip_suffix(&suffix) {
+            message = without_location.to_owned();
+        }
+    }
     let location = error.downcast_ref::<serde_json::Error>().and_then(|error| {
         let source = String::from_utf8(source?).ok()?;
         if error.line() == 0 {
@@ -1382,9 +1390,7 @@ mod tests {
             let nested_directory = path.parent().unwrap().join("nested");
             fs::create_dir_all(&nested_directory).unwrap();
             let error = resolve_input(&nested_directory).unwrap_err();
-            assert!(
-                error.message().contains(&nested_directory.join(FILE_NAME).display().to_string())
-            );
+            assert_eq!(error.source_file(), Some(nested_directory.join(FILE_NAME).as_path()));
             fs::remove_dir_all(&nested_directory).unwrap();
         });
     }

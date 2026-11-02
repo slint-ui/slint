@@ -3,5 +3,5 @@
   // one
   // two
   "include-paths": nonsense
-//                  |error{Cannot load 📂/tests/syntax/project-file/comments-before-error/slint-project.json: expected ident at line 5 column 21}
+//                  |error{expected ident}
 }
