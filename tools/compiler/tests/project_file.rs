@@ -236,7 +236,11 @@ fn slint_sc_rejects_project_inputs() {
             .output()
             .unwrap();
         assert!(!output.status.success());
-        assert!(stderr(&output).contains("can't compile a project"), "{}", stderr(&output));
+        assert!(
+            stderr(&output).contains("can't compile a project file or directory"),
+            "{}",
+            stderr(&output)
+        );
     }
 }
 

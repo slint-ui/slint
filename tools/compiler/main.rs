@@ -174,7 +174,9 @@ fn parse_input(
     // The Slint SC subset rejects the flags a project file could set, so it has none.
     #[cfg(feature = "slint-sc")]
     if args.slint_sc && i_slint_compiler::project_file::project_root(&args.path).is_dir() {
-        eprintln!("--slint-sc can't compile a project directory, pass its main file instead");
+        eprintln!(
+            "--slint-sc can't compile a project file or directory, pass its main file instead"
+        );
         std::process::exit(1);
     }
 

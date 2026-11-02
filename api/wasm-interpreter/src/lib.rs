@@ -65,8 +65,7 @@ extern "C" {
 /// or `null` if the file doesn't exist, so that the search continues in the next include path.
 /// `optional_resource_loader` returns the bytes of an imported font file.
 /// Without it, the interpreter fetches the font from its URL.
-/// `optional_project_root` is the URL of a project file (`slint-project.json`) or a directory
-/// containing a project file.
+/// `optional_project_root` is the URL of a project file (`slint-project.json`) or a directory that contains one.
 /// The interpreter loads the project file through `optional_import_callback`.
 ///
 /// It compiles with the edition of its own release.
