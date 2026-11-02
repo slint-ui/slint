@@ -369,6 +369,8 @@ pub async fn run_passes(
         type_loader.compiler_config.const_scale_factor.unwrap_or(1.),
         &type_loader.compiler_config.resource_url_mapper,
         font_collection.as_ref(),
+        #[cfg(feature = "renderer-software")]
+        type_loader.compiler_config.resource_cache.as_ref(),
         diag,
     )
     .await;

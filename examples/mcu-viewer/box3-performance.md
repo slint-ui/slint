@@ -262,3 +262,23 @@ The cache defaults to approximately 64 MiB of retained sources and generated res
 Oversized resources are generated without retention.
 Three cache tests cover rendering-input changes, same-path font replacement, exact output parity, warm hits, eviction, and zero capacity.
 All six serial transport tests pass.
+
+## Generated-Image Cache
+
+The same bounded session cache now retains decoded and generated image textures.
+Keys include encoded contents, extension, scale-factor bits, and font-context presence.
+SVG text records its resolved font queries and revalidates their byte contents before reusing pixels.
+File reads and data-URI decoding still occur, so replaced or missing files aren't hidden by the cache.
+SVGs resolving external image files are regenerated because their external contents aren't part of the SVG key.
+Animated images replay the first-frame warning on cache hits.
+
+| Image workload | Font cache only | Font and image caches |
+| --- | ---: | ---: |
+| 320 × 240 PNG | 2.387 ms | 1.377 ms |
+| 1024 × 768 PNG | 10.005 ms | 3.409 ms |
+| 320 × 240 SVG with 700 gradient circles | 32.340 ms | 1.347 ms |
+
+The comparison uses the preceding font-cache executable and the image-cache executable with the same release configuration.
+Each process compiles eleven times; medians exclude the first compilation.
+All serialized resource hashes match.
+Eight resource-cache tests pass, covering same-path replacements, scale changes, data URIs, SVG text/font changes, external SVG images, warning replay, eviction, and zero capacity.

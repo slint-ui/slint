@@ -31,6 +31,7 @@ pub async fn embed_images(
     scale_factor: f32,
     resource_url_mapper: &Option<crate::ResourceUrlMapper>,
     font_collection: Option<&SharedFontCollection>,
+    #[cfg(feature = "renderer-software")] resource_cache: Option<&crate::ResourceCache>,
     diag: &mut BuildDiagnostics,
 ) {
     // Slint SC always embeds: the images referenced by `@image-url()` are
@@ -43,7 +44,11 @@ pub async fn embed_images(
     }
 
     let global_embedded_resources = &doc.embedded_file_resources;
-    let mut resource_ids = ResourceIds::default();
+    let mut resource_ids = ResourceIds {
+        #[cfg(feature = "renderer-software")]
+        cache: resource_cache.cloned(),
+        ..Default::default()
+    };
 
     let mut all_components = Vec::new();
     doc.visit_all_used_components(|c| all_components.push(c.clone()));
@@ -89,6 +94,8 @@ pub async fn embed_images(
 /// The resources already embedded, so that each is embedded once.
 #[derive(Default)]
 struct ResourceIds {
+    #[cfg(feature = "renderer-software")]
+    cache: Option<crate::ResourceCache>,
     by_path: HashMap<SourcePath, EmbeddedResourcesIdx>,
     by_data_uri: HashMap<SmolStr, EmbeddedResourcesIdx>,
     #[cfg(feature = "renderer-software")]
@@ -249,6 +256,8 @@ fn embed_image(
         };
     }
 
+    #[cfg(feature = "renderer-software")]
+    let resource_cache = resource_ids.cache.clone();
     let mut resources = global_embedded_resources.borrow_mut();
     let mut push = |kind| {
         let id = resources.push_and_get_key(EmbeddedResources { path: Some(path.clone()), kind });
@@ -290,16 +299,17 @@ fn embed_image(
     #[cfg(feature = "renderer-software")]
     if embed_files == EmbedResourcesKind::EmbedTextures {
         let loaded = _file.read().map_err(image::ImageError::IoError).and_then(|data| {
-            load_image_from_bytes(&data, _file.extension(), _scale_factor, _font_collection)
-                .map(|loaded| (loaded, is_animated(&data)))
+            load_texture(
+                &data,
+                _file.extension(),
+                _scale_factor,
+                _font_collection,
+                resource_cache.as_ref(),
+            )
         });
         return match loaded {
-            Ok(((img, source_format, original_size), animated)) => {
-                let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
-                    img,
-                    source_format,
-                    original_size,
-                )));
+            Ok((texture, animated)) => {
+                let resource_id = push(EmbeddedResourcesKind::TextureData(texture));
                 if animated {
                     resource_ids.animated.insert(resource_id);
                 }
@@ -501,25 +511,80 @@ enum SourceFormat {
 /// `SlintContext`, so resolve those fonts against the collection shared with
 /// `embed_glyphs` (system fonts plus imported fonts) through the shared bridge.
 #[cfg(feature = "renderer-software")]
+fn load_texture(
+    data: &[u8],
+    extension: Option<&str>,
+    scale: f32,
+    fonts: Option<&SharedFontCollection>,
+    cache: Option<&crate::ResourceCache>,
+) -> image::ImageResult<(Texture, bool)> {
+    use crate::resource_cache::{CachedImage, FontQueries, ImageKey};
+    use std::sync::{Arc, Mutex};
+    let cache = cache.filter(|cache| cache.capacity() != 0);
+    let key = cache.map(|_| ImageKey::new(data, extension, scale, fonts.is_some()));
+    if let Some(cached) = key.as_ref().and_then(|key| cache?.image(key)) {
+        let valid = if cached.fonts.is_empty() {
+            true
+        } else {
+            fonts.is_some_and(|fonts| {
+                let mut fonts = fonts.lock().unwrap();
+                cached.fonts.iter().all(|query| query.matches(&mut fonts.collection))
+            })
+        };
+        if valid {
+            return Ok((cached.texture, cached.animated));
+        }
+    }
+    let queries = cache.map(|cache| {
+        Arc::new(Mutex::new(FontQueries::new(cache.capacity().saturating_sub(data.len()))))
+    });
+    let (image, format, size) =
+        load_image_from_bytes(data, extension, scale, fonts, queries.clone())?;
+    let texture = generate_texture(image, format, size);
+    let animated = is_animated(data);
+    if let (Some(cache), Some(key), Some(queries)) = (cache, key, queries) {
+        if let Some(fonts) = queries.lock().unwrap().finish() {
+            cache.insert_image(key, &CachedImage { texture: texture.clone(), animated, fonts });
+        }
+    }
+    Ok((texture, animated))
+}
+
+#[cfg(feature = "renderer-software")]
 fn svg_font_options(
     font_collection: Option<&SharedFontCollection>,
+    queries: Option<std::sync::Arc<std::sync::Mutex<crate::resource_cache::FontQueries>>>,
 ) -> resvg::usvg::Options<'static> {
     use i_slint_common::sharedfontique::svg as svg_fonts;
-
-    let Some(font_collection) = font_collection.cloned() else {
-        return resvg::usvg::Options::default();
+    let font_queries = queries.clone();
+    let mut options = if let Some(font_collection) = font_collection.cloned() {
+        svg_fonts::options(move |families, attributes, require_char| {
+            let mut fonts = font_collection.lock().ok()?;
+            let collection = &mut fonts.collection;
+            let found = svg_fonts::query_font(
+                &mut collection.inner,
+                &mut collection.source_cache,
+                families,
+                attributes,
+                require_char,
+            );
+            if let Some(queries) = &font_queries {
+                queries.lock().unwrap().record(families, attributes, require_char, found.as_ref());
+            }
+            found
+        })
+    } else {
+        resvg::usvg::Options::default()
     };
-    svg_fonts::options(move |families, attributes, require_char| {
-        let mut fonts = font_collection.lock().ok()?;
-        let collection = &mut fonts.collection;
-        svg_fonts::query_font(
-            &mut collection.inner,
-            &mut collection.source_cache,
-            families,
-            attributes,
-            require_char,
-        )
-    })
+    if let Some(queries) = queries {
+        let resolve = options.image_href_resolver.resolve_string;
+        options.image_href_resolver.resolve_string = Box::new(move |href, options| {
+            // usvg can read external files whose contents are absent from the SVG cache key.
+            queries.lock().unwrap().external_image();
+            resolve(href, options)
+        });
+    }
+    options
 }
 
 #[cfg(feature = "renderer-software")]
@@ -528,6 +593,7 @@ fn load_image_from_bytes(
     extension: Option<&str>,
     scale_factor: f32,
     font_collection: Option<&SharedFontCollection>,
+    queries: Option<std::sync::Arc<std::sync::Mutex<crate::resource_cache::FontQueries>>>,
 ) -> image::ImageResult<(image::RgbaImage, SourceFormat, IntSize)> {
     use resvg::{tiny_skia, usvg};
 
@@ -535,12 +601,14 @@ fn load_image_from_bytes(
 
     if is_svg {
         let tree = {
-            usvg::Tree::from_data(data, &svg_font_options(font_collection)).map_err(|e| {
-                image::ImageError::Decoding(image::error::DecodingError::new(
-                    image::error::ImageFormatHint::Name("svg".into()),
-                    e,
-                ))
-            })?
+            usvg::Tree::from_data(data, &svg_font_options(font_collection, queries)).map_err(
+                |e| {
+                    image::ImageError::Decoding(image::error::DecodingError::new(
+                        image::error::ImageFormatHint::Name("svg".into()),
+                        e,
+                    ))
+                },
+            )?
         };
 
         let original_size = tree.size();
@@ -664,6 +732,8 @@ fn embed_data_uri(
         }
     };
 
+    #[cfg(feature = "renderer-software")]
+    let resource_cache = resource_ids.cache.clone();
     let mut resources = global_embedded_resources.borrow_mut();
     let mut push = |kind| {
         let id = resources.push_and_get_key(EmbeddedResources { path: None, kind });
@@ -673,21 +743,17 @@ fn embed_data_uri(
 
     #[cfg(feature = "renderer-software")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
-        match load_image_from_bytes(
+        match load_texture(
             &decoded_data,
             Some(&extension),
             _scale_factor,
             _font_collection,
+            resource_cache.as_ref(),
         )
-        .map(|loaded| (loaded, is_animated(&decoded_data)))
         .map_err(|e| e.to_string())
         {
-            Ok(((img, source_format, original_size), animated)) => {
-                let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
-                    img,
-                    source_format,
-                    original_size,
-                )));
+            Ok((texture, animated)) => {
+                let resource_id = push(EmbeddedResourcesKind::TextureData(texture));
                 if animated {
                     resource_ids.animated.insert(resource_id);
                 }
