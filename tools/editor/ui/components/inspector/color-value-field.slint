@@ -16,6 +16,7 @@ export component InspectorColorValueField inherits Rectangle {
     in property <bool> enabled: true;
     in property <bool> live-edit: false;
     in property <bool> swatch-enabled: true;
+    in property <bool> swatch-visible: true;
     in property <string> swatch-accessible-name: @tr("{} color picker", root.accessible-name);
     in property <string> commit-key: "";
     out property <bool> input-focused: color-input.input-focused || opacity-input.input-focused;
@@ -140,6 +141,7 @@ export component InspectorColorValueField inherits Rectangle {
         }
 
         ColorIndicator {
+            visible: root.swatch-visible;
             x: (parent.width - root.style.swatch-size) / 2;
             y: (parent.height - root.style.swatch-size) / 2;
             width: root.style.swatch-size;

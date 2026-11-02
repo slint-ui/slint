@@ -1,16 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, PropertyValue } from "../../../api.slint";
+import { Api } from "../../../api.slint";
 import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorCheckedSection inherits InspectorSection {
-    private property <PropertyValue> runtime-value: Api.runtime-property-value-data("checked", {});
-    private property <PropertyValue> source-value: Api.source-property-value-data("checked", {});
-    private property <bool> value: root.runtime-value.value-resolved
-        ? root.runtime-value.value-bool
-        : root.source-value.code != "" && root.source-value.value-bool;
+    private property <bool> value: Api.editor-property-value-data("checked").value-bool;
     changed value => { toggle.checked = root.value; }
 
     title: @tr("State");
