@@ -95,11 +95,14 @@ test("a project file that isn't valid json is reported", () => {
         error = caughtError as CompileError;
     }
     expect(error).toBeDefined();
-    expect(
-        error!.diagnostics.some((diagnostic) =>
-            diagnostic.message.includes("slint-project.json"),
-        ),
-    ).toBe(true);
+    expect(error!.diagnostics).toContainEqual(
+        expect.objectContaining({
+            fileName: path.join(directory, "slint-project.json"),
+            lineNumber: 1,
+            columnNumber: 1,
+            message: "EOF while parsing an object",
+        }),
+    );
 });
 
 test.each(["directory", "manifest"])(

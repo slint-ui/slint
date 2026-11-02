@@ -484,8 +484,8 @@ fn process_file_source(
     silent: bool,
     update: bool,
 ) -> std::io::Result<bool> {
-    // For project-file tests we add a custom import callback, because the compiler expectes the
-    // project file must be called slint-project.json.
+    // For project-file tests we add a custom import callback, because the compiler expects the
+    // project file to be called slint-project.json.
     // Our syntax tests use descriptive file names, so the import callback "renames" them back to
     // slint-project.json, as far as the compiler is concerned.
     if path.extension().is_some_and(|extension| extension == "json") {

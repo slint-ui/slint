@@ -3557,12 +3557,11 @@ mod project_file_tests {
         with_project("{", |root| {
             let result = compile(root, "export component Main inherits Window { }");
             assert!(result.has_errors());
-            let messages =
-                result.diagnostics().map(|d| d.message().to_string()).collect::<Vec<_>>();
-            assert!(
-                messages.iter().any(|message| message.contains(FILE_NAME)),
-                "expected the project file to be named: {messages:?}"
-            );
+            let project_file = root.join(FILE_NAME);
+            assert!(result.diagnostics().any(|diagnostic| {
+                diagnostic.source_file() == Some(project_file.as_path())
+                    && diagnostic.message().contains("EOF while parsing an object")
+            }));
         });
     }
 
