@@ -11,6 +11,8 @@ import { FloatingSurface } from "floating-surface.slint";
 import { DeviceManager } from "device-manager.slint";
 
 export component ViewerControls inherits Rectangle {
+    private property <bool> manager-open: manager.is-open;
+    changed manager-open => { if !root.manager-open { Springboard.cancel-pairing(); } }
     private property <string> error: Springboard.connection.error != "" ? Springboard.connection.error : Springboard.discovery-error;
     in property <bool> can-start;
     in property <bool> busy;
@@ -226,7 +228,6 @@ export component ViewerControls inherits Rectangle {
         }
     }
     manager := ViewerPopup {
-        changed is-open => { if !self.is-open { Springboard.cancel-pairing(); } }
         anchor-width: root.width;
         anchor-height: root.height;
         label: @tr("Device manager");
