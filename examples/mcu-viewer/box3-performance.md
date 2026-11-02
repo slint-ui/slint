@@ -235,3 +235,30 @@ The comparison uses the same release configuration and excludes each process's f
 The reference contains six steady samples; the new harness contains ten.
 The fallback-font identity test confirms equal face indices and bytes against fresh discovery.
 All four tests matching `snapshot` pass, including imported-font isolation.
+
+## Generated-Font Cache
+
+Serial preview retains generated bitmap fonts in a bounded, session-local resource cache.
+Keys include exact font bytes, face indices, fallback selection, character coverage, sizes, weights, variation coordinates, family name, and SDF mode.
+Warm lookups borrow the current bytes; only retained entries copy font data into immutable snapshots.
+This avoids retaining fontique's file-backed memory mappings across file edits.
+
+The retained version compares bytes after checking the smaller rendering inputs.
+For files larger than 1 MiB, alpha atlases with fewer than 1,024 requested glyphs are regenerated rather than cached.
+SDF generation remains eligible regardless of atlas size.
+This admission rule avoids spending more on key validation than on small glyph sets.
+
+| Scene | Cache disabled | Cache enabled |
+| --- | ---: | ---: |
+| Current user counter scene | 23.622 ms | 22.704 ms |
+| Clipping and gradients | 2.390 ms | 1.669 ms |
+| Sixteen text rows | 1.589 ms | 1.072 ms |
+| Six font sizes with extended Latin coverage | 10.759 ms | 7.319 ms |
+
+Both modes use the same release binary, with ten steady compilations after initial paint.
+Smaller differences include host variation and the admission policy; the larger atlas benefits by 32.0%.
+Serialized resource hashes match in every workload.
+The cache defaults to approximately 64 MiB of retained sources and generated resources, with least-recently-used eviction.
+Oversized resources are generated without retention.
+Three cache tests cover rendering-input changes, same-path font replacement, exact output parity, warm hits, eviction, and zero capacity.
+All six serial transport tests pass.

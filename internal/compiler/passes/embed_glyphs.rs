@@ -22,6 +22,16 @@ use skrifa::MetadataProvider;
 #[derive(Clone)]
 struct Font {
     font: fontique::QueryFont,
+    source: std::sync::Arc<std::sync::OnceLock<crate::resource_cache::FontSource>>,
+}
+
+impl Font {
+    fn new(font: fontique::QueryFont) -> Self {
+        Self { font, source: Default::default() }
+    }
+    fn source(&self) -> crate::resource_cache::FontSource {
+        self.source.get_or_init(|| crate::resource_cache::FontSource::new(&self.font)).clone()
+    }
 }
 
 /// The fontique collection shared by `embed_glyphs` and `embed_images`, together
@@ -327,6 +337,7 @@ pub fn embed_glyphs(
         let axes = font_ref.axes();
         let wght_axis = axes.iter().find(|axis| axis.tag() == skrifa::Tag::new(b"wght"));
 
+        let font = Font::new(font.clone());
         if let Some(wght_axis) = wght_axis {
             // Variable font: embed one BitmapFont per requested weight
             let weights = if font_weights.is_empty() {
@@ -341,7 +352,7 @@ pub fn embed_glyphs(
 
                 let embedded = embed_font(
                     family_name.to_owned(),
-                    Font { font: font.clone() },
+                    font.clone(),
                     &pixel_sizes,
                     characters_seen.iter().cloned(),
                     &fallback_fonts,
@@ -356,7 +367,7 @@ pub fn embed_glyphs(
             // Static font: embed once
             let embedded = embed_font(
                 family_name.to_owned(),
-                Font { font: font.clone() },
+                font.clone(),
                 &pixel_sizes,
                 characters_seen.iter().cloned(),
                 &fallback_fonts,
@@ -397,7 +408,7 @@ fn get_fallback_fonts(system_fonts: Option<&SystemFonts>) -> Vec<Font> {
     );
 
     query.matches_with(|query_font| {
-        fallback_fonts.push(Font { font: query_font.clone() });
+        fallback_fonts.push(Font::new(query_font.clone()));
         fontique::QueryStatus::Continue
     });
 
@@ -418,14 +429,58 @@ fn embed_font(
 ) -> BitmapFont {
     let coords_i16: Vec<i16> = normalized_coords.iter().map(|c| c.to_bits()).collect();
 
+    #[cfg(feature = "sdf-fonts")]
+    let sdf = _compiler_config.use_sdf_fonts;
+    #[cfg(not(feature = "sdf-fonts"))]
+    let sdf = false;
+    let glyph_count = character_coverage.size_hint().0.saturating_mul(pixel_sizes.len());
+    let caching = _compiler_config.resource_cache.is_some()
+        && (sdf || font.font.blob.data().len() <= 1024 * 1024 || glyph_count >= 1024);
+    let mut sources = if caching { vec![font.source()] } else { Vec::new() };
+    let mut character_sources = Vec::new();
     let character_map: Vec<char> = character_coverage
-        .filter(|code_point| {
-            core::iter::once(&font)
+        .filter(|ch| {
+            let Some(selected) = core::iter::once(&font)
                 .chain(fallback_fonts.iter())
-                .any(|font| swash_font_ref(font).charmap().map(*code_point) != 0)
+                .find(|font| swash_font_ref(font).charmap().map(*ch) != 0)
+            else {
+                return false;
+            };
+            if caching {
+                let selected = selected.source();
+                let index =
+                    if let Some(index) = sources.iter().position(|source| source == &selected) {
+                        index
+                    } else {
+                        sources.push(selected);
+                        sources.len() - 1
+                    };
+                character_sources.push(index);
+            }
+            true
         })
         .collect();
     assert!(character_map.len() <= u16::MAX as usize, "more than 65535 glyphs are not supported");
+
+    let key = _compiler_config.resource_cache.as_ref().map(|_| crate::resource_cache::FontKey {
+        family: family_name.clone(),
+        sources,
+        character_sources,
+        characters: character_map.clone(),
+        pixel_sizes: pixel_sizes.to_vec(),
+        normalized_coords: coords_i16.clone(),
+        variations: _variations.iter().map(|(tag, value)| (*tag, value.to_bits())).collect(),
+        weight: override_weight,
+        #[cfg(feature = "sdf-fonts")]
+        sdf: _compiler_config.use_sdf_fonts,
+        #[cfg(not(feature = "sdf-fonts"))]
+        sdf: false,
+    });
+    if let Some(font) =
+        key.as_ref().and_then(|key| _compiler_config.resource_cache.as_ref()?.font(key))
+    {
+        return font;
+    }
 
     #[cfg(feature = "sdf-fonts")]
     let glyphs = if _compiler_config.use_sdf_fonts {
@@ -443,7 +498,7 @@ fn embed_font(
         skrifa::metrics::Metrics::new(&font_ref, skrifa::instance::Size::unscaled(), location);
     let attrs = skrifa::attribute::Attributes::new(&font_ref);
 
-    BitmapFont {
+    let result = BitmapFont {
         family_name: family_name.into_bytes(),
         character_map,
         units_per_em: metrics.units_per_em as f32,
@@ -458,7 +513,11 @@ fn embed_font(
         sdf: _compiler_config.use_sdf_fonts,
         #[cfg(not(feature = "sdf-fonts"))]
         sdf: false,
+    };
+    if let Some(key) = key {
+        _compiler_config.resource_cache.as_ref().unwrap().insert_font(key, &result);
     }
+    result
 }
 
 #[cfg(not(target_arch = "wasm32"))]

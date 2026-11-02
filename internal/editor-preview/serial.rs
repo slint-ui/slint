@@ -216,6 +216,7 @@ struct Design {
     files: HashMap<Url, Vec<u8>>,
     config: PreviewConfig,
     system_fonts: i_slint_compiler::SystemFonts,
+    resource_cache: i_slint_compiler::ResourceCache,
     project_root: Option<Url>,
     component: Option<PreviewComponent>,
 }
@@ -287,6 +288,7 @@ impl Design {
             overrides.apply(input.project_file.as_ref(), &mut config);
             config.open_import_callback = Some(open_file);
             config.system_fonts = Some(self.system_fonts.clone());
+            config.resource_cache = Some(self.resource_cache.clone());
             crate::document_cache::configure_preview(&mut config, component.component.clone());
             let compiled;
             (diagnostics, compiled) =
