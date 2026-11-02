@@ -4773,17 +4773,26 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
             None => resource_ref.to_string(),
         })(),
-        Expression::Condition { condition, true_expr, false_expr } => (|| {
+        Expression::Condition { .. } => (|| {
+            // Every link of an `else if` chain has the type of the chain's last false branch
             let ty = expr.ty(ctx);
-            let cond_code = compile_expression(condition, ctx);
-            let cond_code = remove_parentheses(&cond_code);
-            let true_code = compile_expression(true_expr, ctx);
-            let false_code = compile_expression(false_expr, ctx);
-            if ty == Type::Void {
-                format!("if ({cond_code}) {{ {true_code}; }} else {{ {false_code}; }}")
-            } else {
-                format!("({cond_code} ? {true_code} : {false_code})")
+            // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+            let mut links = Vec::new();
+            let mut expr = expr;
+            while let Expression::Condition { condition, true_expr, false_expr } = expr {
+                let cond_code = compile_expression(condition, ctx);
+                let cond_code = remove_parentheses(&cond_code).to_string();
+                links.push((cond_code, compile_expression(true_expr, ctx)));
+                expr = false_expr;
             }
+            let false_code = compile_expression(expr, ctx);
+            links.into_iter().rev().fold(false_code, |false_code, (cond_code, true_code)| {
+                if ty == Type::Void {
+                    format!("if ({cond_code}) {{ {true_code}; }} else {{ {false_code}; }}")
+                } else {
+                    format!("({cond_code} ? {true_code} : {false_code})")
+                }
+            })
         })(),
         Expression::Array { element_ty, values, output } => (|| {
             let ty = element_ty.cpp_type().unwrap();

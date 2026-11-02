@@ -425,9 +425,14 @@ enum LookupPhase {
     ResolvingTwoWayBindings,
 }
 
-/// The range of `node`, extended to cover any blank space before it so a cursor there
+/// LSP probe: record the expected type for `node`, if it contains the probed offset.
+/// Its range covers any blank space before it, so a cursor there
 /// (like the empty rhs of `x ==  `) still resolves to this node.
-fn probe_range(node: &SyntaxNode) -> TextRange {
+/// The innermost node containing the offset wins (depth-first descent).
+fn record_expected_type_probe(node: &SyntaxNode, ctx: &mut LookupCtx) {
+    if ctx.expected_type_probe.is_none() {
+        return;
+    }
     let range = node.text_range();
     let mut start = range.start();
     let mut prev = node.node.prev_sibling_or_token();
@@ -438,7 +443,8 @@ fn probe_range(node: &SyntaxNode) -> TextRange {
         start = t.text_range().start();
         prev = t.prev_sibling_or_token();
     }
-    TextRange::new(start, range.end())
+    let ty = ctx.expected_type.clone();
+    ctx.record_expected_type_probe(TextRange::new(start, range.end()), &ty);
 }
 
 impl Expression {
@@ -672,11 +678,7 @@ impl Expression {
     }
 
     pub fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
-        // LSP probe: the innermost node containing the offset wins (depth-first descent).
-        if ctx.expected_type_probe.is_some() {
-            let ty = ctx.expected_type.clone();
-            ctx.record_expected_type_probe(probe_range(&node), &ty);
-        }
+        record_expected_type_probe(&node, ctx);
 
         let value_discarded = std::mem::take(&mut ctx.value_discarded);
 
@@ -2288,37 +2290,58 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let value_discarded = std::mem::take(&mut ctx.value_discarded);
-        let (condition_n, true_expr_n, false_expr_n) = node.Expression();
-        let condition = Self::from_expression_node_as(condition_n, Type::Bool, ctx);
-        ctx.value_discarded = value_discarded;
-        let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
-        ctx.value_discarded = value_discarded;
-        let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
-        if value_discarded {
-            remove_noop::warn_discarded(&true_expr, &true_expr_n, ctx.diag);
-            remove_noop::warn_discarded(&false_expr, &false_expr_n, ctx.diag);
-        }
-        let result_ty = common_expression_type(&true_expr, &false_expr);
-        let true_expr = true_expr.maybe_convert_to(
-            result_ty.clone(),
-            Some(&true_expr_n.into()),
-            ctx.diag,
-            &ctx.symbol_counters,
-        );
-        let false_expr = false_expr.maybe_convert_to(
-            result_ty,
-            Some(&false_expr_n.into()),
-            ctx.diag,
-            &ctx.symbol_counters,
-        );
-        Expression::Condition {
-            condition: Box::new(condition),
-            true_expr: Box::new(true_expr),
-            false_expr: Box::new(false_expr),
-            source_location: node
+        // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+        let mut links = Vec::new();
+        let mut node = node;
+        let mut false_expr = loop {
+            let (condition_n, true_expr_n, false_expr_n) = node.Expression();
+            let condition = Self::from_expression_node_as(condition_n, Type::Bool, ctx);
+            ctx.value_discarded = value_discarded;
+            let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
+            let next = false_expr_n
+                .children()
+                .next()
+                .filter(|n| n.kind() == SyntaxKind::ConditionalExpression);
+            let source_location = node
                 .child_token(SyntaxKind::Question)
-                .map(|t| ConditionLocation::Question(t.to_source_location())),
+                .map(|t| ConditionLocation::Question(t.to_source_location()));
+            links.push((source_location, condition, true_expr, true_expr_n, false_expr_n.clone()));
+            let Some(next) = next else {
+                ctx.value_discarded = value_discarded;
+                break Self::from_expression_node(false_expr_n, ctx);
+            };
+            // Like `from_expression_node` on its way to the next link
+            record_expected_type_probe(&false_expr_n, ctx);
+            node = next.into();
+        };
+        for (source_location, condition, true_expr, true_expr_n, false_expr_n) in
+            links.into_iter().rev()
+        {
+            if value_discarded {
+                remove_noop::warn_discarded(&true_expr, &true_expr_n, ctx.diag);
+                remove_noop::warn_discarded(&false_expr, &false_expr_n, ctx.diag);
+            }
+            let result_ty = common_expression_type(&true_expr, &false_expr);
+            let true_expr = true_expr.maybe_convert_to(
+                result_ty.clone(),
+                Some(&true_expr_n.into()),
+                ctx.diag,
+                &ctx.symbol_counters,
+            );
+            let converted_false_expr = false_expr.maybe_convert_to(
+                result_ty,
+                Some(&false_expr_n.into()),
+                ctx.diag,
+                &ctx.symbol_counters,
+            );
+            false_expr = Expression::Condition {
+                condition: Box::new(condition),
+                true_expr: Box::new(true_expr),
+                false_expr: Box::new(converted_false_expr),
+                source_location,
+            };
         }
+        false_expr
     }
 
     fn from_index_expression_node(

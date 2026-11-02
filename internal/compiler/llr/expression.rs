@@ -579,7 +579,14 @@ impl Expression {
             Self::BinaryExpression { lhs, rhs: _, op } => binary_expression_ty(*op, || lhs.ty(ctx)),
             Self::UnaryOp { sub, .. } => sub.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
-            Self::Condition { false_expr, .. } => false_expr.ty(ctx),
+            Self::Condition { false_expr, .. } => {
+                // A condition has the type of its false branch: loop through `else if` chains.
+                let mut expr = &**false_expr;
+                while let Self::Condition { false_expr, .. } = expr {
+                    expr = false_expr;
+                }
+                expr.ty(ctx)
+            }
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone().into(),
             Self::EasingCurve(_) => Type::Easing,
