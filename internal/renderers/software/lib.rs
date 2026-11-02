@@ -2479,13 +2479,12 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 };
 
                 let orig = image_inner.size().cast::<f32>();
-                let svg_target_size = if tiled.is_some() {
-                    euclid::size2(orig.width * source_to_target_x, orig.height * source_to_target_y)
-                        .round()
-                        .cast()
-                } else {
-                    target_rect.size.cast()
-                };
+                let svg_target_size = euclid::size2(
+                    orig.width * source_to_target_x,
+                    orig.height * source_to_target_y,
+                )
+                .round()
+                .cast();
                 if let Some(buffer) = image_inner.render_to_buffer(Some(svg_target_size)) {
                     let buf_size = buffer.size().cast::<f32>();
 
