@@ -28,6 +28,11 @@ impl Panel {
         Self { spi, cs, dc, buffer: [0; 512] }
     }
 
+    #[cfg(feature = "box-display-profile")]
+    pub(super) fn take_dma_profile(&mut self) -> super::dma_bus::Profile {
+        self.spi.take_profile()
+    }
+
     fn write(&mut self, data: &[u8]) -> Result<(), Error> {
         self.cs.set_low();
         let result = Self::write_chunks(&mut self.spi, data);
@@ -36,12 +41,7 @@ impl Panel {
     }
 
     fn write_chunks(spi: &mut PanelSpi, data: &[u8]) -> Result<(), Error> {
-        const CHUNK: usize = 16 * 1024;
-
-        for chunk in data.chunks(CHUNK) {
-            spi.half_duplex_write(DataMode::Single, Command::None, Address::None, 0, chunk)?;
-        }
-        Ok(())
+        spi.half_duplex_write(DataMode::Single, Command::None, Address::None, 0, data)
     }
 
     pub(super) fn command(&mut self, command: u8, parameters: &[u8]) -> Result<(), Error> {

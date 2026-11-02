@@ -275,11 +275,26 @@ impl FrameQueue {
             let source =
                 if packet.internal_used { &packet.internal[..] } else { &packet.external[..] };
             #[cfg(feature = "box-display-profile")]
+            let _ = panel.take_dma_profile();
+            #[cfg(feature = "box-display-profile")]
             let started = super::now_us();
             for rect in &packet.rectangles[..packet.count] {
                 let data = &source[rect.offset..rect.offset + rect.width * rect.height * 2];
                 panel.packed_rectangle(rect.x, rect.y, rect.width, rect.height, data).unwrap();
             }
+            #[cfg(feature = "box-display-profile")]
+            let transfer_us = super::now_us() - started;
+            #[cfg(feature = "box-display-profile")]
+            let dma_profile = panel.take_dma_profile();
+            #[cfg(feature = "box-display-profile")]
+            log::info!(
+                "BOX_DMA,copy_us={},setup_us={},wait_us={},chunks={},overlap_us={}",
+                dma_profile.copy_us,
+                dma_profile.setup_us,
+                dma_profile.wait_us,
+                dma_profile.chunks,
+                dma_profile.overlap_us
+            );
             #[cfg(feature = "box-display-profile")]
             log::info!(
                 "BOX_TRANSFER,bytes={},transfer_us={}",
@@ -287,7 +302,7 @@ impl FrameQueue {
                     .iter()
                     .map(|rect| rect.width * rect.height * 2)
                     .sum::<usize>(),
-                super::now_us() - started
+                transfer_us
             );
             #[cfg(feature = "box-display-profile")]
             {

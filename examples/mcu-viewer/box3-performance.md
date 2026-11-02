@@ -50,3 +50,42 @@ A separate text-heavy scene checks that the glyph improvement extends beyond tha
 It contains sixteen rows of 12-pixel text, uploaded through the same USB replacement sequence.
 Its median falls from 93.517 ms to 89.259 ms, a 4.6% reduction, with matching pixel checksums.
 The scalar-sampling test covers clipping, tiling, fractional offsets, opacity, and four target pixel formats.
+
+## DMA Copy and Transfer Overlap at 40 MHz
+
+The reference uses one 16 KiB DMA transmit buffer.
+It copies each chunk before starting its transfer and waits before preparing the next one.
+The pipeline uses two 8 KiB buffers, keeping the transmit-data allocation at 16 KiB.
+The DMA transfer owns its active buffer while the CPU fills the other one.
+The SPI clock and transmitted pixels stay fixed.
+
+`BOX_DMA` reports CPU copying, DMA setup, remaining blocking wait, chunk count, and copying performed during an active transfer.
+The profile counters are disabled in normal firmware.
+The full-screen payload remains 153,600 bytes, whose wire time at 40 MHz is 30.720 ms.
+
+| Scene | Reference render | Pipelined render | Reference transfer | Pipelined transfer |
+| --- | ---: | ---: | ---: | ---: |
+| Solid background | 12.027 ms | 11.946 ms | 37.279 ms | 32.413 ms |
+| Counter | 52.881 ms | 52.364 ms | 37.367 ms | 32.597 ms |
+| Clipping and gradients | 55.778 ms | 55.655 ms | 37.371 ms | 32.577 ms |
+| 80 × 60 partial update | 3.686 ms | 3.619 ms | 2.480 ms | 2.632 ms |
+
+Solid-background copying takes about 5.5 ms in both versions.
+The pipeline hides about 5 ms of that work behind the active transfer.
+The remaining DMA wait falls from about 31.1 ms to 26.1 ms.
+Full-screen transfer falls by about 4.9 ms, or 13%.
+
+The reference solid-background run contains seventeen steady samples; the pipelined run contains sixteen.
+The counter and clipping comparisons each contain five replacements after initial paint.
+The partial scene alternates an 80 × 60 rectangle every 500 ms, crossing the 8 KiB buffer boundary.
+The two-buffer version makes this partial transfer about 0.15 ms slower.
+There are fifteen steady partial samples in the reference and seventeen in the pipelined version.
+Partial updates keep the backlight on.
+Packed-pixel hashes match for all scenes.
+Host tests exercise the actual DMA adapter with deferred buffer consumption, partial tails, repeated reuse, submission failures, and retry.
+
+The retained change only overlaps copying and DMA; it does not eliminate the copied bytes.
+The full-screen transfer is now about 1.7 ms above the 40 MHz pixel wire time.
+
+The final firmware runs at 40 MHz with profiling disabled and USB live preview connected.
+The user confirmed normal display geometry, clean background color changes, and working touch on the attached BOX-3.

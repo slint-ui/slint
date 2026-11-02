@@ -47,6 +47,8 @@ Use `mcu-board-support/esp32-s3-box-3` for the basic line-buffer backend.
 Add `mcu-board-support/box-display-profile` to log rendering times, transfer times, and rectangle coordinates over the USB connection.
 Leave it disabled for normal use.
 
+The backlight stays on during display transfers.
+
 The display pipeline is adapted from the [BOX printer backend](https://github.com/slint-ui/slint/tree/d99b59567614454aff82b94fffdbb25661d35f5f/examples/mcu-board-support/esp32_s3_box_3).
 Its internal transfer packet is limited to 32 KiB to leave room for the viewer's main stack.
 
@@ -80,11 +82,13 @@ The device's log output appears in the language server's log.
 
 ## Test the BOX Display Pipeline
 
-From the repository root, run the packet, damage, touch, and fill tests:
+From the repository root, run the packet, damage, touch, fill, and DMA tests:
 
 ```sh
 rustc --edition=2024 --test examples/mcu-board-support/esp32_s3_box_3/frame_queue/host.rs -o /tmp/box-display-tests
 /tmp/box-display-tests
+rustc --edition=2024 --test examples/mcu-board-support/esp32_s3_box_3/tests/dma_bus.rs -o /tmp/box-dma-tests
+/tmp/box-dma-tests
 ```
 
 Compare the framebuffer renderer with the standard renderer across 720 frames:

@@ -193,12 +193,13 @@ fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
     .with_sio0(peripherals.GPIO6);
 
     let spi = {
-        let (rx, rx_desc, tx, tx_desc) = esp_hal::dma_buffers!(4, 16 * 1024);
+        let (rx, rx_desc, tx, tx_desc) = esp_hal::dma_buffers!(4, 8 * 1024);
         let rx = esp_hal::dma::DmaRxBuf::new(rx_desc, rx).unwrap();
         let tx = esp_hal::dma::DmaTxBuf::new(tx_desc, tx).unwrap();
+        let spare_tx = esp_hal::dma_tx_buffer!(8 * 1024).unwrap();
         let spi = spi.with_dma(peripherals.DMA_CH0);
 
-        dma_bus::DmaPanelBus::new(spi, rx, tx)
+        dma_bus::DmaPanelBus::new(spi, rx, tx, spare_tx)
     };
 
     let dc = Output::new(peripherals.GPIO4, Level::Low, OutputConfig::default());
