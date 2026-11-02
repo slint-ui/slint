@@ -166,6 +166,13 @@ impl Camera {
         }
     }
 
+    /// Turns the view by `angle` clockwise, in radians, around the point it looks at.
+    pub fn twist(&mut self, angle: f32) {
+        self.transition = None;
+        // Turning the ground clockwise turns the screen's up direction counterclockwise.
+        self.pose.heading -= angle;
+    }
+
     /// Stops the movement from earlier drags.
     pub fn hold(&mut self) {
         self.velocity = Vec2::ZERO;
