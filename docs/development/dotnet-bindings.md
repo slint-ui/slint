@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ADDFB companyname Dmabuf getspecific jonathanpeppers kmsgrab Microcharts pthread simpleperf Skias uinput virgl xplat yurkinh -->
+<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab Microcharts pthread simpleperf Skias uinput virgl xplat yurkinh -->
 # .NET Bindings
 
 > Note for AI coding assistants (agents):
@@ -702,6 +702,22 @@ Next:
     - Costs: larger packages, a static build per runtime identifier, and longer links.
       `SLINT_DOTNET_NATIVE_LIBRARY` and swapping in a debug build of the library stop working, and apps without Native AOT gain nothing.
     - Prototype it on Windows first, and measure how much the static libraries add to the package.
+- **23.** DrawnUI for Slint, in the branch [`slint`](https://github.com/yurkinh/DrawnUi.Maui/tree/slint) of the fork yurkinh/DrawnUi.Maui, MIT licensed:
+  `DrawnUi.Slint`, a host for DrawnUI next to its MAUI, Blazor, OpenTK, and WPF hosts, for a pull request to DrawnUI.
+  DrawnUI is a UI framework drawn with SkiaSharp; a host gives its `Canvas` a surface, input, a UI thread, and frames.
+  - Phase 0 and 1, done: `SlintCanvasHost` runs a canvas in a `DrawnUiView` of `drawnui.slint`, on a raster surface,
+    with several views per window, the mouse, the wheel, and the keyboard, and DrawnUI's main thread on the Slint thread.
+  - Phase 2, done: the GPU path, opt-in with `SlintCanvasHost.UseGpu`, draws on the OpenGL context of Slint's FemtoVG renderer.
+    Slint's Skia renderer keeps its own Skia state of the context, which a second Skia on that context breaks.
+  - Phase 3, done: touch, a hidden `TextInput` for on-screen keyboards, and the sample on Android and iOS.
+    Still to check by hand: the on-screen keyboard's text reaching a DrawnUI editor on Android.
+    Not done: a `linuxkms` run.
+  - Phase 4, done: the `DrawnUi.Slint` package, whose build files make `drawnui.slint` importable and copy it to the output;
+    `DrawnUi.Slint.Game`; `SlintGallery`, with the OpenTK Hello app's pages, compiled unchanged, next to a Slint sidebar;
+    and `SlintPong`, DrawnUI's shared Pong in a whole window.
+  - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
+    so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
+  - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
 
 ## Live Reload
 
