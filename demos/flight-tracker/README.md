@@ -6,8 +6,10 @@ Follow a flight across a globe of the earth, like on the moving map of an airpla
 wgpu renders the globe, and Slint draws the route, the aircraft, the airports, the city names, and the panels with the flight's details on top.
 The globe shows the day and night sides as they are right now, with the lights of the cities on the night side.
 
-On its own, the demo flies between random airports near large cities, like a kiosk: it boards, flies, lands, and then takes off for a new destination from where it landed.
-Meanwhile it switches between following the aircraft, showing the whole route, and showing the globe.
+The demo starts on a departures board of six flights between large cities, each on a globe that wgpu renders live into a texture.
+Pick one, and its globe grows to fill the window as the flight boards.
+After landing, the globe shrinks back into its tile, and another flight takes the place of the flown one.
+On its own, the demo picks the flights like a kiosk, and during a flight it switches between following the aircraft, showing the whole route, and showing the globe.
 The flights are sped up, but the speed, altitude, temperature, and the time to go are those of a real flight.
 
 Plan your own flight with Plan a flight: search for the airports by city, name, country, or code.
@@ -42,6 +44,8 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   The ground is NASA's Blue Marble for July, 4096 pixels wide.
 - `map.rs` computes a map with mip levels from the outlines in `data/` at startup.
   It holds the distances to the coasts and the borders, so that the shader draws them sharp at any zoom, and the lights of the cities.
+- The board renders one tile's globe each frame, for the whole window, and shows the middle of it.
+  The globe of a flight starts with the same camera and grows from its tile, so the switch from the tile's texture to the live one doesn't show.
 - The route, the aircraft, the airports, and the city names are ordinary Slint elements.
   Each frame, `main.rs` projects them to the screen with the camera's matrices, and passes their positions to Slint.
 
