@@ -340,14 +340,16 @@ component FlightCard inherits Glass {
                     background: #ffffff30;
                 }
 
+                // The flown part, from the origin to the aircraft.
                 Rectangle {
+                    x: 0;
                     y: 19px;
-                    width: parent.width * root.flight.progress;
+                    width: aircraft-icon.x + aircraft-icon.width / 2;
                     height: 2px;
                     background: Theme.accent-light;
                 }
 
-                AircraftIcon {
+                aircraft-icon := AircraftIcon {
                     x: (parent.width - self.width) * root.flight.progress;
                     y: 8px;
                     width: 24px;
