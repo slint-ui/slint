@@ -282,3 +282,37 @@ The comparison uses the preceding font-cache executable and the image-cache exec
 Each process compiles eleven times; medians exclude the first compilation.
 All serialized resource hashes match.
 Eight resource-cache tests pass, covering same-path replacements, scale changes, data URIs, SVG text/font changes, external SVG images, warning replay, eviction, and zero capacity.
+
+## Original PR Versus Current Branch: Actual Editor Edits
+
+The original host and firmware come from PR revision `f39dbfc6fb09c60d4bdcbbfc573bb7d00b5d9aaa`.
+The current host is `e01c91ddd9`, including fallback discovery, font caching, and image caching.
+The current firmware uses the retained 40 MHz LCD, 80 MHz PSRAM, QIO flash, and two-buffer DMA pipeline.
+Both versions use the same timing instrumentation; the original firmware adds counters around its blocking SPI writes.
+The original retains its original DIO flash, PSRAM clock, software floating point, optimization level, and line renderer.
+No optimization was applied to the original version.
+
+A separate editor instance opens a fixed copy of the user's 320 × 240 counter scene.
+The initial scene SHA-256 is `e2f6617a54b428e7d324243e1620c48d33637bf42549b91603b1acec3b97f06e`.
+Each run alternates the inspector background between `#19d679` and `#552977` six times.
+Initial connection and cold compilation are excluded.
+No builds run during the settled measurements.
+
+| Metric | Original PR | Current branch |
+| --- | ---: | ---: |
+| Complete editor update to transfer notification | 390.801 ms | 178.082 ms |
+| Compilation, including serialization | 130.149 ms | 25.144 ms |
+| Other host work before final compilation finishes | 53.181 ms | 25.698 ms |
+| Compiled design to load acknowledgment | 77.311 ms | 49.584 ms |
+| Load acknowledgment to transfer notification | 129.135 ms | 78.457 ms |
+| Device rendering | 61.781 ms | 36.641 ms |
+| Device transfer | 65.892 ms | 31.619 ms |
+
+End-to-end latency falls by 212.720 ms, or 54.4%, giving a 2.19× speedup for this workload.
+The six original totals range from 383.726 to 795.726 ms; the current totals range from 171.492 to 188.695 ms.
+The original outliers remain included in the median calculation.
+Stage medians don't add exactly to the median total.
+The total includes compilation, USB/device loading, rendering, scheduling, transfer, and the completion log's return path.
+It ends at host receipt of the transfer-completion log, not physical LCD scanout.
+The source submission starts after the editor accepts the edit, rather than at the operating system input event.
+The benchmark uses a copied project and leaves the user's source edits intact.
