@@ -19,6 +19,7 @@ const DESCENT_KM: f32 = 280.0;
 /// before landing.
 const RAMP: f32 = 0.08;
 
+#[derive(Clone)]
 pub struct Flight {
     pub origin: usize,
     pub destination: usize,
