@@ -80,6 +80,13 @@ impl Default for SystemFonts {
     }
 }
 
+#[cfg(feature = "renderer-software")]
+impl SystemFonts {
+    fn collection(&self, shared: bool) -> sharedfontique::Collection {
+        sharedfontique::init_collection(self.0.lock().unwrap().clone(), shared)
+    }
+}
+
 /// Wraps the system fonts plus the imported `custom_fonts` into a [`SharedFontCollection`].
 #[cfg(feature = "renderer-software")]
 pub fn shared_font_collection(
@@ -91,7 +98,7 @@ pub fn shared_font_collection(
         Box::new(move || {
             let mut collection = system_fonts.map_or_else(
                 || sharedfontique::create_collection(true),
-                |system| sharedfontique::init_collection(system.0.lock().unwrap().clone(), true),
+                |system| system.collection(true),
             );
             let mut custom_font_paths = HashMap::new();
             let mut custom_font_map = BTreeMap::new();
@@ -177,7 +184,7 @@ pub fn embed_glyphs(
         }
     }
 
-    let fallback_fonts = get_fallback_fonts();
+    let fallback_fonts = get_fallback_fonts(compiler_config.system_fonts.as_ref());
 
     // The collection (system fonts + imported fonts) is built once and shared with
     // `embed_images`; the imported-font paths come with it.
@@ -375,10 +382,13 @@ pub fn embed_glyphs(
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
-fn get_fallback_fonts() -> Vec<Font> {
+fn get_fallback_fonts(system_fonts: Option<&SystemFonts>) -> Vec<Font> {
     let mut fallback_fonts = Vec::new();
 
-    let mut collection = sharedfontique::create_collection(false);
+    let mut collection = system_fonts.map_or_else(
+        || sharedfontique::create_collection(false),
+        |system| system.collection(false),
+    );
     let mut query = collection.query();
     query.set_families(
         sharedfontique::FALLBACK_FAMILIES.into_iter().map(fontique::QueryFamily::Generic).chain(
@@ -774,6 +784,20 @@ pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut BTr
 #[cfg(all(test, feature = "renderer-software"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fallback_snapshot_matches_fresh_discovery() {
+        let expected = get_fallback_fonts(None);
+        let system = SystemFonts::default();
+        for _ in 0..2 {
+            let actual = get_fallback_fonts(Some(&system));
+            assert_eq!(actual.len(), expected.len());
+            assert!(
+                actual.iter().zip(&expected).all(|(a, b)| a.font.index == b.font.index
+                    && a.font.blob.data() == b.font.blob.data())
+            );
+        }
+    }
 
     #[test]
     fn system_font_snapshot_keeps_imported_fonts_local_to_a_compilation() {

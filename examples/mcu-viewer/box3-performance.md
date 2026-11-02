@@ -218,3 +218,20 @@ The compilation measurement includes serialization.
 The total includes compilation, coalescing, channel waiting, USB/device loading, display work, and the completion log's return path.
 It measures neither the operating system input event nor physical panel scanout.
 All six serial transport tests pass with the opt-in timing instrumentation.
+
+## Reuse Fallback-Font Discovery
+
+Fallback selection created a second system-font collection on every compilation.
+It now uses the existing session snapshot, with a separate collection that excludes imported fonts.
+Both the primary and fallback collections still reload environment-selected fonts for each compilation.
+
+| Scene | Previous repeated compile | Reused fallback discovery |
+| --- | ---: | ---: |
+| Current user counter scene | 68.029 ms | 23.012 ms |
+| Clipping and gradients | 46.566 ms | 2.321 ms |
+| Sixteen text rows | 47.719 ms | 1.534 ms |
+
+The comparison uses the same release configuration and excludes each process's first compilation.
+The reference contains six steady samples; the new harness contains ten.
+The fallback-font identity test confirms equal face indices and bytes against fresh discovery.
+All four tests matching `snapshot` pass, including imported-font isolation.
