@@ -62,13 +62,13 @@ body {
     cursor: ew-resize;
     right: 0;
     top: 0;
-    width: 8px;
+    width: 12px;
 }
 
 .dialog-frame-resize-handle-bottom {
     bottom: 0;
     cursor: ns-resize;
-    height: 8px;
+    height: 12px;
     left: 0;
     right: 0;
 }
@@ -76,9 +76,9 @@ body {
 .dialog-frame-resize-handle-bottom-right {
     bottom: 0;
     cursor: nwse-resize;
-    height: 16px;
+    height: 24px;
     right: 0;
-    width: 16px;
+    width: 24px;
 }
 
 .dialog-frame-resize-handle-right::after,
@@ -174,17 +174,6 @@ body {
 .workspace-tabs button:focus-visible {
     outline: 2px solid var(--figma-color-border-selected, #4f46e5);
     outline-offset: -2px;
-}
-#diagnostic-count {
-    background: #fff1f2;
-    color: #9f1239;
-    border-radius: 12px;
-    padding: 2px 6px;
-    font-size: 10px;
-    margin-left: 5px;
-}
-#diagnostic-count[data-severity="warning"] {
-    color: var(--figma-color-text-warning, #92400e);
 }
 #preview-workspace {
     display: grid;
@@ -582,7 +571,6 @@ body {
     color: var(--figma-color-text-warning, #92400e);
 }
 
-.figma-dark #diagnostic-count,
 .figma-dark .diagnostics {
     background: color-mix(
         in srgb,
@@ -593,7 +581,6 @@ body {
     border-color: var(--figma-color-border-danger, #963323);
 }
 
-.figma-dark #diagnostic-count[data-severity="warning"],
 .figma-dark .diagnostics[data-severity="warning"] {
     background: color-mix(
         in srgb,

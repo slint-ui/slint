@@ -9,6 +9,7 @@ use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
+use i_slint_compiler::source_path::SourcePath;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use slint_interpreter::ComponentInstance;
 
@@ -18,9 +19,6 @@ use i_slint_editor_preview::util;
 use i_slint_live_preview::protocol::VersionedUrl;
 
 use crate::preview::ext::ElementRcNodeExt;
-
-#[cfg(target_arch = "wasm32")]
-use i_slint_editor_preview::wasm_prelude::*;
 
 pub fn placeholder() -> String {
     format!(
@@ -92,7 +90,7 @@ fn calculate_drop_acceptance(
             LogicalPoint::new(geometry.origin.x + horizontal, geometry.origin.y),
             LogicalSize::new(geometry.size.width - (2.0 * horizontal), geometry.size.height),
         ),
-        ui::LayoutKind::Grid => *geometry,
+        ui::LayoutKind::Grid | ui::LayoutKind::Flexbox => *geometry,
     };
 
     if certain_rect.contains(position) { DropAccept::Yes } else { DropAccept::Maybe }
@@ -281,7 +279,7 @@ fn calculate_drop_information_for_layout(
             }
             unreachable!("We missed the target layout")
         }
-        ui::LayoutKind::Grid => {
+        ui::LayoutKind::Grid | ui::LayoutKind::Flexbox => {
             // TODO: Do something here
             (None, usize::MAX)
         }
@@ -347,7 +345,7 @@ pub fn insert_position_at_end(
             (format!("\n{indent}    "), format!("{indent}    "), indent, closing_brace_offset, 0)
         };
 
-        let url = lsp_types::Url::from_file_path(node.source_file.path()).ok()?;
+        let url = node.source_file.path().to_url()?;
         let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
         Some(InsertInformation {
@@ -405,7 +403,7 @@ pub fn insert_position_before_child(
                 (format!("\n{indent}    "), format!("{indent}    "))
             };
 
-            let url = lsp_types::Url::from_file_path(child_node.source_file.path()).ok()?;
+            let url = child_node.source_file.path().to_url()?;
             let (version, _) = preview::get_url_from_cache(&url).ok()?;
 
             return Some(InsertInformation {
@@ -432,7 +430,7 @@ fn insert_position_before_first_component(
     document: &syntax_nodes::Document,
 ) -> Option<InsertInformation> {
     let url = {
-        let url = lsp_types::Url::from_file_path(document.source_file.path()).ok()?;
+        let url = document.source_file.path().to_url()?;
         let version = document_cache.document_version_by_path(document.source_file.path());
         VersionedUrl::new(url, version)
     };
@@ -560,7 +558,7 @@ pub fn add_new_component(
         );
 
     let source_file = document.source_file.clone();
-    let path = source_file.path().to_path_buf();
+    let path = source_file.path().clone();
 
     let start_pos = util::text_size_to_lsp_position(
         &source_file,
@@ -594,7 +592,7 @@ fn drop_target_element_nodes(
     let mut result = Vec::with_capacity(3);
 
     for sc in &element_selection::collect_all_element_nodes_covering(position, component_instance) {
-        let Some(en) = sc.as_element_node() else {
+        let Some(en) = sc.as_element_node(component_instance) else {
             continue;
         };
 
@@ -666,9 +664,9 @@ fn find_drop_location(
         .borrow()
         .debug
         .first()
-        .map(|info| info.node.source_file.path().to_owned());
+        .map(|info| info.node.source_file.path().clone());
     let filter = Box::new(move |e: &i_slint_editor_preview::ElementRcNode| {
-        e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_deref())
+        e.with_element_node(|n| Some(n.source_file.path()) != root_node_path.as_ref())
     });
     let mark = Box::new(move |_: &i_slint_editor_preview::ElementRcNode| false);
     find_filtered_location(component_instance, position, filter, mark, component_type)
@@ -834,6 +832,14 @@ pub fn edited_text_compiles(
         return preview::CompilationResult::NoChange;
     }
 
+    // TODO: Apply project-file changes during trial compilation once DocumentCache supports them;
+    // they can affect the compilation outcome.
+    result.retain(|edited| {
+        !SourcePath::from_url(&edited.url)
+            .as_native_path()
+            .is_some_and(i_slint_compiler::project_file::is_project_file)
+    });
+
     let mut diag = BuildDiagnostics::default();
 
     let mut document_cache = document_cache.snapshot().expect("This is not loading anything!");
@@ -863,7 +869,7 @@ pub struct DropData {
     /// The offset to select next. This is different from the insert position
     /// due to indentation, etc.
     pub selection_offset: TextSize,
-    pub path: std::path::PathBuf,
+    pub path: SourcePath,
 }
 
 fn pretty_node_removal_range(node: &SyntaxNode) -> Option<TextRange> {
@@ -948,6 +954,9 @@ pub fn drop_at_with_geometry(
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
     let mut extra_properties =
         geometry_properties_for_drop(&component_instance, position, &drop_info, geometry)?;
+    if !component.is_builtin || matches!(component.name.as_str(), "Text" | "StyledText") {
+        extra_properties.retain(|property| !matches!(property.name.as_str(), "width" | "height"));
+    }
     extend_with_new_properties(
         &mut extra_properties,
         &component.default_properties,
@@ -1010,6 +1019,9 @@ fn geometry_properties_for_drop(
 pub(super) fn visual_properties_for_drop(
     component: &i_slint_editor_preview::component_catalog::ComponentInformation,
 ) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
+    if !component.is_builtin && !component.is_std_widget {
+        return Vec::new();
+    }
     match component.name.as_str() {
         "Rectangle" => vec![
             i_slint_editor_preview::editing::PropertyChange::new(
@@ -1026,15 +1038,10 @@ pub(super) fn visual_properties_for_drop(
             ),
             i_slint_editor_preview::editing::PropertyChange::new("border-width", "1px".to_string()),
         ],
-        "Text" => vec![
-            i_slint_editor_preview::editing::PropertyChange::new("text", "\"Text\"".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new("color", "#1f2328".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new("font-size", "24px".to_string()),
-            i_slint_editor_preview::editing::PropertyChange::new(
-                "vertical-alignment",
-                "center".to_string(),
-            ),
-        ],
+        "Text" => vec![i_slint_editor_preview::editing::PropertyChange::new(
+            "text",
+            "\"Text\"".to_string(),
+        )],
         "Image" => vec![i_slint_editor_preview::editing::PropertyChange::new(
             "image-fit",
             "contain".to_string(),
@@ -1187,7 +1194,7 @@ pub fn create_drop_element_workspace_edit_with_properties(
     let source_file = doc.node.as_ref().unwrap().source_file.clone();
 
     let mut edits = Vec::with_capacity(3);
-    let import_file = component.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
+    let import_file = component.import_file_name(&path.to_url());
     if let Some(edit) =
         import_edit::create_import_edit(doc, &component.name, &import_file, document_cache.format)
     {
@@ -1289,7 +1296,7 @@ pub fn create_swap_element_workspace_edit(
     let remove_me = element.with_decorated_node(|node| {
         node_removal_text_edit(&document_cache, &node, placeholder_text)
     })?;
-    if remove_me.url.to_file_path().as_ref().map(|p| p.as_path()) == Ok(source_file.path()) {
+    if source_file.path().to_url().as_ref() == Some(&remove_me.url) {
         selection_offset =
             text_edit::TextOffsetAdjustment::new(&remove_me.edit, &source_file, format)
                 .adjust(selection_offset);
@@ -1297,8 +1304,7 @@ pub fn create_swap_element_workspace_edit(
     edits.push(remove_me);
 
     if let Some(component_info) = preview::get_component_info(&component_type) {
-        let import_file =
-            component_info.import_file_name(&lsp_types::Url::from_file_path(&path).ok());
+        let import_file = component_info.import_file_name(&path.to_url());
         if let Some(edit) =
             import_edit::create_import_edit(doc, &component_type, &import_file, format)
         {
@@ -1352,10 +1358,74 @@ pub fn create_swap_element_workspace_edit(
     ))
 }
 
+/// Replaces `element` with a new `layout` element that contains it.
+/// The `x` and `y` bindings of `element` move to the layout, so that it stays in place.
+pub fn create_wrap_in_layout_workspace_edit(
+    document_cache: &i_slint_editor_preview::DocumentCache,
+    element: &i_slint_editor_preview::ElementRcNode,
+    layout: &str,
+    import_file: &Option<String>,
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    element.parent()?;
+
+    let (path, _) = element.path_and_offset();
+    let doc = document_cache.get_document_by_path(&path)?;
+    let source_file = doc.node.as_ref()?.source_file.clone();
+    let format = document_cache.format;
+
+    let position_bindings = element.with_element_node(|node| {
+        node.Binding()
+            .filter(|b| b.first_token().is_some_and(|t| matches!(t.text(), "x" | "y")))
+            .map(|b| b.text().to_string().trim().to_string())
+            .collect::<Vec<_>>()
+    });
+    let element_lines = extract_text_of_element(element, &["x", "y"]);
+    let indent = util::find_element_indent(element).unwrap_or_default();
+    let child_indent = format!("{indent}    ");
+
+    let mut new_text = format!("{layout} {{\n");
+    for line in position_bindings.iter().chain(element_lines.iter()) {
+        if !line.trim().is_empty() {
+            new_text.push_str(&child_indent);
+            new_text.push_str(line);
+        }
+        new_text.push('\n');
+    }
+    new_text.push_str(&indent);
+    new_text.push('}');
+
+    let range = element.with_decorated_node(|node| node.text_range());
+    let mut selection_offset = range.start();
+
+    let mut edits = Vec::with_capacity(2);
+    if let Some(edit) = import_edit::create_import_edit(doc, layout, import_file, format) {
+        selection_offset = text_edit::TextOffsetAdjustment::new(&edit, &source_file, format)
+            .adjust(selection_offset);
+        edits.push(i_slint_editor_preview::editing::SingleTextEdit::from_path(
+            document_cache,
+            source_file.path(),
+            edit,
+        )?);
+    }
+    edits.push(i_slint_editor_preview::editing::SingleTextEdit::from_path(
+        document_cache,
+        source_file.path(),
+        lsp_types::TextEdit {
+            range: util::text_range_to_lsp_range(&source_file, range, format),
+            new_text,
+        },
+    )?);
+
+    Some((
+        i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits),
+        DropData { selection_offset, path },
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use i_slint_compiler::parser::{TextRange, TextSize};
-    use lsp_types::Url;
+    use i_slint_compiler::source_path::SourcePath;
 
     use std::collections::HashMap;
 
@@ -1395,10 +1465,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
     ) -> (i_slint_editor_preview::DocumentCache, lsp_types::WorkspaceEdit) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
-            HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
-                DEMO_CODE.to_string(),
-            )]),
+            HashMap::from([(test::main_test_file_name().to_url().unwrap(), DEMO_CODE.to_string())]),
             false,
         );
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
@@ -1424,6 +1491,33 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             i_slint_editor_preview::editing::create_workspace_edit_from_single_text_edits(edits);
 
         (document_cache, workspace_edit)
+    }
+
+    #[test]
+    fn workspace_edit_trial_compilation_filters_project_files_after_detecting_no_change() {
+        use super::preview::CompilationResult;
+        let (document_cache, _) = workspace_edit_setup(Vec::new());
+        for (source, project_file, expected) in [
+            (None, false, CompilationResult::NoChange),
+            (None, true, CompilationResult::ChangeCompiles),
+            (Some(DEMO_CODE), true, CompilationResult::ChangeCompiles),
+            (Some("export component Broken { invalid }"), true, CompilationResult::ChangeFails),
+        ] {
+            let mut edits = source
+                .into_iter()
+                .map(|contents| text_edit::EditedText {
+                    url: test::main_test_file_name().to_url().unwrap(),
+                    contents: contents.into(),
+                })
+                .collect::<Vec<_>>();
+            if project_file {
+                edits.push(text_edit::EditedText {
+                    url: test::test_file_name("slint-project.json").to_url().unwrap(),
+                    contents: r#"{"include-paths":["changed"]}"#.into(),
+                });
+            }
+            assert_eq!(super::edited_text_compiles(&document_cache, edits), expected);
+        }
     }
 
     #[test]
@@ -1578,10 +1672,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
     fn add_component_test(input: &str, output: &str, selection_offset: u32) {
         let document_cache = test::compile_test_with_sources(
             "fluent",
-            HashMap::from([(
-                Url::from_file_path(test::main_test_file_name()).unwrap(),
-                input.to_string(),
-            )]),
+            HashMap::from([(test::main_test_file_name().to_url().unwrap(), input.to_string())]),
             true,
         );
         let doc = document_cache.get_document_by_path(&test::main_test_file_name()).unwrap();
@@ -1592,7 +1683,7 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
 
         let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].url.to_file_path().unwrap(), test::main_test_file_name());
+        assert_eq!(SourcePath::from_url(&result[0].url), test::main_test_file_name());
         assert_eq!(&result[0].contents, output);
 
         assert_eq!(drop_data.path, test::main_test_file_name());
@@ -1730,5 +1821,87 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
             "struct S { }  \n\ncomponent TestComponent { }\n\ncomponent C { }",
             26,
         );
+    }
+
+    const WRAP_CODE: &str = r#"import { Button } from "std-widgets.slint";
+
+export component Main inherits Window {
+    width: 200px;
+    height: 200px;
+
+    ok := Button {
+        x: 20px;
+        y: 40px;
+        text: "OK";
+    }
+
+    HorizontalLayout {
+        Text {
+            text: "In layout";
+        }
+    }
+}
+"#;
+
+    fn wrap_in_layout(
+        line: u32,
+        character: u32,
+        layout: &str,
+        import_file: Option<&str>,
+    ) -> Option<String> {
+        let url = test::main_test_file_name().to_url().unwrap();
+        let document_cache = test::compile_test_with_sources(
+            "fluent",
+            HashMap::from([(url.clone(), WRAP_CODE.to_string())]),
+            false,
+        );
+        let element = document_cache
+            .element_at_position(&url, &lsp_types::Position::new(line, character))
+            .unwrap();
+
+        let (workspace_edit, drop_data) = super::create_wrap_in_layout_workspace_edit(
+            &document_cache,
+            &element,
+            layout,
+            &import_file.map(String::from),
+        )?;
+
+        assert_eq!(
+            super::workspace_edit_compiles(&document_cache, &workspace_edit),
+            super::preview::CompilationResult::ChangeCompiles
+        );
+        let result = text_edit::apply_workspace_edit(&document_cache, &workspace_edit).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(drop_data.path, test::main_test_file_name());
+        let contents = result[0].contents.clone();
+        assert!(contents[usize::from(drop_data.selection_offset)..].starts_with(layout));
+        Some(contents)
+    }
+
+    #[test]
+    fn test_wrap_in_layout_moves_position_to_layout() {
+        assert_eq!(
+            wrap_in_layout(6, 10, "VerticalLayout", None).unwrap(),
+            WRAP_CODE.replace(
+                "    ok := Button {\n        x: 20px;\n        y: 40px;\n        text: \"OK\";\n    }\n",
+                "    VerticalLayout {\n        x: 20px;\n        y: 40px;\n        ok := Button {\n            text: \"OK\";\n        }\n    }\n",
+            )
+        );
+    }
+
+    #[test]
+    fn test_wrap_in_layout_adds_import() {
+        assert_eq!(
+            wrap_in_layout(13, 8, "HorizontalBox", Some("std-widgets.slint")).unwrap(),
+            WRAP_CODE.replace("{ Button }", "{ Button, HorizontalBox }").replace(
+                "        Text {\n            text: \"In layout\";\n        }\n",
+                "        HorizontalBox {\n            Text {\n                text: \"In layout\";\n            }\n        }\n",
+            )
+        );
+    }
+
+    #[test]
+    fn test_wrap_in_layout_rejects_root() {
+        assert!(wrap_in_layout(2, 30, "VerticalLayout", None).is_none());
     }
 }

@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
-use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
+use i_slint_compiler::element_type::ElementType;
+use i_slint_compiler::expression_tree::{Expression, TwoWayBinding};
+use i_slint_compiler::expression_types::Unit;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::native_class::PropertyVisibility;
+use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
@@ -14,8 +17,8 @@ use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 
+use i_slint_compiler::source_path::SourcePath;
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub enum CodeBlockOrExpression {
@@ -59,7 +62,7 @@ pub struct DefinitionInformation {
 
 #[derive(Clone, Debug)]
 pub struct DeclarationInformation {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub start_position: TextSize,
 }
 
@@ -157,7 +160,7 @@ fn add_element_properties(
                 decl.as_ref().and_then(|d| d.Type()).map(|t| t.into()).unwrap_or(n.clone());
 
             DeclarationInformation {
-                path: n.source_file.path().to_path_buf(),
+                path: n.source_file.path().clone(),
                 start_position: ty_node.text_range().start(),
             }
         });
@@ -311,6 +314,7 @@ pub enum LayoutKind {
     HorizontalBox,
     VerticalBox,
     GridLayout,
+    FlexboxLayout,
 }
 
 fn insert_property_definitions(
@@ -352,7 +356,7 @@ fn insert_property_definitions(
             ElementType::Builtin(b) => b
                 .properties
                 .get(prop)
-                .and_then(|p| p.default_value.expr(element))
+                .and_then(|p| Expression::from_builtin_default(&p.default_value, Some(element)))
                 .unwrap_or_default(),
             _ => Expression::Invalid,
         }
@@ -429,7 +433,10 @@ pub(super) fn get_properties(
                         visibility: t.property_visibility,
                         declared_at: None,
                         defined_at: None,
-                        default_value: t.default_value.expr(&current_element),
+                        default_value: Expression::from_builtin_default(
+                            &t.default_value,
+                            Some(&current_element),
+                        ),
                         group: b.name.clone(),
                         group_priority: depth,
                     })
@@ -453,13 +460,10 @@ pub(super) fn get_properties(
                         depth,
                         i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
                             .iter()
-                            .cloned(),
-                    ));
-                    result.extend(get_reserved_properties(
-                        &b.name,
-                        depth,
-                        i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES
-                            .iter()
+                            .chain(i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES)
+                            .chain(
+                                i_slint_compiler::typeregister::RESERVED_BACKDROP_BLUR_PROPERTIES,
+                            )
                             .cloned(),
                     ));
                 }
@@ -497,7 +501,10 @@ pub(super) fn get_properties(
                         .chain(std::iter::once((transform_origin.0, transform_origin.1.into()))),
                 ));
 
-                if matches!(b.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout") {
+                if matches!(
+                    b.name.as_str(),
+                    "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout"
+                ) {
                     // Add the padding that is otherwise filtered out
                     result.extend(get_reserved_properties(
                         &b.name,
@@ -526,7 +533,9 @@ pub(super) fn get_properties(
                 LayoutKind::None => true,
                 LayoutKind::HorizontalBox => p.name.as_str() != "x",
                 LayoutKind::VerticalBox => p.name.as_str() != "y",
-                LayoutKind::GridLayout => !["x", "y"].contains(&p.name.as_str()),
+                LayoutKind::GridLayout | LayoutKind::FlexboxLayout => {
+                    !["x", "y"].contains(&p.name.as_str())
+                }
             })
             .map(|mut p| {
                 match p.name.as_str() {
@@ -1573,7 +1582,7 @@ component MainWindow inherits Window {
         let declaration = foo_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 3);
         assert_eq!(start_position.character, 20); // This should probably point to the start of
         // `property<int> foo = 42`, not to the `<`
@@ -1602,6 +1611,9 @@ component MainWindow inherits Window {
             }
             lay3 := VerticalBox {
                 slider2 := Slider { value: 0.5; }
+                Rectangle {}
+            }
+            lay4 := FlexboxLayout {
                 Rectangle {}
             }
         }
@@ -1633,6 +1645,16 @@ component MainWindow inherits Window {
 
         let (l, c) =
             source.line_column(source.source().unwrap().find("lay3 :=").unwrap(), dc.format);
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        let property = find_property(&result, "padding").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-left").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-top").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("lay4 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         let property = find_property(&result, "padding").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
@@ -1689,7 +1711,7 @@ component SomeRect inherits Rectangle {
         let declaration = glob_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 2);
         assert_eq!(glob_property.group, "");
         assert!(find_property(&result, "width").is_none());
@@ -1700,7 +1722,7 @@ component SomeRect inherits Rectangle {
         let declaration = abcd_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 7);
         assert_eq!(abcd_property.group, "");
 

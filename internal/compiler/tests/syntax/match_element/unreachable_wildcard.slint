@@ -1,0 +1,64 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nicholas Turner <nicholas.turner@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+enum Nums {
+    one,
+    two,
+    three,
+}
+
+export component UnreachableWildcardBool {
+    in-out property <bool> flag: true;
+    match flag {
+        true: Rectangle { }
+        false: Rectangle { }
+        *: Rectangle { }
+//      ^warning{The '*' case is never hit because every 'bool' value has a case. Remove it}
+    }
+}
+
+export component UnreachableWildcardEnum {
+    in-out property <Nums> num: one;
+    match num {
+        one: Rectangle { }
+        two: Rectangle { }
+        three: Rectangle { }
+        *: Rectangle { }
+//      ^warning{The '*' case is never hit because every 'Nums' value has a case. Remove it}
+    }
+}
+
+export component UnreachableEmptyWildcard {
+    in-out property <Nums> num: one;
+    match num {
+        one: Rectangle { }
+        two: Rectangle { }
+        three: Rectangle { }
+        *: { }
+//      ^warning{The '*' case is never hit because every 'Nums' value has a case. Remove it}
+    }
+}
+
+export component UnreachableWildcardWithDuplicate {
+    in-out property <bool> flag: true;
+    match flag {
+        true: Rectangle { }
+        true: Rectangle { }
+//      >  <error{Duplicate case value}
+        false: Rectangle { }
+        *: Rectangle { }
+//      ^warning{The '*' case is never hit because every 'bool' value has a case. Remove it}
+    }
+}
+
+export component NonLiteralCaseWithWildcard {
+    in-out property <bool> flag: true;
+    in-out property <bool> other: true;
+    match flag {
+        true: Rectangle { }
+        false: Rectangle { }
+        other: Rectangle { }
+//      >   <error{Cases must be literal values}
+        *: Rectangle { }
+    }
+}

@@ -126,7 +126,7 @@ slug: qualification-report/test-coverage
 
 The tests of the `slint-sc` runtime crate run under LLVM source-based coverage instrumentation with [`cargo llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov):
 the unit tests, and the test driver that compiles the `.slint` test cases and runs them against the instrumented runtime.
-This chapter reports the measured line, function, region, and branch coverage per source file of the runtime, addressing [the test coverage requirement](/qualification-plan/test-coverage/).
+This chapter reports the measured line, function, region, and branch coverage per source file of the runtime, addressing [the test coverage requirement](/safety-plan/test-coverage/).
 Branch coverage counts each outcome of a condition: the two of an `if`, and of each operand of `&&` and `||`.
 A function counts as fully tested when every code region in it was executed, as partially tested when it was executed but some of its code regions weren't, and as untested when it was never executed."#
     )?;

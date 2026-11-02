@@ -25,7 +25,6 @@ export component Example inherits Window {
     date_picker := DatePickerPopup {
         x: (root.width - self.width) / 2;
         y: (root.height - self.height ) / 2;
-        close_policy: PopupClosePolicy.no_auto_close;
 
         accepted(date) => {
             date_picker.close();

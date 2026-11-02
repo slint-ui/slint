@@ -20,7 +20,7 @@ import {
     requiresVisualExport,
     type SvgExporter,
 } from "./normalize";
-import { isPngByteArray, pngDimensions } from "../images";
+import { isPngByteArray, pngDimensions, validSvgDocument } from "../images";
 import type { CaptureResult, CaptureWork } from "./snapshot";
 import type { VisualBounds } from "./source";
 import {
@@ -104,7 +104,7 @@ export function observeComponentDependencies(
     };
 }
 
-const svgExportSettings = {
+export const svgExportSettings = {
     format: "SVG_STRING",
     contentsOnly: true,
     useAbsoluteBounds: false,
@@ -115,6 +115,22 @@ const svgExportSettings = {
 } as const;
 
 const exportSvg: SvgExporter = (node) => node.exportAsync(svgExportSettings);
+
+function hasUntransformedBounds(node: SceneNode): boolean {
+    if (!("absoluteTransform" in node)) return true;
+    const transform = node.absoluteTransform;
+    return (
+        transform !== undefined &&
+        Math.abs(transform[0][0] - 1) <= 0.00001 &&
+        Math.abs(transform[1][1] - 1) <= 0.00001 &&
+        Math.abs(transform[0][1]) <= 0.00001 &&
+        Math.abs(transform[1][0]) <= 0.00001
+    );
+}
+
+function hasNoEffects(effects: unknown): boolean {
+    return Array.isArray(effects) && effects.length === 0;
+}
 
 const pngExportSettings = {
     format: "PNG",
@@ -136,15 +152,7 @@ function overflowingPaintBounds(node: SceneNode): VisualBounds | undefined {
         !("absoluteRenderBounds" in node)
     )
         return undefined;
-    const transform = node.absoluteTransform;
-    if (
-        !transform ||
-        Math.abs(transform[0][0] - 1) > 0.00001 ||
-        Math.abs(transform[1][1] - 1) > 0.00001 ||
-        Math.abs(transform[0][1]) > 0.00001 ||
-        Math.abs(transform[1][0]) > 0.00001
-    )
-        return undefined;
+    if (!hasUntransformedBounds(node)) return undefined;
     const box = node.absoluteBoundingBox;
     const paint = node.absoluteRenderBounds;
     if (!box || !paint || paint.width <= 0 || paint.height <= 0)
@@ -388,13 +396,22 @@ export async function captureSource(
                     stop?.();
                 }
             }));
-    const scheduledSvg: SvgExporter = (node) =>
+    const scheduledSvg = (
+        node: Parameters<SvgExporter>[0],
+        useAbsoluteBounds?: boolean,
+    ): Promise<string> =>
         schedule(async () => {
             if (cancelled?.()) throw new CaptureCancelled();
             const stop = node.type === "TEXT" ? fontTiming.start() : undefined;
             try {
                 work.svgExports++;
-                return await exportSvgNode(node);
+                return await (exportSvgNode === exportSvg &&
+                useAbsoluteBounds !== undefined
+                    ? node.exportAsync({
+                          ...svgExportSettings,
+                          useAbsoluteBounds,
+                      })
+                    : exportSvgNode(node));
             } finally {
                 stop?.();
             }
@@ -572,13 +589,26 @@ export async function captureSource(
             ...(properties ? { properties } : {}),
         };
     }
+    const hiddenCaptures = new Set<string>();
     async function visit(
         node: SceneNode,
-        hidden: boolean,
-        suppressed = false,
-        ancestors = "",
-        cacheableContext = true,
-        requiredByAncestor = false,
+        {
+            hidden = false,
+            suppressed = false,
+            ancestors = "",
+            cacheableContext = true,
+            requiredByAncestor = false,
+            svgContextSafe = true,
+            definitionRoot = false,
+        }: {
+            hidden?: boolean;
+            suppressed?: boolean;
+            ancestors?: string;
+            cacheableContext?: boolean;
+            requiredByAncestor?: boolean;
+            svgContextSafe?: boolean;
+            definitionRoot?: boolean;
+        } = {},
     ): Promise<SourceNode<Bytes>> {
         const raw = node as unknown as Record<string, unknown>;
         const requiredByProperty =
@@ -603,7 +633,10 @@ export async function captureSource(
         )
             await readComponent(node, result);
         const invisible =
-            hidden || ("visible" in node && node.visible === false);
+            hidden ||
+            (!definitionRoot && "visible" in node && node.visible === false);
+        if (invisible) hiddenCaptures.add(node.id);
+        else hiddenCaptures.delete(node.id);
         const captureMaskRaster = async () => {
             let raster: SourceResult<Bytes>;
             try {
@@ -760,7 +793,8 @@ export async function captureSource(
                         };
                     }
                 }
-                const rasterKey =
+                const paintBounds = overflowingPaintBounds(node);
+                const visualKey =
                     !rasterFallback &&
                     cache &&
                     rasterContextSafe &&
@@ -797,8 +831,7 @@ export async function captureSource(
                                       result.id,
                                       result.properties,
                                       result.segments,
-                                      exportScale,
-                                      overflowingPaintBounds(node),
+                                      paintBounds,
                                       "resolvedVariableModes" in node
                                           ? node.resolvedVariableModes
                                           : null,
@@ -808,6 +841,9 @@ export async function captureSource(
                               }
                           })()
                         : undefined;
+                const rasterKey = visualKey
+                    ? `png:${exportScale}:${visualKey}`
+                    : undefined;
                 if (!rasterFallback && node.type === "TEXT") {
                     fontMetrics.requests++;
                     fontMetrics.exports++;
@@ -880,6 +916,66 @@ export async function captureSource(
                             ...(raster ? { png: raster } : {}),
                         };
                         return;
+                    }
+                    const vectorSvg =
+                        node.type === "VECTOR" &&
+                        !("children" in node) &&
+                        rasterContextSafe &&
+                        svgContextSafe &&
+                        hasUntransformedBounds(node) &&
+                        hasNoEffects(contextProperties.effects) &&
+                        [
+                            contextProperties.fills,
+                            contextProperties.strokes,
+                        ].every(
+                            (paints) =>
+                                Array.isArray(paints) &&
+                                paints.every(
+                                    (paint: {
+                                        type?: string;
+                                        blendMode?: string;
+                                    }) =>
+                                        [
+                                            "SOLID",
+                                            "GRADIENT_LINEAR",
+                                            "GRADIENT_RADIAL",
+                                        ].includes(paint.type ?? "") &&
+                                        (paint.blendMode === undefined ||
+                                            paint.blendMode === "NORMAL"),
+                                ),
+                        );
+                    if (vectorSvg) {
+                        const svg = await attempt(async () => {
+                            const load = async () => {
+                                const value = (
+                                    await scheduledSvg(
+                                        node as Parameters<SvgExporter>[0],
+                                        paintBounds === undefined,
+                                    )
+                                ).trim();
+                                if (!validSvgDocument(value))
+                                    throw Error(
+                                        "SVG export did not return a valid SVG document",
+                                    );
+                                return value;
+                            };
+                            return cache && visualKey
+                                ? cache.get(
+                                      `svg:${visualKey}`,
+                                      load,
+                                      (value) => value.length * 2,
+                                  )
+                                : load();
+                        });
+                        if (svg.value !== undefined) {
+                            result.exports = {
+                                svg,
+                                pngOmitted: "svg",
+                            };
+                            if (paintBounds)
+                                result.exports.svgBounds = paintBounds;
+                            return;
+                        }
                     }
                     const raster = await readPng();
                     result.exports = {
@@ -954,17 +1050,21 @@ export async function captureSource(
                 visibleChildren,
                 concurrency,
                 (child) =>
-                    visit(
-                        child,
-                        invisible,
-                        suppressed ||
+                    visit(child, {
+                        hidden: invisible,
+                        suppressed:
+                            suppressed ||
                             (!includeHidden &&
                                 (result.exports !== undefined ||
                                     maskExport !== undefined)),
-                        childAncestors,
-                        rasterContextSafe,
-                        requiredByProperty,
-                    ),
+                        ancestors: childAncestors,
+                        cacheableContext: rasterContextSafe,
+                        requiredByAncestor: requiredByProperty,
+                        svgContextSafe:
+                            svgContextSafe &&
+                            (contextProperties.effects === undefined ||
+                                hasNoEffects(contextProperties.effects)),
+                    }),
                 cancelled,
             );
         }
@@ -983,8 +1083,8 @@ export async function captureSource(
         }
         return result;
     }
-    source.root = await visit(root, false);
-    if (scope === "raster") source.root.type = "VECTOR";
+    source.root = await visit(root);
+    if (scope === "raster") source.rasterized = true;
     const definitions: ComponentLibrary<SourceNode<Bytes>>["definitions"] = [];
     const processedVariants = new Map<string, Set<string>>();
     // Visit only variants required by the selected tree. Each visit can
@@ -1030,7 +1130,11 @@ export async function captureSource(
                     `Component reachability failed: missing variant ${variantId} in family ${owner.id}`,
                 );
             }
-            if (!capturedNodes.has(variant.id)) await visit(variant, false);
+            if (
+                !capturedNodes.has(variant.id) ||
+                hiddenCaptures.has(variant.id)
+            )
+                await visit(variant, { definitionRoot: true });
             processed.add(variantId);
         }
     }

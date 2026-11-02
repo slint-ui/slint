@@ -1,4 +1,5 @@
 ---
+
 title: Generic Instructions for Slint on STM32 MCUs
 description: A general path to get started with Slint on an STM32 MCU using STM32CubeMX when no ready-made template exists.
 ---
@@ -6,7 +7,6 @@ description: A general path to get started with Slint on an STM32 MCU using STM3
 The following instructions outline a rough, general path how to get started on an STM32 MCU
 with STM32 Cube tooling and Slint. Successful completion requires experience with STM32CubeMX
 as well as the peripherals of our board.
-
 1. Make sure to install all the [prerequisites](../#prerequisites).
 2. Start a new project with STM32CubeMX:
    - Select your base board.
@@ -22,10 +22,11 @@ as well as the peripherals of our board.
    of the `project` command.
 8. Open a web browser, navigate to <https://github.com/slint-ui/slint/releases/latest>, and download
    and extract `Slint-cpp-VERSION-thumbv7em-none-eabihf.tar.gz`, replace `VERSION` with the version you see.
-10. Set `CMAKE_PREFIX_PATH` to the extracted directory.
-11. Add a C++ source file to your project, for example `appmain.cpp`, with an `appmain` function and call it
+9. Set `CMAKE_PREFIX_PATH` to the extracted directory.
+10. Add a C++ source file to your project, for example `appmain.cpp`, with an `appmain` function and call it
     from the generated `main.c`.
-12. Create `app-window.slint` with the following contents:
+11. Create `app-window.slint` with the following contents:
+
     ```slint
     import { VerticalBox, AboutSlint } from "std-widgets.slint";
     export component AppWindow inherits Window {
@@ -39,7 +40,8 @@ as well as the peripherals of our board.
         }
     }
     ```
-13. Adjust your `CMakeLists.txt` for use of Slint. Copy the follow snippets and adjust the target names as needed:
+12. Adjust your `CMakeLists.txt` for use of Slint. Copy the follow snippets and adjust the target names as needed:
+
     ```cmake
     # Locate Slint
     find_package(Slint)
@@ -61,9 +63,10 @@ as well as the peripherals of our board.
         Slint::Slint
     )
     ```
-14. In your `appmain` function, initialize the screen via `BSP_LCD_InitEx` as well as the touch screen via `BSP_TS_Init`,
+13. In your `appmain` function, initialize the screen via `BSP_LCD_InitEx` as well as the touch screen via `BSP_TS_Init`,
     include `#include <slint-stm32.h>` and call `slint_stm32_init(SlintPlatformConfiguration());` to initialize the
     Slint platform integration for STM32. Finally, include the header file for your `.slint` file, instantiate the generated class, and invoke the event loop by calling `->run()` on the instance. Use the following example as reference:
+
     ```cpp
     #include <slint-stm32.h>
     #include <stdio.h>

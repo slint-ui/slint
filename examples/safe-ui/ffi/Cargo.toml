@@ -32,4 +32,4 @@ slint-sc = { path = "../../../api/slint-sc" }
 slint-safeui-app = { path = "../app" }
 
 [build-dependencies]
-bindgen = "0.72.1"
+bindgen = "0.73.2"

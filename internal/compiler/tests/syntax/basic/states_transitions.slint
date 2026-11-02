@@ -82,7 +82,10 @@ export component NewSyntax {
 
             in  {
                 animate * { duration: 88ms; }
+//                      ^note{The first 'animate *' is here}
                 animate color { duration: 88ms; }
+                animate * { duration: 50ms; }
+//                      ^error{Only one 'animate *' is allowed per state and direction}
             }
             out {
                 animate color, foo.x { duration: 300ms; }

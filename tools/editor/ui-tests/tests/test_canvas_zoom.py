@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cspell:ignore getpixel
+# cspell:ignore getpixel AZERTY
 
 
 import math
@@ -19,20 +19,22 @@ from canvas_interactions import (
     zoom_canvas,
 )
 from editor_sync import wait_for_source
+from inspector_interactions import inspector_field
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once
+from ui_assertions import expect
 from ui_driver import (
-    elements_with_label,
+    element,
     file_row,
     first_window,
     launch_editor,
     press_key,
     press_keys,
     press_shortcut,
+    query,
     screenshot,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 ZOOM_LEVELS = [25, 50, 75, 100, 125, 150, 200, 300, 400]
@@ -56,19 +58,19 @@ def test_zoom_scales_content_and_preserves_controls(
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
         center_canvas_selection(window)
-        initial_center = center(window_element_with_label(window, "Selected Rectangle"))
+        initial_center = center(element(window, "Selected Rectangle"))
         zoom_canvas(window, percent)
-        frame = window_element_with_label(window, "Selected Rectangle")
+        frame = element(window, "Selected Rectangle")
         assert center(frame).x == pytest.approx(initial_center.x)
         assert center(frame).y == pytest.approx(initial_center.y)
         assert frame.size.width == pytest.approx(180 * percent / 100)
         assert frame.size.height == pytest.approx(120 * percent / 100)
-        handle = window_element_with_label(window, "Rectangle resize top-left")
+        handle = element(window, "Rectangle resize top-left")
         assert handle.size.width == pytest.approx(12)
         assert handle.size.height == pytest.approx(12)
         assert center(handle).x == pytest.approx(frame.absolute_position.x)
         assert center(handle).y == pytest.approx(frame.absolute_position.y)
-        canvas = window_element_with_label(window, "Editor canvas")
+        canvas = element(window, "Editor canvas")
         window.dispatch_event(
             slint_testing.PointerMoveEvent(
                 slint_testing.LogicalPosition(
@@ -86,11 +88,17 @@ def test_zoom_scales_content_and_preserves_controls(
             rendered.getpixel((x, row)) == (37, 99, 235) for x in range(left, right)
         )
         assert blue_pixels / scale == pytest.approx(180 * percent / 100, abs=2)
+        if percent in (25, 400):
+            for _ in range(3):
+                press_shortcut(window, keys.Control, "-" if percent == 25 else "+")
+            assert canvas.accessible_value == f"{percent}%"
+            zoom_canvas(window, 400 if percent == 25 else 25)
         press_shortcut(window, keys.Control, "0")
-        wait_until(lambda: True if frame.size.width == pytest.approx(180) else None)
+        expect(frame).to_have_geometry(width=pytest.approx(180))
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("modifiers", [(keys.Control,), (keys.Control, keys.Shift)])
 @pytest.mark.parametrize(
     ("file_name", "row", "width", "height", "angle_degrees"),
     [
@@ -107,6 +115,7 @@ def test_zoom_to_selection_uses_largest_fitting_level(
     width,
     height,
     angle_degrees,
+    modifiers,
 ):
     source = fixture_project / file_name
     original = SourceSnapshot.capture(fixture_project)
@@ -114,17 +123,71 @@ def test_zoom_to_selection_uses_largest_fitting_level(
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         select_outline_row(window, row)
-        canvas = window_element_with_label(window, "Editor canvas")
+        canvas = element(window, "Editor canvas")
         angle = math.radians(angle_degrees)
         bounds_width = width * abs(math.cos(angle)) + height * abs(math.sin(angle))
         bounds_height = width * abs(math.sin(angle)) + height * abs(math.cos(angle))
         expected = expected_fit_zoom(canvas, bounds_width, bounds_height)
-        press_shortcut(window, keys.Shift, "2")
-        wait_until(lambda: True if canvas.accessible_value == f"{expected}%" else None)
-        frame = window_element_with_label(window, "Selected Rectangle")
+        press_shortcut(window, *modifiers, "2")
+        expect(canvas).to_have_value(f"{expected}%")
+        frame = element(window, "Selected Rectangle")
         assert center(frame).x == pytest.approx(center(canvas).x)
         assert center(frame).y == pytest.approx(center(canvas).y)
         original.assert_unchanged()
+
+
+@pytest.mark.parametrize("shift", [keys.Shift, keys.ShiftR])
+@pytest.mark.parametrize(
+    ("row", "label", "prefix", "suffix", "old", "new"),
+    [
+        (
+            "root-rectangle",
+            "Width",
+            "",
+            "",
+            b"width: 180px;\n        height: 120px;",
+            b"width: 2px;\n        height: 120px;",
+        ),
+        (
+            "root-text",
+            "Text content",
+            '"',
+            '"',
+            b'text: "Fixture text";',
+            b'text: "2";',
+        ),
+    ],
+)
+def test_shift_two_types_in_inspector_without_zooming(
+    editor_binary,
+    editor_environment,
+    fixture_project,
+    shift,
+    row,
+    label,
+    prefix,
+    suffix,
+    old,
+    new,
+):
+    source = fixture_project / "Main.slint"
+    baseline = source.read_bytes()
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_outline_row(window, row)
+        field = inspector_field(window, label, slint_testing.AccessibleRole.TextInput)
+        field.single_click(slint_testing.PointerEventButton.Left)
+        press_shortcut(window, keys.Control, "a")
+        press_keys(window, prefix)
+        # Belgian AZERTY produces "2" with Shift held.
+        press_shortcut(window, shift, "2")
+        press_keys(window, suffix)
+        expect(field).to_have_value(prefix + "2" + suffix)
+        expect(element(window, "Editor canvas")).to_have_value("100%")
+        press_key(window, keys.Return)
+        original.wait_for_applied(replace_once(baseline, old, new))
 
 
 def test_zoom_to_selection_centers_canvas_when_unselected(
@@ -136,8 +199,8 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        window_element_with_label(window, "Selected Rectangle")
-        canvas = window_element_with_label(window, "Editor canvas")
+        element(window, "Selected Rectangle")
+        canvas = element(window, "Editor canvas")
         clear_point = slint_testing.LogicalPosition(
             x=canvas.absolute_position.x + 10,
             y=canvas.absolute_position.y + 10,
@@ -145,34 +208,24 @@ def test_zoom_to_selection_centers_canvas_when_unselected(
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(clear_point, button))
         window.dispatch_event(slint_testing.PointerReleaseEvent(clear_point, button))
-        wait_until(
-            lambda: (
-                True
-                if not elements_with_label(window.root_element, "Selected Rectangle")
-                else None
-            )
-        )
+        expect(query(window, "Selected Rectangle")).to_be_hidden()
         target = center(canvas)
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(target, delta_x=80, delta_y=-120)
         )
-        artboard = window_element_with_label(
-            window, "Artboard", slint_testing.AccessibleRole.Region
-        )
+        artboard = element(window, "Artboard", role=slint_testing.AccessibleRole.Region)
         assert center(artboard).x != pytest.approx(target.x)
         assert center(artboard).y != pytest.approx(target.y)
-        press_shortcut(window, keys.Shift, "2")
+        press_shortcut(window, keys.Control, "2")
         wait_until(
             lambda: (
-                True
-                if center(artboard).x == pytest.approx(target.x)
+                center(artboard).x == pytest.approx(target.x)
                 and center(artboard).y == pytest.approx(target.y)
-                else None
             )
         )
         assert canvas.accessible_value == "100%"
         zoom_canvas(window, 125)
-        press_shortcut(window, keys.Shift, "2")
+        press_shortcut(window, keys.Control, "2")
         assert canvas.accessible_value == "125%"
         original.assert_unchanged()
 
@@ -196,7 +249,7 @@ def test_zoomed_drag_writes_document_units(
             if operation == "move"
             else "Rectangle resize bottom-right"
         )
-        handle = window_element_with_label(window, label)
+        handle = element(window, label)
         manual_drag(window, handle, 20 * percent / 100, 16 * percent / 100, original)
         old, new = (
             (b"x: 40px;\n        y: 40px;", b"x: 60px;\n        y: 56px;")
@@ -226,23 +279,19 @@ def test_canvas_scroll_and_space_pan(
         select_outline_row(window, "root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, percent)
-        frame = window_element_with_label(window, "Selected Rectangle")
-        canvas = window_element_with_label(window, "Editor canvas")
+        frame = element(window, "Selected Rectangle")
+        canvas = element(window, "Editor canvas")
         start = center(canvas)
         before = frame.absolute_position
         window.dispatch_event(
             slint_testing.PointerScrolledEvent(start, delta_x=24, delta_y=32)
         )
-        wait_until(
-            lambda: (
-                True
-                if frame.absolute_position.x == pytest.approx(before.x + 24)
-                else None
-            )
-        )
-        assert frame.absolute_position.y == pytest.approx(before.y + 32)
+        expect.poll(
+            lambda: (frame.absolute_position.x, frame.absolute_position.y),
+            message="selection position after canvas scroll",
+        ).to_equal((pytest.approx(before.x + 24), pytest.approx(before.y + 32)))
         # Clicking the canvas frame gives the editor keyboard focus.
-        handle = window_element_with_label(window, "Rectangle move handle")
+        handle = element(window, "Rectangle move handle")
         point = center(handle)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(point, button))
@@ -260,6 +309,46 @@ def test_canvas_scroll_and_space_pan(
         original.assert_unchanged()
 
 
+@pytest.mark.parametrize("axis", ["vertical", "horizontal"])
+def test_shift_wheel_zooms_around_pointer(
+    editor_binary, editor_environment, fixture_project, axis
+):
+    source = fixture_project / "Main.slint"
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, source.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "root-rectangle")
+        center_canvas_selection(window)
+        frame = element(window, "Selected Rectangle")
+        canvas = element(window, "Editor canvas")
+        before = frame.absolute_position
+        pointer = slint_testing.LogicalPosition(x=before.x + 30, y=before.y + 20)
+
+        def shift_wheel(delta: float) -> None:
+            window.dispatch_event(slint_testing.KeyPressedEvent(text=keys.Shift))
+            window.dispatch_event(
+                slint_testing.PointerScrolledEvent(
+                    pointer,
+                    delta_x=delta if axis == "horizontal" else 0,
+                    delta_y=delta if axis == "vertical" else 0,
+                )
+            )
+            window.dispatch_event(slint_testing.KeyReleasedEvent(text=keys.Shift))
+
+        shift_wheel(120)
+        expect(canvas).to_have_value("125%")
+        assert frame.size.width == pytest.approx(180 * 1.25)
+        assert frame.absolute_position.x == pytest.approx(pointer.x - 30 * 1.25)
+        assert frame.absolute_position.y == pytest.approx(pointer.y - 20 * 1.25)
+        shift_wheel(-120)
+        shift_wheel(-120)
+        expect(canvas).to_have_value("75%")
+        assert frame.absolute_position.x == pytest.approx(pointer.x - 30 * 0.75)
+        assert frame.absolute_position.y == pytest.approx(pointer.y - 20 * 0.75)
+        original.assert_unchanged()
+
+
 def test_zoom_during_inline_edit_preserves_text(
     editor_binary, editor_environment, fixture_project
 ):
@@ -270,18 +359,41 @@ def test_zoom_during_inline_edit_preserves_text(
         wait_for_source(source, baseline)
         window = first_window(editor)
         select_outline_row(window, "root-text")
-        window_element_with_label(window, "Text move handle").double_click(
+        element(window, "Text move handle").double_click(
             slint_testing.PointerEventButton.Left
         )
-        text = window_element_with_label(window, "Inline text editor")
+        text = element(window, "Inline text editor")
         press_keys(window, "Hello ")
         press_shortcut(window, keys.Control, "=")
-        wait_until(lambda: True if text.size.width == pytest.approx(225) else None)
+        expect(text).to_have_geometry(width=pytest.approx(225))
         press_keys(window, "world")
         press_key(window, keys.Return)
         original.wait_for_applied(
             replace_once(baseline, b'text: "Fixture text";', b'text: "Hello world";')
         )
+
+
+def test_inline_text_scales_at_200_percent(
+    editor_binary, editor_environment, fixture_project, tmp_path
+):
+    source = fixture_project / "Main.slint"
+    baseline = source.read_bytes()
+    original = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        wait_for_source(source, baseline)
+        window = first_window(editor)
+        select_outline_row(window, "root-text")
+        center_canvas_selection(window, "Text")
+        zoom_canvas(window, 200)
+        element(window, "Text move handle").double_click(
+            slint_testing.PointerEventButton.Left
+        )
+        text = element(window, "Inline text editor")
+        assert text.size.width == pytest.approx(360)
+        assert text.size.height == pytest.approx(96)
+        screenshot(window).save(tmp_path / "inline-text-200.png")
+        press_key(window, keys.Escape)
+        original.assert_unchanged()
 
 
 @pytest.mark.parametrize("percent", [50, 125, 200])
@@ -320,7 +432,7 @@ def test_zoomed_radius_and_rotation(
                 ).encode(),
             )
         else:
-            handle = window_element_with_label(window, "Rectangle rotate top-left")
+            handle = element(window, "Rectangle rotate top-left")
             dx, dy = rotation_delta(window, handle, 15, kind="Rectangle")
             manual_rotation_drag(
                 window, handle, dx, dy, original, kind="Rectangle", target_angle=15
@@ -345,16 +457,13 @@ def test_zoom_is_blocked_during_resize(
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "root-rectangle")
-        handle = window_element_with_label(window, "Rectangle resize bottom-right")
+        handle = element(window, "Rectangle resize bottom-right")
         start = center(handle)
         button = slint_testing.PointerEventButton.Left
         window.dispatch_event(slint_testing.PointerPressEvent(start, button))
         press_shortcut(window, keys.Control, "+")
-        press_shortcut(window, keys.Shift, "2")
-        assert (
-            window_element_with_label(window, "Editor canvas").accessible_value
-            == "100%"
-        )
+        press_shortcut(window, keys.Control, "2")
+        assert element(window, "Editor canvas").accessible_value == "100%"
         window.dispatch_event(slint_testing.PointerReleaseEvent(start, button))
         zoom_canvas(window, 125)
         original.assert_unchanged()
@@ -372,59 +481,27 @@ def test_view_survives_reload_and_document_switch(
         select_outline_row(window, "root-rectangle")
         center_canvas_selection(window)
         zoom_canvas(window, 200)
-        frame = window_element_with_label(window, "Selected Rectangle")
+        frame = element(window, "Selected Rectangle")
         before = frame.absolute_position
         expected = replace_once(baseline, b'"Fixture text"', b'"Reloaded"')
         source.write_bytes(expected)
         original.wait_for_applied(expected)
         select_outline_row(window, "root-rectangle")
-        frame = window_element_with_label(window, "Selected Rectangle")
+        frame = element(window, "Selected Rectangle")
         assert frame.absolute_position.x == pytest.approx(before.x)
         assert frame.absolute_position.y == pytest.approx(before.y)
         assert frame.size.width == pytest.approx(360)
         file_row(
             window, fixture_project / "Sibling.slint"
         ).invoke_accessible_default_action()
-        window_element_with_label(
-            window, "sibling-rectangle", slint_testing.AccessibleRole.ListItem
-        )
-        assert (
-            window_element_with_label(window, "Editor canvas").accessible_value
-            == "200%"
-        )
+        element(window, "sibling-rectangle", role=slint_testing.AccessibleRole.ListItem)
+        assert element(window, "Editor canvas").accessible_value == "200%"
         file_row(window, source).invoke_accessible_default_action()
         select_outline_row(window, "root-rectangle")
-        frame = window_element_with_label(window, "Selected Rectangle")
+        frame = element(window, "Selected Rectangle")
         assert frame.absolute_position.x == pytest.approx(before.x)
         assert frame.absolute_position.y == pytest.approx(before.y)
         assert frame.size.width == pytest.approx(360)
-
-
-@pytest.mark.parametrize("percent,key", [(25, "-"), (400, "+")])
-def test_zoom_limits(editor_binary, editor_environment, fixture_project, percent, key):
-    source = fixture_project / "Main.slint"
-    original = SourceSnapshot.capture(fixture_project)
-    with launch_editor(editor_binary, editor_environment, source) as editor:
-        wait_for_source(source, source.read_bytes())
-        window = first_window(editor)
-        zoom_canvas(window, percent)
-        for _ in range(3):
-            press_shortcut(window, keys.Control, key)
-        assert (
-            window_element_with_label(window, "Editor canvas").accessible_value
-            == f"{percent}%"
-        )
-        zoom_canvas(window, 400 if percent == 25 else 25)
-        press_shortcut(window, keys.Control, "0")
-        wait_until(
-            lambda: (
-                True
-                if window_element_with_label(window, "Editor canvas").accessible_value
-                == "100%"
-                else None
-            )
-        )
-        original.assert_unchanged()
 
 
 @pytest.mark.parametrize("percent", [50, 200])
@@ -470,5 +547,5 @@ def test_navigation_keeps_gradient_picker_open(
         moved_again = center(control(window, "Gradient start"))
         assert moved_again.x == pytest.approx(point.x + 12)
         assert moved_again.y == pytest.approx(point.y + 16)
-        click(window, "Close Custom")
+        click(window, "Close Fill")
         original.assert_unchanged()

@@ -76,6 +76,21 @@
           Square71x71Logo="Assets\SlintVisualEditor-Logo-71x71.png"
           />
       </uap:VisualElements>
+      <Extensions>
+        <!--
+          Full-trust apps receive the opened file's path as a command-line
+          argument.
+        -->
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="slint">
+            <uap:DisplayName>Slint UI File</uap:DisplayName>
+            <uap:Logo>Assets\SlintVisualEditor-Logo-44x44.png</uap:Logo>
+            <uap:SupportedFileTypes>
+              <uap:FileType ContentType="text/x-slint">.slint</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
   <Capabilities>

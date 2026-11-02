@@ -167,7 +167,11 @@ impl PlatformTray {
         });
         unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as _) };
 
-        Ok(Self { inner })
+        let tray = Self { inner };
+        if let Some((menu, entries_out)) = params.menu {
+            tray.rebuild_menu(menu, entries_out);
+        }
+        Ok(tray)
     }
 
     pub fn rebuild_menu(
@@ -175,7 +179,6 @@ impl PlatformTray {
         menu: vtable::VRef<'_, MenuVTable>,
         entries_out: &mut std::vec::Vec<MenuEntry>,
     ) {
-        entries_out.clear();
         let Ok(new_menu) = (unsafe { CreatePopupMenu() }) else { return };
 
         let mut top = SharedVector::<MenuEntry>::default();

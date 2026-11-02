@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { ScrollView } from "std-widgets.slint";
+import { RecipeCard } from "recipe-card.slint";
+import { Recipe } from "../recipe-adapter.slint";
+import { Header } from "header.slint";
+import { Styles } from "../styles.slint";
+
+export component RecipesGrid {
+    in property <[Recipe]> recipes;
+    in property <int> columns: 4;
+    in property <length> spacing: (root.width - (Styles.side-margin * 2) - (Styles.recipe-card-size * columns)) / (columns - 1);
+
+    callback item-clicked(int);
+
+    ScrollView {
+        x: 0px;
+        y: header.height;
+        width: root.width;
+        height: root.height - header.height;
+        content-width: self.visible-width;
+        content-height: gl.preferred-height + Styles.side-margin;
+        horizontal-scrollbar-policy: always-off;
+        mouse-drag-pan-enabled: true;
+
+        gl := GridLayout {
+            x: Styles.side-margin;
+            y: Styles.spacing-md;
+            spacing: root.spacing;
+            for recipe[index] in root.recipes: RecipeCard {
+                photo: recipe.photo;
+                title: recipe.title;
+                time: recipe.total-time + " Min.";
+                col: (index.mod(columns));
+                row: (index / columns);
+                recipe-clicked => {
+                    root.item-clicked(index);
+                }
+            }
+        }
+    }
+
+    header := Header {
+        y: 0px;
+
+        Rectangle {
+            height: vl.preferred-height;
+            vl := VerticalLayout {
+                x: Styles.side-margin;
+                alignment: start;
+                spacing: Styles.spacing-xs;
+                Text {
+                    color: #171717;
+                    font-size: Styles.heading-font-size;
+                    text: "Recipes";
+                    font-weight: FontWeight.semi-bold;
+                }
+
+                Text {
+                    color: #737373;
+                    font-size: Styles.small-font-size;
+                    text: "Explore curated recipes for your food processor";
+                    font-weight: FontWeight.medium;
+                }
+            }
+        }
+    }
+}

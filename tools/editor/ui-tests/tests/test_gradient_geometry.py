@@ -15,17 +15,21 @@ from gradient_interactions import (
     gradient_document,
     open_gradient,
     picker_field,
+    picker_panel,
     shifted,
 )
 from gradient_interactions import click as click_picker_button
 from slint_testing import keys
 from source_snapshot import SourceSnapshot, replace_once, wait_for_source_change
+from ui_assertions import expect
 from ui_driver import (
+    double_click_at,
+    element,
+    elements,
     first_window,
     launch_editor,
     select_outline_row,
     wait_until,
-    window_element_with_label,
 )
 
 
@@ -58,13 +62,13 @@ def test_custom_gradient_geometry_uses_layout_size(
         window = first_window(editor)
         select_outline_row(window, "fill")
         rectangle = wait_until(
-            lambda: next(iter(window.find_elements_by_id("LayoutGradient::fill")), None)
+            lambda: next(iter(elements(window, id="LayoutGradient::fill")), None)
         )
         assert rectangle.size.width == pytest.approx(400)
         assert rectangle.size.height == pytest.approx(400)
 
         def field(label, role):
-            return window_element_with_label(window, label, role)
+            return element(window, label, role=role)
 
         field(
             "Rectangle background color picker", slint_testing.AccessibleRole.Button
@@ -77,7 +81,7 @@ def test_custom_gradient_geometry_uses_layout_size(
         assert geometry == pytest.approx(
             (200, 200, math.hypot(200, 200) if kind == "radial" else 160), abs=0.001
         )
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         assert source_file.read_text() == source
 
 
@@ -86,9 +90,9 @@ def test_custom_gradient_geometry_uses_layout_size(
 def test_non_canvas_gradient_keeps_numeric_geometry(
     editor_binary, editor_environment, tmp_path, kind, target
 ):
-    from ui_driver import elements_with_label, press_key
+    from ui_driver import press_key
 
-    prefix = {"linear": "0deg", "radial": "circle", "conic": "from 0deg"}[kind]
+    prefix = {"linear": "36deg", "radial": "circle", "conic": "from 36deg"}[kind]
     stops = "red 0deg, blue 360deg" if kind == "conic" else "red 0%, blue 100%"
     file = tmp_path / "TextGradient.slint"
     file.write_text(f"""export component TextGradient inherits Window {{
@@ -110,7 +114,7 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         if target == "text":
             select_outline_row(window, "label")
         else:
-            outline = window_element_with_label(window, "Current file outline")
+            outline = element(window, "Current file outline")
             root_row = (
                 outline.query_descendants()
                 .match_accessible_role(slint_testing.AccessibleRole.ListItem)
@@ -123,17 +127,17 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             else "Root background color picker"
         )
         click_picker_button(window, picker)
-        assert not elements_with_label(window.root_element, "Gradient center handle")
-        assert not elements_with_label(window.root_element, "Gradient start")
-        if kind != "radial":
-            picker_field(window, "Gradient angle degrees").accessible_value = "36"
+        assert not elements(window, "Gradient center handle")
+        assert not elements(window, "Gradient start")
+        assert not elements(window, "Gradient angle degrees")
         if kind != "linear":
             set_picker_mode(window, "Gradient center", "Custom")
             picker_field(window, "Gradient center X").accessible_value = "37"
             picker_field(window, "Gradient center Y").accessible_value = "61"
         if kind == "radial":
             set_picker_mode(window, "Gradient radius mode", "Custom")
-            picker_field(window, "Gradient radius").accessible_value = "95"
+            picker_field(window, "Gradient radius X").accessible_value = "95"
+            picker_field(window, "Gradient radius Y").accessible_value = "95"
         labels = [
             text.accessible_label
             for text in window.root_element.query_descendants()
@@ -142,10 +146,15 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         ]
         assert "px" not in labels
         assert "X / Y px" not in labels
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Edit stop 2 color")
+        click_picker_button(window, "Close Stop color")
+        press_key(window, keys.Space)
+        picker_field(window, "Hex color")
+        click_picker_button(window, "Close Stop color")
+        click_picker_button(window, "Close Fill")
         geometry = {
             "linear": "36deg",
-            "radial": "circle 95px at 37px 61px",
+            "radial": "ellipse 95px 95px at 37px 61px",
             "conic": "from 36deg at 37px 61px",
         }[kind]
         saved_stops = (
@@ -159,6 +168,8 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
             f"{property_name}: @{kind}-gradient({prefix}, {stops});".encode(),
             f"{property_name}: @{kind}-gradient({geometry}, {saved_stops});".encode(),
         )
+        if kind == "linear":
+            saved = original.sources[Path(file.name)]
         original.wait_for_applied(saved, file.name)
         click_picker_button(window, picker)
         click_picker_button(window, "Add gradient stop")
@@ -166,32 +177,38 @@ def test_non_canvas_gradient_keeps_numeric_geometry(
         assert file.read_bytes() == saved
 
 
+def test_non_canvas_ellipse_radii_can_be_edited(
+    editor_binary, editor_environment, tmp_path
+):
+    file = tmp_path / "TextEllipse.slint"
+    file.write_text("""export component TextEllipse inherits Window {
+    width: 400px;
+    height: 400px;
+    label := Text {
+        text: "Gradient";
+        color: @radial-gradient(ellipse 90px 40px, red 0%, blue 100%);
+    }
+}
+""")
+    original = SourceSnapshot.capture(tmp_path)
+    with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
+        window = first_window(editor)
+        select_outline_row(window, "label")
+        click_picker_button(window, "Text color color picker")
+        assert not elements(window, "Gradient shape")
+        picker_field(window, "Gradient radius X").accessible_value = "120"
+        picker_field(window, "Gradient radius Y").accessible_value = "55"
+        click_picker_button(window, "Close Fill")
+        saved = wait_for_source_change(file, original.sources[Path(file.name)])
+        assert b"@radial-gradient(ellipse 120px 55px," in saved
+        original.wait_for_applied(saved, file.name)
+
+
 def set_picker_mode(window, label, value):
     picker_field(
         window, label, slint_testing.AccessibleRole.Combobox
     ).accessible_value = value
-
-
-@pytest.mark.parametrize("kind", ["radial", "conic"])
-def test_picker_uses_live_preview_stop_markers(
-    editor_binary, editor_environment, tmp_path, kind
-):
-    expression = (
-        "@radial-gradient(circle, red, blue)"
-        if kind == "radial"
-        else "@conic-gradient(from 0deg, red 0deg, blue 360deg)"
-    )
-    file = gradient_document(tmp_path, expression)
-    with launch_editor(editor_binary, editor_environment, file) as editor:
-        wait_for_source(file, file.read_bytes())
-        window = first_window(editor)
-        select_outline_row(window, "fill")
-        open_gradient(window)
-        stop = picker_field(
-            window, "Gradient stop 1", slint_testing.AccessibleRole.Slider
-        )
-        assert stop.size.width == 40
-        assert stop.size.height == 40
 
 
 @pytest.mark.parametrize("loaded_custom", [False, True])
@@ -228,7 +245,6 @@ def test_custom_geometry_survives_mode_changes(
 def test_stop_precision_survives_save_and_reopen(
     editor_binary, editor_environment, tmp_path, kind
 ):
-
     prefix = {"linear": "90deg", "radial": "circle", "conic": "from 0deg"}[kind]
     unit = "deg" if kind == "conic" else "%"
     expression = f"@{kind}-gradient({prefix}, #ff0000 0{unit} - 12.345678{unit}, #00ff0080 33.333333{unit}, blue 33.333333{unit}, white 123.456789{unit})"
@@ -241,7 +257,7 @@ def test_stop_precision_survives_save_and_reopen(
 
         def save():
             picker_field(
-                window, "Close Custom", slint_testing.AccessibleRole.Button
+                window, "Close Fill", slint_testing.AccessibleRole.Button
             ).invoke_accessible_default_action()
             content = wait_for_source_change(file, snapshot.sources[Path(file.name)])
             snapshot.wait_for_applied(content, file.name)
@@ -274,7 +290,7 @@ def test_stop_precision_survives_save_and_reopen(
         else:
             rotate_conic(window, 45, 46)
         picker_field(
-            window, "Close Custom", slint_testing.AccessibleRole.Button
+            window, "Close Fill", slint_testing.AccessibleRole.Button
         ).invoke_accessible_default_action()
         second = wait_for_source_change(file, first)
         snapshot.wait_for_applied(second, file.name)
@@ -323,16 +339,23 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
             < picker_field(window, "Stop 2 position").absolute_position.y
         )
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        expect(picker_field(window, "Hex color")).to_have_value("0000FF")
+        expect(picker_field(window, "Hex color opacity")).to_have_value("50")
         click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Gradient stop 2")
-        press_key(window, keys.RightArrow)
-        assert float(
-            picker_field(window, "Stop 2 position").accessible_value
-        ) == pytest.approx(units * 0.75 + 1, abs=0.01)
+        for key, offset in [
+            (keys.RightArrow, 1),
+            (keys.RightArrow, 2),
+            (keys.LeftArrow, 1),
+        ]:
+            press_key(window, key)
+            assert float(
+                picker_field(window, "Stop 2 position").accessible_value
+            ) == pytest.approx(units * 0.75 + offset, abs=0.01)
         click_picker_button(window, "Remove stop 1")
         click_picker_button(window, "Edit stop 1 color")
-        assert picker_field(window, "Hex color").accessible_value == "#0000ff80"
+        expect(picker_field(window, "Hex color")).to_have_value("0000FF")
+        expect(picker_field(window, "Hex color opacity")).to_have_value("50")
         press_key(window, keys.Escape)
         original.assert_unchanged()
 
@@ -341,7 +364,6 @@ def test_picker_crossing_keeps_canvas_identity_and_orders_rows(
 def test_picker_pointer_cancel_restores_stops(
     editor_binary, editor_environment, tmp_path, insert
 ):
-
     file = gradient_document(
         tmp_path, "@linear-gradient(90deg, red 0%, blue 50%, white 100%)"
     )
@@ -351,6 +373,16 @@ def test_picker_pointer_cancel_restores_stops(
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+
+        def picker_beside_field():
+            panel = picker_panel(window, "main").absolute_rect
+            field = control(window, "Rectangle background color picker").absolute_rect
+            gap = field.x - panel.x - panel.width
+            return (
+                0 < gap < field.height and panel.y <= field.y < panel.y + panel.height
+            )
+
+        wait_until(picker_beside_field)
         role = slint_testing.AccessibleRole.Slider
         left = center(control(window, "Gradient stop 1", role))
         right = center(control(window, "Gradient stop 3", role))
@@ -367,7 +399,7 @@ def test_picker_pointer_cancel_restores_stops(
                 float(picker_field(window, f"Stop {index} position").accessible_value)
                 == position
             )
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         original.assert_unchanged()
 
 
@@ -388,32 +420,34 @@ def test_stop_interactions_preserve_color_identity(
         left = center(control(window, "Gradient start"))
         right = center(control(window, "Gradient end"))
         insertion = shifted(left, x=(right.x - left.x) * 0.25)
-        for _ in range(2):
-            gesture(window, insertion, insertion)
+        double_click_at(window, insertion)
         control(window, "Gradient stop 4")
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#aa0055c0"
+        expect(picker_field(window, "Hex color")).to_have_value("AA0055")
+        expect(picker_field(window, "Hex color opacity")).to_have_value("75")
         picker_field(window, "Hex color").accessible_value = "#00ff00b0"
         click_picker_button(window, "Close Stop color")
         original.assert_unchanged_now()
         start = center(control(window, "Gradient stop 2"))
         gesture(window, start, shifted(start, x=(right.x - left.x) * 0.5))
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
+        expect(picker_field(window, "Hex color")).to_have_value("00FF00")
+        expect(picker_field(window, "Hex color opacity")).to_have_value("69")
         click_picker_button(window, "Close Stop color")
         click_picker_button(window, "Gradient stop 1")
         press_key(window, keys.Delete)
         click_picker_button(window, "Gradient stop 3")
         press_key(window, keys.Delete)
         original.assert_unchanged_now()
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         assert b"#0000ff80 50%, #00ff00b0 75%" in saved
         select_outline_row(window, "fill")
         open_gradient(window)
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#00ff00b0"
+        expect(picker_field(window, "Hex color")).to_have_value("00FF00")
+        expect(picker_field(window, "Hex color opacity")).to_have_value("69")
 
 
 def test_gradient_session_cancel_undo_redo_and_reopen(
@@ -434,22 +468,19 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         select_outline_row(window, "fill")
         for cancel in [True, False]:
             open_gradient(window)
-            picker_field(window, "No recent fills", slint_testing.AccessibleRole.Text)
+            picker_field(window, "None yet", slint_testing.AccessibleRole.Text)
             click_picker_button(window, "Add gradient stop")
             click_picker_button(window, "Edit stop 2 color")
             color = picker_field(window, "Hex color")
             color.accessible_value = "#12345680"
-            wait_until(
-                lambda color=color: (
-                    color if color.accessible_value == "#12345680" else None
-                )
-            )
+            expect(color).to_have_value("123456")
             click_picker_button(window, "Close Stop color")
             set_picker_mode(window, "Gradient type", "Conic")
             rotate_conic(window, 0, 37)
             set_picker_mode(window, "Gradient type", "Linear")
             click_picker_button(window, "Solid")
-            assert picker_field(window, "Hex color").accessible_value == "#12345680"
+            expect(picker_field(window, "Hex color")).to_have_value("123456")
+            expect(picker_field(window, "Hex color opacity")).to_have_value("50")
             click_picker_button(window, "Gradient")
             set_picker_mode(window, "Gradient type", "Radial")
             assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
@@ -458,7 +489,7 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
                 press_key(window, keys.Escape)
                 original.assert_unchanged()
             else:
-                click_picker_button(window, "Close Custom")
+                click_picker_button(window, "Close Fill")
         saved = wait_for_source_change(file, source.encode())
         original.wait_for_applied(saved, file.name)
         assert b"#12345680 50%" in saved
@@ -470,13 +501,13 @@ def test_gradient_session_cancel_undo_redo_and_reopen(
         open_gradient(window)
         assert radial_geometry(window) == pytest.approx((40, 60, 90), abs=0.001)
         click_picker_button(window, "Edit stop 2 color")
-        assert picker_field(window, "Hex color").accessible_value == "#12345680"
+        expect(picker_field(window, "Hex color")).to_have_value("123456")
+        expect(picker_field(window, "Hex color opacity")).to_have_value("50")
 
 
 def test_recent_gradient_resets_custom_geometry_initialization(
     editor_binary, editor_environment, tmp_path
 ):
-
     file = gradient_document(tmp_path, "@radial-gradient(circle, red 0%, blue 100%)")
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
@@ -485,7 +516,7 @@ def test_recent_gradient_resets_custom_geometry_initialization(
         select_outline_row(window, "fill")
         open_gradient(window)
         click_picker_button(window, "Add gradient stop")
-        click_picker_button(window, "Close Custom")
+        click_picker_button(window, "Close Fill")
         saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         select_outline_row(window, "fill")
@@ -506,12 +537,9 @@ def test_recent_gradient_resets_custom_geometry_initialization(
 
 
 def radial_geometry(window, element_id="Gradient::fill"):
-
-    rectangle = wait_until(
-        lambda: next(iter(window.find_elements_by_id(element_id)), None)
-    )
-    c = center(control(window, "Gradient center handle"), 35)
-    r = center(control(window, "Gradient radius handle"), 35)
+    rectangle = wait_until(lambda: next(iter(elements(window, id=element_id)), None))
+    c = center(control(window, "Gradient center handle"))
+    r = center(control(window, "Gradient radius X and rectangle rotation handle"))
     return (
         c.x - rectangle.absolute_position.x,
         c.y - rectangle.absolute_position.y,
@@ -520,10 +548,7 @@ def radial_geometry(window, element_id="Gradient::fill"):
 
 
 def conic_geometry(window, angle=0, element_id="Gradient::fill"):
-
-    rectangle = wait_until(
-        lambda: next(iter(window.find_elements_by_id(element_id)), None)
-    )
+    rectangle = wait_until(lambda: next(iter(elements(window, id=element_id)), None))
     c = center(control(window, "Gradient center handle"), angle - 90)
     r = center(control(window, "Gradient rotation handle"), angle - 90)
     return (
@@ -534,32 +559,26 @@ def conic_geometry(window, angle=0, element_id="Gradient::fill"):
 
 
 def set_conic_center(window, x, y, angle=0):
-
     old_x, old_y, _ = conic_geometry(window, angle)
     c = center(control(window, "Gradient center handle"), angle - 90)
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
 
 
 def rotate_conic(window, previous, next_angle):
-
     c = center(control(window, "Gradient center handle"), previous - 90)
     r = center(control(window, "Gradient rotation handle"), previous - 90)
     gesture(window, r, around(c, math.hypot(r.x - c.x, r.y - c.y), next_angle))
 
 
 def set_radial_geometry(window, x, y, radius):
-
     old_x, old_y, _ = radial_geometry(window)
-    c = center(control(window, "Gradient center handle"), 35)
+    c = center(control(window, "Gradient center handle"))
     gesture(window, c, shifted(c, x=x - old_x, y=y - old_y))
-    c = center(control(window, "Gradient center handle"), 35)
-    r = center(control(window, "Gradient radius handle"), 35)
+    c = center(control(window, "Gradient center handle"))
+    r = center(control(window, "Gradient radius Y handle"), 90)
     gesture(
         window,
         r,
-        shifted(
-            c,
-            x=radius * math.cos(math.radians(35)),
-            y=radius * math.sin(math.radians(35)),
-        ),
+        shifted(c, y=radius),
+        shift=True,
     )

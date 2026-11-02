@@ -2,15 +2,21 @@
 // SPDX-License-Identifier: MIT
 
 import { expect, test } from "vitest";
-import { mountPreview, canvasPixels, readFixture } from "./browser-harness";
+import { page, server } from "vitest/browser";
+import {
+    mountCanvasPreview,
+    mountPreview,
+    expectCanvasPixels,
+    readFixture,
+} from "./browser-harness";
 
 const firstSource = await readFixture("fixtures/button.slint");
 const secondSource = await readFixture("fixtures/frame.slint");
 
 test.each([false, true])(
-    "a valid preview cannot publish an invalid reusable export (unchanged preview: %s)",
+    "a valid preview survives an invalid reusable export (unchanged preview: %s)",
     async (warm) => {
-        const p = await mountPreview();
+        const p = await mountPreview(false);
         if (warm) {
             p.send({
                 type: "preview-source",
@@ -35,10 +41,63 @@ test.each([false, true])(
         expect(p.element<HTMLButtonElement>("#export-button").disabled).toBe(
             true,
         );
-        expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(
-            true,
+        await p.ready(2);
+        expect(p.element("#diagnostics summary").textContent).toBe(
+            "1 export failure",
         );
-        expect(p.element("#source-view").textContent).toBe("");
+        expect(p.element("#diagnostics").textContent).toContain(
+            "Export ZIP is disabled",
+        );
+        expect(p.element<HTMLButtonElement>("#copy-button").disabled).toBe(
+            false,
+        );
+        await expect
+            .poll(() => p.element("#source-view").textContent)
+            .toBe(firstSource);
+        expect(p.element("#preview-canvas").style.visibility).toBe("visible");
+        await expect
+            .poll(() =>
+                p.messages.some(
+                    (message) =>
+                        message.type === "preview-complete" &&
+                        message.revision === 2,
+                ),
+            )
+            .toBe(true);
+        const completion = p.messages.find(
+            (message) =>
+                message.type === "preview-complete" && message.revision === 2,
+        );
+        if (completion?.type !== "preview-complete")
+            throw Error("Missing completion trace");
+        p.send({
+            type: "preview-finalized",
+            revision: 2,
+            trace: completion.trace,
+        });
+        const lineCount = firstSource.trimEnd().split(/\r\n|\r|\n/u).length;
+        await expect
+            .poll(
+                () =>
+                    p.doc.querySelector("[data-generated-source-lines]")
+                        ?.textContent,
+            )
+            .toBe(`${lineCount} lines`);
+        if (!warm) {
+            await server.commands.writeFile(
+                ".vitest/attachments/export-failure-preview.png",
+                await page.elementLocator(p.iframe).screenshot({ save: false }),
+                "base64",
+            );
+            p.element("#diagnostics-tab").click();
+            p.element<HTMLDetailsElement>("#diagnostics details").open = true;
+            await server.commands.writeFile(
+                ".vitest/attachments/export-failure-diagnostics.png",
+                await page.elementLocator(p.iframe).screenshot({ save: false }),
+                "base64",
+            );
+            p.element("#preview-tab").click();
+        }
         p.send({
             type: "preview-source",
             revision: 3,
@@ -53,7 +112,7 @@ test.each([false, true])(
 );
 
 test("built production preview clears busy, failed and empty selections and rejects stale output", async () => {
-    const p = await mountPreview();
+    const p = await mountCanvasPreview();
     p.send({
         type: "preview-source",
         revision: 1,
@@ -63,10 +122,11 @@ test("built production preview clears busy, failed and empty selections and reje
     await p.ready(1);
     expect(p.doc.querySelector("#timing-panel")).toBeNull();
     expect(p.doc.querySelector("#copy-snapshot")).toBeNull();
-    const pixels = await canvasPixels(p);
-    expect(pixels.width).toBe(240);
-    expect(pixels.height).toBe(72);
-    expect(pixels.data.some((v, i) => i % 4 !== 3 && v < 200)).toBe(true);
+    await expectCanvasPixels(p, (pixels) => {
+        expect(pixels.width).toBe(240);
+        expect(pixels.height).toBe(72);
+        expect(pixels.data.some((v, i) => i % 4 !== 3 && v < 200)).toBe(true);
+    });
     p.send({ type: "preview-busy", revision: 2 });
     await expect
         .poll(() =>

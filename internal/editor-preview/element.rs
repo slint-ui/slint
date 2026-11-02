@@ -4,7 +4,7 @@
 use crate::DocumentCache;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
-use std::path::{Path, PathBuf};
+use i_slint_compiler::source_path::SourcePath;
 
 /// Marks nodes that the language server and preview ignore during code analysis.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
@@ -112,7 +112,7 @@ impl ElementRcNode {
         Self::new(self.element.clone(), self.debug_index + 1)
     }
 
-    pub fn find_in(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
+    pub fn find_in(element: ElementRc, path: &SourcePath, offset: u32) -> Option<Self> {
         let debug_index = element.borrow().debug.iter().position(|debug_info| {
             u32::from(debug_info.node.text_range().start()) == offset
                 && debug_info.node.source_file.path() == path
@@ -121,7 +121,7 @@ impl ElementRcNode {
         Some(Self { element, debug_index })
     }
 
-    pub fn find_in_or_below(element: ElementRc, path: &Path, offset: u32) -> Option<Self> {
+    pub fn find_in_or_below(element: ElementRc, path: &SourcePath, offset: u32) -> Option<Self> {
         let debug_index = element.borrow().debug.iter().position(|debug_info| {
             u32::from(debug_info.node.text_range().start()) == offset
                 && debug_info.node.source_file.path() == path
@@ -164,10 +164,8 @@ impl ElementRcNode {
         function(find_element_with_decoration(&element.debug.get(self.debug_index).unwrap().node))
     }
 
-    pub fn path_and_offset(&self) -> (PathBuf, TextSize) {
-        self.with_element_node(|node| {
-            (node.source_file.path().to_owned(), node.text_range().start())
-        })
+    pub fn path_and_offset(&self) -> (SourcePath, TextSize) {
+        self.with_element_node(|node| (node.source_file.path().clone(), node.text_range().start()))
     }
 
     pub fn as_element(&self) -> &ElementRc {
@@ -213,7 +211,7 @@ impl ElementRcNode {
             let mut children = Vec::new();
             for child in node.children() {
                 if let Some(element) = extract_element(child.clone()) {
-                    let element_path = element.source_file.path().to_path_buf();
+                    let element_path = element.source_file.path().clone();
                     let element_offset = u32::from(element.text_range().start());
 
                     let Some(child_node) = ElementRcNode::find_in_or_below(

@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, TooltipStyle } from "../style.slint";
+
+import { FloatingSurface } from "floating-surface.slint";
+
+export component CanvasValueTooltip inherits FloatingSurface {
+    in property <TooltipStyle> style: Style.tooltip;
+    in property <string> label;
+    in property <string> value;
+    in property <string> suffix;
+    in property <string> secondary-text;
+    in property <string> value-label;
+    in property <Point> pointer-position;
+
+    x: root.pointer-position.x - self.width - root.style.offset;
+    y: root.pointer-position.y - self.height - root.style.offset;
+    width: tip.width + 2 * root.style.padding-inline;
+    height: tip.height + 2 * root.style.padding-block;
+    border-radius: root.style.radius;
+    background: root.style.normal.background;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.value-label;
+    accessible-value: root.value + (root.secondary-text == "" ? "" : "\n" + root.secondary-text);
+
+    tip := Text {
+        text: root.label + " " + root.value + root.suffix + (root.secondary-text == "" ? "" : "\n" + root.secondary-text);
+        color: root.style.normal.foreground;
+        font-size: root.style.text.size;
+        font-weight: root.style.text.weight;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+}

@@ -6,35 +6,57 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
 use crate::diagnostics::Spanned;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
-use crate::langtype::{PropertyLookupMode, Type};
+use crate::expression_types::Unit;
+use crate::langtype::Type;
 use crate::object_tree::forward_inherited_expression::{
     ForwardedReferenceCache, InheritedExpression, follow_two_way_bindings,
     forward_inherited_expression, rebase_expression_to_instance,
 };
 use crate::object_tree::*;
+use crate::project_file::SlintEdition;
 use crate::symbol_counters::SymbolCounters;
+use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 pub fn lower_states(
     component: &Rc<Component>,
+    tr: &TypeRegister,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
+    edition: Option<SlintEdition>,
     diag: &mut BuildDiagnostics,
 ) {
-    let state_info_type = crate::typeregister::BUILTIN.state_info_type.clone().into();
+    // Before edition 1.19, a property that only some states set takes its type's default, such
+    // as 0px, while none of them applies (#8852). Marking the binding `from_state` makes the
+    // passes that supply a default fill that fallback instead.
+    let keep_default_value = edition.is_some_and(|edition| edition >= SlintEdition::V1_19);
+    let state_info_type =
+        crate::typeregister::builtin_structs::get(&crate::langtype::BuiltinStruct::StateInfo)
+            .into();
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        lower_state_in_element(elem, &state_info_type, symbol_counters, forwarded_references, diag)
+        lower_state_in_element(
+            elem,
+            &state_info_type,
+            tr,
+            symbol_counters,
+            forwarded_references,
+            keep_default_value,
+            diag,
+        )
     });
 }
 
 fn lower_state_in_element(
     root_element: &ElementRc,
     state_info_type: &Type,
+    tr: &TypeRegister,
     symbol_counters: &SymbolCounters,
     forwarded_references: &mut ForwardedReferenceCache,
+    keep_default_value: bool,
     diag: &mut BuildDiagnostics,
 ) {
     if root_element.borrow().states.is_empty() {
@@ -58,6 +80,7 @@ fn lower_state_in_element(
     let mut affected_properties = HashSet::new();
     // Maps State name string -> integer id
     let mut states_id = HashMap::new();
+    let mut state_properties = HashMap::<i32, HashSet<NamedReference>>::new();
     let mut state_value = Expression::NumberLiteral(0., Unit::None);
     let states = std::mem::take(&mut root_element.borrow_mut().states);
     for (idx, state) in states.into_iter().enumerate().rev() {
@@ -70,7 +93,6 @@ fn lower_state_in_element(
             };
         }
         for (property_reference, expr, node) in state.property_changes {
-            affected_properties.insert(property_reference.clone());
             let element = property_reference.element();
             let property_expr = match expression_for_property(
                 &element,
@@ -87,6 +109,8 @@ fn lower_state_in_element(
                 }
                 ExpressionForProperty::Expression(e) => e,
             };
+            affected_properties.insert(property_reference.clone());
+            state_properties.entry(idx as i32 + 1).or_default().insert(property_reference.clone());
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
                     source_location: None,
@@ -107,7 +131,7 @@ fn lower_state_in_element(
                 // `property_expr` (the false-branch of `new_expr`), so replacing it is correct.
                 let mut cell = cell.borrow_mut();
                 if !cell.has_binding() {
-                    cell.from_state = true;
+                    cell.from_state = keep_default_value;
                     cell.priority = 1;
                     cell.from_source = true;
                 }
@@ -115,7 +139,7 @@ fn lower_state_in_element(
             } else {
                 let mut r = BindingExpression::from(new_expr);
                 r.priority = 1;
-                r.from_state = true;
+                r.from_state = keep_default_value;
                 r.from_source = true;
                 element.borrow_mut().set_binding(name.clone(), r);
             }
@@ -130,6 +154,8 @@ fn lower_state_in_element(
         state_property,
         states_id,
         affected_properties,
+        state_properties,
+        tr,
         diag,
     );
 }
@@ -139,13 +165,16 @@ fn lower_transitions_in_element(
     state_property: Expression,
     states_id: HashMap<SmolStr, i32>,
     affected_properties: HashSet<NamedReference>,
+    state_properties: HashMap<i32, HashSet<NamedReference>>,
+    tr: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
     let transitions = std::mem::take(&mut elem.borrow_mut().transitions);
     let mut props =
         HashMap::<NamedReference, (SourceLocation, Vec<TransitionPropertyAnimation>)>::new();
+    let mut catch_alls = Vec::new();
     for transition in transitions {
-        let state = states_id.get(&transition.state_id).unwrap_or_else(|| {
+        let state = *states_id.get(&transition.state_id).unwrap_or_else(|| {
             diag.push_error(
                 format!("State '{}' does not exist", transition.state_id),
                 transition
@@ -168,11 +197,40 @@ fn lower_transitions_in_element(
             }
 
             let t = TransitionPropertyAnimation {
-                state_id: *state,
+                state_id: state,
                 direction: transition.direction,
                 animation,
             };
             props.entry(p).or_insert_with(|| (span.clone(), Vec::new())).1.push(t);
+        }
+
+        if let Some((span, animation)) = transition.catch_all_property_animation {
+            catch_alls.push((state, transition.direction, span, animation));
+        }
+    }
+
+    // Appended after all named animations, because the first matching animation wins
+    for (state, direction, span, animation) in catch_alls {
+        let Some(changed_properties) = state_properties.get(&state) else { continue };
+        for p in changed_properties {
+            if !matches!(tr.property_animation_type_for_property(p.ty()), ElementType::Builtin(..))
+                || p.element().borrow().binding(p.name()).is_some_and(|b| b.animation.is_some())
+            {
+                continue;
+            }
+            let (_, animations) =
+                props.entry(p.clone()).or_insert_with(|| (span.clone(), Vec::new()));
+            let covered = animations.iter().any(|a| {
+                a.state_id == state
+                    && (a.direction == direction || a.direction == TransitionDirection::InOut)
+            });
+            if !covered {
+                animations.push(TransitionPropertyAnimation {
+                    state_id: state,
+                    direction,
+                    animation: deep_clone_animation_element(&animation),
+                });
+            }
         }
     }
     for (ne, (span, animations)) in props {

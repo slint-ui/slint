@@ -38,6 +38,12 @@ export component TestCase inherits SystemTrayIcon {
     // this binding checks that readers of `visible` stay reactive to that.
     out property <bool> shown: self.visible;
 
+    out property <int> ticks;
+    Timer {
+        interval: 100ms;
+        triggered => { ticks += 1; }
+    }
+
     out property <bool> test: true;
 }
 
@@ -46,6 +52,9 @@ export component TestCase inherits SystemTrayIcon {
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 assert!(instance.get_shown());
+assert_eq!(instance.get_ticks(), 0);
+slint_testing::mock_elapsed_time(110);
+assert_eq!(instance.get_ticks(), 1);
 instance.hide().unwrap();
 assert!(!instance.get_shown());
 instance.show().unwrap();
@@ -57,6 +66,9 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
 assert(instance.get_shown());
+assert_eq(instance.get_ticks(), 0);
+slint_testing::mock_elapsed_time(110);
+assert_eq(instance.get_ticks(), 1);
 handle->hide();
 assert(!instance.get_shown());
 handle->show();

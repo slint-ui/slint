@@ -5,6 +5,8 @@ TestCase := Rectangle {
     property <[int]> foo: [1, 2, 3];
     property <[int]> bar: [1, 2, 3];
     property <int> first: foo[0];
+    property <int> foo-changes;
+    changed foo => { foo-changes += 1; }
 
     callback do() -> bool;
     do => {
@@ -46,5 +48,44 @@ assert!(instance.invoke_do());
 ```js
 var instance = new slint.TestCase({});
 assert(instance.do());
+
+// Assigning the model a property already holds isn't a change.
+function changes() {
+    slintlib.private_api.mock_elapsed_time(1);
+    return instance.foo_changes;
+}
+var before = changes();
+instance.foo = instance.foo;
+instance.bar = instance.foo;
+assert.equal(changes(), before);
+
+var model = new slintlib.ArrayModel([4, 5]);
+instance.foo = model;
+assert.equal(changes(), before + 1);
+instance.foo = model;
+assert.equal(changes(), before + 1);
+assert.equal(instance.foo, model);
+assert.equal(instance.first, 4);
+
+var frozen = Object.freeze(new slintlib.ArrayModel([6]));
+instance.foo = frozen;
+instance.foo = frozen;
+assert.equal(changes(), before + 2);
+assert.equal(instance.foo, frozen);
+assert.equal(instance.first, 6);
+
+// Models can share the `modelNotify` passed to their constructor.
+class Rows extends slintlib.Model {
+    constructor(modelNotify, rows) {
+        super(modelNotify);
+        this.rows = rows;
+    }
+    rowCount() { return this.rows.length; }
+    rowData(row) { return this.rows[row]; }
+}
+var first = new Rows(undefined, [10]);
+instance.foo = first;
+instance.foo = new Rows(first.modelNotify, [20]);
+assert.equal(instance.first, 20);
 ```
 */

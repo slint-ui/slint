@@ -16,9 +16,14 @@ fn generate_dts(path: &Path) -> Result<Vec<u8>, String> {
         .map(|(k, v)| (k.to_string(), std::path::PathBuf::from(v)))
         .collect();
     compiler_config.debug_info = true;
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source, Some(path), &mut diag);
+    let syntax_node = parser::parse(
+        source,
+        Some(i_slint_compiler::source_path::SourcePath::new(path)),
+        &mut diag,
+    );
     let (root_component, diag, loader) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
@@ -95,12 +100,15 @@ pub fn typecheck_all(paths: &[&str]) {
     // Compiling every case takes a while, so spread it over the cores. Saved with a `.ts`
     // extension so that tsc checks it: `skipLibCheck` would skip a `.d.ts`.
     let chunks = std::thread::available_parallelism().map_or(1, |n| n.get());
-    let generated: Vec<Vec<u8>> = std::thread::scope(|scope| {
+    let generated: Vec<(&str, Vec<u8>)> = std::thread::scope(|scope| {
         paths
             .chunks(paths.len().div_ceil(chunks))
             .map(|chunk| {
                 scope.spawn(|| {
-                    chunk.iter().filter_map(|p| generate_dts(Path::new(p)).ok()).collect::<Vec<_>>()
+                    chunk
+                        .iter()
+                        .filter_map(|p| Some((*p, generate_dts(Path::new(p)).ok()?)))
+                        .collect::<Vec<_>>()
                 })
             })
             .collect::<Vec<_>>()
@@ -108,8 +116,20 @@ pub fn typecheck_all(paths: &[&str]) {
             .flat_map(|handle| handle.join().unwrap())
             .collect()
     });
-    for (i, declarations) in generated.iter().enumerate() {
+    for (i, (path, declarations)) in generated.iter().enumerate() {
         std::fs::write(tmp_dir.path().join(format!("test_{i}.slint.ts")), declarations).unwrap();
+
+        let source = std::fs::read_to_string(path).unwrap();
+        for (j, usage) in test_driver_lib::extract_test_functions(&source)
+            .filter(|x| x.language_id == "ts")
+            .enumerate()
+        {
+            let usage = format!(
+                "import * as slintlib from \"slint-ui\";\nimport * as slint from \"./test_{i}.slint\";\n{}",
+                usage.source
+            );
+            std::fs::write(tmp_dir.path().join(format!("test_{i}_usage_{j}.ts")), usage).unwrap();
+        }
     }
     let file_count = generated.len();
     assert!(file_count > 0, "No declarations were generated — something is wrong with the setup");

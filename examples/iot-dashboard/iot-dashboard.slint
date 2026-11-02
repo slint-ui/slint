@@ -227,7 +227,6 @@ export component TopBar inherits HorizontalLayout {
     padding-top: 35px;
     padding-right: 25px;
     padding-bottom: 0px;
-    spacing: 0px;
 
     for item in [
         { string: "Living Room", progress: 25, value: 175, color: #ff3122, gradient: @linear-gradient(0deg, #FF5C00, #FF3122) },
@@ -236,7 +235,6 @@ export component TopBar inherits HorizontalLayout {
         { string: "Kitchen", progress: 86, value: 289, color: #6776ff, gradient: @linear-gradient(0deg, #6776FF, #6100FF) },
     ] : VerticalLayout {
         padding: 0px;
-        spacing: 0px;
 
         Text {
             font-size: Skin.SmallFont;
@@ -315,7 +313,6 @@ component RoundedIcon inherits Rectangle {
     background-fill := Rectangle {
         background: root.isBright ? @linear-gradient(180deg, #ff7d34, #ff3122) : @linear-gradient(180deg, #6776FF, #6100FF);
         border-radius: 6px;
-        opacity: 1.0;
     }
 
     m-graphicLabel := Image {
@@ -338,7 +335,6 @@ export component Usage inherits Box {
     horizontal-stretch: 1;
 
     GridLayout {
-        spacing: 0px;
         vertical-stretch: 1;
         Row { Rectangle { vertical-stretch: 0; } }
 
@@ -389,7 +385,7 @@ component UpAndDownButton inherits Rectangle {
 
     VerticalLayout {
         u := RoundButton { is-up: true;  clicked => { root.changed(+1) }}
-        d := RoundButton { is-up: false; clicked => { root.changed(-1) }}
+        d := RoundButton { clicked => { root.changed(-1) }}
     }
 }
 
@@ -535,7 +531,6 @@ export component UsageDiagram inherits Box {
             height: boxes.height;
             width: boxes.width;
             padding: 0px;
-            spacing: 0px;
 
             HorizontalLayout {
                 alignment: end;

@@ -6,7 +6,8 @@
 //! If an expression does a single property access or less, it can be inlined
 //! in the calling expression
 
-use crate::expression_tree::{BuiltinFunction, ImageReference};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_types::ImageReference;
 use crate::langtype::Type;
 use crate::llr::{CompilationUnit, ContextMap, EvaluationContext, Expression};
 
@@ -37,7 +38,6 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::BuiltinFunctionCall { function, .. } => builtin_function_cost(function),
         Expression::CallBackCall { callback, .. } => callback_cost(callback, ctx),
         Expression::FunctionCall { function, .. } => callback_cost(function, ctx),
-        Expression::ItemMemberFunctionCall { function } => callback_cost(function, ctx),
         Expression::ExtraBuiltinFunctionCall { .. } => return isize::MAX,
         Expression::PropertyAssignment { .. } => return isize::MAX,
         Expression::ModelDataAssignment { .. } => return isize::MAX,
@@ -84,6 +84,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         // The body cost is added by the visit() walk below; returning the body
         // cost here would double-count it.
         Expression::Closure { .. } => 0,
+        Expression::DashArray(_) => ALLOC_COST,
         // Don't inline: that could duplicate or relocate the hook.
         Expression::DebugHook { .. } => return isize::MAX,
     };
@@ -131,7 +132,25 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         | BuiltinFunction::ClosePopupWindow
         | BuiltinFunction::ShowPopupMenu
         | BuiltinFunction::ShowPopupMenuInternal => isize::MAX,
-        BuiltinFunction::SetSelectionOffsets => isize::MAX,
+        BuiltinFunction::SetSelectionOffsets
+        | BuiltinFunction::TextInputSelectAll
+        | BuiltinFunction::TextInputClearSelection
+        | BuiltinFunction::TextInputCut
+        | BuiltinFunction::TextInputCopy
+        | BuiltinFunction::TextInputPaste
+        | BuiltinFunction::TextInputUndo
+        | BuiltinFunction::TextInputRedo
+        | BuiltinFunction::StyledTextSetSelectionOffsets
+        | BuiltinFunction::StyledTextSelectAll
+        | BuiltinFunction::StyledTextClearSelection
+        | BuiltinFunction::StyledTextCopy
+        | BuiltinFunction::SwipeGestureHandlerCancel
+        | BuiltinFunction::ContextMenuClose
+        | BuiltinFunction::WindowClose
+        | BuiltinFunction::WindowHide => isize::MAX,
+        BuiltinFunction::HasSelection
+        | BuiltinFunction::StyledTextHasSelection
+        | BuiltinFunction::ContextMenuIsOpen => PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemFontMetrics => PROPERTY_ACCESS_COST,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
@@ -157,13 +176,17 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::Hsv => 50,
         BuiltinFunction::Oklch => 50,
-        BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
+        // Between `INLINE_THRESHOLD` and `INLINE_SINGLE_THRESHOLD` because it can be expensive:
+        // a Text lays out its text to measure it, so the call isn't repeated in several readers,
+        // but it's inlined into a single one.
+        BuiltinFunction::ImplicitLayoutInfo(_) => 3 * PROPERTY_ACCESS_COST,
         BuiltinFunction::ItemAbsolutePosition => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::ColorScheme => PROPERTY_ACCESS_COST,
         BuiltinFunction::AccentColor => PROPERTY_ACCESS_COST,
+        BuiltinFunction::ReducedMotion => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
         BuiltinFunction::SetupMenuBar => isize::MAX,
         BuiltinFunction::SetupSystemTrayIcon => isize::MAX,
@@ -193,6 +216,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll | BuiltinFunction::ArrayFindIndex => {
             isize::MAX
         }
+        BuiltinFunction::ScrollTo => isize::MAX,
+        BuiltinFunction::EnsureVisible => isize::MAX,
+        BuiltinFunction::ListViewEnsureRowVisible => isize::MAX,
     }
 }
 
@@ -262,7 +288,13 @@ fn inline_simple_expressions_in_expression(
         let prop_info = ctx.property_info(prop);
         if prop_info.analysis.as_ref().is_some_and(|a| !a.is_set && !a.is_set_externally) {
             if let Some((binding, map)) = prop_info.binding {
-                if binding.animation.is_none() && binding.kind != super::super::BindingKind::State {
+                // A binding loop that is only a warning reaches this pass as a cycle. The binding
+                // being visited is mutably borrowed by `inline_simple_expressions`: don't inline
+                // it into itself.
+                if binding.expression.try_borrow().is_ok()
+                    && binding.animation.is_none()
+                    && binding.kind != super::super::BindingKind::State
+                {
                     let mapped_ctx = map.map_context(ctx);
                     let cost = expression_cost(&binding.expression.borrow(), &mapped_ctx);
                     let use_count = binding.use_count.get();
@@ -271,9 +303,10 @@ fn inline_simple_expressions_in_expression(
                         "We use a property and its count is zero: {}",
                         crate::llr::pretty_print::DisplayPropertyRef(prop, ctx)
                     );
-                    if cost <= INLINE_THRESHOLD
-                        || (use_count == 1 && cost <= INLINE_SINGLE_THRESHOLD)
-                    {
+                    // The binding's count includes one for being needed, so use the property's own.
+                    // A native item property has none: the item itself reads its binding.
+                    let read_once = prop_info.use_count.is_some_and(|c| c.get() == 1);
+                    if cost <= INLINE_THRESHOLD || (read_once && cost <= INLINE_SINGLE_THRESHOLD) {
                         // Perform inlining
                         *expr = binding.expression.borrow().clone();
                         map.map_expression(expr);
@@ -283,7 +316,7 @@ fn inline_simple_expressions_in_expression(
                             use_count.set(use_count.get() - 1);
                         }
                         adjust_use_count(expr, ctx, 1);
-                        if use_count == 1 {
+                        if read_once {
                             adjust_use_count(&binding.expression.borrow(), &mapped_ctx, -1);
                             binding.expression.replace(Expression::CodeBlock(Vec::new()));
                         }
@@ -299,6 +332,66 @@ fn inline_simple_expressions_in_expression(
     };
 
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx, counter));
+
+    fold_constant_expression(expr, ctx);
+}
+
+/// Folds a comparison of two literals, and a condition on a literal,
+/// such as `vertical == vertical ? 200 : 32` once inlining replaced a constant property.
+/// clang rejects the C++ `Vertical == Vertical` with `-Wtautological-compare`.
+fn fold_constant_expression(expr: &mut Expression, ctx: &EvaluationContext) {
+    match expr {
+        Expression::BinaryExpression { lhs, rhs, op } => {
+            if let Some(value) = fold_literal_comparison(lhs, *op, rhs) {
+                *expr = Expression::BoolLiteral(value);
+            }
+        }
+        Expression::Condition { condition, true_expr, false_expr } => {
+            let Expression::BoolLiteral(take_true) = **condition else { return };
+            if true_expr.ty(ctx) != false_expr.ty(ctx) {
+                return;
+            }
+            let taken = if take_true { true_expr } else { false_expr };
+            *expr = std::mem::replace(&mut **taken, Expression::CodeBlock(Vec::new()));
+        }
+        _ => {}
+    }
+}
+
+fn fold_literal_comparison(lhs: &Expression, op: char, rhs: &Expression) -> Option<bool> {
+    if let (Some(a), Some(b)) = (number_literal(lhs), number_literal(rhs)) {
+        let ordering = a.partial_cmp(&b)?;
+        return match op {
+            '=' => Some(ordering.is_eq()),
+            '!' => Some(ordering.is_ne()),
+            '<' => Some(ordering.is_lt()),
+            '>' => Some(ordering.is_gt()),
+            '≤' => Some(ordering.is_le()),
+            '≥' => Some(ordering.is_ge()),
+            _ => None,
+        };
+    }
+    let equal = match (lhs, rhs) {
+        (Expression::BoolLiteral(a), Expression::BoolLiteral(b)) => a == b,
+        (Expression::EnumerationValue(a), Expression::EnumerationValue(b)) => a == b,
+        _ => return None,
+    };
+    match op {
+        '=' => Some(equal),
+        '!' => Some(!equal),
+        _ => None,
+    }
+}
+
+/// The value of a number literal, seen through the casts that int properties add.
+fn number_literal(expr: &Expression) -> Option<f64> {
+    match expr {
+        Expression::NumberLiteral(n) => Some(*n),
+        Expression::Cast { from, to: Type::Float32 } => number_literal(from),
+        // The generators convert with a saturating truncation, like `as i32`.
+        Expression::Cast { from, to: Type::Int32 } => number_literal(from).map(|n| n as i32 as f64),
+        _ => None,
+    }
 }
 
 /// Whether a function body can be moved to its single call site through `map`.
@@ -358,4 +451,174 @@ fn adjust_use_count(expr: &Expression, ctx: &EvaluationContext, adjust: isize) {
             binding.use_count.set(use_count);
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Compile `source`, lower it to the LLR (which runs this pass),
+    /// and return the comparisons and conditions left: those on literals, and the others.
+    /// The runtime ones come with their operator, `?` for a condition.
+    fn comparisons_left(source: &str) -> (Vec<String>, Vec<(char, String)>) {
+        let unit = crate::llr::lower_test_source(source);
+        fn is_literal(e: &Expression) -> bool {
+            match e {
+                Expression::Cast { from, .. } => is_literal(from),
+                _ => matches!(
+                    e,
+                    Expression::NumberLiteral(_)
+                        | Expression::BoolLiteral(_)
+                        | Expression::EnumerationValue(_)
+                ),
+            }
+        }
+        let (mut constant, mut runtime) = (Vec::new(), Vec::new());
+        unit.for_each_expression(&mut |e, ctx| {
+            e.borrow().visit_recursive(&mut |e| {
+                let text = || crate::llr::pretty_print::DisplayExpression(e, ctx).to_string();
+                match e {
+                    Expression::BinaryExpression { lhs, rhs, op } if "=!<>≤≥".contains(*op) => {
+                        if is_literal(lhs) && is_literal(rhs) {
+                            constant.push(text());
+                        } else {
+                            runtime.push((*op, text()));
+                        }
+                    }
+                    Expression::Condition { condition, .. } => {
+                        if matches!(**condition, Expression::BoolLiteral(_)) {
+                            constant.push(text());
+                        } else {
+                            runtime.push(('?', text()));
+                        }
+                    }
+                    _ => {}
+                }
+            })
+        });
+        (constant, runtime)
+    }
+
+    /// Compile `source`, lower it to the LLR (which runs this pass),
+    /// and return the names of the properties left in the public component's root sub-component.
+    fn property_names(source: &str) -> Vec<String> {
+        let unit = crate::llr::lower_test_source(source);
+        let root = unit.public_components.iter().next().unwrap().item_tree.root;
+        unit.sub_components[root].properties.iter().map(|p| p.name.to_string()).collect()
+    }
+
+    #[test]
+    fn inlines_a_property_read_once() {
+        // Both bindings cost more than `INLINE_THRESHOLD`, so only the single read is inlined.
+        let names = property_names(
+            r#"
+export component Foo {
+    in property <int> a;
+    in property <int> b;
+    in property <int> c;
+    property <int> once: (root.a + root.b) * root.c;
+    property <int> twice: (root.a + root.b) * root.c;
+    out property <int> r1: root.once + 1;
+    out property <int> r2: root.twice + 1;
+    out property <int> r3: root.twice + 2;
+}
+"#,
+        );
+        assert!(!names.iter().any(|n| n.ends_with("_once")), "{names:?}");
+        assert!(names.iter().any(|n| n.ends_with("_twice")), "{names:?}");
+    }
+
+    #[test]
+    fn inlines_an_item_layout_info_read_once() {
+        // With a fixed size and position, only the out properties read the text's layout info.
+        let names = |reads: &str| {
+            property_names(&format!(
+                "export component Foo {{ t := Text {{ text: \"x\"; x: 0; y: 0; width: 10px; height: 10px; }} {reads} }}"
+            ))
+        };
+        let once = names("out property <length> w: t.preferred-width;");
+        assert!(!once.iter().any(|n| n.contains("implicit-layoutinfo")), "{once:?}");
+        let twice = names(
+            "out property <length> w: t.preferred-width; out property <length> m: t.min-width;",
+        );
+        assert!(twice.iter().any(|n| n.contains("implicit-layoutinfo-h")), "{twice:?}");
+    }
+
+    /// Without edition 1.19 or newer, a binding loop through the window layout is only
+    /// a warning, and it hides the inner loop.
+    #[test]
+    fn leaves_a_binding_loop_in_place() {
+        let unit = crate::llr::lower_test_source(
+            r#"
+export component TestCase inherits Window {
+    HorizontalLayout {
+        Rectangle {
+            VerticalLayout {
+                Rectangle { width: parent.width; }
+            }
+        }
+    }
+}
+"#,
+        );
+        // The loop is left as a binding that reads its own property.
+        let reads_itself = unit.sub_components.iter().any(|sc| {
+            sc.property_init.iter().any(|(prop, binding)| {
+                let mut found = false;
+                binding.expression.borrow().visit_recursive(&mut |e| {
+                    found |= matches!(e, Expression::PropertyReference(p) if p == prop);
+                });
+                found
+            })
+        });
+        assert!(reads_itself);
+    }
+
+    #[test]
+    fn folds_inlined_constants() {
+        // The parent sets the inputs of `upright` and `flat` to constants,
+        // which are inlined into the bindings of `Item`, and those of `live` to runtime values.
+        let source = r#"
+component Item {
+    in property <Orientation> orientation: horizontal;
+    in property <int> level: 1;
+    in property <bool> flag;
+    preferred-height: root.orientation == Orientation.vertical ? 200px : 32px;
+    out property <bool> is-horizontal: root.orientation != Orientation.vertical;
+    out property <bool> above-two: root.level > 2;
+    out property <bool> below-two: root.level < 2;
+    out property <bool> at-least-two: root.level >= 2;
+    out property <bool> at-most-two: root.level <= 2;
+    out property <bool> is-two: root.level == 2;
+    out property <bool> not-two: root.level != 2;
+    out property <bool> unflagged: root.flag != true;
+}
+
+export component Foo {
+    in property <Orientation> live-orientation;
+    in property <int> live-level;
+    in property <bool> live-flag;
+    VerticalLayout {
+        upright := Item { orientation: vertical; level: 2; flag: true; }
+        flat := Item { level: 5; }
+        live := Item { orientation: root.live-orientation; level: root.live-level; flag: root.live-flag; }
+    }
+    out property <bool> result: !upright.is-horizontal && flat.is-horizontal
+        && !upright.above-two && flat.above-two && !upright.below-two && !flat.below-two
+        && upright.at-least-two && flat.at-least-two && upright.at-most-two && !flat.at-most-two
+        && upright.is-two && !flat.is-two && !upright.not-two && flat.not-two
+        && !upright.unflagged && flat.unflagged;
+    out property <bool> live-result: live.is-horizontal && live.above-two && live.below-two
+        && live.at-least-two && live.at-most-two && live.is-two && live.not-two && live.unflagged;
+}
+"#;
+        let (constant, runtime) = comparisons_left(source);
+        assert!(constant.is_empty(), "{constant:#?}");
+        for kept in ['=', '!', '<', '>', '≤', '≥', '?'] {
+            assert!(
+                runtime.iter().any(|(op, text)| *op == kept && text.contains("live-")),
+                "no '{kept}' on a `live` input left: {runtime:#?}"
+            );
+        }
+    }
 }

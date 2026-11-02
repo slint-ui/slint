@@ -20,7 +20,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let cpp_namespace = test_driver_lib::extract_cpp_namespace(&source);
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
+    let syntax_node = parser::parse(
+        source.clone(),
+        Some(i_slint_compiler::source_path::SourcePath::new(&testcase.absolute_path)),
+        &mut diag,
+    );
     let output_format = generator::OutputFormat::Cpp(generator::cpp::Config {
         namespace: cpp_namespace,
         ..Default::default()
@@ -31,11 +35,15 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_config.library_paths = library_paths;
     compiler_config.style = testcase.requested_style.map(str::to_string);
     compiler_config.debug_info = true;
+    compiler_config.edition = Some(test_driver_lib::edition_or_current(&source).parse()?);
     if source.contains("//bundle-translations") {
         compiler_config.bundled_translations_path =
             Some(testcase.absolute_path.parent().unwrap().to_path_buf());
         compiler_config.translation_domain =
             Some(testcase.absolute_path.file_stem().unwrap().to_str().unwrap().to_string());
+    }
+    if source.contains("//embed-textures") {
+        compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
     }
     if source.contains("//no-default-translation-context") {
         compiler_config.default_translation_context =

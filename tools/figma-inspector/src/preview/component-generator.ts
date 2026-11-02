@@ -89,10 +89,20 @@ function applyContract(
     contract: ComponentContract | undefined,
     names: ReturnType<typeof contractNames>,
     model?: Element,
+    inheritedConditions: readonly string[] = [],
 ): Element {
     const refs = contract?.bindings[model?.origin?.id ?? tree.origin?.id ?? ""];
-    const result: Element = {
+    const visibility =
+        refs?.visible && !tree.role ? names.get(refs.visible) : undefined;
+    let condition = visibility ? `root.${visibility.name}` : tree.condition;
+    if (condition && inheritedConditions.includes(condition))
+        condition = undefined;
+    const childConditions = condition
+        ? [...inheritedConditions, condition]
+        : inheritedConditions;
+    return {
         ...tree,
+        condition,
         bindings: tree.bindings.map((b) => {
             const property =
                 b.name === "text" && refs?.characters
@@ -114,14 +124,10 @@ function applyContract(
                     elementKey(model.children[i]) === elementKey(child)
                     ? model.children[i]
                     : undefined,
+                childConditions,
             ),
         ),
     };
-    if (refs?.visible && !tree.role) {
-        const property = names.get(refs.visible);
-        if (property) result.condition = `root.${property.name}`;
-    }
-    return result;
 }
 function normalizeBindingOrder(tree: Element): Element {
     return {

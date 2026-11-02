@@ -21,15 +21,15 @@ use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_stm32::{
     bind_interrupts,
-    exti::ExtiInput,
+    exti::{self, ExtiInput},
     gpio::{Level, Output, Pull, Speed},
-    i2c::I2c,
+    i2c::{self, I2c},
+    interrupt,
     ltdc::{
         self, Ltdc, LtdcConfiguration, LtdcLayer, LtdcLayerConfig, PolarityActive, PolarityEdge,
     },
     mode::{self},
     peripherals,
-    time::Hertz,
 };
 use embassy_time::{Duration, Timer};
 use gt911::Gt911Blocking;
@@ -54,6 +54,7 @@ const HEAP_SIZE: usize = 200 * 1024;
 
 bind_interrupts!(struct Irqs {
     LTDC => ltdc::InterruptHandler<peripherals::LTDC>;
+    EXTI13 => exti::InterruptHandler<interrupt::typelevel::EXTI13>;
 });
 
 #[embassy_executor::main]
@@ -100,16 +101,16 @@ async fn main(spawner: Spawner) {
 
     // used for the touch events
     // NOTE: Async i2c communication returns a Timeout error so we will use blocking i2c until this is fixed
-    let i2c: I2c<'_, mode::Blocking> =
-        I2c::new_blocking(p.I2C2, p.PF1, p.PF0, Hertz(100_000), Default::default());
+    let i2c: I2c<'_, mode::Blocking, i2c::Master> =
+        I2c::new_blocking(p.I2C2, p.PF1, p.PF0, Default::default());
 
     // TASK: blink the red led on another task
     let red_led = Output::new(p.PD2, Level::High, Speed::Low);
-    unwrap!(spawner.spawn(led_task(red_led)));
+    spawner.spawn(unwrap!(led_task(red_led)));
 
     // TASK: wait for hardware user button press
-    let user_btn = ExtiInput::new(p.PC13, p.EXTI13, Pull::Down);
-    unwrap!(spawner.spawn(user_btn_task(user_btn)));
+    let user_btn = ExtiInput::new(p.PC13, p.EXTI13, Pull::Down, Irqs);
+    spawner.spawn(unwrap!(user_btn_task(user_btn)));
 
     // set up the LTDC peripheral to send data to the LCD screen
     // numbers from STM32U5G9J-DK2.ioc
@@ -202,7 +203,7 @@ async fn main(spawner: Spawner) {
     info!("slint gui setup complete");
 
     // TASK: run the gui render loop
-    unwrap!(spawner.spawn(render_loop(window, double_buffer, ltdc, i2c)));
+    spawner.spawn(unwrap!(render_loop(window, double_buffer, ltdc, i2c)));
 
     let main_window = MainWindow::new().unwrap();
     main_window.show().expect("unable to show main window");
@@ -252,7 +253,7 @@ async fn led_task(mut led: Output<'static>) {
 
 // low latency button press with debounce and toggle state recovery (for data races)
 #[embassy_executor::task(pool_size = MY_TASK_POOL_SIZE)]
-async fn user_btn_task(mut user_btn: ExtiInput<'static>) {
+async fn user_btn_task(mut user_btn: ExtiInput<'static, mode::Async>) {
     let mut is_high = false;
     info!("Press the USER button...");
 
@@ -291,7 +292,7 @@ pub async fn render_loop(
     window: Rc<MinimalSoftwareWindow>,
     mut double_buffer: DoubleBuffer,
     mut ltdc: Ltdc<'static, peripherals::LTDC>,
-    mut i2c: I2c<'static, mode::Blocking>,
+    mut i2c: I2c<'static, mode::Blocking, i2c::Master>,
 ) {
     let mut last_touch: Option<slint::LogicalPosition> = None;
     let touch = Gt911Blocking::default();
@@ -319,8 +320,8 @@ pub async fn render_loop(
 }
 
 fn process_touch(
-    touch: &Gt911Blocking<I2c<'static, mode::Blocking>>,
-    i2c: &mut I2c<'static, mode::Blocking>,
+    touch: &Gt911Blocking<I2c<'static, mode::Blocking, i2c::Master>>,
+    i2c: &mut I2c<'static, mode::Blocking, i2c::Master>,
     last_touch: &mut Option<slint::LogicalPosition>,
     window: Rc<MinimalSoftwareWindow>,
 ) {

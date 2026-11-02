@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    CircularSurface,
+} from "../../../tools/editor/controls/examples/circular_surface.slint";
+import { SliderBase } from "../../../tools/editor/controls/src/headless.slint";
+import { Slider } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 460px;
+    height: 220px;
+    in-out property <float> value: 50;
+    in-out property <bool> enabled: true;
+    in-out property <bool> inverted;
+    out property <int> changes;
+    out property <int> releases;
+    out property <bool> pressed: circular.pressed;
+    out property <bool> test: circular.value == 50 && linear.value == 50;
+
+    circular := SliderBase {
+        accessible-label: "Circular slider";
+        x: 20px;
+        y: 20px;
+        width: 180px;
+        height: 180px;
+        value <=> root.value;
+        enabled: root.enabled;
+        inverted: root.inverted;
+        surface << CircularSurface { }
+        changed(value) => { root.changes += 1; }
+        released(value) => { root.releases += 1; }
+    }
+
+    linear := Slider {
+        accessible-label: "Linear slider";
+        x: 220px;
+        y: 20px;
+        width: 200px;
+        height: 40px;
+        value <=> root.value;
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton, WindowEvent};
+use slint_testing::{AccessibleRole, ElementHandle};
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let find = |label: &str| ElementHandle::find_by_accessible_label(&instance, label)
+    .find(|element| element.accessible_role() == Some(AccessibleRole::Slider)).unwrap();
+let circular = find("Circular slider");
+let linear = find("Linear slider");
+let point = |x, y| slint::LogicalPosition::new(x, y);
+let button = PointerEventButton::Left;
+let move_to = |position| instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+let press = |position| instance.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+let release = |position| instance.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+for (x, y, value) in [(110., 38., 50.), (38., 110., 17.), (182., 110., 83.), (92., 182., 0.), (128., 182., 100.)] {
+    slint_testing::send_mouse_click(&instance, x, y);
+    assert_eq!(instance.get_value(), value);
+    assert_eq!(linear.accessible_value(), circular.accessible_value());
+}
+assert_eq!(instance.get_releases(), 5);
+slint_testing::send_mouse_click(&instance, 110., 110.);
+assert_eq!(instance.get_value(), 100.);
+press(point(110., 38.));
+assert!(instance.get_pressed());
+move_to(point(182., 110.));
+assert_eq!(instance.get_value(), 83.);
+release(point(182., 110.));
+assert!(!instance.get_pressed());
+assert_eq!(instance.get_releases(), 7);
+slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::LeftArrow.into(), false);
+assert_eq!(instance.get_value(), 82.);
+assert_eq!(instance.get_releases(), 8);
+circular.invoke_accessible_increment_action();
+assert_eq!(instance.get_value(), 83.);
+assert_eq!(instance.get_releases(), 9);
+instance.set_inverted(true);
+slint_testing::send_mouse_click(&instance, 38., 110.);
+assert_eq!(instance.get_value(), 83.);
+instance.set_inverted(false);
+press(point(110., 38.));
+let releases = instance.get_releases();
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), false);
+move_to(point(182., 110.));
+release(point(182., 110.));
+assert_eq!(instance.get_value(), 50.);
+assert_eq!(instance.get_releases(), releases);
+press(point(110., 38.));
+instance.set_enabled(false);
+slint::platform::update_timers_and_animations();
+move_to(point(182., 110.));
+release(point(182., 110.));
+circular.invoke_accessible_increment_action();
+assert_eq!(instance.get_value(), 50.);
+assert!(!instance.get_pressed());
+assert_eq!(instance.get_releases(), releases);
+instance.set_enabled(true);
+instance.set_value(35.);
+assert_eq!(circular.accessible_value().as_deref(), Some("35"));
+assert_eq!(linear.accessible_value().as_deref(), Some("35"));
+```
+*/

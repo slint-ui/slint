@@ -92,6 +92,42 @@ impl ClipboardProvider for SelectableClipboard {
     }
 }
 
+#[cfg(all(
+    unix,
+    not(any(target_vendor = "apple", target_os = "android", target_os = "emscripten")),
+    feature = "wayland"
+))]
+struct WaylandClipboard {
+    clipboard: std::rc::Rc<smithay_clipboard::Clipboard>,
+    /// The primary selection rather than the regular clipboard.
+    primary: bool,
+}
+#[cfg(all(
+    unix,
+    not(any(target_vendor = "apple", target_os = "android", target_os = "emscripten")),
+    feature = "wayland"
+))]
+impl ClipboardProvider for WaylandClipboard {
+    fn get_contents(
+        &mut self,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
+        let text = if self.primary { self.clipboard.load_primary() } else { self.clipboard.load() };
+        text.map_err(Into::into)
+    }
+
+    fn set_contents(
+        &mut self,
+        contents: String,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+        if self.primary {
+            self.clipboard.store_primary(contents);
+        } else {
+            self.clipboard.store(contents);
+        }
+        Ok(())
+    }
+}
+
 pub fn create_clipboard(
     _display_handle: &winit::raw_window_handle::DisplayHandle<'_>,
 ) -> ClipboardPair {
@@ -101,9 +137,23 @@ pub fn create_clipboard(
             not(any(target_vendor = "apple", target_os = "android", target_os = "emscripten")),
             any(feature = "x11", feature = "wayland")
         ) => {
-            // arboard selects Wayland (data-control protocol, with the "wayland" feature)
-            // or X11 at runtime; on compositors without wlr-data-control it falls back to
-            // the X11/XWayland clipboard, which such compositors keep in sync.
+            // On Wayland, use the event loop's own connection: the core wl_data_device protocol
+            // works on every compositor and in sandboxes, unlike the data-control protocol that
+            // a separate connection needs.
+            #[cfg(feature = "wayland")]
+            if let winit::raw_window_handle::RawDisplayHandle::Wayland(wayland) =
+                _display_handle.as_raw()
+            {
+                // Safety: the display outlives the clipboard, stored next to the event loop.
+                let display = wayland.display.as_ptr();
+                let clipboard = unsafe { smithay_clipboard::Clipboard::new(display) };
+                let clipboard = std::rc::Rc::new(clipboard);
+                return (
+                    Box::new(WaylandClipboard { clipboard: clipboard.clone(), primary: false }),
+                    Box::new(WaylandClipboard { clipboard, primary: true }),
+                );
+            }
+            // arboard's X11 clipboard.
             let make = |kind| -> Box<dyn ClipboardProvider> {
                 arboard::Clipboard::new().map_or(
                     Box::new(SilentClipboardContext) as Box<dyn ClipboardProvider>,

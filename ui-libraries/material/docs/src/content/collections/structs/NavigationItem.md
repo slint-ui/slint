@@ -1,12 +1,12 @@
 ---
-title: Navigation   Item
+
+title: Navigation Item
 description: NavigationItem content
 ---
 
 `NavigationItem`
 
 This structure represents a NavigationItem with an icon, text, badge, and empty badge.
-
 - **`icon`** (_image_): The icon to display in the item.
 - **`selected-icon`** (_image_): The icon to display in the item when selected.
 - **`text`** (_string_): The text to display in the item.

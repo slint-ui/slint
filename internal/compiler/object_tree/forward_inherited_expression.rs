@@ -183,7 +183,7 @@ fn forward_reference(
 
     base_root.borrow_mut().property_declarations.insert(
         property_name.clone(),
-        PropertyDeclaration { property_type, ..PropertyDeclaration::default() },
+        PropertyDeclaration { property_type, synthesized: true, ..PropertyDeclaration::default() },
     );
     base_root.borrow_mut().set_binding(property_name.clone(), BindingExpression::from(binding));
 

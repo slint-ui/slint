@@ -390,12 +390,13 @@ impl<T: Model> ModelExt for T {}
 /// and the interpreter, which otherwise ignore the error.
 #[doc(hidden)]
 pub fn report_model_error(
+    context: &crate::SlintContext,
     function: &str,
     location: Option<crate::debug_log::LogMessageLocation<'_>>,
     result: Result<(), ModelError>,
 ) {
     if let Err(err) = result {
-        crate::debug_log::log_message(crate::debug_log::LogMessage::new(
+        context.dispatch_log_message(crate::debug_log::LogMessage::new(
             crate::debug_log::LogMessageSource::SlintCode,
             location,
             format_args!("array.{function}(): {err}"),
@@ -799,6 +800,7 @@ impl Model for bool {
 /// use slint::{slint, SharedString, ModelRc, Model, VecModel};
 /// use std::rc::Rc;
 /// slint!{
+///     #[edition = "1.19"]
 ///     import { Button } from "std-widgets.slint";
 ///     export component Example {
 ///         callback add_item <=> btn.clicked;
@@ -848,6 +850,7 @@ impl Model for bool {
 /// # i_slint_backend_testing::init_integration_test_with_mock_time();
 /// use slint::Model;
 /// slint::slint!{
+///     #[edition = "1.19"]
 ///     export component TestCase inherits Window {
 ///         in property <[string]> the_model;
 ///         //...

@@ -4,11 +4,8 @@
 import { ScrollView, LineEdit } from "std-widgets-impl.slint";
 import { StateLayer, IconButton, IconButtonStyle, SelectionButton, SelectionButtonStyle, ColoredTextStyle } from "./internal-components.slint";
 
-export struct Date {
-    year: int,
-    month: int,
-    day: int,
-}
+import { Date } from "std-widget-interfaces.slint";
+export { Date }
 
 export struct CalendarDelegateStyle {
     font-size: length,

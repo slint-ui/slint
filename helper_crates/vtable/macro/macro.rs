@@ -700,9 +700,8 @@ and implements HasStaticVTable for it.
             #input
 
             impl #vtable_name {
-                // unfortunately cannot be const in stable rust because of the bounds (depends on rfc 2632)
                 /// Create a vtable suitable for a given type implementing the trait.
-                pub /*const*/ fn new<T: #trait_name #new_trait_extra>() -> Self {
+                pub const fn new<T: #trait_name #new_trait_extra>() -> Self {
                     Self {
                         #(#vtable_ctor)*
                     }
@@ -745,13 +744,7 @@ and implements HasStaticVTable for it.
             #[doc = #static_vtable_macro_doc]
             macro_rules! #static_vtable_macro_name {
                 ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {
-                    $(#[$meta])* $vis static $ident : #vtable_name = {
-                        use vtable::*;
-                        type T = $ty;
-                        #vtable_name {
-                            #(#vtable_ctor)*
-                        }
-                    };
+                    $(#[$meta])* $vis static $ident : #vtable_name = #vtable_name::new::<$ty>();
                     #[allow(unsafe_code)]
                     unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
                         const STATIC_VTABLE: &'static #vtable_name = &$ident;

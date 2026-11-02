@@ -4,32 +4,15 @@
 import { TextEditBase } from "../common/textedit-base.slint";
 import { StyleMetrics  } from "std-widgets-impl.slint";
 
+import { TextEditInterface } from "../common/std-widget-interfaces.slint";
+
 export component TextEdit {
-    in property <TextWrap> wrap <=> base.wrap;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
-    in property <InputMethodHints> input-method-hints <=> base.input-method-hints;
-    in property <bool> read-only <=> base.read-only;
-    in property <length> font-size <=> base.font-size;
-    in property <string> font-family <=> base.font-family;
-    in property <bool> font-italic <=> base.font-italic;
-    in property <bool> enabled <=> base.enabled;
-    in property <string> placeholder-text <=> base.placeholder-text;
-    out property <bool> has-focus: base.has-focus;
-    out property <length> visible-width <=> base.visible-width;
-    out property <length> visible-height <=> base.visible-height;
-    in-out property <string> text <=> base.text;
-    in-out property <length> content-x <=> base.content-x;
-    in-out property <length> content-y <=> base.content-y;
-    in-out property <length> content-width <=> base.content-width;
-    in-out property <length> content-height <=> base.content-height;
+    implement TextEditInterface <=> base;
+
     @deprecated("Please use 'content-width' instead") in-out property <length> viewport-width <=> content-width;
     @deprecated("Please use 'content-height' instead") in-out property <length> viewport-height <=> content-height;
     @deprecated("Please use 'content-x' instead") in-out property <length> viewport-x <=> content-x;
     @deprecated("Please use 'content-y' instead") in-out property <length> viewport-y <=> content-y;
-
-    callback edited <=> base.edited;
-    callback key-pressed <=> base.key-pressed;
-    callback key-released <=> base.key-released;
 
     accessible-role: AccessibleRole.text-input;
     accessible-enabled: root.enabled;
@@ -38,38 +21,6 @@ export component TextEdit {
     accessible-read-only: root.read-only;
     accessible-action-set-value(v) => { text = v; edited(v); }
     accessible-action-set-selection-offsets(anchor, focus) => { base.set-selection-offsets(anchor, focus); }
-
-    public function set-selection-offsets(anchor: int, focus: int) {
-        base.set-selection-offsets(anchor, focus);
-    }
-
-    public function select-all() {
-        base.select-all();
-    }
-
-    public function clear-selection() {
-        base.clear-selection();
-    }
-
-    public function cut() {
-        base.cut();
-    }
-
-    public function copy() {
-        base.copy();
-    }
-
-    public function paste() {
-        base.paste();
-    }
-
-    public function undo() {
-        base.undo();
-    }
-
-    public function redo() {
-        base.redo();
-    }
 
     forward-focus: base;
     horizontal-stretch: 1;

@@ -64,10 +64,11 @@ export interface TestCase {
     readonly shortcut_a_as_string: string;
     readonly shortcut_as_string: string;
     readonly shortcut_plus_as_string: string;
-    shortcuts: slint.Model<slint.Keys>;
+    get shortcuts(): slint.Model<slint.Keys>;
+    set shortcuts(value: slint.Model<slint.Keys> | slint.Keys[]);
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<Omit<TestCase, "shortcuts"> & { shortcuts: slint.Model<slint.Keys> | slint.Keys[]; }>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 ```
 
 ```cpp

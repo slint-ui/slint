@@ -84,9 +84,12 @@ export type MaterializedNode = {
     readonly text?: unknown;
     readonly sourceCells?: readonly unknown[];
     readonly sourceSvgOmitted?: boolean;
+    readonly sourcePngOmitted?: boolean;
+    readonly sourceSvgBounds?: VisualBounds;
     readonly sourceRasterBounds?: VisualBounds;
     readonly textPaintBounds?: unknown;
     readonly sourceMaskRaster?: boolean;
+    readonly sourceRasterized?: boolean;
 };
 
 export type NormalizationContext = {

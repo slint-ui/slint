@@ -69,6 +69,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tests_file.flush()?;
 
     println!("cargo:rustc-env=TEST_FUNCTIONS={}", tests_file_path.to_string_lossy());
-    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    println!(
+        "cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES={}",
+        test_driver_lib::ALL_EXPERIMENTAL_FEATURES
+    );
     Ok(())
 }

@@ -58,7 +58,8 @@ export component LineEdit {
         }
 
         if root.input-type == InputType.password && !root.text.is-empty && root.has-focus: LineEditPasswordIcon {
-            width: self.source.width * 1px;
+            width: inner.min-height;
+            image-fit: ImageFit.contain;
             show-password-image: @image-url("_visibility.svg");
             hide-password-image: @image-url("_visibility_off.svg");
             colorize: inner.text-color;

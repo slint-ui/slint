@@ -6,7 +6,7 @@ import { DropLocation, OutlineTreeNode } from "../api.slint";
 import { AppState } from "index.slint";
 import { ElementVisuals } from "element-presentation.slint";
 import { OutlineDragRow } from "drag-preview.slint";
-import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { Icons } from "icons.slint";
 
 import { ListView } from "std-widgets.slint";
 import { EditorScrollIndicators } from "editor-scroll-view.slint";
@@ -17,7 +17,6 @@ component EditorTreeRow {
     in property <string> current-source-uri;
     in property <int> current-offset;
     in property <int> max-gutter-columns;
-    in property <bool> show-hierarchy-guides: false;
     in property <bool> tree-has-hover: false;
     in property <bool> content-has-hover;
     in property <Point> tree-pointer;
@@ -40,6 +39,7 @@ component EditorTreeRow {
     callback drag-started();
     callback row-hover-changed(int, bool);
     callback expanded-changed(int, bool);
+    callback add-tab-requested(string, int);
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -48,22 +48,24 @@ component EditorTreeRow {
         && root.tree-pointer.x >= root.absolute-position.x
         && root.tree-pointer.x < root.absolute-position.x + root.width
         && root.tree-pointer.y >= root.absolute-position.y + root.content-y
-        && root.tree-pointer.y < root.absolute-position.y + root.content-y + root.style.row.height - 4px;
+        && root.tree-pointer.y < root.absolute-position.y + root.content-y + Metrics.outline-row-height;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
     property <DropLocation> active-drop-location: DropLocation.onto;
     property <bool> drop-allowed: false;
     property <Point> grab-offset;
     property <bool> pointer-in-gap: false;
-    property <length> gap-height: root.gap-before || root.gap-after ? root.style.row.height : 0px;
+    property <length> gap-height: root.gap-before || root.gap-after ? Metrics.outline-row-height : 0px;
     property <length> content-y: root.gap-before ? root.gap-height : 0px;
     property <image> row-icon: ElementVisuals.for-kind(node.icon-kind).icon;
+    property <bool> show-add-tab: root.current && root.node.element-type == "TabWidget";
 
-    height: root.style.row.height + root.gap-height;
+    height: Metrics.outline-row-height + root.gap-height;
     vertical-stretch: 0;
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.row-label;
-    accessible-description: "Hierarchy level \{root.level-safe}";
+    accessible-item-index: root.row-index;
+    accessible-description: @tr("Hierarchy level {}", root.level-safe);
     accessible-item-selectable: true;
     accessible-item-selected: root.current;
     accessible-expanded: root.node.has-children && root.node.is-expanded;
@@ -96,16 +98,16 @@ component EditorTreeRow {
 
     function drop-location-for-y(y: length) -> DropLocation {
         if root.gap-before && y < root.gap-height {
-            return y > root.style.row.height * 2 / 3 ? DropLocation.after : root.gap-location;
+            return y > Metrics.outline-row-height * 2 / 3 ? DropLocation.after : root.gap-location;
         }
-        if root.gap-after && y >= root.style.row.height - 4px {
+        if root.gap-after && y >= Metrics.outline-row-height - 4px {
             return root.gap-location;
         }
         let content-y = y - root.content-y;
-        if content-y < root.style.row.height / 3 {
+        if content-y < Metrics.outline-row-height / 3 {
             return DropLocation.before;
         }
-        if content-y > root.style.row.height * 2 / 3 {
+        if content-y > Metrics.outline-row-height * 2 / 3 {
             return DropLocation.after;
         }
         return DropLocation.onto;
@@ -113,7 +115,7 @@ component EditorTreeRow {
 
     function in-gap(y: length) -> bool {
         return (root.gap-before && y < root.gap-height)
-            || (root.gap-after && y >= root.style.row.height - 4px);
+            || (root.gap-after && y >= Metrics.outline-row-height - 4px);
     }
 
     function can-use-drop-location(location: DropLocation) -> bool {
@@ -146,14 +148,13 @@ component EditorTreeRow {
             row-chrome := Rectangle {
                 opacity: root.hide-drag-source && row-drag.dragging ? 0 : 1;
                 horizontal-stretch: 1;
-                height: root.style.row.height - 4px + root.gap-height;
-                background: transparent;
+                height: Metrics.outline-row-height + root.gap-height;
 
                 row-highlight := Rectangle {
-                    x: root.style.row.hit-size;
+                    x: Style.sidebar-spacing.list-inset;
                     width: parent.width - self.x;
                     y: root.content-y;
-                    height: root.style.row.height - 4px;
+                    height: Metrics.outline-row-height;
                     border-radius: root.style.row.radius;
                     border-width: row-drop.has-drag
                         && root.drop-allowed
@@ -187,7 +188,7 @@ component EditorTreeRow {
                             AppState.outline-drag-icon-opacity = root.current ? 1 : root.style.row.icon-opacity;
                             root.drag-started();
                             AppState.outline-drag-grab-offset = root.grab-offset;
-                            AppState.outline-drag-preview-size = { width: root.width, height: root.style.row.height };
+                            AppState.outline-drag-preview-size = { width: root.width, height: Metrics.outline-row-height };
                             AppState.outline-drag-content-inset = row-content.absolute-position.x - root.absolute-position.x;
                             AppState.start-outline-drag(
                                 root.row-label,
@@ -259,8 +260,7 @@ component EditorTreeRow {
                     row-touch := TouchArea {
                         width: parent.width;
                         y: root.content-y;
-                        height: root.style.row.height - 4px;
-                        mouse-cursor: pointer;
+                        height: Metrics.outline-row-height;
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
                                 AppState.outline-drag-background = row-highlight.background;
@@ -280,39 +280,26 @@ component EditorTreeRow {
                         x: 0px;
                         y: root.content-y;
                         width: parent.width;
-                        height: root.style.row.height - 4px;
+                        height: Metrics.outline-row-height;
                         alignment: start;
                         cross-axis-alignment: center;
                         padding-left: root.style.row.padding-inline;
                         padding-right: root.style.row.padding-inline;
-                        min-height: root.style.row.height;
+                        min-height: Metrics.outline-row-height;
 
-                        if root.gutter-segments > 0: HorizontalLayout {
-                            alignment: start;
-
-                            for slot[index] in root.max-gutter-columns: Rectangle {
-                                width: index < root.gutter-segments ? root.style.row.toggle-width : 0px;
-                                height: root.style.row.height;
-
-                                if root.show-hierarchy-guides && index < root.gutter-segments: Rectangle {
-                                    x: (parent.width - root.style.guide-width) / 2
-                                        + (index >= 1 ? root.style.row.gap : 0px);
-                                    width: root.style.guide-width;
-                                    height: root.style.row.height;
-                                    background: root.style.guide;
-                                }
-                            }
+                        if root.gutter-segments > 0: Rectangle {
+                            width: min(root.gutter-segments, root.max-gutter-columns) * root.style.row.toggle-width;
+                            height: Metrics.outline-row-height;
                         }
 
                         Rectangle {
                             width: root.style.row.hit-size;
-                            height: root.style.row.height;
+                            height: Metrics.outline-row-height;
 
                             disclosure-touch := TouchArea {
                                 width: root.style.row.hit-size;
                                 height: root.style.row.hit-size;
                                 y: (parent.height - self.height) / 2;
-                                mouse-cursor: root.node.has-children ? MouseCursor.pointer : MouseCursor.default;
                                 clicked => {
                                     root.toggle-expanded();
                                 }
@@ -325,7 +312,7 @@ component EditorTreeRow {
                                 height: Metrics.icon-small;
                                 x: 0px;
                                 y: (parent.height - self.height) / 2;
-                                source: root.node.is-expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                                source: root.node.is-expanded ? Icons.chevron-down : Icons.chevron-right;
                                 colorize: root.style.row.muted;
                             }
                         }
@@ -335,12 +322,11 @@ component EditorTreeRow {
                             alignment: start;
                             cross-axis-alignment: center;
                             padding-right: root.style.row.padding-inline;
-                            min-height: root.style.row.height;
+                            min-height: Metrics.outline-row-height;
 
                             Image {
                                 width: root.style.row.icon-size;
                                 height: root.style.row.icon-size;
-                                vertical-alignment: center;
                                 source: root.row-icon;
                                 colorize: root.style.row.foreground;
                                 opacity: root.current ? 1 : root.style.row.icon-opacity;
@@ -353,22 +339,57 @@ component EditorTreeRow {
                                 color: root.style.row.foreground;
                                 font-size: root.style.row.font-size;
                                 overflow: elide;
-                                wrap: no-wrap;
                             }
+                        }
+
+                        if root.show-add-tab: Rectangle {
+                            width: root.style.row.hit-size;
+                        }
+                    }
+
+                    if root.show-add-tab: Rectangle {
+                        x: parent.width - self.width - root.style.row.padding-inline;
+                        y: root.content-y + (Metrics.outline-row-height - self.height) / 2;
+                        width: root.style.row.hit-size;
+                        height: root.style.row.hit-size;
+                        border-radius: root.style.row.radius;
+                        background: add-tab-touch.has-hover ? root.style.row.hover-background : transparent;
+                        accessible-role: AccessibleRole.button;
+                        accessible-label: @tr("Add Tab");
+                        accessible-action-default => {
+                            root.add-tab-requested(root.node.uri, root.node.offset);
+                        }
+
+                        add-tab-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.add-tab-requested(root.node.uri, root.node.offset);
+                            }
+                        }
+
+                        Image {
+                            width: Metrics.icon-small;
+                            height: Metrics.icon-small;
+                            source: Icons.plus;
+                            colorize: root.style.row.foreground;
+                        }
+
+                        Tooltip {
+                            text: @markdown("\{@tr("Add Tab")}");
                         }
                     }
 
                     if root.gap-before || root.gap-after: OutlineDragRow {
                         style: root.style.row;
                         row-background: root.style.row.hover-background;
-                        y: root.gap-before ? 0px : root.style.row.height - 4px;
+                        y: root.gap-before ? 0px : Metrics.outline-row-height;
                         width: parent.width;
                         height: root.gap-height;
                         content-inset: root.style.row.padding-inline
                             + (root.gap-target.indent-level + (root.gap-location == DropLocation.onto ? 1 : 0)) * root.style.row.toggle-width
                             + root.style.row.hit-size;
                         accessible-role: AccessibleRole.region;
-                        accessible-label: "Outline insertion preview";
+                        accessible-label: @tr("Outline insertion preview");
                     }
                 }
             }
@@ -383,7 +404,6 @@ export component EditorTreeView inherits FocusScope {
     in property <int> current-offset: -1;
     in property <string> accessible-name: "";
     in property <int> max-gutter-columns: 12;
-    in property <bool> show-hierarchy-guides: false;
     in property <bool> content-has-hover: false;
     in property <Point> pointer-position;
     in property <string> hovered-source-uri;
@@ -407,6 +427,7 @@ export component EditorTreeView inherits FocusScope {
     callback row-current-requested(string, int);
     callback drag-started();
     callback row-expanded-changed(int, bool);
+    callback row-add-tab-requested(string, int);
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.list;
@@ -483,7 +504,6 @@ export component EditorTreeView inherits FocusScope {
             current-source-uri: root.current-source-uri;
             current-offset: root.current-offset;
             max-gutter-columns: root.max-gutter-columns;
-            show-hierarchy-guides: root.show-hierarchy-guides;
             tree-has-hover: root.content-has-hover;
             content-has-hover: root.content-has-hover;
             tree-pointer: root.pointer-position;
@@ -515,6 +535,9 @@ export component EditorTreeView inherits FocusScope {
             }
             expanded-changed(row-index, expanded) => {
                 root.row-expanded-changed(row-index, expanded);
+            }
+            add-tab-requested(uri, offset) => {
+                root.row-add-tab-requested(uri, offset);
             }
         }
     }

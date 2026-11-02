@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore bufs CLOEXEC ENOSYS galcore
+
 slint::include_modules!();
 
 mod input_device_monitor;
@@ -176,6 +178,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(unix)]
             if backend_is_linuxkms() {
                 use std::os::unix::process::CommandExt;
+                // Not every GPU driver opens its files with O_CLOEXEC (for example
+                // Vivante's /dev/galcore and its dma-bufs on the STM32MP1). Inherited
+                // by the demo, they hand it the launcher's stale GPU state, and it
+                // crashes on its first frame. So mark everything but stdio close-on-exec.
+                #[cfg(target_os = "linux")]
+                unsafe {
+                    command.pre_exec(|| {
+                        // Best effort: on kernels before 5.11 this fails with ENOSYS.
+                        libc::syscall(
+                            libc::SYS_close_range,
+                            3 as libc::c_uint,
+                            libc::c_uint::MAX,
+                            libc::CLOSE_RANGE_CLOEXEC,
+                        );
+                        Ok(())
+                    });
+                }
                 let err = command.exec(); // only returns on failure
                 ui.unwrap()
                     .global::<Launcher>()

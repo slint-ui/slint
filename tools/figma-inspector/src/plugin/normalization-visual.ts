@@ -7,6 +7,8 @@ import {
     isPngByteArray,
     pngDimensions,
     imageDimensions,
+    utf8ToBase64,
+    validSvgDocument,
 } from "../images";
 import {
     color,
@@ -44,7 +46,7 @@ export async function exportVisual(
     encode: (bytes: Uint8Array) => string = bytesToBase64,
 ): Promise<VisualExport> {
     const bounds = node.sourceRasterBounds;
-    const pngExporter = exportPngNode;
+    const pngExporter = node.sourcePngOmitted ? undefined : exportPngNode;
     const pngRequested = pngExporter !== undefined;
     const [svgResult, pngResult] = await Promise.allSettled([
         Promise.resolve().then(() => exportSvgNode(node)),
@@ -91,14 +93,6 @@ export async function exportVisual(
             : {}),
         ...(pngError === undefined ? {} : { pngError }),
     };
-}
-
-function validSvgDocument(value: string | undefined): value is string {
-    return (
-        value !== undefined &&
-        (/^<svg(?:\s[^>]*)?>[\s\S]*<\/svg\s*>$/iu.test(value) ||
-            /^<svg(?:\s[^>]*)?\/>$/iu.test(value))
-    );
 }
 
 function exportFailureMessage(error: unknown, fallback: string): string {
@@ -192,6 +186,57 @@ async function paint(
                     color: color(stop.color, node),
                 };
             }),
+            opacity,
+        };
+    }
+    if (value.type === "GRADIENT_RADIAL") {
+        const [[a, c, e], [b, d, f]] = transform(value.gradientTransform, node);
+        const determinant = a * d - b * c;
+        if (Math.abs(determinant) < 1e-12)
+            throw new CompatibilityError(
+                "radial gradient transform must be invertible",
+            );
+        if (value.gradientStops.length < 2)
+            throw new CompatibilityError(
+                "radial gradients require at least two stops",
+            );
+        const matrix = [
+            d / 2,
+            -b / 2,
+            -c / 2,
+            a / 2,
+            (d - c) / 2 + c * f - d * e,
+            (a - b) / 2 + b * e - a * f,
+        ]
+            .map((entry) => entry / determinant)
+            .join(" ");
+        const stops = value.gradientStops
+            .map((stop) => {
+                if (
+                    !number(stop.position) ||
+                    stop.position < 0 ||
+                    stop.position > 1
+                )
+                    throw new CompatibilityError(
+                        "gradient stop position must be between 0 and 1",
+                    );
+                const rgba = color(stop.color, node);
+                const rgb = [rgba.r, rgba.g, rgba.b]
+                    .map((channel) => Math.round(channel * 255))
+                    .join(",");
+                return `<stop offset="${stop.position}" stop-color="rgb(${rgb})" stop-opacity="${rgba.a}"/>`;
+            })
+            .join("");
+        // Figma maps normalized layer coordinates into a circle centered at
+        // (0.5, 0.5), with radius 0.5. SVG preserves the inverse affine map.
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${node.width}" height="${node.height}" viewBox="0 0 1 1" preserveAspectRatio="none"><defs><radialGradient id="radial" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(${matrix})">${stops}</radialGradient></defs><rect width="1" height="1" fill="url(#radial)"/></svg>`;
+        return {
+            kind: "image",
+            mimeType: "image/svg+xml",
+            data: utf8ToBase64(svg),
+            intrinsicWidth: node.width,
+            intrinsicHeight: node.height,
+            scaleMode: "STRETCH",
             opacity,
         };
     }
@@ -348,6 +393,7 @@ export async function visiblePaints(
             const code =
                 paintType === "SOLID" ||
                 paintType === "GRADIENT_LINEAR" ||
+                paintType === "GRADIENT_RADIAL" ||
                 paintType === "IMAGE"
                     ? "UNSUPPORTED_PAINT"
                     : "UNSUPPORTED_PAINT_IGNORED";
@@ -408,8 +454,8 @@ export async function normalizeVisual(
             typeof exported.svg === "string"
                 ? normalizeSvgToNodeBounds(
                       exported.svg,
-                      base.width,
-                      base.height,
+                      node.sourceSvgBounds?.width ?? base.width,
+                      node.sourceSvgBounds?.height ?? base.height,
                   )
                 : "";
         const validSvg =
@@ -459,6 +505,9 @@ export async function normalizeVisual(
                 kind: "svg",
                 sourceType: policy === "text" ? "TEXT" : node.type,
                 ...(validSvg ? { svg } : {}),
+                ...(validSvg && node.sourceSvgBounds
+                    ? { svgBounds: node.sourceSvgBounds }
+                    : {}),
                 ...(exported.raster === undefined
                     ? {}
                     : { raster: exported.raster }),

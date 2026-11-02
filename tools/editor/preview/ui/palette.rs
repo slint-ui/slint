@@ -7,7 +7,7 @@ use crate::preview::{properties, ui};
 
 use lsp_types::Url;
 
-use i_slint_compiler::{expression_tree, langtype, object_tree};
+use i_slint_compiler::{element_type, expression_tree, langtype, native_class, object_tree};
 use slint::{Model, ModelRc, SharedString};
 
 pub fn setup(api: &ui::Api<'_>) {
@@ -177,16 +177,17 @@ pub fn evaluate_property(
     ty: &langtype::Type,
     window_adapter: Option<&Rc<dyn slint::platform::WindowAdapter>>,
 ) -> ui::PropertyValue {
-    let unfilled_rectangle = {
+    let default_rectangle_property = {
         let element = element.borrow();
-        property_name == "background"
+        matches!(property_name, "background" | "border-color")
             && default_value.is_none()
-            && matches!(&element.base_type, langtype::ElementType::Builtin(b) if b.name == "Rectangle")
+            && matches!(&element.base_type, element_type::ElementType::Builtin(b) if b.name == "Rectangle")
             && element.binding_cell_including_synthetic(property_name).is_none()
     };
     let expression =
         find_binding_expression(element, property_name).or(default_value.clone()).or_else(|| {
-            unfilled_rectangle.then(|| expression_tree::Expression::default_value_for_type(ty))
+            default_rectangle_property
+                .then(|| expression_tree::Expression::default_value_for_type(ty))
         });
     let value = expression.as_ref().and_then(|element| {
         crate::preview::eval::fully_eval_expression_tree_expression(element, window_adapter)
@@ -195,7 +196,10 @@ pub fn evaluate_property(
     let mut property = ui::map_value_and_type_to_property_value(ty, &value, "");
     property.value_resolved = value.is_some();
     if matches!(ty, langtype::Type::Color | langtype::Type::Brush) {
-        property.fill = ui::brushes::fill_from_brush(property.value_brush.clone());
+        match ui::brushes::fill_from_brush(property.value_brush.clone()) {
+            Some(fill) => property.fill = fill,
+            None => property.value_resolved = false,
+        }
         if let Some(expression) = &expression
             && property.value_resolved
         {
@@ -208,7 +212,7 @@ pub fn evaluate_property(
             }
         }
     }
-    if unfilled_rectangle {
+    if default_rectangle_property {
         property.code = Default::default();
     }
     property
@@ -240,11 +244,11 @@ fn collect_palette_from_globals(
     let tr = document_cache.global_type_registry();
     let tr = document_cache.get_document(document_uri).map(|d| &d.local_registry).unwrap_or(&tr);
     for (name, global) in tr.all_elements().iter().filter_map(|(n, e)| match e {
-        langtype::ElementType::Component(c) => c.is_global().then_some((n, c.clone())),
+        element_type::ElementType::Component(c) => c.is_global().then_some((n, c.clone())),
         _ => None,
     }) {
         let global = global.root_element.clone();
-        if !matches!(global.borrow().base_type, langtype::ElementType::Global) {
+        if !matches!(global.borrow().base_type, element_type::ElementType::Global) {
             continue;
         }
 
@@ -256,9 +260,9 @@ fn collect_palette_from_globals(
         for property in properties.iter().filter(|p| {
             matches!(
                 p.visibility,
-                object_tree::PropertyVisibility::Output
-                    | object_tree::PropertyVisibility::InOut
-                    | object_tree::PropertyVisibility::Public
+                native_class::PropertyVisibility::Output
+                    | native_class::PropertyVisibility::InOut
+                    | native_class::PropertyVisibility::Public
             )
         }) {
             handle_type(name, &global, &property.name, &property.ty, &mut values, window_adapter);
@@ -632,7 +636,13 @@ export component Main { }
 
         for (style, border) in cases {
             let config = i_slint_editor_preview::document_cache::CompilerConfiguration {
-                style: Some(style.to_string()),
+                compiler_config: {
+                    let mut compiler_config =
+                        i_slint_editor_preview::document_cache::CompilerConfiguration::default()
+                            .compiler_config;
+                    compiler_config.style = Some(style.to_string());
+                    compiler_config
+                },
                 ..Default::default()
             };
             let mut session = i_slint_editor_preview::test::session_with(

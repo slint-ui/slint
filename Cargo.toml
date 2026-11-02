@@ -17,6 +17,7 @@ members = [
   'api/rs/macros',
   'api/rs/slint',
   'api/slint-sc',
+  'api/slint-sc/tests/driver/bare_metal',
   'api/python/slint',
   'api/wasm-interpreter',
   'editors/zed',
@@ -106,7 +107,7 @@ slint-build = { version = "=1.19.0", path = "api/rs/build", default-features = f
 slint-interpreter = { version = "=1.19.0", path = "internal/interpreter", default-features = false }
 slint-macros = { version = "=1.19.0", path = "api/rs/macros", default-features = false }
 
-vtable = { version = "0.5", path = "helper_crates/vtable" }
+vtable = { version = "0.5.1", path = "helper_crates/vtable" }
 
 by_address = { version = "1.0.4" }
 bytemuck = { version = "1.13.1" }
@@ -114,13 +115,12 @@ cbindgen = { version = "0.29", default-features = false }
 cfg_aliases = { version = "0.2.2" }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 clru = { version = "0.6.0" }
-css-color-parser2 = { version = "1.0.1" }
 derive_more = { version = "2.0.0", default-features = false, features = ["deref", "deref_mut", "into", "from", "add", "add_assign", "mul", "not", "display"] }
 euclid = { version = "0.22.1", default-features = false }
 swash = { version = "0.2.7", default-features = false }
 glutin = { git = "https://github.com/slint-ui/glutin", rev = "85888eebc3f512850239a05a59dfffbf5da6b108", default-features = false }
 glutin-winit = { git = "https://github.com/slint-ui/glutin", rev = "85888eebc3f512850239a05a59dfffbf5da6b108", default-features = false }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.15" }
 log = { version = "0.4.17" }
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
@@ -129,7 +129,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = { version = "0.2" }
 # `svgz` was unconditional until resvg 0.48 gated it behind a feature. Slint accepts
 # compressed SVGs (`.svgz`), so keep it enabled or usvg rejects them at parse time.
-resvg = { version = "0.48.1", default-features = false, features = ["text", "raster-images", "svgz"] }
+resvg = { version = "0.49.0", default-features = false, features = ["text", "raster-images", "svgz"] }
 rustybuzz = { version = "0.20.0" }
 send_wrapper = { version = "0.6.0" }
 serde = { version = "1.0.163", default-features = false, features = ["derive"] }
@@ -139,9 +139,9 @@ spin_on = { version = "0.1" }
 strum = { version = "0.28", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.25.0" }
 ttf-parser = { version = "0.25" }
-typed-index-collections = "3.2"
+typed-index-collections = { version = "3.2", default-features = false }
 web-sys = { version = "0.3.72", default-features = false }
-smol_str = { version = "0.3.1" }
+smol_str = { version = "0.3.1", default-features = false }
 rayon = { version = "1.10.0", default-features = false }
 raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", features = ["alloc"] }
 
@@ -150,7 +150,7 @@ raw-window-handle-06 = { package = "raw-window-handle", version = "0.6", feature
 # parley uses the icu crates internally as well, so we'll share the dependency there.
 unicode-segmentation = { version = "1.12.0" }
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
-icu_properties = { version = "2.2.0", features = ["compiled_data"] }
+icu_properties = { version = "2", features = ["compiled_data"] }
 
 glow = { version = "0.18" }
 tikv-jemallocator = { version = "0.7" }
@@ -165,7 +165,7 @@ wgpu-hal-29 = { package = "wgpu-hal", version = "29.0.4", default-features = fal
 wgpu-hal-30 = { package = "wgpu-hal", version = "30", default-features = false }
 input = { version = "0.10.0", default-features = false }
 tr = { version = "0.1", default-features = false }
-fontique = { version = "0.11.1" }
+fontique = { version = "0.12.0" }
 # Pinned to match parley's version
 read-fonts = { version = "0.41" }
 # Pinned to match parley's version

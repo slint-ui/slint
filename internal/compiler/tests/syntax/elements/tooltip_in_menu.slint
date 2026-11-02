@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+//config:generate_all_exported_windows
+
 export component Test inherits Window {
     MenuBar {
         Menu {
@@ -9,6 +11,23 @@ export component Test inherits Window {
 //          >      <error{Tooltip cannot be added to Menu}
                 text: @markdown("No tooltip here");
             }
+        }
+        Tooltip {
+//      >      <error{Tooltip cannot be added to MenuBar}
+            text: @markdown("No tooltip here");
+        }
+    }
+}
+
+export component Tray inherits SystemTrayIcon {
+    Tooltip {
+//  >      <error{Tooltip cannot be added to SystemTrayIcon}
+        text: @markdown("No tooltip here");
+    }
+    Menu {
+        Tooltip {
+//      >      <error{Tooltip cannot be added to Menu}
+            text: @markdown("No tooltip here");
         }
     }
 }

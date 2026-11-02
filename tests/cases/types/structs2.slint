@@ -89,7 +89,7 @@ export interface TestCase {
     xx2: Foo2;
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 export declare function DeleteMe(properties?: Partial<DeleteMe>): DeleteMe;
 export declare function Foo1(properties?: Partial<Foo1>): Foo1;
 export declare function Foo2(properties?: Partial<Foo2>): Foo2;

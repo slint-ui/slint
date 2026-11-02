@@ -8,7 +8,7 @@ use crate::graphics::Image;
 use crate::input::{InternalKeyEvent, Keys};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeRc, ItemWeak, VisitChildrenResult};
-use crate::items::{ItemRc, ItemRef, MenuEntry, VoidArg};
+use crate::items::{ItemRc, ItemRef, MenuEntry, MenuItemRole, VoidArg};
 use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -105,18 +105,39 @@ impl MenuFromItemTree {
             }
             crate::item_tree::ensure_item_tree_instantiated(&self.item_tree);
             self.root.replace(
-                self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())),
+                self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())).0,
             );
         });
     }
 
-    fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> SharedVector<MenuEntry> {
+    /// Returns the entries for the children of `parent`, and whether any of them are hidden.
+    fn update_shadow_tree_recursive(&self, parent: &ItemRc) -> (SharedVector<MenuEntry>, bool) {
         let mut result = SharedVector::default();
         let mut last_is_separator = false;
+        let mut has_hidden_items = false;
+        let supports_application_menu_roles = parent
+            .window_adapter()
+            .and_then(|adapter| {
+                adapter
+                    .internal(crate::InternalToken)
+                    .map(|internal| internal.supports_application_menu_roles())
+            })
+            .unwrap_or_default();
 
         let mut actual_visitor =
             |item_tree: &ItemTreeRc, index: u32, item_pin: Pin<ItemRef>| -> VisitChildrenResult {
                 if let Some(menu_item) = ItemRef::downcast_pin::<MenuItem>(item_pin) {
+                    let role = menu_item.role();
+                    if !supports_application_menu_roles && role.is_application_menu_role() {
+                        has_hidden_items = true;
+                        return VisitChildrenResult::CONTINUE;
+                    }
+                    let item = ItemRc::new(item_tree.clone(), index);
+                    let (children, has_hidden_children) = self.update_shadow_tree_recursive(&item);
+                    if children.is_empty() && has_hidden_children {
+                        has_hidden_items = true;
+                        return VisitChildrenResult::CONTINUE;
+                    }
                     let title = menu_item.title();
                     let is_separator =
                         title.as_str() == i_slint_common::MENU_SEPARATOR_PLACEHOLDER_TITLE;
@@ -127,8 +148,6 @@ impl MenuFromItemTree {
                     let next_id = self.next_id.get();
                     self.next_id.set(next_id + 1);
                     let id = next_id.to_shared_string();
-                    let item = ItemRc::new(item_tree.clone(), index);
-                    let children = self.update_shadow_tree_recursive(&item);
                     let has_sub_menu = !children.is_empty();
                     let enabled = menu_item.enabled();
                     let checkable = menu_item.checkable();
@@ -149,6 +168,7 @@ impl MenuFromItemTree {
                         checked,
                         icon,
                         shortcut,
+                        role,
                     });
                 }
                 VisitChildrenResult::CONTINUE
@@ -163,7 +183,7 @@ impl MenuFromItemTree {
         if last_is_separator {
             result.pop();
         }
-        result
+        (result, has_hidden_items)
     }
 }
 
@@ -202,6 +222,12 @@ impl Menu for MenuFromItemTree {
 
 MenuVTable_static!(static MENU_FROM_ITEM_TREE_VT for MenuFromItemTree);
 
+impl MenuItemRole {
+    pub fn is_application_menu_role(self) -> bool {
+        matches!(self, Self::Services | Self::Hide | Self::HideOthers | Self::ShowAll)
+    }
+}
+
 #[repr(C)]
 #[derive(const_field_offset::FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -215,6 +241,7 @@ pub struct MenuItem {
     pub checked: Property<bool>,
     pub icon: Property<Image>,
     pub shortcut: Property<Keys>,
+    pub role: Property<MenuItemRole>,
 }
 
 impl crate::items::Item for MenuItem {

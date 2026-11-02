@@ -75,6 +75,8 @@ private:
 /// You can construct Image objects from a path to an image file on disk, using
 /// Image::load_from_path().
 ///
+/// Copies of an Image share the same underlying data, so copying is cheap.
+///
 /// Another typical use-case is to render the image content with C++ code.
 /// For this it’s most efficient to create a new SharedPixelBuffer with the known dimensions and
 /// pass the pixel pointer returned by begin() to your rendering function. Afterwards you can create
@@ -351,7 +353,8 @@ inline Image load_image_from_embedded_data(std::span<const uint8_t> data,
     return Image(img);
 }
 
-inline Image image_from_embedded_textures(const cbindgen_private::types::StaticTextures *textures)
+inline Image image_from_embedded_textures(
+        const cbindgen_private::types::StaticTextures<cbindgen_private::StaticStorage> *textures)
 {
     cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
     cbindgen_private::types::slint_image_from_embedded_textures(textures, &img);

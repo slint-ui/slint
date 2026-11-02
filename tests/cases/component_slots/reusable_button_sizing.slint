@@ -1,0 +1,185 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "../../../tools/editor/controls/src/basic.slint";
+import { ButtonExamples } from "../../../tools/editor/controls/examples/buttons.slint";
+
+export component TestCase inherits Window {
+    in-out property <length> available-width: 1000px;
+    in-out property <length> text-size: 14px;
+    in-out property <length> icon-size: 20px;
+    in-out property <image> button-icon;
+    in-out property <int> preview-size: 1;
+    in-out property <string> preferred-label;
+    in-out property <bool> application-minimum;
+
+    out property <bool> test: subject.width > subject.left-padding + subject.right-padding
+        && subject.height >= subject.top-padding + subject.bottom-padding;
+    out property <bool> preferred-size-fits: preferred-frame.width >= preferred.min-width
+        && preferred-frame.height >= preferred.min-height;
+
+    width: 1400px;
+    height: 1400px;
+
+    states [
+        application-minimum when root.application-minimum: {
+            preferred.min-height: 40px;
+        }
+    ]
+
+    HorizontalLayout {
+        x: 20px;
+        y: 20px;
+        width: root.available-width;
+        height: 100px;
+        alignment: start;
+        spacing: 12px;
+
+        subject := Button {
+            text: "A longer button label";
+            accessible-label: "Constrained action";
+            font-size: root.text-size;
+            icon: root.button-icon;
+            icon-size: root.icon-size;
+            left-padding: 13px;
+            right-padding: 17px;
+            top-padding: 7px;
+            bottom-padding: 9px;
+        }
+
+        Button { text: "Neighbor"; }
+    }
+
+    gallery := ButtonExamples {
+        x: 20px;
+        y: 140px;
+        width: root.available-width;
+        height: self.preferred-height;
+        size-index: root.preview-size;
+    }
+
+    preferred-frame := Rectangle {
+        x: 1060px;
+        y: 20px;
+        width: preferred.preferred-width;
+        height: preferred.preferred-height;
+        preferred := Button {
+            accessible-label: "Preferred button";
+            text: root.preferred-label;
+            font-size: root.text-size;
+            icon: root.button-icon;
+            icon-size: root.icon-size;
+        }
+    }
+}
+
+/*
+```rust
+use slint_testing::{AccessibleRole, ElementHandle};
+
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+let find_button = |label: &str| {
+    ElementHandle::find_by_accessible_label(&instance, label)
+        .find(|item| item.accessible_role() == Some(AccessibleRole::Button)).unwrap()
+};
+let assert_content_fits = |button: &ElementHandle, left: f32, right: f32, top: f32, bottom: f32| {
+    let position = button.absolute_position();
+    let size = button.size();
+    for kind in ["Text", "Image"] {
+        for child in button.query_descendants().match_type_name(kind).find_all() {
+            let child_position = child.absolute_position();
+            let child_size = child.size();
+            assert!(child_position.x >= position.x + left - 0.1, "{kind} crosses the left padding");
+            assert!(child_position.x + child_size.width <= position.x + size.width - right + 0.1,
+                "{kind} crosses the right padding");
+            assert!(child_position.y >= position.y + top - 0.1, "{kind} crosses the top padding");
+            assert!(child_position.y + child_size.height <= position.y + size.height - bottom + 0.1,
+                "{kind} crosses the bottom padding");
+        }
+    }
+};
+let normal_heights: Vec<_> = ["Application Save", "Application Publish", "Slot button"]
+    .map(|label| (label, find_button(label).size().height)).into();
+
+for width in [1000., 600., 420., 1000.] {
+    instance.set_available_width(width);
+    slint::platform::update_timers_and_animations();
+    for (label, height) in &normal_heights {
+        let button = find_button(label);
+        assert!((button.size().height - height).abs() < 0.1, "{label} stretched at width {width}");
+    }
+    for size in [0, 1, 2] {
+        instance.set_preview_size(size);
+        slint::platform::update_timers_and_animations();
+        let padding = [8., 12., 16.][size as usize];
+        let buttons: Vec<_> = ElementHandle::find_by_element_type_name(&instance, "PreviewButton").collect();
+        assert!(buttons.len() >= 4);
+        let mut previous: Option<&ElementHandle> = None;
+        for button in &buttons {
+            assert_content_fits(button, padding, padding, 0., 0.);
+            let position = button.absolute_position();
+            assert!(position.x >= 20.);
+            assert!(position.x + button.size().width <= 20. + width + 0.1);
+            if let Some(previous) = previous {
+                if (previous.absolute_position().y - position.y).abs() < 0.1 {
+                    assert!(position.x >= previous.absolute_position().x + previous.size().width);
+                }
+            }
+            previous = Some(button);
+        }
+    }
+}
+
+instance.set_available_width(120.);
+for (font, icon) in [(14., 20.), (36., 20.), (14., 64.)] {
+    instance.set_text_size(font);
+    instance.set_icon_size(icon);
+    instance.set_button_icon(slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(2, 2)));
+    slint::platform::update_timers_and_animations();
+    let button = find_button("Constrained action");
+    assert_content_fits(&button, 13., 17., 7., 9.);
+    assert!(button.query_descendants().match_type_name("Text").find_first().is_some());
+    assert!(button.query_descendants().match_type_name("Image").find_first().is_some());
+}
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+for text in ["", "A", "First line\nSecond line"] {
+    instance.set_preferred_label(text.into());
+    for font in [14., 36.] {
+        instance.set_text_size(font);
+        slint::platform::update_timers_and_animations();
+        // https://github.com/slint-ui/slint/issues/6265
+        assert!(instance.get_preferred_size_fits(), "preferred dimensions must contain the button minimum");
+        let button = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred button").next().unwrap();
+        if text.is_empty() {
+            assert_eq!(button.size().width, 24.);
+            assert_eq!(button.size().height, 12.);
+        } else {
+            let label = button.query_descendants().match_type_name("Text").find_first().unwrap();
+            assert!(button.size().width >= label.size().width + 24. - 0.1);
+            assert!(button.size().height >= label.size().height + 12. - 0.1);
+        }
+    }
+}
+instance.set_preferred_label("".into());
+instance.set_button_icon(slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(2, 2)));
+for size in [12., 64.] {
+    instance.set_icon_size(size);
+    slint::platform::update_timers_and_animations();
+    assert!(instance.get_preferred_size_fits());
+    let button = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred button").next().unwrap();
+    assert_eq!(button.size().width, size + 24.);
+    assert_eq!(button.size().height, size + 12.);
+}
+instance.set_icon_size(12.);
+instance.set_application_minimum(true);
+slint::platform::update_timers_and_animations();
+let button = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred button").next().unwrap();
+assert!(button.size().height >= 40.);
+```
+*/

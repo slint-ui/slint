@@ -480,6 +480,8 @@ fn test_locate_rust_macro() {
 ///
 /// Note that the slint compiler considers Start-of-Text and End-of-Text as whitespace and will treat them
 /// accordingly.
+///
+/// The `#[...]` attributes that the macro reads at the start of its body are replaced by spaces too.
 pub fn extract_rust_macro(rust_source: String) -> Option<String> {
     let core::ops::Range { start, end } = locate_slint_macro(&rust_source).next()?;
     let mut bytes = rust_source.into_bytes();
@@ -488,6 +490,8 @@ pub fn extract_rust_macro(rust_source: String) -> Option<String> {
             *c = b' '
         }
     }
+
+    blank_out_leading_attributes(&mut bytes[start..end]);
 
     if start > 0 {
         bytes[start - 1] = 2;
@@ -502,6 +506,112 @@ pub fn extract_rust_macro(rust_source: String) -> Option<String> {
         }
     }
     Some(String::from_utf8(bytes).expect("We just added spaces"))
+}
+
+/// Replaces the `#[...]` attributes at the start of a `slint!` body, which only the macro reads,
+/// with spaces.
+fn blank_out_leading_attributes(body: &mut [u8]) {
+    for (_, attribute) in leading_attributes(body) {
+        for c in &mut body[attribute] {
+            if *c != b'\n' {
+                *c = b' ';
+            }
+        }
+    }
+}
+
+/// The value of the `#[edition = ...]` attribute of the first `slint!` macro in `rust_source`,
+/// such as `"1.19"` with its quotes, and its byte range in `rust_source`.
+pub fn extract_rust_macro_edition(rust_source: &str) -> Option<(&str, core::ops::Range<usize>)> {
+    let macro_range = locate_slint_macro(rust_source).next()?;
+    let body = &rust_source[macro_range.clone()];
+    let (name, attribute) = leading_attributes(body.as_bytes())
+        .into_iter()
+        .find(|(name, _)| &body[name.clone()] == "edition")?;
+    let equal = skip_whitespace_and_comments(body.as_bytes(), name.end);
+    let value_start = skip_whitespace_and_comments(body.as_bytes(), equal + 1);
+    let value = body[value_start..attribute.end - 1].trim_end();
+    let start = macro_range.start + value_start;
+    Some((value, start..start + value.len()))
+}
+
+fn skip_whitespace_and_comments(body: &[u8], mut index: usize) -> usize {
+    loop {
+        let rest = &body[index.min(body.len())..];
+        if rest.first().is_some_and(u8::is_ascii_whitespace) {
+            index += 1;
+        } else if rest.starts_with(b"//") {
+            while index < body.len() && body[index] != b'\n' {
+                index += 1;
+            }
+        } else if rest.starts_with(b"/*") {
+            index += 2;
+            while index < body.len() && !body[index..].starts_with(b"*/") {
+                index += 1;
+            }
+            index = (index + 2).min(body.len());
+        } else {
+            return index;
+        }
+    }
+}
+
+/// The name and the whole of each `#[...]` attribute at the start of a `slint!` body that the
+/// macro reads.
+fn leading_attributes(body: &[u8]) -> Vec<(core::ops::Range<usize>, core::ops::Range<usize>)> {
+    let mut attributes = Vec::new();
+    let mut index = 0;
+    loop {
+        index = skip_whitespace_and_comments(body, index);
+        if body.get(index) != Some(&b'#') {
+            return attributes;
+        }
+        let attribute_start = index;
+        index = skip_whitespace_and_comments(body, index + 1);
+        if body.get(index) != Some(&b'[') {
+            return attributes;
+        }
+        // The macro stops at an attribute it doesn't know, and so does this scan.
+        let name_start = skip_whitespace_and_comments(body, index + 1);
+        let name_end = name_start
+            + body[name_start..]
+                .iter()
+                .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_')
+                .count();
+        let name = &body[name_start..name_end];
+        if ![&b"include_path"[..], b"library_path", b"style", b"edition"].contains(&name) {
+            return attributes;
+        }
+        if name == b"edition"
+            && body.get(skip_whitespace_and_comments(body, name_end)) != Some(&b'=')
+        {
+            return attributes;
+        }
+        let mut depth = 0;
+        let mut in_string = false;
+        while index < body.len() {
+            match body[index] {
+                b'\\' if in_string => index += 1,
+                b'"' => in_string = !in_string,
+                b'[' if !in_string => depth += 1,
+                b']' if !in_string => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            index += 1;
+        }
+        // Best effort: an attribute the scan can't close, such as one whose raw string ends in a
+        // backslash, is left to the parser.
+        if depth != 0 {
+            return attributes;
+        }
+        index += 1;
+        attributes.push((name_start..name_end, attribute_start..index));
+    }
 }
 
 #[test]
@@ -543,4 +653,34 @@ fn test_extract_rust_macro() {
         extract_rust_macro("abc slint![x slint!() [{[]}] s] abc".into()),
         Some("          \u{0002}x slint!() [{[]}] s\u{0003}    ".into()),
     );
+    assert_eq!(
+        extract_rust_macro(
+            "slint!{ #[edition = \"1.19\"]\n # [style = \"a]\\\"\"] export X {} #[y] }".into()
+        ),
+        Some("      \u{2}                    \n                    export X {} #[y] \u{3}".into()),
+    );
+    assert_eq!(
+        extract_rust_macro("slint!{ // c\n#[style = \"a\"] /* c */ #[ edition=\"1\"] X }".into()),
+        Some("      \u{2} // c\n               /* c */                 X \u{3}".into()),
+    );
+    // cspell:ignore edtion
+    assert_eq!(
+        extract_rust_macro("slint!{ #[edtion = \"1.19\"] #[style = \"a\"] X }".into()),
+        Some("      \u{2} #[edtion = \"1.19\"] #[style = \"a\"] X \u{3}".into()),
+    );
+    assert_eq!(
+        extract_rust_macro_edition("x slint!{ #[style = \"a\"]\n #[ edition = \"1.18\" ] X }"),
+        Some(("\"1.18\"", 39..45))
+    );
+    assert_eq!(extract_rust_macro_edition("slint!{ #[style = \"a\"] X }"), None);
+    assert_eq!(extract_rust_macro_edition("slint!{ X #[edition = \"1.18\"] }"), None);
+    assert_eq!(
+        extract_rust_macro_edition("slint!{ #[edition /* x */ = /* y */ \"1.18\" ] X }"),
+        Some(("\"1.18\"", 36..42))
+    );
+    assert_eq!(extract_rust_macro_edition("slint!{ #[edition] X }"), None);
+    assert_eq!(extract_rust_macro_edition("slint!{ #[edition(\"1.18\")] X }"), None);
+    let mut unclosed = *br#" #[style = r"a\"] X "#;
+    blank_out_leading_attributes(&mut unclosed);
+    assert_eq!(&unclosed, br#" #[style = r"a\"] X "#);
 }

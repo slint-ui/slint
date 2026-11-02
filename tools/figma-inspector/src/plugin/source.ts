@@ -47,12 +47,15 @@ export type SourceNode<Bytes extends SourceBytes = number[]> = {
         rasterBounds?: VisualBounds;
         // A successful raster makes SVG unnecessary; this is not an export failure.
         svgOmitted?: "png";
+        pngOmitted?: "svg";
+        svgBounds?: VisualBounds;
     };
 };
 export type SourceCapture<Bytes extends SourceBytes = number[]> = {
     sourceVersion: 1;
     /** A visible-tree fallback without reusable component metadata or text rasters. */
     flattened?: true;
+    rasterized?: true;
     components?: ComponentLibrary<SourceNode<Bytes>>;
     variables?: VariableLibrary;
     root: SourceNode<Bytes>;
@@ -139,6 +142,7 @@ export function validateSource(value: SourceCapture<SourceBytes>): void {
         value.exportScale <= 0 ||
         typeof value.pngEnabled !== "boolean" ||
         (value.flattened !== undefined && value.flattened !== true) ||
+        (value.rasterized !== undefined && value.rasterized !== true) ||
         !value.images
     )
         throw new Error("Invalid source capture contract");
@@ -224,6 +228,17 @@ export function validateSource(value: SourceCapture<SourceBytes>): void {
             (node.exports !== undefined &&
                 (!result(node.exports.svg, (v) => typeof v === "string") ||
                     !result(node.exports.png, bytes) ||
+                    (node.exports.svgBounds !== undefined &&
+                        (!validVisualBounds(node.exports.svgBounds) ||
+                            node.exports.pngOmitted !== "svg")) ||
+                    (node.exports.pngOmitted !== undefined &&
+                        (node.exports.pngOmitted !== "svg" ||
+                            !value.pngEnabled ||
+                            node.type !== "VECTOR" ||
+                            node.exports.png !== undefined ||
+                            node.exports.svgOmitted !== undefined ||
+                            node.exports.svg.error !== undefined ||
+                            typeof node.exports.svg.value !== "string")) ||
                     (node.exports.rasterBounds !== undefined &&
                         !validVisualBounds(node.exports.rasterBounds)) ||
                     (node.exports.svgOmitted !== undefined &&

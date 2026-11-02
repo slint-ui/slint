@@ -6,9 +6,9 @@ use crate::editor_preview::{
     token_info::{TokenInfo, token_info},
 };
 use crate::util;
+use i_slint_compiler::element_type::{BuiltinElement, ElementDocEntry, ElementType};
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::ElementDocEntry;
-use i_slint_compiler::langtype::{BuiltinElement, ElementType, Type};
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;
@@ -71,13 +71,12 @@ pub fn get_tooltip(
         TokenInfo::EnumerationValue(v) => {
             from_slint_code(&format!("{}.{}", v.enumeration.name, v), documentation)
         }
-        TokenInfo::FileName(path) => MarkupContent {
-            kind: lsp_types::MarkupKind::Markdown,
-            value: format!("`{}`", path.to_string_lossy()),
-        },
+        TokenInfo::FileName(path) => {
+            MarkupContent { kind: lsp_types::MarkupKind::Markdown, value: format!("`{path}`") }
+        }
         TokenInfo::Image(path) => MarkupContent {
             kind: lsp_types::MarkupKind::Markdown,
-            value: format!("![{0}]({0})", path.to_string_lossy()),
+            value: format!("![{path}]({path})"),
         },
         // Todo: this can happen when there is some syntax error
         TokenInfo::LocalProperty(_) | TokenInfo::LocalCallback(_) | TokenInfo::LocalFunction(_) => {
@@ -627,6 +626,31 @@ export component Test {
         match get_tooltip(&mut dc, token).unwrap().contents {
             HoverContents::Markup(m) => {
                 assert!(m.value.contains("Direction.forward"), "got {:?}", m.value)
+            }
+            x => panic!("Found {x:?}"),
+        }
+    }
+
+    #[test]
+    fn test_tooltip_match_case() {
+        let source = r#"
+enum Nums { one, two }
+export component Test {
+    in property <Nums> num;
+    match num {
+        one: Rectangle { }
+        *: Rectangle { }
+    }
+}"#;
+        let (mut dc, uri, _) =
+            crate::language::test::loaded_document_cache_with_experimental(source.into());
+        let doc = dc.get_document(&uri).unwrap().node.clone().unwrap();
+        let offset = TextSize::new(source.find("one:").unwrap() as u32);
+        let token = crate::language::token_at_offset(&doc, offset).unwrap();
+        assert_eq!(token.text(), "one");
+        match get_tooltip(&mut dc, token).unwrap().contents {
+            HoverContents::Markup(m) => {
+                assert!(m.value.contains("Nums.one"), "got {:?}", m.value)
             }
             x => panic!("Found {x:?}"),
         }

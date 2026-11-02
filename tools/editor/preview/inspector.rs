@@ -58,6 +58,15 @@ pub(super) fn invalidate_fill() {
 }
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
+    if !applied {
+        let editor = PREVIEW_STATE.with_borrow_mut(|state| {
+            state.workspace_edit_sent = false;
+            state.editor_ui.as_ref().map(slint::ComponentHandle::clone_strong)
+        });
+        if let Some(editor) = editor {
+            editor.global::<ui::ShadowSession>().invoke_cancel();
+        }
+    }
     let result = PREVIEW_STATE.with_borrow_mut(|state| {
         let refresh = state.fill_refresh.as_mut()?;
         if refresh.submitted_edit != edit {
@@ -110,9 +119,10 @@ fn target_with_root(
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: url.to_file_path().ok()?,
+                path: i_slint_compiler::source_path::SourcePath::from(url),
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
+                editing_text: false,
             },
             no_selected_instance,
         )
@@ -121,7 +131,7 @@ fn target_with_root(
     };
     let node = selected.as_element_node()?;
     let (path, offset) = node.path_and_offset();
-    let url = Url::from_file_path(path).ok()?;
+    let url = path.to_url()?;
     let version = document_cache()?.document_version(&url);
     let generation = PREVIEW_STATE
         .with_borrow(|state| state.api.upgrade().map(|api| api.get_inspector_generation()))?;
@@ -144,7 +154,9 @@ fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, So
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
-        "transform-rotation" => Some(vec![name]),
+        "transform-rotation" | "border-width" | "backdrop-blur" | "padding" | "spacing" => {
+            Some(vec![name])
+        }
         name if CORNERS.contains(&name) => Some(vec![name]),
         _ => None,
     }
@@ -265,12 +277,16 @@ pub(super) fn preview_shadow(
 pub(super) fn commit_shadow(
     key: SharedString,
     changes: slint::ModelRc<ui::InspectorNumberChange>,
-) -> bool {
+) -> ui::InspectorCommitResult {
+    if file_edit_pending() {
+        cancel();
+        return ui::InspectorCommitResult::Rejected;
+    }
     let changes = changes.iter().collect::<Vec<_>>();
     let target = target(&key).filter(|_| valid_shadow_changes(&changes));
     let Some((node, url, version)) = target else {
         cancel();
-        return false;
+        return ui::InspectorCommitResult::Rejected;
     };
     let changes = changes
         .iter()
@@ -283,14 +299,20 @@ pub(super) fn commit_shadow(
         .collect();
     let accepted = property_edit(node, url, version, changes)
         .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
-    if accepted {
+    if accepted && file_edit_pending() {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
         });
     } else {
         cancel();
     }
-    accepted
+    if !accepted {
+        ui::InspectorCommitResult::Rejected
+    } else if file_edit_pending() {
+        ui::InspectorCommitResult::Pending
+    } else {
+        ui::InspectorCommitResult::Unchanged
+    }
 }
 
 fn fill_value(
@@ -298,12 +320,15 @@ fn fill_value(
     name: &str,
     fill: &ui::FillData,
 ) -> Option<slint_interpreter::Value> {
-    use i_slint_compiler::langtype::{PropertyLookupMode, Type};
+    use i_slint_compiler::element_type::PropertyLookupMode;
+    use i_slint_compiler::langtype::Type;
     if !fill.angle.is_finite()
         || !fill.center_x.is_finite()
         || !fill.center_y.is_finite()
         || !fill.radius.is_finite()
+        || !fill.radius_y.is_finite()
         || (fill.custom_radius && fill.radius <= 0.)
+        || (fill.custom_radius && fill.radial_ellipse && fill.radius_y <= 0.)
         || fill.stops.iter().any(|s| !s.position.is_finite())
     {
         return None;
@@ -320,7 +345,13 @@ fn fill_value(
     }
 }
 
-pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+pub(super) fn preview_fill(
+    key: SharedString,
+    name: SharedString,
+    value: ui::FillData,
+    rotation: f32,
+    rotate_element: bool,
+) -> bool {
     let Some((node, _, _)) = fill_target(&key, &name) else {
         cancel();
         return false;
@@ -329,7 +360,15 @@ pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::Fil
         cancel();
         return false;
     };
-    preview_values(key, node, [(name.as_str(), value)])
+    if rotate_element && !rotation.is_finite() {
+        cancel();
+        return false;
+    }
+    let mut values = vec![(name.as_str(), value)];
+    if rotate_element {
+        values.push(("transform-rotation", slint_interpreter::Value::Number(rotation as f64)));
+    }
+    preview_values(key, node, values)
 }
 
 fn property_edit(
@@ -350,34 +389,61 @@ fn property_edit(
     )
 }
 
-pub(super) fn commit_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+pub(super) fn commit_fill(
+    key: SharedString,
+    name: SharedString,
+    value: ui::FillData,
+    rotation: f32,
+    fill_changed: bool,
+    rotation_changed: bool,
+) -> bool {
     let Some((node, url, version)) = fill_target(&key, &name) else {
         cancel();
         return false;
     };
-    if fill_value(&node, &name, &value).is_none() {
+    if fill_value(&node, &name, &value).is_none()
+        || !rotation.is_finite()
+        || (!fill_changed && !rotation_changed)
+    {
         cancel();
         return false;
     }
-    let fill = ui::fill_expression(value.clone());
-    let edit = property_edit(
-        node,
-        url,
-        version,
-        vec![i_slint_editor_preview::editing::PropertyChange::new(name.as_str(), fill.to_string())],
-    );
+    let mut changes = Vec::new();
+    if fill_changed {
+        let fill = ui::fill_expression(value.clone());
+        changes.push(i_slint_editor_preview::editing::PropertyChange::new(
+            name.as_str(),
+            fill.to_string(),
+        ));
+    }
+    if rotation_changed {
+        changes.push(i_slint_editor_preview::editing::PropertyChange::new(
+            "transform-rotation",
+            format!("{rotation}deg"),
+        ));
+    }
+    let edit = property_edit(node, url, version, changes);
     let Some(edit) = edit else {
         cancel();
         return false;
     };
-    let accepted = submit_workspace_edit("Editing fill".into(), edit, true, Some(value));
+    let accepted =
+        submit_workspace_edit("Editing fill".into(), edit, true, fill_changed.then_some(value));
     if !accepted {
         cancel();
+    } else if !fill_changed {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
     }
     accepted
 }
 
 pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
+    if file_edit_pending() {
+        cancel();
+        return false;
+    }
     let Some((node, url, version, names)) = validate(&key, &name, value) else { return false };
     let unit = if name == "transform-rotation" { "deg" } else { "px" };
     let changes = names
@@ -389,10 +455,13 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
     let edit = property_edit(node, url, version, changes);
     let accepted = edit.is_some_and(|edit| {
         send_workspace_edit(
-            if name == "transform-rotation" {
-                "Rotating element"
-            } else {
-                "Changing border radius"
+            match name.as_str() {
+                "transform-rotation" => "Rotating element",
+                "border-width" => "Changing border width",
+                "backdrop-blur" => "Changing backdrop blur",
+                "padding" => "Changing layout padding",
+                "spacing" => "Changing layout spacing",
+                _ => "Changing border radius",
             }
             .into(),
             edit,
@@ -414,8 +483,11 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
         let (node, _, _) = target(&key)?;
         let selected = selected_element()?;
         let instance = component_instance()?;
-        let geometry =
-            instance.element_positions(&node.element).get(selected.instance_index).copied()?;
+        let (path, offset) = node.path_and_offset();
+        let geometry = instance
+            .component_positions(&path, offset.into())
+            .get(selected.instance_index)
+            .copied()?;
         let radii = geometry.corner_radii;
         Some(vec![
             geometry.transform_rotation,

@@ -15,7 +15,7 @@ export component Test {
 //                        > <error{Element 'Bug' does not have a property 'xxx'}
 //  >                        <^error{Could not infer type of property 't4'}
     out property t5 <=> b.xyz;
-//                        > <error{Element 'Bug' does not have a property 'xyz'}
+//                        > <error{Element 'Bug' does not have a property 'xyz'. Did you mean 'wyz'?}
 //  >                        <^error{Could not infer type of property 't5'}
     out property<int> t6 <=> b.foo;
 //                             > <error{Element 'Bug' does not have a property 'foo'}

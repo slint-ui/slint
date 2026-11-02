@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- cspell:ignore launchable -->
+<!-- cspell:ignore launchable mediatype -->
 <!-- @VERSION@ and @DATE@ are filled in by the flatpak build, see dev.slint.VisualEditor.yml -->
 <component type="desktop-application">
     <id>dev.slint.VisualEditor</id>
@@ -38,6 +38,10 @@
     <url type="bugtracker">https://github.com/slint-ui/slint/issues</url>
 
     <launchable type="desktop-id">dev.slint.VisualEditor.desktop</launchable>
+
+    <provides>
+        <mediatype>text/x-slint</mediatype>
+    </provides>
 
     <content_rating type="oars-1.1"/>
 

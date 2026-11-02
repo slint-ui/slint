@@ -5,6 +5,10 @@
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fixed<T, const SHIFT: usize>(pub T);
 
+impl<T, const SHIFT: usize> Fixed<T, SHIFT> {
+    pub(crate) const SHIFT: usize = SHIFT;
+}
+
 impl<
     T: Copy
         + core::ops::Shl<usize, Output = T>
@@ -33,7 +37,7 @@ impl<
     where
         T: num_traits::AsPrimitive<u8>,
     {
-        if SHIFT < 8 { (self.0 >> (SHIFT - 8)).as_() } else { (self.0 << (8 - SHIFT)).as_() }
+        if SHIFT < 8 { (self.0 << (8 - SHIFT)).as_() } else { (self.0 >> (SHIFT - 8)).as_() }
     }
 
     #[inline(always)]
@@ -161,4 +165,12 @@ impl<T: core::ops::Div<Output = T>, const SHIFT: usize> core::ops::Div<T> for Fi
     fn div(self, rhs: T) -> Self::Output {
         Self(self.0 / rhs)
     }
+}
+
+#[test]
+fn fract() {
+    // 2.75 at each shift, so the fraction is always 0xc0 / 0x100.
+    assert_eq!(Fixed::<i32, 4>(0x2c).fract(), 0xc0);
+    assert_eq!(Fixed::<i32, 8>(0x2c0).fract(), 0xc0);
+    assert_eq!(Fixed::<i32, 12>(0x2c00).fract(), 0xc0);
 }

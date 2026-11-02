@@ -3,11 +3,11 @@
 
 // cSpell: ignore BBBX Sometype structurize
 use std::collections::BTreeMap;
-use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
 use i_slint_compiler::parser::TextRange;
-use i_slint_compiler::{expression_tree, langtype};
+use i_slint_compiler::source_path::SourcePath;
+use i_slint_compiler::{expression_types, langtype};
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
@@ -15,14 +15,11 @@ use slint::{
     ComponentHandle, LogicalPosition, LogicalSize, Model, ModelRc, SharedString, ToSharedString,
     VecModel,
 };
-use slint_interpreter::{DiagnosticLevel, PlatformError};
+use slint_interpreter::PlatformError;
 use smol_str::SmolStr;
 
 use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 use i_slint_editor_preview::component_catalog::ComponentInformation;
-
-#[cfg(target_arch = "wasm32")]
-use i_slint_editor_preview::wasm_prelude::*;
 
 fn fuzzy_filter_iter<Item: std::fmt::Debug>(
     input: &mut impl Iterator<Item = Item>,
@@ -63,8 +60,8 @@ fn fuzzy_filter_iter<Item: std::fmt::Debug>(
 
 mod brushes;
 pub(super) use brushes::{fill_brush, fill_expression};
+pub mod diagnostics;
 pub(super) mod file_tree;
-pub mod log_messages;
 pub mod palette;
 mod property_view;
 pub mod search_model;
@@ -76,6 +73,11 @@ pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
 pub fn create_ui() -> Result<EditorUi, PlatformError> {
     let ui = EditorUi::new()?;
+    let weak = ui.as_weak();
+    ui.global::<Api>().on_window_active(move || {
+        weak.upgrade()
+            .is_some_and(|ui| i_slint_core::window::WindowInner::from_pub(ui.window()).active())
+    });
     let cursors = std::cell::RefCell::new(HashMap::<i32, slint::Image>::new());
     ui.global::<EditorCursors>().on_rotation_image(move |angle| {
         let angle = angle.round().rem_euclid(360.0) as i32;
@@ -169,15 +171,18 @@ pub fn initialize_editor(
     api.on_show_document(move |file, line, column| {
         use lsp_types::{Position, Range};
         let pos = Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1));
-        lsp.ask_editor_to_show_document(&file, Range::new(pos, pos), false).ok();
+        if let Some(url) = SourcePath::new(file.as_str()).to_url() {
+            lsp.ask_editor_to_show_document(url, Range::new(pos, pos), false).ok();
+        }
     });
     api.on_show_document_offset_range(super::show_document_offset_range);
     api.on_show_preview_for(super::show_preview_for);
     api.on_reload_preview(super::reload_preview);
-    api.on_unselect(super::element_selection::unselect_element);
+    api.on_unselect(|| super::element_selection::unselect_element(SelectionNotification::Now));
     api.on_reselect(super::element_selection::reselect_element);
     api.on_select_at(super::element_selection::select_element_at);
     hover.on_element_at(super::element_selection::hovered_element_at);
+    hover.on_hovered_changed(super::hovered_element_changed);
     api.on_selection_stack_at(super::element_selection::selection_stack_at);
     api.on_filter_sort_selection_stack(super::element_selection::filter_sort_selection_stack);
     api.on_find_selected_selection_stack_frame(|stack| {
@@ -185,7 +190,7 @@ pub fn initialize_editor(
     });
     api.on_select_element(|path, offset, x, y| {
         super::element_selection::select_element_at_source_code_position(
-            PathBuf::from(path.to_string()),
+            SourcePath::new(path.as_str()),
             preview::TextSize::from(offset as u32),
             Some(i_slint_core::lengths::LogicalPoint::new(x, y)),
             SelectionNotification::Now,
@@ -193,9 +198,10 @@ pub fn initialize_editor(
     });
     api.on_select_behind(super::element_selection::select_element_behind);
     api.on_highlight_positions(super::element_selection::highlight_positions);
+    super::snapping::setup(editor_ui);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_new_component_data_for_kind(super::new_component_data_for_kind);
+    api.on_new_component_data(super::new_component_data);
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
@@ -230,10 +236,12 @@ pub fn initialize_editor(
     api.on_persist_selected_element_geometry(super::persist_selected_element_geometry);
     api.on_selected_element_rotate(super::rotate_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
+    api.on_selected_element_wrap_in_layout(super::wrap_selected_element_in_layout);
+    api.on_root_geometry_to_parent_geometry(super::root_geometry_to_parent_geometry);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
     api.on_override_selected_element_rotation(super::override_selected_element_rotation);
-    api.on_override_element_text(super::override_element_text);
     api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
+    api.on_reset_selected_element_border_radius(super::reset_selected_element_border_radius);
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     api.on_inspector_values(super::inspector::values);
@@ -268,31 +276,32 @@ pub fn initialize_editor(
     api.on_set_element_id(super::set_element_id);
     api.on_string_is_single_line(|value| !value.contains('\n') && !value.contains('\r'));
     api.on_property_declaration_ranges(super::property_declaration_ranges);
-    let property_api_weak = api_weak.clone();
-    api.on_current_property_value_data(move |property_name| {
-        let Some(api) = property_api_weak.upgrade() else {
-            return PropertyValue::default();
-        };
-
-        current_property_value_data(&api, property_name).unwrap_or_default()
-    });
+    property_view::setup(editor_ui, &api);
+    super::inline_text_edit::setup(editor_ui);
     let color_field_api_weak = api_weak.clone();
-    api.on_current_color_field_data(move |property_name| {
+    api.on_source_color_field_data(move |property_name| {
         let Some(api) = color_field_api_weak.upgrade() else {
             return ColorFieldData::default();
         };
 
-        current_property_value_data(&api, property_name)
+        source_property_value_data(&api, property_name)
             .map(brushes::color_field_data)
             .unwrap_or_default()
     });
     let property_value_api_weak = api_weak.clone();
-    api.on_current_property_value(move |property_name, fallback| {
+    api.on_source_property_value(move |property_name, fallback| {
         let Some(api) = property_value_api_weak.upgrade() else {
             return fallback;
         };
 
-        current_property_value(&api, property_name, fallback)
+        source_property_value(&api, property_name, fallback)
+    });
+    api.on_combo_option_index(combo_option_index);
+    api.on_image_source_file_name(file_tree::image_source_file_name);
+    let editor_weak = editor_ui.as_weak();
+    api.on_choose_image_file(move |source_uri| {
+        let window = editor_weak.upgrade().map(|editor| editor.window().window_handle());
+        file_tree::choose_image_file(source_uri.as_str(), window)
     });
 
     api.on_get_property_value(get_property_value);
@@ -316,7 +325,7 @@ pub fn initialize_editor(
     api.on_string_to_code(string_to_code);
 
     brushes::setup(&api);
-    log_messages::setup(&api);
+    diagnostics::setup(&editor_ui.global::<Diagnostics>());
     palette::setup(&api);
     let file_tree_controller = file_tree::setup(&api, api_weak.clone(), &project, project_weak);
     preview::set_file_tree_controller(file_tree_controller);
@@ -339,186 +348,66 @@ pub fn initialize_editor(
     }
 }
 
-fn extract_definition_location(ci: &ComponentInformation) -> (SharedString, SharedString) {
-    let Some(url) = ci.defined_at.as_ref().map(|da| da.url()) else {
-        return (Default::default(), Default::default());
-    };
-
-    let path = url.to_file_path().unwrap_or_default();
-    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-
-    (url.to_string().into(), file_name.into())
-}
-
 pub fn ui_set_uses_widgets(api: &Api<'_>, uses_widgets: bool) {
     api.set_uses_widgets(uses_widgets);
 }
 
-pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnostic]) {
-    let summary = diagnostics
-        .iter()
-        .inspect(|d| {
-            let location = d.source_file().map(|p| {
-                let (line, column) = d.line_column();
-                (p.to_string_lossy().to_string().into(), line, column)
-            });
-
-            let level = match d.level() {
-                DiagnosticLevel::Error => LogMessageLevel::Error,
-                DiagnosticLevel::Warning => LogMessageLevel::Warning,
-                DiagnosticLevel::Note => LogMessageLevel::Note,
-                _ => LogMessageLevel::Debug,
-            };
-
-            log_messages::append_log_message(api, level, location, d.message());
-        })
-        .fold(DiagnosticSummary::NothingDetected, |acc, d| {
-            match (acc, d.level()) {
-                (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
-                (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
-                (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
-                // Ignore Note level diagnostics for the summary.
-                // If there is only a note, that's not relevant enough to bother the user.
-                (acc, DiagnosticLevel::Note) => acc,
-                // DiagnosticLevel is non-exhaustive:
-                (acc, _) => acc,
-            }
-        });
-
-    api.set_diagnostic_summary(summary);
+pub fn set_preview_default_fonts(api: &Api<'_>, instance: &slint_interpreter::ComponentInstance) {
+    let item =
+        i_slint_core::items::ItemRc::new_root(instance.as_item_tree(i_slint_core::InternalToken));
+    let font = i_slint_core::items::WindowItem::resolved_font_request(
+        &item,
+        SharedString::default(),
+        0,
+        i_slint_core::lengths::LogicalLength::default(),
+        i_slint_core::lengths::LogicalLength::default(),
+        false,
+    );
+    api.set_preview_default_font_family(font.family.unwrap_or_default());
+    api.set_preview_default_font_size(
+        font.pixel_size.unwrap_or(i_slint_core::textlayout::DEFAULT_FONT_SIZE).get(),
+    );
+    api.set_preview_default_font_weight(font.weight.unwrap_or_default());
 }
 
-pub fn ui_set_known_components(
-    api: &Api<'_>,
-    known_components: &[i_slint_editor_preview::component_catalog::ComponentInformation],
-    current_component_index: usize,
-) {
-    let mut builtins_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut std_widgets_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut path_map: HashMap<PathBuf, (SharedString, Vec<ComponentItem>)> = Default::default();
-    let mut library_map: HashMap<String, Vec<ComponentItem>> = Default::default();
-    let mut longest_path_prefix = PathBuf::new();
-
-    for (idx, ci) in known_components.iter().enumerate() {
-        if ci.is_global {
+pub fn ui_set_project_components(api: &Api<'_>, known_components: &[ComponentInformation]) {
+    let mut files: BTreeMap<String, Vec<ElementLibraryEntry>> = BTreeMap::new();
+    for component in known_components {
+        if component.is_builtin
+            || component.is_std_widget
+            || component.is_global
+            || component.is_interface
+        {
             continue;
         }
-        let (url, pretty_location) = extract_definition_location(ci);
-        let item = ComponentItem {
-            name: ci.name.clone().into(),
-            index: idx.try_into().unwrap(),
-            defined_at: url.clone(),
-            pretty_location,
-            is_user_defined: !(ci.is_builtin || ci.is_std_widget),
-            is_currently_shown: idx == current_component_index,
-            is_exported: ci.is_exported,
+        let Some(position) = &component.defined_at else {
+            continue;
         };
-
-        if let Some(position) = &ci.defined_at {
-            if let Some(library) = position.url().path().strip_prefix("/@") {
-                library_map.entry(format!("@{library}")).or_default().push(item);
-            } else {
-                let path = i_slint_compiler::pathutils::clean_path(
-                    &(position.url().to_file_path().unwrap_or_default()),
-                );
-                if path != PathBuf::new() {
-                    if longest_path_prefix == PathBuf::new() {
-                        longest_path_prefix = path.clone();
-                    } else {
-                        longest_path_prefix =
-                            std::iter::zip(longest_path_prefix.components(), path.components())
-                                .take_while(|(l, p)| l == p)
-                                .map(|(l, _)| l)
-                                .collect();
-                    }
-                }
-                path_map.entry(path).or_insert((url, Vec::new())).1.push(item);
-            }
-        } else if ci.is_builtin {
-            builtins_map.entry(ci.category.clone()).or_default().push(item);
-        } else {
-            std_widgets_map.entry(ci.category.clone()).or_default().push(item);
+        if position.url().path().starts_with("/@") {
+            continue;
         }
+        files.entry(SourcePath::from_url(position.url()).to_string()).or_default().push(
+            ElementLibraryEntry {
+                label: component.name.as_str().into(),
+                kind: ElementKind::Component,
+                source_uri: position.url().as_str().into(),
+            },
+        );
     }
-
-    type ComponentModel = search_model::SearchModel<ComponentItem>;
-    fn make_component_model(vec: Vec<ComponentItem>) -> ComponentModel {
-        ComponentModel::new(VecModel::from(vec), |i, search_str| {
-            search_model::contains(i.name.as_str(), search_str)
-        })
-    }
-
-    fn sort_subset(mut input: HashMap<String, Vec<ComponentItem>>) -> Vec<ComponentListItem> {
-        let mut output = input
-            .drain()
-            .map(|(k, mut v)| {
-                v.sort_by_key(|i| i.name.clone());
-                let model = Rc::new(make_component_model(v));
-                ComponentListItem {
-                    category: k.into(),
-                    file_url: SharedString::new(),
-                    components: model.into(),
-                }
-            })
-            .collect::<Vec<_>>();
-        output.sort_by_key(|k| k.category.clone());
-        output
-    }
-
-    let builtin_components = sort_subset(builtins_map);
-    let std_widgets_components = sort_subset(std_widgets_map);
-    let library_components = sort_subset(library_map);
-
-    let mut file_components = path_map
-        .drain()
-        .map(|(p, (file_url, mut v))| {
-            v.sort_by_key(|i| i.name.clone());
-            let model = Rc::new(make_component_model(v));
-            let name = if p == longest_path_prefix {
-                p.file_name().unwrap_or_default().to_string_lossy().to_string()
-            } else {
-                p.strip_prefix(&longest_path_prefix).unwrap_or(&p).to_string_lossy().to_string()
-            };
-            ComponentListItem { category: name.into(), file_url, components: model.into() }
+    let common_directory =
+        i_slint_editor_preview::util::common_directory(files.keys().map(String::as_str));
+    let groups = files
+        .into_iter()
+        .map(|(path, mut entries)| {
+            entries.sort_by(|a, b| a.label.cmp(&b.label));
+            ElementLibraryGroup {
+                section: ElementLibrarySection::Project,
+                label: path.strip_prefix(&common_directory).unwrap_or(&path).into(),
+                entries: Rc::new(VecModel::from(entries)).into(),
+            }
         })
         .collect::<Vec<_>>();
-    file_components.sort_by_key(|k| PathBuf::from(k.category.to_string()));
-
-    let mut all_components = Vec::with_capacity(
-        builtin_components.len() + library_components.len() + file_components.len(),
-    );
-    all_components.extend_from_slice(&builtin_components[..]);
-    all_components.extend_from_slice(&std_widgets_components[..]);
-    all_components.extend_from_slice(&library_components[..]);
-    all_components.extend_from_slice(&file_components[..]);
-
-    let result = Rc::new(search_model::SearchModel::new(
-        VecModel::from(all_components),
-        |category, search_str| {
-            let mut yes = search_str.is_empty();
-            if let Some(sub_filter) = category.components.as_any().downcast_ref::<ComponentModel>()
-            {
-                sub_filter.set_search_text(search_str.clone());
-                yes = yes || sub_filter.row_count() > 0;
-            }
-            yes
-        },
-    ));
-
-    let old_search_text = api
-        .get_known_components()
-        .as_any()
-        .downcast_ref::<search_model::SearchModel<ComponentListItem>>()
-        .map(|x| x.search_text())
-        .filter(|x| !x.is_empty());
-    if let Some(search_text) = old_search_text {
-        result.set_search_text(search_text.clone());
-    }
-
-    api.set_known_components(result.clone().into());
-    api.on_library_search(move |term| {
-        result.set_search_text(term);
-    });
+    api.set_project_element_library(Rc::new(VecModel::from(groups)).into());
 }
 
 fn to_ui_range(r: TextRange) -> Option<Range> {
@@ -528,7 +417,7 @@ fn to_ui_range(r: TextRange) -> Option<Range> {
     })
 }
 
-fn convert_simple_string(input: SharedString) -> SharedString {
+pub(super) fn convert_simple_string(input: SharedString) -> SharedString {
     slint::format!("\"{}\"", str::escape_debug(input.as_ref()))
 }
 
@@ -557,7 +446,7 @@ fn string_to_code(
     }
 }
 
-fn unit_model(units: &[expression_tree::WrittenUnit]) -> ModelRc<SharedString> {
+fn unit_model(units: &[expression_types::WrittenUnit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
         units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
     ))
@@ -711,7 +600,7 @@ fn map_value_and_type(
             ..Default::default()
         });
     }
-    use i_slint_compiler::expression_tree::WrittenUnit;
+    use i_slint_compiler::expression_types::WrittenUnit;
     use langtype::Type;
 
     match ty {
@@ -1073,7 +962,12 @@ fn map_value_and_type(
                 }
             }
         }
-        Type::Image | Type::Model | Type::PathData | Type::Easing | Type::UnitProduct(_) => {
+        Type::Image
+        | Type::Model
+        | Type::PathData
+        | Type::Easing
+        | Type::StyledText
+        | Type::UnitProduct(_) => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.is_too_complex = true;
         }
@@ -1230,10 +1124,7 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .unwrap_or_default()
 }
 
-fn current_property_value_data(
-    api: &Api<'_>,
-    property_name: SharedString,
-) -> Option<PropertyValue> {
+fn source_property_value_data(api: &Api<'_>, property_name: SharedString) -> Option<PropertyValue> {
     let groups = api.get_properties();
     groups.model_tracker().track_row_count_changes();
     for (group_index, group) in groups.iter().enumerate() {
@@ -1250,12 +1141,26 @@ fn current_property_value_data(
     None
 }
 
-fn current_property_value(
+fn combo_option_index(value: SharedString, options: ModelRc<InspectorComboOption>) -> i32 {
+    let value = match value.split_once('.') {
+        Some((enum_name, member)) if enum_name.starts_with(|c: char| c.is_ascii_uppercase()) => {
+            member
+        }
+        _ => value.as_str(),
+    };
+    options
+        .iter()
+        .position(|option| option.value == value)
+        .and_then(|index| i32::try_from(index).ok())
+        .unwrap_or(-1)
+}
+
+fn source_property_value(
     api: &Api<'_>,
     property_name: SharedString,
     fallback: SharedString,
 ) -> SharedString {
-    let Some(property) = current_property_value_data(api, property_name) else {
+    let Some(property) = source_property_value_data(api, property_name) else {
         return fallback;
     };
 
@@ -1664,6 +1569,506 @@ mod tests {
     use super::{PropertyInformation, PropertyValue, PropertyValueKind};
 
     #[test]
+    fn test_combo_option_index() {
+        let options: slint::ModelRc<super::InspectorComboOption> =
+            std::rc::Rc::new(VecModel::from(
+                ["left", "center", "right"]
+                    .map(|value| super::InspectorComboOption {
+                        value: value.into(),
+                        label: SharedString::default(),
+                    })
+                    .to_vec(),
+            ))
+            .into();
+
+        assert_eq!(super::combo_option_index("center".into(), options.clone()), 1);
+        assert_eq!(
+            super::combo_option_index("TextHorizontalAlignment.right".into(), options.clone()),
+            2
+        );
+        assert_eq!(super::combo_option_index("root.left".into(), options.clone()), -1);
+        assert_eq!(super::combo_option_index("justify".into(), options), -1);
+    }
+
+    #[test]
+    fn numeric_property_defaults_and_resolved_bindings() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        for (code, kind, value_kind, expected) in [
+            ("", PropertyValueKind::Float, PropertyValueKind::Float, 16.),
+            ("28px", PropertyValueKind::Float, PropertyValueKind::Float, 28.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Float, 28.),
+            ("root.drop-shadow-blur", PropertyValueKind::Code, PropertyValueKind::Code, 16.),
+        ] {
+            api.on_source_property_value_data(move |_, _| PropertyValue {
+                code: code.into(),
+                kind,
+                value_kind,
+                value_float: 28.,
+                ..Default::default()
+            });
+            assert_eq!(api.invoke_number_property("drop-shadow-blur".into(), 16.), expected);
+        }
+    }
+
+    fn shadow_test_editor(inner: bool) -> super::EditorUi {
+        let editor = super::create_ui().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        api.set_current_element(super::ElementInformation {
+            source_uri: "file:///shadow.slint".into(),
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        let weak = editor.as_weak();
+        api.on_source_property_value_data(move |name, _| {
+            if !name.starts_with(if inner { "inner-shadow-" } else { "drop-shadow-" }) {
+                return PropertyValue::default();
+            }
+            let editor = weak.unwrap();
+            let refreshed = editor.global::<super::Api>().get_inspector_generation() > 0;
+            PropertyValue {
+                code: "24px".into(),
+                kind: PropertyValueKind::Float,
+                value_float: if name.ends_with("shadow-offset-x") && refreshed { 44. } else { 24. },
+                ..Default::default()
+            }
+        });
+        api.on_inspector_preview_shadow(|_, _| true);
+        editor.global::<super::ShadowSession>().invoke_begin(
+            Default::default(),
+            Default::default(),
+            inner,
+        );
+        editor
+    }
+
+    #[test]
+    fn shadow_switch_stays_with_source_when_workspace_edit_does_not_land() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            for queued in [false, true] {
+                let editor = shadow_test_editor(!inner);
+                editor.global::<super::Api>().on_highlight_positions(|_, _| {
+                    std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()]))
+                        .into()
+                });
+                let api = editor.global::<super::Api>();
+                let weak = editor.as_weak();
+                api.on_source_property_value_data(move |name, _| {
+                    let element = weak.unwrap().global::<super::Api>().get_current_element();
+                    if name
+                        == format!("{}color", if inner { "inner-shadow-" } else { "drop-shadow-" })
+                        && element.offset == 1
+                    {
+                        PropertyValue { code: "#12345678".into(), ..Default::default() }
+                    } else {
+                        PropertyValue::default()
+                    }
+                });
+                let requests = std::rc::Rc::new(std::cell::Cell::new(0));
+                let count = requests.clone();
+                api.on_set_code_bindings(move |_, _, _, _| {
+                    count.set(count.get() + 1);
+                    queued
+                });
+                editor.show().unwrap();
+                editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+                slint::platform::update_timers_and_animations();
+                let label = if inner { "Enable inner shadow" } else { "Enable drop shadow" };
+                find_element(&editor, label).invoke_accessible_default_action();
+                assert_eq!(requests.get(), 1);
+                assert_eq!(find_element(&editor, label).accessible_checked(), Some(false));
+                for offset in [1, 2, 1] {
+                    api.set_current_element(super::ElementInformation {
+                        offset,
+                        ..api.get_current_element()
+                    });
+                    slint::platform::update_timers_and_animations();
+                    assert_eq!(
+                        find_element(&editor, label).accessible_checked(),
+                        Some(offset == 1)
+                    );
+                }
+                find_element(&editor, label).invoke_accessible_default_action();
+                assert_eq!(requests.get(), 2);
+                assert_eq!(find_element(&editor, label).accessible_checked(), Some(true));
+            }
+        }
+    }
+
+    #[test]
+    fn shadow_switch_closes_the_other_session_before_submitting_an_edit() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(!inner);
+            editor.global::<super::Api>().on_highlight_positions(|_, _| {
+                std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle::default()])).into()
+            });
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+            slint::platform::update_timers_and_animations();
+            let session = editor.global::<super::ShadowSession>();
+            session.invoke_start(super::ShadowGesture::Offset, true);
+            assert!(session.get_dragging());
+            assert!(session.get_canvas_focus());
+            assert!(editor.global::<super::CanvasView>().get_manipulating());
+            let weak = editor.as_weak();
+            editor.global::<super::Api>().on_set_code_bindings(move |_, _, _, _| {
+                let editor = weak.unwrap();
+                let session = editor.global::<super::ShadowSession>();
+                assert!(!session.get_open());
+                assert!(!session.get_dragging());
+                assert!(!session.get_canvas_focus());
+                assert!(!editor.global::<super::CanvasView>().get_manipulating());
+                true
+            });
+            find_element(&editor, if inner { "Enable inner shadow" } else { "Enable drop shadow" })
+                .invoke_accessible_default_action();
+        }
+    }
+
+    #[test]
+    fn shadow_canvas_deltas_do_not_change_numeric_value_mapping() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(inner);
+            let session = editor.global::<super::ShadowSession>();
+            let typed =
+                session.invoke_updated(session.get_values(), super::ShadowGesture::Blur, 36., 0.);
+            assert_eq!(typed.blur, 36.);
+            let moved =
+                session.invoke_moved(session.get_values(), super::ShadowGesture::Blur, 99., 8., 2.);
+            assert_eq!(moved.blur, if inner { 40. } else { 8. });
+            let moved = session.invoke_moved(
+                session.get_values(),
+                super::ShadowGesture::Spread,
+                8.,
+                99.,
+                1.,
+            );
+            assert_eq!(moved.spread, if inner { 16. } else { 32. });
+            let moved = session.invoke_moved(
+                session.get_values(),
+                super::ShadowGesture::Offset,
+                3.,
+                -4.,
+                1.,
+            );
+            assert_eq!((moved.offset_x, moved.offset_y), (27., 20.));
+        }
+    }
+
+    #[test]
+    fn shadow_commit_waits_for_a_complete_source_snapshot() {
+        i_slint_backend_testing::init_no_event_loop();
+        for (inner, version_first) in [(false, false), (false, true), (true, false), (true, true)] {
+            let editor = shadow_test_editor(inner);
+            let api = editor.global::<super::Api>();
+            let session = editor.global::<super::ShadowSession>();
+            api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
+            let mut draft = session.get_values();
+            draft.offset_x = 44.;
+            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
+            assert!(session.get_pending());
+            session.invoke_source_refreshed();
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_pending());
+            let version = || {
+                let mut element = api.get_current_element();
+                element.source_version += 1;
+                api.set_current_element(element);
+            };
+            if version_first {
+                version();
+            }
+            assert_eq!(session.get_values().offset_x, 44.);
+            api.set_inspector_generation(1);
+            if !version_first {
+                version();
+            }
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_pending());
+            session.invoke_source_refreshed();
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_canvas_active());
+            assert!(!session.get_pending());
+        }
+    }
+
+    #[test]
+    fn shadow_noop_and_rejected_commits_do_not_wait_for_source_changes() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            for result in
+                [super::InspectorCommitResult::Unchanged, super::InspectorCommitResult::Rejected]
+            {
+                let editor = shadow_test_editor(inner);
+                let api = editor.global::<super::Api>();
+                let session = editor.global::<super::ShadowSession>();
+                api.on_inspector_commit_shadow(move |_, _| result);
+                let mut draft = session.get_values();
+                draft.offset_x = 44.;
+                assert_eq!(
+                    session.invoke_commit(super::ShadowGesture::Offset, draft),
+                    result == super::InspectorCommitResult::Unchanged
+                );
+                assert_eq!(session.get_values().offset_x, 24.);
+                assert!(session.get_canvas_active());
+                assert!(!session.get_pending());
+            }
+        }
+    }
+
+    #[test]
+    fn shadow_rejected_workspace_application_releases_the_pending_draft() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(inner);
+            let api = editor.global::<super::Api>();
+            let session = editor.global::<super::ShadowSession>();
+            api.on_inspector_commit_shadow(|_, _| super::InspectorCommitResult::Pending);
+            let mut draft = session.get_values();
+            draft.offset_x = 44.;
+            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
+            crate::preview::PREVIEW_STATE.with_borrow_mut(|state| {
+                state.editor_ui = Some(editor.clone_strong());
+                state.workspace_edit_sent = true;
+            });
+            super::super::inspector::workspace_edit_finished(Default::default(), false);
+            assert_eq!(session.get_values().offset_x, 24.);
+            assert!(session.get_canvas_active());
+            assert!(!session.get_pending());
+            crate::preview::PREVIEW_STATE.with_borrow_mut(|state| *state = Default::default());
+        }
+    }
+
+    #[test]
+    fn shadow_click_while_a_commit_is_pending_does_not_resubmit() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            let editor = shadow_test_editor(inner);
+            let api = editor.global::<super::Api>();
+            let session = editor.global::<super::ShadowSession>();
+            let commits = std::rc::Rc::new(std::cell::Cell::new(0));
+            let count = commits.clone();
+            api.on_inspector_commit_shadow(move |_, _| {
+                count.set(count.get() + 1);
+                super::InspectorCommitResult::Pending
+            });
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+            let mut draft = session.get_values();
+            draft.offset_x = 44.;
+            assert!(session.invoke_commit(super::ShadowGesture::Offset, draft));
+            slint::platform::update_timers_and_animations();
+            let handle = find_element(&editor, "Shadow offset handle");
+            let position = LogicalPosition::new(
+                handle.absolute_position().x + handle.size().width / 2.,
+                handle.absolute_position().y + handle.size().height / 2.,
+            );
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+            assert_eq!(commits.get(), 1);
+            assert_eq!(session.get_values().offset_x, 44.);
+            assert!(session.get_open());
+            session.invoke_start(super::ShadowGesture::Blur, false);
+            assert!(!session.get_dragging());
+            assert!(!session.invoke_preview(session.get_values()));
+            assert!(session.get_open());
+            assert_eq!(session.get_values().offset_x, 44.);
+            api.set_inspector_generation(1);
+            session.invoke_source_refreshed();
+            assert!(session.get_canvas_active());
+            assert!(!session.get_pending());
+            slint::platform::update_timers_and_animations();
+            let handle = find_element(&editor, "Shadow offset handle");
+            let position = LogicalPosition::new(
+                handle.absolute_position().x + handle.size().width / 2.,
+                handle.absolute_position().y + handle.size().height / 2.,
+            );
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+            assert_eq!(commits.get(), 1);
+        }
+    }
+
+    #[test]
+    fn shadow_guides_reset_when_the_window_loses_focus_to_another_app() {
+        i_slint_backend_testing::init_no_event_loop();
+        for inner in [false, true] {
+            for shift in [slint::platform::Key::Shift, slint::platform::Key::ShiftR] {
+                let editor = shadow_test_editor(inner);
+                editor.show().unwrap();
+                editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+                editor.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
+                slint::platform::update_timers_and_animations();
+                let handle = find_element(&editor, "Shadow offset handle");
+                let position = LogicalPosition::new(
+                    handle.absolute_position().x + handle.size().width / 2.,
+                    handle.absolute_position().y + handle.size().height / 2.,
+                );
+                editor.window().dispatch_event(WindowEvent::PointerPressed {
+                    position,
+                    button: PointerEventButton::Left,
+                });
+                editor.window().dispatch_event(WindowEvent::PointerReleased {
+                    position,
+                    button: PointerEventButton::Left,
+                });
+                let guide_count = || {
+                    i_slint_backend_testing::ElementHandle::find_by_element_id(
+                        &editor,
+                        "ShadowOverlay::guide",
+                    )
+                    .count()
+                };
+                assert_eq!(guide_count(), 0);
+                editor.window().dispatch_event(WindowEvent::KeyPressed { text: shift.into() });
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 2);
+                editor.window().dispatch_event(WindowEvent::WindowActiveChanged(false));
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 0);
+                editor.window().dispatch_event(WindowEvent::WindowActiveChanged(true));
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 0);
+                editor.window().dispatch_event(WindowEvent::KeyPressed { text: shift.into() });
+                editor.window().dispatch_event(WindowEvent::KeyReleased { text: shift.into() });
+                slint::platform::update_timers_and_animations();
+                assert_eq!(guide_count(), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn inspector_scrub_cursor_covers_the_field_and_yields_to_text_editing() {
+        use i_slint_core::{cursor::MouseCursorInner, items::BuiltInMouseCursor};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            source_uri: "file:///inspector.slint".into(),
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection {
+            highlight_index: 0,
+            is_resizable: true,
+            ..Default::default()
+        });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 160.,
+                height: 96.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_inspector_values(|_| {
+            std::rc::Rc::new(VecModel::from(vec![0., 12., 12., 12., 12.])).into()
+        });
+        api.on_inspector_preview(|_, _, _| true);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1000.));
+        slint::platform::update_timers_and_animations();
+        let image = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
+        assert_eq!((image.size().width, image.size().height), (32, 32));
+        let scrub_cursor =
+            MouseCursorInner::CustomMouseCursor { image, hotspot_x: 16, hotspot_y: 16 };
+        let cursor = || {
+            i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                window.mouse_cursor()
+            })
+        };
+
+        for separate in [false, true] {
+            if separate {
+                find_element(&editor, "Separate corners").invoke_accessible_default_action();
+            }
+            let labels = if separate {
+                &[
+                    "Top left corner radius",
+                    "Top right corner radius",
+                    "Bottom left corner radius",
+                    "Bottom right corner radius",
+                ][..]
+            } else {
+                &["Position X", "All corner radii"][..]
+            };
+            for label in labels {
+                let field = find_element(&editor, label);
+                let position = field.absolute_position();
+                let size = field.size();
+                for fraction in [0.05, 0.5, 0.95] {
+                    editor.window().dispatch_event(WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(
+                            position.x + size.width * fraction,
+                            position.y + size.height / 2.,
+                        ),
+                    });
+                    assert!(cursor() == scrub_cursor, "hovering {label} at {fraction}");
+                }
+                let start = LogicalPosition::new(
+                    position.x + size.width / 2.,
+                    position.y + size.height / 2.,
+                );
+                let click = |position| {
+                    editor.window().dispatch_event(WindowEvent::PointerPressed {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                    editor.window().dispatch_event(WindowEvent::PointerReleased {
+                        position,
+                        button: PointerEventButton::Left,
+                    });
+                };
+                click(start);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerMoved {
+                    position: LogicalPosition::new(position.x + size.width * 0.05, start.y),
+                });
+                assert!(cursor() == scrub_cursor, "hovering the label while editing {label}");
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+                assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text));
+                editor.window().dispatch_event(WindowEvent::PointerPressed {
+                    position: start,
+                    button: PointerEventButton::Left,
+                });
+                let end = LogicalPosition::new(start.x + 12., start.y);
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+                assert!(cursor() == scrub_cursor, "dragging {label}");
+                editor.window().dispatch_event(WindowEvent::PointerReleased {
+                    position: end,
+                    button: PointerEventButton::Left,
+                });
+            }
+        }
+    }
+
+    #[test]
     fn resize_cursor_rotates_and_reuses_half_turns() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
@@ -1674,18 +2079,12 @@ mod tests {
     }
 
     #[test]
-    fn scrub_cursor_uses_fixed_pixel_size() {
-        i_slint_backend_testing::init_no_event_loop();
-        let editor = super::create_ui().unwrap();
-        let cursor = editor.global::<super::EditorCursors>().invoke_scrub_horizontal_image();
-        assert_eq!(cursor.size().width, 32);
-        assert_eq!(cursor.size().height, 32);
-    }
-
-    #[test]
     fn rotated_edge_cursor_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
@@ -1757,6 +2156,9 @@ mod tests {
     fn corner_radius_cursor_changes_on_hover_and_stays_during_drag() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
         let api = editor.global::<super::Api>();
         api.set_current_element(super::ElementInformation {
             type_name: "Rectangle".into(),
@@ -1824,16 +2226,184 @@ mod tests {
         });
     }
 
+    type RadiusChange = (super::CanvasCorner, Option<f32>);
+
+    fn drag_corner_radius(
+        corner: super::CanvasCorner,
+        radius_properties: &'static [(&'static str, f32)],
+        single_corner: bool,
+        radii: &[f32],
+    ) -> Vec<Vec<RadiusChange>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Rectangle".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 120.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_source_property_value_data(move |name, _| {
+            let Some(&(_, radius)) =
+                radius_properties.iter().find(|(property, _)| *property == name.as_str())
+            else {
+                return PropertyValue::default();
+            };
+            PropertyValue {
+                code: format!("{radius}px").into(),
+                value_float: radius,
+                ..Default::default()
+            }
+        });
+        let changes = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = changes.clone();
+        api.on_override_selected_element_border_radius(move |corner, radius, single| {
+            assert_eq!(single, single_corner);
+            recorded.borrow_mut().push((corner, Some(radius)));
+        });
+        let recorded = changes.clone();
+        api.on_reset_selected_element_border_radius(move |corner| {
+            recorded.borrow_mut().push((corner, None));
+        });
+        editor.show().unwrap();
+
+        let bounds = |label: &str| {
+            let element =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            (element.absolute_position(), element.size())
+        };
+        let (frame_origin, frame_size) = bounds("Selected Rectangle");
+        let zoom = frame_size.width / 180.;
+        editor.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(
+                frame_origin.x + frame_size.width / 2.,
+                frame_origin.y + frame_size.height / 2.,
+            ),
+        });
+        let (name, on_left, on_top) = match corner {
+            super::CanvasCorner::TopLeft => ("top-left", true, true),
+            super::CanvasCorner::TopRight => ("top-right", false, true),
+            super::CanvasCorner::BottomRight => ("bottom-right", false, false),
+            super::CanvasCorner::BottomLeft => ("bottom-left", true, false),
+        };
+        let (handle_origin, handle_size) = bounds(&format!("Rectangle radius {name}"));
+        let mut position = LogicalPosition::new(
+            handle_origin.x + handle_size.width / 2.,
+            handle_origin.y + handle_size.height / 2.,
+        );
+        editor.window().dispatch_event(WindowEvent::PointerMoved { position });
+        editor.window().dispatch_event(WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        });
+
+        let steps = radii
+            .iter()
+            .map(|radius| {
+                let offset = radius * zoom;
+                position = LogicalPosition::new(
+                    if on_left {
+                        frame_origin.x + offset
+                    } else {
+                        frame_origin.x + frame_size.width - offset
+                    },
+                    if on_top {
+                        frame_origin.y + offset
+                    } else {
+                        frame_origin.y + frame_size.height - offset
+                    },
+                );
+                editor.window().dispatch_event(WindowEvent::PointerMoved { position });
+                changes.take()
+            })
+            .collect();
+        editor.window().dispatch_event(WindowEvent::PointerReleased {
+            position,
+            button: PointerEventButton::Left,
+        });
+        steps
+    }
+
+    #[test]
+    fn corner_radius_drag_shrinks_adjacent_corners_to_fit() {
+        use super::CanvasCorner::*;
+        let steps = drag_corner_radius(
+            TopLeft,
+            &[
+                ("border-top-left-radius", 40.),
+                ("border-top-right-radius", 100.),
+                ("border-bottom-right-radius", 0.),
+                ("border-bottom-left-radius", 60.),
+            ],
+            true,
+            &[100., 50., 200.],
+        );
+        assert_eq!(
+            steps,
+            [
+                vec![(TopLeft, Some(100.)), (TopRight, Some(80.)), (BottomLeft, Some(20.))],
+                vec![(TopLeft, Some(50.)), (TopRight, None), (BottomLeft, None)],
+                vec![(TopLeft, Some(120.)), (TopRight, Some(60.)), (BottomLeft, Some(0.))],
+            ]
+        );
+    }
+
+    #[test]
+    fn corner_radius_drag_shrinks_adjacent_corners_of_bottom_right() {
+        use super::CanvasCorner::*;
+        let steps = drag_corner_radius(
+            BottomRight,
+            &[
+                ("border-top-left-radius", 0.),
+                ("border-top-right-radius", 60.),
+                ("border-bottom-right-radius", 40.),
+                ("border-bottom-left-radius", 100.),
+            ],
+            true,
+            &[100., 50., 200.],
+        );
+        assert_eq!(
+            steps,
+            [
+                vec![(BottomRight, Some(100.)), (BottomLeft, Some(80.)), (TopRight, Some(20.))],
+                vec![(BottomRight, Some(50.)), (BottomLeft, None), (TopRight, None)],
+                vec![(BottomRight, Some(120.)), (BottomLeft, Some(60.)), (TopRight, Some(0.))],
+            ]
+        );
+    }
+
+    #[test]
+    fn linked_corner_radius_drag_stops_at_half_the_shorter_side() {
+        use super::CanvasCorner::*;
+        let steps = drag_corner_radius(TopLeft, &[("border-radius", 40.)], false, &[50., 200.]);
+        assert_eq!(steps, [vec![(TopLeft, Some(50.))], vec![(TopLeft, Some(60.))]]);
+    }
+
     #[test]
     fn begin_fill_session_accepts_previous_target_before_replacing_it() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let commits = std::rc::Rc::new(std::cell::Cell::new(0));
         let count = commits.clone();
-        api.on_inspector_fill_commit(move |key, property, _| {
+        api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
             assert_eq!(key, "first");
             assert_eq!(property, "background");
             count.set(count.get() + 1);
@@ -1866,13 +2436,1050 @@ mod tests {
     }
 
     #[test]
+    fn enabled_section_follows_selected_element_properties() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&api);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, property, expected) in [
+            ("Button", "enabled", true),
+            ("CheckBox", "enabled", true),
+            ("LineEdit", "enabled", true),
+            ("TouchArea", "enabled", true),
+            ("TextInput", "enabled", true),
+            ("KeyBinding", "enabled", true),
+            ("MenuItem", "enabled", true),
+            ("Rectangle", "background", false),
+            ("Text", "text", false),
+            ("VerticalLayout", "spacing", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            set_test_properties(&api, &[property]);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Enabled"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn enabled_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "Button".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&api);
+        set_test_properties(&api, &["enabled"]);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, true),
+            (Some(false), None, false),
+            (Some(true), None, true),
+            (Some(false), Some(true), true),
+            (None, Some(false), false),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "enabled" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "enabled" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Enabled"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn title_field_follows_selected_element_properties() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&api);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, property, expected) in [
+            ("GroupBox", "title", true),
+            ("RadioGroup", "title", true),
+            ("RadioButton", "text", false),
+            ("Button", "text", false),
+            ("Text", "text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            set_test_properties(&api, &[property]);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                    .next()
+                    .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn title_field_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "GroupBox".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        connect_has_property(&api);
+        set_test_properties(&api, &["title"]);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let field =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                .find(|element| {
+                    element.accessible_role()
+                        == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                })
+                .unwrap();
+        field.set_accessible_value("\"Settings\"");
+        assert_eq!(*commits.borrow(), [("title".to_string(), "\"Settings\"".to_string())]);
+    }
+
+    #[test]
+    fn placeholder_field_follows_selected_element_properties() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&api);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, property, expected) in [
+            ("LineEdit", "placeholder-text", true),
+            ("TextEdit", "placeholder-text", true),
+            ("TextInput", "text", false),
+            ("Button", "text", false),
+            ("Text", "text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            set_test_properties(&api, &[property]);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Placeholder text"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn placeholder_field_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "LineEdit".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        connect_has_property(&api);
+        set_test_properties(&api, &["placeholder-text"]);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let field = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+            &editor,
+            "Placeholder text",
+        )
+        .find(|element| {
+            element.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+        })
+        .unwrap();
+        field.set_accessible_value("\"Enter a name\"");
+        assert_eq!(
+            *commits.borrow(),
+            [("placeholder-text".to_string(), "\"Enter a name\"".to_string())]
+        );
+    }
+
+    #[test]
+    fn read_only_switch_follows_selected_element_properties() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&api);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, property, expected) in [
+            ("LineEdit", "read-only", true),
+            ("SpinBox", "read-only", true),
+            ("TextEdit", "read-only", true),
+            ("TextInput", "read-only", true),
+            ("Button", "enabled", false),
+            ("CheckBox", "checked", false),
+            ("TouchArea", "enabled", false),
+            ("Text", "text", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            set_test_properties(&api, &["enabled", property]);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Read-only"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn read_only_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "LineEdit".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&api);
+        set_test_properties(&api, &["enabled", "read-only"]);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, false),
+            (Some(true), None, true),
+            (Some(false), None, false),
+            (Some(true), Some(false), false),
+            (None, Some(true), true),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "read-only" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "read-only" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Read-only"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn read_only_switch_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "TextEdit".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        connect_has_property(&api);
+        set_test_properties(&api, &["enabled", "read-only"]);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let switch =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Read-only")
+                .find(|element| element.accessible_checked().is_some())
+                .unwrap();
+        switch.invoke_accessible_default_action();
+        assert_eq!(*commits.borrow(), [("read-only".to_string(), "true".to_string())]);
+        assert_eq!(switch.accessible_checked(), Some(false));
+    }
+
+    #[test]
+    fn checked_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [("CheckBox", true), ("Button", false), ("Rectangle", false)] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Checked"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn primary_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in
+            [("Button", true), ("StandardButton", true), ("CheckBox", false), ("Rectangle", false)]
+        {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Primary"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn primary_switch_commits_code_binding() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "StandardButton".into();
+        element.source_uri = "file:///test.slint".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_test_code_binding(|_, _, _, _, _| true);
+        let commits = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let recorded = commits.clone();
+        api.on_set_code_binding(move |_, _, _, name, value| {
+            recorded.borrow_mut().push((name.to_string(), value.to_string()));
+            true
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let switch =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Primary")
+                .find(|element| element.accessible_checked().is_some())
+                .unwrap();
+        switch.invoke_accessible_default_action();
+        assert_eq!(*commits.borrow(), [("primary".to_string(), "true".to_string())]);
+        assert_eq!(switch.accessible_checked(), Some(false));
+    }
+
+    #[test]
+    fn progress_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("ProgressIndicator", true),
+            ("Spinner", true),
+            ("Slider", false),
+            ("Rectangle", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            for label in ["Indeterminate", "Progress value"] {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn current_index_section_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 20.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [
+            ("ComboBox", true),
+            ("RadioGroup", true),
+            ("TabWidget", true),
+            ("Slider", false),
+            ("Rectangle", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Current index"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn checked_switch_reads_source_when_runtime_value_is_unresolved() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "CheckBox".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (source, runtime, expected) in [
+            (None, None, false),
+            (Some(false), None, false),
+            (Some(true), None, true),
+            (Some(false), Some(true), true),
+            (Some(true), Some(false), false),
+        ] {
+            api.on_source_property_value_data(move |name, _| match source {
+                Some(value) if name == "checked" => PropertyValue {
+                    code: value.to_shared_string(),
+                    kind: PropertyValueKind::Boolean,
+                    value_kind: PropertyValueKind::Boolean,
+                    value_bool: value,
+                    ..Default::default()
+                },
+                _ => PropertyValue::default(),
+            });
+            api.on_runtime_property_value_data(move |name, fallback| match runtime {
+                Some(value) if name == "checked" => {
+                    PropertyValue { value_resolved: true, value_bool: value, ..Default::default() }
+                }
+                _ => fallback,
+            });
+            api.set_inspector_generation(api.get_inspector_generation() + 1);
+            let mut element = api.get_current_element();
+            element.offset += 1;
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor, "Checked"
+                )
+                .find_map(|element| element.accessible_checked()),
+                Some(expected),
+                "source: {source:?}, runtime: {runtime:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn inline_text_preserves_input_before_the_first_timer_tick() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::create_ui().unwrap();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let api = editor.global::<super::Api>();
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            ..Default::default()
+        });
+        api.set_selection(super::Selection { highlight_index: 0, ..Default::default() });
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                x: 40.,
+                y: 40.,
+                width: 180.,
+                height: 30.,
+                describes_element: true,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        let inline = editor.global::<super::InlineTextEdit>();
+        inline.on_begin(|| super::InlineTextEditStart {
+            success: true,
+            text: "Text".into(),
+            ..Default::default()
+        });
+        let committed = std::rc::Rc::new(std::cell::RefCell::new(SharedString::default()));
+        let result = committed.clone();
+        inline.on_commit(move |text| {
+            *result.borrow_mut() = text;
+            true
+        });
+        editor.show().unwrap();
+        slint::platform::update_timers_and_animations();
+        editor.invoke_focus_editor();
+        inline.set_active(true);
+        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        let input = find_element(&editor, "Inline text editor");
+        assert_eq!(input.accessible_value().unwrap(), "Text");
+        for character in "Undo me".chars() {
+            let text: SharedString = character.to_string().into();
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+            slint::platform::update_timers_and_animations();
+        }
+        editor
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Return.into() });
+        assert_eq!(*committed.borrow(), "Undo me");
+    }
+
+    #[test]
+    fn input_type_combo_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in
+            [("LineEdit", true), ("TextEdit", false), ("TextInput", false), ("Text", false)]
+        {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Input Type"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn mouse_cursor_combo_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 100.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [("TouchArea", true), ("Rectangle", false), ("Text", false)] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Mouse Cursor"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn standard_button_kind_combo_follows_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 100.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, expected) in [("StandardButton", true), ("Button", false), ("Text", false)]
+        {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            assert_eq!(
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                    &editor,
+                    "Button Kind"
+                )
+                .next()
+                .is_some(),
+                expected,
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn alignment_rows_follow_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1600.));
+        for (type_name, horizontal, vertical) in [
+            ("Text", true, true),
+            ("StyledText", true, true),
+            ("LineEdit", true, false),
+            ("SpinBox", true, false),
+            ("TextEdit", true, false),
+            ("Rectangle", false, false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            for (label, expected) in
+                [("Horizontal Alignment", horizontal), ("Vertical Alignment", vertical)]
+            {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn layout_alignment_rows_follow_selected_element_type() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 200.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1200.));
+        for (type_name, alignment, line_alignment) in [
+            ("HorizontalLayout", true, false),
+            ("VerticalLayout", true, false),
+            ("FlexboxLayout", true, true),
+            ("GridLayout", false, false),
+            ("Rectangle", false, false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            slint::platform::update_timers_and_animations();
+            for (label, expected) in
+                [("Layout Alignment", alignment), ("Cross Axis Line Alignment", line_alignment)]
+            {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn scrollbar_policy_combos_follow_selected_element_properties() {
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 200.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        connect_has_property(&api);
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        for (type_name, property, expected) in [
+            ("ScrollView", "horizontal-scrollbar-policy", true),
+            ("MyListView", "horizontal-scrollbar-policy", true),
+            ("Flickable", "viewport-width", false),
+            ("Rectangle", "background", false),
+        ] {
+            let mut element = api.get_current_element();
+            element.type_name = type_name.into();
+            api.set_current_element(element);
+            set_test_properties(&api, &[property]);
+            slint::platform::update_timers_and_animations();
+            for label in ["Horizontal Scroll Bar Policy", "Vertical Scroll Bar Policy"] {
+                assert_eq!(
+                    i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                        &editor, label
+                    )
+                    .next()
+                    .is_some(),
+                    expected,
+                    "{type_name}: {label}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closing_canvas_picker_restores_history_shortcuts_without_inspector_field() {
+        use slint::platform::{Key, WindowEvent};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        super::brushes::setup(&api);
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut element = api.get_current_element();
+        element.type_name = "Rectangle".into();
+        api.set_current_element(element);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.set_undo_enabled(true);
+        let undo_count = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = undo_count.clone();
+        api.on_undo(move || count.set(count.get() + 1));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 860.));
+        slint::platform::update_timers_and_animations();
+        let session = editor.global::<super::FillSession>();
+        session.invoke_begin(super::FillSessionRequest {
+            fill: super::FillData {
+                kind: super::BrushKind::Linear,
+                angle: 90.,
+                stops: std::rc::Rc::new(VecModel::from(vec![
+                    super::GradientStop {
+                        position: 0.,
+                        color: slint::Color::from_rgb_u8(255, 0, 0),
+                    },
+                    super::GradientStop {
+                        position: 1.,
+                        color: slint::Color::from_rgb_u8(0, 0, 255),
+                    },
+                ]))
+                .into(),
+                ..Default::default()
+            },
+            target: super::FillSessionTarget {
+                canvas: true,
+                key: "replaced-inspector-field".into(),
+                session_key: ":0:0:0:background".into(),
+                property_name: "background".into(),
+                size: slint::LogicalSize::new(200., 200.),
+                element_rotation: 0.,
+            },
+            ..Default::default()
+        });
+        session.invoke_edit_stop_color(0);
+        assert!(session.get_open());
+        assert!(session.get_stop_panel_open());
+        slint::platform::update_timers_and_animations();
+        find_element(&editor, "Hex color").invoke_accessible_default_action();
+        session.invoke_close_picker(false, true);
+        slint::platform::update_timers_and_animations();
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: "z".into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: "z".into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+        assert_eq!(undo_count.get(), 1);
+    }
+
+    #[test]
     fn fill_overlay_requires_an_editable_rectangle_session() {
         i_slint_backend_testing::init_no_event_loop();
         for kind in [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic] {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
             super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _| true);
+            api.on_inspector_fill_preview(|_, _, _, _, _| true);
             let session = editor.global::<super::FillSession>();
             let mut element = api.get_current_element();
             element.type_name = "Rectangle".into();
@@ -1916,40 +3523,48 @@ mod tests {
     }
 
     #[test]
-    fn fill_picker_fits_single_paired_and_stacked_panels() {
+    fn fill_picker_placement_and_resize_keep_both_panels_visible() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();
-        let api = editor.global::<super::Api>();
-        super::brushes::setup(&api);
+        super::brushes::setup(&editor.global::<super::Api>());
         let session = editor.global::<super::FillSession>();
+        let bounds = editor.global::<super::EditorWindow>();
         editor.show().unwrap();
         slint::platform::update_timers_and_animations();
-        for (width, anchor, paired) in
-            [(1360., 1200., false), (1360., 1200., true), (1040., 330., true), (540., 330., true)]
-        {
-            editor.global::<super::EditorWindow>().set_width(width);
+        for (width, anchor) in [(1360., 1200.), (1040., 330.), (540., 200.), (400., 160.)] {
+            bounds.set_width(width);
+            bounds.set_height(860.);
             session.invoke_begin(super::FillSessionRequest {
                 target: super::FillSessionTarget {
                     session_key: ":0:0:0:".into(),
                     ..Default::default()
                 },
-                anchor_width: 24.,
+                anchor_size: slint::LogicalSize::new(24., 24.),
                 anchor_position: LogicalPosition::new(anchor, 100.),
                 ..Default::default()
             });
-            session.set_stop_panel_open(paired);
+            session.set_stop_panel_open(true);
             slint::platform::update_timers_and_animations();
-            let panel = i_slint_backend_testing::ElementHandle::find_by_element_id(
-                &editor,
-                "InspectorFillPicker::picker-panel",
-            )
-            .next()
-            .unwrap();
-            let position = panel.absolute_position();
-            let size = panel.size();
-            assert!(position.x >= 8.);
-            assert!(position.x + size.width <= width - 8.);
-            assert_eq!(size.width, if paired && width > 540. { 528. } else { 260. });
+            let panels = ["main", "stop"].map(|name| {
+                i_slint_backend_testing::ElementHandle::find_by_element_id(
+                    &editor,
+                    &format!("InspectorFillPicker::{name}-panel"),
+                )
+                .next()
+                .unwrap()
+            });
+            for (width, height) in [(width, 860.), (400., 380.), (240., 240.)] {
+                bounds.set_width(width);
+                bounds.set_height(height);
+                slint::platform::update_timers_and_animations();
+                for panel in &panels {
+                    let position = panel.absolute_position();
+                    let size = panel.size();
+                    assert!(position.x >= 0. && position.y >= 0.);
+                    assert!(position.x + size.width <= width);
+                    assert!(position.y + size.height <= height);
+                }
+            }
         }
     }
 
@@ -1960,8 +3575,10 @@ mod tests {
             let editor = super::EditorUi::new().unwrap();
             let api = editor.global::<super::Api>();
             super::brushes::setup(&api);
-            api.on_inspector_fill_preview(|_, _, _| true);
-            api.on_inspector_fill_commit(|_, _, _| panic!("stale sessions must not commit"));
+            api.on_inspector_fill_preview(|_, _, _, _, _| true);
+            api.on_inspector_fill_commit(|_, _, _, _, _, _| {
+                panic!("stale sessions must not commit")
+            });
             let canceled = std::rc::Rc::new(std::cell::Cell::new(0));
             let count = canceled.clone();
             api.on_inspector_cancel(move || count.set(count.get() + 1));
@@ -2015,7 +3632,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(Default::default());
         let kinds = [super::BrushKind::Linear, super::BrushKind::Radial, super::BrushKind::Conic];
@@ -2092,7 +3709,7 @@ mod tests {
         let editor = super::EditorUi::new().unwrap();
         let api = editor.global::<super::Api>();
         super::brushes::setup(&api);
-        api.on_inspector_fill_preview(|_, _, _| true);
+        api.on_inspector_fill_preview(|_, _, _, _, _| true);
         let session = editor.global::<super::FillSession>();
         session.invoke_begin(super::FillSessionRequest {
             fill: super::FillData {
@@ -2127,7 +3744,7 @@ mod tests {
         assert_eq!(session.get_request().fill.stops.iter().collect::<Vec<_>>(), stops);
         assert!(session.invoke_preview_fill(snapshot));
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
-        api.on_inspector_fill_preview(|_, _, _| false);
+        api.on_inspector_fill_preview(|_, _, _, _, _| false);
         assert!(!session.invoke_move_stop_position(0.75));
         assert!(!session.get_open());
         assert_eq!(session.get_working_fill().stops.iter().collect::<Vec<_>>(), stops);
@@ -2157,7 +3774,7 @@ mod tests {
                 ..Default::default()
             });
             let expected = target.clone();
-            api.on_inspector_fill_preview(move |key, property, _| {
+            api.on_inspector_fill_preview(move |key, property, _, _, _| {
                 assert_eq!(key, expected);
                 assert_eq!(property, "background");
                 true
@@ -2167,11 +3784,11 @@ mod tests {
             api.on_inspector_cancel(move || count.set(count.get() + 1));
             assert!(session.invoke_preview_color(slint::Color::from_rgb_u8(0, 0, 255)));
             if reject_preview {
-                api.on_inspector_fill_preview(|_, _, _| false);
+                api.on_inspector_fill_preview(|_, _, _, _, _| false);
                 assert!(!session.invoke_preview_color(slint::Color::from_rgb_u8(0, 255, 0)));
             } else {
                 let expected = target.clone();
-                api.on_inspector_fill_commit(move |key, property, _| {
+                api.on_inspector_fill_commit(move |key, property, _, _, _, _| {
                     assert_eq!(key, expected);
                     assert_eq!(property, "background");
                     false
@@ -2251,6 +3868,242 @@ mod tests {
         assert!(!editor.window().is_maximized());
     }
 
+    const LEFT_PANE: usize = 0;
+    const INSPECTOR_PANE: usize = 1;
+    const PANE_PREFERENCES: [f32; 2] = [400., 360.];
+    const PANE_RESIZED_CALLBACKS: [&str; 2] = ["left-pane-resized", "inspector-pane-resized"];
+
+    #[derive(Debug)]
+    struct PaneOutcome {
+        preferences: [f32; 2],
+        widths: [f32; 2],
+        callbacks: Vec<&'static str>,
+    }
+
+    fn narrow_window_editor()
+    -> (super::EditorUi, std::rc::Rc<std::cell::RefCell<Vec<&'static str>>>) {
+        let editor = super::EditorUi::new().unwrap();
+        let panes = editor.global::<super::Style>().get_panes();
+        let shell = editor.global::<super::Style>().get_shell();
+        assert!(PANE_PREFERENCES.iter().all(|preference| *preference <= panes.maximum_width));
+        editor.set_left_pane_width_preference(PANE_PREFERENCES[LEFT_PANE]);
+        editor.set_inspector_pane_width_preference(PANE_PREFERENCES[INSPECTOR_PANE]);
+        let callbacks = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let (weak, log) = (editor.as_weak(), callbacks.clone());
+        editor.on_left_pane_resized(move |width| {
+            log.borrow_mut().push(PANE_RESIZED_CALLBACKS[LEFT_PANE]);
+            weak.unwrap().set_left_pane_width_preference(width);
+        });
+        let (weak, log) = (editor.as_weak(), callbacks.clone());
+        editor.on_inspector_pane_resized(move |width| {
+            log.borrow_mut().push(PANE_RESIZED_CALLBACKS[INSPECTOR_PANE]);
+            weak.unwrap().set_inspector_pane_width_preference(width);
+        });
+        let log = callbacks.clone();
+        editor.on_left_pane_reset(move || log.borrow_mut().push("left-pane-reset"));
+        let log = callbacks.clone();
+        editor.on_inspector_pane_reset(move || log.borrow_mut().push("inspector-pane-reset"));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(shell.min_width, shell.height));
+        slint::platform::update_timers_and_animations();
+        (editor, callbacks)
+    }
+
+    fn find_element(
+        editor: &super::EditorUi,
+        label: &str,
+    ) -> i_slint_backend_testing::ElementHandle {
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(editor, label)
+            .next()
+            .unwrap()
+    }
+
+    fn narrow_window_outcome(
+        editor: &super::EditorUi,
+        callbacks: &std::cell::RefCell<Vec<&'static str>>,
+    ) -> PaneOutcome {
+        let panes = editor.global::<super::Style>().get_panes();
+        let shell = editor.global::<super::Style>().get_shell();
+        let preferences =
+            [editor.get_left_pane_width_preference(), editor.get_inspector_pane_width_preference()];
+        let widths = [
+            find_element(editor, "Project and elements").size().width,
+            find_element(editor, "Inspector and outline").size().width,
+        ];
+        let canvas = find_element(editor, "Editor canvas").size().width;
+        assert!((canvas - panes.canvas_minimum_width).abs() < 0.1, "canvas width {canvas}");
+        assert!(
+            (widths[LEFT_PANE] + widths[INSPECTOR_PANE] + canvas - shell.min_width).abs() < 0.1
+        );
+        let preferred_ratio = (preferences[LEFT_PANE] - panes.left_width)
+            / (preferences[INSPECTOR_PANE] - panes.inspector_width);
+        let displayed_ratio = (widths[LEFT_PANE] - panes.left_width)
+            / (widths[INSPECTOR_PANE] - panes.inspector_width);
+        assert!(
+            (displayed_ratio - preferred_ratio).abs() < 0.01,
+            "displayed ratio {displayed_ratio} != preferred ratio {preferred_ratio}"
+        );
+        PaneOutcome { preferences, widths, callbacks: callbacks.take() }
+    }
+
+    fn resize_in_narrow_window(
+        label: &str,
+        resize: impl FnOnce(&i_slint_backend_testing::ElementHandle, f32),
+    ) -> PaneOutcome {
+        let (editor, callbacks) = narrow_window_editor();
+        let divider = find_element(&editor, label);
+        resize(&divider, divider.accessible_value_step().unwrap());
+        slint::platform::update_timers_and_animations();
+        narrow_window_outcome(&editor, &callbacks)
+    }
+
+    fn assert_narrow_window_drag_and_increment_match(
+        label: &str,
+        resized: usize,
+        grow_direction: f32,
+    ) {
+        i_slint_backend_testing::init_no_event_loop();
+        let other = 1 - resized;
+        let (editor, callbacks) = narrow_window_editor();
+        let before = narrow_window_outcome(&editor, &callbacks);
+        let step = find_element(&editor, label).accessible_value_step().unwrap();
+        drop(editor);
+
+        let increment = resize_in_narrow_window(label, |divider, _| {
+            divider.invoke_accessible_increment_action()
+        });
+        let drag = resize_in_narrow_window(label, |divider, step| {
+            let position = divider.absolute_position();
+            let size = divider.size();
+            let target = LogicalPosition::new(
+                position.x + size.width / 2. + grow_direction * step,
+                position.y + size.height / 2.,
+            );
+            divider.mock_drag(target, PointerEventButton::Left);
+        });
+
+        for outcome in [&increment, &drag] {
+            assert_eq!(outcome.callbacks, [PANE_RESIZED_CALLBACKS[resized]], "{outcome:?}");
+            assert_eq!(
+                outcome.preferences[resized],
+                PANE_PREFERENCES[resized] + step,
+                "{outcome:?}"
+            );
+            assert_eq!(outcome.preferences[other], PANE_PREFERENCES[other], "{outcome:?}");
+            assert!(outcome.widths[resized] > before.widths[resized], "{outcome:?}");
+            assert!(outcome.widths[other] < before.widths[other], "{outcome:?}");
+        }
+        for pane in [resized, other] {
+            assert!(
+                (increment.widths[pane] - drag.widths[pane]).abs() < 0.1,
+                "{increment:?} {drag:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn narrow_window_scales_pane_widths_without_changing_preferences() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (editor, callbacks) = narrow_window_editor();
+        let outcome = narrow_window_outcome(&editor, &callbacks);
+        assert!(outcome.callbacks.is_empty());
+        assert_eq!(outcome.preferences, PANE_PREFERENCES);
+        assert!(
+            outcome.widths[LEFT_PANE] < PANE_PREFERENCES[LEFT_PANE]
+                && outcome.widths[INSPECTOR_PANE] < PANE_PREFERENCES[INSPECTOR_PANE]
+        );
+    }
+
+    #[test]
+    fn narrow_window_left_pane_drag_and_increment_match() {
+        assert_narrow_window_drag_and_increment_match("Project pane resize", LEFT_PANE, 1.);
+    }
+
+    #[test]
+    fn narrow_window_inspector_pane_drag_and_increment_match() {
+        assert_narrow_window_drag_and_increment_match("Inspector pane resize", INSPECTOR_PANE, -1.);
+    }
+
+    #[test]
+    fn pane_resize_hit_areas_keep_the_cursor_during_drag() {
+        use i_slint_core::{cursor::MouseCursorInner, items::BuiltInMouseCursor};
+
+        i_slint_backend_testing::init_no_event_loop();
+        for (label, vertical, reversed) in [
+            ("Project pane resize", true, false),
+            ("Inspector pane resize", true, true),
+            ("Elements pane resize", false, false),
+            ("Outline pane resize", false, false),
+        ] {
+            let editor = super::create_ui().unwrap();
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            editor.show().unwrap();
+            slint::platform::update_timers_and_animations();
+            let hit_size = editor.global::<super::Style>().get_panes().resize_hit_size;
+            let divider =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, label)
+                    .next()
+                    .unwrap();
+            let position = divider.absolute_position();
+            let size = divider.size();
+            let start = if vertical {
+                LogicalPosition::new(
+                    position.x + if reversed { size.width - hit_size + 1. } else { hit_size - 1. },
+                    position.y + size.height / 2.,
+                )
+            } else {
+                LogicalPosition::new(position.x + size.width / 2., position.y + hit_size - 1.)
+            };
+            let cursor = || {
+                i_slint_backend_testing::access_testing_window(editor.window(), |window| {
+                    window.mouse_cursor()
+                })
+            };
+            let expected = MouseCursorInner::BuiltIn(if vertical {
+                BuiltInMouseCursor::EwResize
+            } else {
+                BuiltInMouseCursor::NsResize
+            });
+            editor.window().dispatch_event(WindowEvent::PointerMoved { position: start });
+            assert_eq!(cursor(), expected, "hovering the enlarged hit area of {label}");
+            editor.window().dispatch_event(WindowEvent::PointerPressed {
+                position: start,
+                button: PointerEventButton::Left,
+            });
+            let canvas = i_slint_backend_testing::ElementHandle::find_by_accessible_label(
+                &editor,
+                "Editor canvas",
+            )
+            .next()
+            .unwrap();
+            let canvas_position = canvas.absolute_position();
+            let canvas_size = canvas.size();
+            let end = if vertical {
+                LogicalPosition::new(canvas_position.x + canvas_size.width / 2., start.y + 30.)
+            } else {
+                LogicalPosition::new(
+                    start.x + 30.,
+                    editor.global::<super::Style>().get_shell().height - 10.,
+                )
+            };
+            editor.window().dispatch_event(WindowEvent::PointerMoved { position: end });
+            assert_eq!(cursor(), expected, "dragging {label} away from the separator");
+            editor.window().dispatch_event(WindowEvent::PointerReleased {
+                position: end,
+                button: PointerEventButton::Left,
+            });
+            editor.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(
+                    canvas_position.x + canvas_size.width / 2.,
+                    canvas_position.y + canvas_size.height / 2.,
+                ),
+            });
+            assert_ne!(cursor(), expected, "leaving {label} after release");
+        }
+    }
+
     fn create_test_property(name: &str, value: &str) -> PropertyInformation {
         PropertyInformation {
             name: name.into(),
@@ -2263,6 +4116,28 @@ mod tests {
                 ..Default::default()
             },
         }
+    }
+
+    fn connect_has_property(api: &super::Api<'_>) {
+        let api_weak = <super::Api as slint::Global<'_, super::EditorUi>>::as_weak(api);
+        api.on_has_property(move |name| {
+            api_weak
+                .upgrade()
+                .is_some_and(|api| super::source_property_value_data(&api, name).is_some())
+        });
+    }
+
+    fn set_test_properties(api: &super::Api<'_>, names: &[&str]) {
+        api.set_properties(
+            std::rc::Rc::new(VecModel::from(vec![super::PropertyGroup {
+                group_name: "".into(),
+                properties: std::rc::Rc::new(VecModel::from(
+                    names.iter().map(|name| create_test_property(name, "")).collect::<Vec<_>>(),
+                ))
+                .into(),
+            }]))
+            .into(),
+        );
     }
 
     #[test]

@@ -115,15 +115,15 @@ fn test_fill_rect_negative_position() {
     }
 
     // A rectangle entirely outside the buffer paints nothing
-    let mut buffer = [7u8; 4 * 4 * 3];
+    let mut outside = [7u8; 4 * 4 * 3];
     fill_rect(
-        &mut buffer,
+        &mut outside,
         crate::Size::new(4, 4),
         [-5, -5],
         [3, 2],
         crate::Color::from_rgb_u8(1, 2, 3),
     );
-    assert_eq!(buffer, [7u8; 4 * 4 * 3]);
+    assert_eq!(outside, [7u8; 4 * 4 * 3]);
 }
 
 #[test]
@@ -152,10 +152,10 @@ fn test_fill_rect_blends_with_the_destination() {
 
     // Blending is clipped like any other fill: at (-1, -1) only the pixel
     // (0, 0) is blended
-    let mut buffer = [0u8; 4 * 4 * 3];
-    buffer.as_chunks_mut::<3>().0.fill(destination);
+    let mut clipped = [0u8; 4 * 4 * 3];
+    clipped.as_chunks_mut::<3>().0.fill(destination);
     fill_rect(
-        &mut buffer,
+        &mut clipped,
         crate::Size::new(4, 4),
         [-1, -1],
         [2, 2],
@@ -164,7 +164,7 @@ fn test_fill_rect_blends_with_the_destination() {
     for y in 0..4 {
         for x in 0..4 {
             let expected = if (x, y) == (0, 0) { blended } else { destination };
-            assert_eq!(buffer[(y * 4 + x) * 3..][..3], expected, "pixel ({x}, {y})");
+            assert_eq!(clipped[(y * 4 + x) * 3..][..3], expected, "pixel ({x}, {y})");
         }
     }
 }
@@ -217,25 +217,25 @@ fn test_draw_image_clipped() {
 
     // At (-1, 0) the right image column lands on the buffer's left column:
     // half-transparent green over 7 gray, and the transparent pixel below
-    let mut buffer = [7u8; 2 * 2 * 3];
-    draw_image(&mut buffer, crate::Size::new(2, 2), [-1, 0], TEST_IMAGE);
+    let mut right_column = [7u8; 2 * 2 * 3];
+    draw_image(&mut right_column, crate::Size::new(2, 2), [-1, 0], TEST_IMAGE);
     // 0 * 128 + 7 * 127 + 127 == 1016, and 1016 / 255 == 3;
     // 255 * 128 + 7 * 127 + 127 == 33656, and 33656 / 255 == 131
-    assert_eq!(buffer[0..3], [3, 131, 3]);
-    assert_eq!(buffer[3..6], [7, 7, 7]);
-    assert_eq!(buffer[6..12], [7u8; 6]);
+    assert_eq!(right_column[0..3], [3, 131, 3]);
+    assert_eq!(right_column[3..6], [7, 7, 7]);
+    assert_eq!(right_column[6..12], [7u8; 6]);
 
     // At (1, 1) of a 2x2 buffer only the top-left image pixel is inside
-    let mut buffer = [7u8; 2 * 2 * 3];
-    draw_image(&mut buffer, crate::Size::new(2, 2), [1, 1], TEST_IMAGE);
-    assert_eq!(buffer[0..9], [7u8; 9]);
-    assert_eq!(buffer[9..12], [255, 0, 0]);
+    let mut corner = [7u8; 2 * 2 * 3];
+    draw_image(&mut corner, crate::Size::new(2, 2), [1, 1], TEST_IMAGE);
+    assert_eq!(corner[0..9], [7u8; 9]);
+    assert_eq!(corner[9..12], [255, 0, 0]);
 
     // Entirely outside the buffer, nothing is drawn
-    let mut buffer = [7u8; 2 * 2 * 3];
-    draw_image(&mut buffer, crate::Size::new(2, 2), [2, 0], TEST_IMAGE);
-    draw_image(&mut buffer, crate::Size::new(2, 2), [0, -2], TEST_IMAGE);
-    assert_eq!(buffer, [7u8; 2 * 2 * 3]);
+    let mut outside = [7u8; 2 * 2 * 3];
+    draw_image(&mut outside, crate::Size::new(2, 2), [2, 0], TEST_IMAGE);
+    draw_image(&mut outside, crate::Size::new(2, 2), [0, -2], TEST_IMAGE);
+    assert_eq!(outside, [7u8; 2 * 2 * 3]);
 }
 
 #[test]

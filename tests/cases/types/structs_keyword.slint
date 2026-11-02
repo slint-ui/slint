@@ -23,14 +23,45 @@ export struct mod := {
     loop: string,
 }
 
+// #8923
+export struct PlayerData {
+    name: string,
+    self: bool,
+    super: int,
+    crate: string,
+    class: int,
+}
+
 match := Rectangle {
     property<mod> move: {loop : "mod" };
-    property<bool> test: move.loop == "mod";
+    in-out property<PlayerData> player: { name: "a", self: true, super: 42, crate: "c", class: 3 };
+    in-out property<int> class: 7;
+    property<bool> test: move.loop == "mod" && player.self && player.super == 42 && player.crate == "c" && player.class == 3;
 }
 
 /*
 ```rust
 let instance = r#match::new().unwrap();
 assert_eq!(instance.get_move(), r#mod{ r#loop: "mod".into() });
+let player = instance.get_player();
+assert!(player.self_);
+assert_eq!(player.super_, 42);
+assert_eq!(player.crate_, "c");
+assert_eq!(player.class, 3);
+instance.set_player(PlayerData { self_: false, ..player });
+assert!(!instance.get_test());
+```
+
+```python
+instance = match()
+assert instance.class_ == 7
+player = instance.player
+assert player.self_
+assert player.class_ == 3
+player.self_ = False
+instance.player = player
+assert not instance.test
+instance.player = PlayerData(name="a", self_=True, super=42, crate="c", class_=3)
+assert instance.test
 ```
 */

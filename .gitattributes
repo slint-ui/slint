@@ -8,3 +8,6 @@ internal/compiler/tests/syntax/**/crlf-* -text
 # The anyrender command-stream goldens are compared byte-for-byte; keep LF
 # on every platform so Windows checkouts do not introduce CRLF.
 tests/screenshots/references/anyrender/**/*.json text eol=lf
+# The slint-sc test driver compares and rewrites the coverage annotations of
+# the cases as text; keep LF on every platform.
+api/slint-sc/tests/cases/**/*.slint text eol=lf

@@ -14,8 +14,6 @@ export component Ripple {
     in property <bool> clip_ripple: true;
 
     Rectangle {
-        width: 100%;
-        height: 100%;
         border_radius: root.border_radius;
         clip: root.clip_ripple;
 
@@ -48,16 +46,12 @@ export component StateLayer {
     property <float> state_layer_opacity;
 
     Rectangle {
-        width: 100%;
-        height: 100%;
         opacity: root.state_layer_opacity;
         background: root.background;
         border_radius: root.border_radius;
     }
 
     Rectangle {
-        width: 100%;
-        height: 100%;
         clip: true;
         border_radius: root.border_radius;
 

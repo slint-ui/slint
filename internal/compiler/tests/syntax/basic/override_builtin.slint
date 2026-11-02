@@ -80,3 +80,32 @@ export component Test4 inherits AssignsWindowMembers {
     in-out property <string> maximized;
 //                           >       <warning{'maximized' shadows the builtin property of the same name}
 }
+
+// `Path` members added after 1.18 can be shadowed by code that declared them before
+export component Test5 inherits Path {
+    in property <[int]> stroke-dash-array;
+//                      >               <warning{'stroke-dash-array' shadows the builtin property of the same name}
+    in property <string> stroke-dash-offset;
+//                       >                <warning{'stroke-dash-offset' shadows the builtin property of the same name}
+}
+
+// `ensure-visible` exists on every element, and code that declared it before it was added
+// keeps compiling, while a base component that calls it keeps reaching the builtin
+component CallsEnsureVisible inherits Rectangle {
+    public function show() { self.ensure-visible(ScrollBehavior.instant); }
+}
+
+export component Test6 inherits CallsEnsureVisible {
+    public function ensure-visible() -> int { 42 }
+//                  >            <warning{'ensure-visible' shadows the builtin function of the same name}
+    Rectangle {
+        callback ensure-visible(length);
+//               >            <warning{'ensure-visible' shadows the builtin function of the same name}
+    }
+}
+
+// So does `Flickable.scroll-to()`
+export component Test7 inherits Flickable {
+    callback scroll-to(int);
+//           >       <warning{'scroll-to' shadows the builtin function of the same name}
+}

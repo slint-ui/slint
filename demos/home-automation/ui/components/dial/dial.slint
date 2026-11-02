@@ -3,7 +3,7 @@
 import { Palette } from "../../common.slint";
 
 export global DialState {
-    out property <int> totalLights: 60;
+    out property <int> totalLights: 30;
     out property <angle> degreesFilledWithLights: 360deg - (startAngle - endAngle);
     out property <angle> startAngle: 104deg;
     out property <angle> endAngle: -startAngle;
@@ -25,8 +25,6 @@ export component Dial {
     knob := Rectangle {
         base := Rectangle {
             Image {
-                x: 0px;
-                y: 9px;
                 source: @image-url("../../images/dial-frame.png");
             }
 
@@ -47,8 +45,6 @@ export component Dial {
                 property <angle> newAngle;
                 property <angle> deltaDegrees;
                 property <bool> firstTouch: false;
-                width: parent.width;
-                height: parent.height;
                 enabled: root.interactive;
 
                 changed pressed => {

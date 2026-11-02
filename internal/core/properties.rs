@@ -1143,6 +1143,60 @@ impl<T: Clone> Property<T> {
     }
 }
 
+/// The position of a [`Property`] of any type within a `T`, see [`set_constant_properties`].
+#[repr(transparent)]
+pub struct ErasedPropertyOffset<T> {
+    offset: usize,
+    phantom: core::marker::PhantomData<fn(&T)>,
+}
+
+impl<T> ErasedPropertyOffset<T> {
+    /// The position of the property that `offset` projects `T` to.
+    pub const fn new<U>(
+        offset: const_field_offset::FieldOffset<T, Property<U>, const_field_offset::AllowPin>,
+    ) -> Self {
+        Self { offset: offset.get_byte_offset(), phantom: core::marker::PhantomData }
+    }
+}
+
+/// Marks the properties of `object` at `offsets` as constant, like [`Property::set_constant`].
+pub fn set_constant_properties<T>(object: Pin<&T>, offsets: &[ErasedPropertyOffset<T>]) {
+    unsafe fn set_constant_properties_erased(base: *const u8, offsets: &[usize]) {
+        for offset in offsets {
+            let handle = unsafe { &*(base.add(*offset) as *const PropertyHandle) };
+            handle.set_constant();
+        }
+    }
+    // Safety: `ErasedPropertyOffset` is a `repr(transparent)` `usize`,
+    // `ErasedPropertyOffset::new` only takes the offset of a `Property` within `T`,
+    // and a `Property` starts with its handle since it is `repr(C)`.
+    unsafe {
+        set_constant_properties_erased(
+            object.get_ref() as *const T as *const u8,
+            core::slice::from_raw_parts(offsets.as_ptr() as *const usize, offsets.len()),
+        )
+    }
+}
+
+#[test]
+fn set_constant_properties_test() {
+    use const_field_offset::FieldOffsets;
+    #[derive(FieldOffsets, Default)]
+    #[const_field_offset(const_field_offset)]
+    #[repr(C)]
+    #[pin]
+    struct Item {
+        width: Property<f32>,
+        visible: Property<bool>,
+    }
+    const CONSTANT: [ErasedPropertyOffset<Item>; 1] =
+        [ErasedPropertyOffset::new(Item::FIELD_OFFSETS.visible())];
+    let item = Box::pin(Item::default());
+    set_constant_properties(item.as_ref(), &CONSTANT);
+    assert!(!item.width.is_constant());
+    assert!(item.visible.is_constant());
+}
+
 #[test]
 fn properties_simple_test() {
     use pin_weak::rc::PinWeak;

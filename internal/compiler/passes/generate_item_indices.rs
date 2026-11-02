@@ -62,7 +62,7 @@ impl crate::generator::ItemTreeBuilder for Helper {
     ) {
         if !component_state {
             item.borrow().item_index.set(self.current_item_index).unwrap();
-            if let crate::langtype::ElementType::Component(c) = &item.borrow().base_type {
+            if let crate::element_type::ElementType::Component(c) = &item.borrow().base_type {
                 generate_item_indices(c);
             }
         }

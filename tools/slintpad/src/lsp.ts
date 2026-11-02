@@ -26,6 +26,7 @@ import slint_init, * as slint_preview from "@lsp/slint_lsp_wasm.js";
 import slint_lsp_wasm_url from "@lsp/slint_lsp_wasm_bg.wasm?url";
 
 import { report_panic_dialog } from "./dialogs";
+import { edition_from_url } from "./edition";
 
 import {
     type ResourceUrlMapperFunction,
@@ -61,8 +62,9 @@ function configuration_from_url(): Map<string, any>[] {
     }
     const experimental = params.get("EXPERIMENTAL");
     if (experimental) {
-        obj.set("experimental", true);
+        obj.set("experimental", experimental.split(","));
     }
+    obj.set("edition", edition_from_url(params));
     return [obj];
 }
 

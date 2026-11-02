@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    ButtonBase,
+    CheckBoxBase,
+    SwitchBase,
+} from "../../../tools/editor/controls/src/headless.slint";
+
+export component TestCase inherits Window {
+    width: 240px;
+    height: 240px;
+    out property <bool> button-focused: button.has-focus;
+    out property <bool> check-box-focused: check-box.has-focus;
+    out property <bool> switch-focused: toggle.has-focus;
+    out property <bool> button-pressed: button.pressed;
+    out property <int> activations;
+    out property <bool> test: root.activations == 0;
+
+    public function focus-button() { button.focus(); }
+
+    VerticalLayout {
+        button := ButtonBase {
+            text: "Button";
+            clicked => { root.activations += 1; }
+        }
+
+        ButtonBase {
+            enabled: false;
+            clicked => { root.activations += 1; }
+        }
+
+        check-box := CheckBoxBase {
+            text: "CheckBox";
+            toggled => { root.activations += 1; }
+        }
+
+        CheckBoxBase {
+            enabled: false;
+            toggled => { root.activations += 1; }
+        }
+
+        toggle := SwitchBase {
+            text: "Switch";
+            toggled => { root.activations += 1; }
+        }
+
+        SwitchBase {
+            enabled: false;
+            toggled => { root.activations += 1; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+let key = |key: Key, pressed: bool| {
+    slint_testing::send_keyboard_char(&instance, key.into(), pressed);
+};
+let tab = || { key(Key::Tab, true); key(Key::Tab, false); };
+instance.invoke_focus_button();
+assert!(instance.get_button_focused());
+key(Key::Space, true);
+assert!(instance.get_button_pressed());
+tab();
+assert!(!instance.get_button_focused());
+assert!(!instance.get_button_pressed());
+assert!(instance.get_check_box_focused());
+key(Key::Space, false);
+assert_eq!(instance.get_activations(), 0);
+tab();
+assert!(!instance.get_check_box_focused());
+assert!(instance.get_switch_focused());
+tab();
+assert!(!instance.get_switch_focused());
+assert!(instance.get_button_focused());
+key(Key::Shift, true);
+tab();
+assert!(instance.get_switch_focused());
+tab();
+assert!(instance.get_check_box_focused());
+tab();
+key(Key::Shift, false);
+assert!(instance.get_button_focused());
+assert!(instance.get_test());
+```
+*/

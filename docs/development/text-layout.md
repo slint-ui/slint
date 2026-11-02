@@ -33,6 +33,21 @@ Slint's text layout system handles the complex process of converting text string
 | `internal/core/styled_text.rs` | Public `StyledText` API, FFI |
 | `internal/common/styled_text.rs` | Markdown/HTML parsing, `Style`/`FormattedSpan`/`StyledTextParagraph` |
 
+## Font Collection Initialization
+
+Each `SlintContext` owns its Fontique collection.
+When Slint creates the backend itself, `font_collection::prefetch()` starts system font discovery on a worker thread,
+and a `SlintContext` created on that thread while the returned guard lives takes the result.
+Dropping the guard discards the result if no context used it.
+Otherwise, a context discovers system fonts synchronously.
+Before a thread has a context, applications can supply a collection with `slint::fontique_012::set_shared_collection()`.
+`prefetch()` then doesn't start, and the next context on that thread takes the collection as is,
+without the fonts from `SLINT_DEFAULT_FONT` and `SLINT_FONT_PATH`.
+It still registers embedded fonts.
+See `internal/core/font_collection.rs`.
+
+Configure Fontconfig before Slint creates the backend.
+
 ## Text Layout Pipeline
 
 ```

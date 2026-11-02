@@ -17,8 +17,8 @@ jobs:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install optipng
-              run: sudo timeout 600 apt-get update && sudo timeout 600 apt-get install --no-install-recommends -y optipng
+              with:
+                  extra-packages: optipng
             - name: Build the viewer
               run: cargo build -p slint-viewer
             - name: Regenerate the screenshot and open a pull request if it changed

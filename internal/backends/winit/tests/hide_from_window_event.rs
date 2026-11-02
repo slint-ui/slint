@@ -13,6 +13,7 @@ use slint::winit_031::{CustomApplicationHandler, EventResult, winit};
 const REPORT: &str = "references to it still exist";
 
 slint::slint! {
+    #[edition = "1.19"]
     export component App inherits Window {
         width: 100px;
         height: 100px;
@@ -59,15 +60,12 @@ fn main() {
 
     let messages = Rc::new(RefCell::new(Vec::new()));
     let collect = messages.clone();
-    i_slint_core::with_global_context(
-        || unreachable!("the backend selector set the platform"),
-        |ctx| {
-            ctx.set_log_message_handler(Some(Box::new(move |message| {
-                collect.borrow_mut().push(message.message_arguments().to_string());
-            })))
-        },
-    )
-    .unwrap();
+    i_slint_core::with_existing_context(|ctx| {
+        ctx.set_log_message_handler(Some(Box::new(move |message| {
+            collect.borrow_mut().push(message.message_arguments().to_string());
+        })))
+    })
+    .expect("the backend selector set the platform");
 
     let app = App::new().unwrap();
     app.show().unwrap();

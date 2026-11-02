@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, PropertyValue } from "../../../api.slint";
+import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
+import { InspectorContext } from "context.slint";
+
+export component InspectorInteractionSection inherits InspectorSection {
+    private property <PropertyValue> runtime-value: Api.runtime-property-value-data("enabled", {});
+    private property <PropertyValue> source-value: Api.source-property-value-data("enabled", {});
+    private property <bool> value: root.runtime-value.value-resolved
+        ? root.runtime-value.value-bool
+        : root.source-value.code == "" || root.source-value.value-bool;
+    changed value => { toggle.checked = root.value; }
+    private property <PropertyValue> runtime-read-only: Api.runtime-property-value-data("read-only", {});
+    private property <PropertyValue> source-read-only: Api.source-property-value-data("read-only", {});
+    private property <bool> read-only: root.runtime-read-only.value-resolved
+        ? root.runtime-read-only.value-bool
+        : root.source-read-only.value-bool;
+
+    private property <bool> checkable: InspectorContext.is-checkable();
+
+    title: @tr("Interaction");
+
+    InspectorPropertyRow {
+        label: @tr("Enabled");
+
+        toggle := InspectorSwitch {
+            accessible-label: @tr("Enabled");
+            checked: root.value;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.value;
+                InspectorContext.commit-code("enabled", requested ? "true" : "false");
+            }
+        }
+    }
+
+    if InspectorContext.is-read-only-selection(): InspectorPropertyRow {
+        private property <bool> value: root.read-only;
+        changed value => { read-only-toggle.checked = self.value; }
+
+        label: @tr("Read-only");
+
+        read-only-toggle := InspectorSwitch {
+            accessible-label: @tr("Read-only");
+            checked: root.read-only;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.read-only;
+                InspectorContext.commit-code("read-only", requested ? "true" : "false");
+            }
+        }
+    }
+
+    if InspectorContext.is-button-selection(): InspectorPropertyRow {
+        private property <bool> value: root.checkable;
+        changed value => { checkable-toggle.checked = self.value; }
+
+        label: @tr("Checkable");
+
+        checkable-toggle := InspectorSwitch {
+            accessible-label: @tr("Checkable");
+            checked: root.checkable;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.checkable;
+                InspectorContext.commit-code("checkable", requested ? "true" : "false");
+            }
+        }
+    }
+}

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore fileloader notacolor
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,9 @@ import {
     CompileError,
     StyledText,
     private_api,
+    windowSymbol,
+    globalsSymbol,
+    type Brush,
 } from "../dist/index.js";
 
 private_api.initTesting();
@@ -211,7 +214,87 @@ test("accessing `window` on non-windowed components throws", () => {
     const tray = new mod.Tray();
 
     expect(win.window).toBeDefined();
+    expect(win[windowSymbol].visible).toBe(false);
     expect(() => tray.window).toThrow();
+    expect(() => tray[windowSymbol]).toThrow();
+});
+
+test("properties, callbacks, and functions hide built-ins", () => {
+    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const source = `
+        export component HidesBuiltins inherits Window {
+            in-out property <int> window: 3;
+            in-out property <int> run: 4;
+            callback show() -> int;
+            public function hide() -> int { return 2; }
+        }`;
+    const mod = loadSource(source, "api.spec.ts") as any;
+    loadSource(source, "api.spec.ts");
+    const app = new mod.HidesBuiltins({ show: () => 1 });
+
+    expect(app.window).toBe(3);
+    expect(app.run).toBe(4);
+    expect(app.show()).toBe(1);
+    expect(app.hide()).toBe(2);
+    expect(app[windowSymbol].maximized).toBe(false);
+
+    // Once per hidden built-in, though the source was loaded twice.
+    expect(warn.mock.calls).toStrictEqual(
+        ["run", "window", "show", "hide"].map((name) => [
+            `HidesBuiltins: '${name}' hides the built-in ${name}`,
+            { code: "SLINT_SHADOWED_BUILTIN" },
+        ]),
+    );
+    warn.mockRestore();
+});
+
+test("a property hides a global of the same name", () => {
+    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const mod = loadSource(
+        `export global settings {
+            in-out property <int> val: 99;
+        }
+        export component HidesGlobal {
+            in-out property <int> settings: 42;
+        }`,
+        "api.spec.ts",
+    ) as any;
+    const app = new mod.HidesGlobal();
+
+    expect(app.settings).toBe(42);
+    expect(app[globalsSymbol].settings.val).toBe(99);
+    expect(warn).toHaveBeenCalledWith(
+        "HidesGlobal: 'settings' hides the global settings",
+        { code: "SLINT_SHADOWED_BUILTIN" },
+    );
+    warn.mockRestore();
+});
+
+test("quiet doesn't warn about hidden built-ins", () => {
+    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const mod = loadSource(
+        `export component QuietTray inherits SystemTrayIcon {
+            in-out property <int> window: 3;
+        }`,
+        "api.spec.ts",
+        { quiet: true },
+    ) as any;
+
+    expect(new mod.QuietTray().window).toBe(3);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+});
+
+test("loadSource prints the warnings unless quiet", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The `:=` syntax to declare a component is deprecated.
+    const source = "export Old := Window {}";
+    loadSource(source, "api.spec.ts");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Warning:"));
+    warn.mockClear();
+    loadSource(source, "api.spec.ts", { quiet: true });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
 });
 
 test("loadSource constructor parameters", () => {
@@ -574,4 +657,82 @@ test("file loader", () => {
     const test = new demo.App();
 
     expect(test.test_text).toStrictEqual("Hello World");
+});
+
+test("Brush read from a color property", () => {
+    const demo = loadSource(
+        `export component App {
+            in-out property <color> background: #336699;
+            in-out property <color> faded: #33669980;
+        }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // Fails to compile if the native brush lacks a member that `Brush` documents.
+    const background: Required<Brush> =
+        app.background as private_api.SlintBrush;
+
+    expect(background.color).toStrictEqual({
+        red: 0x33,
+        green: 0x66,
+        blue: 0x99,
+        alpha: 255,
+    });
+    expect(background.toString()).toBe("#336699");
+    expect(background.isOpaque).toBe(true);
+    expect(background.brighter(0.5).toString()).toBe("#4c99e6");
+    expect(background.withAlpha(0).isTransparent).toBe(true);
+    expect(app.faded.toString()).toBe("#33669980");
+    expect(app.faded.transparentize(1).isTransparent).toBe(true);
+
+    app.background = background.darker(0.5);
+    expect(app.background.toString()).toBe("#224466");
+});
+
+test("assign brushes to brush and color properties", () => {
+    const demo = loadSource(
+        `export component App {
+            in-out property <brush> gradient: @linear-gradient(90deg, red 0%, blue 100%);
+            in-out property <brush> target;
+            in-out property <color> color;
+        }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // The gradient used to be replaced by its first color.
+    app.target = app.gradient;
+    expect(app.target.toString()).toBe(app.gradient.toString());
+
+    // A `color` property used to reject a `Brush` with a `color`.
+    const plain: Brush = { color: { red: 1, green: 2, blue: 3 } };
+    app.color = plain;
+    expect(app.color.toString()).toBe("#010203");
+});
+
+test("assign a color string", () => {
+    const demo = loadSource(
+        `export component App { in-out property <color> c; }`,
+        "",
+    ) as any;
+    const app = new demo.App();
+
+    // A translucent color used to read back as a string it couldn't parse.
+    app.c = "#33669980";
+    expect(app.c.toString()).toBe("#33669980");
+    app.c = app.c.toString();
+    expect(app.c.toString()).toBe("#33669980");
+
+    app.c = "#abc";
+    expect(app.c.toString()).toBe("#aabbcc");
+    app.c = "RebeccaPurple";
+    expect(app.c.toString()).toBe("#663399");
+    app.c = "transparent";
+    expect(app.c.isTransparent).toBe(true);
+    for (const string of ["not a color", "rgb(255, 0, 0)"]) {
+        expect(() => {
+            app.c = string;
+        }).toThrow(`Could not convert ${string} to Brush.`);
+    }
 });

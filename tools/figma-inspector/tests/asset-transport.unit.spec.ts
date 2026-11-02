@@ -7,6 +7,7 @@ import { readFile } from "node:fs/promises";
 import {
     CaptureAssetReceiver,
     CaptureAssetSender,
+    createPreviewAssetPool,
     materializePreviewAssets,
     unpackCaptureAssets,
 } from "../src/asset-transport";
@@ -14,6 +15,74 @@ import { isPluginToUiMessage } from "../src/protocol";
 import { convertCapture } from "../src/preview/convert-capture";
 import { packPreviewAssets } from "../src/asset-transport";
 import { previewAssetSource } from "./preview-asset-source";
+
+test("shared assets revoke only after the last owner and distinguish MIME and content", () => {
+    const created: Blob[] = [],
+        revoked: string[] = [];
+    const pool = createPreviewAssetPool({
+        createObjectUrl: (blob) => {
+            created.push(blob);
+            return `blob:${created.length}`;
+        },
+        revokeObjectUrl: (url) => {
+            revoked.push(url);
+        },
+    });
+    const packed = (data: string, mime = "png") => ({
+        assetVersion: 1 as const,
+        assets: [data],
+        source: [`data:image/${mime};base64,`, 0],
+    });
+    const first = pool(packed("YQ=="));
+    const second = pool(packed("YQ=="));
+    const otherMime = pool(packed("YQ==", "jpeg"));
+    const changed = pool(packed("Yg=="));
+    expect(first.source).toBe(second.source);
+    expect(created.map((blob) => blob.type)).toEqual([
+        "image/png",
+        "image/jpeg",
+        "image/png",
+    ]);
+    first.dispose();
+    first.dispose();
+    expect(revoked).toEqual([]);
+    second.dispose();
+    expect(revoked).toEqual(["blob:1"]);
+    otherMime.dispose();
+    changed.dispose();
+    expect(revoked).toEqual(["blob:1", "blob:2", "blob:3"]);
+    const replacement = pool(packed("YQ=="));
+    expect(replacement.source).toBe("blob:4");
+    replacement.dispose();
+});
+
+test("asset decode failure releases partial ownership without revoking an existing owner", () => {
+    const revoked: string[] = [];
+    let created = 0;
+    const pool = createPreviewAssetPool({
+        createObjectUrl: () => `blob:${++created}`,
+        revokeObjectUrl: (url) => {
+            revoked.push(url);
+        },
+    });
+    const source = (assets: string[]) => ({
+        assetVersion: 1 as const,
+        assets,
+        source: ["data:image/png;base64,", 0, " data:image/png;base64,", 1],
+    });
+    expect(() => pool(source(["YQ==", "!"]))).toThrow();
+    expect(revoked).toEqual(["blob:1"]);
+    const owner = pool({
+        assetVersion: 1,
+        assets: ["YQ=="],
+        source: ["data:image/png;base64,", 0],
+    });
+    expect(() => pool(source(["YQ==", "!"]))).toThrow();
+    expect(revoked).toEqual(["blob:1"]);
+    expect(created).toBe(2);
+    owner.dispose();
+    expect(revoked).toEqual(["blob:1", "blob:2"]);
+});
 
 describe("capture-assets", () => {
     test("binary capture transport preserves fixtures and conversion without mutating capture", async () => {

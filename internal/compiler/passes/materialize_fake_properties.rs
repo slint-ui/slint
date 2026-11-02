@@ -6,9 +6,10 @@
 //! Must be run after lower_layout and default_geometry passes
 
 use crate::diagnostics::Spanned;
-use crate::expression_tree::{BindingExpression, Expression, Unit};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
-use crate::layout::Orientation;
+use crate::element_type::{ElementType, PropertyLookupMode};
+use crate::expression_tree::{BindingExpression, Expression};
+use crate::expression_types::{Orientation, Unit};
+use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use smol_str::SmolStr;
@@ -112,7 +113,7 @@ pub(crate) fn should_materialize(
     let has_declared_property = match base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
-        ElementType::Global | ElementType::Interface | ElementType::Error => false,
+        ElementType::Global | ElementType::Interface(_) | ElementType::Error => false,
     };
 
     if !has_declared_property {
@@ -147,7 +148,7 @@ pub fn has_declared_property(elem: &Element, prop: &str) -> bool {
     match &elem.base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => b.native_class.lookup_property(prop).is_some(),
-        ElementType::Global | ElementType::Interface | ElementType::Error => false,
+        ElementType::Global | ElementType::Interface(_) | ElementType::Error => false,
     }
 }
 
@@ -158,7 +159,9 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
         base_type = match base_type {
             ElementType::Component(ref c) => c.root_element.borrow().base_type.clone(),
             ElementType::Builtin(b) => {
-                match b.properties.get(name).and_then(|prop| prop.default_value.expr(elem)) {
+                match b.properties.get(name).and_then(|prop| {
+                    Expression::from_builtin_default(&prop.default_value, Some(elem))
+                }) {
                     Some(expr) => return Some(expr),
                     None => break,
                 }
@@ -212,15 +215,13 @@ pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
-    let expr = match elem.borrow().effective_layout_info_prop(orient) {
-        Some(e) => Expression::PropertyReference(e.clone()),
-        None => crate::layout::implicit_layout_info_call(
-            elem,
-            orient,
-            crate::layout::BuiltinFilter::All,
-            None,
-        )
-        .unwrap(),
+    let layout_info_prop = elem.borrow().effective_layout_info_prop(orient).cloned();
+    let expr = match layout_info_prop {
+        Some(e) => Expression::PropertyReference(e),
+        None => {
+            crate::layout::implicit_layout_info(elem, orient, crate::layout::BuiltinFilter::All)
+                .unwrap()
+        }
     };
     Expression::StructFieldAccess { base: expr.into(), name: field.into() }
 }

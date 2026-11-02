@@ -49,6 +49,9 @@ int main()
         case slint::interpreter::DiagnosticLevel::Error:
             level = "error";
             break;
+        case slint::interpreter::DiagnosticLevel::Info:
+            level = "info";
+            break;
         case slint::interpreter::DiagnosticLevel::Note:
             level = "note";
             break;

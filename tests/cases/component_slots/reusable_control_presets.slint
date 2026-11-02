@@ -1,0 +1,296 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    Switch,
+    SwitchStyle,
+    SwitchStyles,
+    CheckBox,
+    CheckBoxStyle,
+    CheckBoxStyles,
+    Slider,
+    SliderStyle,
+    SliderStyles,
+    ComboBox,
+    ComboBoxStyle,
+    ComboBoxStyles,
+    BasicTheme,
+} from "../../../tools/editor/controls/src/basic.slint";
+export {
+    SwitchStyles,
+    CheckBoxStyles,
+    SliderStyles,
+    ComboBoxStyles,
+    BasicTheme,
+}
+export component TestCase inherits Window {
+    width: 600px;
+    height: 320px;
+    in-out property <bool> enabled: true;
+    in-out property <bool> checked;
+    out property <int> activations;
+    in-out property <length> focus-width: 2px;
+    in-out property <length> focus-offset: 2px;
+    in-out property <SwitchStyle> switch-style: SwitchStyles.standard;
+    in-out property <length> switch-extent: 40px;
+    out property <brush> switch-color: switch.checked-color;
+    out property <length> switch-dimension: switch.track-width;
+    in-out property <CheckBoxStyle> check-box-style: CheckBoxStyles.standard;
+    in-out property <length> check-box-extent: 20px;
+    out property <brush> check-box-color: check-box.checked-color;
+    out property <length> check-box-dimension: check-box.indicator-size;
+    in-out property <SliderStyle> slider-style: SliderStyles.standard;
+    in-out property <length> slider-extent: 20px;
+    out property <brush> slider-color: slider.handle-color;
+    out property <length> slider-dimension: slider.handle-width;
+    in-out property <ComboBoxStyle> combo-box-style: ComboBoxStyles.standard;
+    in-out property <length> combo-box-extent: 32px;
+    out property <brush> combo-box-color: combo-box.background-color;
+    out property <length> combo-box-dimension: combo-box.item-height;
+    out property <bool> test: switch-override.checked-color == #123456 && switch-override.font-size == 13px
+        && check-box-override.checked-color == #123456 && check-box-override.font-size == 13px
+        && slider-override.handle-color == #123456 && slider-override.handle-width == 17px
+        && combo-box-override.background-color == #123456 && combo-box-override.font-size == 13px;
+
+    public function focus-control(index: int) {
+        if index == 0 { switch.focus(); }
+        else if index == 1 { check-box.focus(); }
+        else if index == 2 { slider.focus(); }
+        else { combo-box.focus(); }
+    }
+    public function close-combo() { combo-box.close(); }
+    public function activate-all() { switch.activate(); check-box.activate(); slider.set-value(67); combo-box.select(1); }
+    switch := Switch {
+        x: 20px;
+        y: 20px;
+        width: 240px;
+        height: 50px;
+        style: root.switch-style;
+        track-width: root.switch-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
+        enabled: root.enabled;
+        text: "Styled switch";
+        checked <=> root.checked;
+        toggled => { root.activations += 1; }
+    }
+
+    switch-override := Switch {
+        x: 20px;
+        y: 230px;
+        width: 120px;
+        height: 40px;
+        style: root.switch-style;
+        checked-color: #123456;
+        track-width: root.switch-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
+        enabled: root.enabled;
+        font-size: 13px;
+    }
+
+    check-box := CheckBox {
+        x: 320px;
+        y: 20px;
+        width: 240px;
+        height: 50px;
+        style: root.check-box-style;
+        indicator-size: root.check-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
+        enabled: root.enabled;
+        text: "Styled checkbox";
+        checked <=> root.checked;
+        toggled => { root.activations += 1; }
+    }
+
+    check-box-override := CheckBox {
+        x: 165px;
+        y: 230px;
+        width: 120px;
+        height: 40px;
+        style: root.check-box-style;
+        checked-color: #123456;
+        indicator-size: root.check-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
+        enabled: root.enabled;
+        font-size: 13px;
+    }
+
+    slider := Slider {
+        x: 20px;
+        y: 120px;
+        width: 240px;
+        height: 50px;
+        style: root.slider-style;
+        handle-width: root.slider-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
+        enabled: root.enabled;
+        accessible-label: "Styled slider";
+        value: 40;
+        changed(value) => { root.activations += 1; }
+    }
+
+    slider-override := Slider {
+        x: 310px;
+        y: 230px;
+        width: 120px;
+        height: 40px;
+        style: root.slider-style;
+        handle-color: #123456;
+        handle-width: 17px;
+        enabled: root.enabled;
+    }
+
+    combo-box := ComboBox {
+        x: 320px;
+        y: 120px;
+        width: 240px;
+        height: 50px;
+        style: root.combo-box-style;
+        min-item-height: root.combo-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
+        enabled: root.enabled;
+        accessible-label: "Styled combo";
+        model: ["Zero", "One"];
+        selected(value) => { root.activations += 1; }
+    }
+
+    combo-box-override := ComboBox {
+        x: 455px;
+        y: 230px;
+        width: 120px;
+        height: 40px;
+        style: root.combo-box-style;
+        background-color: #123456;
+        foreground-color: #ffffff;
+        min-item-height: root.combo-box-extent;
+        focus-width: root.focus-width;
+        focus-offset: root.focus-offset;
+        enabled: root.enabled;
+        font-size: 13px;
+    }
+}
+
+/*
+```rust
+use slint::platform::{PointerEventButton, WindowEvent};
+let instance = TestCase::new().unwrap();
+let brush = |r, g, b| slint::Brush::from(slint::Color::from_rgb_u8(r, g, b));
+let move_to = |x, y| instance.window().dispatch_event(WindowEvent::PointerMoved { position: slint::LogicalPosition::new(x, y) });
+let press = |x, y| instance.window().dispatch_event(WindowEvent::PointerPressed { position: slint::LogicalPosition::new(x, y), button: PointerEventButton::Left });
+let release = |x, y| instance.window().dispatch_event(WindowEvent::PointerReleased { position: slint::LogicalPosition::new(x, y), button: PointerEventButton::Left });
+
+macro_rules! toggle_states {
+    ($preset:expr_2021, $set:ident, $get:ident, $color:ident, $field:ident, $x:expr_2021) => {{
+        let mut custom = $preset;
+        custom.unchecked.hover.$field = brush(0x51, 0x21, 0x91);
+        custom.checked.hover.$field = brush(0x81, 0x31, 0xb1);
+        custom.unchecked.pressed.$field = brush(0x31, 0x11, 0x71);
+        custom.checked.pressed.$field = brush(0x61, 0x21, 0x91);
+        instance.$set(custom.clone());
+        for checked in [false, true] {
+            instance.set_checked(checked);
+            move_to(590., 310.);
+            let states = if checked { &custom.checked } else { &custom.unchecked };
+            assert_eq!(instance.$color(), states.rest.$field);
+            move_to($x, 45.);
+            assert_eq!(instance.$color(), states.hover.$field);
+            press($x, 45.);
+            assert_eq!(instance.$color(), states.pressed.$field);
+            instance.set_checked(!checked);
+            let other = if checked { &custom.unchecked } else { &custom.checked };
+            assert_eq!(instance.$color(), other.pressed.$field);
+            release($x, 45.);
+            instance.set_checked(checked);
+            instance.set_enabled(false);
+            assert_eq!(instance.$color(), states.disabled.$field);
+            let before = instance.get_activations();
+            press($x, 45.); release($x, 45.);
+            instance.invoke_activate_all();
+            assert_eq!(instance.get_activations(), before);
+            assert!(instance.get_test());
+            instance.set_enabled(true);
+        }
+        assert_eq!(instance.$get(), custom);
+    }};
+}
+toggle_states!(instance.global::<SwitchStyles<'_>>().get_standard(), set_switch_style, get_switch_style, get_switch_color, track_color, 100.);
+toggle_states!(instance.global::<CheckBoxStyles<'_>>().get_standard(), set_check_box_style, get_check_box_style, get_check_box_color, indicator_color, 400.);
+
+macro_rules! control_states {
+    ($preset:expr_2021, $set:ident, $color:ident, $field:ident, $x:expr_2021) => {{
+        let mut custom = $preset;
+        custom.hover.$field = brush(0x51, 0x21, 0x91);
+        custom.pressed.$field = brush(0x31, 0x11, 0x71);
+        instance.$set(custom.clone());
+        move_to(590., 310.);
+        assert_eq!(instance.$color(), custom.rest.$field);
+        move_to($x, 145.);
+        assert_eq!(instance.$color(), custom.hover.$field);
+        press($x, 145.);
+        assert_eq!(instance.$color(), custom.pressed.$field);
+        release($x, 145.);
+        instance.invoke_close_combo();
+        instance.set_enabled(false);
+        assert_eq!(instance.$color(), custom.disabled.$field);
+        let before = instance.get_activations();
+        instance.invoke_activate_all();
+        assert_eq!(instance.get_activations(), before);
+        assert!(instance.get_test());
+        instance.set_enabled(true);
+    }};
+}
+control_states!(instance.global::<SliderStyles<'_>>().get_standard(), set_slider_style, get_slider_color, handle_color, 100.);
+control_states!(instance.global::<ComboBoxStyles<'_>>().get_standard(), set_combo_box_style, get_combo_box_color, background_color, 400.);
+
+for extent in [16., 24., 37.] {
+    instance.set_switch_extent(extent);
+    instance.set_check_box_extent(extent);
+    instance.set_slider_extent(extent);
+    assert_eq!(instance.get_switch_dimension(), extent);
+    assert_eq!(instance.get_check_box_dimension(), extent);
+    assert_eq!(instance.get_slider_dimension(), extent);
+    assert!(instance.get_test());
+}
+for height in [24., 40., 37.] {
+    instance.set_combo_box_extent(height);
+    assert!(instance.get_combo_box_dimension() >= height);
+    assert!(instance.get_test());
+}
+assert_eq!(instance.get_combo_box_dimension(), 37.);
+instance.set_focus_width(3.);
+instance.set_focus_offset(4.);
+
+move_to(590., 310.);
+for (index, label, id, width, height) in [
+    (0, "Styled switch", "Switch::focus-outline", 51., 36.),
+    (1, "Styled checkbox", "CheckBox::focus-outline", 51., 51.),
+    (2, "Styled slider", "Slider::focus-outline", 51., 34.),
+    (3, "Styled combo", "ComboBox::focus-outline", 254., 64.),
+] {
+    instance.invoke_focus_control(index);
+    let control = slint_testing::ElementHandle::find_by_accessible_label(&instance, label).next().unwrap();
+    let outline = || control.query_descendants().match_id(id).find_first();
+    let ring = outline().expect("Focused control has no outline");
+    assert_eq!(ring.size().width, width);
+    assert_eq!(ring.size().height, height);
+    instance.set_enabled(false);
+    assert!(outline().is_none());
+    instance.set_enabled(true);
+}
+let accent = brush(0x7c, 0x3a, 0xed);
+let theme = instance.global::<BasicTheme<'_>>();
+let mut palette = theme.get_palette();
+palette.accent = accent.clone();
+theme.set_palette(palette);
+assert_eq!(instance.global::<SwitchStyles<'_>>().get_standard().checked.rest.track_color, accent);
+assert_eq!(instance.global::<CheckBoxStyles<'_>>().get_standard().checked.rest.indicator_color, accent);
+assert_eq!(instance.global::<SliderStyles<'_>>().get_standard().rest.handle_color, accent);
+assert_eq!(instance.global::<ComboBoxStyles<'_>>().get_standard().popup.highlighted.background_color, accent);
+assert!(instance.get_test());
+```
+*/

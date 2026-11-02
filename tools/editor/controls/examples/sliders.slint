@@ -1,0 +1,248 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    SliderStyle,
+    SliderStyles,
+    BasicTheme,
+} from "../src/basic.slint";
+import { SliderBase, LinearSliderSurface } from "../src/headless.slint";
+import { PreviewSlider } from "preview_controls.slint";
+import { ExampleSection } from "section.slint";
+import { PreviewSettings } from "preview_settings.slint";
+import { CircularSurface } from "circular_surface.slint";
+
+export component SliderExamples inherits Rectangle {
+    vertical-stretch: 0;
+    in property <SliderStyle> preview-style: SliderStyles.standard;
+    in-out property <int> size-index: 1;
+    in-out property <bool> preview-disabled;
+
+    in-out property <float> value: 40;
+    in-out property <float> stepped-value: 50;
+    in-out property <float> custom-value: 35;
+    in-out property <int> changes;
+    in-out property <int> releases;
+    in-out property <int> custom-changes;
+    in-out property <int> custom-releases;
+
+    VerticalLayout {
+        spacing: 20px;
+        PreviewSettings {
+            control-name: "Slider";
+            size-index <=> root.size-index;
+            disabled <=> root.preview-disabled;
+        }
+
+        ExampleSection {
+            title: "Base theme";
+            description: "Horizontal, stepped, vertical, and disabled sliders using BasicTheme.";
+            HorizontalLayout {
+                spacing: 32px;
+                VerticalLayout {
+                    spacing: 8px;
+                    HorizontalLayout {
+                        spacing: 20px;
+                        VerticalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "Default";
+                                color: BasicTheme.disabled-foreground;
+                                font-size: 12px;
+                            }
+
+                            PreviewSlider {
+                                style: root.preview-style;
+                                size-index: root.size-index;
+                                enabled: !root.preview-disabled;
+                                accessible-label: "Default slider";
+                                value <=> root.value;
+                                changed(value) => { root.changes += 1; }
+                                released(value) => { root.releases += 1; }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 8px;
+                            Text {
+                                text: "Disabled";
+                                color: BasicTheme.disabled-foreground;
+                                font-size: 12px;
+                            }
+
+                            PreviewSlider {
+                                style: root.preview-style;
+                                size-index: root.size-index;
+                                enabled: false;
+                                accessible-label: "Disabled slider";
+
+                                value: 60;
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Step: 10";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    PreviewSlider {
+                        style: root.preview-style;
+                        size-index: root.size-index;
+                        enabled: !root.preview-disabled;
+                        accessible-label: "Stepped slider";
+                        step: 10;
+                        value <=> root.stepped-value;
+                        changed(value) => { root.changes += 1; }
+                        released(value) => { root.releases += 1; }
+                    }
+                }
+
+                VerticalLayout {
+                    width: 100px;
+                    spacing: 8px;
+                    Text {
+                        text: "Vertical";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                    }
+
+                    PreviewSlider {
+                        style: root.preview-style;
+                        size-index: root.size-index;
+                        enabled: !root.preview-disabled;
+                        accessible-label: "Vertical slider";
+                        orientation: vertical;
+                        height: 100px;
+                        value <=> root.value;
+                        changed(value) => { root.changes += 1; }
+                        released(value) => { root.releases += 1; }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Value: \{root.value}  ·  Stepped: \{root.stepped-value}  ·  Changes: \{root.changes}  ·  Releases: \{root.releases}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        ExampleSection {
+            title: "Custom sliders";
+            description: "Customize linear visuals or use a circular surface with the same range and input behavior.";
+            HorizontalLayout {
+                spacing: 24px;
+                VerticalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: "Custom fill and handle colors";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    PreviewSlider {
+                        style: root.preview-style;
+                        fill-color: #0f766e;
+                        handle-color: #0f766e;
+                        size-index: root.size-index;
+                        enabled: !root.preview-disabled;
+                        accessible-label: "Styled custom slider";
+                        value <=> root.custom-value;
+                        changed(value) => { root.custom-changes += 1; }
+                        released(value) => { root.custom-releases += 1; }
+                    }
+
+                    Text {
+                        text: "Headless visuals";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                    }
+
+                    custom := SliderBase {
+                        enabled: !root.preview-disabled;
+                        accessible-label: "Custom slider";
+                        value <=> root.custom-value;
+                        preferred-height: 32px;
+                        surface << LinearSliderSurface {
+                            track-thickness: 8px;
+                            handle-width: 14px;
+                            handle-height: 26px;
+                            track << Rectangle {
+                                background: #fef3c7;
+                                border-radius: 4px;
+                                Rectangle {
+                                    x: 0px;
+                                    width: parent.width * custom.position;
+                                    background: #fcd34d;
+                                    border-radius: 4px;
+                                }
+                            }
+                            handle << Rectangle {
+                                background: custom.pressed ? #78350f : custom.hovered ? #b45309 : #92400e;
+                                border-radius: 3px;
+                                border-width: custom.has-focus ? 2px : 0px;
+                                border-color: #d97706;
+                            }
+                        }
+                        changed(value) => { root.custom-changes += 1; }
+                        released(value) => { root.custom-releases += 1; }
+                    }
+                }
+
+                VerticalLayout {
+                    width: 160px;
+                    spacing: 10px;
+                    Text {
+                        text: "Circular surface";
+                        color: BasicTheme.disabled-foreground;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                    }
+
+                    SliderBase {
+                        enabled: !root.preview-disabled;
+                        accessible-label: "Circular slider";
+                        width: 160px;
+                        height: 140px;
+                        value <=> root.custom-value;
+                        surface << CircularSurface { }
+                        changed(value) => { root.custom-changes += 1; }
+                        released(value) => { root.custom-releases += 1; }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 40px;
+                background: BasicTheme.background;
+                border-radius: 4px;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: "Value: \{root.custom-value}  ·  Changes: \{root.custom-changes}  ·  Releases: \{root.custom-releases}";
+                    color: BasicTheme.foreground;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                }
+            }
+        }
+
+        Text {
+            text: "Click or drag the track. Use arrows, Page Up/Down, Home, or End.";
+            color: BasicTheme.disabled-foreground;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+}

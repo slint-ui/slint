@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore HRESULT
+// cSpell: ignore HRESULT HSTRING
 
 //! Drives the editor's update chrome from the Store on Windows.
 //!
@@ -28,6 +28,7 @@ use windows::Services::Store::{
     StorePackageUpdateStatus,
 };
 use windows::Win32::Foundation::HWND;
+use windows::core::HSTRING;
 use windows_collections::IVectorView;
 use windows_future::{
     AsyncOperationCompletedHandler, AsyncOperationProgressHandler,
@@ -282,8 +283,7 @@ impl Updater {
     /// [`ui::UpdateState::RestartRequired`] until someone clicks, because the
     /// moment to lose a running preview is theirs to pick.
     pub fn restart(self: &Arc<Self>) {
-        let arguments = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
-        let operation = match CoreApplication::RequestRestartAsync(&arguments.into()) {
+        let operation = match CoreApplication::RequestRestartAsync(&HSTRING::new()) {
             Ok(operation) => operation,
             Err(error) => {
                 (self.callback)(Event::Failed { message: message(&error) });

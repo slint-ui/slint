@@ -3,6 +3,7 @@
 
 import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
 import { FillSession } from "../ui/components/inspector/index.slint";
+import { Diagnostics, PreviewAvailability } from "../ui/diagnostics.slint";
 
 export enum GalleryPage {
     foundations,
@@ -83,6 +84,7 @@ export global Gallery {
         Gallery.page = page;
         Gallery.scenario-index = scenario;
         Gallery.reset-generation += 1;
+        Diagnostics.preview-availability = Gallery.scenario == "Unavailable" ? PreviewAvailability.Unavailable : PreviewAvailability.Current;
         Api.editor-surface-mode = Gallery.scenario == "Unavailable" ? EditorSurfaceMode.image : EditorSurfaceMode.component;
         Api.current-element = { source-uri: "gallery" };
         Api.recent-fills = [];
@@ -93,7 +95,7 @@ export global Gallery {
             angle: 120, stops: [{ color: #5c69e1, position: 0 }, { color: #ee86ac, position: 1 }],
         };
     }
-    public function open-picker(anchor: Point) {
+    public function open-picker(anchor: Point, size: Size) {
         FillSession.begin({
             fill: fill, expression: Api.fill-expression(fill),
             target: {
@@ -101,7 +103,7 @@ export global Gallery {
                 session-key: "gallery:0:" + Api.selection.highlight-index + ":" + Api.inspector-fill-generation + ":background",
             },
             unsupported: scenario == "Unsupported", allow-gradient: true,
-            anchor-position: anchor, anchor-width: 24px,
+            anchor-position: anchor, anchor-size: size,
         });
     }
     callback fill-preview <=> Api.inspector-fill-preview;

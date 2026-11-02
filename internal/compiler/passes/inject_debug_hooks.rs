@@ -19,12 +19,13 @@
 //!    Exception: transform properties are marked non-synthetic, as they must force the transform
 //!    pass to inject a wrapper element for the transform.
 
+use crate::element_type::PropertyLookupMode;
 use crate::expression_tree::Expression;
-use crate::langtype::PropertyLookupMode;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::forward_inherited_expression::{
     ForwardedReferenceCache, InheritedExpression, forward_inherited_expression,
 };
-use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc, PropertyVisibility};
+use crate::object_tree::{self, Element, ElementDebugInfo, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use std::rc::Rc;
 
@@ -115,9 +116,9 @@ fn calculate_element_hash(
         .text_range()
         .start();
 
-    use std::hash::{BuildHasher, Hasher};
+    use std::hash::{BuildHasher, Hash, Hasher};
     let mut hasher = random_state.build_hasher();
-    hasher.write(elem_path.as_os_str().as_encoded_bytes());
+    elem_path.hash(&mut hasher);
     hasher.write_u32(elem_offset.into());
     hasher.finish()
 }
@@ -219,20 +220,11 @@ fn property_defaults(
 /// would hold the value the property has before that, which the state can no longer reach.
 fn base_state_binds(element: &ElementRc, property_name: &str) -> bool {
     let mut base_type = element.borrow().base_type.clone();
-    while let crate::langtype::ElementType::Component(component) = base_type {
-        let root = component.root_element.clone();
-        let mut found = false;
-        object_tree::recurse_elem(&root, &(), &mut |elem, _| {
-            found |= elem.borrow().states.iter().any(|state| {
-                state.property_changes.iter().any(|(property, ..)| {
-                    property.name() == property_name && Rc::ptr_eq(&property.element(), &root)
-                })
-            });
-        });
-        if found {
+    while let crate::element_type::ElementType::Component(component) = base_type {
+        if component.state_changes_root_property(property_name) {
             return true;
         }
-        base_type = root.borrow().base_type.clone();
+        base_type = component.root_element.borrow().base_type.clone();
     }
     false
 }
@@ -285,6 +277,16 @@ fn add_hooks_for_non_existent_bindings(
 ) {
     let elem = element.borrow();
     let mut properties: Vec<_> = property_defaults(&elem).collect();
+    if crate::layout::is_layout(&elem.base_type) {
+        for name in ["padding", "spacing"] {
+            properties.retain(|(property, _, _)| property.as_str() != name);
+            properties.push((
+                name.into(),
+                Expression::default_value_for_type(&crate::langtype::Type::LogicalLength),
+                false,
+            ));
+        }
+    }
 
     // Elements that are (or will become) the root of a component are never wrapped by the
     // property-to-element lowerings, and their geometry is managed specially (runtime-managed
@@ -399,10 +401,11 @@ mod tests {
         config.style = Some("fluent".into());
         config.debug_hooks = Some(std::hash::RandomState::new());
         config.inline_all_elements = false;
+        config.edition = Some(crate::project_file::SlintEdition::current());
         let mut diags = crate::diagnostics::BuildDiagnostics::default();
         let doc_node = crate::parser::parse(
             source.into(),
-            Some(std::path::Path::new("test.slint")),
+            Some(crate::source_path::SourcePath::new("test.slint")),
             &mut diags,
         );
         let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
@@ -447,6 +450,34 @@ mod tests {
         let e = elem.borrow();
         let Some(be) = e.binding_cell_including_synthetic(name) else { return false };
         matches!(be.borrow().expression, Expression::DebugHook { synthetic: true, .. })
+    }
+
+    #[test]
+    fn unbound_layout_spacing_and_padding_keep_runtime_hooks() {
+        for layout in ["HorizontalLayout", "VerticalLayout", "GridLayout", "FlexboxLayout"] {
+            let doc = compile(&format!(
+                "export component Win inherits Window {{ layout := {layout} {{ Rectangle {{}} Rectangle {{}} }} }}"
+            ));
+            let root = component(&doc, "Win").root_element.clone();
+            let layout = child(&root, "layout");
+            for name in ["padding", "spacing"] {
+                let id = property_id(layout.borrow().debug[0].element_hash, &name.into());
+                let mut found = false;
+                object_tree::recurse_elem(&root, &(), &mut |element, &()| {
+                    for (_, binding) in element.borrow().bindings_including_synthetic() {
+                        binding.borrow().expression.visit_recursive(&mut |expression| {
+                            if let Expression::DebugHook { id: hook_id, synthetic, .. } = expression
+                                && hook_id == &id
+                            {
+                                assert!(!synthetic, "layout lowering must consume {name}");
+                                found = true;
+                            }
+                        });
+                    }
+                });
+                assert!(found, "{name} must retain a runtime hook");
+            }
+        }
     }
 
     #[test]
@@ -544,7 +575,7 @@ mod tests {
                 "{what}: hook id must use the instance element hash"
             );
             assert!(
-                matches!(borrowed.base_type, crate::langtype::ElementType::Component(_)),
+                matches!(borrowed.base_type, crate::element_type::ElementType::Component(_)),
                 "{what}: component boundary must remain"
             );
         };
@@ -644,8 +675,11 @@ mod tests {
         assert!(!second_references.is_empty());
         assert!(first_references.is_subset(&declarations));
         assert!(second_references.is_subset(&declarations));
-        assert!(matches!(first.borrow().base_type, crate::langtype::ElementType::Component(_)));
-        assert!(matches!(second.borrow().base_type, crate::langtype::ElementType::Component(_)));
+        assert!(matches!(first.borrow().base_type, crate::element_type::ElementType::Component(_)));
+        assert!(matches!(
+            second.borrow().base_type,
+            crate::element_type::ElementType::Component(_)
+        ));
     }
 
     #[test]
@@ -666,7 +700,7 @@ mod tests {
 
         assert!(item.borrow().binding_cell_including_synthetic("linked").is_none());
         assert!(item.borrow().binding_cell_including_synthetic("target").is_none());
-        assert!(matches!(item.borrow().base_type, crate::langtype::ElementType::Component(_)));
+        assert!(matches!(item.borrow().base_type, crate::element_type::ElementType::Component(_)));
     }
 
     /// Direct unit tests for the synthetic-hook rules in `BindingExpression::merge_with`

@@ -20,3 +20,6 @@ import { Button } from "builtin:/fluent/button.slint";
 //                     >                            <error{Cannot import "builtin:/fluent/button.slint": the files built into the compiler are internal. Import the widgets from "std-widgets.slint"}
 import { Button as C } from "builtin:/cupertino/std-widgets.slint";
 //                          >                                    <error{Cannot import "builtin:/cupertino/std-widgets.slint": the files built into the compiler are internal. Import the widgets from "std-widgets.slint"}
+// The scheme is case-insensitive.
+import { Button as D } from "BUILTIN:/fluent/button.slint";
+//                          >                            <error{Cannot import "BUILTIN:/fluent/button.slint": the files built into the compiler are internal. Import the widgets from "std-widgets.slint"}

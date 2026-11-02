@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A native popup window belongs to the context of the window that opened it.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    popup := PopupWindow {
+        width: 100px;
+        height: 100px;
+        Rectangle { }
+    }
+
+    public function show-popup() {
+        popup.show();
+    }
+}
+
+/*
+```rust
+let ctx = i_slint_core::SlintContext::new(Box::new(
+    i_slint_backend_testing::TestingBackend::new(Default::default()),
+));
+let red = slint::Color::from_rgb_u8(255, 0, 0);
+ctx.set_accent_color(red);
+let instance = TestCase::new_with_context(ctx).unwrap();
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+instance.invoke_show_popup();
+
+let inner = slint_testing::WindowInner::from_pub(instance.window());
+let popups = inner.active_popups.borrow();
+let i_slint_core::window::PopupWindowLocation::TopLevel(adapter) = &popups[0].location else {
+    panic!("the popup should have its own window");
+};
+let popup_window = slint_testing::WindowInner::from_pub(adapter.window());
+assert_eq!(popup_window.context().accent_color(), red);
+```
+*/

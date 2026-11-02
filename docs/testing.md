@@ -101,6 +101,16 @@ or
 tests/run_tests.sh rust layout
 ```
 
+The test cases in `tests/cases/widgets` run once per widget style.
+Set `SLINT_TEST_STYLES` to a comma-separated list of styles to only run them with these styles.
+The build fails for an unknown style name. `qt` is skipped where Qt isn't available.
+This works for every driver.
+Example: to run the widget tests with the Fluent style only:
+
+```
+SLINT_TEST_FILTER=widgets SLINT_TEST_STYLES=fluent cargo test --manifest-path tests/Cargo.toml -p test-driver-rust
+```
+
 Instead of putting everything in a slint! macro, it's possible to tell the driver to do the
 compilation in the build.rs, with the build-time feature:
 
@@ -111,6 +121,8 @@ or
 ```
 tests/run_tests.sh rust layout --features build-time
 ```
+
+With the build-time feature, set `SLINT_TEST_DETERMINISTIC_OUTPUT=1` to also check that compiling each test case twice generates the same code.
 
 ### C++ driver
 
@@ -136,6 +148,18 @@ Each test is run in a different node process.
 
 ```
 cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs
+```
+
+### TypeScript driver
+
+This tests the TypeScript declarations that the compiler generates for the NodeJS API.
+It compares them with the ```` ```d.ts ```` block in comment, if there's one,
+and type checks the declarations of every test with `tsc`.
+A ```` ```ts ```` block is type checked against the declarations of its file, without running it:
+`slint` is the `.slint` file and `slintlib` is `slint-ui`, like in the ```` ```js ```` blocks.
+
+```
+cargo test --manifest-path tests/Cargo.toml -p test-driver-typescript
 ```
 
 ### Python driver

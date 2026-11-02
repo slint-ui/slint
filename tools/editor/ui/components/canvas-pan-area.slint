@@ -10,7 +10,7 @@ export component CanvasPanArea inherits TouchArea {
         && (CanvasView.space-pressed || CanvasView.panning);
     mouse-cursor: CanvasView.panning ? grabbing : grab;
     accessible-role: AccessibleRole.region;
-    accessible-label: "Canvas pan area";
+    accessible-label: @tr("Canvas pan area");
     private property <Point> start-pan;
 
     public function cancel() {
@@ -35,5 +35,5 @@ export component CanvasPanArea inherits TouchArea {
             };
         }
     }
-    scroll-event(event) => { return CanvasView.scroll({ x: event.delta-x, y: event.delta-y }); }
+    scroll-event(event) => { return CanvasView.scroll(event, { x: self.mouse-x, y: self.mouse-y }); }
 }

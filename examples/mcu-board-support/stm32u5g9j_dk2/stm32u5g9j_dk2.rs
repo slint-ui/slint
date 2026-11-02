@@ -330,10 +330,9 @@ impl PlatformBackend for StmBackendInner {
 }
 
 fn rng(buf: &mut [u8]) -> Result<(), getrandom::Error> {
-    use rand_core::RngCore;
     cortex_m::interrupt::free(|cs| match GLOBAL_RNG.borrow(cs).borrow_mut().as_mut() {
         Some(rng) => {
-            embassy_stm32::rng::Rng::try_fill_bytes(rng, buf).unwrap();
+            rng.fill_bytes(buf);
             Ok(())
         }
         None => Err(getrandom::Error::UNSUPPORTED),

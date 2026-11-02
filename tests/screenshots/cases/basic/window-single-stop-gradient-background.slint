@@ -1,0 +1,17 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+
+    background: @linear-gradient(90deg, #4a8);
+
+    Rectangle {
+        x: 16px;
+        y: 16px;
+        width: 32px;
+        height: 32px;
+        background: @linear-gradient(0deg, #f80);
+    }
+}

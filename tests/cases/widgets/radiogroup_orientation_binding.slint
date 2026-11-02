@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A RadioGroup whose orientation isn't constant used to generate Rust code that didn't compile.
+import { RadioGroup } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <Orientation> orientation: vertical;
+
+    HorizontalLayout {
+        alignment: start;
+        VerticalLayout {
+            alignment: start;
+            RadioGroup {
+                orientation: root.orientation;
+                RadioButton { text: "Red"; }
+                RadioButton { text: "Green"; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let red = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Red").next().unwrap();
+let green = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Green").next().unwrap();
+
+// Stacked vertically.
+assert_eq!(red.absolute_position().x, green.absolute_position().x);
+assert!(red.absolute_position().y < green.absolute_position().y);
+
+instance.set_orientation(slint::language::Orientation::Horizontal);
+assert_eq!(red.absolute_position().y, green.absolute_position().y);
+assert!(red.absolute_position().x < green.absolute_position().x);
+```
+*/

@@ -1,0 +1,225 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 500phx;
+    height: 500phx;
+    no-frame: false;
+
+    callback flickable-scroll-to(length, length, ScrollBehavior);
+    flickable-scroll-to(x, y, scroll_behavior) => {
+        f.scroll-to({ x: x, y: y }, scroll_behavior);
+    }
+
+    f := Flickable {
+        width: parent.width;
+        height: parent.height;
+        content_width: 1000phx;
+        content_height: 1000phx;
+
+        Rectangle {
+            background: @radial-gradient(circle, yellow, blue, red, green);
+        }
+    }
+
+    in-out property <length> offset_x: -f.content_x;
+    in-out property <length> offset_y: -f.content_y;
+}
+
+/*
+
+```rust
+use slint::LogicalPosition;
+use slint::language::ScrollBehavior;
+
+let instance = TestCase::new().unwrap();
+
+const ORIGIN: LogicalPosition = LogicalPosition::new(0., 0.);
+const SCROLL_TO_POS: LogicalPosition = LogicalPosition::new(35., 45.);
+const SCROLL_TO_SMOOTH_POS: LogicalPosition = LogicalPosition::new(105., 135.);
+
+assert_eq!(instance.get_offset_x(), ORIGIN.x);
+assert_eq!(instance.get_offset_y(), ORIGIN.y);
+
+instance.invoke_flickable_scroll_to(SCROLL_TO_POS.x, SCROLL_TO_POS.y, ScrollBehavior::Instant);
+assert_eq!(instance.get_offset_x(), SCROLL_TO_POS.x);
+assert_eq!(instance.get_offset_y(),SCROLL_TO_POS.y);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), SCROLL_TO_POS.x);
+assert_eq!(instance.get_offset_y(), SCROLL_TO_POS.y);
+
+// Scroll back as well
+instance.invoke_flickable_scroll_to(ORIGIN.x, ORIGIN.y, ScrollBehavior::Instant);
+assert_eq!(instance.get_offset_x(), ORIGIN.x);
+assert_eq!(instance.get_offset_y(), ORIGIN.y);
+
+
+instance.invoke_flickable_scroll_to(SCROLL_TO_SMOOTH_POS.x, SCROLL_TO_SMOOTH_POS.y, ScrollBehavior::Smooth);
+assert_eq!(instance.get_offset_x(), ORIGIN.x, "Did not change yet because we just started the animation");
+assert_eq!(instance.get_offset_y(),ORIGIN.y, "Did not change yet because we just started the animation");
+
+slint_testing::mock_elapsed_time(10);
+assert!(instance.get_offset_x() > ORIGIN.x, "Animation has started but not finished: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() > ORIGIN.y, "Animation has started but not finished: {:?}", instance.get_offset_y());
+assert!(instance.get_offset_x() < SCROLL_TO_SMOOTH_POS.x, "Animation has started but not finished: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() < SCROLL_TO_SMOOTH_POS.y, "Animation has started but not finished: {:?}", instance.get_offset_y());
+
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), SCROLL_TO_SMOOTH_POS.x, "Animation finished: {:?}", instance.get_offset_x());
+assert_eq!(instance.get_offset_y(), SCROLL_TO_SMOOTH_POS.y, "Animation finished: {:?}", instance.get_offset_y());
+
+// Scroll back as well
+instance.invoke_flickable_scroll_to(ORIGIN.x, ORIGIN.y, ScrollBehavior::Smooth);
+assert!(instance.get_offset_x() > ORIGIN.x, "Animation has started but not finished: {:?}", instance.get_offset_x());
+assert!(instance.get_offset_y() > ORIGIN.y, "Animation has started but not finished: {:?}", instance.get_offset_y());
+
+slint_testing::mock_elapsed_time(1000000);
+
+assert_eq!(instance.get_offset_x(), ORIGIN.x);
+assert_eq!(instance.get_offset_y(), ORIGIN.y);
+
+// Targets past the scroll limits are clamped to them.
+instance.invoke_flickable_scroll_to(5000., -300., ScrollBehavior::Instant);
+assert_eq!(instance.get_offset_x(), 500.);
+assert_eq!(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(-300., 5000., ScrollBehavior::Smooth);
+slint_testing::mock_elapsed_time(10);
+assert!(instance.get_offset_y() < 100., "Animates towards the clamped target: {:?}", instance.get_offset_y());
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 500.);
+```
+
+```rust
+// A mouse wheel stops the animation and replaces by it's own. The remaining distance is not added because
+// we wanna interrupt
+use slint::platform::WindowEvent;
+use slint::language::ScrollBehavior;
+use slint_testing::{LogicalPoint, BackendMouseEvent, TouchPhase};
+
+let instance = TestCase::new().unwrap();
+instance.invoke_flickable_scroll_to(0., 300., ScrollBehavior::Smooth);
+slint_testing::mock_elapsed_time(20);
+let offset_y = instance.get_offset_y();
+assert!(offset_y > 0. && offset_y < 300., "{offset_y}");
+
+instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+    position: LogicalPoint::new(250., 250.),
+    delta_x: 0.,
+    delta_y: -50.,
+    phase: TouchPhase::Moved,
+}));
+slint_testing::mock_elapsed_time(1000000);
+assert_eq!(instance.get_offset_x(), 0.);
+assert!((instance.get_offset_y() - (offset_y + 50.)).abs() < 0.01, "{}", instance.get_offset_y());
+```
+
+```cpp
+using slint::language::ScrollBehavior;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(35., 45., ScrollBehavior::Instant);
+assert_eq(instance.get_offset_x(), 35.);
+assert_eq(instance.get_offset_y(), 45.);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 35.);
+assert_eq(instance.get_offset_y(), 45.);
+
+instance.invoke_flickable_scroll_to(0., 0., ScrollBehavior::Instant);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(105., 135., ScrollBehavior::Smooth);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+slint_testing::mock_elapsed_time(10);
+assert(instance.get_offset_x() > 0.);
+assert(instance.get_offset_y() > 0.);
+assert(instance.get_offset_x() < 105.);
+assert(instance.get_offset_y() < 135.);
+
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 105.);
+assert_eq(instance.get_offset_y(), 135.);
+
+instance.invoke_flickable_scroll_to(0., 0., ScrollBehavior::Smooth);
+assert(instance.get_offset_x() > 0.);
+assert(instance.get_offset_y() > 0.);
+
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 0.);
+
+// Targets past the scroll limits are clamped to them.
+instance.invoke_flickable_scroll_to(5000., -300., ScrollBehavior::Instant);
+assert_eq(instance.get_offset_x(), 500.);
+assert_eq(instance.get_offset_y(), 0.);
+
+instance.invoke_flickable_scroll_to(-300., 5000., ScrollBehavior::Smooth);
+slint_testing::mock_elapsed_time(10);
+assert(instance.get_offset_y() < 100.);
+slint_testing::mock_elapsed_time(1000000);
+assert_eq(instance.get_offset_x(), 0.);
+assert_eq(instance.get_offset_y(), 500.);
+```
+
+```js
+var instance = new slint.TestCase({});
+
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.flickable_scroll_to(35, 45, "instant");
+assert(instance.offset_x === 35, instance.offset_x);
+assert(instance.offset_y === 45, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 35, instance.offset_x);
+assert(instance.offset_y === 45, instance.offset_y);
+
+instance.flickable_scroll_to(0, 0, "instant");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.flickable_scroll_to(105, 135, "smooth");
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+slintlib.private_api.mock_elapsed_time(10);
+assert(instance.offset_x > 0, instance.offset_x);
+assert(instance.offset_y > 0, instance.offset_y);
+assert(instance.offset_x < 105, instance.offset_x);
+assert(instance.offset_y < 135, instance.offset_y);
+
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 105, instance.offset_x);
+assert(instance.offset_y === 135, instance.offset_y);
+
+instance.flickable_scroll_to(0, 0, "smooth");
+assert(instance.offset_x > 0, instance.offset_x);
+assert(instance.offset_y > 0, instance.offset_y);
+
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+// Targets past the scroll limits are clamped to them.
+instance.flickable_scroll_to(5000, -300, "instant");
+assert(instance.offset_x === 500, instance.offset_x);
+assert(instance.offset_y === 0, instance.offset_y);
+
+instance.flickable_scroll_to(-300, 5000, "smooth");
+slintlib.private_api.mock_elapsed_time(10);
+assert(instance.offset_y < 100, instance.offset_y);
+slintlib.private_api.mock_elapsed_time(1000000);
+assert(instance.offset_x === 0, instance.offset_x);
+assert(instance.offset_y === 500, instance.offset_y);
+```
+
+*/

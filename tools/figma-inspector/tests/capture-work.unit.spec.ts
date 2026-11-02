@@ -12,6 +12,33 @@ import {
 } from "../src/plugin/capture-work";
 
 describe("capture-cache", () => {
+    test("fallback retains completed entries but rejects late abandoned results", async () => {
+        const cache = new CaptureCache();
+        cache.put("completed", "keep", 4);
+        let finish: (value: string) => void = () => {};
+        const abandoned = cache.get(
+            "pending",
+            () =>
+                new Promise<string>((resolve) => {
+                    finish = resolve;
+                }),
+            (value) => value.length,
+        );
+        const token = cache.token();
+        cache.discardPending();
+        expect(cache.peek("completed")).toBe("keep");
+        await cache.get(
+            "pending",
+            async () => "fresh",
+            (value) => value.length,
+        );
+        finish("abandoned");
+        await abandoned;
+        expect(cache.peek("pending")).toBe("fresh");
+        expect(cache.valid(token)).toBe(false);
+        cache.clear();
+        expect(cache.peek("completed")).toBeUndefined();
+    });
     test("capture cache reuses successes, evicts to its byte budget and retries failures", async () => {
         const cache = new CaptureCache(12);
         let reads = 0;
@@ -188,6 +215,88 @@ describe("capture-cache", () => {
 });
 
 describe("capture-scheduler", () => {
+    test.each([false, true])(
+        "fallback completed export reuse: %s",
+        async (reuse) => {
+            const { captureSource } = await import("../src/plugin/capture");
+            const { readFile } = await import("node:fs/promises");
+            const png = new Uint8Array(
+                await readFile("fixtures/authored/odd-size.png"),
+            );
+            const vectors = Array.from({ length: 4 }, (_, index) => ({
+                id: `vector-${index}`,
+                name: `Vector ${index}`,
+                type: "VECTOR",
+                visible: true,
+                width: 10,
+                height: 10,
+                fills: [],
+                vectorPaths: [
+                    { windingRule: "NONZERO", data: "M 0 0 L 10 10" },
+                ],
+                vectorNetwork: { vertices: [], segments: [] },
+                resolvedVariableModes: {},
+            }));
+            const root = {
+                id: "root",
+                name: "Root",
+                type: "FRAME",
+                visible: true,
+                opacity: 1,
+                effects: [],
+                children: vectors,
+            } as unknown as SceneNode;
+            const cache = new CaptureCache();
+            const calls = [0, 0, 0, 0];
+            let finishAbandoned = () => {};
+            const exportPng = async (node: { id: string }) => {
+                const index = Number(node.id.slice(-1));
+                calls[index]++;
+                if (index === 3 && calls[index] === 1)
+                    return new Promise<Uint8Array>((resolve) => {
+                        finishAbandoned = () => resolve(png);
+                    });
+                return png;
+            };
+            const capture = (
+                cancelled: () => boolean,
+                scope: "tree" | "flattened",
+            ) =>
+                captureSource(
+                    root,
+                    Symbol("mixed"),
+                    async () => "",
+                    async () => undefined,
+                    exportPng,
+                    1,
+                    false,
+                    undefined,
+                    cancelled,
+                    4,
+                    cache,
+                    captureScheduler(4),
+                    scope,
+                );
+            const outcome = await withCaptureTimeoutFallback(
+                0,
+                (cancelled) => capture(cancelled, "tree"),
+                () => {
+                    if (reuse) cache.discardPending();
+                    else cache.clear();
+                    return capture(() => false, "flattened");
+                },
+            );
+            expect(outcome.fellBack).toBe(true);
+            expect(calls).toEqual(reuse ? [1, 1, 1, 2] : [2, 2, 2, 2]);
+            expect(
+                outcome.value.source.root.children?.every(
+                    (child) => child.exports?.png?.value === png,
+                ),
+            ).toBe(true);
+            finishAbandoned();
+        },
+    );
+
     test("timeout cancels primary work and ignores its late completion", async () => {
         let finishPrimary: (value: string) => void = () => {};
         let primaryCancelled = () => false;

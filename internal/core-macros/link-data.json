@@ -33,9 +33,6 @@
         "href": "reference/property-types/colors-and-brushes/#color"
     },
     "Deprecation": {
-        "href": "guide/language/coding/deprecation/"
-    },
-    "DeprecationSpec": {
         "href": "reference/language/deprecation/"
     },
     "DragAndDrop": {
@@ -76,6 +73,9 @@
     },
     "enum": {
         "href": "reference/property-types/builtin-enums/"
+    },
+    "Editions": {
+        "href": "guide/language/concepts/editions/"
     },
     "EventResult": {
         "href": "reference/property-types/builtin-enums/#eventresult"
@@ -157,6 +157,9 @@
     },
     "Menu": {
         "href": "reference/window/contextmenuarea/#menu"
+    },
+    "MenuItemRole": {
+        "href": "reference/property-types/builtin-enums/#menuitemrole"
     },
     "Modules": {
         "href": "reference/language/imports/"
@@ -307,6 +310,9 @@
     },
     "skia_renderer": {
         "href": "guide/backends-and-renderers/backends_and_renderers/#skia-renderer"
+    },
+    "android_building": {
+        "href": "guide/platforms/mobile/android/#building-and-running"
     },
     "globals": {
         "href": "reference/language/globals/"

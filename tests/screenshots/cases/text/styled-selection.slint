@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A selection in a `StyledText` across paragraphs, over an underlined link, with the text at
+// the bottom and the last paragraph cut by `max-lines`: the highlight stops at the cut.
+// Skia font rendering is not consistent across platforms
+//ignore:skia
+// SIZE=96x96
+
+export component TestCase inherits Window {
+    width: 96px;
+    height: 96px;
+    background: lightgray;
+
+    styled := StyledText {
+        width: 100%;
+        height: 100%;
+        default-color: #025;
+        vertical-alignment: bottom;
+        max-lines: 3;
+        text: @markdown("Normal [link](https://slint.dev)\n\n**Bold** *Italic*\n\nThird line\n\nFourth, cut");
+        init => {
+            // From the link into the cut paragraph; the end is clamped to the text.
+            styled.set-selection-offsets(7, 100);
+        }
+    }
+}

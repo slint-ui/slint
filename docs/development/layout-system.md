@@ -223,6 +223,7 @@ This enables grids to handle both single-item repeaters (step=1) and multi-child
 
 ```
 slint! {
+    #[edition = "1.19"]
     GridLayout {
         for _ in 3: Row {
             Rectangle {}
@@ -335,11 +336,15 @@ Where the width comes from differs per layout kind:
 
 A non-layout parent gets its `layoutinfo-*` from `default_geometry::gen_layout_info_prop`,
 which merges what each child reports.
+Merging a repeated child needs `edition` 1.19 or newer:
+a child that sizes itself from that parent is a binding loop error once merged (#13972).
 A repeated child has no single `LayoutInfo` to read, so `repeated_element_layout_info`
 synthesizes a one-cell `BoxLayout` over it and folds every instance through
 `box_layout_info_ortho`, close to the merge two static siblings get: the box
 layout also forces `max >= min`, clamps `preferred` and resets the percentages.
-`flickable.rs` uses the same helper for a Flickable's scroll extent.
+`flickable.rs` uses the same helper for a Flickable's scroll extent, without that
+condition: `fixup_geometry`'s `is_mergeable` takes only layout children, repeated or not,
+and no crater project failed on that path.
 
 One thing differs from a static child: a `width`/`height` binding on the body's own root
 is left out of its `root_constraints` (`MergedFixedSize::Ignored`), because a merged child
@@ -409,7 +414,7 @@ would mean predicting what `default_geometry`, `lower_layout` and
 accepts a height a layout still assigns, which is a binding loop at compile
 time. The root of a component used elsewhere answers no on its own, since each
 instance may override the height and is asked separately.
-`tests/cases/layout/flexbox_column_wrap_width.slint` pins both behaviors.
+`tests/cases/flexbox/flexbox_column_wrap_width.slint` pins both behaviors.
 
 ## Common Modification Patterns
 
@@ -419,7 +424,7 @@ instance may override the height and is asked separately.
 2. Handle in `LayoutGeometry` or `LayoutConstraints` in `internal/compiler/layout.rs`
 3. Update `lower_layout.rs` to extract and use the property
 4. Update runtime structs in `internal/core/layout.rs` if needed
-5. Add tests in `tests/cases/layout/`
+5. Add tests in `tests/cases/layout/`, or `tests/cases/flexbox/` for `FlexboxLayout`
 
 ### Debugging Layout Issues
 

@@ -2,14 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
+#[cfg(feature = "bundle-translations")]
+use crate::source_path::SourcePath;
+use alloc::vec::Vec;
+#[cfg(feature = "bundle-translations")]
 use rspolib::TranslatedEntry;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::SmolStr;
+#[cfg(feature = "bundle-translations")]
+use smol_str::ToSmolStr;
+#[cfg(feature = "bundle-translations")]
 use std::collections::HashMap;
+#[cfg(feature = "bundle-translations")]
 use std::collections::hash_map::Entry;
+#[cfg(feature = "bundle-translations")]
 use std::path::Path;
+#[cfg(feature = "bundle-translations")]
 use std::rc::Rc;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Translations {
     /// An array with all the array of string
     /// The first vector index is stored in the LLR.
@@ -33,6 +44,7 @@ pub struct Translations {
     pub languages: Vec<(SmolStr, char)>,
 }
 
+#[cfg(feature = "bundle-translations")]
 #[derive(Clone)]
 pub struct TranslationsBuilder {
     result: Translations,
@@ -44,11 +56,12 @@ pub struct TranslationsBuilder {
     catalogs: Rc<Vec<rspolib::POFile>>,
 }
 
+#[cfg(feature = "bundle-translations")]
 impl TranslationsBuilder {
     pub fn load_translations(
         path: &Path,
         domain: &str,
-        all_loaded_files: &mut std::collections::BTreeSet<std::path::PathBuf>,
+        all_loaded_files: &mut std::collections::BTreeSet<SourcePath>,
     ) -> std::io::Result<Self> {
         let mut languages = vec![("".into(), i_slint_common::DEFAULT_DECIMAL_SEPARATOR)];
         let mut catalogs = Vec::new();
@@ -65,7 +78,7 @@ impl TranslationsBuilder {
         for l in entries {
             let path = l.path().join("LC_MESSAGES").join(format!("{domain}.po"));
             if path.exists() {
-                all_loaded_files.insert(path.clone());
+                all_loaded_files.insert(SourcePath::File(path.clone()));
                 let catalog = rspolib::pofile(path.as_path()).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))
                 })?;
@@ -203,6 +216,7 @@ impl TranslationsBuilder {
     }
 }
 
+#[cfg(feature = "bundle-translations")]
 fn get_string(plural: Expression) -> Option<SmolStr> {
     match plural {
         Expression::StringLiteral(s) => Some(s),
@@ -210,6 +224,7 @@ fn get_string(plural: Expression) -> Option<SmolStr> {
     }
 }
 
+#[cfg(feature = "bundle-translations")]
 mod plural_rule_parser {
     use super::Expression;
     pub struct ParseError<'a>(&'static str, &'a [u8]);
@@ -384,7 +399,7 @@ mod plural_rule_parser {
             Ok(ParsingState {
                 expr: Expression::BuiltinFunctionCall {
                     source_location: None,
-                    function: crate::expression_tree::BuiltinFunction::Mod,
+                    function: crate::builtin_functions::BuiltinFunction::Mod,
                     arguments: vec![state.expr, state2.expr],
                 },
                 ty: Ty::Number,

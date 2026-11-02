@@ -11,9 +11,12 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::Expression;
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
-use crate::object_tree::{Element, ElementRc, PropertyAnalysis, PropertyVisibility};
+use crate::langtype::Type;
+use crate::native_class::PropertyVisibility;
+use crate::object_tree::{Element, ElementRc};
+use crate::property_analysis::PropertyAnalysis;
 
 /// Reference to a property or callback of a given name within an element.
 #[derive(Clone)]
@@ -89,7 +92,7 @@ impl NamedReference {
         let e = elem.borrow();
         if let Some(decl) = e.property_declarations.get(self.name())
             && decl.expose_in_public_api
-            && decl.visibility != PropertyVisibility::Input
+            && decl.visibility != PropertyVisibility::Output
         {
             // could be set by the public API
             return false;
@@ -136,9 +139,9 @@ impl NamedReference {
                 ElementType::Builtin(b) => {
                     return b.properties.get(self.name()).is_none_or(|pi| !pi.is_native_output());
                 }
-                crate::langtype::ElementType::Error
-                | crate::langtype::ElementType::Global
-                | crate::langtype::ElementType::Interface => {
+                crate::element_type::ElementType::Error
+                | crate::element_type::ElementType::Global
+                | crate::element_type::ElementType::Interface(_) => {
                     return true;
                 }
             }

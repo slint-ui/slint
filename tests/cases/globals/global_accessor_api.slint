@@ -66,6 +66,14 @@ assert.equal(instance.ReexportedGlobal.foo, 44);
 instance.PublicGlobal.sum = function(a, b) { return a + b };
 assert.equal(instance.test_call_callback, 10);
 assert.equal(instance.PublicGlobal.sum(4, 5), 9);
+
+const globals = instance[slintlib.globalsSymbol];
+assert.equal(globals.PublicGlobal, instance.PublicGlobal);
+globals.PublicGlobal.hello = 7;
+assert.equal(instance.PublicGlobal.hello, 7);
+assert.equal(globals.ReexportedGlobal.foo, 44);
+globals.PublicGlobal.sum = function(a, b) { return a * b };
+assert.equal(instance.PublicGlobal.sum(4, 5), 20);
 ```
 
 */

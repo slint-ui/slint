@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component A inherits Window {
+    property <int> value;
+    Rectangle {
+        y := 50px;
+//        ><error{Parse error: expected an element after ':='. Use ':' instead of ':=' to set a binding}
+        x := root.x;
+//        ><error{Parse error: expected an element after ':='. Use ':' instead of ':=' to set a binding}
+        width = 50px;
+//            ^error{Parse error: unexpected '='. Use ':' instead of '=' to set a binding}
+        background: red;
+    }
+    value = 42;
+//        ^error{Parse error: unexpected '='. Use ':' instead of '=' to set a binding}
+    r := Rectangle { }
+    t := Text { text: r.width / 1px; }
+    r2 = Rectangle { }
+//     ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
+    t2 = Text { text: r2.width / 1px; }
+//     ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
+    for i in 2 : item = Rectangle { }
+//                    ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
+    if true : cond = Rectangle { }
+//                 ^error{Parse error: unexpected '='. Use ':=' instead of '=' to name an element}
+}

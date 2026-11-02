@@ -9,27 +9,34 @@
     This pass must be run after lower_layout
 */
 
+use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, SourceLocation, Spanned};
-use crate::expression_tree::{
-    BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
-};
-use crate::langtype::{BuiltinElement, DefaultSizeBinding, PropertyLookupMode, Type};
+use crate::element_type::{BuiltinElement, DefaultSizeBinding, ElementType, PropertyLookupMode};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_types::{MinMaxOp, Orientation, Unit};
+use crate::langtype::Type;
 use crate::layout::{
-    BuiltinFilter, LayoutConstraints, MergedFixedSize, Orientation, implicit_layout_info_call,
+    BuiltinFilter, LayoutConstraints, MergedFixedSize, implicit_layout_info_call,
     repeated_element_layout_info,
 };
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{Component, Document, Element, ElementRc};
+use crate::project_file::SlintEdition;
 use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 pub fn default_geometry(
     root_component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
+    edition: Option<SlintEdition>,
 ) {
+    // #407: an `if`/`for` child counts toward its non-layout parent's size
+    let repeated_children_constrain_parent = edition.is_some_and(|v| v >= SlintEdition::V1_19);
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &None,
@@ -45,7 +52,7 @@ pub fn default_geometry(
             w100 |= fix_percent_size(elem, parent, "width", diag, symbol_counters);
             h100 |= fix_percent_size(elem, parent, "height", diag, symbol_counters);
 
-            gen_layout_info_prop(elem, diag, symbol_counters);
+            gen_layout_info_prop(elem, diag, symbol_counters, repeated_children_constrain_parent);
 
             let builtin_type = match elem.borrow().builtin_type() {
                 Some(b) if !elem.borrow().is_flickable_content => b,
@@ -53,9 +60,6 @@ pub fn default_geometry(
             };
 
             let is_image = builtin_type.name == "Image";
-            if is_image {
-                adjust_image_clip_rect(elem, &builtin_type);
-            }
 
             if let Some(parent) = parent {
                 match builtin_type.default_size_binding {
@@ -191,24 +195,42 @@ fn gen_layout_info_prop(
     elem: &ElementRc,
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
+    repeated_children_constrain_parent: bool,
 ) {
     if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_content {
         return;
     }
+    for c in elem.borrow().children.iter().filter(|c| has_no_explicit_position(c)) {
+        gen_layout_info_prop(c, diag, symbol_counters, repeated_children_constrain_parent);
+    }
+    gen_layout_info_prop_from_children(
+        elem,
+        diag,
+        symbol_counters,
+        repeated_children_constrain_parent,
+    );
+}
 
+fn has_no_explicit_position(elem: &ElementRc) -> bool {
+    !elem.borrow().is_binding_set("x", false) && !elem.borrow().is_binding_set("y", false)
+}
+
+fn gen_layout_info_prop_from_children(
+    elem: &ElementRc,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
+    repeated_children_constrain_parent: bool,
+) {
     let child_infos = elem
         .borrow()
         .children
         .iter()
-        .filter(|c| {
-            !c.borrow().is_binding_set("x", false) && !c.borrow().is_binding_set("y", false)
-        })
+        .filter(|c| has_no_explicit_position(c))
         .filter_map(|c| {
-            gen_layout_info_prop(c, diag, symbol_counters);
-            let cb = c.borrow();
-            cb.effective_layout_info_prop(Orientation::Horizontal)
-                .cloned()
-                .zip(cb.effective_layout_info_prop(Orientation::Vertical).cloned())
+            let own_h = c.borrow().effective_layout_info_prop(Orientation::Horizontal).cloned();
+            let own_v = c.borrow().effective_layout_info_prop(Orientation::Vertical).cloned();
+            own_h
+                .zip(own_v)
                 .map(|(h, v)| {
                     let mut h = Expression::PropertyReference(h);
                     let mut v = Expression::PropertyReference(v);
@@ -237,7 +259,7 @@ fn gen_layout_info_prop(
                     if c.borrow().is_legacy_syntax {
                         return None;
                     }
-                    if let Some(r) = cb.repeated.as_ref() {
+                    if let Some(r) = c.borrow().repeated.as_ref() {
                         // Merge every instance's LayoutInfo (issue #407).
                         //
                         // A ListView is left out for the reason `flickable.rs` leaves it
@@ -245,7 +267,10 @@ fn gen_layout_info_prop(
                         // return above doesn't catch it. A ComponentContainer's
                         // placeholder is a fake `if false:` repeater, and the container
                         // reports the embedded tree's constraints itself.
-                        if r.is_listview.is_some() || cb.is_component_placeholder {
+                        if !repeated_children_constrain_parent
+                            || r.is_listview.is_some()
+                            || c.borrow().is_component_placeholder
+                        {
                             return None;
                         }
                         return Some((
@@ -268,11 +293,10 @@ fn gen_layout_info_prop(
                         if explicit_constraints.has_explicit_restrictions(orientation) {
                             Some(explicit_layout_info(c, orientation))
                         } else {
-                            implicit_layout_info_call(
+                            crate::layout::implicit_layout_info(
                                 c,
                                 orientation,
                                 BuiltinFilter::SkipNonImplicit,
-                                None,
                             )
                         }
                     };
@@ -455,16 +479,9 @@ fn fix_percent_size(
                 && inner(false_expr, span, parent, property, diag, symbol_counters)
         } else {
             if expression.ty() != Type::Percent {
-                let Some(parent) = parent.as_ref() else { return false };
-                // Pattern match to check it was already parent.<property>
-                //
                 // Note: do not ignore debug hooks here, the debug hook may overwrite the
                 // expression so it may not fill after all.
-                return matches!(
-                    expression,
-                    Expression::PropertyReference(nr)
-                        if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent),
-                );
+                return parent.as_ref().is_some_and(|p| is_parent_size(expression, p, property));
             }
             if let Some(mut parent) = parent.clone() {
                 let flickable = parent.borrow().is_flickable_content;
@@ -482,15 +499,12 @@ fn fix_percent_size(
                 );
                 // do not ignore debug hooks here, the debug hook may overwrite the expression
                 // so it may not fill after all.
-                let fill = matches!(
-                    *expression,
-                    Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001,
-                );
+                let fill = is_parent_size(expression, &parent, property);
 
                 *expression = Expression::BinaryExpression {
                     lhs: Box::new(std::mem::take(expression).maybe_convert_to(
                         Type::Float32,
-                        span,
+                        None,
                         diag,
                         symbol_counters,
                     )),
@@ -523,6 +537,38 @@ fn fix_percent_size(
     let binding = &mut *binding;
 
     inner(&mut binding.expression, &binding.span, parent, property, diag, symbol_counters)
+}
+
+/// Whether this pass binds `name` to the parent's when it isn't set,
+/// and an explicit binding adds nothing to the parent's implicit layout info
+pub(crate) fn fills_parent_by_default(elem: &ElementRc, parent: &ElementRc, name: &str) -> bool {
+    let orientation = match name {
+        "width" => Orientation::Horizontal,
+        "height" => Orientation::Vertical,
+        _ => return false,
+    };
+    let elem_base = &elem.borrow().base_type;
+    let ElementType::Builtin(elem_type) = elem_base else { return false };
+    let ElementType::Builtin(parent_type) = &parent.borrow().base_type else { return false };
+    let parent_positions_children = parent_type.default_size_binding != DefaultSizeBinding::None
+        || matches!(parent_type.name.as_str(), "Empty" | "Window" | "PopupWindow");
+    elem_type.default_size_binding == DefaultSizeBinding::ExpandsToParentGeometry
+        && elem_type.constant_layout_info_stretch.is_some()
+        // A Flickable without a size takes its maximum and preferred size from its content.
+        && !super::flickable::is_flickable_element(elem)
+        && parent_positions_children
+        && !super::flickable::is_flickable_element(parent)
+        && !LayoutConstraints::build(elem, None, MergedFixedSize::Ignored)
+            .has_explicit_restrictions(orientation)
+}
+
+/// Whether `value` is the size of `parent`, either `100%` or `parent.<name>`
+pub(crate) fn is_parent_size(value: &Expression, parent: &ElementRc, name: &str) -> bool {
+    match value {
+        Expression::NumberLiteral(v, Unit::Percent) => (*v - 100.).abs() < 0.001,
+        Expression::PropertyReference(nr) => nr.name() == name && Rc::ptr_eq(&nr.element(), parent),
+        _ => false,
+    }
 }
 
 /// Generate a size property that covers the parent.
@@ -688,38 +734,105 @@ fn maybe_center_in_parent(
     });
 }
 
-fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
+/// Run after inlining: instances of a remaining sub-component share the native class of its elements.
+pub fn adjust_image_clip_rects(doc: &Document) {
+    let mut defaulted = HashSet::new();
+    doc.visit_all_used_components(|component| {
+        crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+            component,
+            &(),
+            &mut |elem, _| {
+                if elem.borrow().repeated.is_some() {
+                    return;
+                }
+                let builtin = elem.borrow().builtin_type();
+                if let Some(builtin) = builtin
+                    && builtin.name == "Image"
+                {
+                    adjust_image_clip_rect(elem, &builtin, &mut defaulted);
+                }
+            },
+        );
+    });
+}
+
+fn adjust_image_clip_rect(
+    elem: &ElementRc,
+    builtin: &Arc<BuiltinElement>,
+    defaulted: &mut HashSet<(*const RefCell<Element>, &'static str)>,
+) {
     debug_assert_eq!(builtin.native_class.class_name, "ClippedImage");
 
-    if builtin.native_class.properties.keys().any(|p| {
+    if !builtin.native_class.properties.keys().any(|p| {
         // Deliberately count synthetic debug hooks here (via binding_cell_including_synthetic): they also count as
         // "used" by the native class selection in the LLR, so the ClippedImage native class gets selected —
         // and a ClippedImage without the synthesized clip defaults renders/measures as a
         // zero-size clip. This condition must match the class-selection semantics.
         elem.borrow().binding_cell_including_synthetic(p).is_some()
+            || elem.borrow().named_references.is_referenced(p)
             || elem.borrow().property_analysis.borrow().get(p).is_some_and(|a| a.is_used())
     }) {
-        let source = NamedReference::new(elem, SmolStr::new_static("source"));
-        let x = NamedReference::new(elem, SmolStr::new_static("source-clip-x"));
-        let y = NamedReference::new(elem, SmolStr::new_static("source-clip-y"));
-        let make_expr = |dim: &str, prop: NamedReference| Expression::BinaryExpression {
-            source_location: None,
-            lhs: Box::new(Expression::StructFieldAccess {
-                base: Box::new(Expression::FunctionCall {
-                    function: BuiltinFunction::ImageSize.into(),
-                    arguments: vec![Expression::PropertyReference(source.clone())],
-                    source_location: None,
-                }),
-                name: dim.into(),
-            }),
-            rhs: Expression::PropertyReference(prop).into(),
-            op: '-',
-        };
+        return;
+    }
 
-        elem.borrow_mut()
-            .set_binding_if_not_set("source-clip-width".into(), || make_expr("width", x));
-        elem.borrow_mut()
-            .set_binding_if_not_set("source-clip-height".into(), || make_expr("height", y));
+    let mut image = elem.clone();
+    let mut instances = Vec::new();
+    while let ElementType::Component(base) = &image.clone().borrow().base_type {
+        instances.push(image);
+        image = base.root_element.clone();
+    }
+
+    for (name, dim, offset) in [
+        ("source-clip-width", "width", "source-clip-x"),
+        ("source-clip-height", "height", "source-clip-y"),
+    ] {
+        let default = default_clip(&image, dim, offset);
+        if image.borrow_mut().set_binding_if_not_set(name.into(), || default) {
+            defaulted.insert((Rc::as_ptr(&image), name));
+        }
+        if !defaulted.contains(&(Rc::as_ptr(&image), name)) {
+            continue;
+        }
+        for instance in &instances {
+            let Some(hooked) = instance
+                .borrow()
+                .binding_cell_including_synthetic(name)
+                .map(|b| b.borrow().expression.is_synthetic_debug_hook())
+            else {
+                continue;
+            };
+            let default = default_clip(instance, dim, offset);
+            if hooked {
+                // The hook holds what the instance inherited when it was injected, before this default.
+                let mut binding = BindingExpression::from(default);
+                binding.priority = i32::MAX;
+                instance.borrow_mut().set_binding(name.into(), binding);
+            } else {
+                // A state binding on the instance falls back to this default.
+                instance.borrow_mut().set_binding_if_not_set(name.into(), || default);
+            }
+        }
+    }
+}
+
+/// `image-size(source).width - source-clip-x`, or the same for the height.
+fn default_clip(image: &ElementRc, dim: &str, offset: &'static str) -> Expression {
+    Expression::BinaryExpression {
+        source_location: None,
+        lhs: Box::new(Expression::StructFieldAccess {
+            base: Box::new(Expression::FunctionCall {
+                function: BuiltinFunction::ImageSize.into(),
+                arguments: vec![Expression::PropertyReference(NamedReference::new(
+                    image,
+                    SmolStr::new_static("source"),
+                ))],
+                source_location: None,
+            }),
+            name: dim.into(),
+        }),
+        rhs: Expression::PropertyReference(NamedReference::new(image, SmolStr::new_static(offset)))
+            .into(),
+        op: '-',
     }
 }
 
@@ -752,7 +865,7 @@ fn test_no_property_for_100pc() {
         }
 "#
         .into(),
-        Some(std::path::Path::new("HELLO")),
+        Some(crate::source_path::SourcePath::new("HELLO")),
         &mut test_diags,
     );
     let (doc, diag, _) =

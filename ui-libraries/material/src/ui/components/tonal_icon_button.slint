@@ -25,8 +25,6 @@ export component TonalIconButton {
     accessible-action-default => { base.clicked(); }
 
     background_layer := Rectangle {
-        width: 100%;
-        height: 100%;
         border_radius: base.border_radius;
         background: root.checkable ? MaterialPalette.surface_container_highest : MaterialPalette.secondary_container;
         visible: root.enabled;

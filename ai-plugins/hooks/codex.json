@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/check-slint-tool.mjs\" slint-viewer",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\check-slint-tool.mjs\" slint-viewer"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "apply_patch|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/check-slint-edit.mjs\"",
+            "commandWindows": "node \"%PLUGIN_ROOT%\\hooks\\check-slint-edit.mjs\"",
+            "statusMessage": "Checking .slint files"
+          }
+        ]
+      }
+    ]
+  }
+}

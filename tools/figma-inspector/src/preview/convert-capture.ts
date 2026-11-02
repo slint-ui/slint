@@ -8,12 +8,13 @@ import {
     TimingTraceBuilder,
     type TimingPhase,
 } from "../performance/timing";
-import type { PluginToUiMessage } from "../protocol";
+import type { ExportPackage, PluginToUiMessage } from "../protocol";
 import { createSourceNormalizer } from "../plugin/normalize";
-import type { FigmaSnapshot } from "../plugin/snapshot";
+import type { Diagnostic, FigmaSnapshot } from "../plugin/snapshot";
 import type { SourceBytes, SourceCapture } from "../plugin/source";
 import { packPreviewAssets } from "../asset-transport";
 import { convertSnapshot } from "./converter";
+import { exportFailure } from "./export-diagnostic";
 
 export type CaptureMessage = Extract<
     PluginToUiMessage,
@@ -92,32 +93,8 @@ export async function convertCapture(
             };
         if (normalized.empty) return { ...common, type: "preview-clear" };
         state.snapshot = normalized.snapshot;
-        const nativeStarted = defaultClock.monotonicNow();
-        const native = await normalizer.normalize("export");
-        trace.phases.normalization +=
-            defaultClock.monotonicNow() - nativeStarted;
-        if (!native.ok || native.empty)
-            return {
-                ...common,
-                type: "preview-diagnostics",
-                diagnostics: !native.ok
-                    ? native.diagnostics
-                    : [
-                          {
-                              severity: "error",
-                              code: "EMPTY_EXPORT",
-                              message: "Export contains no nodes",
-                          },
-                      ],
-                trace: { ...trace, outcome: "conversion-error" },
-            };
-        const [render, exported] = measure(
-            "slintConversion",
-            () =>
-                [
-                    convertSnapshot(normalized.snapshot, { specialize: true }),
-                    generateExport(native.snapshot, native.warnings),
-                ] as const,
+        const render = measure("slintConversion", () =>
+            convertSnapshot(normalized.snapshot, { specialize: true }),
         );
         if (!render.ok)
             return {
@@ -126,6 +103,47 @@ export async function convertCapture(
                 diagnostics: render.diagnostics,
                 trace: { ...trace, outcome: "conversion-error" },
             };
+        let exportPackage: ExportPackage | undefined;
+        let exportWarnings: readonly Diagnostic[] = [];
+        try {
+            const nativeStarted = defaultClock.monotonicNow();
+            const native = await normalizer.normalize("export");
+            trace.phases.normalization +=
+                defaultClock.monotonicNow() - nativeStarted;
+            if (!native.ok || native.empty) {
+                exportWarnings = (
+                    !native.ok
+                        ? native.diagnostics
+                        : [
+                              {
+                                  severity: "error" as const,
+                                  code: "EMPTY_EXPORT",
+                                  message: "Export contains no nodes",
+                              },
+                          ]
+                ).map((diagnostic) => ({
+                    ...diagnostic,
+                    ...exportFailure(diagnostic.message, diagnostic.code),
+                }));
+            } else {
+                const exportStarted = defaultClock.monotonicNow();
+                try {
+                    const exported = generateExport(
+                        native.snapshot,
+                        native.warnings,
+                    );
+                    exportPackage = exported.exportPackage;
+                    exportWarnings = exported.warnings;
+                } finally {
+                    trace.phases.slintConversion =
+                        (trace.phases.slintConversion ?? 0) +
+                        defaultClock.monotonicNow() -
+                        exportStarted;
+                }
+            }
+        } catch (error) {
+            exportWarnings = [exportFailure(error)];
+        }
         const packed = measure("assetPacking", () =>
             packPreviewAssets(render.source),
         );
@@ -133,13 +151,13 @@ export async function convertCapture(
             ...common,
             type: "preview-source",
             source: packed.assets.length ? packed : render.source,
-            exportPackage: exported.exportPackage,
+            ...(exportPackage ? { exportPackage } : {}),
             warnings: [
                 ...new Map(
                     [
                         ...normalized.warnings,
                         ...render.warnings,
-                        ...exported.warnings,
+                        ...exportWarnings,
                         ...(request.warnings ?? []),
                     ].map((warning) => [JSON.stringify(warning), warning]),
                 ).values(),

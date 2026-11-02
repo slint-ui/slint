@@ -3,7 +3,8 @@
 
 //! This pass lowers the access to the global TextInputInterface.text-input-focused to getter or setter.
 
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::builtin_functions::BuiltinFunction;
+use crate::expression_tree::Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, visit_all_expressions};
 use std::rc::Rc;

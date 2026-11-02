@@ -7,14 +7,13 @@
 export global Glob {
     in-out property <[string]> model: ["Hello", "World"];
     in-out property <bool> condition: true;
-    // Return true if issue #3464 is NOT fixed
-    callback clicked(string) -> bool;
+    callback clicked(string);
     clicked => {
         model = ["oops"];
-        return true; // 3464 is not fixed in the interpreter
     }
     in-out property <string> value;
     in-out property <string> value_after: "XXXXX";
+    in-out property <string> callback_result: "XXXXX";
 }
 
 component Button {
@@ -56,6 +55,9 @@ export component TestCase inherits Window {
             // The repeated Button constrains its row, so without a fixed height the rows
             // shrink to the font-dependent text height and the clicks below miss.
             height: 100px;
+            function row-function() -> string { string }
+            callback row-callback() -> string;
+            row-callback => { string }
             if Glob.condition: Button {
                 text: string;
                 enabled: some-variable;
@@ -63,11 +65,10 @@ export component TestCase inherits Window {
                 height: 80%;
                 clicked => {
                     Glob.value = string;
-                    if Glob.clicked(string) {
-                        // FIXME! issue #3464 not fixed
-                        return;
-                    }
-                    Glob.value_after = string;
+                    Glob.clicked(string);
+                    // `string` belongs to the row that `clicked` just removed
+                    Glob.value_after = string + row-function();
+                    Glob.callback_result = row-callback();
                 }
             }
         }
@@ -84,11 +85,11 @@ instance.global::<Glob<'_>>().set_model(model.clone().into());
 instance.global::<Glob<'_>>().on_clicked(move |val|{
     assert_eq!(val, "world");
     model.remove(1);
-    false
 });
 slint_testing::send_mouse_click(&instance, 150., 150.);
 assert_eq!(instance.global::<Glob<'_>>().get_value(), "world");
 assert_eq!(instance.global::<Glob<'_>>().get_value_after(), "");
+assert_eq!(instance.global::<Glob<'_>>().get_callback_result(), "");
 ```
 
 // same thing but with the keyboard
@@ -100,7 +101,6 @@ instance.global::<Glob<'_>>().set_model(model.clone().into());
 instance.global::<Glob<'_>>().on_clicked(move |val|{
     assert_eq!(val, "world");
     model.remove(1);
-    false
 });
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
@@ -109,6 +109,7 @@ slint_testing::send_keyboard_string_sequence(&instance, " ");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq!(instance.global::<Glob<'_>>().get_value(), "world");
 assert_eq!(instance.global::<Glob<'_>>().get_value_after(), "");
+assert_eq!(instance.global::<Glob<'_>>().get_callback_result(), "");
 ```
 
 ```cpp
@@ -123,10 +124,11 @@ instance.global<Glob>().set_model(model);
 instance.global<Glob>().on_clicked([=](slint::SharedString val){
     assert_eq(val, "world");
     model->erase(1);
-    return false;
 });
 slint_testing::send_mouse_click(&instance, 150., 150.);
 assert_eq(instance.global<Glob>().get_value(), "world");
+assert_eq(instance.global<Glob>().get_value_after(), "");
+assert_eq(instance.global<Glob>().get_callback_result(), "");
 ```
 
 ```cpp
@@ -141,7 +143,6 @@ instance.global<Glob>().set_model(model);
 instance.global<Glob>().on_clicked([=](slint::SharedString val){
     assert_eq(val, "world");
     model->erase(1);
-    return false;
 });
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
@@ -149,6 +150,8 @@ slint_testing::send_keyboard_string_sequence(&instance, " ");
 slint_testing::send_keyboard_string_sequence(&instance, " ");
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert_eq(instance.global<Glob>().get_value(), "world");
+assert_eq(instance.global<Glob>().get_value_after(), "");
+assert_eq(instance.global<Glob>().get_callback_result(), "");
 ```
 
 
@@ -159,10 +162,11 @@ instance.Glob.model = model;
 instance.Glob.clicked = (val) => {
     assert.equal(val, "world");
     model.remove(1, 1);
-    return true; // issue 3464 not fixed in the interpreter
 };
 slintlib.private_api.send_mouse_click(instance, 150., 150.);
 assert.equal(instance.Glob.value, "world");
+assert.equal(instance.Glob.value_after, "");
+assert.equal(instance.Glob.callback_result, "");
 ```
 
 ```js
@@ -172,7 +176,6 @@ instance.Glob.model = model;
 instance.Glob.clicked = (val) => {
     assert.equal(val, "world");
     model.remove(1, 1);
-    return true; // issue 3464 not fixed in the interpreter
 };
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
@@ -180,6 +183,8 @@ slintlib.private_api.send_keyboard_string_sequence(instance, " ");
 slintlib.private_api.send_keyboard_string_sequence(instance, " ");
 slintlib.private_api.send_keyboard_string_sequence(instance, "\t");
 assert.equal(instance.Glob.value, "world");
+assert.equal(instance.Glob.value_after, "");
+assert.equal(instance.Glob.callback_result, "");
 ```
 
 

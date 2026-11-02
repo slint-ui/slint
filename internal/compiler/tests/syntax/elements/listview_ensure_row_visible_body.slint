@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component ListView inherits Flickable {
+    out property <length> visible-height: self.height;
+    out property <length> visible-width: self.width;
+    public function ensure-row-visible(row: int, behavior: ScrollBehavior) {
+//  >error{Remove the body of 'ensure-row-visible', the compiler provides it for a 'ListView'}
+        debug(row);
+    }
+//  <error{Remove the body of 'ensure-row-visible', the compiler provides it for a 'ListView'}
+    @children
+}
+
+export component Test inherits Window {
+    ListView {
+        for x in 2: Rectangle { height: 10px; }
+    }
+}

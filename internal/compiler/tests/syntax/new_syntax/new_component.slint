@@ -24,8 +24,9 @@ component Bar {
         height: self.width;
     }
     Foo {
-        // Tooltip is allowed even though Foo has no `@children`.
+        // Tooltip and Timer are allowed even though Foo has no `@children`.
         Tooltip { }
+        Timer { interval: 1s; }
     }
     Foo {
         Row { }

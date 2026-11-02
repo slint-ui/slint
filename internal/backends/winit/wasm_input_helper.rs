@@ -109,7 +109,7 @@ impl WasmInputHelper {
                         if let Some(text_input) =
                             focus_item.downcast::<i_slint_core::items::TextInput>()
                         {
-                            let text = text_input.as_pin_ref().copy(&window_adapter, &focus_item);
+                            let text = text_input.as_pin_ref().copy(&window_adapter);
                         }
                     }
                 });

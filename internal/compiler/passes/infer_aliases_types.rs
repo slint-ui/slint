@@ -8,8 +8,9 @@
 //! This pass will attempt to assign a type to these based on the type of property they alias.
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::PropertyLookupMode;
 use crate::expression_tree::TwoWayBinding;
-use crate::langtype::{PropertyLookupMode, Type};
+use crate::langtype::Type;
 use crate::lookup::LookupCtx;
 use crate::object_tree::{Document, ElementRc};
 use crate::symbol_counters::SymbolCounters;
@@ -151,7 +152,7 @@ fn resolve_alias(
             }
         } else if let Some(nr) = twb.unwrap().property() {
             let target_is_global =
-                nr.element().borrow().base_type == crate::langtype::ElementType::Global;
+                nr.element().borrow().base_type == crate::element_type::ElementType::Global;
             let purity = nr
                 .element()
                 .borrow()
@@ -159,7 +160,8 @@ fn resolve_alias(
                 .declared_pure;
             // A global aliasing another global's callback is the supported way for one
             // global to implement another's callback, so it isn't deprecated.
-            let aliasing_global = elem.borrow().base_type == crate::langtype::ElementType::Global;
+            let aliasing_global =
+                elem.borrow().base_type == crate::element_type::ElementType::Global;
             let mut elem = elem.borrow_mut();
             let decl = elem.property_declarations.get_mut(prop).unwrap();
             if decl.pure.unwrap_or(false) != purity.unwrap_or(false) {

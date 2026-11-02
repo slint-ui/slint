@@ -9,6 +9,12 @@ export component Light {
         return 1 * (1 - abs(sin(360deg * animation-tick() / duration)));
     }
 
+    in property <bool> frozen: false;
+    property <float> live-opacity: 1;
+    property <float> frozen-opacity: 1;
+    changed frozen => {
+        if frozen { frozen-opacity = live-opacity; }
+    }
     in property <int> index;
     in property <int> volume;
     property <angle> gap: (360deg - (DialState.startAngle - DialState.endAngle)) / DialState.totalLights;
@@ -23,18 +29,18 @@ export component Light {
 
     states [
         lightOff when !root.lightOn: {
-            dialLed.opacity: 0;
+            root.live-opacity: 0;
         }
         lightOn when root.lightOn: {
-            dialLed.opacity: pulse;
+            root.live-opacity: pulse;
             in {
-                animate dialLed.opacity {
+                animate root.live-opacity {
                     duration: 100ms;
                     easing: ease-in-sine;
                 }
             }
             out {
-                animate dialLed.opacity {
+                animate root.live-opacity {
                     duration: 600ms;
                     easing: ease-out-sine;
                 }
@@ -51,15 +57,18 @@ export component Light {
             opacity: 0.1;
         }
 
-        dialLed := Image {
-            source: Palette.dark-color-scheme ? @image-url("../../images/led-dark.png") : @image-url("../../images/led.png");
-            width: self.source.width * 0.5 * 1px;
-            height: self.source.height * 0.5 * 1px;
+        dialLed := Rectangle {
+            opacity: root.frozen ? root.frozen-opacity : root.live-opacity;
+            background: #60a1d5;
+            border-radius: self.width / 2;
+            width: 4px;
+            height: 4px;
         }
     }
 }
 
 export component DialLights {
+    in property <bool> frozen: false;
     width: 212px;
     height: 213px;
     in property <int> volume;
@@ -74,6 +83,7 @@ export component DialLights {
             y: 1px;
             for i in DialState.totalLights + 1: Light {
                 index: i;
+                frozen: root.frozen;
                 volume: root.volume;
             }
         }

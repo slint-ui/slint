@@ -42,6 +42,7 @@ test("emits one page per page-kind compound with the expected slugs", () => {
             "api/slint/sharedstring",
             // Free functions and enums each become their own page too.
             "api/slint/run_event_loop",
+            "api/slint/quit_event_loop",
             "api/slint/eventloopmode",
         ].sort(),
     );
@@ -138,10 +139,38 @@ test("namespace pages list their types (classes and structs together) with links
     assert.match(ns, /- \[Color\]\(color\/\)/);
 });
 
+test("namespace page lists show the brief description of each item", () => {
+    const ns = convert().get("api/slint")?.markdown ?? "";
+    assert.match(
+        ns,
+        /^- \[Color\]\(color\/\): A `Color` represents an RGBA color\.$/m,
+    );
+    assert.match(
+        ns,
+        /^- \[SharedString\]\(sharedstring\/\): A reference-counted, UTF-8 encoded string\.$/m,
+    );
+    assert.match(
+        ns,
+        /^- \[run_event_loop\]\(run_event_loop\/\): Enters the main event loop\.$/m,
+    );
+    assert.match(
+        ns,
+        /^- \[EventLoopMode\]\(eventloopmode\/\): Behavior of the event loop\.$/m,
+    ); // Without a brief, the first sentence of the details, without its link to itself.
+    assert.match(
+        ns,
+        /^- \[quit_event_loop\]\(quit_event_loop\/\): quit\\_event\\_loop\(\) stops the loop of \[run\\_event\\_loop\(\)\]\(run_event_loop\/\), e\.g\. from a button\.$/m,
+    );
+});
+
 test("namespace pages link to function/enum pages instead of inlining them", () => {
     const ns = convert().get("api/slint")?.markdown ?? "";
     // Free functions and enums are listed as links to their own pages…
-    assert.match(ns, /## Functions\n- \[run_event_loop\]\(run_event_loop\/\)/);
+    // Sorted by name, though run_event_loop is declared first.
+    assert.match(
+        ns,
+        /## Functions\n- \[quit_event_loop\]\(quit_event_loop\/\).*\n- \[run_event_loop\]\(run_event_loop\/\)/,
+    );
     assert.match(ns, /## Enumerations\n- \[EventLoopMode\]\(eventloopmode\/\)/);
     // …not rendered inline as member sections on the namespace page.
     assert.doesNotMatch(ns, /### <a id="run_event_loop">/);

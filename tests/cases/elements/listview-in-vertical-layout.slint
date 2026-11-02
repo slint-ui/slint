@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ListView, Button  } from "std-widgets.slint";
+
+// It should compile just fine
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 540px;
+
+    in-out property <length> content-y <=> listview.content-y;
+    out property listview-content-height <=> listview.content-height;
+    out property listview-content-width <=> listview.content-width;
+    out property listview-preferred-height <=> listview.preferred-height;
+
+    out property <bool> test: true;
+
+    callback ensure_visible_row(int, ScrollBehavior);
+    ensure_visible_row(row, behavior) => {
+        listview.ensure_row_visible(row, behavior)
+    }
+
+    VerticalLayout {
+        Button {
+            clicked => {
+                root.ensure_visible_row(5, ScrollBehavior.instant);
+            }
+        }
+
+        listview := ListView {
+            width: parent.width;
+            height: parent.height;
+
+            for data in [
+                { text: "Blue", color: #0000ff, bg: #eeeeee},
+                { text: "Red", color: #ff0000, bg: #eeeeee},
+                { text: "Green", color: #00ff00, bg: #eeeeee},
+                { text: "Yellow", color: #ffff00, bg: #222222 },
+                { text: "Black", color: #000000, bg: #eeeeee },
+                { text: "White", color: #ffffff, bg: #222222 },
+                { text: "Magenta", color: #ff00ff, bg: #eeeeee },
+                { text: "Cyan", color: #00ffff, bg: #222222 },
+            ] : delegate := Rectangle {
+                height: 200px;
+                background: data.color; //@linear-gradient(90deg, data.bg,data.bg.brighter(0.5));
+            }
+        }
+    }
+}
+
+/*
+```rust
+TestCase::new().unwrap();
+```
+
+
+*/

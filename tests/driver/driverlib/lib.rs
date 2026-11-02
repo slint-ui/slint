@@ -3,7 +3,21 @@
 
 use std::sync::LazyLock;
 
+#[cfg(feature = "fork-harness")]
+pub mod fork_harness;
+
 use regex::Regex;
+
+/// The value of `SLINT_ENABLE_EXPERIMENTAL_FEATURES` that enables every experimental feature.
+pub const ALL_EXPERIMENTAL_FEATURES: &str = "interfaces,shadowable,closures,named-slots,match,custom-mouse-cursor,component-container,new-with-existing-window,testable,internal-types";
+
+#[test]
+fn all_experimental_features_are_listed() {
+    assert_eq!(
+        ALL_EXPERIMENTAL_FEATURES,
+        i_slint_compiler::ExperimentalFeatures::all().to_string()
+    );
+}
 
 pub struct TestCase {
     pub absolute_path: std::path::PathBuf,
@@ -33,15 +47,29 @@ impl TestCase {
     }
 }
 
+const STYLES: [&str; 5] = ["fluent", "material", "cupertino", "cosmic", "qt"];
+
 /// Returns a list of all the `.slint` files in the subfolders e.g. `tests/cases` .
 pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
     let mut results = Vec::new();
 
-    let mut all_styles = vec!["fluent", "material", "cupertino", "cosmic"];
-
     println!("cargo:rerun-if-env-changed=DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE");
-    if std::env::var("DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE").unwrap_or_default() == "1" {
-        all_styles.push("qt");
+    let qt_supported =
+        std::env::var("DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE").unwrap_or_default() == "1";
+    let mut all_styles: Vec<&str> =
+        STYLES.into_iter().filter(|style| *style != "qt" || qt_supported).collect();
+
+    println!("cargo:rerun-if-env-changed=SLINT_TEST_STYLES");
+    if let Ok(styles) = std::env::var("SLINT_TEST_STYLES")
+        && !styles.is_empty()
+    {
+        let requested: Vec<&str> = styles.split(',').map(str::trim).collect();
+        // The same list applies to every driver, and some can't use qt even where Qt is
+        // installed, so only reject names that aren't styles at all.
+        if let Some(unknown) = requested.iter().find(|style| !STYLES.contains(style)) {
+            panic!("Unknown style '{unknown}' in SLINT_TEST_STYLES, expected some of {STYLES:?}");
+        }
+        all_styles.retain(|style| requested.contains(style));
     }
 
     let case_root_dir: std::path::PathBuf =
@@ -227,6 +255,38 @@ fn test_extract_ignores() {
 
     let r = extract_ignores(source).collect::<Vec<_>>();
     assert_eq!(r, ["cpp", "rust", "nodejs"]);
+}
+
+fn extract_edition(source: &str) -> Option<&str> {
+    static RX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap());
+    RX.captures(source).map(|mat| mat.get(1).unwrap().as_str())
+}
+
+/// The edition that `source` selects, or the one of this Slint release.
+pub fn edition_or_current(source: &str) -> &str {
+    extract_edition(source).unwrap_or(concat!(
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        ".",
+        env!("CARGO_PKG_VERSION_MINOR")
+    ))
+}
+
+/// Writes a `slint-project.json` into `directory` that compiles `main`
+/// with the edition that `source` selects.
+pub fn write_project_file(
+    directory: &std::path::Path,
+    main: &std::path::Path,
+    source: &str,
+) -> std::io::Result<()> {
+    let contents = serde_json::json!({ "edition": edition_or_current(source), "main": main });
+    std::fs::write(directory.join("slint-project.json"), contents.to_string())
+}
+
+#[test]
+fn test_extract_edition() {
+    assert!(extract_edition("something").is_none());
+    assert_eq!(extract_edition("//edition: 1.18\nBlah {}\n"), Some("1.18"));
+    assert_eq!(extract_edition("//edition: 1.18\r\nBlah {}\r\n"), Some("1.18"));
 }
 
 pub fn extract_cpp_namespace(source: &str) -> Option<String> {

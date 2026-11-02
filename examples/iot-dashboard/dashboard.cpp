@@ -190,9 +190,21 @@ export component MainWindow inherits Window {{
     auto definition = compiler.build_from_source(source_code, SOURCE_DIR);
 
     for (auto diagnostic : compiler.diagnostics()) {
-        std::cerr << (diagnostic.level == slint::interpreter::DiagnosticLevel::Warning ? "warning: "
-                                                                                       : "error: ")
-                  << diagnostic.message << std::endl;
+        const char *level = "error";
+        switch (diagnostic.level) {
+        case slint::interpreter::DiagnosticLevel::Warning:
+            level = "warning";
+            break;
+        case slint::interpreter::DiagnosticLevel::Info:
+            level = "info";
+            break;
+        case slint::interpreter::DiagnosticLevel::Note:
+            level = "note";
+            break;
+        default:
+            break;
+        }
+        std::cerr << level << ": " << diagnostic.message << std::endl;
         std::cerr << "location: " << diagnostic.source_file;
         if (diagnostic.line > 0)
             std::cerr << ":" << diagnostic.line;

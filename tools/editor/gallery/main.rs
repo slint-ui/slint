@@ -5,11 +5,12 @@ use slint::ComponentHandle;
 
 mod ui {
     slint::slint! {
+        #[edition = "1.19"]
         export { GalleryWindow, Gallery, GalleryPage } from "gallery.slint";
         export {
-            Api, BrushKind, ColorData, ColorFieldData, ColorFieldEdit, ColorFieldMode,
-            ElementKind, ElementLibraryEntry, ElementLibraryGroup, FillData, GradientStop,
-            GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind
+            Api, BrushKind, ColorFieldData, ColorFieldEdit, ColorFieldMode,
+            ColorValueData, ElementKind, ElementLibraryEntry, ElementLibraryGroup, ElementLibrarySection, FillData,
+            GradientStop, GradientStopOrder, LinearGradientAxis, PropertyValue, PropertyValueKind
         } from "../ui/api.slint";
     }
 }

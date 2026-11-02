@@ -62,7 +62,12 @@ function setup() {
         getContext: vi.fn().mockReturnValue(context),
     };
     const status = { dataset: {} as Record<string, string>, textContent: "" };
-    const diagnostics = { dataset: {}, hidden: true, textContent: "" };
+    const diagnostics = {
+        dataset: {} as Record<string, string>,
+        hidden: true,
+        textContent: "",
+        replaceChildren: vi.fn(),
+    };
     const controller = new PreviewController(
         canvas as unknown as HTMLCanvasElement,
         status as unknown as HTMLElement,
@@ -198,4 +203,79 @@ test("releases the failed instance and compilation wrappers when show rejects", 
     expect(controller.currentInstance).toBeUndefined();
     expect(status.dataset).toEqual({ state: "error", revision: "1" });
     expect(canvas.style.visibility).toBe("hidden");
+});
+
+test("export diagnostics preserve the preview, release compiler wrappers, and are cached", async () => {
+    const { controller, canvas, status, diagnostics } = setup();
+    vi.stubGlobal("document", {
+        createElement: () => ({ append: vi.fn(), textContent: "" }),
+    });
+    const preview = compiled();
+    const validation = {
+        component: undefined,
+        error_string: "Invalid export",
+        free: vi.fn(),
+    };
+    const compilation = deferred<typeof validation>();
+    runtime.compile
+        .mockResolvedValueOnce(preview.result)
+        .mockImplementationOnce(() => {
+            expect(preview.component.free).toHaveBeenCalledOnce();
+            expect(preview.result.free).toHaveBeenCalledOnce();
+            expect(canvas.style.visibility).toBe("visible");
+            return compilation.promise;
+        });
+    const initial = controller.initialize(
+        "preview",
+        1,
+        undefined,
+        [],
+        "export",
+    );
+    await vi.waitFor(() => expect(runtime.compile).toHaveBeenCalledTimes(2));
+    expect(status.dataset).toEqual({ state: "compiling", revision: "1" });
+    compilation.resolve(validation);
+    await initial;
+    expect(validation.free).toHaveBeenCalledOnce();
+    expect(status.dataset).toEqual({ state: "ready", revision: "1" });
+    expect(diagnostics.dataset.severity).toBe("warning");
+    controller.requestRender("preview", 2, undefined, [], "export");
+    await vi.waitFor(() =>
+        expect(status.dataset).toEqual({ state: "ready", revision: "2" }),
+    );
+    expect(runtime.compile).toHaveBeenCalledTimes(2);
+    expect(canvas.dispatchEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+            type: "preview-export-error",
+            detail: expect.objectContaining({ revision: 2 }),
+        }),
+    );
+    const revalidation = deferred<typeof validation>();
+    runtime.compile.mockReturnValueOnce(revalidation.promise);
+    controller.requestRender("preview", 3, undefined, [], "different export");
+    await vi.waitFor(() => expect(runtime.compile).toHaveBeenCalledTimes(3));
+    expect(status.dataset).toEqual({ state: "compiling", revision: "3" });
+    revalidation.resolve(validation);
+    await vi.waitFor(() =>
+        expect(status.dataset).toEqual({ state: "ready", revision: "3" }),
+    );
+});
+
+test("export compiler rejection reports a runtime failure and blocks further runtime calls", async () => {
+    const { controller, canvas, status, diagnostics } = setup();
+    const preview = compiled();
+    runtime.compile
+        .mockResolvedValueOnce(preview.result)
+        .mockRejectedValueOnce(new WebAssembly.RuntimeError("unreachable"));
+    await controller.initialize("preview", 1, undefined, [], "export");
+    expect(status.dataset).toEqual({ state: "error", revision: "1" });
+    expect(canvas.style.visibility).toBe("hidden");
+    expect(diagnostics.textContent).toContain("Export compiler failed");
+    expect(diagnostics.textContent).toContain("Restart the plugin");
+    controller.requestRender("next", 2);
+    await vi.waitFor(() =>
+        expect(status.dataset).toEqual({ state: "error", revision: "2" }),
+    );
+    expect(diagnostics.textContent).toContain("Export compiler failed");
+    expect(runtime.compile).toHaveBeenCalledTimes(2);
 });

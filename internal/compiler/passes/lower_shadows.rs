@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Pass that lowers synthetic `drop-shadow-*` and `inner-shadow-*` properties to proper shadow elements.
+//! Pass that lowers synthetic `drop-shadow-*`, `inner-shadow-*`, and `backdrop-blur` properties
+//! to `BoxShadow` and `BackdropBlur` elements.
 // At the moment only shadows on `Rectangle` elements are supported.
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::BindingExpression;
 use crate::{expression_tree::Expression, object_tree::*};
 use crate::{expression_tree::NamedReference, typeregister::TypeRegister};
@@ -12,6 +13,17 @@ use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+/// Without one of these set, a drop shadow has no shape to cast
+const DROP_SHADOW_SHAPE_PROPERTIES: [&str; 3] = ["background", "border-color", "border-width"];
+
+/// Whether `name` gives the drop shadow of `elem` its shape, even when set to its default value
+pub(crate) fn shapes_drop_shadow(elem: &Element, name: &str) -> bool {
+    DROP_SHADOW_SHAPE_PROPERTIES.contains(&name)
+        && crate::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
+            .iter()
+            .any(|(p, _)| elem.is_binding_set(p, true))
+}
 
 #[derive(Copy, Clone)]
 enum ShadowKind {
@@ -53,6 +65,23 @@ fn create_box_shadow_element(
         return None;
     }
 
+    if matches!(kind, ShadowKind::Drop)
+        && !DROP_SHADOW_SHAPE_PROPERTIES
+            .iter()
+            .any(|name| sibling_element.borrow().is_binding_set(name, true))
+    {
+        let binding = kind
+            .property_list()
+            .iter()
+            .find_map(|(name, _)| shadow_property_bindings.get(*name))
+            .unwrap();
+        diag.push_warning(
+            "Set a 'background' or border to cast a drop shadow; children don't contribute to it"
+                .into(),
+            binding,
+        );
+    }
+
     let prefix = kind.prefix();
     let id_suffix = match kind {
         ShadowKind::Drop => "shadow",
@@ -81,6 +110,30 @@ fn create_box_shadow_element(
         ..Default::default()
     };
 
+    if matches!(kind, ShadowKind::Drop) {
+        for property_name in DROP_SHADOW_SHAPE_PROPERTIES {
+            // A property the rectangle leaves unset has the same default on the shadow, and
+            // referencing it would widen the rectangle's native class to BasicBorderRectangle.
+            if !sibling_element.borrow().is_binding_set(property_name, true) {
+                continue;
+            }
+            element.set_binding(
+                property_name.into(),
+                Expression::PropertyReference(NamedReference::new(
+                    sibling_element,
+                    property_name.into(),
+                ))
+                .into(),
+            );
+        }
+    }
+
+    bind_border_radius(&mut element, sibling_element);
+
+    Some(element)
+}
+
+fn bind_border_radius(element: &mut Element, sibling_element: &ElementRc) {
     for property_name in super::border_radius::BORDER_RADIUS_PROPERTIES {
         let source_property = if sibling_element.borrow().is_binding_set(property_name, true) {
             Some(SmolStr::new_static(property_name))
@@ -102,8 +155,6 @@ fn create_box_shadow_element(
             );
         }
     }
-
-    Some(element)
 }
 
 fn prepend_inner_shadow_child(parent: &ElementRc, inner_elem: Element) {
@@ -150,6 +201,72 @@ fn inject_shadow_element_in_repeated_element(
     );
 }
 
+fn create_backdrop_blur_element(
+    binding: BindingExpression,
+    sibling_element: &ElementRc,
+    type_register: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) -> Option<Element> {
+    if matches!(sibling_element.borrow().builtin_type(), Some(b) if b.name != "Rectangle") {
+        diag.push_error(
+            "'backdrop-blur' only works on a 'Rectangle'; set it on a 'Rectangle' behind this element"
+                .into(),
+            &binding,
+        );
+        return None;
+    }
+
+    let mut element = Element {
+        id: format_smolstr!("{}-backdrop-blur", sibling_element.borrow().id),
+        base_type: type_register.lookup_builtin_element("BackdropBlur").unwrap(),
+        enclosing_component: sibling_element.borrow().enclosing_component.clone(),
+        ..Default::default()
+    };
+    element.set_binding(SmolStr::new_static("blur"), binding);
+    bind_border_radius(&mut element, sibling_element);
+    Some(element)
+}
+
+// The element that an `Opacity` or `Layer` was injected for, looking through the `Layer`,
+// `Clip`, and `Transform` elements injected for `cache-rendering-hint`, `visible`, and the
+// transform properties.
+fn injected_for(injected: &ElementRc) -> Option<ElementRc> {
+    let mut element = injected.borrow().children.first()?.clone();
+    while matches!(element.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "Layer" | "Clip" | "Transform"))
+    {
+        let child = element.borrow().children.first()?.clone();
+        element = child;
+    }
+    Some(element)
+}
+
+fn is_backdrop_blur_assigned(element: &ElementRc) -> bool {
+    element
+        .borrow()
+        .property_analysis
+        .borrow()
+        .get("backdrop-blur")
+        .is_some_and(|a| a.is_set || a.is_linked)
+}
+
+fn has_backdrop_blur(element: &ElementRc) -> bool {
+    element.borrow().binding("backdrop-blur").is_some() || is_backdrop_blur_assigned(element)
+}
+
+fn take_backdrop_blur_binding(element: &ElementRc) -> Option<BindingExpression> {
+    if is_backdrop_blur_assigned(element) {
+        let mut binding = BindingExpression::new_two_way(
+            NamedReference::new(element, SmolStr::new_static("backdrop-blur")).into(),
+        );
+        binding.span = Some(element.borrow().to_source_location());
+        return Some(binding);
+    }
+    let mut element = element.borrow_mut();
+    let binding = element.take_binding("backdrop-blur")?;
+    element.property_declarations.remove("backdrop-blur");
+    Some(binding)
+}
+
 fn take_shadow_property_bindings(
     element: &ElementRc,
     kind: ShadowKind,
@@ -168,6 +285,12 @@ fn take_shadow_property_bindings(
         .collect()
 }
 
+fn push_beneath(parent: &ElementRc, child: &ElementRc, mut new_element: Element) {
+    new_element.geometry_props.clone_from(&child.borrow().geometry_props);
+    new_element.z_order = child.borrow().z_order.clone();
+    parent.borrow_mut().children.push(ElementRc::new(new_element.into()));
+}
+
 pub fn lower_shadow_properties(
     component: &Rc<Component>,
     type_register: &TypeRegister,
@@ -183,20 +306,41 @@ pub fn lower_shadow_properties(
             );
         }
     }
+    if let Some(binding) = take_backdrop_blur_binding(&component.root_element) {
+        diag.push_warning(
+            "'backdrop-blur' has no effect on the root element; set it on a child 'Rectangle'"
+                .into(),
+            &binding,
+        );
+    }
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        // Repeater handling: drop shadow becomes the new root (so it renders underneath); inner
-        // shadow is prepended as a child of the repeater's root rectangle (so it renders above
-        // the background but below the rectangle's original children).
+        // Like CSS, a blur reads beneath its own element's opacity group, but not beneath an
+        // ancestor's. The wrapped element still has its binding, which the loop below takes.
+        if matches!(elem.borrow().builtin_type(), Some(b) if matches!(b.name.as_str(), "Opacity" | "Layer"))
+            && injected_for(elem).is_some_and(|wrapped| has_backdrop_blur(&wrapped))
+        {
+            elem.borrow_mut().set_binding(
+                SmolStr::new_static("wraps-backdrop-blur"),
+                Expression::BoolLiteral(true).into(),
+            );
+        }
+
+        // Repeater handling: drop shadow becomes the new root, and backdrop blur the root above
+        // it (so they render underneath); inner shadow is prepended as a child of the repeater's
+        // root rectangle (so it renders above the background but below the rectangle's original children).
         if elem.borrow().repeated.is_some() {
-            // Take both binding sets up front, then release every Rc clone before
+            // Take all bindings up front, then release every Rc clone before
             // `inject_element_as_repeated_element`, which asserts the component has strong_count == 2.
-            let (drop_shadow_properties, inner_shadow_properties) = {
+            let (drop_shadow_properties, inner_shadow_properties, blur_elem) = {
                 let component = elem.borrow().base_type.as_component().clone();
-                let drop = take_shadow_property_bindings(&component.root_element, ShadowKind::Drop);
-                let inner =
-                    take_shadow_property_bindings(&component.root_element, ShadowKind::Inner);
-                (drop, inner)
+                let rect = &component.root_element;
+                let drop = take_shadow_property_bindings(rect, ShadowKind::Drop);
+                let inner = take_shadow_property_bindings(rect, ShadowKind::Inner);
+                let blur = take_backdrop_blur_binding(rect).and_then(|binding| {
+                    create_backdrop_blur_element(binding, rect, type_register, diag)
+                });
+                (drop, inner, blur)
             };
 
             if !drop_shadow_properties.is_empty() {
@@ -243,6 +387,13 @@ pub fn lower_shadow_properties(
                     prepend_inner_shadow_child(&root, inner_elem);
                 }
             }
+
+            if let Some(blur_elem) = blur_elem {
+                crate::object_tree::inject_element_as_repeated_element(
+                    elem,
+                    Element::make_rc(blur_elem),
+                );
+            }
         }
 
         let old_children = {
@@ -251,14 +402,21 @@ pub fn lower_shadow_properties(
             std::mem::replace(&mut elem.children, new_children)
         };
 
-        // For each child: drop shadow renders BEFORE (underneath); inner shadow is prepended as
-        // the child's first child (above background, below the original child content).
+        // For each child: backdrop blur, then drop shadow render BEFORE (underneath); inner shadow
+        // is prepended as the child's first child (above background, below the original child content).
         for child in old_children {
             let drop_shadow_properties = take_shadow_property_bindings(&child, ShadowKind::Drop);
             let inner_shadow_properties = take_shadow_property_bindings(&child, ShadowKind::Inner);
 
+            if let Some(binding) = take_backdrop_blur_binding(&child)
+                && let Some(blur_elem) =
+                    create_backdrop_blur_element(binding, &child, type_register, diag)
+            {
+                push_beneath(elem, &child, blur_elem);
+            }
+
             if !drop_shadow_properties.is_empty()
-                && let Some(mut shadow_elem) = create_box_shadow_element(
+                && let Some(shadow_elem) = create_box_shadow_element(
                     drop_shadow_properties,
                     &child,
                     ShadowKind::Drop,
@@ -266,11 +424,7 @@ pub fn lower_shadow_properties(
                     diag,
                 )
             {
-                shadow_elem.geometry_props.clone_from(&child.borrow().geometry_props);
-                // Sort the shadow with the same z as its element: ties keep declaration
-                // order and the shadow is inserted right before its element, so it stays beneath.
-                shadow_elem.z_order = child.borrow().z_order.clone();
-                elem.borrow_mut().children.push(ElementRc::new(shadow_elem.into()));
+                push_beneath(elem, &child, shadow_elem);
             }
 
             if !inner_shadow_properties.is_empty()

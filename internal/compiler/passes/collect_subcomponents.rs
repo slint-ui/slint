@@ -7,7 +7,7 @@
 
 use by_address::ByAddress;
 
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::object_tree::*;
 use std::collections::HashSet;
 use std::rc::Rc;

@@ -45,6 +45,9 @@ export component TestCase inherits Rectangle {
     }
 
     out property <image> with-border: @image-url("dog.jpg", nine-slice(12 13 14 15));
+    out property <image> svg-file: @image-url("back.svg");
+    in-out property <image> loaded;
+    out property <length> loaded-width: loaded.width * 1px;
 
     in-out property <length> img_width: img.width;
     in-out property <length> img_height: img.height;
@@ -94,5 +97,13 @@ var instance = new slint.TestCase();
 assert.equal(instance.img_width, 320);
 assert.equal(instance.img_height, 480);
 assert(instance.test);
+
+assert(instance.svg_file.path.endsWith("back.svg"));
+instance.loaded = slintlib.ImageData.loadFromPath(instance.svg_file.path);
+assert.equal(instance.loaded_width, instance.svg_file.width);
+instance.loaded = slintlib.ImageData.loadFromPath(instance.with_border.path);
+assert.equal(instance.loaded_width, instance.with_border.width);
+instance.loaded = undefined;
+assert.equal(instance.loaded_width, 0);
 ```
 */

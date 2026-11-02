@@ -14,6 +14,7 @@ This module has different sub modules with the actual parser functions
 */
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
+use crate::source_path::SourcePath;
 use smol_str::SmolStr;
 use std::fmt::Display;
 
@@ -272,6 +273,12 @@ macro_rules! declare_syntax {
                     }
                 }
 
+                impl From<$nodekind> for NodeOrToken {
+                    fn from(node: $nodekind) -> Self {
+                        NodeOrToken::Node(node.0)
+                    }
+                }
+
                 impl From<SyntaxNode> for $nodekind {
                     #[track_caller]
                     fn from(node: SyntaxNode) -> Self {
@@ -366,22 +373,26 @@ declare_syntax! {
         MatchCase -> [ Expression, ?SubElement ],
         /// *: Elem { }
         WildcardMatchCase -> [ ?SubElement ],
-        CallbackDeclaration -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
+        CallbackDeclaration -> [ ?PropertyDeprecation, ?ShadowableAttribute, ?TestableAttribute, DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
-        Function -> [ ?PropertyDeprecation, ?ShadowableAttribute, DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
+        Function -> [ ?PropertyDeprecation, ?ShadowableAttribute, ?TestableAttribute, DeclaredIdentifier, *ArgumentDeclaration, ?ReturnType, ?CodeBlock ],
         ArgumentDeclaration -> [DeclaredIdentifier, Type],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier, ?CodeBlock, ?Expression ],
         /// Declaration of a property.
-        PropertyDeclaration-> [ ?PropertyDeprecation, ?ShadowableAttribute, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        PropertyDeclaration-> [ ?PropertyDeprecation, ?ShadowableAttribute, ?TestableAttribute, ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// `@deprecated` or `@deprecated("message")` prefixing a member declaration.
         /// The optional message is a StringLiteral token child.
         PropertyDeprecation -> [],
         /// `@shadowable` prefixing a property, callback or function declaration: a component
         /// inheriting from this one may declare a member of the same name, shadowing this one.
         ShadowableAttribute -> [],
+        /// `@testable` prefixing a property declaration: the property is guaranteed to appear
+        /// in the testable-property introspection channel, regardless of its visibility or
+        /// whether anything else in the document reads it.
+        TestableAttribute -> [],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
@@ -391,7 +402,7 @@ declare_syntax! {
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
         DeclaredIdentifier -> [],
         ChildrenPlaceholder -> [],
-        SlotAssignment -> [ DeclaredIdentifier, SubElement ],
+        SlotAssignment -> [ DeclaredIdentifier, ?SubElement ],
         SlotForwarding -> [ DeclaredIdentifier, ?Expression ],
         Binding-> [ BindingExpression ],
         /// `xxx <=> something`
@@ -418,8 +429,8 @@ declare_syntax! {
         /// `@tr("foo", ...)`  // the string is a StringLiteral
         AtTr -> [?TrContext, ?TrPlural, *Expression],
         AtMarkdown -> [*Expression],
-        /// `slot header;`
-        SlotDeclaration -> [ DeclaredIdentifier ],
+        /// `slot header;` or `slot header << Default {}`
+        SlotDeclaration -> [ ?QualifiedName, DeclaredIdentifier, ?SubElement ],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
         /// `| "foo" % n`  in a `AtTr` node
@@ -546,7 +557,7 @@ mod parser_trait {
         #[must_use = "The node will be finished when it is dropped"]
         fn start_node(&mut self, kind: SyntaxKind) -> Node<'_, Self> {
             self.start_node_impl(kind, None, NodeToken(()));
-            Node(self)
+            Node(self, kind)
         }
         #[must_use = "use start_node_at to use this checkpoint"]
         fn checkpoint(&mut self) -> Self::Checkpoint;
@@ -557,11 +568,11 @@ mod parser_trait {
             kind: SyntaxKind,
         ) -> Node<'_, Self> {
             self.start_node_impl(kind, checkpoint.into(), NodeToken(()));
-            Node(self)
+            Node(self, kind)
         }
 
         /// Can only be called by Node::drop
-        fn finish_node_impl(&mut self, token: NodeToken);
+        fn finish_node_impl(&mut self, kind: SyntaxKind, token: NodeToken);
         /// Can only be called by Self::start_node
         fn start_node_impl(
             &mut self,
@@ -634,10 +645,10 @@ mod parser_trait {
     /// The return value of `DefaultParser::start_node`. This borrows the parser
     /// and finishes the node on Drop
     #[derive(derive_more::DerefMut)]
-    pub struct Node<'a, P: Parser>(&'a mut P);
+    pub struct Node<'a, P: Parser>(#[deref_mut] &'a mut P, SyntaxKind);
     impl<P: Parser> Drop for Node<'_, P> {
         fn drop(&mut self) {
-            self.0.finish_node_impl(NodeToken(()));
+            self.0.finish_node_impl(self.1, NodeToken(()));
         }
     }
     impl<P: Parser> core::ops::Deref for Node<'_, P> {
@@ -650,8 +661,20 @@ mod parser_trait {
 #[doc(inline)]
 pub use parser_trait::*;
 
-/// Nesting level at which the parser gives up (#6494). Real files stay well below that.
-const MAX_DEPTH: usize = 128;
+/// Nesting level at which the parser gives up (#6494).
+/// Up to that depth, a debug build of the compiler fits in a 900 KB stack: see `tests/deep_nesting.rs`.
+const MAX_DEPTH: usize = 256;
+
+/// How much a node of this kind counts toward [`MAX_DEPTH`].
+/// A nested call, array, `if` element, or `for` element uses more stack in the compiler than
+/// other nesting.
+fn nesting_weight(kind: SyntaxKind) -> usize {
+    match kind {
+        SyntaxKind::FunctionCallExpression => 4,
+        SyntaxKind::Array | SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => 3,
+        _ => 1,
+    }
+}
 
 pub struct DefaultParser<'a> {
     builder: rowan::GreenNodeBuilder<'static>,
@@ -716,7 +739,7 @@ impl Parser for DefaultParser<'_> {
         if kind != SyntaxKind::Document {
             self.consume_ws();
         }
-        self.depth += 1;
+        self.depth += nesting_weight(kind);
         match checkpoint {
             None => self.builder.start_node(kind.into()),
             Some(cp) => self.builder.start_node_at(cp, kind.into()),
@@ -733,8 +756,8 @@ impl Parser for DefaultParser<'_> {
         }
     }
 
-    fn finish_node_impl(&mut self, _: NodeToken) {
-        self.depth -= 1;
+    fn finish_node_impl(&mut self, kind: SyntaxKind, _: NodeToken) {
+        self.depth -= nesting_weight(kind);
         self.builder.finish_node();
     }
 
@@ -1053,6 +1076,15 @@ impl Spanned for Option<NodeOrToken> {
     }
 }
 
+impl Spanned for Option<&NodeOrToken> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.map(|t| t.span()).unwrap_or_default()
+    }
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.and_then(|t| t.source_file())
+    }
+}
+
 impl Spanned for Option<SyntaxToken> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|t| t.span()).unwrap_or_default()
@@ -1067,66 +1099,17 @@ pub fn identifier_text(node: &SyntaxNode) -> Option<SmolStr> {
     node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))
 }
 
-pub fn normalize_identifier(ident: &str) -> SmolStr {
-    if is_identifier_normalized(ident) {
-        // one bulk copy instead of the char-by-char builder below
-        return SmolStr::new(ident);
-    }
-    let mut builder = smol_str::SmolStrBuilder::default();
-    for (pos, c) in ident.chars().enumerate() {
-        match (pos, c) {
-            (0, '-') | (0, '_') => builder.push('_'),
-            (_, '_') => builder.push('-'),
-            (_, c) => builder.push(c),
-        }
-    }
-    builder.finish()
-}
-
-/// Returns true if [`normalize_identifier`] would return `ident` unchanged.
-/// Lets callers skip the copy (and heap allocation for long identifiers).
-pub fn is_identifier_normalized(ident: &str) -> bool {
-    // '-' and '_' are ASCII, so a byte scan is UTF-8-safe
-    let b = ident.as_bytes();
-    b.first() != Some(&b'-') && !b[1.min(b.len())..].contains(&b'_')
-}
-
-#[test]
-fn test_normalize_identifier() {
-    assert_eq!(normalize_identifier("true"), SmolStr::new("true"));
-    assert_eq!(normalize_identifier("foo_bar"), SmolStr::new("foo-bar"));
-    assert_eq!(normalize_identifier("-foo_bar"), SmolStr::new("_foo-bar"));
-    assert_eq!(normalize_identifier("-foo-bar"), SmolStr::new("_foo-bar"));
-    assert_eq!(normalize_identifier("foo_bar_"), SmolStr::new("foo-bar-"));
-    assert_eq!(normalize_identifier("foo_bar-"), SmolStr::new("foo-bar-"));
-    assert_eq!(normalize_identifier("_foo_bar_"), SmolStr::new("_foo-bar-"));
-    assert_eq!(normalize_identifier("__1"), SmolStr::new("_-1"));
-    assert_eq!(normalize_identifier("--1"), SmolStr::new("_-1"));
-    assert_eq!(normalize_identifier("--1--"), SmolStr::new("_-1--"));
-}
-
-#[test]
-fn test_is_identifier_normalized() {
-    for ident in
-        ["true", "foo-bar", "foo_bar", "-foo", "_foo", "foo-bar-", "", "-", "_", "ä_ö", "ä-ö"]
-    {
-        assert_eq!(
-            is_identifier_normalized(ident),
-            normalize_identifier(ident) == ident,
-            "{ident:?}"
-        );
-    }
-}
+pub use crate::names::{is_identifier_normalized, normalize_identifier};
 
 // Actual parser
 pub fn parse(
     source: String,
-    path: Option<&std::path::Path>,
+    path: Option<SourcePath>,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
     p.source_file = std::sync::Arc::new(crate::diagnostics::SourceFileInner::new(
-        path.map(crate::pathutils::clean_path).unwrap_or_default(),
+        path.unwrap_or_default(),
         source,
     ));
     document::parse_document(&mut p);
@@ -1140,11 +1123,11 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
     build_diagnostics: &mut BuildDiagnostics,
 ) -> Option<SyntaxNode> {
-    let path = crate::pathutils::clean_path(path.as_ref());
+    let path = crate::source_path::clean_path(path.as_ref());
     let source = crate::diagnostics::load_from_path(&path)
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;
-    Some(parse(source, Some(path.as_ref()), build_diagnostics))
+    Some(parse(source, Some(SourcePath::File(path)), build_diagnostics))
 }
 
 pub fn parse_tokens(

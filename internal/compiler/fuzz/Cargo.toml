@@ -17,7 +17,7 @@ license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint
 cargo-fuzz = true
 
 [dependencies]
-i-slint-compiler = { path = "..", default-features = false }
+i-slint-compiler = { path = "..", default-features = false, features = ["std"] }
 libfuzzer-sys = "0.4"
 spin_on = "0.1"
 

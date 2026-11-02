@@ -39,6 +39,8 @@ Passes are organized into three phases in `internal/compiler/passes.rs`:
 - `resolving` - Resolve expressions, types, and references
 - `purity_check` - Verify function purity
 - `check_expressions` - Validate expression semantics
+- `redundant_property_bindings` - Report bindings that set a property to its default value.
+  It runs here so that the LSP reports it, and sees the bindings as written.
 
 ### 2. Transformation Passes (main `run_passes`)
 - `lower_*` passes - Transform high-level constructs (states, layouts, popups, etc.)
@@ -138,3 +140,13 @@ cargo run -p slint-compiler -- -f cpp path/to/file.slint > path/to/file.slint.cp
 ```
 
 This is invaluable when debugging code generation issues — you can see exactly what the generators emit without running a full build of an application.
+
+### Binding Loop Chains
+
+A binding loop diagnostic shows each property the compiler invents, such as `layoutinfo-h` and `layout-cache-v`, as only its element,
+because the source can never name them.
+Set `SLINT_FULL_BINDING_LOOP_CHAIN` to keep them, which is what you want when the loop is the compiler's own doing:
+
+```sh
+SLINT_FULL_BINDING_LOOP_CHAIN=1 cargo run -p slint-compiler -- -f rust -o /dev/null path/to/file.slint
+```

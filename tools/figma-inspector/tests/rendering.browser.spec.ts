@@ -4,7 +4,12 @@
 import { expect, test } from "vitest";
 import { convertSnapshotJson, convertSnapshot } from "../src/preview/converter";
 import { normalizeSource } from "../src/plugin/normalize";
-import { mountPreview, readFixture, canvasPixels } from "./browser-harness";
+import {
+    mountCanvasPreview,
+    mountPreview,
+    readFixture,
+    expectCanvasPixels,
+} from "./browser-harness";
 import type { SourceCapture } from "../src/plugin/source";
 import { styledTextFamily } from "./button-family";
 
@@ -49,7 +54,7 @@ test.each([
         });
         if (!generated.ok) throw Error("Expected native source");
         expect(generated.source).toContain("self.preferred-width");
-        const p = await mountPreview();
+        const p = await mountCanvasPreview();
         p.send({
             type: "preview-source",
             revision: 1,
@@ -57,7 +62,13 @@ test.each([
             exportPackage: { source: generated.source, files: [] },
         });
         await p.ready(1);
-        const actual = await canvasPixels(p);
+        const actual = await expectCanvasPixels(p, (pixels) => {
+            expect(
+                pixels.data.some(
+                    (value, index) => index % 4 !== 3 && value < 200,
+                ),
+            ).toBe(true);
+        });
         const reference = `export component Reference inherits Window {
         width: 280px; height: 180px; background: white;
         Text { x: ${(280 - (wrapped ? width : 240)) / 2}px; y: -60px; width: ${wrapped ? width : 240}px; height: 300px;
@@ -73,16 +84,17 @@ test.each([
             exportPackage: { source: reference, files: [] },
         });
         await p.ready(2);
-        const expected = await canvasPixels(p);
-        expect(actual.width).toBe(expected.width);
-        expect(actual.height).toBe(expected.height);
-        expect(
-            actual.data.reduce(
-                (count, value, index) =>
-                    count + Number(value !== expected.data[index]),
-                0,
-            ),
-        ).toBe(0);
+        await expectCanvasPixels(p, (expected) => {
+            expect(actual.width).toBe(expected.width);
+            expect(actual.height).toBe(expected.height);
+            expect(
+                actual.data.reduce(
+                    (count, value, index) =>
+                        count + Number(value !== expected.data[index]),
+                    0,
+                ),
+            ).toBe(0);
+        });
     },
 );
 

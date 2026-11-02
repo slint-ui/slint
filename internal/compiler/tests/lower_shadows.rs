@@ -9,14 +9,18 @@ use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
 use smol_str::ToSmolStr;
 
-fn compile(source: &str) -> ElementRc {
+fn compile_with_diagnostics(source: &str) -> (ElementRc, BuildDiagnostics) {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, &mut diagnostics);
     let compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
     let (doc, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
-    doc.last_exported_component().unwrap().root_element.clone()
+    (doc.last_exported_component().unwrap().root_element.clone(), diagnostics)
+}
+
+fn compile(source: &str) -> ElementRc {
+    compile_with_diagnostics(source).0
 }
 
 fn find_by_base_type(root: &ElementRc, base_type: &str) -> ElementRc {
@@ -147,4 +151,130 @@ export component TestCase inherits Window {
         .map(|c| c.borrow().base_type.to_smolstr())
         .collect::<Vec<_>>();
     assert_eq!(child_types, ["BoxShadow", "Rectangle"]);
+}
+
+#[test]
+fn box_shadow_tracks_a_background_set_from_a_state() {
+    let root = compile(
+        r#"
+export component TestCase inherits Window {
+    in-out property <bool> active;
+    width: 160px;
+    height: 120px;
+
+    Rectangle {
+        width: 100px;
+        height: 80px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+        states [
+            on when root.active: { background: green; }
+        ]
+    }
+}
+"#,
+    );
+
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
+    let box_shadow = box_shadow.borrow();
+    assert!(box_shadow.is_binding_set("background", false));
+}
+
+#[test]
+fn box_shadow_omits_the_paint_the_rectangle_never_sets() {
+    let root = compile(
+        r#"
+export component TestCase inherits Window {
+    width: 160px;
+    height: 120px;
+
+    Rectangle {
+        width: 100px;
+        height: 80px;
+        background: green;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+    }
+}
+"#,
+    );
+
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
+    let box_shadow = box_shadow.borrow();
+    assert!(box_shadow.is_binding_set("background", false));
+    assert!(!box_shadow.is_binding_set("border-color", false));
+    assert!(!box_shadow.is_binding_set("border-width", false));
+}
+
+#[test]
+fn box_shadow_tracks_a_background_set_through_the_color_alias() {
+    let root = compile(
+        r#"
+export component TestCase inherits Window {
+    width: 160px;
+    height: 120px;
+
+    Rectangle {
+        width: 100px;
+        height: 80px;
+        color: green;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+    }
+}
+"#,
+    );
+
+    let box_shadow = find_by_base_type(&root, "BoxShadow");
+    let box_shadow = box_shadow.borrow();
+    assert!(box_shadow.is_binding_set("background", false));
+}
+
+#[test]
+fn unpainted_container_warns_that_children_do_not_cast_a_shadow() {
+    let (_, diagnostics) = compile_with_diagnostics(
+        r#"
+export component TestCase inherits Window {
+    Rectangle {
+        drop-shadow-color: black;
+        Rectangle { background: white; }
+    }
+}
+"#,
+    );
+    assert!(
+        diagnostics
+            .to_string_vec()
+            .iter()
+            .any(|message| message.contains("Set a 'background' or border to cast a drop shadow"))
+    );
+}
+
+#[test]
+fn painted_rectangles_do_not_warn_about_missing_shadow_paint() {
+    for paint in [
+        "background: white;",
+        "border-color: red; border-width: 1px;",
+        "states [ active when true: { background: white; } ]",
+        "color: white;",
+    ] {
+        let (_, diagnostics) = compile_with_diagnostics(&format!(
+            r#"
+export component TestCase inherits Window {{
+    Rectangle {{
+        drop-shadow-color: black;
+        {paint}
+    }}
+}}
+"#
+        ));
+        assert!(
+            !diagnostics
+                .to_string_vec()
+                .iter()
+                .any(|message| message
+                    .contains("Set a 'background' or border to cast a drop shadow")),
+            "{paint}"
+        );
+    }
 }

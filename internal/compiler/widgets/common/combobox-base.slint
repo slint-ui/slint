@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ComboBoxInterface } from "std-widget-interfaces.slint";
+
 export component ComboBoxBase {
+    implement ComboBoxInterface <=> self;
+
     in property <[string]> model;
     in property <bool> enabled <=> i-focus-scope.enabled;
     out property <bool> has-focus: (i-focus-scope.has-focus || popup-has-focus) && root.enabled;

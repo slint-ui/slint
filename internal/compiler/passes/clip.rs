@@ -7,8 +7,8 @@ use smol_str::{SmolStr, format_smolstr};
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::ElementType;
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 

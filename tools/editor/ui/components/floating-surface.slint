@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Style, Metrics } from "../style.slint";
+
+export component FloatingSurface inherits Rectangle {
+    background: Style.floating-surface.background;
+    border-color: Style.floating-surface.border;
+    border-width: Metrics.border-width;
+    border-radius: Style.floating-surface.radius;
+    drop-shadow-color: Style.floating-surface.ambient-shadow.color;
+    drop-shadow-blur: Style.floating-surface.ambient-shadow.blur;
+    drop-shadow-offset-y: Style.floating-surface.ambient-shadow.offset-y;
+
+    Rectangle {
+        x: 0px; y: 0px;
+        width: root.width; height: root.height;
+        background: root.background;
+        border-color: root.border-color;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
+        drop-shadow-color: Style.floating-surface.key-shadow.color;
+        drop-shadow-blur: Style.floating-surface.key-shadow.blur;
+        drop-shadow-offset-y: Style.floating-surface.key-shadow.offset-y;
+    }
+    Rectangle {
+        border-radius: root.border-radius;
+        clip: true;
+        @children
+    }
+}

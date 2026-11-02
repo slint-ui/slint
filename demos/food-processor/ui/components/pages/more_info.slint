@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe } from "../../recipe-adapter.slint";
+import { Styles } from "../../styles.slint";
+
+export component MoreInfoPage inherits VerticalLayout {
+    in property <Recipe> recipe;
+
+    spacing: Styles.spacing-lg;
+    padding: Styles.side-margin;
+    alignment: start;
+
+    Text {
+        text: "Serving Notes";
+        font-size: Styles.regular-font-size;
+        font-weight: FontWeight.semi-bold;
+        color: #171717;
+    }
+
+    Text {
+        text: root.recipe.serving-notes;
+        wrap: word-wrap;
+        font-size: Styles.small-font-size;
+        color: #525252;
+    }
+}
