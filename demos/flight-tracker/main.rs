@@ -30,19 +30,19 @@ slint::include_modules!();
 const VIEW_CYCLE: [(View, f32); 3] = [(View::Follow, 14.0), (View::Route, 8.0), (View::Globe, 8.0)];
 const BOARDING_SECONDS: f32 = 4.0;
 const ARRIVED_SECONDS: f32 = 7.0;
-/// How many flights the departures board shows.
-const TILES: usize = 6;
-/// How long the board shows before the kiosk picks a flight, and how long that flight's tile
-/// is highlighted before the zoom.
-const BOARD_SECONDS: f32 = 6.0;
-const HIGHLIGHT_SECONDS: f32 = 1.5;
-/// How long the globe takes to grow from its tile to the window, or back.
+/// How long the kiosk waits on the entry screen before it proposes a flight, and then before
+/// it takes off.
+const PROPOSE_SECONDS: f32 = 2.5;
+const TAKE_OFF_SECONDS: f32 = 4.0;
+/// How long the globe takes to grow from its place on the entry screen to the window, or back.
 const ZOOM_SECONDS: f32 = 1.4;
-/// How long a flown flight stays on the board before another one replaces it.
-const REPLACE_SECONDS: f32 = 2.5;
-/// How the globes on the board look at their routes: from the side, turning slowly.
-const TILE_TILT_DEGREES: f32 = 22.0;
-const TILE_SPIN: f32 = 0.12;
+/// How fast the globe on the entry screen turns while there's no route to show, in radians
+/// per second.
+const ENTRY_SPIN: f32 = 0.08;
+/// How long the globe on the entry screen takes to turn to a new route.
+const ENTRY_TRANSITION: f32 = 1.2;
+/// How much of its place on the entry screen the globe fills.
+const ENTRY_FILL: f32 = 0.84;
 /// After how long without input the kiosk takes over again.
 const IDLE: Duration = Duration::from_secs(60);
 /// The kiosk's flights are at least this long, and at most the other.
@@ -194,23 +194,16 @@ fn route_range(flight: &Flight, aspect: f32) -> f32 {
     (half.sin() / fit.tan() - (1.0 - half.cos())).clamp(MIN_RANGE, 4.5)
 }
 
-/// What the demo shows: the departures board, the zoom between a tile and the window, or a
-/// flight. `Returning` turns the camera back to the flight's tile before zooming out.
+/// What the demo shows: the entry screen, the zoom between the globe's place there and the
+/// window, or a flight. `Returning` turns the camera back to the entry screen's view before
+/// zooming out.
 #[derive(Clone, Copy, PartialEq)]
 enum Stage {
-    Board,
+    Entry,
     ZoomingIn,
     Flight,
     Returning,
     ZoomingOut,
-}
-
-/// A flight on the departures board.
-struct Tile {
-    flight: Flight,
-    /// The heading the globe on the tile had at the start.
-    spin: f32,
-    frames: Frames,
 }
 
 fn airport_item(airports: &[Airport], index: usize) -> AirportItem {
@@ -233,17 +226,19 @@ struct Demo {
     flight: Flight,
     phase: Phase,
     phase_time: f32,
-    tiles: Vec<Tile>,
     stage: Stage,
     stage_time: f32,
-    /// The tile that the flight came from, which the globe grows from and shrinks back into.
-    focused: usize,
-    /// The tile that the kiosk is about to pick, and when it picked it.
-    highlighted: Option<(usize, f32)>,
-    /// The tile of a flown flight, which another flight replaces after a while on the board.
-    flown: Option<usize>,
-    /// The next tile to render, since the board renders one tile each frame.
-    next_tile: usize,
+    /// The origin and the destination picked on the entry screen.
+    planned: (Option<usize>, Option<usize>),
+    /// The flight proposed on the entry screen, which the UI has yet to show.
+    proposal: Option<(usize, Option<usize>)>,
+    /// Whether the kiosk proposed a flight since the entry screen showed.
+    proposed: bool,
+    /// How much of the window's height, and of its width, the globe's place on the entry
+    /// screen shows of a frame rendered for the whole window.
+    entry_view: Vec2,
+    /// Where the globe on the entry screen looks while there's no route, as a longitude.
+    entry_longitude: f32,
     camera: Camera,
     view: View,
     view_time: f32,
@@ -274,19 +269,19 @@ impl Demo {
             })
             .collect();
         let position = airports[0].position;
-        let mut demo = Self {
+        Self {
             flight: Flight::new(0, position, 0, position),
             hubs,
             cities,
             phase: Phase::Boarding,
             phase_time: 0.0,
-            tiles: Vec::new(),
-            stage: Stage::Board,
+            stage: Stage::Entry,
             stage_time: 0.0,
-            focused: 0,
-            highlighted: None,
-            flown: None,
-            next_tile: 0,
+            planned: (None, None),
+            proposal: None,
+            proposed: false,
+            entry_view: Vec2::ONE,
+            entry_longitude: 0.0,
             camera: Camera::new(Pose::top_down(position, 3.0)),
             view: View::Route,
             view_time: 0.0,
@@ -298,55 +293,50 @@ impl Demo {
             random: random_seed(),
             idle: slint::Timer::default(),
             airports,
+        }
+    }
+
+    /// Shows `origin` and `destination` on the entry screen's globe, turning it to them.
+    fn plan(&mut self, origin: Option<usize>, destination: Option<usize>) {
+        if self.planned == (origin, destination) {
+            return;
+        }
+        self.planned = (origin, destination);
+        if let Some(origin) = origin {
+            let destination = destination.unwrap_or(origin);
+            let (from, to) = (self.airports[origin].position, self.airports[destination].position);
+            self.flight = Flight::new(origin, from, destination, to);
+        }
+        if self.stage == Stage::Entry {
+            self.camera.transition(ENTRY_TRANSITION);
+        }
+    }
+
+    /// Where the camera looks on the entry screen: at the planned route, or the turning globe.
+    fn entry_pose(&self) -> Pose {
+        let target = match self.planned {
+            (Some(_), _) => self.flight.point(0.5),
+            _ => surface(self.entry_longitude, 20f32.to_radians()),
         };
-        demo.tiles = (0..TILES).map(|_| demo.random_tile()).collect();
-        demo
+        // The globe's radius on the screen, as a part of half the frame's height.
+        let fit = ENTRY_FILL * self.entry_view.y.min(self.entry_view.x);
+        let distance = 1.0 / (fit * (FOV_Y / 2.0).tan()).atan().sin();
+        Pose::top_down(target, distance - 1.0)
     }
 
-    /// A tile with a random flight between hubs.
-    fn random_tile(&mut self) -> Tile {
-        let origin = self.random_hub();
-        let destination = self.random_destination(origin);
-        self.tile(origin, destination)
-    }
-
-    fn tile(&mut self, origin: usize, destination: usize) -> Tile {
-        let (from, to) = (self.airports[origin].position, self.airports[destination].position);
-        let spin = (self.random % 6283) as f32 / 1000.0;
-        Tile {
-            flight: Flight::new(origin, from, destination, to),
-            spin,
-            frames: Frames { textures: Vec::new(), next: 0 },
+    /// Starts the planned flight, growing the globe to the window.
+    fn take_off(&mut self) {
+        let (Some(origin), Some(destination)) = self.planned else { return };
+        if origin == destination || self.stage != Stage::Entry {
+            return;
         }
-    }
-
-    /// Where the camera looks at the route on tile `index`.
-    fn tile_pose(&self, index: usize, aspect: f32) -> Pose {
-        let flight = &self.tiles[index].flight;
-        Pose {
-            target: flight.point(0.5),
-            heading: self.tiles[index].spin + self.time * TILE_SPIN,
-            tilt: TILE_TILT_DEGREES.to_radians(),
-            range: route_range(flight, aspect) * 1.15,
-        }
-    }
-
-    /// Starts the flight on tile `index`, growing its globe to the window.
-    fn enter(&mut self, index: usize, aspect: f32) {
-        let pose = self.tile_pose(index, aspect);
-        let (origin, destination) =
-            (self.tiles[index].flight.origin, self.tiles[index].flight.destination);
         self.start_flight(origin, destination);
-        self.camera = Camera::new(pose);
         self.view_chosen = false;
         self.set_view(View::Route);
-        self.focused = index;
-        self.highlighted = None;
-        self.flown = None;
         self.set_stage(Stage::ZoomingIn);
     }
 
-    /// Turns back to the flight's tile and shrinks the globe into it.
+    /// Turns back to the entry screen's view and shrinks the globe into its place there.
     fn leave(&mut self) {
         if self.stage == Stage::Flight {
             self.camera.transition(VIEW_TRANSITION);
@@ -357,12 +347,13 @@ impl Demo {
     fn set_stage(&mut self, stage: Stage) {
         self.stage = stage;
         self.stage_time = 0.0;
+        self.proposed = false;
     }
 
-    /// How far the globe has grown from its tile to the window, from 0 to 1.
+    /// How far the globe has grown from its place on the entry screen to the window, from 0 to 1.
     fn zoom_progress(&self) -> f32 {
         match self.stage {
-            Stage::Board => 0.0,
+            Stage::Entry => 0.0,
             Stage::ZoomingIn => camera::ease(self.stage_time / ZOOM_SECONDS),
             Stage::Flight | Stage::Returning => 1.0,
             Stage::ZoomingOut => 1.0 - camera::ease(self.stage_time / ZOOM_SECONDS),
@@ -446,26 +437,26 @@ impl Demo {
         }
     }
 
-    fn step(&mut self, kiosk: bool, aspect: f32, dt: f32) {
+    fn step(&mut self, kiosk: bool, dt: f32) {
         self.time += dt;
         self.stage_time += dt;
         match self.stage {
-            Stage::Board => {
-                if let Some(index) = self.flown
-                    && self.stage_time >= REPLACE_SECONDS
-                {
-                    self.tiles[index] = self.random_tile();
-                    self.flown = None;
+            Stage::Entry => {
+                if self.planned.0.is_none() {
+                    self.entry_longitude += ENTRY_SPIN * dt;
                 }
-                match self.highlighted {
-                    None if kiosk && self.stage_time >= BOARD_SECONDS => {
-                        let shift = 1 + (self.random_hub() % (TILES - 1));
-                        self.highlighted = Some(((self.focused + shift) % TILES, self.stage_time));
-                    }
-                    Some((index, since)) if self.stage_time - since >= HIGHLIGHT_SECONDS => {
-                        self.enter(index, aspect);
-                    }
-                    _ => {}
+                if kiosk && self.stage_time >= PROPOSE_SECONDS && !self.proposed {
+                    self.proposed = true;
+                    let origin = match self.planned {
+                        (Some(origin), _) => origin,
+                        _ => self.random_hub(),
+                    };
+                    let destination = self.random_destination(origin);
+                    self.proposal = Some((origin, Some(destination)));
+                    self.plan(Some(origin), Some(destination));
+                }
+                if kiosk && self.stage_time >= PROPOSE_SECONDS + TAKE_OFF_SECONDS {
+                    self.take_off();
                 }
                 return;
             }
@@ -474,8 +465,11 @@ impl Demo {
                 self.set_stage(Stage::ZoomingOut)
             }
             Stage::ZoomingOut if self.stage_time >= ZOOM_SECONDS => {
-                self.set_stage(Stage::Board);
-                self.flown = Some(self.focused);
+                self.set_stage(Stage::Entry);
+                // The next flight starts where this one landed.
+                let origin = self.flight.destination;
+                self.proposal = Some((origin, None));
+                self.plan(Some(origin), None);
                 return;
             }
             _ => {}
@@ -517,8 +511,8 @@ impl Demo {
     }
 
     fn update_camera(&mut self, aspect: f32, height: f32, dt: f32) {
-        if matches!(self.stage, Stage::Returning | Stage::ZoomingOut) {
-            let goal = self.tile_pose(self.focused, aspect);
+        if matches!(self.stage, Stage::Entry | Stage::Returning | Stage::ZoomingOut) {
+            let goal = self.entry_pose();
             self.camera.follow(goal, dt);
         } else if self.view == View::Free {
             if !self.dragging {
@@ -609,32 +603,6 @@ impl Demo {
     }
 }
 
-/// Tile `index` of the board, with the route drawn over its globe in the window's coordinates.
-fn tile_item(
-    demo: &Demo,
-    index: usize,
-    view_projection: Mat4,
-    eye: Vec3,
-    size: Vec2,
-    texture: wgpu::Texture,
-) -> TileItem {
-    let flight = &demo.tiles[index].flight;
-    let screen = |t: f32| screen_point(view_projection, eye, flight.point(t), size);
-    let samples = (flight.distance_km / 60.0).clamp(24.0, 400.0) as usize;
-    let route = path((0..=samples).map(|i| screen(i as f32 / samples as f32)), true);
-    let end = |t: f32| screen(t).map_or(Coordinates::default(), |p| Coordinates { x: p.x, y: p.y });
-    TileItem {
-        image: texture.try_into().unwrap_or_default(),
-        route: route.into(),
-        from: end(0.0),
-        to: end(1.0),
-        origin: airport_item(&demo.airports, flight.origin),
-        destination: airport_item(&demo.airports, flight.destination),
-        distance: format!("{} km", thousands(flight.distance_km)).into(),
-        duration: format_hours(flight.remaining_hours()).into(),
-    }
-}
-
 fn marker(view_projection: Mat4, eye: Vec3, airport: &Airport, size: Vec2) -> Marker {
     let screen = screen_point(view_projection, eye, airport.position, size);
     Marker {
@@ -721,8 +689,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     app.set_labels(labels.clone().into());
     let results = Rc::new(slint::VecModel::<AirportItem>::default());
     app.set_results(results.clone().into());
-    let tiles = Rc::new(slint::VecModel::<TileItem>::default());
-    app.set_tiles(tiles.clone().into());
+    // The planner starts out listing all airports.
+    results.set_vec(
+        atlas::search(&demo.borrow().airports, "")
+            .into_iter()
+            .map(|index| airport_item(&demo.borrow().airports, index))
+            .collect::<Vec<_>>(),
+    );
 
     // Input restarts the timer that hands control back to the kiosk.
     let interact = {
@@ -739,9 +712,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     return;
                 };
                 app.set_kiosk(true);
-                app.set_planner_open(false);
                 let mut demo = demo.borrow_mut();
                 demo.view_chosen = false;
+                if demo.stage == Stage::Entry {
+                    // Starts the kiosk's wait for proposing a flight over.
+                    demo.set_stage(Stage::Entry);
+                }
                 if demo.view == View::Free {
                     demo.set_view(View::Route);
                 }
@@ -820,55 +796,34 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             })
         }
     });
-    app.on_open_planner({
+    app.on_show_planner({
+        let interact = interact.clone();
+        move || {
+            interact(&|demo, app| {
+                // The next flight starts where this one lands.
+                app.set_kiosk(false);
+                demo.leave();
+            })
+        }
+    });
+    app.on_planned_changed({
         let interact = interact.clone();
         move || {
             interact(&|demo, app| {
                 app.set_kiosk(false);
-                // During a flight, a new flight starts where the current one lands.
-                app.set_planned_origin(if demo.stage == Stage::Board {
-                    AirportItem { index: -1, ..Default::default() }
-                } else {
-                    airport_item(&demo.airports, demo.flight.destination)
-                });
-                app.set_planned_destination(AirportItem { index: -1, ..Default::default() });
-                app.set_planner_open(true);
+                let index = |item: AirportItem| usize::try_from(item.index).ok();
+                demo.plan(index(app.get_planned_origin()), index(app.get_planned_destination()));
             })
         }
     });
     app.on_take_off({
         let interact = interact.clone();
-        move |origin, destination| {
+        move || {
             interact(&|demo, app| {
                 app.set_kiosk(false);
-                app.set_planner_open(false);
-                demo.view_chosen = false;
-                let (origin, destination) = (origin as usize, destination as usize);
-                if demo.stage == Stage::Board {
-                    // The flight takes the place of the one flown last, or the first one.
-                    let index = demo.flown.unwrap_or(0);
-                    demo.tiles[index] = demo.tile(origin, destination);
-                    demo.enter(index, window_aspect(app));
-                } else {
-                    demo.start_flight(origin, destination);
-                }
+                demo.take_off();
             })
         }
-    });
-    app.on_select_tile({
-        let interact = interact.clone();
-        move |index| {
-            interact(&|demo, app| {
-                if demo.stage == Stage::Board {
-                    app.set_kiosk(false);
-                    demo.enter(index as usize, window_aspect(app));
-                }
-            })
-        }
-    });
-    app.on_show_departures({
-        let interact = interact.clone();
-        move || interact(&|demo, _| demo.leave())
     });
     let app_weak = app.as_weak();
     app.on_settings_changed({
@@ -886,7 +841,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut last_frame = web_time::Instant::now();
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
-    let mut tile_rows = vec![TileItem::default(); TILES];
     let mut adaptive = adaptive::Adaptive::new(app.get_quality(), true);
     // Only a landed flight outside the kiosk stands still, once the UI shows the landing.
     let animating = |app: &AppWindow, demo: &Demo| {
@@ -949,7 +903,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let window = app.window();
         let size = logical_size(window);
         let aspect = size.x / size.y.max(1.0);
-        demo.step(app.get_kiosk(), aspect, dt);
+        let entry = Vec2::new(app.get_entry_globe_width(), app.get_entry_globe_height());
+        demo.entry_view = entry / (size * (entry / size).max_element());
+        demo.step(app.get_kiosk(), dt);
         demo.update_camera(aspect, size.y, dt);
 
         let quality = app.get_quality();
@@ -1010,67 +966,41 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         app.set_flight(demo.flight_info());
         app.set_view(demo.view);
         app.set_screen(match demo.stage {
-            Stage::Board => Screen::Board,
+            Stage::Entry => Screen::Entry,
             Stage::ZoomingIn | Stage::Returning | Stage::ZoomingOut => Screen::Zoom,
             Stage::Flight => Screen::Flight,
         });
         app.set_zoom_progress(demo.zoom_progress());
-        app.set_focused_tile(demo.focused as i32);
-        app.set_highlighted_tile(demo.highlighted.map_or(-1, |(index, _)| index as i32));
-        let sun_or_light = sun;
-        let renderer_frame = |view_projection, eye| Frame {
-            view_projection,
-            eye,
-            sun: sun_or_light,
-            night: if app.get_sunlight() { 1.0 } else { 0.0 },
-            borders: app.get_borders(),
-            time: demo.time,
-        };
-
-        // The board renders one tile each frame, and the tile the globe shrinks into.
-        if demo.stage != Stage::Flight {
-            let tile_size = Vec2::new(app.get_tile_width(), app.get_tile_height());
-            // Each tile shows the middle of a globe rendered for the whole window.
-            let cover = (tile_size / size).max_element();
-            let pixels = size * cover * density;
-            let mut render = vec![demo.next_tile];
-            demo.next_tile = (demo.next_tile + 1) % TILES;
-            if demo.stage == Stage::ZoomingOut {
-                render.push(demo.focused);
-            }
-            render.extend((0..TILES).filter(|&index| demo.tiles[index].frames.textures.is_empty()));
-            for index in render {
-                let pose = demo.tile_pose(index, aspect);
-                let tile_view_projection = pose.view_projection(aspect);
-                let tile_eye = pose.eye();
-                let texture = demo.tiles[index].frames.texture(
-                    device,
-                    (pixels.x as u32).max(1),
-                    (pixels.y as u32).max(1),
-                );
-                let view = texture.create_view(&wgpu::TextureViewDescriptor {
-                    format: Some(FRAME_VIEW_FORMAT),
-                    ..Default::default()
-                });
-                renderer.render(&renderer_frame(tile_view_projection, tile_eye), &view);
-                let item = tile_item(demo, index, tile_view_projection, tile_eye, size, texture);
-                tile_rows[index] = item;
-            }
-            update_rows(&tiles, tile_rows.clone());
+        if let Some((origin, destination)) = demo.proposal.take() {
+            let item = |index: Option<usize>| {
+                index.map_or(AirportItem { index: -1, ..Default::default() }, |index| {
+                    airport_item(&demo.airports, index)
+                })
+            };
+            app.invoke_propose(item(Some(origin)), item(destination));
         }
-        if demo.stage == Stage::Board {
-            request_redraw(&app, demo, scale);
-            return;
-        }
-
-        // The `Image` under the UI stretches the frame over the window.
-        let pixels = size * density;
+        // The globe's place, which grows from the entry screen's to the window, shows the middle
+        // of a frame rendered for the whole window, at the resolution it needs.
+        let progress = demo.zoom_progress();
+        let shown = entry.lerp(size, progress);
+        let pixels = size * (shown / size).max_element() * density;
         let texture = frames.texture(device, (pixels.x as u32).max(1), (pixels.y as u32).max(1));
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(FRAME_VIEW_FORMAT),
             ..Default::default()
         });
-        renderer.render(&renderer_frame(view_projection, eye), &view);
+        renderer.render(
+            &Frame {
+                view_projection,
+                eye,
+                sun,
+                night: if app.get_sunlight() { 1.0 } else { 0.0 },
+                borders: app.get_borders(),
+                time: demo.time,
+                space: progress,
+            },
+            &view,
+        );
         if let Ok(image) = texture.try_into() {
             app.set_texture(image);
         }

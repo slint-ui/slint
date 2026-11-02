@@ -19,21 +19,15 @@ global Theme {
     out property <color> line: #ffffff1c;
     out property <color> hover: #ffffff14;
     out property <length> margin: 16px;
-    out property <length> tile-radius: 14px;
 }
 
 export enum View { follow, route, globe, free }
 
 export enum Phase { boarding, flying, arrived }
 
-/// What the window shows: the departures board, a globe growing out of its tile or shrinking
-/// back, or a flight.
-export enum Screen { board, zoom, flight }
-
-export struct Coordinates {
-    x: float,
-    y: float,
-}
+/// What the window shows: the entry screen, the globe growing from its place there to the window
+/// or shrinking back, or a flight.
+export enum Screen { entry, zoom, flight }
 
 export struct AirportItem {
     index: int,
@@ -74,19 +68,6 @@ export struct Aircraft {
     y: float,
     /// Clockwise from pointing up.
     angle: float,
-}
-
-/// A flight on the departures board, on a globe rendered for the whole window. The route and its
-/// ends are in the window's logical pixels.
-export struct TileItem {
-    image: image,
-    route: string,
-    from: Coordinates,
-    to: Coordinates,
-    origin: AirportItem,
-    destination: AirportItem,
-    distance: string,
-    duration: string,
 }
 
 export struct Label {
@@ -644,144 +625,6 @@ component AirportField inherits Rectangle {
     }
 }
 
-/// A tile of the departures board. Like the globe of a flight, it shows the middle of a frame
-/// rendered for the whole window, `frame-width` by `frame-height`.
-component TileView inherits Rectangle {
-    in property <TileItem> tile;
-    in property <length> frame-width;
-    in property <length> frame-height;
-    in property <bool> highlighted;
-    callback clicked();
-    clip: true;
-    border-radius: Theme.tile-radius;
-    background: #05070a;
-    frame := Rectangle {
-        property <float> scale: max(parent.width / root.frame-width, parent.height / root.frame-height);
-        x: (parent.width - root.frame-width * self.scale) / 2;
-        y: (parent.height - root.frame-height * self.scale) / 2;
-        width: root.frame-width;
-        height: root.frame-height;
-        transform-scale: self.scale;
-        transform-origin: { x: 0, y: 0 };
-        Image {
-            source: root.tile.image;
-            width: 100%;
-            height: 100%;
-            image-fit: fill;
-        }
-
-        Path {
-            width: 100%;
-            height: 100%;
-            viewbox-width: self.width / 1px;
-            viewbox-height: self.height / 1px;
-            commands: root.tile.route;
-            stroke: #ffffffa0;
-            stroke-width: 2px / frame.scale;
-        }
-
-        for end[index] in [root.tile.from, root.tile.to]: Rectangle {
-            x: end.x * 1px - self.width / 2;
-            y: end.y * 1px - self.height / 2;
-            width: 9px / frame.scale;
-            height: self.width;
-            border-radius: self.width / 2;
-            background: index == 0 ? white : Theme.accent-light;
-        }
-    }
-
-    Rectangle {
-        y: parent.height - self.height;
-        height: caption.preferred-height + 28px;
-        background: @linear-gradient(180deg, #00000000 0%, #000000c0 100%);
-    }
-
-    caption := VerticalLayout {
-        x: 12px;
-        y: parent.height - self.height - 10px;
-        width: parent.width - 24px;
-        height: self.preferred-height;
-        Text {
-            text: "\{root.tile.origin.code}  →  \{root.tile.destination.code}";
-            color: Theme.text;
-            font-size: 18px;
-            font-weight: 800;
-        }
-
-        Text {
-            text: "\{root.tile.origin.city} to \{root.tile.destination.city}";
-            color: Theme.text;
-            font-size: 12px;
-            overflow: elide;
-        }
-
-        Text {
-            text: "\{root.tile.distance}  ·  \{root.tile.duration}";
-            color: Theme.muted;
-            font-size: 11px;
-        }
-    }
-
-    Rectangle {
-        border-radius: Theme.tile-radius;
-        border-width: root.highlighted ? 3px : touch.has-hover ? 2px : 1px;
-        border-color: root.highlighted
-            ? Theme.accent-light.with-alpha(0.65 + 0.35 * Math.sin(animation-tick() / 160ms * 1rad))
-            : touch.has-hover ? #ffffff70 : Theme.line;
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
-        }
-    }
-}
-
-/// The departures board: the flights to pick from, each on a globe of its own, in a grid of
-/// `columns` that fills the cell.
-component Board {
-    in property <[TileItem]> tiles;
-    /// The tile that the globe of the flight grows out of, which the board leaves out meanwhile.
-    in property <int> focused;
-    in property <int> highlighted;
-    in property <length> cell-x;
-    in property <length> cell-y;
-    in property <length> cell-width;
-    in property <length> cell-height;
-    in property <int> columns;
-    in property <length> frame-width;
-    in property <length> frame-height;
-    callback select(index: int);
-    property <int> rows: max(1, Math.ceil(root.tiles.length / root.columns));
-    property <length> gap: 12px;
-    out property <length> tile-width: (root.cell-width - root.gap * (root.columns - 1)) / root.columns;
-    out property <length> tile-height: (root.cell-height - root.gap * (root.rows - 1)) / root.rows;
-
-    public pure function tile-x(index: int) -> length {
-        root.cell-x + Math.mod(index, root.columns) * (root.tile-width + root.gap)
-    }
-
-    public pure function tile-y(index: int) -> length {
-        root.cell-y + Math.floor(index / root.columns) * (root.tile-height + root.gap)
-    }
-
-    for tile[index] in root.tiles: TileView {
-        x: root.tile-x(index);
-        y: root.tile-y(index);
-        width: root.tile-width;
-        height: root.tile-height;
-        tile: tile;
-        frame-width: root.frame-width;
-        frame-height: root.frame-height;
-        highlighted: index == root.highlighted;
-        visible: index != root.focused;
-        clicked => {
-            root.select(index);
-        }
-    }
-}
-
 export component AppWindow inherits Window {
     in property <image> texture;
     in property <FlightInfo> flight;
@@ -798,21 +641,21 @@ export component AppWindow inherits Window {
     in property <string> gpu-text;
     in property <string> fps-text;
     in property <Screen> screen;
-    /// How far the globe of the flight has grown from its tile to the window, from 0 to 1.
+    /// How far the globe has grown from its place on the entry screen to the window, from 0 to 1.
     in property <float> zoom-progress;
-    /// The tile that the flight came from.
-    in property <int> focused-tile;
-    /// The tile that the kiosk is about to pick, or -1.
-    in property <int> highlighted-tile: -1;
-    in property <[TileItem]> tiles;
-    out property <length> tile-width: board.tile-width;
-    out property <length> tile-height: board.tile-height;
+    // The globe's place on the entry screen: beside the planner, or above it on a phone held
+    // upright.
+    property <length> panel-width: min(400px, root.content-width * 0.42);
+    out property <length> entry-globe-x: root.narrow ? 0 : root.left-edge + root.panel-width + 16px;
+    out property <length> entry-globe-y: root.narrow ? root.top-edge : 0;
+    out property <length> entry-globe-width: root.width - self.entry-globe-x;
+    out property <length> entry-globe-height: root.narrow ? root.height * 0.36 : root.height;
 
     /// Whether the demo flies between random airports on its own.
     in-out property <bool> kiosk: true;
-    in-out property <bool> planner-open;
-    in-out property <AirportItem> planned-origin;
-    in-out property <AirportItem> planned-destination;
+    /// The airports picked in the planner, with an index of -1 for none.
+    in-out property <AirportItem> planned-origin: { index: -1 };
+    in-out property <AirportItem> planned-destination: { index: -1 };
     in-out property <bool> sunlight: true;
     in-out property <bool> borders: true;
     in-out property <Quality> quality: Quality.high;
@@ -828,14 +671,16 @@ export component AppWindow inherits Window {
     callback zoom(factor: float);
     callback choose-view(view: View);
     callback search(query: string);
-    callback open-planner();
-    callback take-off(origin: int, destination: int);
-    callback select-tile(index: int);
-    /// Shrinks the globe of the flight back into its tile on the departures board.
-    callback show-departures();
+    /// Starts the planned flight.
+    callback take-off();
+    /// Shrinks the globe of the flight back into its place on the entry screen.
+    callback show-planner();
+    callback planned-changed();
     callback settings-changed();
 
     property <bool> settings-open;
+    /// Whether the globe shows a route: during a flight, or once the planner has one.
+    property <bool> route-shown: root.screen != Screen.entry || (root.planned-origin.index >= 0 && root.planned-destination.index >= 0);
     /// Which of the planner's fields the search results are for: 0 for the origin, 1 for
     /// the destination.
     property <int> active-field: 1;
@@ -851,7 +696,6 @@ export component AppWindow inherits Window {
     property <length> top-edge: root.safe-area-insets.top + root.margin;
     property <length> bottom-edge: root.safe-area-insets.bottom + root.margin;
     property <length> content-width: root.width - root.left-edge - root.right-edge;
-    property <length> board-header: root.narrow ? 64px : 76px;
 
     title: "Slint Flight Tracker";
     preferred-width: 1280px;
@@ -876,31 +720,47 @@ export component AppWindow inherits Window {
     changed kiosk => {
         root.settings-changed();
     }
-    changed planner-open => {
-        if root.planner-open {
-            from-field.text = root.planned-origin.index >= 0 ? "\{root.planned-origin.code}  ·  \{root.planned-origin.city}" : "";
-            to-field.text = "";
-            root.search("");
-            if root.planned-origin.index >= 0 {
-                to-field.focus();
-            } else {
-                from-field.focus();
-            }
-        }
+    /// Shows a flight that the kiosk proposes in the planner.
+    public function propose(origin: AirportItem, destination: AirportItem) {
+        root.planned-origin = origin;
+        root.planned-destination = destination;
+        from-field.text = origin.index >= 0 ? "\{origin.code}  ·  \{origin.city}" : "";
+        to-field.text = destination.index >= 0 ? "\{destination.code}  ·  \{destination.city}" : "";
+        root.active-field = 1;
     }
 
     function choose(airport: AirportItem) {
         if root.active-field == 0 {
             root.planned-origin = airport;
             from-field.text = "\{airport.code}  ·  \{airport.city}";
-            if root.planned-destination.index < 0 {
-                to-field.focus();
-            }
+            to-field.focus();
         } else {
             root.planned-destination = airport;
             to-field.text = "\{airport.code}  ·  \{airport.city}";
         }
-        root.interacted();
+        root.planned-changed();
+    }
+
+    // A pattern under the globe on the entry screen, which shows through around it.
+    if root.zoom-progress < 1: Rectangle {
+        background: #04070c;
+        Image {
+            width: 100%;
+            height: 100%;
+            source: @image-url("icons/pattern.svg");
+            horizontal-tiling: repeat;
+            vertical-tiling: repeat;
+            colorize: #6aaeff;
+            opacity: 0.6;
+        }
+
+        Rectangle {
+            x: root.entry-globe-x;
+            y: root.entry-globe-y;
+            width: root.entry-globe-width;
+            height: root.entry-globe-height;
+            background: @radial-gradient(circle, #2379f440 0%, #2379f410 45%, #04070c00 70%);
+        }
     }
 
     ScaleRotateGestureHandler {
@@ -943,75 +803,15 @@ export component AppWindow inherits Window {
         }
     }
 
-    // The departures board, under the globe that grows out of the picked tile.
-    board := Board {
-        width: root.width;
-        height: root.height;
-        tiles: root.tiles;
-        focused: root.screen == Screen.board ? -1 : root.focused-tile;
-        highlighted: root.highlighted-tile;
-        opacity: 1 - root.zoom-progress;
-        visible: root.zoom-progress < 1;
-        cell-x: root.left-edge;
-        cell-y: root.top-edge + root.board-header;
-        cell-width: root.content-width;
-        cell-height: root.height - self.cell-y - root.bottom-edge;
-        columns: root.narrow ? 2 : 3;
-        frame-width: root.width;
-        frame-height: root.height;
-        select(index) => {
-            root.select-tile(index);
-        }
-    }
-
-    if root.zoom-progress < 1: HorizontalLayout {
-        opacity: 1 - root.zoom-progress;
-        x: root.left-edge;
-        y: root.top-edge;
-        width: root.content-width;
-        height: root.board-header - 12px;
-        spacing: 10px;
-        VerticalLayout {
-            alignment: center;
-            Text {
-                text: "Departures";
-                color: Theme.text;
-                font-size: root.narrow ? 22px : 28px;
-                font-weight: 800;
-            }
-
-            Text {
-                text: "Each globe is rendered live by wgpu into a texture that Slint shows.";
-                color: Theme.muted;
-                font-size: 12px;
-                wrap: word-wrap;
-            }
-        }
-
-        PillButton {
-            y: (parent.height - self.height) / 2;
-            text: root.narrow ? "" : "Plan a flight";
-            icon: @image-url("icons/aircraft.svg");
-            primary: true;
-            clicked => {
-                root.open-planner();
-            }
-        }
-    }
-
-    // The globe of the flight, a tile's size while it grows to the window or shrinks back. It
-    // shows the middle of a frame rendered for the whole window, like the tiles do.
+    // The globe, in its place on the entry screen, or growing from there to the window. It shows
+    // the middle of a frame rendered for the whole window, so it looks the same at any size.
     globe-view := Rectangle {
-        property <length> tile-x: board.tile-x(root.focused-tile);
-        property <length> tile-y: board.tile-y(root.focused-tile);
         property <float> grown: root.zoom-progress;
-        x: self.tile-x * (1 - self.grown);
-        y: self.tile-y * (1 - self.grown);
-        width: board.tile-width + (root.width - board.tile-width) * self.grown;
-        height: board.tile-height + (root.height - board.tile-height) * self.grown;
-        visible: root.screen != Screen.board;
+        x: root.entry-globe-x * (1 - self.grown);
+        y: root.entry-globe-y * (1 - self.grown);
+        width: root.entry-globe-width + (root.width - root.entry-globe-width) * self.grown;
+        height: root.entry-globe-height + (root.height - root.entry-globe-height) * self.grown;
         clip: true;
-        border-radius: Theme.tile-radius * (1 - self.grown);
         frame := Rectangle {
             property <float> scale: max(parent.width / root.width, parent.height / root.height);
             x: (parent.width - root.width * self.scale) / 2;
@@ -1035,7 +835,7 @@ export component AppWindow inherits Window {
                 commands: root.remaining-path;
                 stroke: #ffffffa0;
                 stroke-width: 2px / frame.scale;
-                visible: root.remaining-path != "";
+                visible: root.remaining-path != "" && root.route-shown;
             }
 
             Path {
@@ -1046,7 +846,7 @@ export component AppWindow inherits Window {
                 commands: root.flown-path;
                 stroke: Theme.accent-light.with-alpha(0.3);
                 stroke-width: 7px / frame.scale;
-                visible: root.flown-path != "";
+                visible: root.flown-path != "" && root.route-shown;
             }
 
             Path {
@@ -1057,7 +857,22 @@ export component AppWindow inherits Window {
                 commands: root.flown-path;
                 stroke: Theme.accent-light;
                 stroke-width: 2.5px / frame.scale;
-                visible: root.flown-path != "";
+                visible: root.flown-path != "" && root.route-shown;
+            }
+
+            if root.screen != Screen.entry || root.planned-origin.index >= 0: AirportMarker {
+                x: root.origin-marker.x * 1px;
+                y: root.origin-marker.y * 1px;
+                marker: root.origin-marker;
+                transform-scale: 1 / frame.scale;
+            }
+
+            if root.route-shown: AirportMarker {
+                x: root.destination-marker.x * 1px;
+                y: root.destination-marker.y * 1px;
+                marker: root.destination-marker;
+                destination: true;
+                transform-scale: 1 / frame.scale;
             }
 
             Rectangle {
@@ -1091,19 +906,6 @@ export component AppWindow inherits Window {
                 }
             }
 
-            AirportMarker {
-                x: root.origin-marker.x * 1px;
-                y: root.origin-marker.y * 1px;
-                marker: root.origin-marker;
-            }
-
-            AirportMarker {
-                x: root.destination-marker.x * 1px;
-                y: root.destination-marker.y * 1px;
-                marker: root.destination-marker;
-                destination: true;
-            }
-
             if root.aircraft.shown: Rectangle {
                 x: root.aircraft.x * 1px - self.width / 2;
                 y: root.aircraft.y * 1px - self.height / 2;
@@ -1125,6 +927,109 @@ export component AppWindow inherits Window {
                 }
             }
 
+            }
+        }
+    }
+
+    // The planner, beside the globe, or below it on a phone held upright. It stays instantiated,
+    // so its fields keep their text during a flight.
+    Glass {
+        visible: root.zoom-progress < 1;
+        opacity: 1 - root.zoom-progress;
+        x: root.left-edge - root.zoom-progress * 40px;
+        y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
+        width: root.narrow ? root.content-width : root.panel-width;
+        height: root.height - self.y - root.bottom-edge;
+        VerticalLayout {
+            padding: root.narrow ? 14px : 20px;
+            spacing: 12px;
+            HorizontalLayout {
+                spacing: 10px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    Text {
+                        text: "Where to?";
+                        color: Theme.text;
+                        font-size: root.narrow ? 22px : 28px;
+                        font-weight: 800;
+                    }
+
+                    Text {
+                        text: root.kiosk ? "Random flights, or pick your own" : "Pick the airports, then take off";
+                        color: Theme.muted;
+                        font-size: 12px;
+                    }
+                }
+
+                PillButton {
+                    y: (parent.height - self.height) / 2;
+                    text: "Take off";
+                    icon: @image-url("icons/aircraft.svg");
+                    primary: true;
+                    enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
+                    clicked => {
+                        root.take-off();
+                    }
+                }
+            }
+
+            from-field := AirportField {
+                label: "FROM";
+                active: root.active-field == 0;
+                activated => {
+                    root.active-field = 0;
+                    root.search(self.text == "\{root.planned-origin.code}  ·  \{root.planned-origin.city}" ? "" : self.text);
+                }
+                edited(text) => {
+                    root.planned-origin.index = -1;
+                    root.search(text);
+                    root.planned-changed();
+                }
+                accepted => {
+                    if root.results.length > 0 {
+                        root.choose(root.results[0]);
+                    }
+                }
+            }
+
+            to-field := AirportField {
+                label: "TO";
+                active: root.active-field == 1;
+                activated => {
+                    root.active-field = 1;
+                    root.search(self.text == "\{root.planned-destination.code}  ·  \{root.planned-destination.city}" ? "" : self.text);
+                }
+                edited(text) => {
+                    root.planned-destination.index = -1;
+                    root.search(text);
+                    root.planned-changed();
+                }
+                accepted => {
+                    if root.results.length > 0 {
+                        root.choose(root.results[0]);
+                    }
+                }
+            }
+
+            Caption {
+                text: root.results.length == 1 ? "1 AIRPORT" : "\{root.results.length} AIRPORTS";
+            }
+
+            ListView {
+                vertical-stretch: 1;
+                for airport in root.results: AirportRow {
+                    airport: airport;
+                    clicked => {
+                        root.choose(airport);
+                    }
+                }
+            }
+
+            Text {
+                text: "wgpu renders the globe into a texture, which Slint shows over its own background.";
+                color: #ffffff60;
+                font-size: 11px;
+                wrap: word-wrap;
             }
         }
     }
@@ -1207,17 +1112,7 @@ export component AppWindow inherits Window {
                 primary: true;
                 clicked => {
                     root.settings-open = false;
-                    root.open-planner();
-                }
-            }
-
-            RoundButton {
-                width: 36px;
-                height: 36px;
-                icon: @image-url("icons/grid.svg");
-                clicked => {
-                    root.settings-open = false;
-                    root.show-departures();
+                    root.show-planner();
                 }
             }
 
@@ -1288,121 +1183,5 @@ export component AppWindow inherits Window {
         text: "\{root.gpu-text}  ·  \{root.fps-text}";
         color: #ffffff50;
         font-size: 10px;
-    }
-
-    // The planner stays instantiated, so its fields keep their text while it's hidden.
-    Rectangle {
-        visible: root.planner-open;
-        background: #000000a0;
-        TouchArea {
-            clicked => {
-                root.planner-open = false;
-                root.interacted();
-            }
-        }
-
-        // At the top on a phone, where the on-screen keyboard covers the lower half.
-        Glass {
-            y: root.narrow ? root.top-edge : (parent.height - self.height) / 2;
-            width: min(560px, root.content-width);
-            height: min(640px, root.height - root.top-edge - root.bottom-edge);
-            TouchArea { }
-
-            VerticalLayout {
-                padding: root.narrow ? 14px : 20px;
-                spacing: 12px;
-                HorizontalLayout {
-                    spacing: 10px;
-                    Text {
-                        text: "Plan a flight";
-                        color: Theme.text;
-                        font-size: root.narrow ? 19px : 22px;
-                        font-weight: 700;
-                        vertical-alignment: center;
-                        horizontal-stretch: 1;
-                    }
-
-                    PillButton {
-                        text: "Take off";
-                        primary: true;
-                        enabled: root.planned-origin.index >= 0 && root.planned-destination.index >= 0 && root.planned-origin.index != root.planned-destination.index;
-                        clicked => {
-                            root.take-off(root.planned-origin.index, root.planned-destination.index);
-                        }
-                    }
-
-                    Rectangle {
-                        width: 32px;
-                        height: 32px;
-                        border-radius: self.width / 2;
-                        background: close.has-hover ? Theme.hover : transparent;
-                        Image {
-                            width: 16px;
-                            height: 16px;
-                            source: @image-url("icons/close.svg");
-                            colorize: Theme.muted;
-                        }
-
-                        close := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => {
-                                root.planner-open = false;
-                                root.interacted();
-                            }
-                        }
-                    }
-                }
-
-                from-field := AirportField {
-                    label: "FROM";
-                    active: root.active-field == 0;
-                    activated => {
-                        root.active-field = 0;
-                        root.search(self.text == "\{root.planned-origin.code}  ·  \{root.planned-origin.city}" ? "" : self.text);
-                    }
-                    edited(text) => {
-                        root.planned-origin.index = -1;
-                        root.search(text);
-                    }
-                    accepted => {
-                        if root.results.length > 0 {
-                            root.choose(root.results[0]);
-                        }
-                    }
-                }
-
-                to-field := AirportField {
-                    label: "TO";
-                    active: root.active-field == 1;
-                    activated => {
-                        root.active-field = 1;
-                        root.search(self.text == "\{root.planned-destination.code}  ·  \{root.planned-destination.city}" ? "" : self.text);
-                    }
-                    edited(text) => {
-                        root.planned-destination.index = -1;
-                        root.search(text);
-                    }
-                    accepted => {
-                        if root.results.length > 0 {
-                            root.choose(root.results[0]);
-                        }
-                    }
-                }
-
-                Caption {
-                    text: root.results.length == 1 ? "1 AIRPORT" : "\{root.results.length} AIRPORTS";
-                }
-
-                ListView {
-                    vertical-stretch: 1;
-                    for airport in root.results: AirportRow {
-                        airport: airport;
-                        clicked => {
-                            root.choose(airport);
-                        }
-                    }
-                }
-            }
-        }
     }
 }

@@ -11,6 +11,7 @@ struct Globals {
     eye: vec4<f32>,
     // xyz: the direction towards the sun, w: how dark the night side is.
     sun: vec4<f32>,
+    // x: how much of space shows, the stars and the black, rather than transparency,
     // y: the borders' opacity, z: the seconds since the start, for the twinkling stars.
     options: vec4<f32>,
     // x: how many texels the map's distances reach, y: the same for its signed distances to
@@ -134,13 +135,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // The space around the globe, and the atmosphere where the sun lights it, reddish where
     // the sun rises or sets.
-    var space = stars(direction) * smoothstep(1.02, 1.12, miss_distance);
+    let starlight = stars(direction) * smoothstep(1.02, 1.12, miss_distance);
     let limb_sun = dot(normalize(closest), sun);
     let limb_light = mix(1.0, smoothstep(-0.3, 0.25, limb_sun), sun_strength);
     let limb_dusk = exp(-pow(limb_sun / 0.18, 2.0)) * sun_strength;
     let halo = exp(-max(miss_distance - 1.0, 0.0) * 22.0) * select(0.0, 1.0, along > 0.0);
     let halo_color = vec3<f32>(0.35, 0.6, 1.0);
-    space += (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.6) * halo * 0.9;
+    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.6) * halo * 0.9;
 
     // The ground.
     let city_light = map_texel.b;
@@ -167,6 +168,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * mix(0.05, 0.7, day);
     ground += terminator_color * terminator * 0.22;
 
-    let color = mix(space, ground, coverage);
-    return vec4<f32>(color, 1.0);
+    // Where there's no space, the frame is transparent but for the atmosphere's glow.
+    let space = globals.options.x;
+    let glow_alpha = clamp(max(glow.r, max(glow.g, glow.b)), 0.0, 1.0);
+    let premultiplied = mix(glow, ground, coverage) + starlight * (1.0 - coverage) * space;
+    let alpha = mix(coverage + (1.0 - coverage) * glow_alpha, 1.0, space);
+    // Slint shows the frame with straight alpha.
+    return vec4<f32>(premultiplied / max(alpha, 1e-4), alpha);
 }
