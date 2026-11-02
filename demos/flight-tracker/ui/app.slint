@@ -3,12 +3,19 @@
 
 import { ListView } from "std-widgets.slint";
 
+/// How much the demo spends on its looks, see `adaptive.rs`.
+export enum Quality { low, medium, high }
+
 global Theme {
+    /// The panels blur the globe behind them in high quality, and are flat and more opaque
+    /// otherwise.
+    in-out property <Quality> quality: Quality.high;
+    out property <bool> blur: self.quality == Quality.high;
     out property <color> text: #e8eef6;
     out property <color> muted: #8b98a9;
     out property <color> accent: #2379f4;
     out property <color> accent-light: #6aaeff;
-    out property <color> glass: #0a111ac0;
+    out property <color> glass: self.blur ? #0a111a80 : #0a111ae0;
     out property <color> line: #ffffff1c;
     out property <color> hover: #ffffff14;
     out property <length> margin: 16px;
@@ -91,7 +98,7 @@ export struct Label {
 
 component Glass inherits Rectangle {
     background: Theme.glass;
-    backdrop-blur: 16px;
+    backdrop-blur: Theme.blur ? 20px : 0px;
     border-radius: 14px;
     border-width: 1px;
     border-color: Theme.line;
@@ -808,6 +815,9 @@ export component AppWindow inherits Window {
     in-out property <AirportItem> planned-destination;
     in-out property <bool> sunlight: true;
     in-out property <bool> borders: true;
+    in-out property <Quality> quality: Quality.high;
+    /// Whether the quality drops while frames take too long.
+    in-out property <bool> auto-quality: true;
 
     /// Restarts the time until the kiosk takes over again.
     callback interacted();
@@ -855,6 +865,13 @@ export component AppWindow inherits Window {
     }
     changed borders => {
         root.settings-changed();
+    }
+    changed quality => {
+        Theme.quality = root.quality;
+        root.settings-changed();
+    }
+    init => {
+        Theme.quality = root.quality;
     }
     changed kiosk => {
         root.settings-changed();
@@ -1225,6 +1242,20 @@ export component AppWindow inherits Window {
         settings := VerticalLayout {
             padding: 16px;
             spacing: 6px;
+            Caption {
+                text: "QUALITY";
+            }
+
+            Segmented {
+                options: ["Auto", "Low", "Medium", "High"];
+                current: root.auto-quality ? 0 : root.quality == Quality.low ? 1 : root.quality == Quality.medium ? 2 : 3;
+                picked(index) => {
+                    root.auto-quality = index == 0;
+                    root.quality = index == 1 ? Quality.low : index == 2 ? Quality.medium : Quality.high;
+                    root.interacted();
+                }
+            }
+
             Toggle {
                 text: "Random flights";
                 checked <=> root.kiosk;

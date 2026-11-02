@@ -47,6 +47,9 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   It holds the distances to the coasts and the borders, so that the shader draws them sharp at any zoom, and the lights of the cities.
 - The board renders one tile's globe each frame, for the whole window, and shows the middle of it.
   The globe of a flight starts with the same camera and grows from its tile, so the switch from the tile's texture to the live one doesn't show.
+- `adaptive.rs`, from the racer demo, keeps the frame rate near 60 fps: it lowers the globe's render scale first, then the quality.
+  High quality blurs the globe behind the panels, medium and low show flat panels, and low also renders the globe at one pixel per logical pixel.
+  The settings pick a quality, or Auto.
 - The route, the aircraft, the airports, and the city names are ordinary Slint elements.
   Each frame, `main.rs` projects them to the screen with the camera's matrices, and passes their positions to Slint.
 
