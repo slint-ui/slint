@@ -61,6 +61,39 @@ slint::slint! {
             visible: root.pixelated;
         }
     }
+
+    export component ClippedUpscaledImageCase inherits Window {
+        in property <image> source;
+        in property <bool> clipped;
+        background: black;
+        Image {
+            x: 0px;
+            y: 0px;
+            width: 40px;
+            height: 40px;
+            source: root.source;
+            image-fit: fill;
+            image-rendering: ImageRendering.pixelated;
+            visible: !root.clipped;
+        }
+        Rectangle {
+            x: 44px;
+            y: 44px;
+            width: 40px;
+            height: 40px;
+            clip: true;
+            visible: root.clipped;
+            Image {
+                x: -4px;
+                y: -4px;
+                width: 40px;
+                height: 40px;
+                source: root.source;
+                image-fit: fill;
+                image-rendering: ImageRendering.pixelated;
+            }
+        }
+    }
 }
 
 fn render(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
@@ -90,6 +123,16 @@ fn render_upscaled_with_rotation(
     assert!(window.draw_if_needed(|renderer| {
         renderer.set_rendering_rotation(rotation);
         renderer.render(&mut buffer, 340);
+    }));
+    buffer
+}
+
+fn render_clipped(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
+    let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); 84 * 84];
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        renderer.set_rendering_rotation(RenderingRotation::NoRotation);
+        renderer.render(&mut buffer, 84);
     }));
     buffer
 }
@@ -214,6 +257,30 @@ fn optional_pixel_formats_and_upscaled_images_render() {
 
     let mirrored = render_upscaled_with_rotation(&window, RenderingRotation::Rotate180);
     assert_eq!(mirrored[15 * 340 + 334], Rgb8Pixel::new(0, 0xff, 0));
+
+    drop(ui);
+    window.set_size(slint::PhysicalSize::new(84, 84));
+    let ui = ClippedUpscaledImageCase::new().unwrap();
+    ui.show().unwrap();
+
+    let mut pixels = SharedPixelBuffer::<Rgb8Pixel>::new(50, 50);
+    for (index, pixel) in pixels.make_mut_slice().iter_mut().enumerate() {
+        *pixel = Rgb8Pixel::new(((index % 50) * 5) as u8, ((index / 50) * 5) as u8, 0);
+    }
+    ui.set_source(slint::Image::from_rgb8(pixels));
+    ui.set_clipped(false);
+    let reference = render_clipped(&window);
+    ui.set_clipped(true);
+    let rendered = render_clipped(&window);
+    for y in 0..36 {
+        for x in 0..36 {
+            assert_eq!(
+                rendered[(44 + y) * 84 + 44 + x],
+                reference[(4 + y) * 84 + 4 + x],
+                "clipped image differs from its unclipped pixels at ({x}, {y})"
+            );
+        }
+    }
 }
 
 #[cfg(feature = "owned-pre-rendered-resources")]

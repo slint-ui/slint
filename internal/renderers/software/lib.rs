@@ -2814,7 +2814,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             continue;
                         }
 
-                        let delta = Fixed::<i32, 16>::from_fixed(scale_delta);
+                        let delta = TextureStep::from_fixed(scale_delta);
                         let normalize = |x: Fixed<i32, 8>| {
                             if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
                         };
@@ -2826,11 +2826,11 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             map_len % map_stride
                         } as i32;
                         let map_height = map_len.div_ceil(map_stride) as i32;
-                        let fract_x = Fixed::<i32, 16>::from_fixed(normalize(
+                        let fract_x = TextureStep::from_fixed(normalize(
                             (-glyph.x) - Fixed::from_integer(gl_x.get() as _),
                         ));
                         let off_x = texture_offset(fract_x, delta, off_x as i32, map_width);
-                        let fract_y = Fixed::<i32, 16>::from_fixed(normalize(
+                        let fract_y = TextureStep::from_fixed(normalize(
                             glyph.y - Fixed::from_integer(gl_y.get() as _),
                         ));
                         let off_y = texture_offset(fract_y, delta, off_y as i32, map_height);
@@ -2841,8 +2841,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             rotation: self.rotation.orientation,
                             dx: delta.max(Fixed(1)),
                             dy: delta.max(Fixed(1)),
-                            off_x,
-                            off_y,
+                            off_x: Fixed::<u16, 4>::try_from_fixed(off_x).unwrap(),
+                            off_y: Fixed::<u16, 4>::try_from_fixed(off_y).unwrap(),
                         };
                         let geometry = geometry.transformed(self.rotation);
                         match &glyph.alpha_map {

@@ -452,10 +452,11 @@ pub(super) fn texture_step(source_size: i32, destination_size: i32) -> TextureSt
 #[derive(Clone, Copy, Debug)]
 pub struct SceneTextureExtra {
     /// Delta x: the amount of "image pixel" that we need to skip for each physical pixel in the target buffer
-    pub dx: Fixed<i32, 16>,
-    pub dy: Fixed<i32, 16>,
-    pub off_x: Fixed<i32, 16>,
-    pub off_y: Fixed<i32, 16>,
+    pub dx: TextureStep,
+    pub dy: TextureStep,
+    /// Offset in source pixels of the image pixel drawn at `SceneItem::pos`.
+    pub off_x: Fixed<u16, 4>,
+    pub off_y: Fixed<u16, 4>,
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     pub colorize: Color,
@@ -521,11 +522,14 @@ impl SceneTextureExtra {
             let off_x = texture_offset(Fixed::default(), dx, offset.x, source_size.width);
             let off_y = texture_offset(Fixed::default(), dy, offset.y, source_size.height);
             (
-                Fixed::<i32, 16>::from_fixed(Fixed::<i32, 4>::from_fixed(off_x)),
-                Fixed::<i32, 16>::from_fixed(Fixed::<i32, 4>::from_fixed(off_y)),
+                Fixed::<u16, 4>::try_from_fixed(off_x).ok()?,
+                Fixed::<u16, 4>::try_from_fixed(off_y).ok()?,
             )
         } else {
-            (Fixed::from_integer(offset.x), Fixed::from_integer(offset.y))
+            (
+                Fixed::<u16, 4>::try_from_fixed(dx * offset.x).ok()?,
+                Fixed::<u16, 4>::try_from_fixed(dy * offset.y).ok()?,
+            )
         };
 
         Some((

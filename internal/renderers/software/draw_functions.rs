@@ -35,6 +35,8 @@ pub(super) fn draw_texture_line(
         pixel_stride,
         extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y },
     } = *texture;
+    let off_x = super::scene::TextureStep::from_fixed(off_x);
+    let off_y = super::scene::TextureStep::from_fixed(off_y);
 
     let source_size = texture.source_size().cast::<i32>();
     let source_width = source_size.width;
@@ -2110,7 +2112,7 @@ fn unscaled_texture_line_wraps_into_next_tile() {
             extra: SceneTextureExtra {
                 dx: Fixed::from_integer(1),
                 dy: Fixed::from_integer(1),
-                off_x: Fixed(98_304),
+                off_x: Fixed(24),
                 off_y: Fixed(0),
                 colorize: Color::default(),
                 alpha: 0xff,
