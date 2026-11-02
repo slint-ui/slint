@@ -209,7 +209,9 @@ fn build_batch() -> Batch {
     let mut cases = BTreeMap::new();
     for line in std::fs::read_to_string(env!("TEST_CASES")).unwrap().lines() {
         let (identifier, path) = line.split_once('\t').unwrap();
-        match generate(identifier, Path::new(path), &projects_dir.join(identifier)) {
+        // Windows drops a trailing space from a directory name, as in `popupwindow_size_fixed_layout .slint`.
+        let project = projects_dir.join(identifier.trim_end());
+        match generate(identifier, Path::new(path), &project) {
             Ok((code, blocks, case)) => {
                 std::fs::write(cases_dir.join(format!("{identifier}.g.cs")), code).unwrap();
                 if let Some(blocks) = blocks {
