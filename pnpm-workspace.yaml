@@ -78,6 +78,6 @@ catalog:
   remark-parse: 11.0.0
   typescript: 6.0.3
   unified: 11.0.5
-  unist-util-visit: 5.1.0
+  unist-util-visit: 5.2.0
   vite: 8.3.5
   vitest: 5.0.5
