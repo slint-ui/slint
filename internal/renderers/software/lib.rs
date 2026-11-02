@@ -50,6 +50,8 @@ use i_slint_core::item_rendering::{
     RenderBorderRectangle, RenderImage, RenderRectangle, clip_content_box,
 };
 use i_slint_core::item_tree::ItemTreeWeak;
+#[cfg(feature = "path")]
+use i_slint_core::items::FillRule;
 use i_slint_core::items::{ItemRc, RenderingResult, TextOverflow, TextWrap};
 use i_slint_core::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -1594,6 +1596,7 @@ trait ProcessScene {
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
+        fill_rule: FillRule,
         rounded_clips: &[RoundedClip],
     );
     #[cfg(feature = "path")]
@@ -2103,6 +2106,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
         clip_geometry: PhysicalRect,
         commands: alloc::vec::Vec<path::Command>,
         paint: path::Paint,
+        fill_rule: FillRule,
         rounded_clips: &[RoundedClip],
     ) {
         self.clips.clear();
@@ -2113,6 +2117,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             &clip_geometry,
             &self.clips,
             &paint,
+            fill_rule,
             self.buffer,
         );
     }
@@ -2353,6 +2358,7 @@ impl ProcessScene for PrepareScene {
         _clip_geometry: PhysicalRect,
         _commands: alloc::vec::Vec<path::Command>,
         _paint: path::Paint,
+        _fill_rule: FillRule,
         _rounded_clips: &[RoundedClip],
     ) {
         // Path rendering is not supported in line-by-line mode (PrepareScene/render_by_line)
@@ -3397,6 +3403,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 clipped_geom,
                 zeno_commands.clone(),
                 paint,
+                path.fill_rule(),
                 &self.rounded_clips,
             );
         }

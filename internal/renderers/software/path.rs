@@ -230,6 +230,7 @@ fn blend_with_coverage<T: TargetPixel>(
 /// * `clip_geometry` - The clipped region where the path should be rendered (intersection of path and clip)
 /// * `clips` - The rounded clips, relative to `clip_geometry`
 /// * `paint` - What to fill the path's coverage with
+/// * `fill_rule` - How overlapping and nested contours determine the inside of the path
 /// * `buffer` - The target pixel buffer
 pub fn render_filled_path<T: TargetPixel>(
     commands: &[Command],
@@ -237,15 +238,20 @@ pub fn render_filled_path<T: TargetPixel>(
     clip_geometry: &PhysicalRect,
     clips: &[ShapeClip],
     paint: &Paint,
+    fill_rule: i_slint_core::items::FillRule,
     buffer: &mut impl crate::target_pixel_buffer::TargetPixelBuffer<TargetPixel = T>,
 ) {
+    let fill = match fill_rule {
+        i_slint_core::items::FillRule::Evenodd => Fill::EvenOdd,
+        i_slint_core::items::FillRule::Nonzero | _ => Fill::NonZero,
+    };
     render_path_with_style(
         commands,
         path_geometry,
         clip_geometry,
         clips,
         paint,
-        zeno::Style::Fill(Fill::NonZero),
+        zeno::Style::Fill(fill),
         buffer,
     );
 }
