@@ -310,7 +310,11 @@ impl EspBackend {
 
                 // Render the window if needed.
                 window.draw_if_needed(|renderer| {
+                    #[cfg(feature = "box-display-profile")]
+                    let started = Instant::now();
                     renderer.render_by_line(&mut buffer_provider);
+                    #[cfg(feature = "box-display-profile")]
+                    info!("BOX_FRAME,render_and_transfer_us={}", started.elapsed().as_micros());
                 });
 
                 if window.has_active_animations() {

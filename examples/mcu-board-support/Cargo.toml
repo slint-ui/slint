@@ -41,6 +41,10 @@ path = "lib.rs"
 ## The application selects a desktop Slint backend itself.
 simulator = ["dep:serialport"]
 
+## The BOX-3 framebuffer, DMA display worker, and panel-synchronized updates.
+box-optimized-display = ["esp32-s3-box-3", "i-slint-renderer-software/experimental"]
+box-display-profile = []
+
 pico-st7789 = [
   "slint/unsafe-single-threaded",
   "rp-pico",

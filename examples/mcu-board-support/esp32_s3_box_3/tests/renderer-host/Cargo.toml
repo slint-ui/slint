@@ -1,0 +1,14 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "box3-renderer-parity"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+slint = { path = "../../../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software", "software-renderer-systemfonts", "unsafe-single-threaded"] }
+i-slint-renderer-software = { path = "../../../../../internal/renderers/software", features = ["experimental"] }

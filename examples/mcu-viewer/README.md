@@ -35,8 +35,19 @@ To flash an ESP32-S3 board, follow these steps:
 For the ESP32-S3-BOX-3:
 
 ```sh
-cargo +esp run --release --no-default-features --features mcu-board-support/esp32-s3-box-3 --config ../mcu-board-support/esp32_s3_box_3/cargo-config.toml
+cargo +esp run --release --no-default-features --features mcu-board-support/box-optimized-display --config ../mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
+
+The BOX-3 backend renders into a retained framebuffer and sends changed regions through a DMA display worker.
+Transfers follow the panel's refresh timing.
+A full-screen update still sends 150 KiB over 40 MHz SPI, so it spans more than one panel refresh.
+Use `mcu-board-support/esp32-s3-box-3` for the basic line-buffer backend.
+
+Add `mcu-board-support/box-display-profile` to log rendering and transfer times over the USB connection.
+Leave it disabled for normal use.
+
+The display pipeline is adapted from the [BOX printer backend](https://github.com/slint-ui/slint/tree/d99b59567614454aff82b94fffdbb25661d35f5f/examples/mcu-board-support/esp32_s3_box_3).
+Its internal transfer packet is limited to 32 KiB to leave room for the viewer's main stack.
 
 For the M5Stack CoreS3:
 
@@ -65,6 +76,21 @@ To show a design on your device, follow these steps:
 The device then displays your design and updates it after every edit.
 If an edit doesn't compile, the device keeps showing the previous version.
 The device's log output appears in the language server's log.
+
+## Test the BOX Display Pipeline
+
+From the repository root, run the packet, damage, touch, and fill tests:
+
+```sh
+rustc --edition=2024 --test examples/mcu-board-support/esp32_s3_box_3/frame_queue/host.rs -o /tmp/box-display-tests
+/tmp/box-display-tests
+```
+
+Compare the framebuffer renderer with the standard renderer across 720 frames:
+
+```sh
+cargo test --release --manifest-path examples/mcu-board-support/esp32_s3_box_3/tests/renderer-host/Cargo.toml
+```
 
 ## Limitations
 
