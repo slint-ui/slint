@@ -23,7 +23,7 @@
     "@slint/common-files": "workspace:*",
     "@types/node": "catalog:",
     "astro": "catalog:",
-    "astro-mermaid": "2.1.0",
+    "astro-mermaid": "2.2.0",
     "esbuild": "0.28.2",
     "mermaid": "12.2.0",
     "sharp": "catalog:",
