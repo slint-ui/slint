@@ -6,6 +6,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <SlintCopyToOutput>false</SlintCopyToOutput>
   </PropertyGroup>
   <ItemGroup>
     <SlintFile Include="../system-tray.slint" />
