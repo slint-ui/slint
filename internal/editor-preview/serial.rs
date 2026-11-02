@@ -128,7 +128,7 @@ pub struct UsbSerialPort {
 }
 
 impl UsbSerialPort {
-    /// Identifies the device across reconnections, which may give it another `name`.
+    /// Identifies the device, also once it's plugged in again under another `name`.
     /// A device without a serial number is only identified by its port.
     pub fn hardware_id(&self) -> String {
         let Self { vid, pid, .. } = self;
