@@ -19,6 +19,8 @@ pub struct Frame {
     pub night: f32,
     pub borders: bool,
     pub time: f32,
+    /// 1 shows the stars and the black of space around the globe, 0 makes it transparent.
+    pub space: f32,
 }
 
 /// Satellite imagery of the earth, equirectangular like the map, with its mip levels in sRGB
@@ -249,7 +251,7 @@ impl Renderer {
     }
 
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
-        let options = Vec4::new(0.0, frame.borders as u8 as f32, frame.time, 0.0);
+        let options = Vec4::new(frame.space, frame.borders as u8 as f32, frame.time, 0.0);
         let spreads = Vec4::new(map::SPREAD, map::SIDE_SPREAD, 0.0, 0.0);
         let mut globals = [0.0f32; GLOBAL_FLOATS];
         globals[..16].copy_from_slice(&frame.view_projection.inverse().to_cols_array());
@@ -268,7 +270,7 @@ impl Renderer {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
