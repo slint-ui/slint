@@ -236,14 +236,11 @@ pub fn resolve_input(input: &Path) -> Result<(PathBuf, Option<ProjectFile>), Dia
             project_load_error(&SourcePath::new(&project_file_path), error, source)
         })?;
     let entry = project_file.main().ok_or_else(|| {
-        project_error(
-            format!("{} has no 'main' to compile", project_file.source_path()),
-            project_file.source_path(),
-        )
+        project_error("Project file has no 'main' to compile".into(), project_file.source_path())
     })?;
     let entry = entry.into_native_path().ok_or_else(|| {
         project_error(
-            format!("{} must specify a local file for 'main'", project_file.source_path()),
+            "Project file must specify a local file for 'main'".into(),
             project_file.source_path(),
         )
     })?;
@@ -287,7 +284,7 @@ fn project_load_error(
 ) -> Diagnostic {
     let mut message = error.to_string();
     if let Some(error) = error.downcast_ref::<serde_json::Error>() {
-        // serde_json adds a "at line X columy Y" suffix to the error message.
+        // serde_json adds an "at line X column Y" suffix to the error message.
         // Strip it, as our diagnostics already contain the line/column info.
         let suffix = format!(" at line {} column {}", error.line(), error.column());
         if let Some(without_location) = message.strip_suffix(&suffix) {
@@ -1362,6 +1359,7 @@ mod tests {
         with_project_file_contents(r#"{"edition":"1.19"}"#, |path| {
             let error = resolve_input(path.parent().unwrap()).unwrap_err();
             assert!(error.message().contains("'main'"), "{error}");
+            assert_eq!(error.source_file(), Some(path));
         });
     }
 
@@ -1400,10 +1398,9 @@ mod tests {
         with_project_file_contents(
             r#"{ "edition": "1.19", "main": "https://example.com/main.slint" }"#,
             |path| {
-                assert_eq!(
-                    resolve_input(path.parent().unwrap()).unwrap_err().message(),
-                    format!("{} must specify a local file for 'main'", SourcePath::new(path))
-                );
+                let error = resolve_input(path.parent().unwrap()).unwrap_err();
+                assert_eq!(error.message(), "Project file must specify a local file for 'main'");
+                assert_eq!(error.source_file(), Some(path));
             },
         );
     }

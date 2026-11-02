@@ -130,7 +130,7 @@ impl Project {
                 return Err("A project directory cannot be combined with --project-root".into());
             }
             let (main, _) = i_slint_compiler::project_file::resolve_input(&path)
-                .map_err(|error| error.message().to_string())?;
+                .map_err(|error| error.to_string())?;
             return Self::from_root(&path, &main, component);
         }
         let root = project_root
@@ -445,6 +445,18 @@ mod tests {
         assert_eq!(project.root, std::fs::canonicalize(directory.path().join("ui")).unwrap());
         assert_eq!(project.preview.url, expected_url);
         assert_eq!(project.preview.component.as_deref(), Some("MainWindow"));
+    }
+
+    #[test]
+    fn project_from_directory_reports_project_file_error_location() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(directory.path()).unwrap();
+        let manifest = root.join(i_slint_compiler::project_file::FILE_NAME);
+        fs::write(&manifest, "{\n  \"edition\": 42\n}\n").unwrap();
+
+        let error = Project::from_input(&root, None, None).unwrap_err().to_string();
+        assert!(error.starts_with(&format!("{}:2: ", manifest.display())), "{error}");
+        assert!(error.contains("edition"), "{error}");
     }
 
     #[test]
