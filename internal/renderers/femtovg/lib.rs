@@ -12,7 +12,7 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::Brush;
-use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+use i_slint_core::api::RenderingState;
 use i_slint_core::graphics::SharedPixelBuffer;
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel};
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
@@ -20,7 +20,7 @@ use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::platform::PlatformError;
-use i_slint_core::renderer::{DrawOutcome, RendererSealed};
+use i_slint_core::renderer::{DrawOutcome, RendererSealed, RenderingNotifierCell};
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use images::TextureImporter;
@@ -122,7 +122,7 @@ pub trait GraphicsBackend {
 /// library.
 pub struct FemtoVGRenderer<B: GraphicsBackend> {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
-    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    rendering_notifier: RenderingNotifierCell,
     canvas: RefCell<Option<CanvasRc<B::Renderer>>>,
     graphics_cache: itemrenderer::ItemGraphicsCache<B::Renderer>,
     layer_cache: itemrenderer::LayerCache<B::Renderer>,
@@ -180,9 +180,9 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                 &format!("FemtoVG renderer with {} backend", B::NAME),
             );
 
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            if self.rendering_notifier.is_set() {
                 self.with_graphics_api(|api| {
-                    callback.notify(RenderingState::RenderingSetup, &api)
+                    self.rendering_notifier.notify(RenderingState::RenderingSetup, &api)
                 })?;
             }
         }
@@ -242,7 +242,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     femtovg_canvas.translate(translation.0, translation.1);
                 }
 
-                if let Some(notifier_fn) = self.rendering_notifier.borrow_mut().as_mut() {
+                if self.rendering_notifier.is_set() {
                     let mut femtovg_canvas = canvas.borrow_mut();
                     // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                     // the back buffer, in order to allow the callback to provide its own rendering of the background.
@@ -256,7 +256,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     drop(femtovg_canvas);
 
                     self.with_graphics_api(|api| {
-                        notifier_fn.notify(RenderingState::BeforeRendering, &api)
+                        self.rendering_notifier.notify(RenderingState::BeforeRendering, &api)
                     })?;
                 }
 
@@ -324,8 +324,10 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             })
             .unwrap_or(Ok(()))?;
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            self.with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))?;
+        if self.rendering_notifier.is_set() {
+            self.with_graphics_api(|api| {
+                self.rendering_notifier.notify(RenderingState::AfterRendering, &api)
+            })?;
         }
 
         self.graphics_backend.present_surface(surface)?;
@@ -362,12 +364,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         &self,
         callback: Box<dyn i_slint_core::api::RenderingNotifier>,
     ) -> Result<(), i_slint_core::api::SetRenderingNotifierError> {
-        let mut notifier = self.rendering_notifier.borrow_mut();
-        if notifier.replace(callback).is_some() {
-            Err(SetRenderingNotifierError::AlreadySet)
-        } else {
-            Ok(())
-        }
+        self.rendering_notifier.set(callback)
     }
 
     fn free_graphics_resources(
@@ -492,12 +489,10 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
         // Ensure the context is current before the renderer is destroyed
         self.graphics_backend.with_graphics_api(|api| {
             // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
-            if !self.rendering_first_time.get()
-                && api.is_some()
-                && let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
+            if !self.rendering_first_time.get() && api.is_some() && self.rendering_notifier.is_set()
             {
                 self.with_graphics_api(|api| {
-                    callback.notify(RenderingState::RenderingTeardown, &api)
+                    self.rendering_notifier.notify(RenderingState::RenderingTeardown, &api)
                 })
                 .ok();
             }

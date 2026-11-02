@@ -518,6 +518,11 @@ impl Window {
 
     /// This function allows registering a callback that's invoked during the different phases of
     /// rendering. This allows custom rendering on top or below of the scene.
+    ///
+    /// A window has at most one rendering notifier.
+    /// Once it's set, later calls return [`SetRenderingNotifierError::AlreadySet`] and keep it.
+    /// The callback may call back into the window, for example `take_snapshot()`.
+    /// A frame rendered while the callback runs doesn't invoke it again.
     pub fn set_rendering_notifier(
         &self,
         callback: impl FnMut(RenderingState, &GraphicsAPI) + 'static,

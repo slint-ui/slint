@@ -215,3 +215,16 @@ fn shadow_spread_preserves_adjusted_corner_radii() {
     }
     crate::shadow::assert_shadow_spread_preserves_adjusted_corner_radii();
 }
+
+#[test]
+fn rendering_notifier_removes_elements() {
+    if init_femtovg().is_none() {
+        return;
+    }
+    crate::rendering_notifier::assert_notifier_removes_elements(|component| {
+        let size = crate::rendering_notifier::SIZE;
+        component.window().set_size(PhysicalSize::new(size, size));
+        let snapshot = component.window().take_snapshot().unwrap();
+        snapshot.as_slice()[..size as usize].iter().filter(|pixel| pixel.g < 128).count()
+    });
+}

@@ -25,7 +25,7 @@ use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, PhysicalPx, ScaleFactor};
 use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
 use i_slint_core::platform::PlatformError;
-use i_slint_core::renderer::DrawOutcome;
+use i_slint_core::renderer::{DrawOutcome, RenderingNotifierCell};
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 
@@ -381,8 +381,7 @@ pub struct SkiaSharedContext(#[allow(dead_code)] Rc<SkiaSharedContextInner>);
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
 pub struct SkiaRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
-    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
-    has_rendering_notifier: Cell<bool>,
+    rendering_notifier: RenderingNotifierCell,
     image_cache: ItemCache<Option<skia_safe::Image>>,
     layer_cache: ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
@@ -432,7 +431,6 @@ impl SkiaRenderer {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
-            has_rendering_notifier: Default::default(),
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
@@ -595,15 +593,13 @@ impl SkiaRenderer {
 
         // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
         if !self.rendering_first_time.get() {
-            self.with_rendering_notifier(|callback| {
-                surface
-                    .with_active_surface(&mut || {
-                        surface.with_graphics_api(&mut |api| {
-                            callback.notify(RenderingState::RenderingTeardown, &api)
-                        })
+            surface
+                .with_active_surface(&mut || {
+                    surface.with_graphics_api(&mut |api| {
+                        self.rendering_notifier.notify(RenderingState::RenderingTeardown, &api)
                     })
-                    .ok();
-            });
+                })
+                .ok();
         }
 
         drop(surface);
@@ -678,11 +674,9 @@ impl SkiaRenderer {
                     surface.bits_per_pixel()?
                 ));
 
-            self.with_rendering_notifier(|callback| {
-                surface.with_graphics_api(&mut |api| {
-                    callback.notify(RenderingState::RenderingSetup, &api)
-                })
-            });
+            surface.with_graphics_api(&mut |api| {
+                self.rendering_notifier.notify(RenderingState::RenderingSetup, &api)
+            })
         }
         Ok(())
     }
@@ -748,11 +742,9 @@ impl SkiaRenderer {
             .unwrap_or(Ok(None));
 
         if let Some(surface) = surface {
-            self.with_rendering_notifier(|callback| {
-                surface.with_graphics_api(&mut |api| {
-                    callback.notify(RenderingState::AfterRendering, &api)
-                })
-            });
+            surface.with_graphics_api(&mut |api| {
+                self.rendering_notifier.notify(RenderingState::AfterRendering, &api)
+            })
         }
 
         dirty_region
@@ -883,7 +875,7 @@ impl SkiaRenderer {
                 }
             }
 
-            if self.has_rendering_notifier.get() {
+            if self.rendering_notifier.is_set() {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
@@ -892,11 +884,9 @@ impl SkiaRenderer {
                 }
 
                 if let Some(surface) = surface {
-                    self.with_rendering_notifier(|callback| {
-                        surface.with_graphics_api(&mut |api| {
-                            callback.notify(RenderingState::BeforeRendering, &api)
-                        })
-                    });
+                    surface.with_graphics_api(&mut |api| {
+                        self.rendering_notifier.notify(RenderingState::BeforeRendering, &api)
+                    })
                 }
             }
 
@@ -952,16 +942,9 @@ impl SkiaRenderer {
         *self.pre_present_callback.borrow_mut() = callback;
     }
 
-    /// Calls `f` with the rendering notifier, unless none is set or it's already running.
-    fn with_rendering_notifier(&self, f: impl FnOnce(&mut dyn RenderingNotifier)) {
-        let Some(mut notifier) = self.rendering_notifier.take() else { return };
-        f(notifier.as_mut());
-        *self.rendering_notifier.borrow_mut() = Some(notifier);
-    }
-
     fn partial_rendering_state(&self) -> Option<&PartialRenderingState> {
         // We don't know where the application might render to, so disable partial rendering.
-        if self.has_rendering_notifier.get() { None } else { self.partial_rendering_state.as_ref() }
+        if self.rendering_notifier.is_set() { None } else { self.partial_rendering_state.as_ref() }
     }
 }
 
@@ -974,11 +957,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         &self,
         callback: Box<dyn RenderingNotifier>,
     ) -> std::result::Result<(), SetRenderingNotifierError> {
-        if self.has_rendering_notifier.replace(true) {
-            return Err(SetRenderingNotifierError::AlreadySet);
-        }
-        *self.rendering_notifier.borrow_mut() = Some(callback);
-        Ok(())
+        self.rendering_notifier.set(callback)
     }
 
     fn free_graphics_resources(

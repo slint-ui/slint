@@ -417,6 +417,11 @@ public:
     ///
     /// On success, the function returns a std::optional without value. On error, the function
     /// returns the error code as value in the std::optional.
+    ///
+    /// A window has at most one rendering notifier.
+    /// Once it's set, later calls return SetRenderingNotifierError::AlreadySet and keep it.
+    /// The callback may call back into the window, for example take_snapshot().
+    /// A frame rendered while the callback runs doesn't invoke it again.
     template<std::invocable<RenderingState, GraphicsAPI> F>
     std::optional<SetRenderingNotifierError> set_rendering_notifier(F &&callback) const
     {

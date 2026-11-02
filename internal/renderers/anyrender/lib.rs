@@ -45,8 +45,8 @@ use i_slint_core::item_rendering::ItemCache;
 use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::platform::PlatformError;
-use i_slint_core::renderer::DrawOutcome;
 use i_slint_core::renderer::RendererSealed;
+use i_slint_core::renderer::{DrawOutcome, RenderingNotifierCell};
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 
@@ -177,7 +177,7 @@ pub struct AnyrenderSlintRenderer<W: SlintWindowRenderer> {
     /// Set when a surface is created, so the collector is rebuilt against the
     /// device that surface ended up on.
     rendering_first_time: Cell<bool>,
-    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    rendering_notifier: RenderingNotifierCell,
     rendering_set_up: Cell<bool>,
     /// A size that `resize()` received during a frame, for example from a rendering notifier.
     pending_size: Cell<Option<(u32, u32)>>,
@@ -211,9 +211,7 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
             return;
         }
         let Some(api) = self.window_renderer.borrow().graphics_api() else { return };
-        if let Some(notifier) = self.rendering_notifier.borrow_mut().as_mut() {
-            notifier.notify(RenderingState::RenderingTeardown, &api);
-        }
+        self.rendering_notifier.notify(RenderingState::RenderingTeardown, &api);
     }
 
     /// Call after a surface was created, so that the next frame reports the
@@ -266,21 +264,19 @@ impl<W: SlintWindowRenderer> AnyrenderSlintRenderer<W> {
 
         let base_color = window_background_color(window_inner);
 
-        let graphics_api = if self.rendering_notifier.borrow().is_some() {
+        let graphics_api = if self.rendering_notifier.is_set() {
             self.window_renderer.borrow().graphics_api()
         } else {
             None
         };
         let mut notify = |state: RenderingState| {
             let Some(api) = &graphics_api else { return };
-            let mut notifier = self.rendering_notifier.borrow_mut();
-            let Some(notifier) = notifier.as_mut() else { return };
             if matches!(state, RenderingState::BeforeRendering)
                 && !self.rendering_set_up.replace(true)
             {
-                notifier.notify(RenderingState::RenderingSetup, api);
+                self.rendering_notifier.notify(RenderingState::RenderingSetup, api);
             }
-            notifier.notify(state, api);
+            self.rendering_notifier.notify(state, api);
         };
 
         let texture_importer = self.window_renderer.borrow().texture_importer();
@@ -375,15 +371,7 @@ impl<W: SlintWindowRenderer> RendererSealed for AnyrenderSlintRenderer<W> {
         if !W::PROVIDES_GRAPHICS_API {
             return Err(SetRenderingNotifierError::Unsupported);
         }
-        // Borrowed while the notifier runs, so a notifier is set.
-        let Ok(mut notifier) = self.rendering_notifier.try_borrow_mut() else {
-            return Err(SetRenderingNotifierError::AlreadySet);
-        };
-        if notifier.is_some() {
-            return Err(SetRenderingNotifierError::AlreadySet);
-        }
-        *notifier = Some(callback);
-        Ok(())
+        self.rendering_notifier.set(callback)
     }
 
     fn free_graphics_resources(
