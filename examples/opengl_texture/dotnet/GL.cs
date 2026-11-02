@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cSpell: ignore Integerv Parameteri
 
 using System.Runtime.InteropServices;
 using System.Text;

@@ -1,3 +1,4 @@
+<!-- cSpell: ignore Microcharts myapp mylib xplat yurkinh -->
 # Slint for .NET (Preview)
 
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.

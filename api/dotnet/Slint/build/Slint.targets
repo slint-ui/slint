@@ -1,5 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 -->
+<!-- cSpell: ignore mylib -->
 <!--
   Generates typed C# classes from <SlintFile> items and copies the .slint files to the output directory,
   where the generated code loads them from at run time.

@@ -1,3 +1,4 @@
+<!-- cSpell: ignore xplat yurkinh -->
 # What's New in Slint for .NET
 
 ## 1.19.0-preview.11

@@ -1,5 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell: ignore yurkinh -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>

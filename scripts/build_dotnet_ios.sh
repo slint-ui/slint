@@ -1,6 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore FMWK
 
 # Builds slint-dotnet as a dynamic framework for iOS devices and the simulator on Apple Silicon,
 # and combines them into target/ios/slint_dotnet.xcframework, which Slint.targets embeds into iOS apps.

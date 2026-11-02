@@ -1,6 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore monodroid
 
 # Installs an APK of a Slint .NET app on the device that adb uses, starts it,
 # and fails if it doesn't keep running, or logs a crash or an error of SlintActivity.

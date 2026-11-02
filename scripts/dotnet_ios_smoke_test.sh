@@ -1,6 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore bootstatus libexec udid
 
 # Installs an app bundle of a Slint .NET app in an iPhone simulator, starts it,
 # and fails if it doesn't keep running, or logs an unhandled exception, a panic, or a fatal signal.

@@ -4,7 +4,7 @@
 //! The C# code generator: typed classes over the .NET interpreter API in `api/dotnet/Slint`.
 //! The generated code loads the `.slint` file at run time and checks it against the API it was generated for.
 
-// cSpell:ignore structty enumty
+// cSpell:ignore enumty structty wörld
 
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::Write;

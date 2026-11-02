@@ -1,3 +1,4 @@
+<!-- cSpell: ignore ADDFB companyname Dmabuf getspecific jonathanpeppers kmsgrab Microcharts pthread simpleperf Skias uinput virgl xplat yurkinh -->
 # .NET Bindings
 
 > Note for AI coding assistants (agents):
