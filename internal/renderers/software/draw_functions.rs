@@ -1493,12 +1493,12 @@ impl GradientColor {
     /// Formats with fewer bits dither again, which stays unbiased only with independent noise.
     #[inline]
     fn blend_into(self, pixel: &mut impl TargetPixel, [noise8, noise]: [u8; 2]) {
-        let alpha = self.alpha.truncate() as u8;
-        let dither = |v: Fixed<u16, 8>| ((v.0.saturating_add(noise8 as u16) >> 8) as u8).min(alpha);
+        let dither = |v: Fixed<u16, 8>| (v.0.saturating_add(noise8 as u16) >> 8) as u8;
+        let alpha = dither(self.alpha);
         let color = PremultipliedRgbaColor {
-            red: dither(self.red),
-            green: dither(self.green),
-            blue: dither(self.blue),
+            red: dither(self.red).min(alpha),
+            green: dither(self.green).min(alpha),
+            blue: dither(self.blue).min(alpha),
             alpha,
         };
         pixel.blend_dithered(color, noise, InternalToken);
@@ -1903,6 +1903,21 @@ fn dither_stays_premultiplied() {
     let mut pix = PremultipliedRgbaColor::default();
     c.blend_into(&mut pix, [255, 0]);
     assert!(pix.red <= pix.alpha && pix.green <= pix.alpha && pix.blue <= pix.alpha);
+}
+
+#[test]
+fn gradient_alpha_is_dithered() {
+    let black =
+        GradientColor { red: Fixed(0), green: Fixed(0), blue: Fixed(0), alpha: Fixed(0x280) };
+    let white = PremultipliedRgbaColor { red: 255, green: 255, blue: 255, alpha: 255 };
+    let mut darkened = 0;
+    for noise in 0..=255 {
+        let mut pix = white;
+        black.blend_into(&mut pix, [noise, 0]);
+        darkened += 255 - pix.red as u32;
+    }
+    // An alpha of 2.5 darkens white by 2.5 on average.
+    assert_eq!(darkened, 256 * 5 / 2);
 }
 
 #[cfg(test)]
