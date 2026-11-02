@@ -140,7 +140,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let starlight = stars(direction) * smoothstep(1.02, 1.12, miss_distance);
     let limb_sun = dot(normalize(closest), sun);
     let limb_light = mix(1.0, smoothstep(-0.3, 0.25, limb_sun), sun_strength);
-    let limb_dusk = exp(-pow(limb_sun / 0.18, 2.0)) * sun_strength;
+    let limb_dusk = exp(-pow(limb_sun / 0.1, 2.0)) * sun_strength;
     let halo = exp(-max(miss_distance - 1.0, 0.0) * 30.0) * select(0.0, 1.0, along > 0.0);
     let halo_color = vec3<f32>(0.35, 0.6, 1.0);
     let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.6) * halo * 0.6;
@@ -151,11 +151,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let facing = max(dot(normal, view), 0.0);
     let fresnel = pow(1.0 - facing, 5.0);
     let sunlight = dot(normal, sun);
-    let day = mix(1.0, smoothstep(-0.04, 0.1, sunlight), sun_strength);
-    // Twilight lasts while the sun is up to 12° below the horizon.
-    let twilight = (1.0 - day) * smoothstep(-0.21, 0.0, sunlight) * sun_strength;
+    let day = mix(1.0, smoothstep(-0.02, 0.05, sunlight), sun_strength);
+    // Twilight lasts while the sun is up to 4° below the horizon.
+    let twilight = (1.0 - day) * smoothstep(-0.07, 0.0, sunlight) * sun_strength;
     // The line where the sun rises and sets.
-    let terminator = exp(-pow(sunlight / 0.02, 2.0)) * sun_strength;
+    let terminator = exp(-pow(sunlight / 0.01, 2.0)) * sun_strength;
     let terminator_color = vec3<f32>(1.0, 0.62, 0.3);
     let diffuse = mix(1.0, clamp(sunlight * 1.2 + 0.25, 0.0, 1.0), sun_strength * 0.8);
 
@@ -166,9 +166,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     lit = mix(lit, vec3<f32>(0.95, 0.95, 0.85), border * 0.45 * day);
     let night_ground = imagery * vec3<f32>(0.02, 0.025, 0.04);
     let lights = vec3<f32>(1.0, 0.72, 0.38) * city_light * land * 1.6;
-    var ground = mix(night_ground + lights + vec3<f32>(0.09, 0.05, 0.06) * twilight, lit, day);
+    var ground = mix(night_ground + lights + vec3<f32>(0.05, 0.03, 0.035) * twilight, lit, day);
     ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * mix(0.03, 0.25, day);
-    ground += terminator_color * terminator * 0.22;
+    ground += terminator_color * terminator * 0.16;
 
     // Where there's no space, the frame is transparent but for the atmosphere's glow.
     let space = globals.options.x;
