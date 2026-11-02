@@ -546,8 +546,8 @@ impl Demo {
         }
     }
 
-    /// The names of the largest cities on the screen that don't overlap each other or `taken`,
-    /// and hidden ones up to `MAX_LABELS`.
+    /// The names of the largest cities on the screen, at most `MAX_LABELS`, that don't overlap
+    /// each other or `taken`.
     fn labels(&self, view_projection: Mat4, eye: Vec3, size: Vec2, taken: &[Vec2]) -> Vec<Label> {
         let height = (eye.length() - 1.0).max(0.01);
         let min_population = if height > 2.0 {
@@ -590,8 +590,6 @@ impl Demo {
                 break;
             }
         }
-        // Changing the number of rows while Slint renders would remove elements mid-frame.
-        labels.resize(MAX_LABELS, Label::default());
         labels
     }
 }
