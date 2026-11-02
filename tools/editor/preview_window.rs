@@ -79,7 +79,7 @@ pub fn run(placement: Option<Placement>) -> i_slint_editor_preview::Result<()> {
         #[cfg(target_os = "macos")]
         let selector = {
             use winit::platform::macos::EventLoopBuilderExtMacOS;
-            let mut builder = winit::event_loop::EventLoop::with_user_event();
+            let mut builder = winit::event_loop::EventLoop::builder();
             // AppKit activates a process before its asynchronously compiled window exists.
             builder.with_activate_ignoring_other_apps(false);
             selector.with_winit_event_loop_builder(builder)
