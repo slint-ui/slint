@@ -27,6 +27,12 @@ Startup screens containing variable memory statistics are excluded from pixel co
 | --- | ---: | ---: | ---: | --- |
 | Baseline: software floating point, size optimization | 15.120 ms | 70.739 ms | 81.204 ms | Reference |
 | Hardware floating point | 15.045 ms | 69.681 ms | 79.584 ms | All scene checksums match |
+| Speed optimization (`opt-level = 3`) | 13.518 ms | 55.392 ms | 56.339 ms | All scene checksums match |
 
 Hardware floating point reduces rendering time by 0.5%, 1.5%, and 2.0%, respectively.
 The LCD transfer remains about 37 ms.
+
+Speed optimization increases the application from 2,149,232 to 2,635,184 bytes, within the 16 MB flash.
+The compiler package retains its optimization-level override of 2.
+
+Speed optimization reduces rendering time by another 10.1%, 20.5%, and 29.2%, respectively.
