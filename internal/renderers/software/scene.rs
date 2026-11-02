@@ -439,6 +439,8 @@ pub struct SceneTextureExtra {
     pub rotation: RenderingRotation,
     /// Bilinear filtering instead of nearest neighbor when scaling
     pub smooth: bool,
+    /// Whether the texture repeats, so filtering blends its opposite edges
+    pub tiled: bool,
 }
 
 impl SceneTextureExtra {
@@ -495,6 +497,7 @@ impl SceneTextureExtra {
                 alpha: texture.alpha,
                 rotation: texture.rotation,
                 smooth: texture.smooth,
+                tiled: texture.tiling.is_some(),
                 dx: Fixed::try_from_fixed(dx).ok()?,
                 dy: Fixed::try_from_fixed(dy).ok()?,
                 off_x: Fixed::try_from_fixed(dx * offset.x).ok()?,

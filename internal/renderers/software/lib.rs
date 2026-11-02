@@ -72,6 +72,10 @@ type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type PhysicalBorderRadius = BorderRadius<i16, PhysicalPx>;
 
+/// `DrawTextureArgs::smooth` for glyphs and cached layers, which are drawn at their rasterized
+/// size, where filtering has no effect.
+const DRAWN_UNSCALED: bool = false;
+
 use fonts::with_font;
 
 #[derive(Copy, Clone, Debug)]
@@ -2525,8 +2529,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             tiled,
         }: i_slint_core::graphics::FitResult,
         colorize: Color,
-        smooth: bool,
+        rendering: ImageRendering,
     ) {
+        let smooth = rendering == ImageRendering::Smooth;
         let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
         let offset =
             self.current_state.offset.cast() * self.scale_factor + image_fit_offset.to_vector();
@@ -2837,6 +2842,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             alpha: color.alpha(),
                             rotation: self.rotation.orientation,
                             smooth: false,
+                            tiled: false,
                             dx: scale_delta,
                             dy: scale_delta,
                             off_x: Fixed::try_from_fixed(off_x).unwrap(),
@@ -2915,7 +2921,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         dst_height: target_rect.size.height as _,
                         rotation: self.rotation.orientation,
                         tiling: None,
-                        smooth: false,
+                        smooth: DRAWN_UNSCALED,
                     };
 
                     self.processor.process_target_texture(
@@ -3085,7 +3091,6 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let source = image.source();
-            let smooth = image.rendering() == ImageRendering::Smooth;
 
             let image_inner: &ImageInner = (&source).into();
             if let ImageInner::NineSlice(nine) = image_inner {
@@ -3099,7 +3104,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     image.alignment(),
                     image.tiling(),
                 ) {
-                    self.draw_image_impl(&nine.0, fit, colorize, smooth);
+                    self.draw_image_impl(&nine.0, fit, colorize, image.rendering());
                 }
                 return;
             }
@@ -3121,7 +3126,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                 image.alignment(),
                 image.tiling(),
             );
-            self.draw_image_impl(image_inner, fit, image.colorize().color(), smooth);
+            self.draw_image_impl(image_inner, fit, image.colorize().color(), image.rendering());
         }
     }
 
@@ -3607,7 +3612,7 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     dst_height: height as _,
                     rotation: self.rotation.orientation,
                     tiling: None,
-                    smooth: false,
+                    smooth: DRAWN_UNSCALED,
                 };
                 if let Some(clip) =
                     self.clip_to_rounded_clips(geometry.cast().transformed(self.rotation))
@@ -3685,7 +3690,12 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
             Default::default(),
             Default::default(),
         );
-        self.draw_image_impl(image_inner, fit, i_slint_core::Color::default(), true);
+        self.draw_image_impl(
+            image_inner,
+            fit,
+            i_slint_core::Color::default(),
+            ImageRendering::Smooth,
+        );
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {
@@ -3906,7 +3916,7 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
                 dst_height: target_rect.size.height as _,
                 rotation: self.rotation.orientation,
                 tiling: None,
-                smooth: false,
+                smooth: DRAWN_UNSCALED,
             };
 
             self.processor.process_target_texture(&t, clipped_target.cast(), &self.rounded_clips);

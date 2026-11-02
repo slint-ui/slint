@@ -32,7 +32,8 @@ pub(super) fn draw_texture_line(
         data,
         format,
         pixel_stride,
-        extra: super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y, smooth },
+        extra:
+            super::SceneTextureExtra { colorize, alpha, rotation, dx, dy, off_x, off_y, smooth, tiled },
     } = *texture;
 
     let source_size = texture.source_size().cast::<i32>();
@@ -97,11 +98,12 @@ pub(super) fn draw_texture_line(
             && alpha == 0xff
             && has_contiguous_path(format, colorize);
         let stride = pixel_stride as usize * bpp;
-        let (smooth_row, fy, below) = if smooth {
+        let (y0, y1, fy) = if smooth {
             bilinear_axis(
                 (row + half_y) % Fixed::from_integer(source_size.height),
                 source_size.height,
                 stride,
+                tiled,
             )
         } else {
             Default::default()
@@ -116,9 +118,10 @@ pub(super) fn draw_texture_line(
                     colorize,
                     #[inline(always)]
                     |bpp| {
-                        let (x, fx, right) = bilinear_axis(pos + half_x, source_size.width, bpp);
+                        let (x0, x1, fx) =
+                            bilinear_axis(pos + half_x, source_size.width, bpp, tiled);
                         pos += delta;
-                        BilinearPos { pos: smooth_row * stride + x * bpp, right, below, fx, fy }
+                        BilinearPos { x0, x1, y0, y1, fx, fy }
                     },
                 );
             } else if contiguous {
@@ -164,11 +167,12 @@ pub(super) fn draw_texture_line(
     } else {
         let col = off_x + dx * y;
         let col_fract = col.fract();
-        let (smooth_col, fx, right) = if smooth {
+        let (x0, x1, fx) = if smooth {
             bilinear_axis(
                 (col + half_x) % Fixed::from_integer(source_size.width),
                 source_size.width,
                 bpp,
+                tiled,
             )
         } else {
             Default::default()
@@ -212,10 +216,10 @@ pub(super) fn draw_texture_line(
                     colorize,
                     #[inline(always)]
                     |_| {
-                        let (y, fy, below) =
-                            bilinear_axis(row + half_y, source_size.height, stride);
+                        let (y0, y1, fy) =
+                            bilinear_axis(row + half_y, source_size.height, stride, tiled);
                         row += row_delta;
-                        BilinearPos { pos: y * stride + smooth_col * bpp, right, below, fx, fy }
+                        BilinearPos { x0, x1, y0, y1, fx, fy }
                     },
                 );
             } else {
@@ -473,11 +477,13 @@ pub(super) fn draw_texture_line(
 /// The four texels around a sample point, for bilinear filtering.
 #[derive(Clone, Copy)]
 struct BilinearPos {
-    /// Byte offset of the top-left texel
-    pos: usize,
-    /// Byte offsets from `pos` to the texel on the right and below, 0 at the texture's edge
-    right: usize,
-    below: usize,
+    /// Byte offsets of the left and right columns within a row
+    x0: usize,
+    x1: usize,
+    /// Byte offsets of the top and bottom rows
+    y0: usize,
+    y1: usize,
+    /// Weights of `x1` and `y1`, out of 256
     fx: u8,
     fy: u8,
 }
@@ -486,26 +492,41 @@ impl BilinearPos {
     #[inline(always)]
     fn sample<const N: usize>(self, data: &[u8], texel: impl Fn(&[u8]) -> [u32; N]) -> [u32; N] {
         let (fx, fy) = (self.fx as u32, self.fy as u32);
-        // Derived from `w11` so that the weights sum to exactly 256.
         let w11 = (fx * fy) >> 8;
         let w10 = fx - w11;
         let w01 = fy - w11;
         let w00 = 256 + w11 - fx - fy;
-        let t00 = texel(&data[self.pos..]);
-        let t10 = texel(&data[self.pos + self.right..]);
-        let t01 = texel(&data[self.pos + self.below..]);
-        let t11 = texel(&data[self.pos + self.below + self.right..]);
+        let t00 = texel(&data[self.y0 + self.x0..]);
+        let t10 = texel(&data[self.y0 + self.x1..]);
+        let t01 = texel(&data[self.y1 + self.x0..]);
+        let t11 = texel(&data[self.y1 + self.x1..]);
         core::array::from_fn(|i| (t00[i] * w00 + t10[i] * w10 + t01[i] * w01 + t11[i] * w11) >> 8)
     }
 }
 
-/// Returns the texel index, the fraction towards the next texel, and `step` to reach it,
-/// clamping to the edge instead of reading past it.
+/// Returns the offsets of the two texels around `v`, each multiplied by `step`,
+/// and the weight of the second one out of 256.
+/// At the texture's edge, the neighbor wraps to the opposite edge when `tiled`,
+/// and is clamped to the edge texel otherwise.
 #[inline(always)]
-fn bilinear_axis(v: Fixed<i32, 8>, size: i32, step: usize) -> (usize, u8, usize) {
-    let v = v.max(Fixed::default());
+fn bilinear_axis(v: Fixed<i32, 8>, size: i32, step: usize, tiled: bool) -> (usize, usize, u8) {
+    let end = Fixed::<i32, 8>::from_integer(size);
+    let v = if !tiled {
+        v.max(Fixed::default())
+    } else if v < Fixed::default() || v >= end {
+        Fixed(v.0.rem_euclid(end.0))
+    } else {
+        v
+    };
     let i = v.truncate();
-    if i + 1 < size { (i as usize, v.fract(), step) } else { ((size - 1) as usize, 0, 0) }
+    let last = (size - 1) as usize * step;
+    if i + 1 < size {
+        (i as usize * step, (i + 1) as usize * step, v.fract())
+    } else if tiled {
+        (last, 0, v.fract())
+    } else {
+        (last, last, 0)
+    }
 }
 
 fn fetch_blend_pixel_smooth(
@@ -521,7 +542,7 @@ fn fetch_blend_pixel_smooth(
         TexturePixelFormat::Rgb => {
             for pix in line_buffer {
                 let [r, g, b] = pos(3).sample(data, |p| [p[0] as u32, p[1] as u32, p[2] as u32]);
-                blend_premultiplied(pix, [r, g, b, 0xff], alpha);
+                blend_premultiplied_scaled(pix, [r, g, b, 0xff], alpha);
             }
         }
         #[cfg(feature = "image-pixel-format-rgb565")]
@@ -531,24 +552,24 @@ fn fetch_blend_pixel_smooth(
                     let p = Rgb565Pixel(u16::from_ne_bytes([p[0], p[1]]));
                     [p.red() as u32, p.green() as u32, p.blue() as u32]
                 });
-                blend_premultiplied(pix, [r, g, b, 0xff], alpha);
+                blend_premultiplied_scaled(pix, [r, g, b, 0xff], alpha);
             }
         }
         TexturePixelFormat::Rgba if color.alpha() == 0 => {
-            // Premultiplies each texel, so that transparent texels don't bleed their color.
+            // Premultiply each texel so transparent texels don't bleed their color.
             for pix in line_buffer {
                 let [r, g, b, a] = pos(4).sample(data, |p| {
                     let a = p[3] as u32;
                     [p[0] as u32 * a, p[1] as u32 * a, p[2] as u32 * a, a]
                 });
-                blend_premultiplied(pix, [r / 255, g / 255, b / 255, a], alpha);
+                blend_premultiplied_scaled(pix, [r / 255, g / 255, b / 255, a], alpha);
             }
         }
         TexturePixelFormat::RgbaPremultiplied if color.alpha() == 0 => {
             for pix in line_buffer {
                 let c =
                     pos(4).sample(data, |p| [p[0] as u32, p[1] as u32, p[2] as u32, p[3] as u32]);
-                blend_premultiplied(pix, c, alpha);
+                blend_premultiplied_scaled(pix, c, alpha);
             }
         }
         TexturePixelFormat::Rgba | TexturePixelFormat::RgbaPremultiplied => {
@@ -567,7 +588,7 @@ fn fetch_blend_pixel_smooth(
         TexturePixelFormat::Gray8 => {
             for pix in line_buffer {
                 let [v] = pos(1).sample(data, |p| [p[0] as u32]);
-                blend_premultiplied(pix, [v, v, v, 0xff], alpha);
+                blend_premultiplied_scaled(pix, [v, v, v, 0xff], alpha);
             }
         }
         TexturePixelFormat::SignedDistanceField => {
@@ -578,7 +599,7 @@ fn fetch_blend_pixel_smooth(
 
 /// Blends a premultiplied `[r, g, b, a]`, scaled by `alpha`.
 #[inline(always)]
-fn blend_premultiplied(pix: &mut impl TargetPixel, mut c: [u32; 4], alpha: u8) {
+fn blend_premultiplied_scaled(pix: &mut impl TargetPixel, mut c: [u32; 4], alpha: u8) {
     if alpha != 0xff {
         c = c.map(|v| v * alpha as u32 / 255);
     }
@@ -2288,6 +2309,8 @@ fn unscaled_texture_line_wraps_into_next_tile() {
                 colorize: Color::default(),
                 alpha: 0xff,
                 rotation: Default::default(),
+                smooth: false,
+                tiled: false,
             },
         };
         let mut line = [Rgb8Pixel::default(); 7];
@@ -2418,4 +2441,37 @@ fn clipped_line_does_not_depend_on_split() {
             }
         }
     }
+}
+
+#[test]
+fn bilinear_axis_edges() {
+    let at = |v: f32, tiled| bilinear_axis(Fixed::from_f32(v).unwrap(), 4, 3, tiled);
+
+    assert_eq!(at(1.5, false), (3, 6, 128));
+    assert_eq!(at(-0.25, false), (0, 3, 0));
+    assert_eq!(at(3.5, false), (9, 9, 0));
+    assert_eq!(at(7.5, false), (9, 9, 0));
+
+    assert_eq!(at(1.5, true), (3, 6, 128));
+    assert_eq!(at(-0.25, true), (9, 0, 192));
+    assert_eq!(at(3.5, true), (9, 0, 128));
+    assert_eq!(at(9.5, true), (3, 6, 128));
+}
+
+#[test]
+fn bilinear_sample_weights() {
+    // 2×2 texels, one byte each, in a row stride of 2
+    let data = [0u8, 64, 128, 255];
+    let texel = |p: &[u8]| [p[0] as u32];
+    for fy in 0..=255u8 {
+        for fx in 0..=255u8 {
+            let pos = BilinearPos { x0: 0, x1: 1, y0: 0, y1: 2, fx, fy };
+            assert_eq!(pos.sample(&[0xff; 4], texel), [0xff], "fx={fx} fy={fy}");
+        }
+    }
+    let at = |fx, fy| BilinearPos { x0: 0, x1: 1, y0: 0, y1: 2, fx, fy }.sample(&data, texel);
+    assert_eq!(at(0, 0), [0]);
+    assert_eq!(at(128, 0), [32]);
+    assert_eq!(at(0, 128), [64]);
+    assert_eq!(at(128, 128), [(64 + 128 + 255) / 4]);
 }
