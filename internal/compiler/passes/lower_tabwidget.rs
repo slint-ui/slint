@@ -403,15 +403,13 @@ fn process_tabwidget(
             "accessible-item-selected".into(),
             Expression::PropertyReference(selected).into(),
         );
-        h.set_binding(
-            "accessible-action-default".into(),
+        h.set_binding_if_not_set("accessible-action-default".into(), || {
             Expression::FunctionCall {
                 function: Callable::Callback(activated),
                 arguments: vec![],
                 source_location: None,
             }
-            .into(),
-        );
+        });
     }
     if has_custom_bar {
         let Type::Array(item_type) = tabbar
