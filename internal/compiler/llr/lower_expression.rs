@@ -831,7 +831,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                                 ty: state_ref.ty(),
                             }
                             .into(),
-                            name: "change_time".into(),
+                            name: "change-time".into(),
                         },
                     ),
                 ])

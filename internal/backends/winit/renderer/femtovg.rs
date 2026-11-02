@@ -251,6 +251,11 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         self.renderer.clear_graphics_context()
     }
 
+    #[cfg(target_os = "windows")]
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
+    }
+
     fn resume(
         &self,
         active_event_loop: &ActiveEventLoop,

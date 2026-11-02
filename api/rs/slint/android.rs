@@ -43,7 +43,7 @@
 //! crate-type = ["cdylib"]
 //!
 //! [dependencies]
-//! slint = { version = "1.6", features = ["backend-android-activity-06"] }
+//! slint = { version = "1.19.0", features = ["backend-android-activity-06"] }
 //! ```
 //!
 //! ## Building and Deploying

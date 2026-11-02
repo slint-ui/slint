@@ -6,6 +6,10 @@ struct TestStruct {
     b: int,
 }
 
+struct TextStruct {
+    text: string,
+}
+
 enum TestEnum {
     a,
     b,
@@ -61,7 +65,29 @@ export component TestCase inherits Rectangle {
         }
     }
 
-    out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1 && test_struct_conversion() == 2 && test_enum() == 1 && self.test_background;
+    out property <string> assigned-string;
+    out property <[string]> assigned-array: ["x"];
+    out property <string> assigned-conditional;
+    out property <TextStruct> assigned-struct1;
+    out property <TextStruct> assigned-struct2;
+
+    function test_assign_then_read(text: string) {
+        let value = text;
+        root.assigned-string = value;
+        root.assigned-array[0] = value;
+        root.assigned-conditional = text == "" ? "empty" : value;
+        let s = { text: text };
+        root.assigned-struct1 = s;
+        root.assigned-struct2 = s;
+    }
+
+    init => {
+        root.test_assign_then_read("abc");
+    }
+
+    out property <bool> test-assign: root.assigned-string == "abc" && root.assigned-array[0] == "abc" && root.assigned-conditional == "abc" && root.assigned-struct1.text == "abc" && root.assigned-struct2.text == "abc";
+
+    out property <bool> test: test_simple() == 1 && test_type_annotation() == 1 && test_type_annotation_conversion() == 1 && test_struct_conversion() == 2 && test_enum() == 1 && self.test_background && self.test-assign;
 }
 
 /*
@@ -73,6 +99,7 @@ assert_eq!(instance.invoke_test_type_annotation_conversion(), 1);
 assert_eq!(instance.invoke_test_struct_conversion(), 2);
 assert_eq!(instance.invoke_test_enum(), 1);
 assert!(instance.get_test_background());
+assert!(instance.get_test_assign());
 ```
 
 ```cpp
@@ -84,5 +111,6 @@ assert_eq(instance.invoke_test_type_annotation_conversion(), 1);
 assert_eq(instance.invoke_test_struct_conversion(), 2);
 assert_eq(instance.invoke_test_enum(), 1);
 assert(instance.get_test_background());
+assert(instance.get_test_assign());
 ```
 */
