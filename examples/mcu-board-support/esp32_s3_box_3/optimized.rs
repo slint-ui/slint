@@ -353,15 +353,6 @@ impl EspBackend {
                 touch_worker::REQUEST.store(true, Ordering::Release);
             }
 
-            {
-                if queue().tick.load(Ordering::Acquire) == last_tick {
-                    esp_hal::rom::ets_delay_us(100);
-                    continue;
-                }
-                let (tick, _blank) = queue().phase_snapshot();
-                last_tick = tick;
-            }
-
             slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
@@ -421,6 +412,15 @@ impl EspBackend {
                         }
                     }
                     Err(_) => {}
+                }
+
+                {
+                    if queue().tick.load(Ordering::Acquire) == last_tick {
+                        esp_hal::rom::ets_delay_us(100);
+                        continue;
+                    }
+                    let (tick, _blank) = queue().phase_snapshot();
+                    last_tick = tick;
                 }
 
                 let rendered = window.draw_if_needed(|renderer| {

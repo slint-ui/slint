@@ -146,3 +146,21 @@ They vary with host load and panel phase; their differences don't isolate the fi
 Write completion means receipt of the device's final-SPI-byte log, rather than physical panel scanout.
 Rendering and transfer measurements remain within normal variation, and all scene hashes match.
 All six serial transport tests pass in release mode.
+
+## USB and Input Servicing Between Display Ticks
+
+The application services timers and touch before waiting for the next display tick.
+The viewer's 5 ms USB timer can run between ticks, while rendering retains its existing panel gate and recovery policy.
+Both measurements use the same font-snapshot host probe and QIO, 80 MHz PSRAM firmware.
+
+| Scene | Tick-gated receive/load | Independent receive/load | Previous render | New render | Previous transfer | New transfer |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Counter | 59 ms | 47 ms | 35.164 ms | 35.194 ms | 31.852 ms | 31.613 ms |
+| Clipping and gradients | 33 ms | 24 ms | 39.643 ms | 38.737 ms | 31.825 ms | 31.631 ms |
+| Sixteen text rows | 29 ms | 19 ms | 65.929 ms | 64.695 ms | 31.827 ms | 31.590 ms |
+
+Receive/load is the host transport's measured interval from sending the compiled design to the device's load acknowledgment.
+It excludes desktop compilation and uses five steady replacements.
+Initial counter upload is nearly unchanged, at 278 ms versus 271 ms; this change doesn't remove all upload overhead.
+No touch-latency measurement is claimed.
+All five scenes retain their pixel hashes, and all 41 frame-queue host tests pass.
