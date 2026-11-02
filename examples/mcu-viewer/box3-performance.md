@@ -29,6 +29,7 @@ Startup screens containing variable memory statistics are excluded from pixel co
 | Hardware floating point | 15.045 ms | 69.681 ms | 79.584 ms | All scene checksums match |
 | Speed optimization (`opt-level = 3`) | 13.518 ms | 55.392 ms | 56.339 ms | All scene checksums match |
 | Accelerated background spans | 11.916 ms | 53.824 ms | 54.701 ms | All scene checksums match |
+| Direct native-size glyph sampling | 11.835 ms | 53.309 ms | 54.160 ms | All scene checksums match |
 
 Hardware floating point reduces rendering time by 0.5%, 1.5%, and 2.0%, respectively.
 The LCD transfer remains about 37 ms.
@@ -42,3 +43,10 @@ Accelerated background spans reduce rendering time by another 11.9%, 2.8%, 2.9%,
 The optimization applies to both full-buffer and line rendering.
 Opaque backgrounds use the target pixel span operation, enabling the BOX PIE fill routine.
 Translucent and gradient backgrounds retain their alpha behavior.
+
+Direct glyph sampling reduces the counter and clipping medians by about 1%.
+The solid-fill measurement also varies by 0.7%, although it contains no text.
+A separate text-heavy scene checks that the glyph improvement extends beyond that variation.
+It contains sixteen rows of 12-pixel text, uploaded through the same USB replacement sequence.
+Its median falls from 93.517 ms to 89.259 ms, a 4.6% reduction, with matching pixel checksums.
+The scalar-sampling test covers clipping, tiling, fractional offsets, opacity, and four target pixel formats.
