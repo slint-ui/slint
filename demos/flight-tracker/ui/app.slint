@@ -12,11 +12,21 @@ global Theme {
     out property <color> line: #ffffff1c;
     out property <color> hover: #ffffff14;
     out property <length> margin: 16px;
+    out property <length> tile-radius: 14px;
 }
 
 export enum View { follow, route, globe, free }
 
 export enum Phase { boarding, flying, arrived }
+
+/// What the window shows: the departures board, a globe growing out of its tile or shrinking
+/// back, or a flight.
+export enum Screen { board, zoom, flight }
+
+export struct Coordinates {
+    x: float,
+    y: float,
+}
 
 export struct AirportItem {
     index: int,
@@ -57,6 +67,19 @@ export struct Aircraft {
     y: float,
     /// Clockwise from pointing up.
     angle: float,
+}
+
+/// A flight on the departures board, on a globe rendered for the whole window. The route and its
+/// ends are in the window's logical pixels.
+export struct TileItem {
+    image: image,
+    route: string,
+    from: Coordinates,
+    to: Coordinates,
+    origin: AirportItem,
+    destination: AirportItem,
+    distance: string,
+    duration: string,
 }
 
 export struct Label {
@@ -612,6 +635,144 @@ component AirportField inherits Rectangle {
     }
 }
 
+/// A tile of the departures board. Like the globe of a flight, it shows the middle of a frame
+/// rendered for the whole window, `frame-width` by `frame-height`.
+component TileView inherits Rectangle {
+    in property <TileItem> tile;
+    in property <length> frame-width;
+    in property <length> frame-height;
+    in property <bool> highlighted;
+    callback clicked();
+    clip: true;
+    border-radius: Theme.tile-radius;
+    background: #05070a;
+    frame := Rectangle {
+        property <float> scale: max(parent.width / root.frame-width, parent.height / root.frame-height);
+        x: (parent.width - root.frame-width * self.scale) / 2;
+        y: (parent.height - root.frame-height * self.scale) / 2;
+        width: root.frame-width;
+        height: root.frame-height;
+        transform-scale: self.scale;
+        transform-origin: { x: 0, y: 0 };
+        Image {
+            source: root.tile.image;
+            width: 100%;
+            height: 100%;
+            image-fit: fill;
+        }
+
+        Path {
+            width: 100%;
+            height: 100%;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            commands: root.tile.route;
+            stroke: #ffffffa0;
+            stroke-width: 2px / frame.scale;
+        }
+
+        for end[index] in [root.tile.from, root.tile.to]: Rectangle {
+            x: end.x * 1px - self.width / 2;
+            y: end.y * 1px - self.height / 2;
+            width: 9px / frame.scale;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: index == 0 ? white : Theme.accent-light;
+        }
+    }
+
+    Rectangle {
+        y: parent.height - self.height;
+        height: caption.preferred-height + 28px;
+        background: @linear-gradient(180deg, #00000000 0%, #000000c0 100%);
+    }
+
+    caption := VerticalLayout {
+        x: 12px;
+        y: parent.height - self.height - 10px;
+        width: parent.width - 24px;
+        height: self.preferred-height;
+        Text {
+            text: "\{root.tile.origin.code}  →  \{root.tile.destination.code}";
+            color: Theme.text;
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        Text {
+            text: "\{root.tile.origin.city} to \{root.tile.destination.city}";
+            color: Theme.text;
+            font-size: 12px;
+            overflow: elide;
+        }
+
+        Text {
+            text: "\{root.tile.distance}  ·  \{root.tile.duration}";
+            color: Theme.muted;
+            font-size: 11px;
+        }
+    }
+
+    Rectangle {
+        border-radius: Theme.tile-radius;
+        border-width: root.highlighted ? 3px : touch.has-hover ? 2px : 1px;
+        border-color: root.highlighted
+            ? Theme.accent-light.with-alpha(0.65 + 0.35 * Math.sin(animation-tick() / 160ms * 1rad))
+            : touch.has-hover ? #ffffff70 : Theme.line;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+/// The departures board: the flights to pick from, each on a globe of its own, in a grid of
+/// `columns` that fills the cell.
+component Board {
+    in property <[TileItem]> tiles;
+    /// The tile that the globe of the flight grows out of, which the board leaves out meanwhile.
+    in property <int> focused;
+    in property <int> highlighted;
+    in property <length> cell-x;
+    in property <length> cell-y;
+    in property <length> cell-width;
+    in property <length> cell-height;
+    in property <int> columns;
+    in property <length> frame-width;
+    in property <length> frame-height;
+    callback select(index: int);
+    property <int> rows: max(1, Math.ceil(root.tiles.length / root.columns));
+    property <length> gap: 12px;
+    out property <length> tile-width: (root.cell-width - root.gap * (root.columns - 1)) / root.columns;
+    out property <length> tile-height: (root.cell-height - root.gap * (root.rows - 1)) / root.rows;
+
+    public pure function tile-x(index: int) -> length {
+        root.cell-x + Math.mod(index, root.columns) * (root.tile-width + root.gap)
+    }
+
+    public pure function tile-y(index: int) -> length {
+        root.cell-y + Math.floor(index / root.columns) * (root.tile-height + root.gap)
+    }
+
+    for tile[index] in root.tiles: TileView {
+        x: root.tile-x(index);
+        y: root.tile-y(index);
+        width: root.tile-width;
+        height: root.tile-height;
+        tile: tile;
+        frame-width: root.frame-width;
+        frame-height: root.frame-height;
+        highlighted: index == root.highlighted;
+        visible: index != root.focused;
+        clicked => {
+            root.select(index);
+        }
+    }
+}
+
 export component AppWindow inherits Window {
     in property <image> texture;
     in property <FlightInfo> flight;
@@ -627,6 +788,16 @@ export component AppWindow inherits Window {
     in property <[AirportItem]> results;
     in property <string> gpu-text;
     in property <string> fps-text;
+    in property <Screen> screen;
+    /// How far the globe of the flight has grown from its tile to the window, from 0 to 1.
+    in property <float> zoom-progress;
+    /// The tile that the flight came from.
+    in property <int> focused-tile;
+    /// The tile that the kiosk is about to pick, or -1.
+    in property <int> highlighted-tile: -1;
+    in property <[TileItem]> tiles;
+    out property <length> tile-width: board.tile-width;
+    out property <length> tile-height: board.tile-height;
 
     /// Whether the demo flies between random airports on its own.
     in-out property <bool> kiosk: true;
@@ -647,6 +818,9 @@ export component AppWindow inherits Window {
     callback search(query: string);
     callback open-planner();
     callback take-off(origin: int, destination: int);
+    callback select-tile(index: int);
+    /// Shrinks the globe of the flight back into its tile on the departures board.
+    callback show-departures();
     callback settings-changed();
 
     property <bool> settings-open;
@@ -665,6 +839,7 @@ export component AppWindow inherits Window {
     property <length> top-edge: root.safe-area-insets.top + root.margin;
     property <length> bottom-edge: root.safe-area-insets.bottom + root.margin;
     property <length> content-width: root.width - root.left-edge - root.right-edge;
+    property <length> board-header: root.narrow ? 64px : 76px;
 
     title: "Slint Flight Tracker";
     preferred-width: 1280px;
@@ -687,7 +862,11 @@ export component AppWindow inherits Window {
             from-field.text = root.planned-origin.index >= 0 ? "\{root.planned-origin.code}  ·  \{root.planned-origin.city}" : "";
             to-field.text = "";
             root.search("");
-            to-field.focus();
+            if root.planned-origin.index >= 0 {
+                to-field.focus();
+            } else {
+                from-field.focus();
+            }
         }
     }
 
@@ -705,14 +884,8 @@ export component AppWindow inherits Window {
         root.interacted();
     }
 
-    Image {
-        source: root.texture;
-        width: 100%;
-        height: 100%;
-        image-fit: fill;
-    }
-
     ScaleRotateGestureHandler {
+        enabled: root.screen == Screen.flight;
         property <float> last-scale: 1;
         started => {
             self.last-scale = 1;
@@ -723,6 +896,7 @@ export component AppWindow inherits Window {
         }
 
         TouchArea {
+            enabled: root.screen == Screen.flight;
             property <length> last-x;
             property <length> last-y;
             pointer-event(event) => {
@@ -750,102 +924,196 @@ export component AppWindow inherits Window {
         }
     }
 
-    for label in root.labels: Rectangle {
-        x: label.x * 1px;
-        y: label.y * 1px;
-        width: 0;
-        height: 0;
-        opacity: label.opacity;
-        visible: label.opacity > 0;
-        Rectangle {
-            x: -2px;
-            y: -2px;
-            width: 4px;
-            height: 4px;
-            border-radius: 2px;
-            background: #ffffffb0;
-        }
-
-        Text {
-            x: 6px;
-            y: -self.height / 2;
-            text: label.name;
-            color: #e8eef6d0;
-            font-size: 11px;
-            stroke: #00000080;
-            stroke-width: 2px;
-            stroke-style: outside;
+    // The departures board, under the globe that grows out of the picked tile.
+    board := Board {
+        width: root.width;
+        height: root.height;
+        tiles: root.tiles;
+        focused: root.screen == Screen.board ? -1 : root.focused-tile;
+        highlighted: root.highlighted-tile;
+        opacity: 1 - root.zoom-progress;
+        visible: root.zoom-progress < 1;
+        cell-x: root.left-edge;
+        cell-y: root.top-edge + root.board-header;
+        cell-width: root.content-width;
+        cell-height: root.height - self.cell-y - root.bottom-edge;
+        columns: root.narrow ? 2 : 3;
+        frame-width: root.width;
+        frame-height: root.height;
+        select(index) => {
+            root.select-tile(index);
         }
     }
 
-    Path {
-        width: 100%;
-        height: 100%;
-        viewbox-width: self.width / 1px;
-        viewbox-height: self.height / 1px;
-        commands: root.remaining-path;
-        stroke: #ffffffa0;
-        stroke-width: 2px;
-        visible: root.remaining-path != "";
-    }
+    if root.zoom-progress < 1: HorizontalLayout {
+        opacity: 1 - root.zoom-progress;
+        x: root.left-edge;
+        y: root.top-edge;
+        width: root.content-width;
+        height: root.board-header - 12px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Text {
+                text: "Departures";
+                color: Theme.text;
+                font-size: root.narrow ? 22px : 28px;
+                font-weight: 800;
+            }
 
-    Path {
-        width: 100%;
-        height: 100%;
-        viewbox-width: self.width / 1px;
-        viewbox-height: self.height / 1px;
-        commands: root.flown-path;
-        stroke: Theme.accent-light.with-alpha(0.3);
-        stroke-width: 7px;
-        visible: root.flown-path != "";
-    }
-
-    Path {
-        width: 100%;
-        height: 100%;
-        viewbox-width: self.width / 1px;
-        viewbox-height: self.height / 1px;
-        commands: root.flown-path;
-        stroke: Theme.accent-light;
-        stroke-width: 2.5px;
-        visible: root.flown-path != "";
-    }
-
-    AirportMarker {
-        x: root.origin-marker.x * 1px;
-        y: root.origin-marker.y * 1px;
-        marker: root.origin-marker;
-    }
-
-    AirportMarker {
-        x: root.destination-marker.x * 1px;
-        y: root.destination-marker.y * 1px;
-        marker: root.destination-marker;
-        destination: true;
-    }
-
-    if root.aircraft.shown: Rectangle {
-        x: root.aircraft.x * 1px - self.width / 2;
-        y: root.aircraft.y * 1px - self.height / 2;
-        width: 34px;
-        height: 34px;
-        transform-rotation: root.aircraft.angle * 1deg;
-        // The shadow on the ground.
-        AircraftIcon {
-            x: 3px;
-            y: 4px;
-            width: 100%;
-            height: 100%;
-            colorize: #00000070;
+            Text {
+                text: "Each globe is rendered live by wgpu into a texture that Slint shows.";
+                color: Theme.muted;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
         }
 
-        AircraftIcon {
-            width: 100%;
-            height: 100%;
+        PillButton {
+            y: (parent.height - self.height) / 2;
+            text: root.narrow ? "" : "Plan a flight";
+            icon: @image-url("icons/aircraft.svg");
+            primary: true;
+            clicked => {
+                root.open-planner();
+            }
+        }
+    }
+
+    // The globe of the flight, a tile's size while it grows to the window or shrinks back. It
+    // shows the middle of a frame rendered for the whole window, like the tiles do.
+    globe-view := Rectangle {
+        property <length> tile-x: board.tile-x(root.focused-tile);
+        property <length> tile-y: board.tile-y(root.focused-tile);
+        property <float> grown: root.zoom-progress;
+        x: self.tile-x * (1 - self.grown);
+        y: self.tile-y * (1 - self.grown);
+        width: board.tile-width + (root.width - board.tile-width) * self.grown;
+        height: board.tile-height + (root.height - board.tile-height) * self.grown;
+        visible: root.screen != Screen.board;
+        clip: true;
+        border-radius: Theme.tile-radius * (1 - self.grown);
+        frame := Rectangle {
+            property <float> scale: max(parent.width / root.width, parent.height / root.height);
+            x: (parent.width - root.width * self.scale) / 2;
+            y: (parent.height - root.height * self.scale) / 2;
+            width: root.width;
+            height: root.height;
+            transform-scale: self.scale;
+            transform-origin: { x: 0, y: 0 };
+            Image {
+                source: root.texture;
+                width: 100%;
+                height: 100%;
+                image-fit: fill;
+            }
+
+            Path {
+                width: 100%;
+                height: 100%;
+                viewbox-width: self.width / 1px;
+                viewbox-height: self.height / 1px;
+                commands: root.remaining-path;
+                stroke: #ffffffa0;
+                stroke-width: 2px / frame.scale;
+                visible: root.remaining-path != "";
+            }
+
+            Path {
+                width: 100%;
+                height: 100%;
+                viewbox-width: self.width / 1px;
+                viewbox-height: self.height / 1px;
+                commands: root.flown-path;
+                stroke: Theme.accent-light.with-alpha(0.3);
+                stroke-width: 7px / frame.scale;
+                visible: root.flown-path != "";
+            }
+
+            Path {
+                width: 100%;
+                height: 100%;
+                viewbox-width: self.width / 1px;
+                viewbox-height: self.height / 1px;
+                commands: root.flown-path;
+                stroke: Theme.accent-light;
+                stroke-width: 2.5px / frame.scale;
+                visible: root.flown-path != "";
+            }
+
+            Rectangle {
+                opacity: root.screen == Screen.flight ? 1 : 0;
+                animate opacity { duration: 300ms; }
+            for label in root.labels: Rectangle {
+                x: label.x * 1px;
+                y: label.y * 1px;
+                width: 0;
+                height: 0;
+                opacity: label.opacity;
+                visible: label.opacity > 0;
+                Rectangle {
+                    x: -2px;
+                    y: -2px;
+                    width: 4px;
+                    height: 4px;
+                    border-radius: 2px;
+                    background: #ffffffb0;
+                }
+
+                Text {
+                    x: 6px;
+                    y: -self.height / 2;
+                    text: label.name;
+                    color: #e8eef6d0;
+                    font-size: 11px;
+                    stroke: #00000080;
+                    stroke-width: 2px;
+                    stroke-style: outside;
+                }
+            }
+
+            AirportMarker {
+                x: root.origin-marker.x * 1px;
+                y: root.origin-marker.y * 1px;
+                marker: root.origin-marker;
+            }
+
+            AirportMarker {
+                x: root.destination-marker.x * 1px;
+                y: root.destination-marker.y * 1px;
+                marker: root.destination-marker;
+                destination: true;
+            }
+
+            if root.aircraft.shown: Rectangle {
+                x: root.aircraft.x * 1px - self.width / 2;
+                y: root.aircraft.y * 1px - self.height / 2;
+                width: 34px;
+                height: 34px;
+                transform-rotation: root.aircraft.angle * 1deg;
+                // The shadow on the ground.
+                AircraftIcon {
+                    x: 3px;
+                    y: 4px;
+                    width: 100%;
+                    height: 100%;
+                    colorize: #00000070;
+                }
+
+                AircraftIcon {
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+
+            }
         }
     }
 
     flight-card := FlightCard {
+        opacity: root.screen == Screen.flight ? 1 : 0;
+        visible: self.opacity > 0;
+        animate opacity { duration: 300ms; }
         x: root.left-edge;
         y: root.top-edge;
         width: root.narrow ? root.content-width : min(420px, root.content-width - 56px);
@@ -856,6 +1124,9 @@ export component AppWindow inherits Window {
     }
 
     if root.narrow || !root.compact || root.flight.phase != Phase.flying: StatusCard {
+        opacity: root.screen == Screen.flight ? 1 : 0;
+        visible: self.opacity > 0;
+        animate opacity { duration: 300ms; }
         x: root.left-edge;
         y: root.narrow ? controls.y - self.height - 10px : root.height - self.height - root.bottom-edge - 14px;
         width: root.narrow ? root.content-width : min(420px, root.content-width);
@@ -865,6 +1136,9 @@ export component AppWindow inherits Window {
 
     // Below the flight card on a phone held upright, where it takes the whole width.
     VerticalLayout {
+        opacity: root.screen == Screen.flight ? 1 : 0;
+        visible: self.opacity > 0;
+        animate opacity { duration: 300ms; }
         x: root.width - self.width - root.right-edge;
         y: root.narrow ? flight-card.y + flight-card.height + 10px : root.top-edge;
         width: 40px;
@@ -886,6 +1160,9 @@ export component AppWindow inherits Window {
 
     // The views, the planner, and the settings.
     controls := Glass {
+        opacity: root.screen == Screen.flight ? 1 : 0;
+        visible: self.opacity > 0;
+        animate opacity { duration: 300ms; }
         x: root.width - self.width - root.right-edge;
         y: root.height - self.height - root.bottom-edge - (root.narrow ? 0 : 14px);
         width: root.narrow ? root.content-width : bar.preferred-width;
@@ -918,6 +1195,16 @@ export component AppWindow inherits Window {
             RoundButton {
                 width: 36px;
                 height: 36px;
+                icon: @image-url("icons/grid.svg");
+                clicked => {
+                    root.settings-open = false;
+                    root.show-departures();
+                }
+            }
+
+            RoundButton {
+                width: 36px;
+                height: 36px;
                 icon: @image-url("icons/settings.svg");
                 checked: root.settings-open;
                 clicked => {
@@ -928,7 +1215,7 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.settings-open: Glass {
+    if root.settings-open && root.screen == Screen.flight: Glass {
         x: root.width - self.width - root.right-edge;
         y: controls.y - self.height - 10px;
         width: min(260px, root.content-width);
