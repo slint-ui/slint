@@ -2865,8 +2865,8 @@ mod tests {
             connect_has_property(&api);
             set_test_properties(&api, &["title"]);
             api.set_undo_enabled(true);
-            let undos = std::rc::Rc::new(std::cell::Cell::new(0));
-            let calls = undos.clone();
+            let undo_count = std::rc::Rc::new(std::cell::Cell::new(0));
+            let calls = undo_count.clone();
             api.on_undo(move || calls.set(calls.get() + 1));
             editor.show().unwrap();
             editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
@@ -2888,7 +2888,7 @@ mod tests {
             editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
             test_press_key(&editor, "z".into());
             editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
-            assert_eq!(undos.get(), i32::from(editable));
+            assert_eq!(undo_count.get(), i32::from(editable));
             if editable {
                 assert!(!editor.global::<super::CanvasView>().get_nudging());
             }
