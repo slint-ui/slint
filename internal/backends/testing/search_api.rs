@@ -353,6 +353,18 @@ pub fn set_flickable_physics(
     flickable.as_pin_ref().set_physics(bounce, carry_momentum);
 }
 
+/// Every property of the element that exists at runtime, with its current value,
+/// for Slint's internal tests.
+#[cfg(feature = "internal")]
+pub fn inspectable_properties(
+    element: &ElementHandle,
+) -> Option<i_slint_core::SharedVector<i_slint_core::item_tree::InspectableProperty>> {
+    if element.element_index != 0 {
+        return None;
+    }
+    element.item.upgrade().and_then(|item| item.element_inspectable_properties())
+}
+
 impl ElementHandle {
     fn collect_elements(item: ItemRc) -> impl Iterator<Item = ElementHandle> {
         (0..item.element_count().unwrap_or_else(|| {

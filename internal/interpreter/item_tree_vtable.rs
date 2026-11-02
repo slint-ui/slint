@@ -8,18 +8,23 @@
 //! a precomputed offset table.
 
 use crate::prelude::*;
-use i_slint_core::SharedString;
+use alloc::collections::BTreeSet;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::llr::SubComponent;
+use i_slint_compiler::native_class::PropertyVisibility;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
 };
 use i_slint_core::item_tree::{
-    IndexRange, ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
+    IndexRange, InspectableProperty, ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder,
+    VisitChildrenResult,
 };
 use i_slint_core::items::{AccessibleRole, ItemVTable};
 use i_slint_core::layout::{LayoutInfo, Orientation};
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapterRc;
+use i_slint_core::{SharedString, SharedVector};
 use vtable::{VRef, VRefMut, VWeak};
 
 i_slint_core::ItemTreeVTable_static!(static INTERPRETER_INSTANCE_VT for Instance);
@@ -393,7 +398,11 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         if !cu.has_debug_info {
             return false;
         }
-        if let Some((owner, local_idx)) = resolve_element_properties_owner(this, item_index) {
+        if let Some((owner, local_idx)) =
+            resolve_element_properties_owner(this, item_index, |sc, idx| {
+                sc.testable_properties.contains_key(idx)
+            })
+        {
             let sc = &cu.sub_components[owner.sub_component_idx];
             if let Some(props) = sc.testable_properties.get(&local_idx) {
                 let mut encoded = String::new();
@@ -421,7 +430,11 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let Ok(name) = core::str::from_utf8(property_name.as_slice()) else {
             return false;
         };
-        let Some((owner, local_idx)) = resolve_element_properties_owner(this, item_index) else {
+        let Some((owner, local_idx)) =
+            resolve_element_properties_owner(this, item_index, |sc, idx| {
+                sc.testable_properties.contains_key(idx)
+            })
+        else {
             return false;
         };
         let sc = &cu.sub_components[owner.sub_component_idx];
@@ -435,6 +448,14 @@ impl i_slint_core::item_tree::ItemTree for Instance {
         let ctx = crate::eval::EvalContext::new(owner);
         let value = crate::eval::load_property(&ctx, &prop.prop);
         format_element_testable_property_value(&value, &prop.ty, result)
+    }
+
+    fn element_inspectable_properties(
+        self: Pin<&Self>,
+        item_index: u32,
+        result: &mut SharedVector<InspectableProperty>,
+    ) -> bool {
+        inspectable_properties(self.get_ref(), item_index).map(|props| *result = props).is_some()
     }
 
     fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {
@@ -460,18 +481,84 @@ impl i_slint_core::item_tree::ItemTree for Instance {
     }
 }
 
-/// Resolve a flat tree index to the sub-component instance whose `testable_properties`
-/// table has an entry for it, plus the local key.
+/// Resolve a flat tree index to the sub-component instance whose table
+/// has an entry for it, plus the local key.
 /// Walks like `item_element_infos`; first match wins.
 fn resolve_element_properties_owner(
     instance: &Instance,
     item_index: u32,
+    has_entry: fn(&SubComponent, &u32) -> bool,
 ) -> Option<(Pin<Rc<crate::instance::SubComponentInstance>>, u32)> {
     sub_component_levels(instance, item_index).find(|(owner, local_idx)| {
-        owner.compilation_unit.sub_components[owner.sub_component_idx]
-            .testable_properties
-            .contains_key(local_idx)
+        has_entry(&owner.compilation_unit.sub_components[owner.sub_component_idx], local_idx)
     })
+}
+
+/// Every property of the item with its current value:
+/// its entry in [`SubComponent::inspectable_properties`], then the fields of its native class.
+/// `None` when the compilation unit has no debug info.
+fn inspectable_properties(
+    instance: &Instance,
+    item_index: u32,
+) -> Option<SharedVector<InspectableProperty>> {
+    let cu = instance.root_sub_component.compilation_unit.clone();
+    if !cu.has_debug_info {
+        return None;
+    }
+    let mut result = SharedVector::default();
+    let mut push = |name: &str, ty: &Type, value: Value| {
+        let mut encoded = SharedString::new();
+        result.push(InspectableProperty {
+            name: name.into(),
+            ty: ty.to_string().into(),
+            value: format_element_testable_property_value(&value, ty, &mut encoded)
+                .then_some(encoded),
+        });
+    };
+    let Some((owner, local_idx)) =
+        resolve_element_properties_owner(instance, item_index, |sc, idx| {
+            sc.inspectable_properties.contains_key(idx)
+        })
+    else {
+        return Some(result);
+    };
+    let mut seen = BTreeSet::new();
+    let declared = &cu.sub_components[owner.sub_component_idx].inspectable_properties[&local_idx];
+    let ctx = crate::eval::EvalContext::new(owner);
+    for p in declared {
+        seen.insert(p.property.name.as_str());
+        let value = match crate::eval::load_property(&ctx, &p.property.prop) {
+            Value::Bool(b) if p.negated => Value::Bool(!b),
+            value => value,
+        };
+        push(&p.property.name, &p.property.ty, value);
+    }
+
+    let Some((path, item_idx)) =
+        instance.item_table.get(item_index as usize).and_then(Option::as_ref)
+    else {
+        return Some(result);
+    };
+    let mut leaf = &instance.root_sub_component;
+    for &sub in path {
+        leaf = &leaf.sub_components[sub];
+    }
+    let item = Pin::as_ref(&leaf.items[*item_idx]);
+    let mut class = Some(&*cu.sub_components[leaf.sub_component_idx].items[*item_idx].ty);
+    while let Some(c) = class {
+        for (name, info) in &c.properties {
+            let readable = info.ty.is_property_type()
+                && !matches!(
+                    info.property_visibility,
+                    PropertyVisibility::Private | PropertyVisibility::Fake
+                );
+            if seen.insert(name.as_str()) && readable {
+                push(name, &info.ty, item.get_property(name).unwrap_or(Value::Void));
+            }
+        }
+        class = c.parent.as_deref();
+    }
+    Some(result)
 }
 
 /// Encode `value` per [`i_slint_core::debug_info`],

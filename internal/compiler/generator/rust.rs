@@ -2902,6 +2902,14 @@ fn generate_item_tree_body(
                 #element_testable_property_value_body
             }
 
+            fn element_inspectable_properties(
+                self: ::core::pin::Pin<&Self>,
+                _index: u32,
+                _result: &mut sp::SharedVector<sp::InspectableProperty>,
+            ) -> bool {
+                false
+            }
+
             fn window_adapter(
                 self: ::core::pin::Pin<&Self>,
                 do_create: bool,

@@ -183,7 +183,7 @@ fn do_move_declarations(component: &Rc<Component>, renames: &RenameMap) {
 
     let move_properties = &mut |elem: &ElementRc| {
         // Ranked so the effective declaration of each source name comes first,
-        // see `collect_testable_properties`.
+        // see `collect_element_properties`.
         let shadowing = std::mem::take(&mut elem.borrow_mut().shadowing_members);
         let elem_decl = Declarations::take_from_element(&mut elem.borrow_mut());
         let mut moved = Vec::new();

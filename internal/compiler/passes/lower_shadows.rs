@@ -107,6 +107,16 @@ fn create_box_shadow_element(
         base_type: type_register.lookup_builtin_element("BoxShadow").unwrap(),
         enclosing_component: sibling_element.borrow().enclosing_component.clone(),
         bindings: bindings.into(),
+        injected_for: Some(InjectedFor {
+            element: Rc::downgrade(sibling_element),
+            properties: kind
+                .property_list()
+                .iter()
+                .map(|(name, _)| {
+                    InjectedProperty::renamed(name.strip_prefix(prefix).unwrap(), *name)
+                })
+                .collect(),
+        }),
         ..Default::default()
     };
 
@@ -220,6 +230,10 @@ fn create_backdrop_blur_element(
         id: format_smolstr!("{}-backdrop-blur", sibling_element.borrow().id),
         base_type: type_register.lookup_builtin_element("BackdropBlur").unwrap(),
         enclosing_component: sibling_element.borrow().enclosing_component.clone(),
+        injected_for: Some(InjectedFor {
+            element: Rc::downgrade(sibling_element),
+            properties: vec![InjectedProperty::renamed("blur", "backdrop-blur")],
+        }),
         ..Default::default()
     };
     element.set_binding(SmolStr::new_static("blur"), binding);

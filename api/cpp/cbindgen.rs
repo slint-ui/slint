@@ -568,6 +568,7 @@ fn gen_corelib(
 
     config.export.exclude = [
         "SharedString",
+        "InspectableProperty",
         "StyledText",
         "SharedVector",
         "ImageInner",
@@ -1100,6 +1101,8 @@ namespace slint {
         struct ItemTreeVTable;
         struct ItemVTable;
         struct SlintContext;
+        // Excluded from export: C++ has no `Option<SharedString>`, and generated code doesn't support inspection.
+        struct InspectableProperty;
         using types::IntRect;
         using types::Size;
         using types::BackendMouseEvent;

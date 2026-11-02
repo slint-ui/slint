@@ -627,6 +627,17 @@ impl Snapshotter {
         target_element.item_index = elem.item_index.clone();
         target_element.item_index_of_first_children = elem.item_index_of_first_children.clone();
         target_element.named_references = elem.named_references.snapshot(self);
+        target_element.injected_for =
+            elem.injected_for.as_ref().map(|injected_for| object_tree::InjectedFor {
+                element: injected_for
+                    .element
+                    .upgrade()
+                    .and_then(|element| {
+                        self.element_map.get(&by_address::ByAddress(element)).cloned()
+                    })
+                    .unwrap_or_default(),
+                properties: injected_for.properties.clone(),
+            });
     }
 
     fn snapshot_binding_expression(

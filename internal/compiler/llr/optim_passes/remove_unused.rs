@@ -88,6 +88,10 @@ pub fn remove_unused(root: &mut CompilationUnit) {
             props.retain(|p| keep(&p.prop));
         }
         sc.testable_properties.retain(|_, v| !v.is_empty());
+        // An empty entry stays: it tells an element from an injected one.
+        for props in sc.inspectable_properties.values_mut() {
+            props.retain(|p| keep(&p.property.prop));
+        }
     }
     for (idx, g) in root.globals.iter_mut_enumerated() {
         g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
@@ -343,6 +347,7 @@ mod visitor {
             accessible_prop,
             element_infos: _,
             testable_properties,
+            inspectable_properties,
             row_child_templates: _,
             prop_analysis,
             debug_info: _,
@@ -467,7 +472,11 @@ mod visitor {
             visit_expression(a.get_mut(), &scope, state, visitor);
         }
 
-        for p in testable_properties.values_mut().flatten() {
+        for p in testable_properties
+            .values_mut()
+            .flatten()
+            .chain(inspectable_properties.values_mut().flatten().map(|p| &mut p.property))
+        {
             visit_member_reference(&mut p.prop, &scope, state, visitor);
         }
 

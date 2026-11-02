@@ -595,6 +595,12 @@ fn inline_element(
             }
         }
         visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
+        if let Some(injected_for) = &mut e.borrow_mut().injected_for
+            && let Some(new) =
+                injected_for.element.upgrade().and_then(|old| mapping.get(&element_key(old)))
+        {
+            injected_for.element = Rc::downgrade(new);
+        }
     }
     for p in root_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, &mapping);
@@ -687,6 +693,8 @@ fn duplicate_element_with_mapping(
         is_flickable_content: elem.is_flickable_content,
         has_popup_child: elem.has_popup_child,
         is_tooltip: elem.is_tooltip,
+        // The element is remapped once every element is duplicated.
+        injected_for: elem.injected_for.clone(),
         z_order: elem.z_order.clone(),
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,

@@ -1398,7 +1398,7 @@ fn generate_struct(
 /// the property's value encoded per `slint::private_api::debug_info_format_*`,
 /// or None for a type without a debug encoding.
 fn element_testable_property_value_expression(
-    prop: &llr::TestableProperty,
+    prop: &llr::ElementProperty,
     ctx: &EvaluationContext,
 ) -> Option<String> {
     let value = compile_expression(&llr::Expression::PropertyReference(prop.prop.clone()), ctx);
@@ -2198,6 +2198,19 @@ fn generate_item_tree_body(
         }),
     ));
 
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "element_inspectable_properties".into(),
+            signature:
+                "([[maybe_unused]] ::slint::private_api::ItemTreeRef component, [[maybe_unused]] uint32_t index, [[maybe_unused]] ::slint::SharedVector<::slint::cbindgen_private::InspectableProperty> *result) -> bool"
+                    .into(),
+            is_static: true,
+            statements: Some(vec!["return false;".into()]),
+            ..Default::default()
+        }),
+    ));
+
     let window_adapter_vtable_statements = if needs_window_adapter {
         vec![format!(
             "*reinterpret_cast<::slint::private_api::WindowAdapterRc*>(result) = reinterpret_cast<const {item_tree_class_name}*>(component.instance)->globals->window().window_handle();"
@@ -2253,7 +2266,8 @@ fn generate_item_tree_body(
                 ensure_instantiated, \
                 item_geometry, accessible_role, accessible_string_property, accessibility_action, \
                 supported_accessibility_actions, element_infos, \
-                element_testable_properties, element_testable_property_value, window_adapter, slint_context, \
+                element_testable_properties, element_testable_property_value, \
+                element_inspectable_properties, window_adapter, slint_context, \
                 ::slint::private_api::drop_in_place<{item_tree_class_name}>, ::slint::private_api::dealloc }}"
         )),
         ..Default::default()
