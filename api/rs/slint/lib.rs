@@ -142,11 +142,11 @@ convenience functions are available through the [`ComponentHandle`] implementati
     followed by spinning the event loop, and `hide()` when returning from the event loop.
   - [`fn global<T: Global<Self>>(&self) -> T`](docs::generated_code::SampleComponent::global): an accessor to the global singletons,
 
-For each top-level property
+For each property the component declares at its root (not inherited)
   - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
   - A getter [`fn get_<property_name>(&self) -> <PropertyType>`](docs::generated_code::SampleComponent::get_counter)
 
-For each top-level callback
+For each callback the component declares at its root
   - [`fn invoke_<callback_name>(&self)`](docs::generated_code::SampleComponent::invoke_hello): to invoke the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
 
