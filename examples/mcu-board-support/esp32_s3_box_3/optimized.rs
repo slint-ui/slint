@@ -516,7 +516,10 @@ impl DrawBuffer<'_> {
                 damage: &mut self.line_damage,
             };
             let region = renderer.render_by_line(&mut provider);
-            provider.damage.fit_packet(frame_queue::INTERNAL_PACKET_BYTES);
+            provider.damage.fit_packet(
+                frame_queue::INTERNAL_PACKET_BYTES
+                    / core::mem::size_of::<slint::platform::software_renderer::Rgb565BigEndianPixel>(),
+            );
             region
         } else {
             render_full_frame(renderer, self.frame_buffer)

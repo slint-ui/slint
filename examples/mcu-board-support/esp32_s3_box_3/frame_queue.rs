@@ -34,6 +34,20 @@ struct Rectangle {
     offset: usize,
 }
 
+impl Rectangle {
+    fn union(self, other: Self) -> Self {
+        let x = self.x.min(other.x);
+        let y = self.y.min(other.y);
+        Self {
+            x,
+            y,
+            width: (self.x + self.width).max(other.x + other.width) - x,
+            height: (self.y + self.height).max(other.y + other.height) - y,
+            offset: 0,
+        }
+    }
+}
+
 struct Packet {
     internal: &'static mut [u8],
     external: Box<[u8]>,
@@ -174,12 +188,31 @@ impl FrameQueue {
             self.state.store(FREE, Ordering::Release);
             return;
         }
+        // The LCD scans its RAM during SPI writes, exposing boundaries between dense rectangles.
+        if packet.count > 1 && bytes > packet.internal.len() {
+            let bounds = packet.rectangles[1..packet.count]
+                .iter()
+                .copied()
+                .fold(packet.rectangles[0], Rectangle::union);
+            let full_bytes = bounds.width * bounds.height * 2;
+            if bytes >= full_bytes / 2 {
+                packet.rectangles[0] = bounds;
+                packet.count = 1;
+                bytes = full_bytes;
+            }
+        }
         if bytes > packet.external.len() {
             packet.rectangles[0] = fallback;
             packet.count = 1;
             bytes = fallback.width * fallback.height * 2;
         }
         assert!(bytes <= packet.external.len());
+        packet.rectangles[..packet.count].sort_unstable_by_key(|rect| (rect.y, rect.x));
+        let mut offset = 0;
+        for rect in &mut packet.rectangles[..packet.count] {
+            rect.offset = offset;
+            offset += rect.width * rect.height * 2;
+        }
         packet.internal_used = bytes <= packet.internal.len();
         let output = if packet.internal_used {
             &mut packet.internal[..bytes]
@@ -256,6 +289,28 @@ impl FrameQueue {
                     .sum::<usize>(),
                 super::now_us() - started
             );
+            #[cfg(feature = "box-display-profile")]
+            {
+                let bytes = packet.rectangles[..packet.count]
+                    .iter()
+                    .map(|rect| rect.width * rect.height * 2)
+                    .sum::<usize>();
+                let hash = source[..bytes].iter().fold(0x811c9dc5u32, |hash, byte| {
+                    (hash ^ u32::from(*byte)).wrapping_mul(16777619)
+                });
+                log::info!("BOX_PIXELS,hash={:08x}", hash);
+            }
+            #[cfg(feature = "box-display-profile")]
+            for (index, rect) in packet.rectangles[..packet.count].iter().enumerate() {
+                log::info!(
+                    "BOX_RECT,index={},x={},y={},width={},height={}",
+                    index,
+                    rect.x,
+                    rect.y,
+                    rect.width,
+                    rect.height
+                );
+            }
 
             self.state.store(FREE, Ordering::Release);
             after_transfer();

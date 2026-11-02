@@ -39,11 +39,12 @@ cargo +esp run --release --no-default-features --features mcu-board-support/box-
 ```
 
 The BOX-3 backend renders into a retained framebuffer and sends changed regions through a DMA display worker.
+Large, dense changes use one bounding rectangle to avoid separate blocks appearing during the update.
 Transfers follow the panel's refresh timing.
 A full-screen update still sends 150 KiB over 40 MHz SPI, so it spans more than one panel refresh.
 Use `mcu-board-support/esp32-s3-box-3` for the basic line-buffer backend.
 
-Add `mcu-board-support/box-display-profile` to log rendering and transfer times over the USB connection.
+Add `mcu-board-support/box-display-profile` to log rendering times, transfer times, and rectangle coordinates over the USB connection.
 Leave it disabled for normal use.
 
 The display pipeline is adapted from the [BOX printer backend](https://github.com/slint-ui/slint/tree/d99b59567614454aff82b94fffdbb25661d35f5f/examples/mcu-board-support/esp32_s3_box_3).

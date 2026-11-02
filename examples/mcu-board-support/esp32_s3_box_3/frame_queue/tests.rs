@@ -93,6 +93,65 @@ fn buffer_selection_includes_exact_capacity_and_full_frame_fallback() {
 }
 
 #[test]
+fn background_damage_is_one_contiguous_image_including_unchanged_gaps() {
+    let queue = queue(INTERNAL_PACKET_BYTES);
+    let mut source = pixels();
+    queue.publish(
+        &source,
+        &region(&[(0, 0, 160, 99), (160, 0, 160, 99), (0, 100, 160, 140), (160, 100, 160, 140)]),
+    );
+    source.fill(Rgb565BigEndianPixel(0));
+    let packet = acquire(&queue);
+    assert_eq!(packet.count, 1);
+    let rect = packet.rectangles[0];
+    assert_eq!((rect.x, rect.y, rect.width, rect.height, rect.offset), (0, 0, 320, 240, 0));
+    assert!(!packet.internal_used);
+    for (index, pixel) in bytes(packet).chunks_exact(2).enumerate() {
+        assert_eq!(pixel, (index as u16).to_be_bytes());
+    }
+}
+
+#[test]
+fn dense_partial_updates_merge_to_their_bounds_without_expanding_to_full_screen() {
+    let queue = queue(INTERNAL_PACKET_BYTES);
+    queue.publish(&pixels(), &region(&[(110, 20, 100, 100), (10, 20, 100, 100)]));
+    let packet = acquire(&queue);
+    assert_eq!(packet.count, 1);
+    let rect = packet.rectangles[0];
+    assert_eq!((rect.x, rect.y, rect.width, rect.height), (10, 20, 200, 100));
+    for y in 0..100 {
+        for x in 0..200 {
+            let offset = (y * 200 + x) * 2;
+            assert_eq!(
+                &bytes(packet)[offset..offset + 2],
+                &(((20 + y) * 320 + 10 + x) as u16).to_be_bytes()
+            );
+        }
+    }
+}
+
+#[test]
+fn sparse_large_updates_keep_separate_rectangles_in_screen_order() {
+    let queue = queue(INTERNAL_PACKET_BYTES);
+    queue.publish(&pixels(), &region(&[(280, 0, 40, 240), (0, 0, 40, 240)]));
+    let packet = acquire(&queue);
+    assert_eq!(packet.count, 2);
+    for (index, rect) in packet.rectangles[..2].iter().enumerate() {
+        assert_eq!((rect.x, rect.y, rect.width, rect.height), (index * 280, 0, 40, 240));
+        assert_eq!(rect.offset, index * 40 * 240 * 2);
+        for y in 0..240 {
+            for x in 0..40 {
+                let offset = rect.offset + (y * 40 + x) * 2;
+                assert_eq!(
+                    &bytes(packet)[offset..offset + 2],
+                    &((y * 320 + rect.x + x) as u16).to_be_bytes()
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn empty_region_does_not_publish_a_packet() {
     let queue = queue(64);
     queue.publish(&pixels(), &PhysicalRegion::default());
