@@ -1204,6 +1204,19 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         brush: i_slint_core::Brush,
         size: LogicalSize,
     ) -> Option<Self::PlatformBrush> {
+        // A solid color goes on the paint itself, not into a shader: Skia draws color glyphs
+        // (emoji) with their own colors and ignores the shader, but it takes their opacity from
+        // the paint's alpha, and the color of COLR layers that use the text color (palette index
+        // 0xFFFF) from the paint's color. With a shader, both would come from the default paint,
+        // opaque black.
+        if let i_slint_core::Brush::SolidColor(color) = &brush {
+            if color.alpha() == 0 {
+                return None;
+            }
+            let mut paint = crate::solid_paint(color);
+            paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
+            return Some(paint);
+        }
         self.brush_to_paint(
             brush,
             size.width_length() * self.scale_factor,
