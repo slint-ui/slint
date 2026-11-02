@@ -214,7 +214,7 @@ fn main() -> Result<()> {
             .as_ref()
             .is_some_and(|path| i_slint_compiler::project_file::project_root(path).is_dir())
     {
-        eprintln!("A project directory cannot be combined with --project-root");
+        eprintln!("A project file or directory cannot be combined with --project-root");
         std::process::exit(2);
     }
 

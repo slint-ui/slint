@@ -1105,8 +1105,8 @@ public:
     ///
     /// \a path must be UTF-8 encoded; otherwise this function fails.
     ///
-    /// If `path` points to a project file (slint-project.json) or to a directory containing
-    /// a project file, Slint loads the project file and applies the settings not set on this
+    /// If `path` is a project file (`slint-project.json`) or a directory that contains one,
+    /// Slint loads that project file. The project file provides the settings not set on this
     /// compiler. It must contain a `main` entry, which specifies the `.slint` file the compiler
     /// loads. A `.slint` file path compiles without loading a project file.
     ///

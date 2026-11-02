@@ -478,14 +478,20 @@ fn file_with_project_root_uses_only_the_direct_project_file() {
 #[test]
 fn directory_input_and_project_root_conflict() {
     let project = tempfile::tempdir().unwrap();
-    let (code, _stdout, stderr) = run(&[
-        "--check",
-        "--project-root",
-        project.path().to_str().unwrap(),
-        project.path().to_str().unwrap(),
-    ]);
-    assert_eq!(code, 2);
-    assert!(stderr.contains("cannot be combined"), "stderr was:\n{stderr}");
+    for manifest in [false, true] {
+        let input = project_input(&project, manifest);
+        let (code, _stdout, stderr) = run(&[
+            "--check",
+            "--project-root",
+            project.path().to_str().unwrap(),
+            input.to_str().unwrap(),
+        ]);
+        assert_eq!(code, 2);
+        assert!(
+            stderr.contains("A project file or directory cannot be combined with --project-root"),
+            "stderr was:\n{stderr}"
+        );
+    }
 }
 
 // --- Screenshot rendering ----------------------------------------------
