@@ -2814,23 +2814,45 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             continue;
                         }
 
-                        let delta32 = Fixed::<i32, 8>::from_fixed(scale_delta);
+                        let delta = Fixed::<i32, 16>::from_fixed(scale_delta);
                         let normalize = |x: Fixed<i32, 8>| {
                             if x < Fixed::from_integer(0) { x + Fixed::from_integer(1) } else { x }
                         };
-                        let fract_x = normalize((-glyph.x) - Fixed::from_integer(gl_x.get() as _));
-                        let off_x = delta32 * off_x as i32 + fract_x;
-                        let fract_y = normalize(glyph.y - Fixed::from_integer(gl_y.get() as _));
-                        let off_y = delta32 * off_y as i32 + fract_y;
+                        let map_len = glyph.alpha_map.as_slice().len() - 1;
+                        let map_stride = pixel_stride as usize;
+                        let map_width = if map_len % map_stride == 0 {
+                            map_stride
+                        } else {
+                            map_len % map_stride
+                        } as i32;
+                        let map_height = map_len.div_ceil(map_stride) as i32;
+                        let fract_x = Fixed::<i32, 16>::from_fixed(normalize(
+                            (-glyph.x) - Fixed::from_integer(gl_x.get() as _),
+                        ));
+                        let off_x = add_positions_mod(
+                            scaled_position_mod(delta, off_x as i32, map_width),
+                            fract_x,
+                            map_width,
+                        );
+                        let fract_y = Fixed::<i32, 16>::from_fixed(normalize(
+                            glyph.y - Fixed::from_integer(gl_y.get() as _),
+                        ));
+                        let off_y = add_positions_mod(
+                            scaled_position_mod(delta, off_y as i32, map_height),
+                            fract_y,
+                            map_height,
+                        );
                         let extra = SceneTextureExtra {
                             colorize: color,
                             // color already is mixed with global alpha
                             alpha: color.alpha(),
                             rotation: self.rotation.orientation,
-                            dx: Fixed::from_fixed(scale_delta),
-                            dy: Fixed::from_fixed(scale_delta),
-                            off_x: Fixed::try_from_fixed(off_x).unwrap(),
-                            off_y: Fixed::try_from_fixed(off_y).unwrap(),
+                            dx: delta.max(Fixed(1)),
+                            dy: delta.max(Fixed(1)),
+                            off_x,
+                            off_y,
+                            destination_width: 0,
+                            destination_height: 0,
                         };
                         let geometry = geometry.transformed(self.rotation);
                         match &glyph.alpha_map {

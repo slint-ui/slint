@@ -6,7 +6,9 @@
 
 use std::rc::Rc;
 
-use slint::platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType};
+use slint::platform::software_renderer::{
+    MinimalSoftwareWindow, RenderingRotation, RepaintBufferType,
+};
 use slint::platform::{PlatformError, WindowAdapter};
 use slint::{Rgb8Pixel, SharedPixelBuffer};
 
@@ -74,6 +76,19 @@ fn render_upscaled(window: &MinimalSoftwareWindow) -> Vec<Rgb8Pixel> {
     let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); 340 * 340];
     window.request_redraw();
     assert!(window.draw_if_needed(|renderer| {
+        renderer.render(&mut buffer, 340);
+    }));
+    buffer
+}
+
+fn render_upscaled_with_rotation(
+    window: &MinimalSoftwareWindow,
+    rotation: RenderingRotation,
+) -> Vec<Rgb8Pixel> {
+    let mut buffer = vec![Rgb8Pixel::new(0, 0, 0); 340 * 340];
+    window.request_redraw();
+    assert!(window.draw_if_needed(|renderer| {
+        renderer.set_rendering_rotation(rotation);
         renderer.render(&mut buffer, 340);
     }));
     buffer
@@ -192,6 +207,13 @@ fn optional_pixel_formats_and_upscaled_images_render() {
             assert!(final_row.g > final_row.r && final_row.g > final_row.b);
         }
     }
+
+    ui.set_pixelated(true);
+    let rotated = render_upscaled_with_rotation(&window, RenderingRotation::Rotate90);
+    assert_eq!(rotated[334 * 340 + 334], Rgb8Pixel::new(0xff, 0, 0));
+
+    let mirrored = render_upscaled_with_rotation(&window, RenderingRotation::Rotate180);
+    assert_eq!(mirrored[15 * 340 + 334], Rgb8Pixel::new(0, 0xff, 0));
 }
 
 #[cfg(feature = "owned-pre-rendered-resources")]
