@@ -3,7 +3,7 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
 
-<html>
+<html lang="en">
 <!--
     This is a static html file used to display the wasm build.
     In order to generate the build
@@ -12,13 +12,25 @@
   -->
 
 <head>
-    <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Slint Flight Tracker</title>
     <style>
+        :root {
+            --background: #000000;
+            --text: #e8eef6;
+            --muted: #8b98a9;
+            --track: #ffffff1f;
+            --accent: #2379f4;
+            color-scheme: dark;
+        }
         /* Keeps the demo clear of a phone's notch and home indicator. */
         body { box-sizing: border-box; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-        html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: black; }
+        html, body {
+            margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none;
+            background: var(--background); color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
         /* Overrides the preferred size that Slint sets on the canvas, so the demo fills the page. */
         canvas {
             display: block; outline: none;
@@ -29,14 +41,121 @@
             /* Leaves dragging and pinching to the demo, instead of scrolling or zooming the page. */
             touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
         }
+        #loading {
+            position: fixed; inset: 0; display: grid; place-content: center; justify-items: center;
+            gap: 14px; padding: 16px; text-align: center; pointer-events: none;
+        }
+        #loading.hidden { display: none; }
+        #loading h1 { margin: 0; font-size: 22px; font-weight: 700; }
+        #message { margin: 0; color: var(--muted); font-size: 14px; max-width: 46ch; line-height: 1.5; font-variant-numeric: tabular-nums; }
+        #bar { width: min(280px, 70vw); height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+        #fill { height: 100%; width: 0; border-radius: 2px; background: var(--accent); transition: width 120ms linear; }
+        /* Without a known size, a segment sweeps the bar instead. */
+        #bar.unknown #fill { width: 30%; animation: sweep 1.2s ease-in-out infinite; }
+        #bar.done #fill { width: 100%; animation: pulse 1s ease-in-out infinite; }
+        #bar.failed { display: none; }
+        @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+        @keyframes pulse { 50% { opacity: 0.45; } }
+        @media (prefers-reduced-motion: reduce) {
+            #bar.unknown #fill, #bar.done #fill { animation: none; }
+            #bar.unknown #fill { width: 100%; opacity: 0.45; }
+        }
     </style>
 </head>
 
 <body>
     <canvas id="canvas"></canvas>
+    <div id="loading" role="status">
+        <h1>Slint Flight Tracker</h1>
+        <div id="bar" role="progressbar" aria-label="Loading the demo" aria-valuemin="0" aria-valuemax="100"><div id="fill"></div></div>
+        <p id="message">Loading the demo&#8230;</p>
+    </div>
     <script type="module">
         import init from "./pkg/flight_tracker.js";
-        init();
+
+        const loading = document.getElementById("loading");
+        const bar = document.getElementById("bar");
+        const fill = document.getElementById("fill");
+        const message = document.getElementById("message");
+        const megabytes = (bytes) => (bytes / 1e6).toFixed(1);
+
+        function show(received, total) {
+            // A compressed download's length counts compressed bytes, so it can run out early.
+            const known = total > 0 && received <= total;
+            bar.classList.toggle("unknown", !known);
+            if (known) {
+                const percent = Math.round((received / total) * 100);
+                fill.style.width = percent + "%";
+                bar.setAttribute("aria-valuenow", percent);
+                message.textContent = `Downloading ${megabytes(received)} of ${megabytes(total)} MB`;
+            } else {
+                bar.removeAttribute("aria-valuenow");
+                message.textContent = `Downloading ${megabytes(received)} MB`;
+            }
+        }
+
+        // Fetches the module piece by piece, to show how much has arrived.
+        async function download(url) {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`${response.status} ${response.statusText}`);
+            }
+            const encoding = response.headers.get("Content-Encoding");
+            const length = Number(response.headers.get("Content-Length")) || 0;
+            const total = encoding && encoding !== "identity" ? 0 : length;
+            if (!response.body) {
+                return new Uint8Array(await response.arrayBuffer());
+            }
+            const reader = response.body.getReader();
+            const chunks = [];
+            let received = 0;
+            show(0, total);
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    break;
+                }
+                chunks.push(value);
+                received += value.length;
+                show(received, total);
+            }
+            const bytes = new Uint8Array(received);
+            let offset = 0;
+            for (const chunk of chunks) {
+                bytes.set(chunk, offset);
+                offset += chunk.length;
+            }
+            return bytes;
+        }
+
+        function fail(text) {
+            bar.className = "failed";
+            message.textContent = text;
+        }
+
+        const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
+        if (!navigator.gpu) {
+            fail("This demo renders with WebGPU, which this browser doesn't offer. Open it in a recent Chrome, Edge, or Safari.");
+        } else {
+            try {
+                const bytes = await download(new URL("./pkg/flight_tracker_bg.wasm", import.meta.url));
+                bar.className = "done";
+                message.textContent = "Preparing the map…";
+                // Starting blocks the page for a moment, so the message has to show first.
+                await nextFrame();
+                await nextFrame();
+                // Slint ends its start-up with an exception that only hands control to the browser.
+                await init({ module_or_path: bytes }).catch((error) => {
+                    if (!String(error).includes("Using exceptions for control flow")) {
+                        throw error;
+                    }
+                });
+                loading.classList.add("hidden");
+            } catch (error) {
+                fail("The demo couldn't start: " + error);
+            }
+        }
     </script>
 </body>
 
