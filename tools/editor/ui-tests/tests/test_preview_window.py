@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from slint_testing import WaitTimeoutError, wait_until
 
+# cspell:ignore pixman
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Requires Wayland")
 def test_local_preview_presents_a_wayland_buffer(
