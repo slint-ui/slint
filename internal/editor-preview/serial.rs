@@ -26,9 +26,11 @@ use i_slint_live_preview::serial::{
     DeviceMessage, FrameDecoder, HostMessage, MAX_FRAME_LEN, PROTOCOL_VERSION, Received, blob_key,
     encode_frame, store_frames,
 };
-use i_slint_live_preview::{REBUILD_DEBOUNCE, SLINT_VERSION};
+use i_slint_live_preview::SLINT_VERSION;
 use lsp_types::Url;
 use tokio::sync::mpsc as tokio_mpsc;
+
+const SERIAL_REBUILD_DEBOUNCE: Duration = Duration::from_millis(16);
 
 /// How long a device may take to answer the handshake: the viewer firmware answers between
 /// two frames, so a port that stays silent longer doesn't run it.
@@ -374,7 +376,7 @@ struct Session<'a, P> {
     design: Design,
     device: Device,
     /// When to compile and send the design, once it stopped changing for
-    /// [`REBUILD_DEBOUNCE`].
+    /// [`SERIAL_REBUILD_DEBOUNCE`].
     send_at: Option<Instant>,
     showing: Option<Showing>,
     last_id: u32,
@@ -459,7 +461,7 @@ impl<P: Write> Session<'_, P> {
             }
             Input::Lsp(message) => {
                 if self.design.apply(*message) {
-                    self.send_at = Some(Instant::now() + REBUILD_DEBOUNCE);
+                    self.send_at = Some(Instant::now() + SERIAL_REBUILD_DEBOUNCE);
                 }
             }
             // The answer to the handshake's `Hello`, after the device's start
@@ -980,7 +982,7 @@ mod tests {
         fake.wait_for("The device shows ");
         // The same unit, compiled again
         fake.inputs.send(edit(format!("// A comment\n{source}"))).unwrap();
-        std::thread::sleep(REBUILD_DEBOUNCE * 3);
+        std::thread::sleep(SERIAL_REBUILD_DEBOUNCE * 3);
         fake.inputs.send(edit(source.replace("red", "blue"))).unwrap();
         let seen = fake.wait_for("The device shows ");
         // An error, undone: the device already shows the design, and the error goes away
@@ -1011,7 +1013,7 @@ mod tests {
             matches!(problems.as_slice(), [None, None, Some(p)] if p.contains("Panic")),
             "{problems:?}"
         );
-        std::thread::sleep(REBUILD_DEBOUNCE * 3);
+        std::thread::sleep(SERIAL_REBUILD_DEBOUNCE * 3);
         let (ended, _, shown) = fake.stop();
         assert_eq!(ended, Ok(()));
         assert_eq!(shown, ["crashed"]);

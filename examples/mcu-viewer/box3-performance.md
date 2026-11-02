@@ -127,3 +127,22 @@ The explicit flash mode selects espflash's QIO bootloader.
 QIO reduces rendering by 10.0–30.3% across these scenes.
 All five scenes retain their pixel checksums and complete USB replacement or timer-update checks.
 The flash and PSRAM settings match [CircuitPython's BOX-3 configuration](https://github.com/adafruit/circuitpython/blob/main/ports/espressif/boards/espressif_esp32s3_box_3/mpconfigboard.mk).
+
+## Remote Edit Delay
+
+Serial preview coalesces changes for 16 ms instead of 50 ms before compiling.
+The desktop preview keeps its existing delay.
+This removes 34 ms of intentional waiting per settled edit.
+The firmware remains the QIO, 80 MHz PSRAM build with a 40 MHz LCD.
+
+| Scene | 50 ms delay: edit to loaded | 16 ms delay: edit to loaded | 50 ms delay: edit to write completion | 16 ms delay: edit to write completion |
+| --- | ---: | ---: | ---: | ---: |
+| Counter | 260.024 ms | 199.356 ms | 332.580 ms | 270.543 ms |
+| Clipping and gradients | 180.346 ms | 153.085 ms | 260.354 ms | 239.297 ms |
+| Sixteen text rows | 174.942 ms | 148.221 ms | 279.493 ms | 249.316 ms |
+
+These five-replacement medians include compilation, USB scheduling, and device work.
+They vary with host load and panel phase; their differences don't isolate the fixed 34 ms saving.
+Write completion means receipt of the device's final-SPI-byte log, rather than physical panel scanout.
+Rendering and transfer measurements remain within normal variation, and all scene hashes match.
+All six serial transport tests pass in release mode.
