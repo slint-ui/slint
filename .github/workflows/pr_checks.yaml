@@ -123,7 +123,7 @@ jobs:
       issues: read
     steps:
       - name: Copy labels from issues linked or  mentioned in the PR
-        uses: michalvankodev/copy-issue-labels@v1.3.0
+        uses: michalvankodev/copy-issue-labels@v2.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           labels-to-exclude: |
