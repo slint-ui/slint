@@ -23,7 +23,7 @@ path = "lib.rs"
 
 [features]
 remote-client = ["dep:tokio-tungstenite-wasm", "dep:postcard", "futures-util/sink"]
-springboard = ["dep:slint", "dep:slint-build", "dep:mdns-sd", "remote-client"]
+springboard = ["dep:slint", "dep:slint-build", "dep:mdns-sd", "remote-client", "serial"]
 preview-engine = []
 preview-builtin = ["preview-engine"]
 preview-process = [

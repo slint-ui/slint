@@ -409,7 +409,7 @@ fn sync_serial_ports(api: &Api, ports: Vec<editor_preview::serial::UsbSerialPort
                 viewers.remove(i);
             }
         }
-        for editor_preview::serial::UsbSerialPort { name, product } in ports {
+        for editor_preview::serial::UsbSerialPort { name, product, .. } in ports {
             let info = RemoteViewerInfo {
                 name: format!("USB: {product} ({name})").into(),
                 fullname: format!("serial:{name}").into(),

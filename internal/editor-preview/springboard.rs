@@ -26,7 +26,7 @@ mod discovery;
 mod remote_connection;
 mod settings;
 use connection::{Connection, ManualProbe};
-use discovery::{DiscoveredViewers, RemoteViewer};
+use discovery::{DiscoveredViewers, RemoteViewer, UsbDiscovery};
 use remote_connection::ConnectionEvent;
 use settings::{SPRINGBOARD_SETTINGS_FILE, SpringboardSettings};
 
@@ -67,7 +67,7 @@ impl DisplayedEndpoints {
 }
 
 /// Identifies a preview endpoint: the Local child process, a discovered
-/// viewer, or a viewer the user entered by address.
+/// viewer, a viewer the user entered by address, or a microcontroller on USB.
 /// This is what the user picks, what `selected` tracks, and what is saved.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -90,6 +90,17 @@ enum EndpointIdentity {
     /// a reserved default port would also cover mobile viewers, which take no flags.
     // TODO: add an optional name the user gives it.
     Manual { host: String, port: u16 },
+    /// A microcontroller running the Slint viewer firmware, saved once it's plugged in.
+    Serial(SerialIdentity),
+}
+
+/// Identifies a device on a serial port, whichever port it's on.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+struct SerialIdentity {
+    /// The board, as the firmware names it.
+    name: String,
+    /// See `UsbSerialPort::hardware_id`.
+    hardware_id: String,
 }
 
 struct SpringboardTask {
@@ -107,6 +118,9 @@ struct SpringboardTask {
     discovery: DiscoveredViewers,
     manual_probe: Option<ManualProbe>,
     credentials: HashMap<EndpointIdentity, PairingCredentials>,
+    usb_discovery: UsbDiscovery,
+    /// The plugged-in devices with the viewer firmware, and their port names.
+    usb_endpoints: Vec<(SerialIdentity, String)>,
 }
 
 impl Springboard {
@@ -115,7 +129,13 @@ impl Springboard {
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
         global: slint::Weak<ui::Springboard<'static>>,
     ) -> Self {
-        Self::spawn(local_preview, to_editor, global, DiscoveredViewers::start())
+        Self::spawn(
+            local_preview,
+            to_editor,
+            global,
+            DiscoveredViewers::start(),
+            UsbDiscovery::start(),
+        )
     }
 
     fn spawn(
@@ -123,6 +143,7 @@ impl Springboard {
         to_editor: mpsc::UnboundedSender<PreviewToLspMessage>,
         global: slint::Weak<ui::Springboard<'static>>,
         discovery: DiscoveredViewers,
+        usb_discovery: UsbDiscovery,
     ) -> Self {
         let (task_sender, task_receiver) = mpsc::unbounded_channel::<SpringboardAction>();
         let displayed_endpoints = Arc::new(RwLock::new(DisplayedEndpoints {
@@ -202,6 +223,8 @@ impl Springboard {
             discovery,
             manual_probe: None,
             credentials: HashMap::new(),
+            usb_discovery,
+            usb_endpoints: Vec::new(),
         };
         task.request_settings();
         task.update_ui();
@@ -275,6 +298,12 @@ impl SpringboardTask {
                             self.update_ui();
                         }
                     }
+                }
+                endpoints = self.usb_discovery.get_endpoints() => {
+                    self.usb_endpoints = endpoints;
+                    self.save_usb_endpoints();
+                    self.connect();
+                    self.update_ui();
                 }
                 () = self.discovery.changed() => {
                     self.connect();
@@ -399,6 +428,10 @@ impl SpringboardTask {
                 self.connection =
                     Connection::remote(RemoteViewer::manual(host, *port), credentials);
             }
+            EndpointIdentity::Serial(identity) => {
+                let Some(port) = self.usb_port(identity) else { return };
+                self.connection = Connection::serial(port.to_owned());
+            }
         }
     }
 
@@ -420,8 +453,9 @@ impl SpringboardTask {
                 }
                 return;
             }
-            ConnectionEvent::Connected => {
+            ConnectionEvent::Connected { problem } => {
                 self.connection.connected();
+                self.connection.error = problem.unwrap_or_default();
                 if self.is_unsaved(&self.selected_endpoint) {
                     self.saved_endpoints.push(self.selected_endpoint.clone());
                     self.store_settings();
@@ -523,6 +557,8 @@ impl SpringboardTask {
         let Some(settings) = SpringboardSettings::deserialize(contents) else { return };
         self.saved_endpoints = settings.saved;
         self.selected_endpoint = settings.selected;
+        // Devices plugged in before the settings arrived
+        self.save_usb_endpoints();
         self.update_ui();
         // Only a hand-edited settings file selects an endpoint it doesn't save.
         if self.is_unsaved(&self.selected_endpoint) {
@@ -538,6 +574,41 @@ impl SpringboardTask {
             address: format!("{}:{}", viewer.addresses.join(", "), viewer.port).into(),
             unavailable_reason: viewer.unavailable_reason.clone().into(),
             saved: self.saved_endpoints.contains(&viewer.identity()),
+            ..Default::default()
+        }
+    }
+
+    /// The port name of the plugged-in device `identity`.
+    fn usb_port(&self, identity: &SerialIdentity) -> Option<&str> {
+        let (_, port) = self.usb_endpoints.iter().find(|(endpoint, _)| endpoint == identity)?;
+        Some(port)
+    }
+
+    /// Saves the plugged-in devices that aren't saved yet.
+    fn save_usb_endpoints(&mut self) {
+        let unsaved: Vec<_> = self
+            .usb_endpoints
+            .iter()
+            .map(|(identity, _)| EndpointIdentity::Serial(identity.clone()))
+            .filter(|identity| self.is_unsaved(identity))
+            .collect();
+        if !unsaved.is_empty() {
+            self.saved_endpoints.extend(unsaved);
+            self.store_settings();
+        }
+    }
+
+    fn serial_row(&self, identity: &SerialIdentity) -> ui::PreviewEndpoint {
+        let port = self.usb_port(identity);
+        ui::PreviewEndpoint {
+            name: identity.name.as_str().into(),
+            kind: ui::PreviewEndpointKind::Serial,
+            address: port.unwrap_or_default().into(),
+            unavailable_reason: match port {
+                Some(_) => Default::default(),
+                None => "Device isn't connected".into(),
+            },
+            plugged_in: port.is_some(),
             ..Default::default()
         }
     }
@@ -574,6 +645,7 @@ impl SpringboardTask {
                 address: format!("{host}:{port}").into(),
                 ..Default::default()
             },
+            EndpointIdentity::Serial(identity) => self.serial_row(identity),
         }
     }
 
@@ -628,7 +700,7 @@ mod tests {
     use crate::child_process::tests::{component, fixture_config, receive, started};
     use i_slint_live_preview::protocol::pairing;
 
-    /// A springboard whose discovery reports what the test sends.
+    /// A springboard whose discoveries report what the test sends.
     /// It asks the editor for its settings right away; the request is consumed here.
     fn controller(
         name: &str,
@@ -636,22 +708,25 @@ mod tests {
         Springboard,
         mpsc::UnboundedReceiver<PreviewToLspMessage>,
         flume::Sender<mdns_sd::ServiceEvent>,
+        mpsc::UnboundedSender<Vec<(SerialIdentity, String)>>,
     ) {
         let (executable, arguments) = fixture_config(name);
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let (discovered, discovery_receiver) = flume::unbounded();
+        let (usb_endpoints, usb_receiver) = mpsc::unbounded_channel();
         let controller = Springboard::spawn(
             LocalPreviewConfig { executable, arguments, prepare_arguments: None, on_started: None },
             sender,
             Default::default(),
             DiscoveredViewers::from_receiver(discovery_receiver),
+            UsbDiscovery::from_receiver(usb_receiver),
         );
         match receiver.try_recv() {
             Ok(PreviewToLspMessage::RequestState { settings, .. })
                 if settings == [SPRINGBOARD_SETTINGS_FILE.to_string()] => {}
             other => panic!("Expected a request for the user settings, got {other:?}"),
         }
-        (controller, receiver, discovered)
+        (controller, receiver, discovered, usb_endpoints)
     }
 
     fn select_saved(controller: &Springboard, index: usize) {
@@ -737,7 +812,7 @@ mod tests {
     async fn local_launch_requests_fresh_arguments_and_stop_cancels_preparation() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (controller, mut receiver, _discovery, _usb) = controller("echo_child");
                 let (requests, mut preparations) = mpsc::unbounded_channel();
                 controller
                     .task_sender
@@ -785,7 +860,7 @@ mod tests {
     async fn start_selection_restart_and_stale_events() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (controller, mut receiver, _discovery, _usb) = controller("echo_child");
                 // Nothing is saved or discovered, so these select nothing.
                 select_saved(&controller, 1);
                 pair(&controller, 0);
@@ -831,7 +906,7 @@ mod tests {
     async fn dropping_handles_disconnects_and_ends_task() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (controller, mut receiver, _discovery, _usb) = controller("echo_child");
                 controller.start();
                 started(&mut receiver).await;
                 drop(controller);
@@ -848,7 +923,7 @@ mod tests {
     #[tokio::test]
     async fn synchronization_highlight_and_explicit_clear() {
         tokio::task::LocalSet::new().run_until(async {
-            let (controller, mut receiver, _discovery) = controller("echo_child");
+            let (controller, mut receiver, _discovery, _usb) = controller("echo_child");
             let url = component().url;
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: Some(url.clone()), offset: 17 });
             controller.start();
@@ -880,7 +955,7 @@ mod tests {
     async fn launch_failure_requires_explicit_retry() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (controller, mut receiver, _discovery, _usb) = controller("echo_child");
                 controller
                     .task_sender
                     .send(Box::new(|task| {
@@ -917,7 +992,7 @@ mod tests {
     #[tokio::test]
     async fn crash_persists_error_and_does_not_restart() {
         tokio::task::LocalSet::new().run_until(async {
-            let (controller, mut receiver, _discovery) = controller("crashing_child");
+            let (controller, mut receiver, _discovery, _usb) = controller("crashing_child");
             controller.start();
             started(&mut receiver).await;
             assert!(matches!(receive(&mut receiver).await, PreviewToLspMessage::SendShowMessage { message } if message.typ == lsp_types::MessageType::ERROR));
@@ -944,7 +1019,7 @@ mod tests {
     async fn endpoint_exit_stops_without_ending_upstream() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (controller, mut receiver, _discovery, _usb) = controller("echo_child");
                 controller.start();
                 started(&mut receiver).await;
                 controller
@@ -996,7 +1071,7 @@ mod tests {
     async fn a_local_preview_passes_on_what_a_viewer_may_not_send() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut receiver, _discovery) = controller("echo_child");
+                let (controller, mut receiver, _discovery, _usb) = controller("echo_child");
                 controller.start();
                 started(&mut receiver).await;
                 let (sender, endpoint) = mpsc::unbounded_channel();
@@ -1209,7 +1284,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         tokio::task::LocalSet::new().run_until(async {
             let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
-            let (controller, mut upstream, discovered) = controller("echo_child");
+            let (controller, mut upstream, discovered, _usb) = controller("echo_child");
             discover(&controller, &discovered, discovery::tests::service("Manifest", viewer.connection.local_port())).await;
             pair(&controller, 0);
             controller.start();
@@ -1259,7 +1334,7 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 // Discovery runs before the preview is started.
-                let (controller, _upstream, discovered) = controller("echo_child");
+                let (controller, _upstream, discovered, _usb) = controller("echo_child");
                 let first = discovery::tests::service("First", 1);
                 let mut second = discovery::tests::service("Second", 1);
                 let first_id = discover(&controller, &discovered, first).await;
@@ -1307,7 +1382,7 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         tokio::task::LocalSet::new().run_until(async {
             let mut viewer = Viewer::start(PairingPolicy::Generated, 0).await;
-            let (controller, mut upstream, discovered) = controller("echo_child");
+            let (controller, mut upstream, discovered, _usb) = controller("echo_child");
             controller.send(&LspToPreviewMessage::HighlightFromEditor { url: Some(component().url), offset: 17 });
             discover(&controller, &discovered, discovery::tests::service("Paired", viewer.connection.local_port())).await;
             pair(&controller, 0);
@@ -1362,7 +1437,7 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
-                let (controller, mut upstream, discovered) = controller("echo_child");
+                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                 discover(
                     &controller,
                     &discovered,
@@ -1416,7 +1491,7 @@ mod tests {
         tokio::task::LocalSet::new().run_until(async {
             let mut first = Viewer::start(PairingPolicy::Generated, 0).await;
             let mut second = Viewer::start(PairingPolicy::Disabled, 0).await;
-            let (controller, mut upstream, discovered) = controller("echo_child");
+            let (controller, mut upstream, discovered, _usb) = controller("echo_child");
             let first_id = discover(&controller, &discovered, discovery::tests::service("First", first.connection.local_port())).await;
             discover(&controller, &discovered, discovery::tests::service("Second", second.connection.local_port())).await;
             pair(&controller, 0);
@@ -1474,7 +1549,7 @@ mod tests {
                 let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
                 let port = listener.local_addr().unwrap().port();
                 drop(listener);
-                let (controller, mut upstream, discovered) = controller("echo_child");
+                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                 discover(&controller, &discovered, discovery::tests::service("Retry", port)).await;
                 pair(&controller, 0);
                 controller.start();
@@ -1550,7 +1625,7 @@ mod tests {
                         }
                     })
                     .await;
-                    let (controller, mut upstream, discovered) = controller("echo_child");
+                    let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                     discover(
                         &controller,
                         &discovered,
@@ -1597,7 +1672,7 @@ mod tests {
                 for policy in [PairingPolicy::Generated, PairingPolicy::Disabled] {
                     let generated = policy == PairingPolicy::Generated;
                     let mut viewer = Viewer::start(policy, 0).await;
-                    let (controller, mut upstream, discovered) = controller("echo_child");
+                    let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                     discover(
                         &controller,
                         &discovered,
@@ -1646,7 +1721,7 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 for replacement_requires_pairing in [true, false] {
-                    let (controller, mut upstream, discovered) = controller("echo_child");
+                    let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                     let mut first = Viewer::start(PairingPolicy::Generated, 0).await;
                     discover(
                         &controller,
@@ -1749,7 +1824,7 @@ mod tests {
         tokio::task::LocalSet::new()
             .run_until(async {
                 let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-                let (controller, _upstream, discovered) = controller("echo_child");
+                let (controller, _upstream, discovered, _usb) = controller("echo_child");
                 discover(
                     &controller,
                     &discovered,
@@ -1819,7 +1894,7 @@ mod tests {
                     .await;
                 })
                 .await;
-                let (controller, mut upstream, discovered) = controller("echo_child");
+                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                 discover(&controller, &discovered, discovery::tests::service("Expires", port))
                     .await;
                 pair(&controller, 0);
@@ -1848,7 +1923,7 @@ mod tests {
             .run_until(async {
                 for removal_before_failure in [true, false] {
                     let port = closed_port().await;
-                    let (controller, mut upstream, discovered) = controller("echo_child");
+                    let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                     let fullname = discover(
                         &controller,
                         &discovered,
@@ -1916,7 +1991,7 @@ mod tests {
     async fn stored_settings_are_restored_before_the_preview_starts() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut upstream, _discovery) = controller("echo_child");
+                let (controller, mut upstream, _discovery, _usb) = controller("echo_child");
                 let saved = vec![remote("Remembered"), remote("Other")];
                 reply_settings(&controller, saved.clone(), remote("Remembered"));
                 assert!(
@@ -1936,7 +2011,7 @@ mod tests {
     async fn a_remembered_viewer_is_connected_once_it_is_discovered() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut upstream, discovered) = controller("echo_child");
+                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
                 reply_settings(&controller, vec![remote("Remembered")], remote("Remembered"));
                 controller.start();
@@ -1964,7 +2039,7 @@ mod tests {
     async fn a_selection_made_while_stopped_survives_stop() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut upstream, discovered) = controller("echo_child");
+                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
                 discover(
                     &controller,
@@ -2002,7 +2077,7 @@ mod tests {
     async fn forgetting_the_selected_endpoint_stops_on_local() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut upstream, discovered) = controller("echo_child");
+                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
                 discover(
                     &controller,
@@ -2039,7 +2114,7 @@ mod tests {
     async fn a_probed_manual_endpoint_is_saved_and_dialed() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut upstream, _discovery) = controller("echo_child");
+                let (controller, mut upstream, _discovery, _usb) = controller("echo_child");
                 let mut viewer = Viewer::start(PairingPolicy::Disabled, 0).await;
                 let port = viewer.connection.local_port();
                 let probe = |host: &'static str, port: i32| {
@@ -2090,7 +2165,7 @@ mod tests {
     async fn cancelling_a_pairing_saves_nothing() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, mut upstream, discovered) = controller("echo_child");
+                let (controller, mut upstream, discovered, _usb) = controller("echo_child");
                 let mut viewer = Viewer::start(PairingPolicy::Generated, 0).await;
                 discover(
                     &controller,
@@ -2132,11 +2207,81 @@ mod tests {
     async fn restarting_discovery_drops_the_viewers_it_had() {
         tokio::task::LocalSet::new()
             .run_until(async {
-                let (controller, _upstream, discovered) = controller("echo_child");
+                let (controller, _upstream, discovered, _usb) = controller("echo_child");
                 discover(&controller, &discovered, discovery::tests::service("Vanished", 1)).await;
                 controller.task_sender.send(Box::new(|task| task.discovery.restart())).unwrap();
                 assert!(inspect(&controller, |task| task.discovery.discovered.is_empty()).await);
                 discover(&controller, &discovered, discovery::tests::service("Answered", 1)).await;
+                controller.close();
+            })
+            .await;
+    }
+
+    fn usb_viewer() -> SerialIdentity {
+        SerialIdentity {
+            name: "M5Stack CoreS3".into(),
+            hardware_id: "303a:1001:30:ED:A0:D4:C2:A8".into(),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_usb_viewer_is_saved_and_kept_until_unplugged() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, _upstream, _discovered, usb) = controller("echo_child");
+                reply_settings(&controller, vec![remote("Phone")], EndpointIdentity::Local);
+                usb.send(vec![(usb_viewer(), "/dev/ttyACM0".into())]).unwrap();
+                let saved = vec![remote("Phone"), EndpointIdentity::Serial(usb_viewer())];
+                wait_condition(&controller, move |task| {
+                    let row = task.serial_row(&usb_viewer());
+                    task.saved_endpoints == saved && row.plugged_in && row.address == "/dev/ttyACM0"
+                })
+                .await;
+                usb.send(Vec::new()).unwrap();
+                wait_condition(&controller, |task| {
+                    let row = task.serial_row(&usb_viewer());
+                    task.saved_endpoints.len() == 2
+                        && !row.plugged_in
+                        && row.unavailable_reason == "Device isn't connected"
+                })
+                .await;
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_usb_viewer_found_before_the_settings_arrive_stays_saved() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, _upstream, _discovered, usb) = controller("echo_child");
+                usb.send(vec![(usb_viewer(), "/dev/ttyACM0".into())]).unwrap();
+                wait_condition(&controller, |task| {
+                    task.saved_endpoints == [EndpointIdentity::Serial(usb_viewer())]
+                })
+                .await;
+                reply_settings(&controller, vec![remote("Phone")], EndpointIdentity::Local);
+                let saved = vec![remote("Phone"), EndpointIdentity::Serial(usb_viewer())];
+                wait_condition(&controller, move |task| task.saved_endpoints == saved).await;
+                controller.close();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_saved_usb_viewer_is_opened_on_its_current_port() {
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (controller, _upstream, _discovered, usb) = controller("echo_child");
+                let identity = EndpointIdentity::Serial(usb_viewer());
+                reply_settings(&controller, vec![identity.clone()], identity);
+                controller.start();
+                usb.send(vec![(usb_viewer(), "/dev/no-such-port-1".into())]).unwrap();
+                wait_condition(&controller, |task| {
+                    task.connection.state == ui::ConnectionState::Failed
+                        && task.connection.error.starts_with("Cannot open /dev/no-such-port-1")
+                })
+                .await;
                 controller.close();
             })
             .await;

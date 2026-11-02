@@ -135,7 +135,7 @@ export component DeviceManager inherits Rectangle {
                             if device.unavailable-reason != "": Tooltip { text: @markdown("\{device.unavailable-reason}"); }
                         }
                         if index == 0: Text { x: parent.width - (73px * ViewerStyle.scale); y: (19px * ViewerStyle.scale); text: @tr("Built-in"); font-size: 11px; color: ViewerStyle.muted; }
-                        if index > 0 && root.removing != index: trash := DeviceAction {
+                        if index > 0 && !device.plugged-in && root.removing != index: trash := DeviceAction {
                             x: parent.width - (45px * ViewerStyle.scale); y: (14px * ViewerStyle.scale); width: (32px * ViewerStyle.scale); height: (32px * ViewerStyle.scale); label: @tr("Remove {}", device.name);
                             activated => {
                                 root.confirm-x = trash.absolute-position.x - root.absolute-position.x - (46px * ViewerStyle.scale);
