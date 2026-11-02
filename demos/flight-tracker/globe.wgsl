@@ -113,12 +113,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Between texels, the interpolated distance to a border is up to half a texel too far, so
     // where a texel is about a pixel, borders are at least a texel wide.
     let border_texels = (1.0 - map_texel.g) * spread;
-    let border_half_width = max(0.6, 0.5 * texels_per_pixel);
-    let minified_border = 1.0 - smoothstep(
-        border_half_width - 0.5 * texels_per_pixel,
-        border_half_width + 0.5 * texels_per_pixel,
+    // Where a pixel covers several texels, a border covers only part of it, so it fades, and it
+    // stays within the texels that the distances reach.
+    let border_half_width = clamp(0.5 * texels_per_pixel, 0.6, 0.5 * spread);
+    let minified_border = (1.0 - smoothstep(
+        border_half_width - 0.5,
+        border_half_width + 0.5,
         border_texels
-    );
+    )) * clamp(1.5 / texels_per_pixel, 0.0, 1.0);
     // Where the map is magnified, the signed distance draws borders a pixel wide. It also
     // changes sign between unrelated borders, which only counts within the half texel that
     // the unsigned distance can be off by.
@@ -139,15 +141,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let limb_sun = dot(normalize(closest), sun);
     let limb_light = mix(1.0, smoothstep(-0.3, 0.25, limb_sun), sun_strength);
     let limb_dusk = exp(-pow(limb_sun / 0.18, 2.0)) * sun_strength;
-    let halo = exp(-max(miss_distance - 1.0, 0.0) * 22.0) * select(0.0, 1.0, along > 0.0);
+    let halo = exp(-max(miss_distance - 1.0, 0.0) * 30.0) * select(0.0, 1.0, along > 0.0);
     let halo_color = vec3<f32>(0.35, 0.6, 1.0);
-    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.6) * halo * 0.9;
+    let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.6) * halo * 0.6;
 
     // The ground.
     let city_light = map_texel.b;
     let view = -direction;
     let facing = max(dot(normal, view), 0.0);
-    let fresnel = pow(1.0 - facing, 4.0);
+    let fresnel = pow(1.0 - facing, 5.0);
     let sunlight = dot(normal, sun);
     let day = mix(1.0, smoothstep(-0.04, 0.1, sunlight), sun_strength);
     // Twilight lasts while the sun is up to 12° below the horizon.
@@ -159,13 +161,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var lit = imagery * diffuse;
     let half_way = normalize(sun + view);
-    let glint = pow(max(dot(normal, half_way), 0.0), 300.0) * (1.0 - land) * 0.5 * day;
+    let glint = pow(max(dot(normal, half_way), 0.0), 500.0) * (1.0 - land) * 0.15 * day;
     lit += vec3<f32>(1.0, 0.92, 0.8) * glint;
     lit = mix(lit, vec3<f32>(0.95, 0.95, 0.85), border * 0.45 * day);
     let night_ground = imagery * vec3<f32>(0.02, 0.025, 0.04);
     let lights = vec3<f32>(1.0, 0.72, 0.38) * city_light * land * 1.6;
     var ground = mix(night_ground + lights + vec3<f32>(0.09, 0.05, 0.06) * twilight, lit, day);
-    ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * mix(0.05, 0.7, day);
+    ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * mix(0.03, 0.25, day);
     ground += terminator_color * terminator * 0.22;
 
     // Where there's no space, the frame is transparent but for the atmosphere's glow.
