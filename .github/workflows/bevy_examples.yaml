@@ -33,7 +33,7 @@ jobs:
     bevy_examples:
         strategy:
             matrix:
-                os: [ubuntu-22.04, macos-15, windows-2022]
+                os: [blacksmith-4vcpu-ubuntu-2204, blacksmith-6vcpu-macos-15, blacksmith-4vcpu-windows-2025]
         runs-on: ${{ matrix.os }}
         steps:
             - uses: actions/checkout@v7

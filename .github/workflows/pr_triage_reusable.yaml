@@ -30,7 +30,8 @@ env:
       "S": "tronical",
       "N": "NigelBreslaw",
       "I": "michneaionuc",
-      "L": "LeonMatthes"
+      "L": "LeonMatthes",
+      "M": "Murmele"
     }
 
 jobs:
@@ -131,7 +132,7 @@ jobs:
             --max-turns 40
             --allowedTools "Read(./**),Grep(./**),Glob(./**)"
             --disallowedTools "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch"
-            --json-schema '{"type":"object","additionalProperties":false,"required":["areas","api","breaking_change","complexity","complexity_reason","review","comments"],"properties":{"areas":{"type":"array","items":{"type":"string"},"maxItems":2},"api":{"type":"boolean"},"breaking_change":{"type":"boolean"},"complexity":{"type":"string","enum":["trivial","moderate","high"]},"complexity_reason":{"type":"string","maxLength":300},"review":{"type":"string","maxLength":6000},"comments":{"type":"array","maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["path","line","body"],"properties":{"path":{"type":"string"},"line":{"type":"integer","minimum":1},"body":{"type":"string","maxLength":1000}}}}}}'
+            --json-schema '{"type":"object","additionalProperties":false,"required":["areas","kind","api","breaking_change","complexity","complexity_reason","new_api","review","nitpicks","comments"],"properties":{"areas":{"type":"array","items":{"type":"string"},"maxItems":2},"kind":{"type":"string","enum":["bug fix","feature","other"]},"api":{"type":"boolean"},"breaking_change":{"type":"boolean"},"complexity":{"type":"string","enum":["trivial","moderate","high"]},"complexity_reason":{"type":"string","maxLength":300},"new_api":{"type":"string","maxLength":4000},"review":{"type":"string","maxLength":6000},"nitpicks":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":500}},"comments":{"type":"array","maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["path","line","body"],"properties":{"path":{"type":"string"},"line":{"type":"integer","minimum":1},"body":{"type":"string","maxLength":1000}}}}}}'
           prompt: |
             Triage and review a pull request to the Slint repository.
 
@@ -144,11 +145,11 @@ jobs:
 
             Return:
 
-            - `areas`: one or two area labels from the list below, the most relevant first.
-              Pick by what the change affects, not only by path.
-              Use the exact label names.
-            - `api`: true if it adds, removes, or changes public API: items under `api/`,
-              or a `.slint` element's properties or callbacks.
+            - `areas`: the one area label below that fits what the change affects, not only its path.
+              Add a second only when two areas are affected about equally. Use the exact names.
+            - `kind`: `bug fix` if it fixes wrong behavior, `feature` if it adds new behavior or API,
+              and `other` for refactors, docs, tests, build, or CI.
+            - `api`: true if it adds, removes, or changes public API, as defined in `docs/development/public-api.md`.
             - `breaking_change`: true if existing code using the public API would stop compiling or behave differently.
             - `complexity`: how much review effort and risk the change carries.
               - `trivial`: typo, docs, a version bump, or a small, obviously correct fix. Minutes to review.
@@ -156,20 +157,17 @@ jobs:
               - `high`: public API, compiler passes or code generation, the property system, `unsafe`,
                 `api/slint-sc`, several areas at once, or a large refactor. Needs the area maintainer.
             - `complexity_reason`: one plain sentence saying why.
-            - `review`: a first code review, in GitHub Markdown, that a maintainer reads before their own review.
-              It's the summary of the review; the points about specific lines go in `comments`.
-              - Point out bugs, missing tests, and missing docs.
-              - Pay attention to any change to the public API: added, removed, or renamed items under `api/`,
-                and any change to a `.slint` element's properties or callbacks.
-                Say plainly whether it breaks compatibility.
-              - Write in plain English: short sentences, everyday words, and no jargon where a common word works.
-              - Keep it short. Skip praise and don't repeat the PR description.
-                If you find nothing to fix, say so in one sentence.
-              - Don't mention anyone with `@`.
-            - `comments`: inline review comments, at most ten, each about one line the PR adds or keeps.
+            - `new_api`: declarations, without bodies, of the public API the PR adds or changes, or means to make public.
+              One fenced code block per language, such as `rust`, `cpp`, `ts`, `python`, or `slint`. Empty if none.
+            - `review`: a first review in GitHub Markdown, read by a maintainer before their own.
+              List only what needs to change: bugs, missing tests or docs, and API problems, including compatibility breaks.
+              No praise, no repeating the PR description; if nothing needs to change, say so in one sentence.
+              Keep it short: plain English, short sentences, everyday words. Short code snippets are fine.
+              Don't mention anyone with `@`.
+            - `nitpicks`: minor points such as wording or code style, one short item each, at most five.
+            - `comments`: at most ten inline comments on lines the PR adds or keeps, for points from `review` only.
               `path` is the file path as in the diff, `line` the number in front of the line in `.triage/pr.diff`,
               and `body` the comment, written like `review`.
-              Leave it empty when nothing needs a comment.
 
             Area labels:
 
@@ -195,7 +193,7 @@ jobs:
             const result = JSON.parse(process.env.RESULT);
             // Claude's reads stay in the checkout, but a leaked token must
             // still never reach a public comment.
-            const texts = [result.complexity_reason, result.review, ...result.comments.flatMap(c => [c.path, c.body])];
+            const texts = [result.complexity_reason, result.new_api, result.review, ...result.nitpicks, ...result.comments.flatMap(c => [c.path, c.body])];
             if (texts.some(t => /sk-ant-|gh[opsu]_[A-Za-z0-9]{20}|[A-Za-z0-9+\/_=-]{100,}/.test(t))) {
               throw new Error('The triage output looks like it contains a token, not posting it');
             }
@@ -247,12 +245,22 @@ jobs:
 
             // The reason and the review come from the model, so keep them from mentioning anyone.
             const noMentions = text => text.replace(/@/g, '@​');
-            const lines = [`**Complexity:** ${result.complexity}. ${noMentions(result.complexity_reason)}`];
+            const lines = [
+              `**Kind:** ${result.kind}`,
+              '',
+              `**Complexity:** ${result.complexity}. ${noMentions(result.complexity_reason)}`,
+            ];
             if (reviewers.size > 0) {
               const list = [...reviewers].map(([login, names]) => `@${login} (${names.map(n => `\`${n}\``).join(', ')})`);
               lines.push('', `**Review requested from:** ${list.join(', ')}`);
             }
+            if (result.new_api.trim()) {
+              lines.push('', '### New API', '', noMentions(result.new_api));
+            }
             lines.push('', '### First Review', '', noMentions(result.review));
+            if (result.nitpicks.length > 0) {
+              lines.push('', '<details><summary>Nitpicks</summary>', '', ...result.nitpicks.map(n => `- ${noMentions(n)}`), '', '</details>');
+            }
 
             // GitHub rejects the whole review when one comment points at a
             // line outside the diff. Those comments, and all of them when the
