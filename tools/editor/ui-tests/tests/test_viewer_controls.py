@@ -31,7 +31,7 @@ def test_viewer_transport_and_popup(
 
         launcher = element(window, "Viewer controls")
         assert launcher.size.width == pytest.approx(252)
-        assert launcher.size.height == pytest.approx(112 / 3)
+        assert launcher.size.height == pytest.approx(36)
         transport = element(window, "Stop preview")
         assert transport.absolute_position.x > center(launcher).x
         window.dispatch_event(
@@ -60,8 +60,8 @@ def test_viewer_transport_and_popup(
 
         element(window, "Viewer controls").single_click(left)
         popup = element(window, "Viewer options")
-        assert popup.size.width == pytest.approx(368.8)
-        assert popup.size.height == pytest.approx(105.6)
+        assert popup.size.width == pytest.approx(360)
+        assert popup.size.height == pytest.approx(100)
         bounds = popup.absolute_rect
         selector = element(window, "Choose viewer")
         manager = element(
@@ -125,18 +125,19 @@ def test_viewer_transport_and_popup(
             )
         ).to_be_visible()
         devices_panel = element(window, "Device manager")
-        assert devices_panel.size.width == pytest.approx(368.8)
-        assert devices_panel.size.height == pytest.approx(331.2)
+        assert devices_panel.size.width == pytest.approx(360)
+        assert devices_panel.size.height == pytest.approx(331)
         assert devices_panel.absolute_position.x == pytest.approx(bounds.x)
         heading = element(window, "Devices", role=slint_testing.AccessibleRole.Text)
         assert (
             heading.absolute_position.x - devices_panel.absolute_position.x
-            == pytest.approx(19.2)
+            == pytest.approx(16)
         )
-        assert (
-            heading.absolute_position.y - devices_panel.absolute_position.y
-            == pytest.approx(18.4)
+        close = element(
+            window, "Close device manager", role=slint_testing.AccessibleRole.Button
         )
+        assert center(heading).y == pytest.approx(center(close).y)
+        assert close.size.width == close.size.height == pytest.approx(24)
         screenshot(window).save(tmp_path / "device-manager-saved.png")
         element(
             window, "Pair nearby device", role=slint_testing.AccessibleRole.Button

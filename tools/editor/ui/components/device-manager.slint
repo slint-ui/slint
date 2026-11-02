@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, Metrics, Typography, ButtonStyle } from "../style.slint";
 import { EditorInput } from "editor-input.slint";
 import { ButtonBase } from "../../controls/src/headless.slint";
 import {
@@ -19,15 +20,14 @@ component DeviceAction inherits Rectangle {
     callback activated();
 
     button := ButtonBase {
-        mouse-cursor: MouseCursor.default;
         width: parent.width;
         height: parent.height;
         enabled: root.enabled;
         text: root.label;
         clicked => { root.activated(); }
         background << Rectangle {
-            border-radius: (9px * ViewerStyle.scale);
-            border-width: button.has-focus ? (1px * ViewerStyle.scale) : (0px * ViewerStyle.scale);
+            border-radius: Metrics.radius-medium;
+            border-width: button.has-focus ? Metrics.border-width : 0px;
             border-color: ViewerStyle.accent;
         }
         content << Rectangle {
@@ -38,20 +38,26 @@ component DeviceAction inherits Rectangle {
 
 component SoftButton inherits DeviceAction {
     in property <bool> primary;
-
+    private property <ButtonStyle> style: root.primary ? Style.primary-button : Style.compact-button;
+    height: root.style.height;
     Rectangle {
-        border-radius: (10px * ViewerStyle.scale);
-        border-width: (1px * ViewerStyle.scale);
+        border-radius: root.style.radius;
+        border-width: root.style.border-width;
         border-color: ViewerStyle.field-border;
         background: root.hovered ? ViewerStyle.field-hover : ViewerStyle.field;
-        opacity: root.enabled ? 1 : 0.45;
+        opacity: root.enabled ? 1 : root.style.disabled-opacity;
     }
-
-    Text {
-        text: root.label;
-        color: !root.enabled ? ViewerStyle.unavailable : root.primary ? ViewerStyle.accent : ViewerStyle.ink;
-        font-size: 13px;
-        font-weight: 500;
+    HorizontalLayout {
+        padding-left: root.style.padding-inline;
+        padding-right: root.style.padding-inline;
+        Text {
+            text: root.label;
+            color: !root.enabled ? ViewerStyle.unavailable : root.primary ? ViewerStyle.accent : ViewerStyle.ink;
+            font-size: root.style.text.size;
+            font-weight: root.style.text.weight;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
     }
 }
 
@@ -111,522 +117,410 @@ export component DeviceManager inherits Rectangle {
 
     TouchArea { }
 
-    if root.page != 0: back := DeviceAction {
-        x: (16px * ViewerStyle.scale);
-        y: (20px * ViewerStyle.scale);
-        width: (32px * ViewerStyle.scale);
-        height: (32px * ViewerStyle.scale);
-        label: @tr("Back");
-        activated => { if root.page == 3 { Springboard.cancel-pairing(); } root.page = root.page == 3 ? 1 : 0; }
+    header := HorizontalLayout {
+        x: Metrics.space-large;
+        y: Metrics.space-large;
+        width: parent.width - 2 * Metrics.space-large;
+        height: Metrics.control-compact;
+        spacing: Metrics.space-regular;
+        cross-axis-alignment: center;
 
-        Rectangle {
-            border-radius: (8px * ViewerStyle.scale);
-            background: back.hovered ? ViewerStyle.pill-hover : transparent;
-        }
-
-        Chevron {
-            transform-rotation: 90deg;
-        }
-    }
-    Text {
-        x: root.page == 0 ? (24px * ViewerStyle.scale) : (58px * ViewerStyle.scale);
-        y: (23px * ViewerStyle.scale);
-        text: root.page == 0 ? @tr("Devices") : root.page == 1 ? @tr("Pair nearby device") : root.page == 2 ? @tr("Enter IP address") : @tr("Pair device");
-        color: ViewerStyle.ink;
-        font-size: (21px * ViewerStyle.scale);
-        font-weight: 600;
-    }
-
-    close := DeviceAction {
-        x: parent.width - (48px * ViewerStyle.scale);
-        y: (20px * ViewerStyle.scale);
-        width: (32px * ViewerStyle.scale);
-        height: (32px * ViewerStyle.scale);
-        label: @tr("Close device manager");
-        activated => { root.closed(); }
-
-        Rectangle {
-            border-radius: (8px * ViewerStyle.scale);
-            background: close.hovered ? ViewerStyle.pill-hover : transparent;
-        }
-
-        Image {
-            width: (24px * ViewerStyle.scale);
-            height: (24px * ViewerStyle.scale);
-            source: @image-url("../assets/lucide/x.svg");
-            colorize: ViewerStyle.muted;
-        }
-    }
-
-    if root.page == 0: Rectangle {
-        Text {
-            x: (24px * ViewerStyle.scale);
-            y: (62px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text: root.message == "" ? @tr("Your saved viewers") : root.message;
-            font-size: (14px * ViewerStyle.scale);
-            color: ViewerStyle.muted;
-            overflow: elide;
-        }
-
-        Rectangle {
-            x: (16px * ViewerStyle.scale);
-            y: (92px * ViewerStyle.scale);
-            width: parent.width - (32px * ViewerStyle.scale);
-            height: (228px * ViewerStyle.scale);
-            border-radius: (11px * ViewerStyle.scale);
-            border-width: (1px * ViewerStyle.scale);
-            border-color: ViewerStyle.title-border;
-            background: ViewerStyle.device-row;
-            clip: true;
-
-            EditorScrollView {
-                horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-                x: (1px * ViewerStyle.scale);
-                y: (1px * ViewerStyle.scale);
-                width: parent.width - (2px * ViewerStyle.scale);
-                height: parent.height - (2px * ViewerStyle.scale);
-                content-width: self.width;
-                content-height: saved-list.preferred-height;
-
-                saved-list := VerticalLayout {
-                    width: parent.width;
-                    for device[index] in Springboard.saved-endpoints: Rectangle {
-                        height: 75px * ViewerStyle.scale;
-
-                        ViewerIcon {
-                            x: (16px * ViewerStyle.scale);
-                            y: (23px * ViewerStyle.scale);
-                            height: (28px * ViewerStyle.scale);
-                            remote: index > 0;
-                            ink: device.unavailable-reason == "" ? ViewerStyle.strong-icon : ViewerStyle.unavailable;
-                        }
-
-                        Text {
-                            x: (58px * ViewerStyle.scale);
-                            y: (15px * ViewerStyle.scale);
-                            width: parent.width - (160px * ViewerStyle.scale);
-                            text: index == 0 ? Preview.local-name : device.name;
-                            color: (device.unavailable-reason == "") ? ViewerStyle.ink : ViewerStyle.unavailable;
-                            font-size: (16px * ViewerStyle.scale);
-                            font-weight: 500;
-                            overflow: elide;
-                        }
-
-                        Text {
-                            x: (58px * ViewerStyle.scale);
-                            y: (41px * ViewerStyle.scale);
-                            width: parent.width - (85px * ViewerStyle.scale);
-                            text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? device.unavailable-reason : @tr("Available · {}", device.address);
-                            color: ViewerStyle.muted;
-                            font-size: 11px;
-                            overflow: elide;
-                            if device.unavailable-reason != "": Tooltip {
-                                text: @markdown("\{device.unavailable-reason}");
-                            }
-                        }
-
-                        if index == 0: Text {
-                            x: parent.width - (73px * ViewerStyle.scale);
-                            y: (19px * ViewerStyle.scale);
-                            text: @tr("Built-in");
-                            font-size: 11px;
-                            color: ViewerStyle.muted;
-                        }
-                        if index > 0 && root.removing != index: trash := DeviceAction {
-                            x: parent.width - (45px * ViewerStyle.scale);
-                            y: (14px * ViewerStyle.scale);
-                            width: (32px * ViewerStyle.scale);
-                            height: (32px * ViewerStyle.scale);
-                            label: @tr("Remove {}", device.name);
-                            activated => {
-                                root.confirm-x = trash.absolute-position.x - root.absolute-position.x - (46px * ViewerStyle.scale);
-                                root.confirm-y = trash.absolute-position.y - root.absolute-position.y;
-                                root.removing = index;
-                            }
-
-                            Rectangle {
-                                border-radius: (8px * ViewerStyle.scale);
-                                background: trash.hovered ? ViewerStyle.pill-hover : transparent;
-                            }
-
-                            Image {
-                                width: (22px * ViewerStyle.scale);
-                                height: (22px * ViewerStyle.scale);
-                                source: @image-url("../assets/lucide/trash.svg");
-                                colorize: ViewerStyle.muted;
-                            }
-                        }
-                        if index < Springboard.saved-endpoints.length - 1: Rectangle {
-                            x: (58px * ViewerStyle.scale);
-                            y: parent.height - (1px * ViewerStyle.scale);
-                            width: parent.width - (74px * ViewerStyle.scale);
-                            height: (1px * ViewerStyle.scale);
-                            background: ViewerStyle.title-border.with-alpha(0.5);
-                        }
-                    }
-                }
+        if root.page != 0: back := DeviceAction {
+            width: Metrics.control-compact;
+            height: Metrics.control-compact;
+            label: @tr("Back");
+            activated => {
+                if root.page == 3 { Springboard.cancel-pairing(); }
+                root.page = root.page == 3 ? 1 : 0;
             }
-        }
-
-        SoftButton {
-            x: (24px * ViewerStyle.scale);
-            y: (344px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            height: (46px * ViewerStyle.scale);
-            label: @tr("Pair nearby device");
-            primary: true;
-            activated => { root.page = 1; Springboard.discover-devices(); }
-        }
-    }
-
-    if root.page == 1: Rectangle {
-        Text {
-            x: (24px * ViewerStyle.scale);
-            y: (64px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text: @tr("Open Slint Preview on your phone or tablet.\nUse the same Wi-Fi network as this computer.");
-            color: ViewerStyle.muted;
-            font-size: (14px * ViewerStyle.scale);
-            wrap: word-wrap;
-        }
-
-        Rectangle {
-            x: (25px * ViewerStyle.scale);
-            y: (117px * ViewerStyle.scale);
-            width: (6px * ViewerStyle.scale);
-            height: (6px * ViewerStyle.scale);
-            border-radius: (3px * ViewerStyle.scale);
-            background: ViewerStyle.connected;
-        }
-
-        Text {
-            x: (40px * ViewerStyle.scale);
-            y: (112px * ViewerStyle.scale);
-            text: @tr("Looking for nearby viewers");
-            color: ViewerStyle.muted;
-            font-size: 11px;
-        }
-
-        Rectangle {
-            x: (16px * ViewerStyle.scale);
-            y: (138px * ViewerStyle.scale);
-            width: parent.width - (32px * ViewerStyle.scale);
-            height: (184px * ViewerStyle.scale);
-            border-radius: (11px * ViewerStyle.scale);
-            border-width: (1px * ViewerStyle.scale);
-            border-color: ViewerStyle.field-border;
-            background: ViewerStyle.field;
-            clip: true;
-
-            EditorScrollView {
-                horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
-                x: (1px * ViewerStyle.scale);
-                y: (1px * ViewerStyle.scale);
-                width: parent.width - (2px * ViewerStyle.scale);
-                height: parent.height - (2px * ViewerStyle.scale);
-                content-width: self.width;
-                content-height: nearby-list.preferred-height;
-
-                nearby-list := VerticalLayout {
-                    width: parent.width;
-                    for device[index] in Springboard.discovered-endpoints: Rectangle {
-                        height: (device.version-mismatch != "" ? 120px : 80px) * ViewerStyle.scale;
-
-                        ViewerIcon {
-                            x: (16px * ViewerStyle.scale);
-                            y: 20px * ViewerStyle.scale;
-                            remote: true;
-                        }
-
-                        Text {
-                            x: (58px * ViewerStyle.scale);
-                            y: (18px * ViewerStyle.scale);
-                            width: parent.width - (160px * ViewerStyle.scale);
-                            text: device.name;
-                            color: ViewerStyle.ink;
-                            font-size: (17px * ViewerStyle.scale);
-                            font-weight: 500;
-                            overflow: elide;
-                        }
-
-                        Text {
-                            x: 58px * ViewerStyle.scale;
-                            y: 46px * ViewerStyle.scale;
-                            width: parent.width - 160px * ViewerStyle.scale;
-                            text: device.version-mismatch != "" ? @tr("Incompatible viewer version") : device.unavailable-reason != "" ? device.unavailable-reason : device.saved ? @tr("Saved viewer") : device.address;
-                            color: device.unavailable-reason != "" ? ViewerStyle.warning : ViewerStyle.muted;
-                            font-size: device.version-mismatch != "" ? 12px : 11px;
-                            font-weight: device.version-mismatch != "" ? 500 : 400;
-                            overflow: elide;
-                            if device.unavailable-reason != "": Tooltip {
-                                text: @markdown("\{device.unavailable-reason}");
-                            }
-                        }
-
-                        if device.version-mismatch != "": Text {
-                            x: 58px * ViewerStyle.scale;
-                            y: 68px * ViewerStyle.scale;
-                            width: parent.width - 74px * ViewerStyle.scale;
-                            text: Springboard.version-description(device.version-mismatch);
-                            color: ViewerStyle.muted;
-                            font-size: 11px;
-                            overflow: elide;
-                        }
-                        if device.version-mismatch != "": Text {
-                            x: 58px * ViewerStyle.scale;
-                            y: 89px * ViewerStyle.scale;
-                            width: parent.width - 74px * ViewerStyle.scale;
-                            text: @tr("Update Slint Preview on this device.");
-                            color: ViewerStyle.muted;
-                            font-size: 11px;
-                        }
-                        SoftButton {
-                            x: parent.width - (86px * ViewerStyle.scale);
-                            y: (22px * ViewerStyle.scale);
-                            width: (70px * ViewerStyle.scale);
-                            height: (36px * ViewerStyle.scale);
-                            label: device.saved ? @tr("Saved") : @tr("Pair");
-                            primary: true;
-                            enabled: !device.saved && device.unavailable-reason == "";
-                            activated => { root.begin-pairing(index); }
-                        }
-
-                        if index < Springboard.discovered-endpoints.length - 1: Rectangle {
-                            x: (58px * ViewerStyle.scale);
-                            y: parent.height - (1px * ViewerStyle.scale);
-                            width: parent.width - (74px * ViewerStyle.scale);
-                            height: (1px * ViewerStyle.scale);
-                            background: ViewerStyle.title-border.with-alpha(0.5);
-                        }
-                    }
-                }
-            }
-        }
-
-        Text {
-            x: (24px * ViewerStyle.scale);
-            y: (336px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text: @tr("Don't see your device?");
-            color: ViewerStyle.ink;
-            font-size: (14px * ViewerStyle.scale);
-        }
-
-        manual-fallback := DeviceAction {
-            x: (16px * ViewerStyle.scale);
-            y: (360px * ViewerStyle.scale);
-            width: parent.width - (32px * ViewerStyle.scale);
-            height: (30px * ViewerStyle.scale);
-            label: @tr("Enter IP address...");
-            activated => { root.page = 2; }
-
             Rectangle {
-                border-radius: (9px * ViewerStyle.scale);
-                background: manual-fallback.hovered ? ViewerStyle.pill-hover : transparent;
+                border-radius: Metrics.radius-medium;
+                background: back.hovered ? ViewerStyle.pill-hover : transparent;
             }
-
-            Text {
-                x: (8px * ViewerStyle.scale);
-                text: manual-fallback.label;
-                color: ViewerStyle.action-text;
-                font-size: (15px * ViewerStyle.scale);
-            }
-
-            Chevron {
-                x: parent.width - (28px * ViewerStyle.scale);
-                transform-rotation: -90deg;
-            }
+            Chevron { transform-rotation: 90deg; }
         }
-    }
-
-    if root.page == 2: Rectangle {
         Text {
-            x: (24px * ViewerStyle.scale);
-            y: (76px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text: @tr("Enter the address shown in Slint Preview\non your device.");
-            color: ViewerStyle.muted;
-            font-size: (15px * ViewerStyle.scale);
-        }
-
-        Text {
-            x: (24px * ViewerStyle.scale);
-            y: (150px * ViewerStyle.scale);
-            text: @tr("IP address");
-            color: ViewerStyle.muted;
-            font-size: 11px;
-        }
-
-        Text {
-            x: parent.width - (122px * ViewerStyle.scale);
-            y: (150px * ViewerStyle.scale);
-            text: @tr("Port");
-            color: ViewerStyle.muted;
-            font-size: 11px;
-        }
-
-        DeviceField {
-            x: (24px * ViewerStyle.scale);
-            y: (175px * ViewerStyle.scale);
-            width: parent.width - (162px * ViewerStyle.scale);
-            text <=> root.host;
-            placeholder: "192.168.1.42";
-        }
-
-        DeviceField {
-            x: parent.width - (122px * ViewerStyle.scale);
-            y: (175px * ViewerStyle.scale);
-            width: (98px * ViewerStyle.scale);
-            text <=> root.port;
-            placeholder: "9000";
-            numeric: true;
-        }
-
-        Text {
-            x: 24px * ViewerStyle.scale;
-            y: 242px * ViewerStyle.scale;
-            width: parent.width - 48px * ViewerStyle.scale;
-            text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Enter an address and port")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Looking for Slint Preview…")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Couldn’t connect to this address")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? @tr("Incompatible Slint version") : @tr("Slint Preview found");
-            color: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable || Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? ViewerStyle.warning : ViewerStyle.ink;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        Text {
-            x: 24px * ViewerStyle.scale;
-            y: 268px * ViewerStyle.scale;
-            width: parent.width - 48px * ViewerStyle.scale;
-            height: 54px * ViewerStyle.scale;
-            text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Use the address shown on your device.")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Checking the viewer at this address.")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Check the IP address and port, and make sure\nSlint Preview is open on your device.")
-                : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? Springboard.version-description(Springboard.manual-endpoint.version) + "\n" + @tr("Update Slint Preview on this device.") : @tr("Connect to pair with this device.");
-            color: ViewerStyle.muted;
-            font-size: 11px;
-            wrap: word-wrap;
-        }
-
-        SoftButton {
-            x: (24px * ViewerStyle.scale);
-            y: (344px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            height: (46px * ViewerStyle.scale);
-            label: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Search again") : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Searching…") : @tr("Connect");
-            primary: true;
-            enabled: Springboard.manual-endpoint.state == ManualEndpointState.Reachable || Springboard.manual-endpoint.state == ManualEndpointState.Unreachable;
-            activated => {
-                if Springboard.manual-endpoint.state == ManualEndpointState.Reachable {
-                    if !Preview.is-running { Preview.run(); }
-                    Springboard.connect-manual-endpoint();
-                    root.page = 3;
-                } else { root.probe(); }
-            }
-        }
-    }
-
-    if root.page == 3: Rectangle {
-        Rectangle {
-            x: (24px * ViewerStyle.scale);
-            y: (80px * ViewerStyle.scale);
-            width: (52px * ViewerStyle.scale);
-            height: (52px * ViewerStyle.scale);
-            border-radius: (13px * ViewerStyle.scale);
-            background: ViewerStyle.pill-face;
-            border-width: (1px * ViewerStyle.scale);
-            border-color: ViewerStyle.title-border;
-
-            ViewerIcon {
-                width: (25px * ViewerStyle.scale);
-                height: (29px * ViewerStyle.scale);
-                remote: true;
-            }
-        }
-
-        Text {
-            x: (91px * ViewerStyle.scale);
-            y: (85px * ViewerStyle.scale);
-            width: parent.width - (115px * ViewerStyle.scale);
-            text: Springboard.selected-endpoint.name;
+            horizontal-stretch: 1;
+            text: root.page == 0 ? @tr("Devices") : root.page == 1 ? @tr("Pair nearby device") : root.page == 2 ? @tr("Enter IP address") : @tr("Pair device");
             color: ViewerStyle.ink;
-            font-size: (17px * ViewerStyle.scale);
-            font-weight: 500;
-            overflow: elide;
+            font-size: Typography.heading.size;
+            font-weight: Typography.heading.weight;
         }
+        close := DeviceAction {
+            width: Metrics.control-compact;
+            height: Metrics.control-compact;
+            label: @tr("Close device manager");
+            activated => { root.closed(); }
+            Rectangle {
+                border-radius: Metrics.radius-medium;
+                background: close.hovered ? ViewerStyle.pill-hover : transparent;
+            }
+            Image {
+                width: Metrics.icon-medium;
+                height: Metrics.icon-medium;
+                source: @image-url("../assets/lucide/x.svg");
+                colorize: ViewerStyle.muted;
+            }
+        }
+    }
 
-        Text {
-            x: (91px * ViewerStyle.scale);
-            y: (112px * ViewerStyle.scale);
-            text: Springboard.selected-endpoint.address;
-            color: ViewerStyle.muted;
-            font-size: 11px;
-        }
+    content := Rectangle {
+        x: Metrics.space-large;
+        y: header.y + header.height + Metrics.space-medium;
+        width: parent.width - 2 * Metrics.space-large;
+        height: parent.height - self.y - Metrics.space-large;
 
-        Text {
-            x: (24px * ViewerStyle.scale);
-            y: (166px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection.state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : @tr("Enter the code shown on your device.");
-            color: ViewerStyle.muted;
-            font-size: (15px * ViewerStyle.scale);
-        }
-
-        if Springboard.connection.state == ConnectionState.PairingRequired: DeviceField {
-            x: (24px * ViewerStyle.scale);
-            y: (204px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text <=> root.code;
-            placeholder: @tr("{}-digit pairing code", Springboard.connection.pairing-code-length);
-            numeric: true;
-        }
-        Text {
-            x: (24px * ViewerStyle.scale);
-            y: (274px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text: Springboard.connection.error;
-            wrap: word-wrap;
-            color: ViewerStyle.error;
-            font-size: 11px;
-        }
-
-        SoftButton {
-            x: (24px * ViewerStyle.scale);
-            y: (315px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            height: (46px * ViewerStyle.scale);
-            label: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device");
-            primary: true;
-            enabled: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection.state == ConnectionState.PairingRequired && root.code.character-count == Springboard.connection.pairing-code-length);
-            activated => {
-                if Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired {
-                    Springboard.accept-unpaired-connection();
-                } else { Springboard.submit-pairing-code(root.code); root.code = ""; }
+        if root.page == 0: VerticalLayout {
+            spacing: Metrics.space-medium;
+            Text {
+                text: root.message != "" ? root.message : @tr("Saved viewers are ready to use.");
+                color: root.message != "" ? ViewerStyle.accent : ViewerStyle.muted;
+                font-size: Typography.caption.size;
+            }
+            Rectangle {
+                vertical-stretch: 1;
+                border-radius: Metrics.radius-large;
+                border-width: Metrics.border-width;
+                border-color: ViewerStyle.field-border;
+                background: ViewerStyle.field;
+                clip: true;
+                EditorScrollView {
+                    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                    x: Metrics.border-width;
+                    y: Metrics.border-width;
+                    width: parent.width - 2 * Metrics.border-width;
+                    height: parent.height - 2 * Metrics.border-width;
+                    content-width: self.width;
+                    content-height: saved-list.preferred-height;
+                    saved-list := VerticalLayout {
+                        width: parent.width;
+                        for device[index] in Springboard.saved-endpoints: Rectangle {
+                            height: Metrics.control-medium + 2 * Metrics.space-medium;
+                            background: ViewerStyle.device-row;
+                            HorizontalLayout {
+                                padding: Metrics.space-medium;
+                                spacing: Metrics.space-medium;
+                                cross-axis-alignment: center;
+                                ViewerIcon {
+                                    remote: index > 0;
+                                    ink: device.unavailable-reason == "" ? ViewerStyle.strong-icon : ViewerStyle.unavailable;
+                                }
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: Metrics.space-small;
+                                    Text {
+                                        text: index == 0 ? Preview.local-name : device.name;
+                                        color: device.unavailable-reason == "" ? ViewerStyle.ink : ViewerStyle.unavailable;
+                                        font-size: Typography.body.size;
+                                        font-weight: FontWeight.medium;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: index == 0 ? @tr("This computer") : device.unavailable-reason != "" ? device.unavailable-reason : @tr("Available · {}", device.address);
+                                        color: ViewerStyle.muted;
+                                        font-size: Typography.caption.size;
+                                        overflow: elide;
+                                        if device.unavailable-reason != "": Tooltip {
+                                            text: @markdown("\{device.unavailable-reason}");
+                                        }
+                                    }
+                                }
+                                if index == 0: Text {
+                                    text: @tr("Built-in");
+                                    font-size: Typography.caption.size;
+                                    color: ViewerStyle.muted;
+                                }
+                                if index > 0: trash := DeviceAction {
+                                    width: Metrics.control-compact;
+                                    height: Metrics.control-compact;
+                                    label: @tr("Remove {}", device.name);
+                                    visible: root.removing != index;
+                                    activated => {
+                                        root.confirm-x = trash.absolute-position.x - root.absolute-position.x - Metrics.control-medium;
+                                        root.confirm-y = trash.absolute-position.y - root.absolute-position.y;
+                                        root.removing = index;
+                                    }
+                                    Rectangle {
+                                        border-radius: Metrics.radius-medium;
+                                        background: trash.hovered ? ViewerStyle.pill-hover : transparent;
+                                    }
+                                    Image {
+                                        width: Metrics.icon-medium;
+                                        height: Metrics.icon-medium;
+                                        source: @image-url("../assets/lucide/trash.svg");
+                                        colorize: ViewerStyle.muted;
+                                    }
+                                }
+                            }
+                            if index < Springboard.saved-endpoints.length - 1: Rectangle {
+                                x: Metrics.space-medium;
+                                y: parent.height - Metrics.border-width;
+                                width: parent.width - 2 * Metrics.space-medium;
+                                height: Metrics.border-width;
+                                background: ViewerStyle.title-border.with-alpha(0.5);
+                            }
+                        }
+                    }
+                }
+            }
+            SoftButton {
+                label: @tr("Pair nearby device");
+                primary: true;
+                activated => { root.page = 1; Springboard.discover-devices(); }
             }
         }
 
-        Text {
-            x: (24px * ViewerStyle.scale);
-            y: (385px * ViewerStyle.scale);
-            width: parent.width - (48px * ViewerStyle.scale);
-            text: @tr("A restart may require a new pairing code.");
-            color: ViewerStyle.muted;
-            font-size: 11px;
-            horizontal-alignment: center;
+        if root.page == 1: VerticalLayout {
+            spacing: Metrics.space-regular;
+            Text {
+                text: @tr("Open Slint Preview on your phone or tablet.\nUse the same Wi-Fi network as this computer.");
+                color: ViewerStyle.muted;
+                font-size: Typography.caption.size;
+                wrap: word-wrap;
+            }
+            HorizontalLayout {
+                spacing: Metrics.space-regular;
+                cross-axis-alignment: center;
+                Rectangle {
+                    width: Metrics.space-compact;
+                    height: Metrics.space-compact;
+                    border-radius: self.height / 2;
+                    background: ViewerStyle.connected;
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    text: @tr("Looking for nearby viewers");
+                    color: ViewerStyle.muted;
+                    font-size: Typography.caption.size;
+                }
+            }
+            Rectangle {
+                vertical-stretch: 1;
+                border-radius: Metrics.radius-large;
+                border-width: Metrics.border-width;
+                border-color: ViewerStyle.field-border;
+                background: ViewerStyle.field;
+                clip: true;
+                EditorScrollView {
+                    horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+                    x: Metrics.border-width;
+                    y: Metrics.border-width;
+                    width: parent.width - 2 * Metrics.border-width;
+                    height: parent.height - 2 * Metrics.border-width;
+                    content-width: self.width;
+                    content-height: nearby-list.preferred-height;
+                    nearby-list := VerticalLayout {
+                        width: parent.width;
+                        for device[index] in Springboard.discovered-endpoints: Rectangle {
+                            height: max(device-details.preferred-height, Style.compact-button.height) + 2 * Metrics.space-medium;
+                            HorizontalLayout {
+                                padding: Metrics.space-medium;
+                                spacing: Metrics.space-medium;
+                                cross-axis-alignment: start;
+                                ViewerIcon { remote: true; }
+                                device-details := VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: Metrics.space-small;
+                                    Text {
+                                        text: device.name;
+                                        color: ViewerStyle.ink;
+                                        font-size: Typography.body.size;
+                                        font-weight: FontWeight.medium;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: device.version-mismatch != "" ? @tr("Incompatible viewer version") : device.unavailable-reason != "" ? device.unavailable-reason : device.saved ? @tr("Saved viewer") : device.address;
+                                        color: device.unavailable-reason != "" ? ViewerStyle.warning : ViewerStyle.muted;
+                                        font-size: Typography.caption.size;
+                                        overflow: elide;
+                                        if device.unavailable-reason != "": Tooltip {
+                                            text: @markdown("\{device.unavailable-reason}");
+                                        }
+                                    }
+                                    if device.version-mismatch != "": Text {
+                                        text: Springboard.version-description(device.version-mismatch);
+                                        color: ViewerStyle.muted;
+                                        font-size: Typography.caption.size;
+                                        overflow: elide;
+                                    }
+                                    if device.version-mismatch != "": Text {
+                                        text: @tr("Update Slint Preview on this device.");
+                                        color: ViewerStyle.muted;
+                                        font-size: Typography.caption.size;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                                SoftButton {
+                                    label: device.saved ? @tr("Saved") : @tr("Pair");
+                                    enabled: !device.saved && device.unavailable-reason == "";
+                                    activated => { root.begin-pairing(index); }
+                                }
+                            }
+                            if index < Springboard.discovered-endpoints.length - 1: Rectangle {
+                                x: Metrics.space-medium;
+                                y: parent.height - Metrics.border-width;
+                                width: parent.width - 2 * Metrics.space-medium;
+                                height: Metrics.border-width;
+                                background: ViewerStyle.title-border.with-alpha(0.5);
+                            }
+                        }
+                    }
+                }
+            }
+            Text {
+                text: @tr("Don't see your device?");
+                color: ViewerStyle.ink;
+                font-size: Typography.caption.size;
+            }
+            manual-fallback := DeviceAction {
+                height: Metrics.control-compact;
+                label: @tr("Enter IP address...");
+                activated => { root.page = 2; }
+                Rectangle {
+                    border-radius: Metrics.radius-medium;
+                    background: manual-fallback.hovered ? ViewerStyle.pill-hover : transparent;
+                }
+                HorizontalLayout {
+                    padding-left: Metrics.space-regular;
+                    padding-right: Metrics.space-regular;
+                    spacing: Metrics.space-regular;
+                    cross-axis-alignment: center;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: manual-fallback.label;
+                        color: ViewerStyle.action-text;
+                        font-size: Typography.control.size;
+                    }
+                    Chevron { transform-rotation: -90deg; }
+                }
+            }
+        }
+
+        if root.page == 2: VerticalLayout {
+            spacing: Metrics.space-medium;
+            Text {
+                text: @tr("Enter the address shown in Slint Preview\non your device.");
+                color: ViewerStyle.muted;
+                font-size: Typography.control.size;
+                wrap: word-wrap;
+            }
+            GridLayout {
+                spacing: Metrics.space-regular;
+                Row {
+                    Text { text: @tr("IP address"); color: ViewerStyle.muted; font-size: Typography.caption.size; }
+                    Text { text: @tr("Port"); color: ViewerStyle.muted; font-size: Typography.caption.size; }
+                }
+                Row {
+                    DeviceField { horizontal-stretch: 1; text <=> root.host; placeholder: "192.168.1.42"; }
+                    DeviceField { width: 2 * Metrics.control-medium + Metrics.space-large; text <=> root.port; placeholder: "9000"; numeric: true; }
+                }
+            }
+            Text {
+                text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Enter an address and port")
+                    : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Looking for Slint Preview…")
+                    : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Couldn’t connect to this address")
+                    : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? @tr("Incompatible Slint version") : @tr("Slint Preview found");
+                color: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable || Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? ViewerStyle.warning : ViewerStyle.ink;
+                font-size: Typography.strong-body.size;
+                font-weight: Typography.strong-body.weight;
+            }
+            Text {
+                text: Springboard.manual-endpoint.state == ManualEndpointState.Idle ? @tr("Use the address shown on your device.")
+                    : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Checking the viewer at this address.")
+                    : Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Check the IP address and port, and make sure\nSlint Preview is open on your device.")
+                    : Springboard.manual-endpoint.state == ManualEndpointState.Incompatible ? Springboard.version-description(Springboard.manual-endpoint.version) + "\n" + @tr("Update Slint Preview on this device.") : @tr("Connect to pair with this device.");
+                color: ViewerStyle.muted;
+                font-size: Typography.caption.size;
+                wrap: word-wrap;
+            }
+            Rectangle { vertical-stretch: 1; }
+            SoftButton {
+                label: Springboard.manual-endpoint.state == ManualEndpointState.Unreachable ? @tr("Search again") : Springboard.manual-endpoint.state == ManualEndpointState.Probing ? @tr("Searching…") : @tr("Connect");
+                primary: true;
+                enabled: Springboard.manual-endpoint.state == ManualEndpointState.Reachable || Springboard.manual-endpoint.state == ManualEndpointState.Unreachable;
+                activated => {
+                    if Springboard.manual-endpoint.state == ManualEndpointState.Reachable {
+                        if !Preview.is-running { Preview.run(); }
+                        Springboard.connect-manual-endpoint();
+                        root.page = 3;
+                    } else { root.probe(); }
+                }
+            }
+        }
+
+        if root.page == 3: VerticalLayout {
+            spacing: Metrics.space-medium;
+            HorizontalLayout {
+                spacing: Metrics.space-medium;
+                cross-axis-alignment: center;
+                Rectangle {
+                    width: Metrics.control-large;
+                    height: Metrics.control-large;
+                    border-radius: Metrics.radius-large;
+                    background: ViewerStyle.pill-face;
+                    border-width: Metrics.border-width;
+                    border-color: ViewerStyle.title-border;
+                    ViewerIcon { remote: true; }
+                }
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: Metrics.space-small;
+                    Text {
+                        text: Springboard.selected-endpoint.name;
+                        color: ViewerStyle.ink;
+                        font-size: Typography.body.size;
+                        font-weight: FontWeight.medium;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: Springboard.selected-endpoint.address;
+                        color: ViewerStyle.muted;
+                        font-size: Typography.caption.size;
+                    }
+                }
+            }
+            Text {
+                text: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("This viewer does not encrypt its connection.") : Springboard.connection.state == ConnectionState.Connecting ? @tr("Connecting to your viewer…") : @tr("Enter the code shown on your device.");
+                color: ViewerStyle.muted;
+                font-size: Typography.control.size;
+                wrap: word-wrap;
+            }
+            if Springboard.connection.state == ConnectionState.PairingRequired: DeviceField {
+                text <=> root.code;
+                placeholder: @tr("{}-digit pairing code", Springboard.connection.pairing-code-length);
+                numeric: true;
+            }
+            if Springboard.connection.error != "": Text {
+                text: Springboard.connection.error;
+                wrap: word-wrap;
+                color: ViewerStyle.error;
+                font-size: Typography.caption.size;
+            }
+            Rectangle { vertical-stretch: 1; }
+            SoftButton {
+                label: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired ? @tr("Connect unencrypted") : @tr("Pair device");
+                primary: true;
+                enabled: Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired || (Springboard.connection.state == ConnectionState.PairingRequired && root.code.character-count == Springboard.connection.pairing-code-length);
+                activated => {
+                    if Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired {
+                        Springboard.accept-unpaired-connection();
+                    } else { Springboard.submit-pairing-code(root.code); root.code = ""; }
+                }
+            }
+            Text {
+                text: @tr("A restart may require a new pairing code.");
+                color: ViewerStyle.muted;
+                font-size: Typography.caption.size;
+                horizontal-alignment: center;
+            }
         }
     }
     if root.removing >= 0: Rectangle {
-        TouchArea {
-            clicked => { root.removing = -1; }
-        }
-
+        TouchArea { clicked => { root.removing = -1; } }
         SoftButton {
             x: root.confirm-x;
             y: root.confirm-y;
-            width: (78px * ViewerStyle.scale);
-            height: (32px * ViewerStyle.scale);
+            width: 2 * Metrics.control-medium;
             label: @tr("Confirm");
             activated => { Springboard.forget-device(root.removing); root.removing = -1; }
         }
