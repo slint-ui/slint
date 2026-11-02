@@ -109,3 +109,21 @@ Full-screen transfer falls by about 0.4 ms; its pixel wire time remains 30.720 m
 All five scenes produce matching pixel checksums.
 Source replacements use five steady samples; timer scenes use up to seventeen.
 The profile build takes 10.63 seconds with a warm build cache.
+
+## QIO Flash
+
+The same 80 MHz PSRAM application is flashed with QIO instead of the runner's default DIO mode.
+The LCD stays at 40 MHz.
+The explicit flash mode selects espflash's QIO bootloader.
+
+| Scene | DIO render | QIO render | DIO transfer | QIO transfer |
+| --- | ---: | ---: | ---: | ---: |
+| Solid background | 8.342 ms | 7.507 ms | 32.026 ms | 31.735 ms |
+| Counter | 47.102 ms | 35.187 ms | 32.132 ms | 31.853 ms |
+| Clipping and gradients | 49.266 ms | 39.009 ms | 32.128 ms | 31.823 ms |
+| Sixteen text rows | 79.893 ms | 66.080 ms | 32.159 ms | 31.814 ms |
+| 80 × 60 partial update | 3.540 ms | 2.468 ms | 2.587 ms | 2.334 ms |
+
+QIO reduces rendering by 10.0–30.3% across these scenes.
+All five scenes retain their pixel checksums and complete USB replacement or timer-update checks.
+The flash and PSRAM settings match [CircuitPython's BOX-3 configuration](https://github.com/adafruit/circuitpython/blob/main/ports/espressif/boards/espressif_esp32s3_box_3/mpconfigboard.mk).

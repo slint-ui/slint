@@ -38,6 +38,9 @@ For the ESP32-S3-BOX-3:
 cargo +esp run --release --no-default-features --features mcu-board-support/box-optimized-display --config ../mcu-board-support/esp32_s3_box_3/cargo-config.toml
 ```
 
+The BOX-3 runner selects QIO flash mode, and the optimized backend runs octal PSRAM at 80 MHz.
+The LCD remains at 40 MHz.
+
 The BOX-3 backend renders into a retained framebuffer and sends changed regions through a DMA display worker.
 Large, dense changes use one bounding rectangle to avoid separate blocks appearing during the update.
 Transfers follow the panel's refresh timing.
