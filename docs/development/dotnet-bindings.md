@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab Microcharts pthread simpleperf Skias uinput virgl xplat yurkinh -->
+<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab Microcharts nint pthread simpleperf Skias uinput virgl xplat yurkinh -->
 # .NET Bindings
 
 > Note for AI coding assistants (agents):
@@ -718,6 +718,42 @@ Next:
   - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
     so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
   - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
+- **24.** Slint.NET in the browser, on .NET's WebAssembly runtime: the same C# API, generated code, and models as on the desktop.
+  `slint-dotnet` builds as a static library for `wasm32-unknown-emscripten` and links into the app's `dotnet.native.wasm`
+  through `NativeFileReference`, so the 153 imports stay P/Invokes.
+  The page drives Slint: Slint renders each frame with its software renderer into a buffer, which the page copies to a `<canvas>`.
+  The spike is on the local branch `dotnet-browser-spike`, in `api/dotnet/BrowserSpike`.
+  - Phase 0, done: in headless Chrome, an app compiles a component, sets and reads its properties, has Slint call a C# callback,
+    and renders a frame with text and a gradient to a canvas.
+    The first 480×200 frame takes about 10 ms, and redraws at 1280×800 about 1.4 ms.
+    `dotnet.native.wasm` is 34 MB, or 7.3 MB with Brotli, before any work on its size.
+    It needed four changes:
+    - The objects lose the target features `bulk-memory-opt` and `call-indirect-overlong`, which the Emscripten 3.1.56 of .NET 10 doesn't know,
+      and `WasmNativeStrip` is off.
+    - The interpreter's web-only code checks `target_os = "unknown"`, so Emscripten takes the native code, without `wasm-bindgen`.
+    - The 10 imports that take function pointers take them as `nint`, behind wrappers with the typed signatures:
+      Mono on WebAssembly has no interpreter-to-native call for function-pointer parameters, and aborts at the first one.
+    - The backend selector has no backend to pick for Emscripten, so `slint-dotnet` installs its own platform.
+      Slint reads Emscripten's environment, which the page sets with `withEnvironmentVariable`, not .NET's.
+  - Phase 1, platform, 1–1.5 weeks: the spike's platform becomes the backend for `browser-wasm`.
+    `Run` returns, and `requestAnimationFrame` advances timers and animations and draws the windows that changed.
+    `invoke_from_event_loop` queues to the next frame.
+    Pointer, wheel, keyboard, resize, and the device pixel ratio come from the canvas through `[JSExport]`.
+    The counter and the todo sample run.
+  - Phase 2, resources, 1 week: `.slint` files and images in Emscripten's file system, fonts, since the browser has none for Slint,
+    the clipboard, the cursor, and text input through a hidden `<input>`, for input methods and phones' keyboards.
+  - Phase 3, packaging, 1 week: a `browser-wasm` static library in the package,
+    and `Slint.targets` adding the native reference, the build settings of Phase 0, and the `.slint` files as static web assets.
+    A `slint-web` template, and the todo and gallery samples.
+  - Phase 4, CI and docs, 1 week: a smoke test that publishes a trimmed Release build and runs it in headless Chrome,
+    as `run_in_chrome.mjs` does, with no npm packages; the README, the docs site, and the article.
+  - From [Platform.Maui.Web](https://github.com/shinyorg/mauiplatforms), a MAUI backend for the browser that renders DOM elements:
+    `requestAnimationFrame` drives its animations from C#; a `buildTransitive` targets file registers its resources as static web assets;
+    and its CI tests the published, trimmed build in headless Chrome over the DevTools protocol, since trimming breaks most often.
+    It needs no workload, unlike Slint, which links native code: apps need the `wasm-tools` workload.
+  - Risks: the download, where `wasm-opt`, trimming, and precompiled `.slint` files without the compiler can help;
+    trimming of the generated code; and one thread, so nothing may block, such as a modal dialog's nested event loop.
+  - Later: WebGL rendering with FemtoVG, and WebAssembly AOT compilation.
 
 ## Live Reload
 
