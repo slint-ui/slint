@@ -41,7 +41,7 @@ pub fn slerp(a: Vec3, b: Vec3, t: f32) -> Vec3 {
     (a * ((1.0 - t) * angle).sin() + b * (t * angle).sin()) / angle.sin()
 }
 
-fn ease(t: f32) -> f32 {
+pub fn ease(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     if t < 0.5 { 4.0 * t * t * t } else { 1.0 - (-2.0 * t + 2.0).powi(3) / 2.0 }
 }
