@@ -23,10 +23,6 @@ on:
                 type: string
                 default: nightly
 
-    pull_request:
-        branches:
-            - visual-editor
-
 permissions:
     contents: read
 
@@ -66,7 +62,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: visual-editor-linux-flatpak-rust-${{ matrix.arch }}
-                  save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
 
             - name: Restore flatpak-builder state
               uses: actions/cache@v6
