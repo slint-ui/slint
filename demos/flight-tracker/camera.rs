@@ -7,7 +7,7 @@
 
 use std::f32::consts::PI;
 
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, Quat, Vec2, Vec3};
 
 pub const FOV_Y: f32 = 30.0 * PI / 180.0;
 /// The closest the camera gets to the ground, where the imagery, 4096 texels wide, still looks
@@ -142,12 +142,19 @@ impl Camera {
 
     /// Moves the ground under the camera by `delta` logical pixels, for a view `height`
     /// logical pixels high.
+    ///
+    /// The camera turns around the globe's center as a whole, so the screen's up direction stays
+    /// where it was even across a pole, where north flips around.
     fn pan(&mut self, delta: Vec2, height: f32) {
         let focal = height / 2.0 / (FOV_Y / 2.0).tan();
-        let angle = self.pose.range / focal;
         let (forward, right) = self.pose.ground_axes();
-        let step = (-right * delta.x + forward * delta.y) * angle;
-        self.pose.target = (self.pose.target + step).normalize();
+        let step = -right * delta.x + forward * delta.y;
+        let Some(axis) = self.pose.target.cross(step).try_normalize() else { return };
+        let turn = Quat::from_axis_angle(axis, step.length() * self.pose.range / focal);
+        self.pose.target = (turn * self.pose.target).normalize();
+        let forward = turn * forward;
+        let (north, east) = north_east(self.pose.target);
+        self.pose.heading = forward.dot(east).atan2(forward.dot(north));
     }
 
     /// Follows a drag by `delta` logical pixels, `dt` seconds after the previous one.
