@@ -64,12 +64,35 @@ pub fn read_custom_fonts<'a>(
     fonts
 }
 
+/// A system-font snapshot reusable across compilations.
+/// Imported fonts and fonts selected through environment variables remain local to each compilation.
+/// Create a new snapshot to discover installed or removed system fonts.
+#[cfg(feature = "renderer-software")]
+#[derive(Clone)]
+pub struct SystemFonts(std::sync::Arc<std::sync::LazyLock<std::sync::Mutex<fontique::Collection>>>);
+
+#[cfg(feature = "renderer-software")]
+impl Default for SystemFonts {
+    fn default() -> Self {
+        Self(std::sync::Arc::new(std::sync::LazyLock::new(|| {
+            std::sync::Mutex::new(sharedfontique::system_collection(false))
+        })))
+    }
+}
+
 /// Wraps the system fonts plus the imported `custom_fonts` into a [`SharedFontCollection`].
 #[cfg(feature = "renderer-software")]
-pub fn shared_font_collection(custom_fonts: Vec<(SourcePath, Vec<u8>)>) -> SharedFontCollection {
+pub fn shared_font_collection(
+    custom_fonts: Vec<(SourcePath, Vec<u8>)>,
+    system_fonts: Option<&SystemFonts>,
+) -> SharedFontCollection {
+    let system_fonts = system_fonts.cloned();
     let init: Box<dyn FnOnce() -> std::sync::Mutex<FontCollection> + Send + Sync> =
         Box::new(move || {
-            let mut collection = sharedfontique::create_collection(true);
+            let mut collection = system_fonts.map_or_else(
+                || sharedfontique::create_collection(true),
+                |system| sharedfontique::init_collection(system.0.lock().unwrap().clone(), true),
+            );
             let mut custom_font_paths = HashMap::new();
             let mut custom_font_map = BTreeMap::new();
             for (path, bytes) in custom_fonts {
@@ -746,4 +769,24 @@ pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut BTr
             }
         })
     })
+}
+
+#[cfg(all(test, feature = "renderer-software"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn system_font_snapshot_keeps_imported_fonts_local_to_a_compilation() {
+        let system = SystemFonts::default();
+        let path = SourcePath::File("imported.ttf".into());
+        let bytes = include_bytes!("../../common/sharedfontique/Inter-VariableFont.ttf").to_vec();
+        let imported = shared_font_collection(vec![(path.clone(), bytes)], Some(&system));
+        let family = imported.lock().unwrap().custom_fonts[&path].family.0;
+
+        let next = shared_font_collection(Vec::new(), Some(&system));
+        let mut next = next.lock().unwrap();
+        assert!(next.custom_fonts.is_empty());
+        assert!(next.custom_font_paths.is_empty());
+        assert!(next.collection.family(family).is_none());
+    }
 }

@@ -164,3 +164,25 @@ It excludes desktop compilation and uses five steady replacements.
 Initial counter upload is nearly unchanged, at 278 ms versus 271 ms; this change doesn't remove all upload overhead.
 No touch-latency measurement is claimed.
 All five scenes retain their pixel hashes, and all 41 frame-queue host tests pass.
+
+## Reuse System-Font Discovery During USB Preview
+
+The serial session retains a lazy system-font snapshot instead of rescanning installed fonts for every compilation.
+Each compilation clones the unshared snapshot and loads imported fonts and environment-selected fonts separately.
+Normal compiler users retain fresh discovery unless they supply a snapshot.
+Restart USB preview to discover installed or removed system fonts.
+
+The release harness follows the serial compiler's loading, overrides, preview configuration, embedded resources, and serialization path.
+Both columns use the same final compiler binary, with seven compilations per scene.
+The medians exclude each process's first compilation.
+
+| Scene | Fresh system-font discovery | Reused snapshot | Saving |
+| --- | ---: | ---: | ---: |
+| Current counter design | 109.957 ms | 68.629 ms | 41.328 ms |
+| Clipping and gradients | 89.727 ms | 45.249 ms | 44.478 ms |
+| Sixteen text rows | 92.027 ms | 45.843 ms | 46.184 ms |
+
+These figures exclude the edit delay, USB transfer, and rendering on the device.
+A direct collection microbenchmark measures repeated font discovery at about 45 ms, versus less than 0.1 ms for snapshot cloning.
+The imported-font isolation regression test and all six serial transport tests pass.
+All five BOX scenes retain their pixel checksums and complete USB replacement or timer-update checks.

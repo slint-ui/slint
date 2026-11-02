@@ -78,6 +78,8 @@ pub mod typeregister;
 
 #[cfg(feature = "std")]
 pub mod passes;
+#[cfg(feature = "renderer-software")]
+pub use passes::SystemFonts;
 
 #[cfg(feature = "std")]
 use crate::generator::OutputFormat;
@@ -179,6 +181,9 @@ pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
     pub embed_resources: EmbedResourcesKind,
+    /// An optional system-font snapshot for repeated compilations with embedded glyphs.
+    #[cfg(feature = "renderer-software")]
+    pub system_fonts: Option<SystemFonts>,
     /// Whether to use SDF when pre-rendering fonts.
     #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
     pub use_sdf_fonts: bool,
@@ -379,6 +384,8 @@ impl CompilerConfiguration {
 
         Self {
             embed_resources,
+            #[cfg(feature = "renderer-software")]
+            system_fonts: None,
             include_paths: Default::default(),
             library_paths: Default::default(),
             style,

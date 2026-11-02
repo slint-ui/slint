@@ -19,6 +19,7 @@ use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::llr::serialize;
 use i_slint_compiler::source_path::SourcePath;
 use i_slint_compiler::{CompilerConfiguration, project_file};
+use i_slint_live_preview::SLINT_VERSION;
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage,
 };
@@ -26,7 +27,6 @@ use i_slint_live_preview::serial::{
     DeviceMessage, FrameDecoder, HostMessage, MAX_FRAME_LEN, PROTOCOL_VERSION, Received, blob_key,
     encode_frame, store_frames,
 };
-use i_slint_live_preview::SLINT_VERSION;
 use lsp_types::Url;
 use tokio::sync::mpsc as tokio_mpsc;
 
@@ -215,6 +215,7 @@ struct Design {
     /// The contents of the documents open in the editor. Other files are read from disk.
     files: HashMap<Url, Vec<u8>>,
     config: PreviewConfig,
+    system_fonts: i_slint_compiler::SystemFonts,
     project_root: Option<Url>,
     component: Option<PreviewComponent>,
 }
@@ -285,6 +286,7 @@ impl Design {
             let mut config = CompilerConfiguration::new(OutputFormat::Interpreter);
             overrides.apply(input.project_file.as_ref(), &mut config);
             config.open_import_callback = Some(open_file);
+            config.system_fonts = Some(self.system_fonts.clone());
             crate::document_cache::configure_preview(&mut config, component.component.clone());
             let compiled;
             (diagnostics, compiled) =
