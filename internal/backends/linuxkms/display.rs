@@ -45,6 +45,22 @@ impl<T: 'static> drm::buffer::PlanarBuffer for ImplicitLayout<'_, T> {
     }
 }
 
+/// Adds `bo` as a framebuffer, with the modifier that gbm reported for it if the display takes modifiers,
+/// see [`crate::drmoutput::DrmOutput::takes_modifiers`], and in its implicit layout otherwise.
+#[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-femtovg", gbm_dmabuf))]
+fn add_framebuffer<T: 'static>(
+    device: &crate::drmoutput::SharedFd,
+    bo: &gbm::BufferObject<T>,
+    takes_modifiers: bool,
+) -> std::io::Result<drm::control::framebuffer::Handle> {
+    use drm::control::Device;
+    if takes_modifiers && bo.modifier() != gbm::Modifier::Invalid {
+        device.add_planar_framebuffer(bo, drm::control::FbCmd2Flags::MODIFIERS)
+    } else {
+        device.add_planar_framebuffer(&ImplicitLayout(bo), drm::control::FbCmd2Flags::empty())
+    }
+}
+
 /// This enum describes the way the output is supposed to be rotated to simulate
 /// a screen rotation. This is implemented entirely inside the actual renderer.
 #[non_exhaustive]

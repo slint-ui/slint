@@ -295,10 +295,7 @@ impl Scene {
                 opaque_format && buffer.extra.alpha == 255
             }
             SceneCommand::LinearGradient { linear_gradient_index } => {
-                self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line(
-                    &PhysicalRect { origin: item.pos, size: item.size },
-                    self.current_line,
-                )
+                self.vectors.linear_gradients[*linear_gradient_index as usize].covers_line()
             }
             _ => false,
         }
@@ -697,29 +694,88 @@ pub enum AnyGradientCommand {
     Conic(ConicGradientCommand),
 }
 
-/// Goes from color 1 to color2
+/// A linear gradient, as the gradient position at each pixel center.
 ///
-/// depending of `flags & 0b1`
-///  - if false: on the left side, goes from `start` to 1, on the right side, goes from 0 to `1-start`
-///  - if true: on the left side, goes from 0 to `1-start`, on the right side, goes from `start` to `1`
+/// Positions are along the gradient line: 0 at its start, 1 at its end.
 #[derive(Debug)]
 pub struct LinearGradientCommand {
-    pub color1: PremultipliedRgbaColor,
-    pub color2: PremultipliedRgbaColor,
-    pub start: u8,
-    /// bit 0: if the slope is positive or negative
-    /// bit 1: if we should fill with color1 on the left side when left_clip is negative (or transparent)
-    /// bit 2: if we should fill with color2 on the left side when right_clip is negative (or transparent)
-    pub flags: u8,
-    /// If positive, the clip has the same meaning as in RoundedRectangle.
-    /// If negative, that means the "stop" is only starting or stopping at that point
-    pub left_clip: PhysicalLength,
-    pub right_clip: PhysicalLength,
-    pub top_clip: PhysicalLength,
-    pub bottom_clip: PhysicalLength,
+    pub stops: i_slint_core::SharedVector<LinearGradientStop>,
+    /// The position at the center of the rect's top-left pixel.
+    pub position: LinearGradientPosition,
+    /// The position's change per pixel to the right.
+    pub dx: LinearGradientPosition,
+    /// The position's change per line down.
+    pub dy: LinearGradientPosition,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LinearGradientStop {
+    pub color: PremultipliedRgbaColor,
+    /// See [`LinearGradientCommand`].
+    pub position: LinearGradientPosition,
+    /// The next stop's color minus this one's, per channel (red, green, blue, alpha).
+    pub delta: [i32; 4],
+    /// The interpolation factor's change per Q16 position towards the next stop, in Q31,
+    /// rounded down. 0 when the next stop isn't after this one.
+    pub factor_step: u32,
+    /// The change of each Q15 channel per pixel to the right, rounded towards zero.
+    pub step: [i32; 4],
+}
+
+impl LinearGradientStop {
+    /// Keeps the distance between two positions within an i32.
+    const MAX_POSITION: f32 = 63.;
+
+    pub fn collect(
+        stops: impl Iterator<Item = (PremultipliedRgbaColor, f32)>,
+        dx: LinearGradientPosition,
+    ) -> i_slint_core::SharedVector<Self> {
+        let mut previous = Fixed(i32::MIN);
+        let mut stops: i_slint_core::SharedVector<Self> = stops
+            .map(|(color, position)| {
+                let position =
+                    Fixed::from_f32(position.clamp(-Self::MAX_POSITION, Self::MAX_POSITION))
+                        .unwrap_or_default();
+                // As in CSS, a stop before the previous one is moved to it.
+                previous = previous.max(position);
+                Self { color, position: previous, ..Self::default() }
+            })
+            .collect();
+        let out = stops.make_mut_slice();
+        for i in 1..out.len() {
+            let next = out[i];
+            out[i - 1].link(&next, dx);
+        }
+        stops
+    }
+
+    pub fn channels(&self) -> [u8; 4] {
+        let c = self.color;
+        [c.red, c.green, c.blue, c.alpha]
+    }
+
+    fn link(&mut self, next: &Self, dx: LinearGradientPosition) {
+        let distance = next.position - self.position;
+        if distance.0 <= 0 {
+            return;
+        }
+        let (a, b) = (self.channels(), next.channels());
+        self.delta = core::array::from_fn(|i| b[i] as i32 - a[i] as i32);
+        self.factor_step =
+            (1u32 << 31).checked_div(GradientPosition::from_fixed(distance).0 as u32).unwrap_or(0);
+        // The factor's change per pixel in Q22, made smaller by one so that rounding
+        // can't step past the next stop's color. Clamped for a segment narrower than
+        // a pixel, which never steps.
+        let limit = (1 << 23) as f32;
+        let factor_dx =
+            (dx.0 as f32 / distance.0 as f32 * (1 << 22) as f32).clamp(-limit, limit) as i32;
+        let factor_dx = factor_dx - factor_dx.signum();
+        self.step = core::array::from_fn(|i| self.delta[i] * factor_dx / 128);
+    }
 }
 
 pub(crate) type GradientPosition = Fixed<i32, 16>;
+pub(crate) type LinearGradientPosition = Fixed<i32, 24>;
 /// An interpolation factor between two stops, or its rate of change.
 pub(crate) type GradientFactor = Fixed<u32, 12>;
 

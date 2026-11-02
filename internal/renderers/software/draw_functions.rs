@@ -8,7 +8,9 @@
 //! on the line buffer
 
 use super::{Fixed, PhysicalLength, PhysicalRect};
-use crate::scene::{GradientFactor, GradientPosition, PremultipliedGradientStop};
+use crate::scene::{
+    GradientFactor, GradientPosition, LinearGradientPosition, PremultipliedGradientStop,
+};
 use derive_more::{Add, Mul, Sub};
 use i_slint_core::graphics::{Rgb8Pixel, TexturePixelFormat};
 use i_slint_core::lengths::{PointLengths, SizeLengths};
@@ -1079,146 +1081,185 @@ impl super::AnyGradientCommand {
 }
 
 impl super::LinearGradientCommand {
-    fn invert_slope(&self) -> bool {
-        self.flags & 0b1 != 0
+    /// Whether [`draw_linear_gradient`] overwrites every pixel of every line.
+    pub(super) fn covers_line(&self) -> bool {
+        self.stops.iter().all(|s| s.color.alpha == 255)
     }
+}
 
-    /// Whether the band fills past its stop with (color1, color2).
-    fn fills_beyond_stops(&self) -> (bool, bool) {
-        (self.flags & 0b010 != 0, self.flags & 0b100 != 0)
-    }
+/// The Q15 channels at `position`, which is between `stop` and the next stop.
+#[inline]
+fn linear_gradient_channels(
+    stop: &super::LinearGradientStop,
+    position: LinearGradientPosition,
+) -> [u32; 4] {
+    let offset = GradientPosition::from_fixed(position - stop.position);
+    // Q12; the product stays below 2^31 since the offset is less than the distance.
+    let factor = ((offset.0 as u32 * stop.factor_step) >> 19) as i32;
+    let color = stop.channels();
+    core::array::from_fn(|i| (((color[i] as i32) << 15) + ((stop.delta[i] * factor) << 3)) as u32)
+}
 
-    /// Whether the band fills past its stop on its (left, right) side.
-    fn fills_beyond_edges(&self) -> (bool, bool) {
-        let (fill_col1, fill_col2) = self.fills_beyond_stops();
-        if self.invert_slope() { (fill_col1, fill_col2) } else { (fill_col2, fill_col1) }
+#[inline(always)]
+fn color_from_q15([r, g, b, a]: [u32; 4]) -> PremultipliedRgbaColor {
+    PremultipliedRgbaColor {
+        red: (r >> 15) as u8,
+        green: (g >> 15) as u8,
+        blue: (b >> 15) as u8,
+        alpha: (a >> 15) as u8,
     }
+}
 
-    /// The band's (y, height) on `line`, measured from the band's top.
-    fn band_y(&self, rect: &PhysicalRect, line: PhysicalLength) -> (i32, i32) {
-        let top_clip = self.top_clip.get() as i32;
-        let y = line.get() as i32 - rect.min_y() as i32 + top_clip;
-        let size_y = rect.height() as i32 + top_clip + self.bottom_clip.get() as i32;
-        (y, size_y)
-    }
+// The per-pixel loops of `draw_linear_gradient` aren't inlined into it: with its setup around
+// them, Cortex-M0 runs out of registers and spills their state on every pixel.
+#[inline(never)]
+fn draw_linear_fill(
+    pixels: &mut [impl TargetPixel],
+    color: PremultipliedRgbaColor,
+    noise: GradientNoise,
+) {
+    blend_gradient_slice(pixels, color, noise)
+}
 
-    /// The position (0 to 255) in a vertical band on `line`, or `None` where the band draws nothing.
-    fn vertical_position(&self, rect: &PhysicalRect, line: PhysicalLength) -> Option<i32> {
-        debug_assert_eq!(self.start, 0);
-        let (y, size_y) = self.band_y(rect, line);
-        let p = 255 * y / size_y;
-        let (fill_col1, fill_col2) = self.fills_beyond_stops();
-        ((fill_col1 || p >= 0) && (fill_col2 || p < 255)).then_some(p)
+/// Draws the pixels of a ramp from `stop` towards the next stop, `skipped` pixels into a
+/// segment of `len` pixels whose first pixel is at `start_position`.
+///
+/// Not inlined, see `draw_linear_fill`.
+#[inline(never)]
+fn draw_linear_ramp(
+    pixels: &mut [impl TargetPixel],
+    stop: &super::LinearGradientStop,
+    start_position: LinearGradientPosition,
+    len: usize,
+    skipped: usize,
+    mut noise: GradientNoise,
+) {
+    let last = len as i32 - 1;
+    // Keeps both ends of the ramp between the two stops' colors, so no channel wraps,
+    // then moves to the first pixel to draw.
+    let colors = stop.channels();
+    let fit = |value: u32, i: usize| {
+        let (color, delta, step) = (colors[i] as i32, stop.delta[i], stop.step[i]);
+        let (low, high) =
+            (color.min(color + delta) << 15, (color.max(color + delta) << 15) | 0x7fff);
+        let value = (value as i32).clamp(low, high);
+        let end = value + last * step;
+        ((value + end.clamp(low, high) - end) as u32)
+            .wrapping_add((skipped as u32).wrapping_mul(step as u32))
+    };
+    let [r, g, b, a] = linear_gradient_channels(stop, start_position);
+    let (mut r, mut g, mut b, mut a) = (fit(r, 0), fit(g, 1), fit(b, 2), fit(a, 3));
+    let [dr, dg, db, da] = stop.step.map(|step| step as u32);
+    for pix in pixels {
+        pix.blend_dithered(color_from_q15([r, g, b, a]), noise.next(), InternalToken);
+        r = r.wrapping_add(dr);
+        g = g.wrapping_add(dg);
+        b = b.wrapping_add(db);
+        a = a.wrapping_add(da);
     }
+}
 
-    /// Whether [`draw_linear_gradient`] overwrites every pixel of `rect` on `line`.
-    pub(super) fn covers_line(&self, rect: &PhysicalRect, line: PhysicalLength) -> bool {
-        if self.color1.alpha != 255 || self.color2.alpha != 255 {
-            return false;
-        }
-        match self.start {
-            0 => self.vertical_position(rect, line).is_some(),
-            255 => {
-                let (fill_left, fill_right) = self.fills_beyond_edges();
-                (fill_left || self.left_clip.get() >= 0)
-                    && (fill_right || self.right_clip.get() >= 0)
-            }
-            _ => false,
-        }
-    }
+/// Whether a pixel at `position` is past a stop at `stop_position`,
+/// going right on a line whose position changes by `dx` per pixel.
+fn crossed(
+    position: LinearGradientPosition,
+    stop_position: LinearGradientPosition,
+    dx: LinearGradientPosition,
+) -> bool {
+    if dx.0 > 0 { position >= stop_position } else { position < stop_position }
 }
 
 fn draw_linear_gradient(
     rect: &PhysicalRect,
     line: PhysicalLength,
     g: &super::LinearGradientCommand,
-    mut buffer: &mut [impl TargetPixel],
+    buffer: &mut [impl TargetPixel],
     extra_left_clip: i16,
 ) {
+    let stops = g.stops.as_slice();
+    let (Some(first), Some(last)) = (stops.first(), stops.last()) else { return };
     let noise = GradientNoise::new(rect.min_x() as i32 + extra_left_clip as i32, line.get() as i32);
-    let invert_slope = g.invert_slope();
-    let (fill_left, fill_right) = g.fills_beyond_edges();
+    // Everything below is relative to the rect's left edge rather than the buffer, so drawing a
+    // line in pieces gives the same pixels as drawing it whole.
+    let position = g.position + g.dy * (line.get() as i32 - rect.min_y() as i32);
+    let width = rect.width() as usize;
+    let offset = extra_left_clip.max(0) as usize;
+    let visible = offset..offset + buffer.len();
 
-    let (y, size_y) = g.band_y(rect, line);
-    let start = g.start as i32;
-
-    let (mut color1, mut color2) = (g.color1, g.color2);
-
-    if g.start == 0 {
-        if let Some(p) = g.vertical_position(rect, line) {
-            let col = interpolate_color(p.clamp(0, 255) as u32, color1, color2);
-            blend_gradient_slice(buffer, col, noise);
-        }
-        return;
-    }
-
-    let size_x = rect.width() as i32 + g.left_clip.get() as i32 + g.right_clip.get() as i32;
-
-    let k = size_x * (255 - start);
-    let slope_x = |y: i32| match y.checked_mul(k) {
-        Some(n) => n / (size_y * start),
-        // A band taller than a few thousand pixels.
-        None => (y as i64 * k as i64 / (size_y * start) as i64) as i32,
-    };
-    let mut x = slope_x(if invert_slope { y } else { size_y - y })
-        + g.left_clip.get() as i32
-        + extra_left_clip as i32;
-
-    let len = ((255 * size_x) / start) as usize;
-
-    let (left_color, right_color) =
-        if invert_slope { (g.color1, g.color2) } else { (g.color2, g.color1) };
-
-    let mut offset = 0;
-    if x < 0 {
-        let l = (-x as usize).min(buffer.len());
-        if fill_left {
-            blend_gradient_slice(&mut buffer[..l], left_color, noise);
-        }
-        buffer = &mut buffer[l..];
-        offset += l;
-        x = 0;
-    }
-
-    if buffer.len() + x as usize > len {
-        let l = len.saturating_sub(x as usize);
-        if fill_right {
-            blend_gradient_slice(&mut buffer[l..], right_color, noise.skip(offset + l));
-        }
-        buffer = &mut buffer[..l];
-    }
-
-    if buffer.is_empty() {
-        return;
-    }
-
-    if !invert_slope {
-        core::mem::swap(&mut color1, &mut color2);
-    }
-
-    let dr = (((color2.red as i32 - color1.red as i32) * start) << 15) / (255 * size_x);
-    let dg = (((color2.green as i32 - color1.green as i32) * start) << 15) / (255 * size_x);
-    let db = (((color2.blue as i32 - color1.blue as i32) * start) << 15) / (255 * size_x);
-    let da = (((color2.alpha as i32 - color1.alpha as i32) * start) << 15) / (255 * size_x);
-
-    let mut r = ((color1.red as u32) << 15).wrapping_add((x * dr) as _);
-    let mut g = ((color1.green as u32) << 15).wrapping_add((x * dg) as _);
-    let mut b = ((color1.blue as u32) << 15).wrapping_add((x * db) as _);
-    let mut a = ((color1.alpha as u32) << 15).wrapping_add((x * da) as _);
-
-    let mut noise = noise.skip(offset);
-    for pix in buffer {
-        let color = PremultipliedRgbaColor {
-            red: (r >> 15) as u8,
-            green: (g >> 15) as u8,
-            blue: (b >> 15) as u8,
-            alpha: (a >> 15) as u8,
+    if g.dx.0 == 0 {
+        let segment = stops
+            .windows(2)
+            .find(|w| position >= w[0].position && position < w[1].position)
+            .map(|w| &w[0]);
+        let color = match segment {
+            Some(stop) => color_from_q15(linear_gradient_channels(stop, position)),
+            None if position < first.position => first.color,
+            None => last.color,
         };
-        pix.blend_dithered(color, noise.next(), InternalToken);
-        r = r.wrapping_add(dr as _);
-        g = g.wrapping_add(dg as _);
-        b = b.wrapping_add(db as _);
-        a = a.wrapping_add(da as _);
+        draw_linear_fill(buffer, color, noise);
+        return;
+    }
+
+    // The index of the first pixel past `stop_position`, going right; see `crossed`.
+    // Every segment's ends come from here, so neighboring segments meet exactly.
+    let crossing = |stop_position: LinearGradientPosition| -> usize {
+        // Fits an i32 since stop positions are within ±63 and pixel positions near [0, 1];
+        // an i64 division is a library call on Cortex-M0.
+        let distance = stop_position - position;
+        let n = if g.dx.0 > 0 {
+            if distance.0 <= 0 { 0 } else { (distance - Fixed(1)) / g.dx + 1 }
+        } else if distance.0 > 0 {
+            0
+        } else {
+            -distance / -g.dx + 1
+        };
+        (n as usize).min(width)
+    };
+
+    enum Region<'a> {
+        Fill(PremultipliedRgbaColor),
+        Ramp(&'a super::LinearGradientStop),
+    }
+    let mut draw = |segment: core::ops::Range<usize>, region| {
+        let range = segment.start.max(visible.start)..segment.end.min(visible.end);
+        if range.is_empty() {
+            return;
+        }
+        let noise = noise.skip(range.start - offset);
+        let pixels = &mut buffer[range.start - offset..range.end - offset];
+        match region {
+            Region::Fill(color) => draw_linear_fill(pixels, color, noise),
+            Region::Ramp(stop) => {
+                let start_position = position + g.dx * segment.start as i32;
+                let skipped = range.start - segment.start;
+                draw_linear_ramp(pixels, stop, start_position, segment.len(), skipped, noise);
+            }
+        }
+    };
+
+    // The stops in the order they're crossed going right. Region 0 is before the first of them,
+    // region `n` after the last, and the regions in between interpolate between two stops.
+    let n = stops.len();
+    let boundary = |j: usize| if g.dx.0 > 0 { &stops[j] } else { &stops[n - 1 - j] };
+    let region = |j: usize| match j {
+        0 => Region::Fill(boundary(0).color),
+        _ if j == n => Region::Fill(boundary(n - 1).color),
+        _ => Region::Ramp(if g.dx.0 > 0 { boundary(j - 1) } else { boundary(j) }),
+    };
+    let visible_position = position + g.dx * visible.start as i32;
+    let mut j = 0;
+    while j < n && crossed(visible_position, boundary(j).position, g.dx) {
+        j += 1;
+    }
+    let mut start = if j == 0 { 0 } else { crossing(boundary(j - 1).position) };
+    loop {
+        let end = if j == n { width } else { crossing(boundary(j).position) };
+        draw(start..end, region(j));
+        if j == n || end >= visible.end {
+            break;
+        }
+        start = end;
+        j += 1;
     }
 }
 
@@ -1822,21 +1863,25 @@ fn rgb565_dither_stays_premultiplied() {
     assert!(d.red <= d.alpha && d.green <= d.alpha && d.blue <= d.alpha);
 }
 
+#[cfg(test)]
+fn linear_gradient<const N: usize>(
+    stops: [(PremultipliedRgbaColor, f32); N],
+    position: LinearGradientPosition,
+    dx: LinearGradientPosition,
+    dy: LinearGradientPosition,
+) -> super::LinearGradientCommand {
+    let stops = super::LinearGradientStop::collect(stops.into_iter(), dx);
+    super::LinearGradientCommand { stops, position, dx, dy }
+}
+
 #[test]
 fn rgb565_gradient_is_dithered() {
     let rect = PhysicalRect::from_size(super::PhysicalSize::new(256, 64));
     let black = PremultipliedRgbaColor { red: 0, green: 0, blue: 0, alpha: 255 };
     let gray = PremultipliedRgbaColor { red: 8, green: 8, blue: 8, alpha: 255 };
-    let g = super::LinearGradientCommand {
-        color1: black,
-        color2: gray,
-        start: 0,
-        flags: 0b110,
-        left_clip: PhysicalLength::new(0),
-        right_clip: PhysicalLength::new(0),
-        top_clip: PhysicalLength::new(0),
-        bottom_clip: PhysicalLength::new(0),
-    };
+    let one = LinearGradientPosition::from_integer(1);
+    // Line 32's center is at 32/64.
+    let g = linear_gradient([(black, 0.), (gray, 1.)], -one / 128, Fixed(0), one / 64);
     // Halfway down, the color is about 3/8 of the way to the first non-black 565 red level.
     let line = PhysicalLength::new(32);
 
@@ -1876,19 +1921,17 @@ fn rgb565_linear_gradient_noise_follows_screen_position() {
     };
 
     for (color1, color2) in [opaque, translucent] {
-        for invert_slope in [0, 1] {
-            let g = super::LinearGradientCommand {
-                color1,
-                color2,
-                start: 200,
-                flags: 0b110 | invert_slope,
-                left_clip: PhysicalLength::new(-16),
-                right_clip: PhysicalLength::new(-16),
-                top_clip: PhysicalLength::new(0),
-                bottom_clip: PhysicalLength::new(0),
+        for reversed in [false, true] {
+            // The ramp covers the middle half of the first line, and moves right on later lines.
+            let one = LinearGradientPosition::from_integer(1);
+            let stops = [(color1, 0.25), (color2, 0.75)];
+            let g = if reversed {
+                linear_gradient(stops, one - one / 128, -one / 64, -one / 512)
+            } else {
+                linear_gradient(stops, one / 128, one / 64, one / 512)
             };
             let (left_fill, right_fill) =
-                if invert_slope == 1 { (color1, color2) } else { (color2, color1) };
+                if reversed { (color2, color1) } else { (color1, color2) };
             for y in 0..64 {
                 let line = PhysicalLength::new(y as i16);
                 let mut whole = [background; 64];
@@ -1901,11 +1944,73 @@ fn rgb565_linear_gradient_noise_follows_screen_position() {
                     let (left, right) = parts.split_at_mut(split);
                     draw_linear_gradient(&rect, line, &g, left, 0);
                     draw_linear_gradient(&rect, line, &g, right, split as i16);
-                    assert_eq!(parts, whole, "line {y}, split at {split}, invert {invert_slope}");
+                    assert_eq!(parts, whole, "line {y}, split at {split}, reversed {reversed}");
                 }
             }
         }
     }
+}
+
+#[test]
+fn linear_gradient_segments_meet() {
+    // #6247: neighboring segments used to leave a pixel between them not drawn.
+    let rect = PhysicalRect::from_size(super::PhysicalSize::new(97, 1));
+    let line = PhysicalLength::new(0);
+    let color = |c| PremultipliedRgbaColor { red: c, green: c, blue: c, alpha: 255 };
+    let unset = PremultipliedRgbaColor { red: 255, green: 0, blue: 255, alpha: 255 };
+    let stops = [(color(255), 0.), (color(0x66), 0.5), (color(0), 1.)];
+    let one = LinearGradientPosition::from_integer(1);
+
+    for pixels_per_unit in [3, 7, 40, 97, 300, 2000] {
+        for direction in [1, -1] {
+            let dx = one * direction / pixels_per_unit;
+            for start in -6..=26 {
+                let g = linear_gradient(stops, one * start / 20, dx, Fixed(0));
+                let mut whole = [unset; 97];
+                draw_linear_gradient(&rect, line, &g, &mut whole, 0);
+                let context =
+                    alloc::format!("{pixels_per_unit} px per unit, dx {}, start {start}", dx.0);
+                assert!(whole.iter().all(|p| p.green == p.red), "unset pixel, {context}");
+                // The gradient darkens along its line, and never wraps around at 0 or 255.
+                assert!(
+                    whole.windows(2).all(|w| if dx.0 > 0 {
+                        w[1].red <= w[0].red
+                    } else {
+                        w[1].red >= w[0].red
+                    }),
+                    "not monotonic, {context}: {:?}",
+                    whole.map(|p| p.red)
+                );
+
+                for split in [1, 30, 48, 96] {
+                    let mut parts = [unset; 97];
+                    let (left, right) = parts.split_at_mut(split);
+                    draw_linear_gradient(&rect, line, &g, left, 0);
+                    draw_linear_gradient(&rect, line, &g, right, split as i16);
+                    assert!(
+                        parts.iter().zip(&whole).all(|(a, b)| a.red == b.red && a.green == b.green),
+                        "split at {split}, {context}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn linear_gradient_stop_before_previous_moves_to_it() {
+    let color = |c| PremultipliedRgbaColor { red: c, green: c, blue: c, alpha: 255 };
+    let one = LinearGradientPosition::from_integer(1);
+    let g = linear_gradient(
+        [(color(0), 0.5), (color(100), 0.25), (color(200), 1.)],
+        Fixed(0),
+        one / 64,
+        Fixed(0),
+    );
+    let positions: alloc::vec::Vec<_> = g.stops.iter().map(|s| s.position).collect();
+    assert_eq!(positions, [one / 2, one / 2, one]);
+    // The first segment is empty, so it has nothing to step.
+    assert_eq!((g.stops[0].factor_step, g.stops[0].step), (0, [0; 4]));
 }
 
 #[test]

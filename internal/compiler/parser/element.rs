@@ -77,7 +77,13 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 {
                     parse_slot_declaration(&mut *p)
                 }
-                SyntaxKind::Colon => parse_property_binding(&mut *p),
+                SyntaxKind::Equal if is_sub_element_after_operator(&mut *p, false) => {
+                    had_parse_error |= !parse_sub_element(&mut *p);
+                }
+                SyntaxKind::Colon | SyntaxKind::Equal => parse_property_binding(&mut *p),
+                SyntaxKind::ColonEqual if !is_sub_element_after_operator(&mut *p, true) => {
+                    parse_property_binding(&mut *p)
+                }
                 SyntaxKind::DoubleLess => {
                     had_parse_error |= !parse_slot_assignment_or_forwarding(&mut *p)
                 }
@@ -230,6 +236,25 @@ pub fn parse_element_content(p: &mut impl Parser) {
     }
 }
 
+// With `incomplete`, an element as typed in an editor also counts, so that completion works.
+fn is_sub_element_after_operator(p: &mut impl Parser, incomplete: bool) -> bool {
+    let mut i = 2;
+    if incomplete
+        && matches!(p.nth(i).kind(), SyntaxKind::LBrace | SyntaxKind::RBrace | SyntaxKind::Eof)
+    {
+        return true;
+    }
+    while p.nth(i).kind() == SyntaxKind::Identifier && p.nth(i + 1).kind() == SyntaxKind::Dot {
+        i += 2;
+    }
+    p.nth(i).kind() == SyntaxKind::Identifier
+        && match p.nth(i + 1).kind() {
+            SyntaxKind::LBrace => true,
+            SyntaxKind::Identifier | SyntaxKind::RBrace | SyntaxKind::Eof => incomplete,
+            _ => false,
+        }
+}
+
 #[cfg_attr(test, parser_test)]
 /// ```test,SubElement
 /// Bar {}
@@ -239,9 +264,14 @@ pub fn parse_element_content(p: &mut impl Parser) {
 /// Must consume at least one token
 fn parse_sub_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::SubElement);
-    if p.nth(1).kind() == SyntaxKind::ColonEqual {
+    if matches!(p.nth(1).kind(), SyntaxKind::ColonEqual | SyntaxKind::Equal) {
         p.expect(SyntaxKind::Identifier);
-        p.expect(SyntaxKind::ColonEqual);
+        if p.peek().kind() == SyntaxKind::Equal {
+            p.error("Parse error: unexpected '='. Use ':=' instead of '=' to name an element");
+            p.consume();
+        } else {
+            p.expect(SyntaxKind::ColonEqual);
+        }
     }
     parse_element(&mut *p)
 }
@@ -507,7 +537,21 @@ fn report_stray_semicolon(p: &mut impl Parser) {
 fn parse_property_binding(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Binding);
     p.consume();
-    p.expect(SyntaxKind::Colon);
+    match p.peek().kind() {
+        SyntaxKind::ColonEqual => {
+            p.error(
+                "Parse error: expected an element after ':='. Use ':' instead of ':=' to set a binding",
+            );
+            p.consume();
+        }
+        SyntaxKind::Equal => {
+            p.error("Parse error: unexpected '='. Use ':' instead of '=' to set a binding");
+            p.consume();
+        }
+        _ => {
+            p.expect(SyntaxKind::Colon);
+        }
+    }
     parse_binding_expression(&mut *p);
 }
 
@@ -823,7 +867,10 @@ fn parse_property_animation(p: &mut impl Parser) {
             }
             SyntaxKind::Eof => return,
             SyntaxKind::Identifier => match p.nth(1).kind() {
-                SyntaxKind::Colon => parse_property_binding(&mut *p),
+                SyntaxKind::Colon | SyntaxKind::Equal => parse_property_binding(&mut *p),
+                SyntaxKind::ColonEqual if !is_sub_element_after_operator(&mut *p, true) => {
+                    parse_property_binding(&mut *p)
+                }
                 _ => {
                     p.consume();
                     p.error("Only bindings are allowed in animations");

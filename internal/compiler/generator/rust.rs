@@ -3746,18 +3746,19 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::ConicGradient { .. }
             | Expression::EnumerationValue(..)
             | Expression::Closure { .. }
-            | Expression::DashArray(..) => true,
-            Expression::Condition { true_expr, false_expr, .. } => {
-                produces_owned_value(true_expr) && produces_owned_value(false_expr)
-            }
-            // an empty code block evaluates to `()`, which is owned
-            Expression::CodeBlock(b) => b.last().is_none_or(produces_owned_value),
+            | Expression::DashArray(..)
+            // compile to their branches or last expression compiled as a value
+            | Expression::Condition { .. }
+            | Expression::CodeBlock(..) => true,
+            // moves the field out of the owned temporary
+            Expression::StructFieldAccess { base, .. } => produces_owned_value(base),
             _ => false,
         }
     }
 
     let compiled_expr = compile_expression(expr, ctx);
-    if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
+    let is_owned = produces_owned_value(expr) || is_copy(&expr.ty(ctx));
+    if is_owned { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
 impl quote::ToTokens for crate::expression_types::ImageReference {
@@ -3855,7 +3856,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::ArrayIndex { .. } => compile_array_index(expr, ctx),
         Expression::CodeBlock(..) => compile_code_block(expr, ctx),
         Expression::PropertyAssignment { property, value } => (|| {
-            let value = compile_expression(value, ctx);
+            let value = compile_expression_to_value(value, ctx);
             property_set_value_tokens(property, value, ctx)
         })(),
         Expression::ModelDataAssignment { .. } => compile_model_data_assignment(expr, ctx),
@@ -4100,7 +4101,7 @@ fn access_context(ctx: &EvaluationContext) -> TokenStream {
 
 fn compile_cast(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Cast { from, to } = expr else { unreachable!() };
-    let f = compile_expression(from, ctx);
+    let f = compile_expression_to_value(from, ctx);
     match (from.ty(ctx), to) {
         (Type::Float32, Type::Int32) => {
             quote!(((#f) as i32))
@@ -4274,10 +4275,20 @@ fn compile_array_index(expr: &Expression, ctx: &EvaluationContext) -> TokenStrea
 
 fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::CodeBlock(sub) = expr else { unreachable!() };
+    let is_own_local = |name: &SmolStr| {
+        sub.iter().any(|e| matches!(e, Expression::StoreLocalVariable { name: n, .. } if n == name))
+    };
     let mut body = TokenStream::new();
     for (i, e) in sub.iter().enumerate() {
-        body.extend(compile_expression_no_parenthesis(e, ctx));
-        if i + 1 < sub.len() && !matches!(e, Expression::StoreLocalVariable { .. }) {
+        let is_last = i + 1 == sub.len();
+        // a local of this block is dead after it, so the block can move it out
+        let needs_value = is_last
+            && e.ty(ctx) != Type::Void
+            && !matches!(e, Expression::ReadLocalVariable { name, .. } if is_own_local(name));
+        let compile: fn(&Expression, &EvaluationContext) -> TokenStream =
+            if needs_value { compile_expression_to_value } else { compile_expression };
+        body.extend(remove_parenthesis(e, ctx, compile));
+        if !is_last && !matches!(e, Expression::StoreLocalVariable { .. }) {
             body.extend(quote!(;));
         }
     }
@@ -4286,7 +4297,7 @@ fn compile_code_block(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
 
 fn compile_model_data_assignment(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::ModelDataAssignment { level, value } = expr else { unreachable!() };
-    let value = compile_expression(value, ctx);
+    let value = compile_expression_to_value(value, ctx);
     let owner = MemberAccess::Option(parent_access_path(level + 1).unwrap());
     let EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else { unreachable!() };
     let mut repeater_index = None;
@@ -4315,7 +4326,7 @@ fn compile_array_index_assignment(expr: &Expression, ctx: &EvaluationContext) ->
     debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
     let base_e = compile_expression(array, ctx);
     let index_e = compile_expression(index, ctx);
-    let value_e = compile_expression(value, ctx);
+    let value_e = compile_expression_to_value(value, ctx);
     quote!((#base_e).set_row_data(#index_e as isize as usize, #value_e as _))
 }
 
@@ -4393,9 +4404,14 @@ fn compile_image_reference(expr: &Expression) -> TokenStream {
 fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
     let condition_code = compile_expression_no_parenthesis(condition, ctx);
-    let true_code = compile_expression(true_expr, ctx);
-    let false_code = compile_expression_no_parenthesis(false_expr, ctx);
-    let semi = if false_expr.ty(ctx) == Type::Void { quote!(;) } else { quote!(as _) };
+    let (compile, semi): (fn(&Expression, &EvaluationContext) -> TokenStream, _) =
+        if false_expr.ty(ctx) == Type::Void {
+            (compile_expression, quote!(;))
+        } else {
+            (compile_expression_to_value, quote!(as _))
+        };
+    let true_code = compile(true_expr, ctx);
+    let false_code = remove_parenthesis(false_expr, ctx, compile);
     quote!(
         if #condition_code {
             (#true_code) #semi
@@ -4416,7 +4432,7 @@ fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match output {
         ArrayOutput::Model => {
             let rust_element_ty = rust_primitive_type(element_ty).unwrap();
-            let vec = if values.len() > ARRAY_CHUNK_SIZE && !is_plain_value(element_ty) {
+            let vec = if values.len() > ARRAY_CHUNK_SIZE && !is_copy(element_ty) {
                 let len = values.len();
                 let chunks = values.chunks(ARRAY_CHUNK_SIZE).map(|chunk| {
                     let val = chunk.iter().map(|e| compile_expression_to_value(e, ctx));
@@ -4440,10 +4456,10 @@ fn compile_array(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     }
 }
 
-/// Whether a literal array of `ty` compiles to a constant blob, which beats
-/// storing the elements one by one.
-/// Types that aren't listed are chunked, which is the safe direction.
-fn is_plain_value(ty: &Type) -> bool {
+/// Whether the Rust type of `ty` is `Copy`, so its values need no `.clone()`
+/// and a literal array of it compiles to a constant blob.
+/// Types that aren't listed are cloned and chunked, which is the safe direction.
+fn is_copy(ty: &Type) -> bool {
     matches!(
         ty,
         Type::Int32
@@ -4518,7 +4534,7 @@ fn compile_struct(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
             }
         });
         // This will produce a tuple
-        quote!((#((#elem).clone() #as_,)*))
+        quote!((#((#elem) #as_,)*))
     }
 }
 

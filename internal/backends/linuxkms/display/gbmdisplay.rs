@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore SCANOUT
-use drm::control::Device;
 use gbm::AsRaw;
 use i_slint_core::platform::PlatformError;
 
@@ -34,12 +33,7 @@ impl GbmDisplay {
             )
             .map_err(|e| format!("Error creating gbm surface: {e}"))?;
 
-        // See the same check in `GbmDmabufDisplay::new`.
-        let display_takes_modifiers = drm::Device::get_driver_capability(
-            &drm_output.drm_device,
-            drm::DriverCapability::AddFB2Modifiers,
-        )
-        .is_ok_and(|value| value != 0);
+        let display_takes_modifiers = drm_output.takes_modifiers();
 
         Ok(GbmDisplay {
             drm_output,
@@ -82,17 +76,11 @@ impl super::Presenter for GbmDisplay {
                 .map_err(|err| format!("Could not lock gbm front buffer: {err}"))?
         };
 
-        let has_modifier = drm::buffer::PlanarBuffer::modifier(&front_buffer)
-            .is_some_and(|modifier| !matches!(modifier, drm::buffer::DrmModifier::Invalid));
-        let device = &self.drm_output.drm_device;
-        let fb = if self.display_takes_modifiers && has_modifier {
-            device.add_planar_framebuffer(&front_buffer, drm::control::FbCmd2Flags::MODIFIERS)
-        } else {
-            device.add_planar_framebuffer(
-                &super::ImplicitLayout(&front_buffer),
-                drm::control::FbCmd2Flags::empty(),
-            )
-        }
+        let fb = super::add_framebuffer(
+            &self.drm_output.drm_device,
+            &front_buffer,
+            self.display_takes_modifiers,
+        )
         .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
         front_buffer.set_userdata(OwnedFramebufferHandle {
