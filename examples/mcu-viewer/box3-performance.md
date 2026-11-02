@@ -89,3 +89,23 @@ The full-screen transfer is now about 1.7 ms above the 40 MHz pixel wire time.
 
 The final firmware runs at 40 MHz with profiling disabled and USB live preview connected.
 The user confirmed normal display geometry, clean background color changes, and working touch on the attached BOX-3.
+
+## 80 MHz PSRAM
+
+This comparison keeps the LCD at 40 MHz and flash in DIO mode.
+Only the octal PSRAM clock changes from 40 MHz to 80 MHz.
+The reference includes the accepted renderer and DMA optimizations.
+
+| Scene | 40 MHz render | 80 MHz render | 40 MHz transfer | 80 MHz transfer |
+| --- | ---: | ---: | ---: | ---: |
+| Solid background | 11.979 ms | 8.342 ms | 32.407 ms | 32.026 ms |
+| Counter | 52.674 ms | 47.102 ms | 32.553 ms | 32.132 ms |
+| Clipping and gradients | 54.697 ms | 49.266 ms | 32.559 ms | 32.128 ms |
+| Sixteen text rows | 86.753 ms | 79.893 ms | 32.511 ms | 32.159 ms |
+| 80 × 60 partial update | 3.593 ms | 3.540 ms | 2.599 ms | 2.587 ms |
+
+Rendering falls by 30.4% for the solid background and 7.9–10.6% for the other full-screen scenes.
+Full-screen transfer falls by about 0.4 ms; its pixel wire time remains 30.720 ms.
+All five scenes produce matching pixel checksums.
+Source replacements use five steady samples; timer scenes use up to seventeen.
+The profile build takes 10.63 seconds with a warm build cache.

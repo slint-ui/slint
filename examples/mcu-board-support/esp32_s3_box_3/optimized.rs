@@ -134,6 +134,7 @@ fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
         esp_hal::psram,
         esp_hal::psram::PsramConfig {
             mode: esp_hal::psram::PsramMode::OctalSpi,
+            ram_frequency: esp_hal::psram::SpiRamFreq::Freq80m,
             ..Default::default()
         }
     );
