@@ -26,7 +26,9 @@ slint::slint! {
     export component Fixture inherits Window {
         width: 320px;
         height: 240px;
-        background: #2a2846;
+        in property <bool> translucent;
+        in property <bool> gradient-background;
+        background: root.gradient-background ? @linear-gradient(35deg, #da87, #19ac) : root.translucent ? #2a284680 : #2a2846;
         in property <image> tile;
         in property <length> dx;
         in property <length> dy;
@@ -38,6 +40,19 @@ slint::slint! {
             Image { x: -7px; y: -9px; width: 48px; height: 140px; source: root.tile; }
         }
         Rectangle { x: 47px; y: 80px; width: 32px; height: 31px; background: #fa8a; }
+    }
+}
+
+struct Lines<'a>(&'a mut [Rgb565BigEndianPixel]);
+impl slint::platform::software_renderer::LineBufferProvider for Lines<'_> {
+    type TargetPixel = Rgb565BigEndianPixel;
+    fn process_line(
+        &mut self,
+        line: usize,
+        range: core::ops::Range<usize>,
+        render: impl FnOnce(&mut [Self::TargetPixel]),
+    ) {
+        render(&mut self.0[line * 320 + range.start..line * 320 + range.end]);
     }
 }
 
@@ -87,6 +102,8 @@ fn retained_frames_match_the_canonical_renderer() {
         }
         let image = slint::Image::from_rgb8(tile);
         for ui in [&accelerated, &canonical] {
+            ui.set_translucent(tick % 3 == 0);
+            ui.set_gradient_background(tick % 5 == 0);
             ui.set_tile(image.clone());
             ui.set_dx((tick % 380) as f32 - 50.);
             ui.set_dy((tick % 280) as f32 - 30.);
@@ -102,7 +119,11 @@ fn retained_frames_match_the_canonical_renderer() {
             ));
         });
         windows.borrow()[1].draw_if_needed(|r| {
-            r.render(&mut expected, 320);
+            if tick % 2 == 0 {
+                r.render(&mut expected, 320);
+            } else {
+                r.render_by_line(Lines(&mut expected));
+            }
         });
         assert_eq!(actual, expected, "texture parity at frame {tick}");
     }
