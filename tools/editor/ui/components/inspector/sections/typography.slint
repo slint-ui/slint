@@ -44,6 +44,7 @@ export component InspectorTypographySection inherits InspectorSection {
                     font-size: Typography.control.size;
                 }
                 InspectorComboBox {
+                    commit-key: InspectorContext.inspector-key;
                     accessible-name: @tr("Font weight");
                     value: InspectorEnumOptions.text-font-weight-label();
                     selected-index: InspectorEnumOptions.text-font-weight-index();

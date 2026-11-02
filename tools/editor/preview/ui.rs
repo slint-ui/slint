@@ -2780,6 +2780,128 @@ mod tests {
     }
 
     #[test]
+    fn unchanged_text_draft_cancels_preview_on_blur() {
+        use slint::platform::Key;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        api.set_current_element(super::ElementInformation {
+            type_name: "GroupBox".into(),
+            source_uri: "file:///test.slint".into(),
+            ..Default::default()
+        });
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        connect_has_property(&api);
+        set_test_properties(&api, &["title"]);
+        api.on_source_property_value_data(|name, fallback| {
+            if name == "title" {
+                PropertyValue {
+                    kind: PropertyValueKind::String,
+                    code: "\"Original\"".into(),
+                    value_string: "Original".into(),
+                    ..Default::default()
+                }
+            } else {
+                fallback
+            }
+        });
+        let previews = std::rc::Rc::new(std::cell::Cell::new(0));
+        let calls = previews.clone();
+        api.on_inspector_preview_string(move |_, _, _| {
+            calls.set(calls.get() + 1);
+            true
+        });
+        let cancellations = std::rc::Rc::new(std::cell::Cell::new(0));
+        let calls = cancellations.clone();
+        api.on_inspector_cancel(move || calls.set(calls.get() + 1));
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+        slint::platform::update_timers_and_animations();
+        let field =
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                .find(|element| {
+                    element.accessible_role()
+                        == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                })
+                .unwrap();
+        field.invoke_accessible_default_action();
+        test_press_key(&editor, "Draft".into());
+        assert_eq!(field.accessible_value().as_deref(), Some("Draft"));
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+        test_press_key(&editor, "a".into());
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+        test_press_key(&editor, "Original".into());
+        assert_eq!(field.accessible_value().as_deref(), Some("Original"));
+        assert!(previews.get() >= 2);
+        assert_eq!(cancellations.get(), 0);
+        test_press_key(&editor, Key::Tab.into());
+        assert_eq!(cancellations.get(), 1);
+    }
+
+    #[test]
+    fn clean_text_field_history_uses_editor_guards() {
+        use slint::platform::Key;
+
+        i_slint_backend_testing::init_no_event_loop();
+        for editable in [true, false] {
+            let editor = super::EditorUi::new().unwrap();
+            let api = editor.global::<super::Api>();
+            editor
+                .global::<super::Diagnostics>()
+                .set_preview_availability(super::PreviewAvailability::Current);
+            api.set_current_element(super::ElementInformation {
+                type_name: "GroupBox".into(),
+                ..Default::default()
+            });
+            let mut selection = api.get_selection();
+            selection.highlight_index = 0;
+            api.set_selection(selection);
+            connect_has_property(&api);
+            set_test_properties(&api, &["title"]);
+            api.set_undo_enabled(true);
+            let undos = std::rc::Rc::new(std::cell::Cell::new(0));
+            let calls = undos.clone();
+            api.on_undo(move || calls.set(calls.get() + 1));
+            editor.show().unwrap();
+            editor.window().set_size(slint::LogicalSize::new(1360., 2000.));
+            slint::platform::update_timers_and_animations();
+            let field =
+                i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Title")
+                    .find(|element| {
+                        element.accessible_role()
+                            == Some(i_slint_backend_testing::AccessibleRole::TextInput)
+                    })
+                    .unwrap();
+            field.invoke_accessible_default_action();
+            editor.global::<super::CanvasView>().set_nudging(true);
+            if !editable {
+                editor
+                    .global::<super::Diagnostics>()
+                    .set_preview_availability(super::PreviewAvailability::Stale);
+            }
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+            test_press_key(&editor, "z".into());
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+            assert_eq!(undos.get(), i32::from(editable));
+            if editable {
+                assert!(!editor.global::<super::CanvasView>().get_nudging());
+            }
+        }
+    }
+
+    fn test_press_key(editor: &super::EditorUi, text: SharedString) {
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+        slint::platform::update_timers_and_animations();
+    }
+
+    #[test]
     fn placeholder_field_follows_selected_element_properties() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();

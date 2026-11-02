@@ -13,6 +13,8 @@ import { InspectorAppearanceFields } from "appearance.slint";
 export component InspectorTextContentSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
 
+    callback history-key(KeyEvent) -> EventResult;
+
     title: @tr("Text");
     accessible-role: groupbox;
     accessible-label: root.title;
@@ -30,6 +32,7 @@ export component InspectorTextContentSection inherits InspectorSection {
             accepted(text) => { return InspectorContext.commit-code("text", text); }
             preview(text) => { return Api.inspector-preview-string(InspectorContext.inspector-key, "text", text); }
             canceled => { Api.inspector-cancel(); }
+            history-key(event) => { return root.history-key(event); }
         }
 
         if InspectorContext.has-styled-text-property(): InspectorCodeField {

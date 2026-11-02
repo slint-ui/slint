@@ -1760,6 +1760,8 @@ def test_expanded_text_edit(
             window, "Expanded text", role=slint_testing.AccessibleRole.TextInput
         )
         expect(expanded).to_have_value("Inspector text")
+        expanded.single_click(slint_testing.PointerEventButton.Left)
+        expect(expanded).to_have_value("Inspector text")
         press_shortcut(window, keys.Control, "a")
         press_keys(window, 'Line one "quoted"')
         press_keys(window, keys.Return)
@@ -1775,7 +1777,7 @@ def test_expanded_text_edit(
         if outcome == "apply":
             element(
                 window, "Apply", role=slint_testing.AccessibleRole.Button
-            ).invoke_accessible_default_action()
+            ).single_click(slint_testing.PointerEventButton.Left)
             expected = replace_once(
                 baseline,
                 b'        text: "Inspector text";',
@@ -1789,7 +1791,7 @@ def test_expanded_text_edit(
         elif outcome == "cancel":
             element(
                 window, "Cancel", role=slint_testing.AccessibleRole.Button
-            ).invoke_accessible_default_action()
+            ).single_click(slint_testing.PointerEventButton.Left)
         elif outcome == "escape":
             press_keys(window, keys.Escape)
         elif outcome == "selection":
@@ -1828,12 +1830,13 @@ def test_expanding_text_transfers_inline_draft(
                 window, "Expanded text", role=slint_testing.AccessibleRole.TextInput
             )
         ).to_have_value("Pending text")
+        element(window, "Pending text", role=slint_testing.AccessibleRole.Text)
         snapshot.assert_unchanged()
         element(
             window,
             "Apply" if apply else "Cancel",
             role=slint_testing.AccessibleRole.Button,
-        ).invoke_accessible_default_action()
+        ).single_click(slint_testing.PointerEventButton.Left)
         expect(query(window, "Expanded text")).to_be_hidden()
         if apply:
             snapshot.wait_for_applied(
@@ -2571,3 +2574,101 @@ def test_combo_keyboard_navigation_scrolls_and_commits_one_edit(
         press_shortcut(window, keys.Control, "z")
         snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
         expect(combo).to_have_value("Normal")
+
+
+@pytest.mark.parametrize(("key", "size"), ((keys.UpArrow, 15), (keys.DownArrow, 13)))
+def test_font_size_step_replaces_focused_draft_before_blur(
+    editor_binary, editor_environment, fixture_project, key, size
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = source.read_bytes()
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        select_element(window, "Text")
+        field = inspector_field(
+            window, "Font size", slint_testing.AccessibleRole.TextInput
+        )
+        field.single_click(slint_testing.PointerEventButton.Left)
+        press_keys(window, "14")
+        press_key(window, key)
+        expected = replace_once(
+            baseline, b"font-size: 20px;", f"font-size: {size}px;".encode()
+        )
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+        expect(field).to_have_value(str(size))
+        press_key(window, keys.Tab)
+        SourceSnapshot.capture(fixture_project).assert_unchanged()
+        select_element(window, "Text")
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)
+        press_shortcut(window, keys.Control, keys.Shift, "z")
+        snapshot.wait_for_applied(expected, INSPECTOR_SOURCE)
+
+
+@pytest.mark.parametrize(
+    ("initial", "button", "value"),
+    (("start", "Align left", "left"), ("end", "Align right", "right")),
+)
+def test_alignment_button_replaces_logical_alignment(
+    editor_binary, editor_environment, fixture_project, initial, button, value
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        source.read_bytes(),
+        b"horizontal-alignment: start;",
+        f"horizontal-alignment: {initial};".encode(),
+    )
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        select_element(window, "StyledText")
+        group = inspector_field(
+            window, "Horizontal Alignment", slint_testing.AccessibleRole.RadioGroup
+        )
+        choice = element(group, button, role=slint_testing.AccessibleRole.RadioButton)
+        expect(choice).to_be_checked()
+        choice.single_click(slint_testing.PointerEventButton.Left)
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline,
+                f"horizontal-alignment: {initial};".encode(),
+                f"horizontal-alignment: {value};".encode(),
+            ),
+            INSPECTOR_SOURCE,
+        )
+
+
+@pytest.mark.parametrize("value", ("start", "end"))
+def test_alignment_context_menu_preserves_logical_options(
+    editor_binary, editor_environment, fixture_project, value
+):
+    source = fixture_project / INSPECTOR_SOURCE
+    baseline = replace_once(
+        source.read_bytes(),
+        b"horizontal-alignment: start;",
+        b"horizontal-alignment: center;",
+    )
+    source.write_bytes(baseline)
+    snapshot = SourceSnapshot.capture(fixture_project)
+    with launch_editor(editor_binary, editor_environment, source) as editor:
+        window = first_window(editor)
+        select_element(window, "StyledText")
+        group = inspector_field(
+            window, "Horizontal Alignment", slint_testing.AccessibleRole.RadioGroup
+        )
+        group.single_click(slint_testing.PointerEventButton.Right)
+        element(window, value.capitalize()).single_click(
+            slint_testing.PointerEventButton.Left
+        )
+        snapshot.wait_for_applied(
+            replace_once(
+                baseline,
+                b'text: @markdown("**Styled** text");\n        horizontal-alignment: center;',
+                f'text: @markdown("**Styled** text");\n        horizontal-alignment: {value};'.encode(),
+            ),
+            INSPECTOR_SOURCE,
+        )
+        press_shortcut(window, keys.Control, "z")
+        snapshot.wait_for_applied(baseline, INSPECTOR_SOURCE)

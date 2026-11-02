@@ -15,6 +15,7 @@ export component InspectorStandardButtonKindSection inherits InspectorSection {
         spacing: Metrics.space-compact;
 
         InspectorComboBox {
+            commit-key: InspectorContext.inspector-key;
             accessible-name: @tr("Button Kind");
             value: InspectorEnumOptions.option-label("kind", "ok", InspectorEnumOptions.standard-button-kind-options);
             selected-index: InspectorEnumOptions.option-index("kind", "ok", InspectorEnumOptions.standard-button-kind-options);

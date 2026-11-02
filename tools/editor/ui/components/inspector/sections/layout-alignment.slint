@@ -23,6 +23,7 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Layout Alignment");
                 value: InspectorEnumOptions.option-label("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
                 selected-index: InspectorEnumOptions.option-index("alignment", root.default-alignment, InspectorEnumOptions.layout-alignment-options);
@@ -43,6 +44,7 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Cross Axis Line Alignment");
                 value: InspectorEnumOptions.option-label("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);
                 selected-index: InspectorEnumOptions.option-index("cross-axis-line-alignment", "stretch", InspectorEnumOptions.layout-alignment-options);

@@ -11,6 +11,8 @@ import { InspectorAppearanceFields } from "appearance.slint";
 export component InspectorTitleSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
 
+    callback history-key(KeyEvent) -> EventResult;
+
     title: @tr("Title");
     accessible-role: groupbox;
     accessible-label: root.title;
@@ -30,6 +32,7 @@ export component InspectorTitleSection inherits InspectorSection {
             }
             preview(text) => { return Api.inspector-preview-string(InspectorContext.inspector-key, "title", text); }
             canceled => { Api.inspector-cancel(); }
+            history-key(event) => { return root.history-key(event); }
         }
     }
 

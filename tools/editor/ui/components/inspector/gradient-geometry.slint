@@ -25,6 +25,7 @@ export component InspectorGradientGeometry inherits Rectangle {
         HorizontalLayout {
             spacing: Metrics.space-regular;
             InspectorComboBox {
+                commit-key: root.session-key;
                 accessible-name: @tr("Gradient type");
                 value: root.value.kind == BrushKind.linear ? @tr("Linear") : root.value.kind == BrushKind.radial ? @tr("Radial") : @tr("Conic");
                 selected-index: root.value.kind == BrushKind.linear ? 0 : root.value.kind == BrushKind.radial ? 1 : 2;
@@ -42,6 +43,7 @@ export component InspectorGradientGeometry inherits Rectangle {
             spacing: Metrics.space-regular;
             Text { text: @tr("Center"); color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorComboBox {
+                commit-key: root.session-key;
                 accessible-name: @tr("Gradient center");
                 value: root.value.custom-center ? @tr("Custom") : @tr("Automatic");
                 selected-index: root.value.custom-center ? 1 : 0;
@@ -85,6 +87,7 @@ export component InspectorGradientGeometry inherits Rectangle {
             spacing: Metrics.space-regular;
             Text { text: @tr("Radii"); color: Colors.muted; font-size: Typography.caption.size; vertical-alignment: center; width: root.style.gradient-label-width; }
             InspectorComboBox {
+                commit-key: root.session-key;
                 accessible-name: @tr("Gradient radius mode");
                 value: root.value.custom-radius ? @tr("Custom") : @tr("Automatic");
                 selected-index: root.value.custom-radius ? 1 : 0;

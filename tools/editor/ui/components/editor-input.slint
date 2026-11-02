@@ -20,6 +20,7 @@ export component EditorInput inherits InputSurface {
     in property <InputType> input-type: InputType.text;
     in property <bool> clearable: false;
     in property <bool> multiline: false;
+    in property <length> padding-block: Metrics.space-regular;
     in property <string> clear-label: @tr("Clear text");
     in property <MouseCursor> unfocused-cursor: MouseCursor.text;
     callback keyboard(KeyEvent) -> EventResult;
@@ -28,6 +29,7 @@ export component EditorInput inherits InputSurface {
     keyboard(event) => { return reject; }
     public function focus-input() { input.focus(); }
     public function select-range(start: int, end: int) { input.set-selection-offsets(start, end); }
+    public function commit-value(value: string) -> bool { return root.accept-input(value, true); }
     public function take-draft() -> string {
         let draft = input.text;
         input.text = root.value;
@@ -93,8 +95,8 @@ export component EditorInput inherits InputSurface {
         }
         root.begin-edit();
         let accepted = root.accepted(text);
-        if accepted && normalize && root.normalize-accepted {
-            input.text = root.normalized(text);
+        if accepted && normalize {
+            input.text = root.normalize-accepted ? root.normalized(text) : text;
             root.edited = false;
         }
         return accepted;
@@ -120,7 +122,7 @@ export component EditorInput inherits InputSurface {
             viewport := Rectangle {
                 min-width: 0px;
                 horizontal-stretch: 1;
-                height: parent.height - (root.multiline ? 2 * root.style.padding-inline : 0px);
+                height: parent.height - (root.multiline ? 2 * root.padding-block : 0px);
                 clip: true;
 
                 input := TextInput {
@@ -145,19 +147,25 @@ export component EditorInput inherits InputSurface {
                     key-pressed(event) => { return root.keyboard(event); }
                     cursor-position-changed(position) => {
                         if root.multiline {
-                            let line-height = root.style.text.size * 1.5;
-                            root.scroll-offset = max(0px, min(position.y, max(root.scroll-offset, position.y + line-height - viewport.height)));
+                            let line-height = self.font-metrics.ascent - self.font-metrics.descent;
+                            let maximum = max(0px, self.height - viewport.height);
+                            if position.y < root.scroll-offset {
+                                root.scroll-offset = clamp(position.y, 0px, maximum);
+                            } else if position.y + line-height > root.scroll-offset + viewport.height {
+                                root.scroll-offset = clamp(position.y + line-height - viewport.height, 0px, maximum);
+                            }
                         }
                     }
 
-                    if input.text == "": Text {
+                    if input.text == "": placeholder-text := Text {
                         x: 0px; y: 0px;
                         width: parent.width; height: parent.height;
                         horizontal-alignment: root.horizontal-alignment;
                         text: root.placeholder;
                         color: root.style.appearance.muted;
                         font-size: root.style.text.size;
-                        vertical-alignment: center;
+                        vertical-alignment: root.multiline ? top : center;
+                        font-weight: root.style.text.weight;
                     }
 
                     edited => {
@@ -188,7 +196,7 @@ export component EditorInput inherits InputSurface {
                             root.active-commit-key = root.commit-key;
                             if root.select-all-on-focus { self.select-all(); }
                         }
-                        if !self.has-focus && self.text != root.value {
+                        if !self.has-focus && root.edited && self.text != root.value {
                             if !root.accept-input(self.text, true) {
                                 self.text = root.value;
                             }

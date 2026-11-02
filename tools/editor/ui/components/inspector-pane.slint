@@ -21,6 +21,7 @@ export component InspectorPane inherits Rectangle {
     in property <InspectorStyle> style: Style.inspector-layout;
     out property <bool> palette-drag-in-outline: outline-pane.palette-drag-in-outline;
 
+    callback history-key(KeyEvent) -> EventResult;
     callback outline-drag-started();
     callback outline-pane-resized(length);
     callback outline-pane-reset();
@@ -84,9 +85,9 @@ export component InspectorPane inherits Rectangle {
 
                 if InspectorContext.has-backend-rect(): InspectorGeometrySection { }
 
-                if InspectorContext.is-title-selection(): InspectorTitleSection { }
+                if InspectorContext.is-title-selection(): InspectorTitleSection { history-key(event) => { return root.history-key(event); } }
 
-                if InspectorContext.has-text-property-selection(): InspectorTextContentSection { }
+                if InspectorContext.has-text-property-selection(): InspectorTextContentSection { history-key(event) => { return root.history-key(event); } }
 
                 if ((InspectorContext.is-root-selection() && !InspectorContext.is-title-selection()) || InspectorContext.is-rectangle-selection()): InspectorAppearanceSection {
                     pane-width: root.width;

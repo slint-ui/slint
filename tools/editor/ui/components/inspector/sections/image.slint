@@ -69,6 +69,7 @@ export component InspectorImageSection inherits InspectorSection {
             HorizontalLayout {
                 spacing: Metrics.space-compact;
                 fit-combo := InspectorComboBox {
+                    commit-key: InspectorContext.inspector-key;
                     accessible-name: @tr("Image fit");
                     value: root.fit;
                     selected-index: InspectorEnumOptions.option-index("image-fit", "fill", InspectorEnumOptions.image-fit-options);
@@ -132,6 +133,7 @@ export component InspectorImageSection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Image rendering");
                 value: InspectorEnumOptions.option-value("image-rendering", "smooth", InspectorEnumOptions.image-rendering-options);
                 selected-index: InspectorEnumOptions.option-index("image-rendering", "smooth", InspectorEnumOptions.image-rendering-options);
@@ -190,6 +192,7 @@ export component InspectorImageSection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Horizontal tiling");
                 value: InspectorEnumOptions.option-value("horizontal-tiling", "none", InspectorEnumOptions.image-tiling-options);
                 selected-index: InspectorEnumOptions.option-index("horizontal-tiling", "none", InspectorEnumOptions.image-tiling-options);
@@ -222,6 +225,7 @@ export component InspectorImageSection inherits InspectorSection {
             }
 
             InspectorComboBox {
+                commit-key: InspectorContext.inspector-key;
                 accessible-name: @tr("Vertical tiling");
                 value: InspectorEnumOptions.option-value("vertical-tiling", "none", InspectorEnumOptions.image-tiling-options);
                 selected-index: InspectorEnumOptions.option-index("vertical-tiling", "none", InspectorEnumOptions.image-tiling-options);

@@ -41,7 +41,7 @@ export component InspectorSpinField inherits InputSurface {
     function change-value(delta: float) {
         let value = field.input-focused && field.input-value.is-float()
             ? field.input-value.to-float() : root.number;
-        root.accepted("\{max(root.minimum, value + delta)}");
+        field.commit-value("\{max(root.minimum, value + delta)}");
     }
 
     FocusScope {

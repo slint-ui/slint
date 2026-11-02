@@ -4,7 +4,6 @@
 import { Style, Colors, Metrics, ComboMenuStyle } from "../../style.slint";
 import { Api } from "../../api.slint";
 import { InspectorComboOption } from "control-data.slint";
-import { InspectorContext } from "sections/context.slint";
 import { EditorWindow } from "../index.slint";
 
 import { InputSurface } from "../input-surface.slint";
@@ -19,7 +18,7 @@ export component InspectorComboBox inherits InputSurface {
     in property <[InspectorComboOption]> options;
     in property <bool> wide: false;
     in property <bool> popup-above;
-    in property <string> commit-key: InspectorContext.inspector-key;
+    in property <string> commit-key;
     out property <bool> expanded: popup.is-open;
     callback accepted(string) -> bool;
     out property <string> preview-value: root.expanded && root.highlighted-index >= 0 && root.highlighted-index < root.options.length
@@ -28,7 +27,7 @@ export component InspectorComboBox inherits InputSurface {
     hovered: field-touch.has-hover;
     forward-focus: combo-focus;
 
-    preferred-width: root.options-width;
+    preferred-width: root.wide ? 0px : root.options-width;
     min-width: root.wide ? 0px : root.options-width;
     horizontal-stretch: root.wide ? 1 : 0;
     states [
@@ -118,7 +117,7 @@ export component InspectorComboBox inherits InputSurface {
         clip: true;
 
         options-measure := VerticalLayout {
-            for option in root.options: Text {
+            for option in (root.wide ? [] : root.options): Text {
                 text: option.label;
                 font-size: root.style.text.size;
             }

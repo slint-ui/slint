@@ -13,6 +13,7 @@ use slint::{
 slint::slint! {
     #[edition = "1.19"]
     import { InspectorTextFieldBase } from "../ui/components/inspector/text-field-base.slint";
+    import { Style, FieldStyle } from "../ui/style.slint";
 
     export component InspectorInputTest inherits Window {
         width: 200px;
@@ -23,6 +24,97 @@ slint::slint! {
         field := InspectorTextFieldBase {
             value: "Inter";
             accepted(text) => { return true; }
+        }
+    }
+    export component MultilineInputTest inherits Window {
+        width: 240px;
+        height: 120px;
+        in property <length> test-font-size: 12px;
+        in property <string> test-font-family: "serif";
+        default-font-family: root.test-font-family;
+        private property <FieldStyle> input-style: Style.field;
+        init => {
+            root.input-style.text.size = root.test-font-size;
+            root.input-style.appearance.muted = root.input-style.appearance.normal.foreground;
+        }
+        changed test-font-size => { root.input-style.text.size = root.test-font-size; }
+        public function blur() { focus-target.focus(); }
+        focus-target := FocusScope { x: 230px; width: 1px; height: 1px; }
+        field := InspectorTextFieldBase {
+            width: 220px;
+            height: 100px;
+            style: root.input-style;
+            multiline: true;
+            accessible-name: "Multiline";
+            placeholder: "Type here";
+            accepted(text) => { return true; }
+        }
+    }
+}
+
+#[test]
+fn multiline_placeholder_and_scrolling_follow_font_metrics() {
+    use slint::platform::Key;
+
+    slint::platform::set_platform(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            renderer_name: Some("software".into()),
+        },
+    )))
+    .unwrap();
+    for family in ["serif", "monospace"] {
+        for size in [12., 24.] {
+            let editor = MultilineInputTest::new().unwrap();
+            editor.set_test_font_family(family.into());
+            editor.set_test_font_size(size);
+            editor.show().unwrap();
+            slint::platform::update_timers_and_animations();
+            let find = |id| {
+                i_slint_backend_testing::ElementHandle::find_by_element_id(&editor, id)
+                    .next()
+                    .unwrap()
+            };
+            let input = find("EditorInput::input");
+            let viewport = find("EditorInput::viewport");
+            let placeholder = find("EditorInput::placeholder-text");
+            assert_eq!(placeholder.absolute_position().y, input.absolute_position().y);
+            let before = editor.window().take_snapshot().unwrap();
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Multiline")
+                .next()
+                .unwrap()
+                .invoke_accessible_default_action();
+            let key = |text: slint::SharedString| {
+                editor.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+                editor.window().dispatch_event(WindowEvent::KeyReleased { text });
+                slint::platform::update_timers_and_animations();
+            };
+            key("Type here".into());
+            editor.invoke_blur();
+            slint::platform::update_timers_and_animations();
+            let after = editor.window().take_snapshot().unwrap();
+            assert!(
+                before.as_bytes() == after.as_bytes(),
+                "placeholder shifts for {family}, size {size}"
+            );
+            i_slint_backend_testing::ElementHandle::find_by_accessible_label(&editor, "Multiline")
+                .next()
+                .unwrap()
+                .invoke_accessible_default_action();
+            for _ in 0..20 {
+                key("Line".into());
+                key(Key::Return.into());
+            }
+            assert!(input.absolute_position().y < viewport.absolute_position().y);
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+            key(if cfg!(target_os = "macos") { Key::UpArrow } else { Key::Home }.into());
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+            assert_eq!(input.absolute_position().y, viewport.absolute_position().y);
+            editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Control.into() });
+            key(if cfg!(target_os = "macos") { Key::DownArrow } else { Key::End }.into());
+            editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Control.into() });
+            assert!(input.absolute_position().y < viewport.absolute_position().y);
         }
     }
 }

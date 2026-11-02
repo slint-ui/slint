@@ -7,7 +7,6 @@ import { Style, Metrics, Typography, Colors } from "../../style.slint";
 import { FloatingSurface } from "../floating-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { InspectorIconButton } from "icon-button.slint";
-import { FillSession } from "fill-session.slint";
 
 export component InspectorStringField inherits Rectangle {
     in property <string> accessible-name;
@@ -19,6 +18,8 @@ export component InspectorStringField inherits Rectangle {
     callback accepted(string) -> bool;
     callback preview(string) -> bool;
     callback canceled();
+    callback history-key(KeyEvent) -> EventResult;
+    history-key(event) => { return reject; }
     private property <bool> plain-text: root.source-value.kind == PropertyValueKind.string || root.source-value.code == "";
     private property <string> value: root.plain-text
         ? (root.source-value.code == "" ? root.default-value : root.source-value.value-string)
@@ -73,18 +74,14 @@ export component InspectorStringField inherits Rectangle {
             commit-key: root.commit-key;
             accepted(text) => { return root.accept-value(text); }
             text-edited(text) => { root.preview-value(text); }
+            focus-lost => { if !root.expanded-open { root.cancel-preview(); } }
             keyboard(event) => {
                 if event.text == Key.Escape {
                     root.cancel-preview();
                     self.take-draft();
                     return accept;
                 }
-                let redo-y = Platform.os == OperatingSystemType.windows && (event.text == "y" || event.text == "Y");
-                if !self.has-uncommitted-edits && (event.modifiers.control || event.modifiers.meta)
-                    && (event.text == "z" || event.text == "Z" || redo-y) {
-                    FillSession.apply-history(event.modifiers.shift || redo-y);
-                    return accept;
-                }
+                if !self.has-uncommitted-edits { return root.history-key(event); }
                 return reject;
             }
         }
@@ -96,10 +93,10 @@ export component InspectorStringField inherits Rectangle {
             clicked => {
                 root.draft = field.take-draft();
                 root.editing-key = root.commit-key;
-                root.preview-value(root.draft);
                 expanded.show();
+                root.preview-value(root.draft);
             }
-            Tooltip { text: @markdown("Expand text editor"); }
+            Tooltip { text: @markdown("\{@tr("Expand text editor")}"); }
         }
     }
 
@@ -109,6 +106,7 @@ export component InspectorStringField inherits Rectangle {
         width: 400px;
         height: 300px;
         forward-focus: editor;
+        close-policy: close-on-click-outside;
 
         FloatingSurface {
             background: Style.floating-surface.background;

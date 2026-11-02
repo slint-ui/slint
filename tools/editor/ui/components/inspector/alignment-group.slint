@@ -80,7 +80,7 @@ export component InspectorAlignmentGroup inherits Rectangle {
             icon: root.vertical
                 ? [@image-url("../../assets/lucide/align-start-horizontal.svg"), @image-url("../../assets/lucide/align-center-horizontal.svg"), @image-url("../../assets/lucide/align-end-horizontal.svg")][index]
                 : [@image-url("../../assets/lucide/text-align-start.svg"), @image-url("../../assets/lucide/text-align-center.svg"), @image-url("../../assets/lucide/text-align-end.svg")][index];
-            clicked => { if root.selected-index != index { root.chosen(index); } }
+            clicked => { root.chosen(index); }
         }
     }
 }

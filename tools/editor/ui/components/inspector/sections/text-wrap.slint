@@ -15,6 +15,7 @@ export component InspectorTextWrapSection inherits InspectorSection {
         spacing: Metrics.space-compact;
 
         InspectorComboBox {
+            commit-key: InspectorContext.inspector-key;
             accessible-name: @tr("Text Wrap");
             value: InspectorEnumOptions.option-label("wrap", "no-wrap", InspectorEnumOptions.text-word-wrap-options);
             selected-index: InspectorEnumOptions.option-index("wrap", "no-wrap", InspectorEnumOptions.text-word-wrap-options);
