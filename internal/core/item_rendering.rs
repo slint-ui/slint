@@ -166,12 +166,16 @@ impl<T> ItemCache<T> {
         self.map.borrow().is_empty()
     }
 
-    /// Keeps only the entries for which `f` returns true.
-    pub fn retain(&self, mut f: impl FnMut(&T) -> bool) {
-        self.map.borrow_mut().retain(|_, per_component| {
-            per_component.retain(|_, entry| f(&entry.data));
-            !per_component.is_empty()
-        });
+    /// Calls `f` on every cached value.
+    ///
+    /// Use this to shrink values in place rather than removing their entries:
+    /// whatever depends on an entry is only notified of later changes while the entry exists.
+    pub fn for_each_mut(&self, mut f: impl FnMut(&mut T)) {
+        for per_component in self.map.borrow_mut().values_mut() {
+            for entry in per_component.values_mut() {
+                f(&mut entry.data);
+            }
+        }
     }
 
     /// Returns a [`RefMut`](std::cell::RefMut) referencing the cached value associated with
@@ -186,6 +190,19 @@ impl<T> ItemCache<T> {
         item_rc: &ItemRc,
         update_fn: impl FnOnce() -> T,
     ) -> std::cell::RefMut<'_, T> {
+        self.get_or_update_cache_entry_ref_unless(item_rc, update_fn, |_| false)
+    }
+
+    /// Like [`Self::get_or_update_cache_entry_ref`], but also computes the value again when
+    /// `is_stale` returns `true` for the cached one.
+    ///
+    /// The entry is updated in place, so whatever depends on it keeps being notified of changes.
+    pub fn get_or_update_cache_entry_ref_unless(
+        &self,
+        item_rc: &ItemRc,
+        update_fn: impl FnOnce() -> T,
+        is_stale: impl FnOnce(&T) -> bool,
+    ) -> std::cell::RefMut<'_, T> {
         let component = &(**item_rc.item_tree()) as *const _;
         let index = item_rc.index();
 
@@ -193,12 +210,17 @@ impl<T> ItemCache<T> {
             let mut borrowed = self.map.borrow_mut();
             match borrowed.entry(component).or_default().entry(index) {
                 std::collections::hash_map::Entry::Occupied(mut entry) => {
-                    let mut tracker = entry.get_mut().dependency_tracker.take();
+                    let entry = entry.get_mut();
+                    let stale = is_stale(&entry.data);
+                    let mut tracker = entry.dependency_tracker.take();
                     drop(borrowed);
-                    let maybe_new_data = tracker
-                        .get_or_insert_with(|| Box::pin(Default::default()))
-                        .as_ref()
-                        .evaluate_if_dirty(update_fn);
+                    let pinned_tracker =
+                        tracker.get_or_insert_with(|| Box::pin(Default::default())).as_ref();
+                    let maybe_new_data = if stale {
+                        Some(pinned_tracker.evaluate(update_fn))
+                    } else {
+                        pinned_tracker.evaluate_if_dirty(update_fn)
+                    };
                     let mut borrowed = self.map.borrow_mut();
                     let e = borrowed.get_mut(&component).unwrap().get_mut(&index).unwrap();
                     e.dependency_tracker = tracker;

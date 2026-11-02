@@ -140,6 +140,10 @@ export global InspectorContext {
         return InspectorContext.has-backend-rect() && InspectorContext.element-information.type-name == "StandardButton";
     }
 
+    public pure function is-primary-selection() -> bool {
+        return InspectorContext.is-button-selection() || InspectorContext.is-standard-button-selection();
+    }
+
     public pure function is-interaction-selection() -> bool {
         return Api.selection.highlight-index >= 0
             && Api.has-property("enabled");

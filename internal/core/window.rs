@@ -388,6 +388,9 @@ pub struct InputMethodProperties {
     pub input_type: InputType,
     /// The hints for the input method for the text edit.
     pub input_method_hints: InputMethodHints,
+    /// Whether the item is a single-line field such as a `LineEdit`, not a multi-line editor.
+    /// The input method picks the keyboard layout and the action key from it.
+    pub single_line: bool,
     /// The clip rect in window coordinates
     pub clip_rect: Option<LogicalRect>,
 }

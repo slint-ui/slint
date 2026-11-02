@@ -6,6 +6,7 @@ actionchip
 addrs
 adipiscing
 Adressliste
+Adwaita
 aiohttp
 alignas
 alignof

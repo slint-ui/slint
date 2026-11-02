@@ -272,9 +272,14 @@ bind_java_type! {
             get = TYPE_TEXT_FLAG_AUTO_CORRECT,
         },
         #[allow(non_snake_case)]
-        static TYPE_TEXT_FLAG_AUTO_COMPLETE {
+        static TYPE_TEXT_FLAG_MULTI_LINE {
             sig = jint,
-            get = TYPE_TEXT_FLAG_AUTO_COMPLETE,
+            get = TYPE_TEXT_FLAG_MULTI_LINE,
+        },
+        #[allow(non_snake_case)]
+        static TYPE_TEXT_FLAG_NO_SUGGESTIONS {
+            sig = jint,
+            get = TYPE_TEXT_FLAG_NO_SUGGESTIONS,
         },
     }
 }
@@ -489,18 +494,27 @@ impl JavaHelper {
                     } else {
                         0 as jint
                     };
-                    let auto_complete_flag = if hints.auto_complete {
-                        AndroidInputType::TYPE_TEXT_FLAG_AUTO_COMPLETE(env)?
-                    } else {
+                    // Not TYPE_TEXT_FLAG_AUTO_COMPLETE: it asks the input method not to show its own
+                    // candidates and to expect completions from the app, which Slint doesn't provide.
+                    let no_suggestions_flag = if hints.auto_complete {
                         0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
+                    };
+                    let multi_line_flag = if data.single_line {
+                        0 as jint
+                    } else {
+                        AndroidInputType::TYPE_TEXT_FLAG_MULTI_LINE(env)?
                     };
                     AndroidInputType::TYPE_CLASS_TEXT(env)?
                         | capitalization_flag
                         | auto_correct_flag
-                        | auto_complete_flag
+                        | no_suggestions_flag
+                        | multi_line_flag
                 }
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
+                        | AndroidInputType::TYPE_TEXT_FLAG_NO_SUGGESTIONS(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
                 }
                 InputType::Number => AndroidInputType::TYPE_CLASS_NUMBER(env)?,

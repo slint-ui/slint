@@ -388,12 +388,14 @@ export class ArrayModel<T> extends Model<T> {
     }
 }
 
+const nativeModelKey = Symbol.for("slint.nativeModel");
+
 /**
  * @hidden
  * Base class for the Reverse/Filter/Sort/MapModel adapters, whose row-mapping
  * bookkeeping runs natively in Rust behind a shared `napi.NativeModel`
  * handle. Centralizes the delegation to that handle, including the
- * `__slintNativeModel` property the native side uses to recognize a source
+ * `nativeModelKey`-keyed getter the native side uses to recognize a source
  * model as backed by a native adapter and reuse its backing directly
  * instead of treating it as an opaque JS model.
  * A subclass that overrides a row method is treated as an opaque JS model,
@@ -419,10 +421,7 @@ abstract class NativeAdapterModel<T> extends Model<T> {
         return this.#native;
     }
 
-    /**
-     * @hidden
-     */
-    get __slintNativeModel(): napi.NativeModel | undefined {
+    get [nativeModelKey](): napi.NativeModel | undefined {
         const adapter = this.#adapterPrototype;
         const overridden =
             this.rowCount !== adapter.rowCount ||

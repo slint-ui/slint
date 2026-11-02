@@ -61,7 +61,7 @@ mcp = ["dep:i-slint-backend-testing", "i-slint-backend-selector/mcp"]
 live-preview = ["dep:i-slint-live-preview"]
 
 [dependencies]
-napi = { version = "3", default-features = false, features = ["napi8"] }
+napi = { version = "3", default-features = false, features = ["napi9"] }
 napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default", "gettext-rs", "image-decoders", "svg"] }

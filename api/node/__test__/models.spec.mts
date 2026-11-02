@@ -663,6 +663,15 @@ test("Model.map/.filter/.sort/.reverse compose into a chained view", () => {
     // automatically.
     source.push(10);
     expect(Array.from(chained)).toEqual([20, 40, 60, 80, 100]);
+
+    // Only the outermost adapter runs its JS rowData; the chain reads its sources natively.
+    const rowData = vi.spyOn(
+        Object.getPrototypeOf(FilterModel.prototype),
+        "rowData",
+    );
+    expect(chained.rowData(0)).toBe(20);
+    expect(rowData).toHaveBeenCalledTimes(1);
+    rowData.mockRestore();
 });
 
 test("ReverseModel notifies the run-time", () => {

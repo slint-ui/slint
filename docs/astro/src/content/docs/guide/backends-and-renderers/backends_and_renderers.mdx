@@ -80,7 +80,6 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
 - Some features haven't been implemented yet:
   * No support for rotations or scaling.
   * No support for `inner-shadow-*` properties.
-  * No support for `border-radius` in combination with `clip: true`.
   * No text stroking/outlining in bitmap/embedded fonts.
 - Text rendering currently limited to western scripts.
 - `Path` elements in `no_std` environments requires enabling the `software-renderer-path` feature.
@@ -91,6 +90,8 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
 
  - Highly portable.
  - GPU acceleration with OpenGL (required). When selected as `renderer-femtovg-wgpu`, GPU acceleration with Metal, Vulkan, and Direct3D.
+ - On Windows, transparent windows with `renderer-femtovg-wgpu` need Direct3D, since most Vulkan drivers there only support opaque windows.
+   Call `require_d3d()` on the `BackendSelector`, or set `WGPU_BACKEND=dx12`.
  - Text and path rendering quality sometimes sub-optimal.
  - Available in the <Link type="WinitBackend" label="Winit backend" /> and <Link type="LinuxkmsBackend" label="LinuxKMS backend" />.
  - Public <LangRefLink lang="rust-slint" relpath="platform/femtovg_renderer/">Rust</LangRefLink> API.
