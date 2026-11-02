@@ -3,7 +3,7 @@
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
-// cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
+// cspell:ignore accesskit borderless capslock corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
 #[cfg(target_os = "macos")]
@@ -1618,6 +1618,20 @@ impl WinitWindowAdapter {
                 };
 
                 self.dispatch_internal_event(event);
+            }
+            WinitWindowEvent::ModifiersChanged(modifiers) => {
+                // A modifier's release can arrive as a key that doesn't map to the modifier,
+                // such as Shift's `Caps_Lock` level with xkb's `shift:both_capslock_cancel` (#14429).
+                let state = modifiers.state();
+                let mut held = corelib::items::KeyboardModifiers::default();
+                held.alt = state.alt_key();
+                held.shift = state.shift_key();
+                (held.control, held.meta) = if i_slint_core::is_apple_platform() {
+                    (state.super_key(), state.control_key())
+                } else {
+                    (state.control_key(), state.super_key())
+                };
+                WindowInner::from_pub(self.window()).release_modifiers_not_held(held);
             }
             WinitWindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
                 let event = InternalKeyEvent {
