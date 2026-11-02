@@ -22,7 +22,7 @@ env:
 
 jobs:
     format_fix:
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-4vcpu-ubuntu-2404
         timeout-minutes: 5
         permissions:
             contents: read
@@ -32,7 +32,7 @@ jobs:
         outputs:
             changes: ${{ steps.filter.outputs.changes }}
         steps:
-            - uses: actions/checkout@v7
+            - uses: useblacksmith/checkout@v1
             # paths-filter reads the filter file from the working tree. It gets
             # PR changes from the GitHub API and compares Git refs for other events.
             - uses: dorny/paths-filter@v4
@@ -54,10 +54,10 @@ jobs:
               uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a
 
     lint_typecheck:
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-4vcpu-ubuntu-2404
         timeout-minutes: 5
         steps:
-            - uses: actions/checkout@v7
+            - uses: useblacksmith/checkout@v1
             - uses: jdx/mise-action@v5.2.4
               with:
                 version: 2025.9.18
@@ -81,14 +81,6 @@ jobs:
         with:
             full: false
             changes: ${{ needs.format_fix.outputs.changes }}
-        secrets:
-            ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-            CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-            CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
-            READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
 
     done:
         # Note: We use `needs` + `if: always()` here to ensure the "done"
@@ -100,7 +92,7 @@ jobs:
         needs: [ci, format_fix, lint_typecheck]
         if: ${{ always() }}
         name: done
-        runs-on: ubuntu-latest
+        runs-on: blacksmith-4vcpu-ubuntu-2404
         steps:
             - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
               run: echo "A required check failed or was cancelled! 🌋" && false

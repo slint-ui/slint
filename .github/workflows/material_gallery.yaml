@@ -6,11 +6,6 @@ name: Build an APK and AAB for the gallery example
 on:
   workflow_dispatch:
   workflow_call:
-    secrets:
-      ANDROID_KEYSTORE_PASSWORD:
-        required: true
-      ANDROID_KEYSTORE_BASE64:
-        required: true
 
 jobs:
   material_gallery_android:
@@ -19,8 +14,6 @@ jobs:
       CARGO_INCREMENTAL: false
       # xbuild outputs to the workspace's target dir; use the shared repository one
       CARGO_TARGET_DIR: ${{ github.workspace }}/target
-      CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
-      CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -63,11 +56,6 @@ jobs:
       - name: Add NDK LLVM to PATH
         if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
         run: echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
-      - name: Dump keystore
-        if: steps.cache-apk.outputs.cache-hit != 'true' || steps.cache-aab.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p /home/runner/.android
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
 
       # 4. Tool Caching & Installation
       - name: Cache xbuild

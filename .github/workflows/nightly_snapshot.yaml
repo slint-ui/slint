@@ -59,10 +59,8 @@ jobs:
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     docs:
         uses: ./.github/workflows/build_docs.yaml
-        secrets: inherit
         with:
           release: ${{ github.event.inputs.mode == 'release' }}
-          app-id: ${{ vars.READ_WRITE_APP_ID }}
           slint-sc-coverage: true
 
     wasm_demo:

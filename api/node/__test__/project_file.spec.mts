@@ -28,44 +28,58 @@ function writeMain(directory: string, source: string): string {
     return main;
 }
 
-test("include paths come from the project file", () => {
-    const directory = projectDirectory({
-        main: "main.slint",
-        "include-paths": ["include"],
-    });
-    fs.mkdirSync(path.join(directory, "include"));
-    fs.writeFileSync(
-        path.join(directory, "include", "shared.slint"),
-        "export component Shared { }",
-    );
+test.each(["directory", "manifest"])(
+    "include paths come from the project file (%s)",
+    (projectInput) => {
+        const directory = projectDirectory({
+            main: "main.slint",
+            "include-paths": ["include"],
+        });
+        fs.mkdirSync(path.join(directory, "include"));
+        fs.writeFileSync(
+            path.join(directory, "include", "shared.slint"),
+            "export component Shared { }",
+        );
 
-    writeMain(
-        directory,
-        `import { Shared } from "shared.slint";
-         export component Main inherits Window { Shared { } }`,
-    );
+        writeMain(
+            directory,
+            `import { Shared } from "shared.slint";
+             export component Main inherits Window { Shared { } }`,
+        );
 
-    expect(() => loadFile(directory)).not.toThrow();
-});
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
+        expect(() => loadFile(input)).not.toThrow();
+    },
+);
 
-test("library paths come from the project file", () => {
-    const directory = projectDirectory({
-        main: "main.slint",
-        "library-paths": { widgets: "widgets.slint" },
-    });
-    fs.writeFileSync(
-        path.join(directory, "widgets.slint"),
-        "export component Widget { }",
-    );
+test.each(["directory", "manifest"])(
+    "library paths come from the project file (%s)",
+    (projectInput) => {
+        const directory = projectDirectory({
+            main: "main.slint",
+            "library-paths": { widgets: "widgets.slint" },
+        });
+        fs.writeFileSync(
+            path.join(directory, "widgets.slint"),
+            "export component Widget { }",
+        );
 
-    writeMain(
-        directory,
-        `import { Widget } from "@widgets";
-         export component Main inherits Window { Widget { } }`,
-    );
+        writeMain(
+            directory,
+            `import { Widget } from "@widgets";
+             export component Main inherits Window { Widget { } }`,
+        );
 
-    expect(() => loadFile(directory)).not.toThrow();
-});
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
+        expect(() => loadFile(input)).not.toThrow();
+    },
+);
 
 test("a project file that isn't valid json is reported", () => {
     const directory = fs.realpathSync(
@@ -88,41 +102,33 @@ test("a project file that isn't valid json is reported", () => {
     ).toBe(true);
 });
 
-test("loading the project directory loads its main file", () => {
-    const directory = projectDirectory({
-        main: "ui/main.slint",
-        "include-paths": ["include"],
-    });
-    fs.mkdirSync(path.join(directory, "ui"));
-    fs.mkdirSync(path.join(directory, "include"));
-    fs.writeFileSync(
-        path.join(directory, "include", "shared.slint"),
-        "export component Shared { }",
-    );
-    fs.writeFileSync(
-        path.join(directory, "ui", "main.slint"),
-        `import { Shared } from "shared.slint";
-         export component Main inherits Window { Shared { } }`,
-    );
+test.each(["directory", "manifest"])(
+    "loading the project directory loads its main file (%s)",
+    (projectInput) => {
+        const directory = projectDirectory({
+            main: "ui/main.slint",
+            "include-paths": ["include"],
+        });
+        fs.mkdirSync(path.join(directory, "ui"));
+        fs.mkdirSync(path.join(directory, "include"));
+        fs.writeFileSync(
+            path.join(directory, "include", "shared.slint"),
+            "export component Shared { }",
+        );
+        fs.writeFileSync(
+            path.join(directory, "ui", "main.slint"),
+            `import { Shared } from "shared.slint";
+             export component Main inherits Window { Shared { } }`,
+        );
 
-    const ui = loadFile(directory) as any;
-    expect(ui.Main).toBeDefined();
-});
-
-test("loading a project file directly is an error", () => {
-    const directory = projectDirectory({ main: "main.slint" });
-    writeMain(directory, "export component Main inherits Window { }");
-
-    let error: CompileError | undefined;
-    try {
-        loadFile(path.join(directory, "slint-project.json"));
-    } catch (caughtError) {
-        error = caughtError as CompileError;
-    }
-    expect(error?.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
-        `A \`slint-project.json\` cannot be compiled directly; pass its directory instead (${directory})`,
-    ]);
-});
+        const input =
+            projectInput === "directory"
+                ? directory
+                : path.join(directory, "slint-project.json");
+        const ui = loadFile(input) as any;
+        expect(ui.Main).toBeDefined();
+    },
+);
 
 test("loading a slint file ignores its project file", () => {
     const directory = projectDirectory({ main: "elsewhere.slint" });
