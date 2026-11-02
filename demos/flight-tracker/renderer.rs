@@ -7,6 +7,7 @@ use glam::{Mat4, Vec3, Vec4};
 use slint::wgpu_30::wgpu;
 use wgpu::util::DeviceExt;
 
+use crate::compress;
 use crate::map::{self, Map};
 
 /// What one frame of the globe shows, see `Globals` in `globe.wgsl`.
@@ -25,6 +26,7 @@ pub struct Frame {
 pub struct Imagery {
     pub width: u32,
     pub height: u32,
+    pub format: wgpu::TextureFormat,
     pub levels: Vec<Vec<u8>>,
 }
 
@@ -47,8 +49,34 @@ impl Imagery {
         Ok(Self {
             width,
             height,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             levels: levels.into_iter().map(|level| level.into_raw()).collect(),
         })
+    }
+
+    /// Compresses the imagery to a format that `features` support: BC1 on most desktop GPUs,
+    /// ETC2 on most mobile and embedded ones, and otherwise leaves it as it is.
+    pub fn compress(self, features: wgpu::Features) -> Self {
+        let encode: fn(&[u8], usize, usize) -> Vec<u8>;
+        let format;
+        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
+            (encode, format) = (compress::bc1, wgpu::TextureFormat::Bc1RgbaUnormSrgb);
+        } else if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2) {
+            (encode, format) = (compress::etc2, wgpu::TextureFormat::Etc2Rgb8UnormSrgb);
+        } else {
+            return self;
+        }
+        let mut size = (self.width as usize, self.height as usize);
+        let levels = self
+            .levels
+            .iter()
+            .map(|level| {
+                let compressed = encode(level, size.0, size.1);
+                size = ((size.0 / 2).max(1), (size.1 / 2).max(1));
+                compressed
+            })
+            .collect();
+        Self { levels, format, ..self }
     }
 }
 
@@ -102,7 +130,7 @@ impl Renderer {
                 mip_level_count: day.levels.len() as u32,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                format: day.format,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             },
