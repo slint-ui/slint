@@ -13,6 +13,13 @@ import { Preview } from "../preview.slint";
 import { ViewerStyle, Chevron, ViewerIcon } from "viewer-style.slint";
 import { EditorScrollView } from "editor-scroll-view.slint";
 
+enum DeviceManagerPage {
+    SavedDevices,
+    NearbyDevices,
+    ManualAddress,
+    Pairing,
+}
+
 component DeviceAction inherits Rectangle {
     in property <string> label;
     in property <bool> enabled: true;
@@ -73,7 +80,7 @@ component DeviceField inherits EditorInput {
 
 export component DeviceManager inherits Rectangle {
     callback closed();
-    private property <int> page;
+    private property <DeviceManagerPage> page;
     // Index into `Springboard.saved-endpoints`, or -1.
     private property <int> removing: -1;
     private property <length> confirm-x;
@@ -86,14 +93,14 @@ export component DeviceManager inherits Rectangle {
         || Springboard.connection.state == ConnectionState.UnpairedConfirmationRequired;
     private property <bool> connected: Springboard.connection.state == ConnectionState.Connected;
     init => {
-        root.page = root.pairing-required ? 3 : 0;
+        root.page = root.pairing-required ? DeviceManagerPage.Pairing : DeviceManagerPage.SavedDevices;
         Springboard.discover-devices();
     }
-    changed pairing-required => { if root.pairing-required { root.page = 3; } }
+    changed pairing-required => { if root.pairing-required { root.page = DeviceManagerPage.Pairing; } }
     changed connected => {
-        if root.connected && root.page == 3 {
+        if root.connected && root.page == DeviceManagerPage.Pairing {
             root.message = @tr("{} connected", Springboard.selected-endpoint.name);
-            root.page = 0;
+            root.page = DeviceManagerPage.SavedDevices;
         }
     }
     changed host => { root.probe(); }
@@ -102,7 +109,7 @@ export component DeviceManager inherits Rectangle {
     // TODO: only probe once the host is a complete IP address or looks like a
     // host name, not on every keystroke.
     function probe() {
-        if root.page == 2 && root.host != "" && root.port != "" {
+        if root.page == DeviceManagerPage.ManualAddress && root.host != "" && root.port != "" {
             Springboard.probe-address(root.host, root.port.to-float());
         } else {
             Springboard.probe-address("", 0);
@@ -112,7 +119,7 @@ export component DeviceManager inherits Rectangle {
         root.code = "";
         if !Preview.is-running { Preview.run(); }
         Springboard.pair-endpoint(index);
-        root.page = 3;
+        root.page = DeviceManagerPage.Pairing;
     }
 
     TouchArea { }
@@ -125,13 +132,14 @@ export component DeviceManager inherits Rectangle {
         spacing: Metrics.space-regular;
         cross-axis-alignment: center;
 
-        if root.page != 0: back := DeviceAction {
+        if root.page != DeviceManagerPage.SavedDevices: back := DeviceAction {
             width: Metrics.control-compact;
             height: Metrics.control-compact;
             label: @tr("Back");
             activated => {
-                if root.page == 3 { Springboard.cancel-pairing(); }
-                root.page = root.page == 3 ? 1 : 0;
+                if root.page == DeviceManagerPage.Pairing { Springboard.cancel-pairing(); }
+                root.page = root.page == DeviceManagerPage.Pairing
+                    ? DeviceManagerPage.NearbyDevices : DeviceManagerPage.SavedDevices;
             }
             Rectangle {
                 border-radius: Metrics.radius-medium;
@@ -141,7 +149,9 @@ export component DeviceManager inherits Rectangle {
         }
         Text {
             horizontal-stretch: 1;
-            text: root.page == 0 ? @tr("Devices") : root.page == 1 ? @tr("Pair nearby device") : root.page == 2 ? @tr("Enter IP address") : @tr("Pair device");
+            text: root.page == DeviceManagerPage.SavedDevices ? @tr("Devices")
+                : root.page == DeviceManagerPage.NearbyDevices ? @tr("Pair nearby device")
+                : root.page == DeviceManagerPage.ManualAddress ? @tr("Enter IP address") : @tr("Pair device");
             color: ViewerStyle.ink;
             font-size: Typography.heading.size;
             font-weight: Typography.heading.weight;
@@ -170,7 +180,7 @@ export component DeviceManager inherits Rectangle {
         width: parent.width - 2 * Metrics.space-large;
         height: parent.height - self.y - Metrics.space-large;
 
-        if root.page == 0: VerticalLayout {
+        if root.page == DeviceManagerPage.SavedDevices: VerticalLayout {
             spacing: Metrics.space-medium;
             Text {
                 text: root.message != "" ? root.message : @tr("Saved viewers are ready to use.");
@@ -266,11 +276,11 @@ export component DeviceManager inherits Rectangle {
             SoftButton {
                 label: @tr("Pair nearby device");
                 primary: true;
-                activated => { root.page = 1; Springboard.discover-devices(); }
+                activated => { root.page = DeviceManagerPage.NearbyDevices; Springboard.discover-devices(); }
             }
         }
 
-        if root.page == 1: VerticalLayout {
+        if root.page == DeviceManagerPage.NearbyDevices: VerticalLayout {
             spacing: Metrics.space-regular;
             Text {
                 text: @tr("Open Slint Preview on your phone or tablet.\nUse the same Wi-Fi network as this computer.");
@@ -375,7 +385,7 @@ export component DeviceManager inherits Rectangle {
             manual-fallback := DeviceAction {
                 height: Metrics.control-compact;
                 label: @tr("Enter IP address...");
-                activated => { root.page = 2; }
+                activated => { root.page = DeviceManagerPage.ManualAddress; }
                 Rectangle {
                     border-radius: Metrics.radius-medium;
                     background: manual-fallback.hovered ? ViewerStyle.pill-hover : transparent;
@@ -396,7 +406,7 @@ export component DeviceManager inherits Rectangle {
             }
         }
 
-        if root.page == 2: VerticalLayout {
+        if root.page == DeviceManagerPage.ManualAddress: VerticalLayout {
             spacing: Metrics.space-medium;
             Text {
                 text: @tr("Enter the address shown in Slint Preview\non your device.");
@@ -442,13 +452,13 @@ export component DeviceManager inherits Rectangle {
                     if Springboard.manual-endpoint.state == ManualEndpointState.Reachable {
                         if !Preview.is-running { Preview.run(); }
                         Springboard.connect-manual-endpoint();
-                        root.page = 3;
+                        root.page = DeviceManagerPage.Pairing;
                     } else { root.probe(); }
                 }
             }
         }
 
-        if root.page == 3: VerticalLayout {
+        if root.page == DeviceManagerPage.Pairing: VerticalLayout {
             spacing: Metrics.space-medium;
             HorizontalLayout {
                 spacing: Metrics.space-medium;
