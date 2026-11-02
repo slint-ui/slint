@@ -16,6 +16,7 @@ use camera::{Camera, FOV_Y, MIN_RANGE, Pose, surface};
 use flight::{EARTH_RADIUS_KM, Flight};
 use renderer::{Frame, Renderer};
 
+mod adaptive;
 mod atlas;
 mod camera;
 mod compress;
@@ -51,6 +52,13 @@ const MAX_LABELS: usize = 24;
 /// The most physical pixels per logical pixel the globe renders at, so that phones with a
 /// scale factor of 3 render fewer than half the pixels of their full resolution.
 const MAX_GLOBE_SCALE: f32 = 2.0;
+
+/// The most physical pixels per logical pixel the globe renders at in `quality`, before the
+/// adaptive render scale.
+fn globe_density(window: &slint::Window, quality: Quality) -> f32 {
+    let limit = if quality == Quality::Low { 1.0 } else { MAX_GLOBE_SCALE };
+    window.scale_factor().min(limit)
+}
 /// The kiosk flies between airports within `HUB_KM` of a city with at least
 /// `HUB_POPULATION` thousand people.
 const HUB_KM: f32 = 60.0;
@@ -879,22 +887,28 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut frame_count = 0u32;
     let mut fps_window_start = web_time::Instant::now();
     let mut tile_rows = vec![TileItem::default(); TILES];
-    // Counts the frames for the frame rate, and asks for the next frame unless nothing moves.
-    let mut request_redraw = move |app: &AppWindow, demo: &Demo| {
-        frame_count += 1;
-        let elapsed = fps_window_start.elapsed().as_secs_f32();
-        if elapsed >= 0.5 {
-            let fps = frame_count as f32 / elapsed;
-            app.set_fps_text(format!("{fps:.0} fps").into());
-            frame_count = 0;
-            fps_window_start = web_time::Instant::now();
-        }
-        // Only a landed flight outside the kiosk stands still, once the UI shows the landing.
+    let mut adaptive = adaptive::Adaptive::new(app.get_quality(), true);
+    // Only a landed flight outside the kiosk stands still, once the UI shows the landing.
+    let animating = |app: &AppWindow, demo: &Demo| {
         let waiting = demo.stage == Stage::Flight
             && demo.phase == Phase::Arrived
             && demo.phase_time > 1.0
             && !app.get_kiosk();
-        if !waiting || demo.camera.is_moving() {
+        !waiting || demo.camera.is_moving()
+    };
+    // Counts the frames for the frame rate, and asks for the next frame unless nothing moves.
+    let mut request_redraw = move |app: &AppWindow, demo: &Demo, scale: f32| {
+        frame_count += 1;
+        let elapsed = fps_window_start.elapsed().as_secs_f32();
+        if elapsed >= 0.5 {
+            let fps = frame_count as f32 / elapsed;
+            let quality = format!("{:?}", app.get_quality()).to_lowercase();
+            let scale = (scale * 100.0).round();
+            app.set_fps_text(format!("{quality} · {scale}% · {fps:.0} fps").into());
+            frame_count = 0;
+            fps_window_start = web_time::Instant::now();
+        }
+        if animating(app, demo) {
             app.window().request_redraw();
         }
     };
@@ -937,6 +951,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let aspect = size.x / size.y.max(1.0);
         demo.step(app.get_kiosk(), aspect, dt);
         demo.update_camera(aspect, size.y, dt);
+
+        let quality = app.get_quality();
+        if let Some(lower) =
+            adaptive.frame(quality, app.get_auto_quality(), true, animating(&app, demo))
+        {
+            app.set_quality(lower);
+        }
+        let scale = adaptive.scale();
+        let density = globe_density(window, app.get_quality()) * scale;
 
         let view_projection = demo.camera.pose.view_projection(aspect);
         let eye = demo.camera.pose.eye();
@@ -1009,7 +1032,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let tile_size = Vec2::new(app.get_tile_width(), app.get_tile_height());
             // Each tile shows the middle of a globe rendered for the whole window.
             let cover = (tile_size / size).max_element();
-            let pixels = size * cover * window.scale_factor().min(MAX_GLOBE_SCALE);
+            let pixels = size * cover * density;
             let mut render = vec![demo.next_tile];
             demo.next_tile = (demo.next_tile + 1) % TILES;
             if demo.stage == Stage::ZoomingOut {
@@ -1036,12 +1059,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             update_rows(&tiles, tile_rows.clone());
         }
         if demo.stage == Stage::Board {
-            request_redraw(&app, demo);
+            request_redraw(&app, demo, scale);
             return;
         }
 
         // The `Image` under the UI stretches the frame over the window.
-        let pixels = size * window.scale_factor().min(MAX_GLOBE_SCALE);
+        let pixels = size * density;
         let texture = frames.texture(device, (pixels.x as u32).max(1), (pixels.y as u32).max(1));
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(FRAME_VIEW_FORMAT),
@@ -1052,7 +1075,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             app.set_texture(image);
         }
 
-        request_redraw(&app, demo);
+        request_redraw(&app, demo, scale);
     })?;
 
     app.run()?;
