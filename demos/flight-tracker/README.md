@@ -7,7 +7,7 @@ wgpu renders the globe, and Slint draws the route, the aircraft, the airports, t
 The globe shows the day and night sides as they are right now, with the lights of the cities on the night side.
 
 The demo starts with the planner beside the globe, which floats over a pattern that Slint draws.
-Pick the origin and the destination, and the globe turns to show the route.
+The globe turns slowly, and shows the route of the flight you pick as it comes around.
 Take off, and the globe grows to fill the window as the flight boards.
 After landing, the globe shrinks back beside the planner, and the next flight starts where this one landed.
 On its own, the demo picks the flights like a kiosk, and during a flight it switches between following the aircraft, showing the whole route, and showing the globe.
