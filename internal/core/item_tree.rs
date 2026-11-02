@@ -6,6 +6,7 @@
 //! This module contains the ItemTree and code that helps navigating it
 
 use crate::SharedString;
+use crate::SharedVector;
 use crate::SlintContext;
 use crate::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
@@ -38,6 +39,26 @@ impl From<core::ops::Range<usize>> for IndexRange {
 impl From<IndexRange> for core::ops::Range<usize> {
     fn from(r: IndexRange) -> Self {
         Self { start: r.start, end: r.end }
+    }
+}
+
+/// A property of an element with its current value.
+#[repr(C)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct InspectableProperty {
+    pub name: SharedString,
+    /// The property's type, as spelled in `.slint`.
+    pub ty: SharedString,
+    /// In the encoding of [`crate::debug_info`].
+    /// Empty for a type without one, which `has_value` tells apart from an empty string.
+    pub value: SharedString,
+    pub has_value: bool,
+}
+
+impl InspectableProperty {
+    /// The value, or `None` for a type without an encoding.
+    pub fn value(&self) -> Option<&SharedString> {
+        self.has_value.then_some(&self.value)
     }
 }
 
@@ -146,7 +167,7 @@ pub struct ItemTreeVTable {
         result: &mut SharedString,
     ) -> bool,
 
-    /// Writes the names and types of the given item's testable properties into `result`,
+    /// Writes the names and types of the given item's `@testable` properties into `result`,
     /// one `name:type` pair per line.
     /// Returns false when the item tree carries no testable-property debug info
     /// (built without `SLINT_EMIT_DEBUG_INFO`).
@@ -167,6 +188,15 @@ pub struct ItemTreeVTable {
         item_index: u32,
         property_name: Slice<u8>,
         result: &mut SharedString,
+    ) -> bool,
+
+    /// Writes every property of the given item that exists at runtime, with its current value,
+    /// into `result`, for inspection tools.
+    /// Returns false when the item tree doesn't support inspection.
+    pub element_inspectable_properties: extern "C" fn(
+        ::core::pin::Pin<VRef<ItemTreeVTable>>,
+        item_index: u32,
+        result: &mut SharedVector<InspectableProperty>,
     ) -> bool,
 
     /// Returns a Window, creating a fresh one if `do_create` is true.
@@ -695,6 +725,17 @@ impl ItemRc {
                 Slice::from_slice(name.as_bytes()),
                 &mut result,
             )
+            .then_some(result)
+    }
+
+    /// Every property of this item's element that exists at runtime, with its current value.
+    /// `None` when the item tree doesn't support inspection.
+    pub fn element_inspectable_properties(&self) -> Option<SharedVector<InspectableProperty>> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.item_tree);
+        let mut result = SharedVector::default();
+        comp_ref_pin
+            .as_ref()
+            .element_inspectable_properties(self.index, &mut result)
             .then_some(result)
     }
 
@@ -1981,6 +2022,14 @@ mod tests {
             false
         }
 
+        fn element_inspectable_properties(
+            self: Pin<&Self>,
+            _: u32,
+            _: &mut SharedVector<InspectableProperty>,
+        ) -> bool {
+            false
+        }
+
         fn window_adapter(
             self: Pin<&Self>,
             _do_create: bool,
@@ -2965,6 +3014,14 @@ mod tests {
             _index: u32,
             _property_name: Slice<u8>,
             _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
+        fn element_inspectable_properties(
+            self: Pin<&Self>,
+            _index: u32,
+            _result: &mut SharedVector<InspectableProperty>,
         ) -> bool {
             false
         }

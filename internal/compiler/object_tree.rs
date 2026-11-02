@@ -874,7 +874,7 @@ pub struct PropertyDeclaration {
     /// Declared `@shadowable`, so an inheriting component may shadow it.
     pub shadowable: bool,
     /// Declared `@testable`: the property is guaranteed to appear in the testable-property
-    /// introspection channel (see [`crate::llr::TestableProperty`]), regardless of its
+    /// introspection channel (see [`crate::llr::ElementProperty`]), regardless of its
     /// visibility or whether the document reads it.
     pub testable: bool,
     /// The name the declaration had on the element it was moved from, when the
@@ -1265,6 +1265,35 @@ impl ElementDebugInfo {
     }
 }
 
+/// The element an injected element implements properties of, and those properties.
+#[derive(Debug, Clone)]
+pub struct InjectedFor {
+    pub element: ElementWeak,
+    pub properties: Vec<InjectedProperty>,
+}
+
+/// A property of an injected element that holds a property of the element it was injected for.
+#[derive(Debug, Clone)]
+pub struct InjectedProperty {
+    /// The property on the injected element.
+    pub property: SmolStr,
+    /// The name the source uses on the element it was injected for, such as `drop-shadow-blur`.
+    pub source_name: SmolStr,
+    /// The injected property holds the negation, as the `Clip` implementing `visible` does.
+    pub negated: bool,
+}
+
+impl InjectedProperty {
+    pub fn same_name(name: impl Into<SmolStr>) -> Self {
+        let name = name.into();
+        Self::renamed(name.clone(), name)
+    }
+
+    pub fn renamed(property: impl Into<SmolStr>, source_name: impl Into<SmolStr>) -> Self {
+        Self { property: property.into(), source_name: source_name.into(), negated: false }
+    }
+}
+
 /// An Element is an instantiation of a Component
 #[derive(Default)]
 pub struct Element {
@@ -1372,6 +1401,10 @@ pub struct Element {
 
     /// True for compiler-generated tooltip `PopupWindow` instances (see `lower_tooltips`).
     pub is_tooltip: bool,
+
+    /// Set on an element a pass injected to implement properties of another element,
+    /// such as the `Opacity` wrapping an element that sets `opacity`.
+    pub injected_for: Option<InjectedFor>,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.

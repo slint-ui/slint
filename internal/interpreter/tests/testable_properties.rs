@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Reading `@testable` properties back through `ElementHandle` under the interpreter.
-//! The same source and expectations run against generated Rust code in
+//! Reading `@testable` and inspectable properties back under the interpreter.
+//! The `@testable` source and expectations also run against generated Rust code in
 //! `tests/cases/testing/testable_properties.slint`, keeping the two runtimes'
 //! encodings identical.
 //!
@@ -10,8 +10,9 @@
 //! whole process before building: every test in this file shares `SOURCE`, and none
 //! of them exercises the "experimental disabled" rejection path.
 
-use i_slint_backend_testing::ElementHandle;
+use i_slint_backend_testing::{ElementHandle, ElementQuery, inspectable_properties};
 use slint_interpreter::{Compiler, ComponentInstance, Value};
+use std::collections::BTreeMap;
 
 fn compile(code: &str) -> ComponentInstance {
     i_slint_backend_testing::init_no_event_loop();
@@ -181,4 +182,118 @@ fn values_track_property_changes() {
     assert_eq!(widget.testable_property_value("len").unwrap(), "13");
     assert_eq!(widget.testable_property_value("mood").unwrap(), "happy");
     assert_eq!(widget.testable_property_value("big").unwrap(), "100000000000000000000");
+}
+
+/// The inspectable properties of `element`, by name, as `(type, value)`.
+fn inspect(element: &ElementHandle) -> BTreeMap<String, (String, Option<String>)> {
+    inspectable_properties(element)
+        .unwrap()
+        .iter()
+        .map(|p| (p.name.to_string(), (p.ty.to_string(), p.value().map(|v| v.to_string()))))
+        .collect()
+}
+
+#[test]
+fn inspectable_properties_list_every_surviving_property() {
+    let instance = compile(SOURCE);
+    let widget = ElementHandle::find_by_element_id(&instance, "TestCase::w").next().unwrap();
+    let props = inspect(&widget);
+
+    for (name, ty) in widget.testable_properties().unwrap() {
+        let value = widget.testable_property_value(&name).map(|v| v.to_string());
+        assert_eq!(props.get(name.as_str()), Some(&(ty.to_string(), value)), "'{name}'");
+    }
+    assert!(props.contains_key("height"), "{props:?}");
+    // Removed by the optimizer, whether unread or constant-folded.
+    for name in ["gone-unread", "base-private", "public-unmarked", "use-site-private"] {
+        assert!(!props.contains_key(name), "'{name}' is listed: {props:?}");
+    }
+}
+
+const NATIVE_SOURCE: &str = r#"
+    export component TestCase inherits Window {
+        in-out property <bool> v: true;
+        in-out property <float> o: 0.5;
+        t := Text { text: "two\nlines: yes"; }
+        plain := Rectangle { background: red; }
+        r := Rectangle {
+            background: blue;
+            opacity: root.o;
+            visible: root.v;
+            drop-shadow-blur: 3px;
+            drop-shadow-color: red;
+            backdrop-blur: 4px;
+        }
+    }
+"#;
+
+fn value(props: &BTreeMap<String, (String, Option<String>)>, name: &str) -> Option<String> {
+    props.get(name).and_then(|(_, value)| value.clone())
+}
+
+#[test]
+fn native_fields_of_the_selected_class_are_inspectable() {
+    let instance = compile(NATIVE_SOURCE);
+    let element = |id: &str| ElementHandle::find_by_element_id(&instance, id).next().unwrap();
+
+    let t = element("TestCase::t");
+    assert_eq!(value(&inspect(&t), "text").as_deref(), Some("two\nlines: yes"));
+    assert_eq!(t.testable_properties().unwrap(), []);
+
+    let plain = inspect(&element("TestCase::plain"));
+    assert_eq!(value(&plain, "background").as_deref(), Some("#ff0000ff"));
+    assert!(!plain.contains_key("border-width"), "a field of an unselected class: {plain:?}");
+}
+
+#[test]
+fn injected_items_are_inspectable_under_source_names() {
+    let instance = compile(NATIVE_SOURCE);
+    let r = ElementHandle::find_by_element_id(&instance, "TestCase::r").next().unwrap();
+    let props = inspect(&r);
+
+    assert_eq!(value(&props, "opacity").as_deref(), Some("0.5"));
+    assert_eq!(value(&props, "visible").as_deref(), Some("true"));
+    assert_eq!(value(&props, "drop-shadow-blur").as_deref(), Some("3"));
+    assert_eq!(value(&props, "drop-shadow-color").as_deref(), Some("#ff0000ff"));
+    assert_eq!(value(&props, "backdrop-blur").as_deref(), Some("4"));
+    assert_eq!(value(&props, "background").as_deref(), Some("#0000ffff"));
+
+    let mut empty = 0;
+    for element in ElementQuery::from_root(&instance).find_all() {
+        let props = inspect(&element);
+        empty += props.is_empty() as usize;
+        // Fields only an injected item has.
+        for name in ["is-visibility-clip", "wraps-backdrop-blur", "inset", "offset-x"] {
+            assert!(!props.contains_key(name), "an injected item lists '{name}'");
+        }
+    }
+    // The `Opacity`, `Clip`, `BoxShadow` and `BackdropBlur` injected for `r`.
+    assert_eq!(empty, 4);
+
+    // `visible` is held negated by a `Clip`.
+    instance.set_property("v", Value::Bool(false)).unwrap();
+    assert_eq!(value(&inspect(&r), "visible").as_deref(), Some("false"));
+}
+
+#[test]
+fn a_sub_component_lists_the_properties_of_its_root_and_its_use() {
+    let instance = compile(
+        r#"
+        component Card inherits Rectangle {
+            in property <int> count;
+            clip: true;
+            Text { text: root.count; }
+        }
+        export component TestCase inherits Window {
+            c := Card { count: 5; background: red; opacity: 0.5; }
+        }
+    "#,
+    );
+    let c = ElementHandle::find_by_element_id(&instance, "TestCase::c").next().unwrap();
+    let props = inspect(&c);
+
+    assert_eq!(value(&props, "count").as_deref(), Some("5"));
+    assert_eq!(value(&props, "clip").as_deref(), Some("true"));
+    assert_eq!(value(&props, "opacity").as_deref(), Some("0.5"));
+    assert_eq!(value(&props, "background").as_deref(), Some("#ff0000ff"));
 }

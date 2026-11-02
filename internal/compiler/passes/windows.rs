@@ -72,6 +72,7 @@ pub fn ensure_window(
         geometry_props: Default::default(),
         is_flickable_content: false,
         is_tooltip: false,
+        injected_for: None,
         z_order: None,
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
