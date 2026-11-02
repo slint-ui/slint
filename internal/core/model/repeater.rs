@@ -947,7 +947,16 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         if model.is_dirty() {
             let old_model = model.get_internal();
             let m = model.get();
-            if old_model != m {
+            // A number model (`for i in n`) is new each time `n` is evaluated, but the
+            // existing rows stay the same, so keep their instances.
+            let number = |m: &ModelRc<C::Data>| m.as_any().downcast_ref::<usize>().copied();
+            if let (Some(old_count), Some(new_count)) = (number(&old_model), number(&m)) {
+                if new_count > old_count {
+                    self.data().row_added(old_count, new_count - old_count);
+                } else if new_count < old_count {
+                    self.data().row_removed(new_count, old_count - new_count);
+                }
+            } else if old_model != m {
                 *self.data().inner.borrow_mut() = RepeaterInner::default();
                 self.data().instances_changed();
                 let peer = self.project_ref().0.model_peer();
