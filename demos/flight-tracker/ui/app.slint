@@ -30,7 +30,8 @@ export enum Phase { boarding, flying, arrived }
 export enum Screen { entry, zoom, flight }
 
 export struct AirportItem {
-    index: int,
+    /// -1 for none.
+    index: int = -1,
     code: string,
     city: string,
     country: string,
@@ -653,9 +654,9 @@ export component AppWindow inherits Window {
 
     /// Whether the demo flies between random airports on its own.
     in-out property <bool> kiosk: true;
-    /// The airports picked in the planner, with an index of -1 for none.
-    in-out property <AirportItem> planned-origin: { index: -1 };
-    in-out property <AirportItem> planned-destination: { index: -1 };
+    /// The airports picked in the planner.
+    in-out property <AirportItem> planned-origin;
+    in-out property <AirportItem> planned-destination;
     in-out property <bool> sunlight: true;
     in-out property <bool> borders: true;
     in-out property <Quality> quality: Quality.high;

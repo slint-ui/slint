@@ -36,11 +36,8 @@ const PROPOSE_SECONDS: f32 = 2.5;
 const TAKE_OFF_SECONDS: f32 = 4.0;
 /// How long the globe takes to grow from its place on the entry screen to the window, or back.
 const ZOOM_SECONDS: f32 = 1.4;
-/// How fast the globe on the entry screen turns while there's no route to show, in radians
-/// per second.
+/// How fast the globe on the entry screen turns, in radians per second.
 const ENTRY_SPIN: f32 = 0.08;
-/// How long the globe on the entry screen takes to turn to a new route.
-const ENTRY_TRANSITION: f32 = 1.2;
 /// How much of its place on the entry screen the globe fills.
 const ENTRY_FILL: f32 = 0.84;
 /// After how long without input the kiosk takes over again.
@@ -296,7 +293,8 @@ impl Demo {
         }
     }
 
-    /// Shows `origin` and `destination` on the entry screen's globe, turning it to them.
+    /// Shows `origin` and `destination` on the entry screen's globe, where they come around as it
+    /// turns.
     fn plan(&mut self, origin: Option<usize>, destination: Option<usize>) {
         if self.planned == (origin, destination) {
             return;
@@ -307,17 +305,11 @@ impl Demo {
             let (from, to) = (self.airports[origin].position, self.airports[destination].position);
             self.flight = Flight::new(origin, from, destination, to);
         }
-        if self.stage == Stage::Entry {
-            self.camera.transition(ENTRY_TRANSITION);
-        }
     }
 
-    /// Where the camera looks on the entry screen: at the planned route, or the turning globe.
+    /// Where the camera looks at the turning globe on the entry screen.
     fn entry_pose(&self) -> Pose {
-        let target = match self.planned {
-            (Some(_), _) => self.flight.point(0.5),
-            _ => surface(self.entry_longitude, 20f32.to_radians()),
-        };
+        let target = surface(self.entry_longitude, 20f32.to_radians());
         // The globe's radius on the screen, as a part of half the frame's height.
         let fit = ENTRY_FILL * self.entry_view.y.min(self.entry_view.x);
         let distance = 1.0 / (fit * (FOV_Y / 2.0).tan()).atan().sin();
@@ -339,6 +331,9 @@ impl Demo {
     /// Turns back to the entry screen's view and shrinks the globe into its place there.
     fn leave(&mut self) {
         if self.stage == Stage::Flight {
+            // The globe turns on from over the aircraft.
+            let position = self.flight.position();
+            self.entry_longitude = position.x.atan2(position.z);
             self.camera.transition(VIEW_TRANSITION);
             self.set_stage(Stage::Returning);
         }
@@ -442,9 +437,7 @@ impl Demo {
         self.stage_time += dt;
         match self.stage {
             Stage::Entry => {
-                if self.planned.0.is_none() {
-                    self.entry_longitude += ENTRY_SPIN * dt;
-                }
+                self.entry_longitude += ENTRY_SPIN * dt;
                 if kiosk && self.stage_time >= PROPOSE_SECONDS && !self.proposed {
                     self.proposed = true;
                     let origin = match self.planned {
@@ -973,9 +966,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         app.set_zoom_progress(demo.zoom_progress());
         if let Some((origin, destination)) = demo.proposal.take() {
             let item = |index: Option<usize>| {
-                index.map_or(AirportItem { index: -1, ..Default::default() }, |index| {
-                    airport_item(&demo.airports, index)
-                })
+                index.map_or(AirportItem::default(), |index| airport_item(&demo.airports, index))
             };
             app.invoke_propose(item(Some(origin)), item(destination));
         }
