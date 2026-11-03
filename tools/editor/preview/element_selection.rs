@@ -216,6 +216,7 @@ fn selection_rectangles(
             x: geometry.rect.origin.x,
             y: geometry.rect.origin.y,
             angle: geometry.angle,
+            transform_rotation: geometry.transform_rotation,
             describes_element: geometry.renders_as_rectangle,
             top_left_radius: geometry.corner_radii.top_left,
             top_right_radius: geometry.corner_radii.top_right,

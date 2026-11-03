@@ -220,6 +220,12 @@ export global InspectorContext {
         return 0px;
     }
 
+    public pure function selected-transform-rotation() -> float {
+        return InspectorContext.has-backend-rect()
+            ? InspectorContext.selection-rects[Api.selection.highlight-index].transform-rotation / 1deg
+            : 0;
+    }
+
     public pure function selected-x-label() -> string {
         return (InspectorContext.selected-x() / 1px).to-fixed(0);
     }
