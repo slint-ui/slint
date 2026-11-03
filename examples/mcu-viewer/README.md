@@ -41,13 +41,12 @@ cargo +esp run --release --no-default-features --features mcu-board-support/box-
 The BOX-3 runner selects QIO flash mode, and the optimized backend runs octal PSRAM at 80 MHz.
 The LCD remains at 40 MHz.
 
-The BOX-3 backend renders into a retained framebuffer and sends changed regions through a DMA display worker.
-Large, dense changes use one bounding rectangle to avoid separate blocks appearing during the update.
-Transfers follow the panel's refresh timing.
-A full-screen update still sends 150 KiB over 40 MHz SPI, so it spans more than one panel refresh.
+The BOX-3 backend renders into a retained framebuffer.
+A DMA display worker on the second core sends each band of changed rows while the renderer works on the rows below.
+A full-screen update sends 150 KiB over 40 MHz SPI, so it spans more than one panel refresh.
 Use `mcu-board-support/esp32-s3-box-3` for the basic line-buffer backend.
 
-Add `mcu-board-support/box-display-profile` to log rendering times, transfer times, and rectangle coordinates over the USB connection.
+Add `mcu-board-support/box-display-profile` to log rendering and transfer times over the USB connection.
 Leave it disabled for normal use.
 
 The backlight stays on during display transfers.

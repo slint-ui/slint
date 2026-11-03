@@ -71,10 +71,14 @@ impl Panel {
         self.write(data)
     }
 
-    pub(super) fn wait_blank(&mut self) -> Option<u64> {
+    /// Waits for the panel's vertical blank, unless `interrupted` returns true first.
+    pub(super) fn wait_blank(&mut self, interrupted: impl Fn() -> bool) -> Option<u64> {
         let start = super::now_us();
         let mut active_seen = false;
         while super::now_us() - start < 40_000 {
+            if interrupted() {
+                return None;
+            }
             let mut data = [0; 2];
             if self.read(0x45, 1, &mut data).is_err() {
                 return None;
@@ -89,8 +93,8 @@ impl Panel {
             if line < 269 {
                 let until_blank = (269 - line as u32) * 16700 / 297;
 
-                if until_blank > 500 {
-                    esp_hal::rom::ets_delay_us(until_blank - 200);
+                if until_blank > 500 && sleep_unless(until_blank - 200, &interrupted) {
+                    return None;
                 }
             }
         }
@@ -113,6 +117,18 @@ impl Panel {
         self.spi.apply_config(&Config::default().with_frequency(Rate::from_mhz(40))).unwrap();
         result
     }
+}
+
+/// Sleeps for `us`, unless `stop` returns true first, which it then reports.
+fn sleep_unless(us: u32, stop: &impl Fn() -> bool) -> bool {
+    let until = super::now_us() + u64::from(us);
+    while super::now_us() < until {
+        if stop() {
+            return true;
+        }
+        esp_hal::rom::ets_delay_us(100);
+    }
+    false
 }
 
 /// Implements the existing mipidsi initialization and pixel packing contract.

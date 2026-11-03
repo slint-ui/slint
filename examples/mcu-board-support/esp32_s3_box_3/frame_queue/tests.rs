@@ -258,96 +258,13 @@ fn concurrent_publishers_reserve_exclusive_packet_access() {
 }
 
 #[test]
-fn scanline_damage_tracks_previous_queued_frame_without_an_external_shadow() {
-    let queue = queue(65536);
-    let mut pixels = vec![Rgb565BigEndianPixel(0); 320 * 240];
-    let mut lcd = vec![0u16; 320 * 240];
-    for frame in 0..300 {
-        let mut plan = super::pixel_damage::Plan::new();
-        for y in 0..240 {
-            let mut row = [0u16; 320];
-            for x in 4..310 {
-                if (x + frame) % 41 < 7 && (y + frame) % 29 < 13 {
-                    row[x] = (frame + x * 23 + y * 47) as u16;
-                }
-            }
-            let previous: Vec<_> =
-                pixels[y * 320..(y + 1) * 320].iter().map(|pixel| pixel.0).collect();
-            if let Some(span) = super::pixel_damage::changed_line(&row, &previous, 0, y) {
-                let bounds = span.copy_bounds();
-                plan.add(span);
-                for (left, right) in bounds {
-                    if left < right {
-                        for (pixel, value) in pixels[y * 320 + left..y * 320 + right]
-                            .iter_mut()
-                            .zip(&row[left..right])
-                        {
-                            pixel.0 = *value;
-                        }
-                    }
-                }
-            }
-            assert!(
-                pixels[y * 320..(y + 1) * 320]
-                    .iter()
-                    .zip(row)
-                    .all(|(pixel, value)| pixel.0 == value)
-            );
-        }
-        queue.publish_rectangles(&pixels, plan.rectangles());
-        if queue.state.load(Ordering::Acquire) != FREE {
-            assert_eq!(queue.state.swap(ACTIVE, Ordering::Acquire), READY);
-            let packet = unsafe { &*queue.packet.get() };
-            let source =
-                if packet.internal_used { &packet.internal[..] } else { &packet.external[..] };
-            for rect in &packet.rectangles[..packet.count] {
-                for y in 0..rect.height {
-                    for x in 0..rect.width {
-                        let byte = rect.offset + (y * rect.width + x) * 2;
-                        lcd[(rect.y + y) * 320 + rect.x + x] =
-                            u16::from_ne_bytes([source[byte], source[byte + 1]]);
-                    }
-                }
-            }
-            queue.state.store(FREE, Ordering::Release);
-        }
-        assert!(lcd.iter().zip(&pixels).all(|(a, b)| *a == b.0));
-    }
-}
-
-#[test]
-fn overlapping_damage_cover_falls_back_before_exceeding_packet_capacity() {
+fn overlapping_rectangles_fall_back_before_exceeding_packet_capacity() {
     let queue = queue(65536);
     let pixels = vec![Rgb565BigEndianPixel(0x1234); 320 * 240];
-    let rectangles = [super::pixel_damage::Rect { x: 0, y: 0, width: 320, height: 240 }; 8];
-    queue.publish_rectangles(&pixels, &rectangles);
+    queue.publish(&pixels, &region(&[(0, 0, 320, 240); 8]));
     let packet = acquire(&queue);
     assert_eq!(packet.count, 1);
     assert_eq!((packet.rectangles[0].width, packet.rectangles[0].height), (320, 240));
     assert!(!packet.internal_used);
     assert!(packet.external.chunks_exact(2).all(|bytes| bytes == 0x1234u16.to_ne_bytes()));
-}
-
-#[test]
-fn empty_exact_plan_preserves_an_in_flight_packet_without_waiting() {
-    for state in [READY, ACTIVE, WRITING] {
-        let queue = Arc::new(queue(64));
-        queue.publish(&pixels(), &region(&[(3, 7, 5, 2)]));
-        queue.state.store(state, Ordering::Release);
-        let previous_bytes = bytes(unsafe { &*queue.packet.get() })[..20].to_vec();
-        let (sent, received) = mpsc::channel();
-        let producer_queue = queue.clone();
-        let producer = thread::spawn(move || {
-            producer_queue.publish_damage(&pixels(), &super::pixel_damage::Plan::new());
-            sent.send(()).unwrap();
-        });
-        let completed = received.recv_timeout(Duration::from_secs(1)).is_ok();
-        let after = queue.state.load(Ordering::Acquire);
-        queue.state.store(FREE, Ordering::Release);
-        producer.join().unwrap();
-        let after_bytes = bytes(unsafe { &*queue.packet.get() })[..20].to_vec();
-        assert!(completed, "an empty plan waited for an in-flight packet");
-        assert_eq!(after, state);
-        assert_eq!(after_bytes, previous_bytes);
-    }
 }

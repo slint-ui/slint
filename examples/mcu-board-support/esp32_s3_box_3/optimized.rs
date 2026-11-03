@@ -287,7 +287,7 @@ fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
         frame_buffer: &mut FRAME_BUFFER.take().0,
 
         first_line_frame: true,
-        line_damage: Box::new(frame_queue::pixel_damage::Plan::new()),
+        bands: frame_queue::band_stream::BandWriter::new(),
     };
 
     slint::platform::set_platform(Box::new(EspBackend {
@@ -444,7 +444,7 @@ impl EspBackend {
 }
 struct DrawBuffer<'a> {
     first_line_frame: bool,
-    line_damage: Box<frame_queue::pixel_damage::Plan>,
+    bands: frame_queue::band_stream::BandWriter,
 
     frame_buffer: &'a mut [slint::platform::software_renderer::Rgb565BigEndianPixel],
 }
@@ -460,7 +460,12 @@ fn canonical_line(
 struct FramebufferLineBuffer<'a> {
     scratch: &'a mut [LinePixel],
     framebuffer: &'a mut [slint::platform::software_renderer::Rgb565BigEndianPixel],
-    damage: &'a mut frame_queue::pixel_damage::Plan,
+    bands: &'a mut frame_queue::band_stream::BandWriter,
+    queue: &'a frame_queue::band_stream::BandQueue,
+}
+
+fn wire_bytes(pixels: &[slint::platform::software_renderer::Rgb565BigEndianPixel]) -> &[u8] {
+    unsafe { core::slice::from_raw_parts(pixels.as_ptr().cast::<u8>(), pixels.len() * 2) }
 }
 
 impl slint::platform::software_renderer::LineBufferProvider for &mut FramebufferLineBuffer<'_> {
@@ -478,18 +483,15 @@ impl slint::platform::software_renderer::LineBufferProvider for &mut Framebuffer
             unsafe { core::slice::from_raw_parts(buffer.as_ptr().cast::<u16>(), buffer.len()) };
         let previous =
             unsafe { core::slice::from_raw_parts(old.as_ptr().cast::<u16>(), old.len()) };
-        if let Some(span) =
-            frame_queue::pixel_damage::changed_line(current, previous, range.start, line)
-        {
-            let bounds = span.copy_bounds();
-            self.damage.add(span);
-            for (left, right) in bounds {
-                if left < right {
-                    self.framebuffer[line * 320 + left..line * 320 + right]
-                        .copy_from_slice(canonical_line(&self.scratch[left..right]));
-                }
+        let span = frame_queue::pixel_damage::changed_line(current, previous, range.start);
+        for (left, right) in span.iter().flat_map(|span| span.copy_bounds()) {
+            if left < right {
+                self.framebuffer[line * 320 + left..line * 320 + right]
+                    .copy_from_slice(canonical_line(&self.scratch[left..right]));
             }
         }
+        let changed = span.map(|span| span.bounds());
+        self.bands.line(line, changed, wire_bytes(self.framebuffer), self.queue);
     }
 }
 
@@ -506,30 +508,21 @@ impl DrawBuffer<'_> {
         #[cfg(feature = "box-display-profile")]
         let started = now_us();
 
-        let region = if !self.first_line_frame {
-            self.line_damage.reset();
+        if !self.first_line_frame {
             #[repr(align(4))]
             struct Scanline([LinePixel; 320]);
             let mut scratch = Scanline([LinePixel::default(); 320]);
+            let bands = queue().bands();
             let mut provider = FramebufferLineBuffer {
                 scratch: &mut scratch.0,
                 framebuffer: self.frame_buffer,
-
-                damage: &mut self.line_damage,
+                bands: &mut self.bands,
+                queue: bands,
             };
-            let region = renderer.render_by_line(&mut provider);
-            provider.damage.fit_packet(
-                frame_queue::INTERNAL_PACKET_BYTES
-                    / core::mem::size_of::<slint::platform::software_renderer::Rgb565BigEndianPixel>(),
-            );
-            region
+            renderer.render_by_line(&mut provider);
+            self.bands.finish(wire_bytes(self.frame_buffer), bands);
         } else {
-            render_full_frame(renderer, self.frame_buffer)
-        };
-
-        if !self.first_line_frame {
-            queue().publish_damage(self.frame_buffer, &self.line_damage);
-        } else {
+            let region = render_full_frame(renderer, self.frame_buffer);
             queue().publish(self.frame_buffer, &region);
             self.first_line_frame = region.iter().next().is_none();
         }

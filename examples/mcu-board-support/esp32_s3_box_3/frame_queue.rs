@@ -16,6 +16,9 @@ pub(super) mod pixel_damage;
 #[path = "phase_clock.rs"]
 pub(super) mod phase_clock;
 
+#[path = "band_stream.rs"]
+pub(super) mod band_stream;
+
 // The viewer also needs internal SRAM for the interpreter and CPU0 stack.
 pub(super) const INTERNAL_PACKET_BYTES: usize = 32 * 1024;
 
@@ -63,6 +66,7 @@ pub(super) struct FrameQueue {
     state: AtomicU32,
     pub(super) tick: AtomicU32,
     phase: phase_clock::Stamp,
+    bands: band_stream::BandQueue,
 }
 
 // A producer reserves WRITING before mutation. The consumer reads an ACTIVE packet.
@@ -82,7 +86,16 @@ impl FrameQueue {
             state: AtomicU32::new(FREE),
             tick: AtomicU32::new(0),
             phase: phase_clock::Stamp::new(),
+            bands: band_stream::BandQueue::new(),
         }
+    }
+
+    /// The band stream, once no packet is waiting for or in transfer.
+    pub(super) fn bands(&self) -> &band_stream::BandQueue {
+        while self.state.load(Ordering::Acquire) != FREE {
+            core::hint::spin_loop();
+        }
+        &self.bands
     }
 
     pub(super) fn phase_snapshot(&self) -> (u32, u32) {
@@ -109,48 +122,6 @@ impl FrameQueue {
                 offset: 0,
             }),
             fallback,
-        );
-    }
-
-    #[cfg(test)]
-    pub(super) fn publish_rectangles(
-        &self,
-        pixels: &[Rgb565BigEndianPixel],
-        rects: &[pixel_damage::Rect],
-    ) {
-        self.publish_rect_iter(
-            pixels,
-            rects.iter().map(|rect| Rectangle {
-                x: rect.x,
-                y: rect.y,
-                width: rect.width,
-                height: rect.height,
-                offset: 0,
-            }),
-            Rectangle { x: 0, y: 0, width: 320, height: 240, offset: 0 },
-        );
-    }
-
-    pub(super) fn publish_damage(
-        &self,
-        pixels: &[Rgb565BigEndianPixel],
-        plan: &pixel_damage::Plan,
-    ) {
-        // Exact comparison proved that there is no new image to publish.
-        // Do not wait for ownership of the previous in-flight packet.
-        if plan.rectangles().is_empty() {
-            return;
-        }
-        self.publish_rect_iter(
-            pixels,
-            plan.rectangles().iter().map(|rect| Rectangle {
-                x: rect.x,
-                y: rect.y,
-                width: rect.width,
-                height: rect.height,
-                offset: 0,
-            }),
-            Rectangle { x: 0, y: 0, width: 320, height: 240, offset: 0 },
         );
     }
 
@@ -249,8 +220,28 @@ impl FrameQueue {
         let mut previous_blank = 0u64;
 
         loop {
-            let Some(blank) = panel.wait_blank() else {
-                esp_hal::delay::Delay::new().delay_micros(1000);
+            if self.bands.pending() {
+                #[cfg(feature = "box-display-profile")]
+                let started = super::now_us();
+                let _bytes = self
+                    .bands
+                    .drain(|band, data| {
+                        panel.packed_rectangle(band.x, band.y, band.width, band.height, data)
+                    })
+                    .unwrap();
+                #[cfg(feature = "box-display-profile")]
+                log::info!(
+                    "BOX_TRANSFER,bytes={},transfer_us={},streamed=1",
+                    _bytes,
+                    super::now_us() - started
+                );
+                after_transfer();
+                continue;
+            }
+            let Some(blank) = panel.wait_blank(|| self.bands.pending()) else {
+                if !self.bands.pending() {
+                    esp_hal::delay::Delay::new().delay_micros(1000);
+                }
                 continue;
             };
             let cycles = if previous_blank == 0 {
