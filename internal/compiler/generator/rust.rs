@@ -6113,7 +6113,8 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     quote!(static #symbol: &'static [u8] = #data;)
                 }
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {
-                    quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
+                    let bytes = proc_macro2::Literal::byte_string(bytes);
+                    quote!(static #symbol: &'static [u8] = #bytes;)
                 }
                 #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
@@ -6133,10 +6134,11 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                     });
                     let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", resource_id);
                     let data_size = data.len();
+                    let data = proc_macro2::Literal::byte_string(data);
                     quote!(
                         #link_section
                         // (the second array is to ensure alignment)
-                        static #symbol_data : ([u8; #data_size], [u32;0])= ([#(#data),*], []);
+                        static #symbol_data : ([u8; #data_size], [u32;0])= (*#data, []);
                         #link_section
                         static #symbol: sp::StaticTextures = sp::StaticTextures{
                             size: sp::IntSize::new(#width as _, #height as _),
@@ -6158,6 +6160,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         let glyph_data_size = glyph_data.len();
                         let glyph_data = glyph_data.iter().map(|crate::embedded_resources::BitmapGlyph{x, y, width, height, x_advance, data}|{
                             let data_size = data.len();
+                            let data = proc_macro2::Literal::byte_string(data);
                             quote!(
                                 sp::BitmapGlyph {
                                     x: #x,
@@ -6167,7 +6170,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                                     x_advance: #x_advance,
                                     data: sp::Slice::from_slice({
                                         #link_section
-                                        static DATA : [u8; #data_size] = [#(#data),*];
+                                        static DATA : [u8; #data_size] = *#data;
                                         &DATA
                                     }),
                                 }
