@@ -413,7 +413,7 @@ declare_syntax! {
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
         AtImageUrl -> [],
-        /// `@from-json("data.json")` or `@from-json("data.json", "a/b/c")`
+        /// `@from-json("data.json")`
         AtFromJson -> [],
         /// `@linear-gradient(...)` or `@radial-gradient(...)`
         AtGradient -> [*Expression],

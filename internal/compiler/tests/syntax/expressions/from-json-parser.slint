@@ -4,17 +4,15 @@
 export component SuperSimple {
     property <string> path;
     property <int> i1: @from-json(path);
-//                                >  <error{@from-json's first argument must be a plain path as a string literal}
+//                                >  <error{@from-json must contain a plain path as a string literal}
     property <int> i2: @from-json("/home/\{path}.json");
-//                                >       <error{@from-json's first argument must be a plain path as a string literal, without any '\{}' expressions}
+//                                >       <error{@from-json must contain a plain path as a string literal, without any '\{}' expressions}
     property <int> i3: @from-json("/home/" + path + ".json");
-//                                         ^error{Expected ')' or ','}
+//                                         ^error{Syntax error: expected ')'}
     property <int> i4: @from-json;
 //                               ^error{Syntax error: expected '('}
-    property <int> i5: @from-json("data.json", path);
-//                                             >  <error{@from-json's second argument must be a plain path as a string literal}
-    property <int> i6: @from-json("data.json", "/home/\{path}.json");
-//                                             >       <error{@from-json's second argument must be a plain path as a string literal, without any '\{}' expressions}
-    property <int> i7: @from-json("data.json", "int-property", "extra");
-//                                                           ^error{Syntax error: expected ')'}
+    property <int> i5: @from-json("data.json", "int-property");
+//                                           ^error{Syntax error: expected ')'}
+    property <int> i6: @from-json("data.json",);
+//                                           ^error{Syntax error: expected ')'}
 }

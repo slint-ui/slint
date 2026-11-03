@@ -4,5 +4,9 @@
         "visitors": {
             "count": 42
         }
-    }
+    },
+    "tags": [
+        "news",
+        "weather"
+    ]
 }

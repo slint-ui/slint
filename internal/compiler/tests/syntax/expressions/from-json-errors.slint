@@ -11,25 +11,50 @@ struct Point {
     y: int,
 }
 
+global Constants {
+    out property <int> index: 1;
+}
+
 export component SuperSimple {
     property <int> file_not_found: @from-json("does-not-exist.json");
 //                                            >                   <error{Cannot find JSON file 📂/tests/syntax/expressions/does-not-exist.json}
-    property <int> invalid_json: @from-json("from-json-invalid.json", "a");
+    property <int> invalid_json: @from-json("from-json-invalid.json");
 //                                          >                      <error{Cannot parse JSON file 📂/tests/syntax/expressions/from-json-invalid.json: expected value at line 1 column 8}
-    property <int> missing_key: @from-json("from-json-data.json", "does-not-exist");
-//                                                                >              <error{No key 'does-not-exist' in 'the root' of the JSON file 📂/tests/syntax/expressions/from-json-data.json}
-    property <int> not_an_object: @from-json("from-json-data.json", "a_string/x");
-//                                                                  >          <error{'a_string' in the JSON file 📂/tests/syntax/expressions/from-json-data.json is not an object}
-    property <int> empty_segment: @from-json("from-json-data.json", "element//different_name");
-//                                                                  >                       <error{Empty segment in the JSON path 'element//different_name'}
-    property <int> is_null: @from-json("from-json-data.json", "a_null");
-//                          >                                         <error{The JSON value at 'a_null' in 📂/tests/syntax/expressions/from-json-data.json is null, which cannot be used for a value of type int}
-    property <int> type_mismatch: @from-json("from-json-data.json", "a_string");
-//                                >                                           <error{Cannot use the JSON string at 'a_string' in 📂/tests/syntax/expressions/from-json-data.json for a value of type int}
-    property <int> not_integral: @from-json("from-json-data.json", "a_float");
-//                               >                                          <error{The JSON number 3.5 at 'a_float' in 📂/tests/syntax/expressions/from-json-data.json is not an integer}
-    property <MyEnum> bad_enum: @from-json("from-json-data.json", "a_string");
-//                              >                                           <error{'hello' is not a value of the enum 'MyEnum'. Expected one of: foo, bar}
-    property <Point> not_a_struct: @from-json("from-json-data.json", "an_array");
-//                                 >                                           <error{Cannot use the JSON array at 'an_array' in 📂/tests/syntax/expressions/from-json-data.json for a value of type Point}
+    property <int> root_mismatch: @from-json("from-json-data.json");
+//                                >                               <error{Cannot use the JSON object at the root of 📂/tests/syntax/expressions/from-json-data.json for a value of type int}
+    property <int> missing_key: @from-json("from-json-data.json").does-not-exist;
+//                                                                >            <error{No key 'does-not-exist' at the root of the JSON file 📂/tests/syntax/expressions/from-json-data.json}
+    property <int> missing_nested_key: @from-json("from-json-data.json").element.sub-element.missing;
+//                                                                                           >     <error{No key 'missing' in 'element.sub_element' of the JSON file 📂/tests/syntax/expressions/from-json-data.json}
+    property <int> not_an_object: @from-json("from-json-data.json").a_string.x;
+//                                                                           ^error{'a_string' in the JSON file 📂/tests/syntax/expressions/from-json-data.json is not an object}
+    property <int> is_null: @from-json("from-json-data.json").a_null;
+//                          >                                      <error{The JSON value at 'a_null' in 📂/tests/syntax/expressions/from-json-data.json is null, which cannot be used for a value of type int}
+    property <int> type_mismatch: @from-json("from-json-data.json").a_string;
+//                                >                                        <error{Cannot use the JSON string at 'a_string' in 📂/tests/syntax/expressions/from-json-data.json for a value of type int}
+    property <int> not_integral: @from-json("from-json-data.json").a_float;
+//                               >                                       <error{The JSON number 3.5 at 'a_float' in 📂/tests/syntax/expressions/from-json-data.json is not an integer}
+    property <MyEnum> bad_enum: @from-json("from-json-data.json").a_string;
+//                              >                                        <error{'hello' is not a value of the enum 'MyEnum'. Expected one of: foo, bar}
+    property <Point> not_a_struct: @from-json("from-json-data.json").an_array;
+//                                 >                                        <error{Cannot use the JSON array at 'an_array' in 📂/tests/syntax/expressions/from-json-data.json for a value of type Point}
+    property <int> index;
+    property <int> index_property: @from-json("from-json-data.json").an_array[index];
+//                                                                            >   <error{The index into a @from-json() value must be an integer literal, such as '[0]'}
+    property <int> index_expression: @from-json("from-json-data.json").an_array[1 + 1];
+//                                                                              >   <error{The index into a @from-json() value must be an integer literal, such as '[0]'}
+    property <int> index_global: @from-json("from-json-data.json").an_array[Constants.index];
+//                                                                          >             <error{The index into a @from-json() value must be an integer literal, such as '[0]'}
+    property <int> index_not_integral: @from-json("from-json-data.json").an_array[1.5];
+//                                                                                > <error{The index into a @from-json() value must be an integer literal, such as '[0]'}
+    property <int> index_out_of_range: @from-json("from-json-data.json").an_array[3];
+//                                                                                ^error{Index 3 is out of range for the JSON array at 'an_array' in 📂/tests/syntax/expressions/from-json-data.json, which has 3 elements}
+    property <int> negative_index: @from-json("from-json-data.json").an_array[-1];
+//                                                                            ><error{Index -1 is out of range for the JSON array at 'an_array' in 📂/tests/syntax/expressions/from-json-data.json, which has 3 elements}
+    property <int> root_index_out_of_range: @from-json("from-json-array.json")[10];
+//                                                                             ><error{Index 10 is out of range for the JSON array at the root of 📂/tests/syntax/expressions/from-json-array.json, which has 3 elements}
+    property <int> not_an_array: @from-json("from-json-data.json").a_struct[0];
+//                                                                          ^error{'a_struct' in the JSON file 📂/tests/syntax/expressions/from-json-data.json is not an array}
+    property <string> indexed_type_mismatch: @from-json("from-json-data.json").an_array_of_structs[1].x;
+//                                           >                                                        <error{Cannot use the JSON number at 'an_array_of_structs[1].x' in 📂/tests/syntax/expressions/from-json-data.json for a value of type string}
 }

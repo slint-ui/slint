@@ -30,6 +30,7 @@ use super::prelude::*;
 /// array[index]
 /// {object:42}
 /// "foo".bar.something().something.xx({a: 1.foo}.a)
+/// @from-json("data.json").a.b[0].c
 /// (x) => x > 0
 /// ```
 pub fn parse_expression(p: &mut impl Parser) -> bool {
@@ -714,36 +715,19 @@ fn parse_keys(p: &mut impl Parser) {
     }
 }
 
-/// Consume a `StringLiteral` token that must be a plain string, with no `\{ }` interpolation --
-/// used for arguments that are resolved at parse/compile time. `function_name` names the macro in the
-/// error message. `which` selects whether the error names a specific argument
-/// (`Some("first"/"second")`, for macros with more than one) or just refers to `function_name`'s
-/// one argument (`None`).
-fn consume_path_plain_string_literal(
-    p: &mut impl Parser,
-    function_name: &str,
-    which: Option<&str>,
-) -> bool {
+/// Consume the `StringLiteral` path argument of `function_name`,
+/// which must be a plain string without `\{ }` interpolation.
+fn consume_path_plain_string_literal(p: &mut impl Parser, function_name: &str) -> bool {
     let peek = p.peek();
     if peek.kind() != SyntaxKind::StringLiteral {
-        p.error(match which {
-            None => format!("{function_name} must contain a plain path as a string literal"),
-            Some(which) => {
-                format!(
-                    "{function_name}'s {which} argument must be a plain path as a string literal"
-                )
-            }
-        });
+        p.error(format!("{function_name} must contain a plain path as a string literal"));
         p.until(SyntaxKind::RParent);
         return false;
     }
     if !peek.is_plain_string_literal() {
-        p.error(match which {
-            None => format!("{function_name} must contain a plain path as a string literal, without any '\\{{}}' expressions"),
-            Some(which) => format!(
-                "{function_name}'s {which} argument must be a plain path as a string literal, without any '\\{{}}' expressions"
-            ),
-        });
+        p.error(format!(
+            "{function_name} must contain a plain path as a string literal, without any '\\{{}}' expressions"
+        ));
         p.until(SyntaxKind::RParent);
         return false;
     }
@@ -764,7 +748,7 @@ fn parse_image_url(p: &mut impl Parser) {
     if !(p.expect(SyntaxKind::LParent)) {
         return;
     }
-    if !consume_path_plain_string_literal(&mut *p, "@image-url", None) {
+    if !consume_path_plain_string_literal(&mut *p, "@image-url") {
         return;
     }
     if !p.test(SyntaxKind::Comma) {
@@ -821,34 +805,16 @@ fn parse_image_url(p: &mut impl Parser) {
 #[cfg_attr(test, parser_test)]
 /// ```test,AtFromJson
 /// @from-json("data.json")
-/// @from-json("data.json",)
-/// @from-json("data.json", "a/b/c")
 /// @from_json("data.json")
 /// ```
 fn parse_from_json(p: &mut impl Parser) {
-    const FUNCTION_NAME: &str = "@from-json";
-
     let mut p = p.start_node(SyntaxKind::AtFromJson);
     p.consume(); // "@"
     p.consume(); // "from-json" or "from_json"
     if !(p.expect(SyntaxKind::LParent)) {
         return;
     }
-
-    if !consume_path_plain_string_literal(&mut *p, FUNCTION_NAME, Some("first")) {
-        return;
-    }
-    if !p.test(SyntaxKind::Comma) {
-        if !p.test(SyntaxKind::RParent) {
-            p.error("Expected ')' or ','");
-            p.until(SyntaxKind::RParent);
-        }
-        return;
-    }
-    if p.test(SyntaxKind::RParent) {
-        return;
-    }
-    if !consume_path_plain_string_literal(&mut *p, FUNCTION_NAME, Some("second")) {
+    if !consume_path_plain_string_literal(&mut *p, "@from-json") {
         return;
     }
     if !p.expect(SyntaxKind::RParent) {

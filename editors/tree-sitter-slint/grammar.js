@@ -797,7 +797,6 @@ module.exports = grammar({
         field("name", $.from_json_identifier),
         "(",
         field("path", $.string_value),
-        optional(seq(",", optional(field("pointer", $.string_value)))),
         ")",
       ),
 

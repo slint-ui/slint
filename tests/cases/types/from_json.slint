@@ -10,45 +10,68 @@ struct Complex {
     array: [int],
     nested: [Nested],
 }
+// Declares only a subset of the keys at the root of from_json.json
+struct Root {
+    int_property: int,
+    a-float: float,
+    a_point: Point,
+}
 
 export component TestCase {
-    // 1-arg form
-    property <int> int_property: @from-json("from_json.json");
-    // json file uses underscore: a_float
-    property <float> a-float: @from-json("from_json.json");
+    // The whole file: a JSON object converts to a struct, a JSON array to an array
+    property <Root> root_object: @from-json("from_json.json");
+    property <[Point]> root_array: @from-json("from_json_array.json");
 
-    // 2-arg form: flat key, and a nested "/"-separated path.
-    property <int> flat_value: @from-json("from_json.json", "flat_value");
-    property <int> nested_value_underscore: @from-json("from_json.json", "element/sub_element/nested_value");
-    property <int> nested_value_dash: @from-json("from_json.json", "element/sub-element/nested-value");
+    // Member access selects a value inside the file
+    property <int> flat_value: @from-json("from_json.json").flat_value;
+    property <int> nested_value_underscore: @from-json("from_json.json").element.sub_element.nested_value;
+    property <int> nested_value_dash: @from-json("from_json.json").element.sub-element.nested-value;
+
+    // Indexing with a constant integer, on its own and combined with member access
+    property <Point> root_array_element: @from-json("from_json_array.json")[1];
+    property <int> root_array_element_field: @from-json("from_json_array.json")[0].y;
+    property <int> an_array_element: @from-json("from_json.json").an_array[1];
+    property <Point> an_array_of_points_element: @from-json("from_json.json").an_array_of_points[1];
+    property <int> nested_array_element: @from-json("from_json.json").element.sub_element.complex_nested.array[2];
+    property <int> nested_struct_array_element: @from-json("from_json.json").element.sub_element.complex_nested.nested[1].point.y;
 
     // scalar types
-    property <string> a_string: @from-json("from_json.json", "a_string");
-    property <bool> a_bool: @from-json("from_json.json", "a_bool");
-    property <percent> a_percent: @from-json("from_json.json", "a_percent");
-    property <length> a_length: @from-json("from_json.json", "a_length");
-    property <duration> a_duration: @from-json("from_json.json", "a_duration");
-    property <angle> a_angle: @from-json("from_json.json", "a_angle");
-    property <color> a_color: @from-json("from_json.json", "a_color");
-    property <color> a_named_color: @from-json("from_json.json", "a_named_color");
-    property <Direction> a_direction: @from-json("from_json.json", "a_direction");
-    property <Direction> a_direction_prefixed: @from-json("from_json.json", "a_direction_prefixed");
-    property <brush> color_to_brush: @from-json("from_json.json", "a_color");
+    property <string> a_string: @from-json("from_json.json").a_string;
+    property <bool> a_bool: @from-json("from_json.json").a_bool;
+    property <percent> a_percent: @from-json("from_json.json").a_percent;
+    property <length> a_length: @from-json("from_json.json").a_length;
+    property <duration> a_duration: @from-json("from_json.json").a_duration;
+    property <angle> a_angle: @from-json("from_json.json").a_angle;
+    property <color> a_color: @from-json("from_json.json").a_color;
+    property <color> a_named_color: @from-json("from_json.json").a_named_color;
+    property <Direction> a_direction: @from-json("from_json.json").a_direction;
+    property <Direction> a_direction_prefixed: @from-json("from_json.json").a_direction_prefixed;
+    property <brush> color_to_brush: @from-json("from_json.json").a_color;
 
     // array / struct, including nesting, a defaulted field, and array-of-struct
-    property <[int]> an_array: @from-json("from_json.json", "an_array");
-    property <Point> a_point: @from-json("from_json.json", "a_point");
-    property <Point> a_partial_point: @from-json("from_json.json", "a_partial_point");
-    property <Nested> a_nested: @from-json("from_json.json", "a_nested");
-    property <[Point]> an_array_of_points: @from-json("from_json.json", "an_array_of_points");
-    property <Complex> a_complex_nested: @from-json("from_json.json", "element/sub_element/complex_nested");
+    property <[int]> an_array: @from-json("from_json.json").an_array;
+    property <Point> a_point: @from-json("from_json.json").a_point;
+    property <Point> a_partial_point: @from-json("from_json.json").a_partial_point;
+    property <Nested> a_nested: @from-json("from_json.json").a_nested;
+    property <[Point]> an_array_of_points: @from-json("from_json.json").an_array_of_points;
+    property <Complex> a_complex_nested: @from-json("from_json.json").element.sub_element.complex_nested;
 
     out property <bool> test:
-        int_property == 5
+        root_object.int_property == 5
+        && root_object.a-float == 3.5
+        && root_object.a_point.x == 1 && root_object.a_point.y == 2
+        && root_array.length == 2
+        && root_array[0].x == 1 && root_array[0].y == 2
+        && root_array[1].x == 3 && root_array[1].y == 4
+        && root_array_element.x == 3 && root_array_element.y == 4
+        && root_array_element_field == 2
+        && an_array_element == 2
+        && an_array_of_points_element.x == 2 && an_array_of_points_element.y == 2
+        && nested_array_element == 16
+        && nested_struct_array_element == 10
         && flat_value == 10
         && nested_value_dash == 7
         && nested_value_underscore == 7
-        && a-float == 3.5
         && a_string == "hello"
         && a_bool
         && a_percent == 42%

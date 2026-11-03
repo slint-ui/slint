@@ -155,34 +155,46 @@ A reference may also name an [enumeration](../structs-and-enums/#enums) value or
 
 ## From JSON
 
-`@from-json("file.json")` reads the JSON file at compile time and looks up a value whose key
-matches the name of the property the macro is assigned to.
+`@from-json("file.json")` reads the JSON file at compile time and converts its whole content to the type of the property it's assigned to.
 
 ```slint
+export struct Visitors {
+    count: int,
+}
+
+export struct Stats {
+    visitors: Visitors,
+}
+
+export struct Data {
+    greeting: string,
+    stats: Stats,
+}
+
 export component Example {
-    // Looks up the "greeting" key at the root of the JSON file
-    property <string> greeting: @from-json("data.json");
+    property <Data> data: @from-json("data.json");
 }
 ```
 
-`@from-json("file.json", "path/to/value")` instead takes a `/`-separated path of nested object
-keys from the root of the JSON file:
+Select a value inside the file with member access, and an element of a JSON array with an index:
 
 ```slint
 export component Example {
-    property <int> count: @from-json("data.json", "stats/visitors/count");
+    property <int> count: @from-json("data.json").stats.visitors.count;
+    property <string> first-tag: @from-json("data.json").tags[0];
 }
 ```
 
-Both the file path and the key/path argument must be plain string literals, without any `\{ }`
-interpolation, since they're resolved entirely at compile time. Relative file paths are resolved
-the same way as `import` paths: relative to the `.slint` file that contains the `@from-json(...)`
-call, then against any configured include paths.
+The index must be an integer literal, such as `[0]`, not an expression or a property.
 
-Key lookups (both the implicit property-name key and each segment of an explicit path) match a
-JSON object key exactly first, then fall back to comparing keys with underscores and dashes
-treated as equivalent — so a JSON file can use whichever convention is more natural for the tool
-that generated it.
+The file path must be a plain string literal, without any `\{ }` interpolation, since it's resolved at compile time.
+Relative file paths are resolved the same way as `import` paths:
+relative to the `.slint` file that contains the `@from-json(...)` call, then against any configured include paths.
+
+Each member name matches a JSON object key exactly first.
+Otherwise, keys are compared with underscores and dashes treated as equivalent,
+so a JSON file can use whichever convention suits the tool that generated it.
+Member access only reaches keys that are valid Slint identifiers.
 
 The JSON value is converted to match the declared type of the property:
 
@@ -203,7 +215,8 @@ A JSON object being converted to a struct only uses the keys that match a declar
 other keys in that object are ignored. A struct field that's absent from the JSON object takes the
 field's declared default value.
 
-It's an error if the file can't be found, the key or path doesn't resolve to a value, or the JSON
-value's shape doesn't match the property's type. Since the value is read once, at compile time,
-editing the JSON file requires rebuilding the application to see the change reflected (except in
-tools that reload the `.slint` file, such as `slint-viewer` or an editor's live preview).
+It's an error if the file can't be found, a member doesn't name a key of the JSON object,
+an index is out of range for the JSON array,
+or the JSON value's shape doesn't match the property's type.
+Since the value is read once, at compile time, rebuild the application to pick up changes to the JSON file.
+Tools that reload the `.slint` file, such as `slint-viewer` or an editor's live preview, pick them up on reload.
