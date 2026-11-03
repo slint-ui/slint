@@ -716,7 +716,6 @@ export global Api {
     pure callback window-active() -> bool;
     in property <int> inspector-generation;
     in property <int> inspector-fill-generation;
-    in property <bool> inspector-fill-refresh-pending;
     callback inspector-preview(name: string, value: PropertyEditValue) -> bool;
     callback inspector-commit() -> bool;
     callback inspector-cancel();

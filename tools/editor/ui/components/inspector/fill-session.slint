@@ -48,7 +48,7 @@ export global FillSession {
     out property <color> working-color: FillSession.working-fill.kind == BrushKind.solid ? FillSession.working-fill.color : FillSession.working-fill.stops[FillSession.selected-stop].color;
     private property <bool> has-preview;
     private property <bool> session-active;
-    out property <bool> editable: open && !Api.inspector-fill-refresh-pending && !request.unsupported;
+    out property <bool> editable: open && !request.unsupported;
     out property <int> focus-generation;
     out property <int> anchor-focus-generation;
     private property <bool> canvas-editable: editable && session-active && request.target.canvas

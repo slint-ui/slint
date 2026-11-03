@@ -3604,9 +3604,6 @@ mod tests {
             assert!(session.get_canvas_active());
             assert_eq!(session.get_radial_active(), kind == super::BrushKind::Radial);
             assert_eq!(session.get_conic_active(), kind == super::BrushKind::Conic);
-            api.set_inspector_fill_refresh_pending(true);
-            assert!(!session.get_canvas_active());
-            api.set_inspector_fill_refresh_pending(false);
             element.type_name = "Text".into();
             api.set_current_element(element.clone());
             assert!(!session.get_canvas_active());

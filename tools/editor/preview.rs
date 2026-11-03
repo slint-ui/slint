@@ -294,7 +294,6 @@ pub struct PreviewState {
     undo_redo_stack: undo_redo::UndoRedoStack,
     pending_history: std::collections::VecDeque<bool>,
     inspector_edit: Option<inspector::Edit>,
-    fill_refresh: Option<inspector::FillRefresh>,
     text_edit_session: Option<inline_text_edit::Session>,
 
     source_code: SourceCodeCache,
@@ -370,14 +369,12 @@ impl PreviewState {
         self.initial_live_data.clear();
         self.current_live_data.clear();
         self.inspector_edit = None;
-        self.fill_refresh = None;
         self.resources.clear();
         if let Some(api) = self.api.upgrade() {
             api.set_preview_area(Default::default());
             api.set_current_element(Default::default());
             api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
-            api.set_inspector_fill_refresh_pending(false);
             ui::ui_set_project_components(&api, &[]);
             ui::ui_set_preview_data(&api, Default::default(), None);
             outline::reset_outline(&api, None);
@@ -714,12 +711,10 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    let own_fill_edit = inspector::fill_contents_changed(url.url(), &content);
     let (reload, invalidate) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         let changed = preview_state.source_code.get(url.url()).is_none_or(|old| old.code != content);
         tracing::debug!(url = %url.url(), changed, edit_pending = preview_state.workspace_edit_sent, "Preview: source notification");
-        if changed && !own_fill_edit
-            && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
+        if changed && !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content)
         {
             tracing::debug!(url = %url.url(), "Preview: source change invalidated history");
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -2058,8 +2053,8 @@ enum CompilationResult {
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
     let _ = slint::invoke_from_event_loop(move || {
         project_file::workspace_edit_finished(&edit, applied);
-        if !inline_text_edit::workspace_edit_finished(&edit, applied) {
-            inspector::workspace_edit_finished(edit, applied);
+        if !inline_text_edit::workspace_edit_finished(&edit, applied) && !applied {
+            PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
         }
     });
 }
@@ -2082,15 +2077,6 @@ fn workspace_edit_source_file(
 }
 
 fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit: bool) -> bool {
-    submit_workspace_edit(label, edit, test_edit, None)
-}
-
-fn submit_workspace_edit(
-    label: String,
-    edit: lsp_types::WorkspaceEdit,
-    test_edit: bool,
-    fill: Option<ui::FillData>,
-) -> bool {
     let Some(document_cache) = document_cache() else {
         return false;
     };
@@ -2100,28 +2086,6 @@ fn submit_workspace_edit(
         })
     });
     let Ok(result) = result else { return false };
-    let fill_refresh = if let Some(fill) = fill.clone() {
-        let [expected] = result.as_slice() else { return false };
-        let unchanged = PREVIEW_STATE.with_borrow(|state| {
-            state
-                .source_code
-                .get(&expected.url)
-                .is_some_and(|source| source.code == expected.contents)
-        });
-        if unchanged {
-            inspector::cancel();
-            return true;
-        }
-        Some((
-            fill,
-            text_edit::EditedText {
-                url: expected.url.clone(),
-                contents: expected.contents.clone(),
-            },
-        ))
-    } else {
-        None
-    };
     let file_hashes = undo_redo::compute_file_hashes(&result);
 
     if test_edit {
@@ -2139,26 +2103,12 @@ fn submit_workspace_edit(
         })
     });
 
-    let accepted = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if undo_redo::edit_pending(preview_state) {
             tracing::debug!(%label, "Preview: rejecting an edit while another is pending");
             return false;
         }
-        if let Some((fill, expected)) = fill_refresh {
-            let Some(reverse) = reverse_edit else { return false };
-            preview_state.fill_refresh = Some(inspector::FillRefresh {
-                expected,
-                submitted_edit: edit.clone(),
-                fill,
-                undo: Some(undo_redo::EditItem {
-                    title: label.clone(),
-                    edit: reverse,
-                    file_hashes,
-                }),
-            });
-        } else {
-            preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
-        }
+        preview_state.undo_redo_stack.push(label.clone(), reverse_edit, file_hashes);
         preview_state.workspace_edit_sent = true;
         undo_redo::set_undo_redo_enabled(preview_state);
         preview_state
@@ -2169,14 +2119,7 @@ fn submit_workspace_edit(
             .send(&PreviewToLspMessage::SendWorkspaceEdit { label: Some(label), edit })
             .unwrap();
         true
-    });
-    if accepted && fill.is_some() {
-        let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
-        if let Some(api) = api {
-            api.set_inspector_fill_refresh_pending(true);
-        }
-    }
-    accepted
+    })
 }
 
 fn change_style() {
@@ -4622,6 +4565,10 @@ export component Main {
         api.on_inspector_preview(inspector::preview_property);
         api.on_inspector_commit(inspector::commit_properties);
         api.on_inspector_cancel(inspector::cancel);
+        slint_editor::component_support::recent_fills::setup(
+            &api,
+            <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api),
+        );
         element_selection::restore_selection(
             ElementSelection {
                 path: SourcePath::from_url(
@@ -4756,6 +4703,89 @@ export component Main {
             assert!(result[0].contents.contains(expression), "{expression}");
         }
         assert!(result[0].contents.contains(r#"label: "after\n\"text\"";"#));
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn changed_fills_become_recent_on_submission_with_only_the_latest_values() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace(
+            "height: 60px;",
+            "height: 60px; background: #112233; border-color: #445566; drop-shadow-color: #778899;",
+        );
+        inspector_test_target(&editor, &source);
+        let messages = inspector_test_messages();
+        let api = editor.global::<ui::Api>();
+        let first = slint::Color::from_rgb_u8(255, 0, 0);
+        let border = slint::Color::from_rgb_u8(0, 0, 255);
+        let latest = slint::Color::from_rgb_u8(0, 255, 0);
+        for (name, color) in [
+            ("background", first),
+            ("border-color", border),
+            ("background", latest),
+            ("drop-shadow-color", slint::Color::from_rgb_u8(0x77, 0x88, 0x99)),
+        ] {
+            assert!(inspector::preview_property(
+                name.into(),
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Fill,
+                    fill: ui::FillData { color, ..Default::default() },
+                    ..Default::default()
+                }
+            ));
+        }
+        assert_eq!(api.get_recent_fills().row_count(), 0);
+        assert!(inspector::commit_properties());
+        assert!(file_edit_pending());
+        assert!(api.get_undo_enabled());
+        assert_eq!(
+            api.get_recent_fills().iter().map(|fill| fill.color).collect::<Vec<_>>(),
+            [latest, border]
+        );
+        let edit = inspector_test_workspace_edit(&messages.as_ref().borrow());
+        let result = apply_inspector_test_edit(&edit);
+        assert!(result[0].contents.contains("background: #00ff00;"));
+        assert!(result[0].contents.contains("border-color: #0000ff;"));
+        assert!(result[0].contents.contains("drop-shadow-color: #778899;"));
+        assert!(!inspector::commit_properties());
+        inspector::cancel();
+        assert_eq!(api.get_recent_fills().row_count(), 2);
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn canceled_unchanged_and_rejected_fills_do_not_become_recent() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace("height: 60px;", "height: 60px; background: #112233;");
+        for action in ["cancel", "unchanged", "pending"] {
+            inspector_test_target(&editor, &source);
+            let messages = inspector_test_messages();
+            let color = if action == "unchanged" {
+                slint::Color::from_rgb_u8(17, 34, 51)
+            } else {
+                slint::Color::from_rgb_u8(255, 0, 0)
+            };
+            assert!(inspector::preview_property(
+                "background".into(),
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Fill,
+                    fill: ui::FillData { color, ..Default::default() },
+                    ..Default::default()
+                }
+            ));
+            match action {
+                "cancel" => inspector::cancel(),
+                "unchanged" => assert!(inspector::commit_properties()),
+                _ => {
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = true);
+                    assert!(!inspector::commit_properties());
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
+                }
+            }
+            assert_eq!(editor.global::<ui::Api>().get_recent_fills().row_count(), 0);
+            assert!(messages.as_ref().borrow().is_empty());
+            PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
+        }
         reset_preview_state(Default::default());
     }
 
