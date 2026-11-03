@@ -84,6 +84,17 @@
     <NativeFileReference Include="$(_SlintBrowserLibrary)" />
   </ItemGroup>
 
+  <!-- The package brings the generator of [SlintViewModel] as an analyzer; a project in this repository takes the one that Slint.csproj built. -->
+  <PropertyGroup>
+    <_SlintGeneratorBin>bin/</_SlintGeneratorBin>
+    <!-- Directory.Build.props of api/dotnet gives Android builds their own output directory. -->
+    <_SlintGeneratorBin Condition="'$(SlintAndroid)' == 'true'">bin/android/</_SlintGeneratorBin>
+    <_SlintRepositoryGenerator>$(MSBuildThisFileDirectory)../../Slint.SourceGenerator/$(_SlintGeneratorBin)$(Configuration)/netstandard2.0/Slint.SourceGenerator.dll</_SlintRepositoryGenerator>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(_SlintRepositoryGenerator)')">
+    <Analyzer Include="$([System.IO.Path]::GetFullPath('$(_SlintRepositoryGenerator)'))" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(_SlintPlatform)' == 'ios' and Exists('$(_SlintIOSLibrary)')">
     <NativeReference Include="$(_SlintIOSLibrary)" Kind="Framework" />
   </ItemGroup>

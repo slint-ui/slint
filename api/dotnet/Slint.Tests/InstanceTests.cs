@@ -272,22 +272,22 @@ public sealed class InstanceTests
         using (app.WatchProperty("doubled", () => doubled++))
         using (app.WatchGlobalProperty("Settings", "theme", () => themes++))
         {
-            Testing.MockElapsedTime(16);
+            Testing.MockElapsedTime(0);
             Assert.AreEqual(0, doubled);
 
             // Several changes between two frames call the handler once, for a property that depends on them.
             app.SetProperty("count", 1);
             app.SetProperty("count", 2);
-            Testing.MockElapsedTime(16);
+            Testing.MockElapsedTime(0);
             Assert.AreEqual(1, doubled);
 
             app.SetGlobalProperty("Settings", "theme", "light");
-            Testing.MockElapsedTime(16);
+            Testing.MockElapsedTime(0);
             Assert.AreEqual(1, themes);
         }
 
         app.SetProperty("count", 3);
-        Testing.MockElapsedTime(16);
+        Testing.MockElapsedTime(0);
         Assert.AreEqual(1, doubled);
         Assert.ThrowsExactly<SlintException>(() => app.WatchProperty("missing", () => { }));
     });

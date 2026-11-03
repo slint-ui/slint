@@ -354,6 +354,59 @@ app.OpenTodos = todos.Filter(todo => !todo.Done).Sort((a, b) => a.Title.CompareT
 Their `SourceRow` maps a row of the view to a row of the source,
 and `Reset` applies a condition that changed outside the model, such as a search text.
 
+## View Models
+
+Bind a view model, such as one written with [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm),
+to a component, instead of copying values between them.
+Add `[SlintViewModel]` with the class of the component, and call the `Bind` that the build generates:
+
+```csharp
+[SlintViewModel(typeof(AppWindow))]
+public partial class MainViewModel : ObservableObject
+{
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
+    private string _name = "";
+
+    public ObservableCollection<string> Tags { get; } = [];
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private void Save() => Tags.Add(Name);
+
+    private bool CanSave() => Name.Length > 0;
+}
+```
+
+```csharp
+using var app = AppWindow.Create();
+using var binding = app.Bind(new MainViewModel());
+app.Run();
+```
+
+`Bind` binds the members of the same C# name:
+
+- A property binds to the component's property: `Name` to `in-out property <string> name`.
+  It binds both ways when the view model's property has a setter, and only from the UI for an `out` property.
+- A collection, such as an `ObservableCollection<T>`, binds to an array property with the same item type, see [Models](#models).
+- A command, such as `SaveCommand` from `[RelayCommand]`, binds to the callback `save`,
+  and its `CanExecute` to the boolean property `save-enabled`, if the component has it.
+
+The build warns about a member whose type doesn't fit the component's member of the same name.
+For other names and conversions, add bindings to the result of `Bind`,
+or bind without the attribute through the component's `Instance`:
+
+```csharp
+using var binding = app.Instance.Bind(viewModel)
+    .Property("title", vm => vm.Title)
+    .Property("note", vm => vm.Note, (vm, value) => vm.Note = value)
+    .Collection("people", vm => vm.People, p => new Person { Name = p.Name })
+    .Command("submit", vm => vm.SubmitCommand, enabledProperty: "can-submit")
+    .ToViewModel<int>("selected", (vm, value) => vm.Selected = value);
+```
+
+The view model can raise its changes on any thread; the component updates on the Slint thread.
+Change a collection on the Slint thread.
+
 ## Timers and Async Code
 
 Use `Slint.Timer` to run code after a delay, or repeatedly:

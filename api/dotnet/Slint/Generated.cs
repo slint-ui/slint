@@ -70,6 +70,18 @@ internal sealed class ConvertedModel<T>(Model<object?> rows) : Model<T>
     private protected override nint ToNativeValue() => ((INativeModel)rows).ToNativeValue();
 }
 
+/// <summary>
+/// The name in the <c>.slint</c> file of a generated property, or of the callback that an <c>On</c> method sets,
+/// for code that matches members by name, such as the source generator of <see cref="SlintViewModelAttribute"/>.
+/// </summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Method)]
+public sealed class SlintNameAttribute(string name) : Attribute
+{
+    /// <summary>The name in the <c>.slint</c> file.</summary>
+    public string Name { get; } = name;
+}
+
 /// <summary>The members that generated code expects a component or global to have.</summary>
 /// <param name="Properties">The properties and their types.</param>
 /// <param name="Callbacks">The callbacks.</param>

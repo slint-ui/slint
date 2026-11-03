@@ -838,10 +838,17 @@ Next:
     and passes the rows that `.slint` code sets, inserts, or removes to the list; Slint has no notification for a move,
     so a move is a removal and an insertion.
     A watch of a live component reads the instance it started with, until it reads again after a reload.
-  - Phase 2, bindings, 1–1.5 weeks: an explicit, typed binding API, safe for trimming and Native AOT,
-    then a source generator that binds a view model to a component by name, such as `FirstName` to `first-name`,
-    `SubmitCommand` to the callback `submit` and the property `submit-enabled`, and `Todos` to a model.
-    Changes from other threads reach the Slint thread.
+  - Phase 2, done: `ComponentInstance.Bind(viewModel)` returns a `ViewModelBinding<T>`,
+    whose `Property`, `Collection`, `Command`, and `ToViewModel` bind members one by one.
+    On `PropertyChanged`, from any thread, it reads its getters again on the Slint thread and sets the values that changed,
+    so a property computed from others needs no notification of its own.
+    `[SlintViewModel(typeof(Component))]` makes the source generator in `api/dotnet/Slint.SourceGenerator`,
+    packed in `analyzers/` of the package, generate `component.Bind(viewModel)`, which binds members by their C# names,
+    and warns with `SLINT102` and `SLINT103` about members whose types don't fit.
+    It reads the Slint names from `[SlintName]`, which `slint-compiler -f csharp` now puts on properties and the `On` methods of callbacks.
+    One generator doesn't see what another generates, so it derives the members of `[ObservableProperty]` and `[RelayCommand]`
+    from the rules of CommunityToolkit.Mvvm.
+    The tests bind a view model of CommunityToolkit.Mvvm both ways, with a command whose `CanExecute` follows a property.
   - Phase 3, commands and validation, 1 week: `CanExecute` and the running state of asynchronous commands as properties,
     and the errors of `INotifyDataErrorInfo` per field.
   - Phase 4, sample and docs, 1 week: the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples) with a Slint UI,

@@ -9,6 +9,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MSTest" Version="4.0.2" />
+    <!-- For the tests of view model bindings with the toolkit that apps use most. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
@@ -22,6 +24,7 @@
     <SlintFile Include="ui/live.slint" LivePreview="true" />
     <SlintFile Include="ui/import-paths.slint" />
     <SlintFile Include="ui/translated.slint" />
+    <SlintFile Include="ui/view-model.slint" />
     <SlintProject Include="ui/project" />
     <SlintLibraryPath Include="tags" Path="ui/lib/" />
   </ItemGroup>

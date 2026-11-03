@@ -40,6 +40,9 @@
     <None Include="$(SlintIOSFramework)/**/*" Pack="true" PackagePath="ios/slint_dotnet.xcframework/" Condition="'$(SlintIOSFramework)' != ''" />
     <!-- Pass SlintBrowserLibrary to pack, the slint_dotnet.a of scripts/build_dotnet_browser.sh, which Slint.targets finds in browser/ with Slint's JavaScript glue. -->
     <None Include="$(SlintBrowserLibrary);../../../internal/backends/emscripten/slint_emscripten.js" Pack="true" PackagePath="browser/" Condition="'$(SlintBrowserLibrary)' != ''" />
+    <!-- The generator of [SlintViewModel], built first and packed as an analyzer, which Slint.targets adds in this repository. -->
+    <ProjectReference Include="../Slint.SourceGenerator/Slint.SourceGenerator.csproj" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <None Include="../Slint.SourceGenerator/$(BaseOutputPath)$(Configuration)/netstandard2.0/Slint.SourceGenerator.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <!-- Becomes the dependency on the compiler package. -->
     <ProjectReference Include="../Slint.Compiler/Slint.Compiler.csproj" PrivateAssets="none" />
   </ItemGroup>

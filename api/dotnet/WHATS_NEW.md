@@ -10,6 +10,9 @@
 - `ObservableCollectionModel<T>` turns a collection of a view model, such as an `ObservableCollection<T>`, into a model that Slint follows,
   with the changes of items that implement `INotifyPropertyChanged`.
 - `WatchProperty` and `WatchGlobalProperty` of `ComponentInstance` run code after a property changes, such as one that the user edits.
+- Bind a view model, such as one written with CommunityToolkit.Mvvm, to a component:
+  `[SlintViewModel(typeof(AppWindow))]` generates `app.Bind(viewModel)`, which binds properties, collections, and commands by name.
+  `app.Instance.Bind(viewModel)` binds them one by one. See [View Models](README.md#view-models).
 
 ## 1.19.0-preview.11
 

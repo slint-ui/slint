@@ -382,6 +382,7 @@ fn write_members(
                 let member = members.claim(ident(name));
                 let getter =
                     from_slint(ty, &target.call("GetProperty", std::slice::from_ref(&slint_name)));
+                let _ = writeln!(out, "    [global::Slint.Generated.SlintName({slint_name})]");
                 if prop.read_only() {
                     let _ = writeln!(out, "    public {} {member} => {getter};", csharp_type(ty));
                 } else {
@@ -409,6 +410,7 @@ fn write_members(
         } else {
             to_slint(&call)
         };
+        let _ = writeln!(out, "    [global::Slint.Generated.SlintName({slint_name})]");
         let _ = writeln!(
             out,
             "    public void {}({} handler) => {};",
