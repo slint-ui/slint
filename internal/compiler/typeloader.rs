@@ -2720,9 +2720,10 @@ export component Main inherits Window {
 }
 
 #[test]
-fn test_embedding_only_includes_used_images() {
+fn test_unused_images_are_referenced_but_not_embedded() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let image = SourcePath::new(manifest_dir.join("../../logo/slint-logo-square-light.png"));
+    let unused = SourcePath::new(manifest_dir.join("unused.png"));
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("fluent".into());
@@ -2747,6 +2748,10 @@ export component Main inherits Window {
         spin_on::spin_on(crate::compile_syntax_node(doc_node, diagnostics, compiler_config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
 
+    assert_eq!(
+        *document.referenced_file_resources.borrow(),
+        HashSet::from([image.clone(), unused])
+    );
     let resources = document.embedded_file_resources.borrow();
     assert_eq!(resources.len(), 1);
     let kinds: Vec<_> = resources

@@ -57,7 +57,8 @@ pub struct Document {
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
 
-    /// The files the `@image-url()`s of the document resolve to, also the ones that aren't embedded.
+    /// The paths and URLs that the document's `@image-url()`s resolve to,
+    /// also the ones that aren't embedded.
     pub referenced_file_resources: RefCell<HashSet<SourcePath>>,
 
     /// Resources to embed in the generated code.
