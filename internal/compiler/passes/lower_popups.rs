@@ -243,6 +243,8 @@ fn lower_to_window(popup_window_element: &ElementRc, window_type: &ElementType) 
     if !matches!(popup.base_type, ElementType::Builtin(_)) {
         return;
     }
+    #[cfg(debug_assertions)]
+    let popup_type = popup.base_type.clone();
     popup.base_type = window_type.clone();
     let is_open = SmolStr::new_static("is-open");
     popup.property_declarations.insert(
@@ -254,6 +256,20 @@ fn lower_to_window(popup_window_element: &ElementRc, window_type: &ElementType) 
         },
     );
     popup.set_binding_if_not_set(is_open, || Expression::BoolLiteral(true));
+    #[cfg(debug_assertions)]
+    for (prop, info) in &popup_type.as_builtin().properties {
+        let lowered = [CLOSE_ON_CLICK, CLOSE_POLICY].contains(&prop.as_str())
+            || matches!(info.ty, Type::Function(_));
+        if lowered {
+            continue;
+        }
+        assert!(
+            popup
+                .lookup_property(prop, crate::element_type::PropertyLookupMode::InternalName)
+                .is_valid(),
+            "PopupWindow property '{prop}' is missing after lowering to Window"
+        );
+    }
 }
 
 fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut BuildDiagnostics) {
