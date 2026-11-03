@@ -593,6 +593,58 @@ impl fmt::Display for CornerShape {
     }
 }
 
+/// The shape of each of a rectangle's four corners, with every `superellipse(k)` that has
+/// a keyword replaced by it.
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct CornerShapes {
+    top_left: CornerShape,
+    top_right: CornerShape,
+    bottom_right: CornerShape,
+    bottom_left: CornerShape,
+}
+
+impl CornerShapes {
+    /// Returns the shapes of the four corners, in the same order as [`BorderRadius::new`].
+    pub const fn new(
+        top_left: CornerShape,
+        top_right: CornerShape,
+        bottom_right: CornerShape,
+        bottom_left: CornerShape,
+    ) -> Self {
+        Self {
+            top_left: top_left.canonical(),
+            top_right: top_right.canonical(),
+            bottom_right: bottom_right.canonical(),
+            bottom_left: bottom_left.canonical(),
+        }
+    }
+
+    /// The shape of the top left corner.
+    pub const fn top_left(&self) -> CornerShape {
+        self.top_left
+    }
+
+    /// The shape of the top right corner.
+    pub const fn top_right(&self) -> CornerShape {
+        self.top_right
+    }
+
+    /// The shape of the bottom right corner.
+    pub const fn bottom_right(&self) -> CornerShape {
+        self.bottom_right
+    }
+
+    /// The shape of the bottom left corner.
+    pub const fn bottom_left(&self) -> CornerShape {
+        self.bottom_left
+    }
+
+    /// Returns the same shape for all four corners.
+    pub const fn new_uniform(shape: CornerShape) -> Self {
+        Self::new(shape, shape, shape, shape)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::lengths::{LogicalBorderRadius, LogicalLength, PhysicalPx, ScaleFactor};
@@ -654,6 +706,29 @@ mod tests {
         assert!(!BorderRadius::new_uniform(1.0e-3).is_zero());
         assert!(IntBorderRadius::new_uniform(0).is_zero());
         assert!(!IntBorderRadius::new_uniform(1).is_zero());
+    }
+
+    #[test]
+    fn test_corner_shapes_canonical() {
+        use super::{CornerShape, CornerShapes};
+        assert_eq!(
+            CornerShapes::new(
+                CornerShape::Superellipse(f32::NAN),
+                CornerShape::Superellipse(1.),
+                CornerShape::Superellipse(f32::NEG_INFINITY),
+                CornerShape::Superellipse(1.5),
+            ),
+            CornerShapes::new(
+                CornerShape::Round,
+                CornerShape::Round,
+                CornerShape::Notch,
+                CornerShape::Superellipse(1.5),
+            )
+        );
+        assert_eq!(
+            CornerShapes::new_uniform(CornerShape::Superellipse(2.)),
+            CornerShapes::new_uniform(CornerShape::Squircle)
+        );
     }
 
     #[test]

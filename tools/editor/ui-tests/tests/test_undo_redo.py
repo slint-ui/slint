@@ -169,10 +169,10 @@ def test_rectangle_undo_redo(
             expected = expected.replace(
                 b"        transform-rotation: 0deg;",
                 f"        border-bottom-left-radius: {value}px;\n"
-                f"        border-bottom-right-radius: {value}px;\n"
                 "        transform-rotation: 0deg;".encode(),
             ).replace(
                 b"        border-radius: 12px;",
+                f"        border-bottom-right-radius: {value}px;\n"
                 "        border-radius: 12px;\n"
                 f"        border-top-left-radius: {value}px;\n"
                 f"        border-top-right-radius: {value}px;".encode(),
