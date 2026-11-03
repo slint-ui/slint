@@ -190,16 +190,23 @@ pub(crate) fn render_snapshot_on_gpu(
 
     render(target.canvas(), gr_context)?;
 
+    read_snapshot_pixels(&mut target, size)
+}
+
+fn read_snapshot_pixels(
+    target: &mut skia_safe::Surface,
+    size: PhysicalWindowSize,
+) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
     let mut pixels =
         SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(size.width, size.height);
     // `Rgba8Pixel` is straight alpha, so Skia unpremultiplies while reading back.
     if !target.read_pixels(
-        &target_info.with_alpha_type(skia_safe::AlphaType::Unpremul),
+        &target.image_info().with_alpha_type(skia_safe::AlphaType::Unpremul),
         pixels.make_mut_bytes(),
         size.width as usize * 4,
         (0, 0),
     ) {
-        return Err("Failed to read the snapshot back from the GPU".into());
+        return Err("Failed to read the snapshot back from the Skia surface".into());
     }
     Ok(pixels)
 }
@@ -1101,34 +1108,20 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
             return snapshot;
         }
 
-        let (width, height) = (size.width, size.height);
-        let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
-
-        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
+        let mut target = skia_safe::surfaces::raster(
             &image_info(
-                (width as i32, height as i32),
+                (size.width as i32, size.height as i32),
                 skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Opaque,
+                skia_safe::AlphaType::Premul,
             ),
-            target_buffer.make_mut_bytes(),
             None,
             None,
         )
-        .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
+        .ok_or_else(|| "Error creating a Skia surface for the snapshot".to_string())?;
 
-        self.render_to_canvas(
-            surface_borrow.canvas(),
-            0.,
-            (0.0, 0.0),
-            None,
-            0,
-            None,
-            window,
-            false,
-        )?;
+        self.render_to_canvas(target.canvas(), 0., (0.0, 0.0), None, 0, None, window, false)?;
 
-        Ok(target_buffer)
+        read_snapshot_pixels(&mut target, size)
     }
 
     fn mark_dirty_region(&self, region: DirtyRegion) {
