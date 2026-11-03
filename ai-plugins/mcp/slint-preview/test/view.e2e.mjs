@@ -350,7 +350,7 @@ test("stacks annotations in the existing chat draft with matching screenshots an
     ), message.content[0].text);
     assert.equal(await layer.isVisible(), false);
     assert.equal(await frame.getByRole("button", { name: "Annotate", exact: true }).evaluate((element) => getComputedStyle(element).outlineStyle), "none");
-    assert.equal(await frame.locator("#annotation-hint").textContent(), "");
+    assert.equal(await frame.locator("#status").textContent(), "");
     await frame.getByRole("button", { name: "Annotate", exact: true }).click();
     await layer.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
     await comment.press("Meta+Enter");
@@ -374,9 +374,9 @@ test("keeps a refused annotation editable and cancels without sending", async ()
     await canvas.evaluate((element) => { element.toDataURL = () => { throw new Error("Capture unavailable"); }; });
     await frame.locator("#annotation-layer").click({ position: { x: 10, y: 10 } });
     await canvas.evaluate((element) => { delete element.toDataURL; });
-    assert.match(await frame.locator("#annotation-hint").textContent(), /Capture unavailable/);
+    assert.match(await frame.locator("#status").textContent(), /Capture unavailable/);
     await frame.locator("#annotation-layer").click({ position: { x: 10, y: 10 } });
-    assert.equal(await frame.locator("#annotation-hint").textContent(), "");
+    assert.equal(await frame.locator("#status").textContent(), "");
     assert.equal(await frame.getByRole("button", { name: "Add to chat", exact: true }).isEnabled(), true);
     const comment = frame.getByRole("textbox");
     const shortHeight = (await comment.boundingBox()).height;
@@ -424,12 +424,11 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     await annotate.click();
     await frame.locator("#annotation-layer").click({ position: { x: 30, y: 30 } });
     await frame.getByRole("textbox").press("Escape");
-    assert.equal(await annotate.evaluate((element) => getComputedStyle(element).outlineStyle), "none");
+    assert.equal(await annotate.evaluate((element) => element === document.activeElement && getComputedStyle(element).outlineStyle === "solid"), true);
     await annotate.press("Tab");
     const light = frame.getByRole("button", { name: "Light", exact: true });
     assert.equal(await light.evaluate((element) => element === document.activeElement && getComputedStyle(element).outlineStyle === "solid"), true);
     await light.click();
-    assert.equal(await light.evaluate((element) => getComputedStyle(element).outlineStyle), "none");
     assert.equal(await frame.getByRole("button", { name: "Dark", exact: true }).isVisible(), true);
     await frame.getByRole("button", { name: "Dark", exact: true }).click();
     await view.waitForFunction(() => document.documentElement.style.colorScheme === "dark");
@@ -438,13 +437,20 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     assert.equal(await view.evaluate(() => document.documentElement.style.colorScheme), "dark");
     await frame.getByRole("button", { name: "Light", exact: true }).click();
     await waitForBackground(false);
+    await page.evaluate(() => window.notifyView("ui/notifications/host-context-changed", { theme: "dark" }));
+    assert.equal(await light.getAttribute("aria-pressed"), "true");
+    await light.click();
+    await waitForBackground(true);
+    assert.equal(await light.getAttribute("aria-pressed"), "false");
+    assert.equal(await frame.getByRole("button", { name: "Dark", exact: true }).getAttribute("aria-pressed"), "false");
+    await page.evaluate(() => window.notifyView("ui/notifications/host-context-changed", { theme: "light" }));
+    await waitForBackground(false);
     assert.equal(await toolbar.isVisible(), true);
     await page.locator("iframe").evaluate((element) => { element.style.width = "800px"; element.style.height = "600px"; });
 });
 
-test("keeps the annotation editable when the host cannot stage a draft", async () => {
+test("hides Annotate when the host cannot stage a draft", async () => {
     await page.evaluate(() => {
-        window.annotationMessages = [];
         window.noDraftSupport = true;
         window.viewInitialized = false;
         const frame = document.querySelector("iframe");
@@ -453,12 +459,7 @@ test("keeps the annotation editable when the host cannot stage a draft", async (
     await page.waitForFunction(() => window.viewInitialized);
     await preview({ source: "export component Main inherits Window { width: 320px; height: 200px; background: blue; }" });
     const frame = page.frameLocator("iframe");
-    await frame.getByRole("button", { name: "Annotate", exact: true }).click();
-    await frame.locator("#annotation-layer").click({ position: { x: 30, y: 30 } });
-    await frame.getByRole("textbox").fill("Make it green");
-    await frame.getByRole("button", { name: "Add to chat", exact: true }).click();
-    await frame.getByRole("alert").filter({ hasText: "does not support" }).waitFor();
-    assert.equal(await page.evaluate(() => window.annotationMessages.length), 0);
-    assert.equal(await frame.getByRole("textbox").inputValue(), "Make it green");
-    await frame.getByRole("textbox", { name: "Annotation comment" }).press("Escape");
+    assert.equal(await frame.getByRole("toolbar", { name: "Preview tools", exact: true }).isVisible(), true);
+    assert.equal(await frame.getByRole("button", { name: "Light", exact: true }).isVisible(), true);
+    assert.equal(await frame.locator("#annotate").isVisible(), false);
 });
