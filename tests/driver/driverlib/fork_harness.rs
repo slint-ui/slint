@@ -15,6 +15,10 @@
 use libtest_mimic::{Arguments, Failed, Trial};
 use satchel::TestCase;
 use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+/// How long a test's process may run before it gets killed and the test fails.
+const TEST_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Runs `tests`, forking a process per test, and exits with the result.
 /// The child calls `init` before its test.
@@ -56,11 +60,27 @@ fn qualified_name(test: &TestCase) -> String {
 
 fn run_forked(name: &str) -> Result<(), Failed> {
     println!("### FORKING TEST: {name}");
-    let status = Command::new(std::env::current_exe()?)
+    let mut child = Command::new(std::env::current_exe()?)
         .args(["--exact", name])
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .status()?;
+        .spawn()?;
+    let start = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if start.elapsed() > TEST_TIMEOUT {
+            child.kill()?;
+            child.wait()?;
+            println!("### SUBPROCESS TIMED OUT");
+            return Err(Failed::from(format!(
+                "Test {name} timed out after {} seconds",
+                TEST_TIMEOUT.as_secs()
+            )));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
     println!("### SUBPROCESS STATUS: {status}");
 
     if status.success() {
