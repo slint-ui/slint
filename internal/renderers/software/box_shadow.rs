@@ -105,19 +105,13 @@ pub(super) fn process_drop_shadow(
         && let [(shape, radius, weight)] = *shapes
     {
         let args = target_pixel_buffer::DrawRectangleArgs {
-            x: shape.origin.x,
-            y: shape.origin.y,
-            width: shape.size.width,
-            height: shape.size.height,
             top_left_radius: radius.top_left,
             top_right_radius: radius.top_right,
             bottom_right_radius: radius.bottom_right,
             bottom_left_radius: radius.bottom_left,
-            border_width: 0.,
-            background: Brush::SolidColor(color),
-            border: Brush::default(),
             alpha: (weight * 255.).round() as u8,
             rotation: rotation.orientation,
+            ..target_pixel_buffer::DrawRectangleArgs::from_rect(shape, Brush::SolidColor(color))
         };
         processor.process_rectangle(&args, *clip, rounded_clips);
         return;
@@ -548,7 +542,6 @@ struct Band {
     first: (Fixed<i32, 8>, Fixed<i32, 8>),
     /// The slices' offsets from `first`, weighted.
     sum: (i32, i32),
-    slices: u32,
 }
 
 /// How far a corner of radius `r` indents the shape's edge at `distance` from the corner's
@@ -652,18 +645,16 @@ fn shape_bands(
                     last.weight += weight;
                     last.sum.0 += weight * offset(x0, last.first.0);
                     last.sum.1 += weight * offset(x1, last.first.1);
-                    last.slices += 1;
                 }
                 _ => {
-                    bands[band_count] =
-                        Band { x0, x1, weight, first: (x0, x1), sum: (0, 0), slices: 1 };
+                    bands[band_count] = Band { x0, x1, weight, first: (x0, x1), sum: (0, 0) };
                     band_count += 1;
                 }
             }
         }
     }
     for band in &mut bands[..band_count] {
-        if band.slices > 1 {
+        if band.sum != (0, 0) {
             // Flooring makes this the floored mean of the edges, whatever `first` is.
             band.x0 = band.first.0 + Fixed(band.sum.0.div_euclid(band.weight));
             band.x1 = band.first.1 + Fixed(band.sum.1.div_euclid(band.weight));
