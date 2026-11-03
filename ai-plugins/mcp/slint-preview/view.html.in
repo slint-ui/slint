@@ -211,7 +211,7 @@
     closeAnnotation();
     annotationLayer.hidden = !enabled;
     annotateButton.setAttribute("aria-pressed", String(enabled));
-    annotationHint.textContent = enabled ? "Click a point in the preview" : "";
+    annotationHint.textContent = "";
   }
 
   annotateButton.addEventListener("click", () => {
@@ -220,7 +220,7 @@
   });
   annotationCancel.addEventListener("click", () => {
     closeAnnotation();
-    annotationHint.textContent = "Click a point in the preview";
+    annotationHint.textContent = "";
   });
   annotationComment.addEventListener("input", () => {
     annotationSend.disabled = annotationSending || !annotationComment.value.trim();
