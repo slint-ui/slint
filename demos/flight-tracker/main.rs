@@ -46,6 +46,9 @@ const IDLE: Duration = Duration::from_secs(60);
 const KIOSK_KM: (f32, f32) = (1500.0, 13000.0);
 const VIEW_TRANSITION: f32 = 1.5;
 const MAX_LABELS: usize = 24;
+const LABEL_FADE_SECONDS: f32 = 0.2;
+/// How many logical pixels a label on the screen can overlap others or leave it before it goes.
+const LABEL_SLACK: f32 = 4.0;
 /// The most physical pixels per logical pixel the globe renders at, so that phones with a
 /// scale factor of 3 render fewer than half the pixels of their full resolution.
 const MAX_GLOBE_SCALE: f32 = 2.0;
@@ -214,12 +217,20 @@ fn airport_item(airports: &[Airport], index: usize) -> AirportItem {
     }
 }
 
+#[derive(Clone, Copy, Default)]
+struct LabelState {
+    shown: bool,
+    fade: f32,
+}
+
 /// The kiosk's flights, the user's own, and the camera that watches them.
 struct Demo {
     airports: Vec<Airport>,
     /// The airports the kiosk flies between.
     hubs: Vec<usize>,
     cities: Vec<City>,
+    /// One for each of `cities`.
+    label_states: Vec<LabelState>,
     flight: Flight,
     phase: Phase,
     phase_time: f32,
@@ -269,6 +280,7 @@ impl Demo {
         Self {
             flight: Flight::new(0, position, 0, position),
             hubs,
+            label_states: vec![LabelState::default(); cities.len()],
             cities,
             phase: Phase::Boarding,
             phase_time: 0.0,
@@ -547,8 +559,16 @@ impl Demo {
     }
 
     /// The names of the largest cities on the screen, at most `MAX_LABELS`, that don't overlap
-    /// each other or `taken`.
-    fn labels(&self, view_projection: Mat4, eye: Vec3, size: Vec2, taken: &[Vec2]) -> Vec<Label> {
+    /// each other or `taken`. They fade in and out, and those on the screen keep their place
+    /// over new ones, so that a moving camera doesn't make them flicker.
+    fn labels(
+        &mut self,
+        view_projection: Mat4,
+        eye: Vec3,
+        size: Vec2,
+        taken: &[Vec2],
+        dt: f32,
+    ) -> Vec<Label> {
         let height = (eye.length() - 1.0).max(0.01);
         let min_population = if height > 2.0 {
             6000.0
@@ -561,34 +581,55 @@ impl Demo {
             .iter()
             .map(|point| (*point - Vec2::new(24.0, 24.0), *point + Vec2::new(60.0, 24.0)))
             .collect();
+        let mut count = 0;
+        let mut was_shown = vec![false; self.cities.len()];
+        for (slack, keep_shown) in [(LABEL_SLACK, true), (0.0, false)] {
+            for (index, city) in self.cities.iter().enumerate() {
+                let state = &mut self.label_states[index];
+                if keep_shown {
+                    was_shown[index] = state.shown;
+                    state.shown = false;
+                }
+                if was_shown[index] != keep_shown || state.shown {
+                    continue;
+                }
+                let facing = facing(eye, city.position);
+                if city.population < min_population || facing < 0.15 || count == MAX_LABELS {
+                    continue;
+                }
+                let Some(point) = project(view_projection, city.position, size) else { continue };
+                let width = city.name.chars().count() as f32 * 6.5 + 14.0;
+                let (low, high) =
+                    (point - Vec2::new(6.0, 10.0) + slack, point + Vec2::new(width, 10.0) - slack);
+                if low.x < 0.0 || low.y < 0.0 || high.x > size.x || high.y > size.y {
+                    continue;
+                }
+                if placed
+                    .iter()
+                    .any(|(a, b)| low.x < b.x && a.x < high.x && low.y < b.y && a.y < high.y)
+                {
+                    continue;
+                }
+                placed.push((low, high));
+                state.shown = true;
+                count += 1;
+            }
+        }
         let mut labels = Vec::new();
-        for city in self.cities.iter().take_while(|city| city.population >= min_population) {
+        for (city, state) in self.cities.iter().zip(&mut self.label_states) {
+            let step = dt / LABEL_FADE_SECONDS;
+            state.fade = (state.fade + if state.shown { step } else { -step }).clamp(0.0, 1.0);
             let facing = facing(eye, city.position);
-            if facing < 0.15 {
+            if state.fade == 0.0 || facing < 0.15 {
                 continue;
             }
             let Some(point) = project(view_projection, city.position, size) else { continue };
-            let width = city.name.chars().count() as f32 * 6.5 + 14.0;
-            let (low, high) = (point - Vec2::new(6.0, 10.0), point + Vec2::new(width, 10.0));
-            if low.x < 0.0 || low.y < 0.0 || high.x > size.x || high.y > size.y {
-                continue;
-            }
-            if placed
-                .iter()
-                .any(|(a, b)| low.x < b.x && a.x < high.x && low.y < b.y && a.y < high.y)
-            {
-                continue;
-            }
-            placed.push((low, high));
             labels.push(Label {
                 x: point.x,
                 y: point.y,
                 name: city.name.as_str().into(),
-                opacity: ((facing - 0.15) / 0.2).clamp(0.0, 1.0),
+                opacity: state.fade * ((facing - 0.15) / 0.2).clamp(0.0, 1.0),
             });
-            if labels.len() == MAX_LABELS {
-                break;
-            }
         }
         labels
     }
@@ -965,7 +1006,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .map(|marker| Vec2::new(marker.x, marker.y))
             .chain(aircraft.map(|(at, _)| at))
             .collect();
-        update_rows(&labels, demo.labels(view_projection, eye, size, &taken));
+        update_rows(&labels, demo.labels(view_projection, eye, size, &taken, dt));
         app.set_origin_marker(origin);
         app.set_destination_marker(destination);
         app.set_flight(demo.flight_info());
