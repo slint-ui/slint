@@ -335,16 +335,41 @@ impl TextParagraph {
         const BORDER_WIDTH: LogicalLength = LogicalLength::new(1.0);
         const MIN_RADIUS: LogicalLength = LogicalLength::new(2.0);
         const MAX_RADIUS: LogicalLength = LogicalLength::new(5.0);
-        // A touch of vertical padding above and below the cap-height / descender band
-        // so the capsule edge doesn't sit flush against tall glyphs.
-        const VERTICAL_PADDING_RATIO: f32 = 0.15;
+        // Vertical padding above and below the cap-height / descender band, so the
+        // capsule edge doesn't sit flush against tall glyphs.
+        const VERTICAL_PADDING_RATIO: f32 = 0.22;
 
         let scale_factor = item_renderer.scale_factor();
         let border_width = BORDER_WIDTH * scale_factor;
 
+        let mut draw_capsule = |capsule: Capsule| {
+            let height = (capsule.bottom - capsule.top).max(1.0);
+            let rect = PhysicalRect::new(
+                PhysicalPoint::from_lengths(
+                    PhysicalLength::new(capsule.left),
+                    PhysicalLength::new(capsule.top) + para_y,
+                ),
+                PhysicalSize::new(capsule.right - capsule.left, height),
+            );
+            let radius = PhysicalLength::new(height * 0.22)
+                .max(MIN_RADIUS * scale_factor)
+                .min(MAX_RADIUS * scale_factor);
+            let Some(fill_brush) = item_renderer.platform_brush_for_color(&fill) else {
+                return;
+            };
+            let border_brush = item_renderer
+                .platform_brush_for_color(&border)
+                .map(|brush| RectangleBorder { brush, width: border_width });
+            item_renderer.fill_rectangle(rect, fill_brush, radius, border_brush);
+        };
+
         // Capsules only under lines that are drawn: lines past the visible-extent cut
         // (`overflow: elide` height limit or `max-lines`) don't render their glyphs either.
         for line in self.layout.lines().take(last_drawn + 1) {
+            // One capsule for each piece of code on the line, though it is several runs: its
+            // last character, which the padding follows, is shaped apart, and so is text in
+            // a fallback font.
+            let mut pending: Option<Capsule> = None;
             for item in line.items() {
                 let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
                     continue;
@@ -357,13 +382,13 @@ impl TextParagraph {
                 // `Style::Code` pushes its own FontFamily + FontSize, which forces a
                 // run boundary, so a code run is always fully contained in one of the
                 // recorded ranges — a single containment check is enough.
-                let is_code = self
+                let Some(code) = self
                     .code_ranges
                     .iter()
-                    .any(|cr| cr.start <= run_range.start && run_range.end <= cr.end);
-                if !is_code {
+                    .position(|cr| cr.start <= run_range.start && run_range.end <= cr.end)
+                else {
                     continue;
-                }
+                };
 
                 let metrics = run.font_metrics();
                 let ascent = metrics.ascent;
@@ -380,36 +405,44 @@ impl TextParagraph {
                 let inner_half_height = (upper_extent + lower_extent) / 2.0;
                 let extra_padding = ascent * VERTICAL_PADDING_RATIO;
                 let half_height = inner_half_height + extra_padding;
-                let bg_height = (half_height * 2.0).max(1.0);
-                let bg_top = center - half_height;
 
-                // Width hugs the glyphs tightly — `glyph_run.advance()` is exactly
-                // the horizontal extent of the rendered run. The underlying text is
-                // not modified, so selection, hit-testing and copy/paste keep working
-                // on the underlying characters.
-                let bg_width = glyph_run.advance().max(0.0);
-                if bg_width <= 0.0 {
+                // Padding is laid out as spacing (see `INLINE_CODE_PADDING`): the right one
+                // after the code's last character, so it is in the advance of the run that
+                // ends the code; the left one after the character before the code, so the
+                // capsule of the run that starts the code reaches back over it. Code that
+                // starts a line has no character before it there, and its padding hangs
+                // outside the text. Where code wraps, the pieces meet the line's edges
+                // without padding, as CSS's `box-decoration-break: slice` does. The text isn't
+                // modified, so selection, hit-testing and copy/paste keep working on the
+                // underlying characters.
+                let advance = glyph_run.advance();
+                if advance <= 0.0 {
                     continue;
                 }
-                let bg_left = glyph_run.offset();
-
-                let bg_rect = PhysicalRect::new(
-                    PhysicalPoint::from_lengths(
-                        PhysicalLength::new(bg_left),
-                        PhysicalLength::new(bg_top) + para_y,
-                    ),
-                    PhysicalSize::new(bg_width, bg_height),
-                );
-                let radius = PhysicalLength::new(bg_height * 0.22)
-                    .max(MIN_RADIUS * scale_factor)
-                    .min(MAX_RADIUS * scale_factor);
-                let Some(fill_brush) = item_renderer.platform_brush_for_color(&fill) else {
-                    continue;
+                let padding_left = if run_range.start == self.code_ranges[code].start {
+                    run.font_size() * super::shaping::INLINE_CODE_PADDING
+                } else {
+                    0.0
                 };
-                let border_brush = item_renderer
-                    .platform_brush_for_color(&border)
-                    .map(|brush| RectangleBorder { brush, width: border_width });
-                item_renderer.fill_rectangle(bg_rect, fill_brush, radius, border_brush);
+                let capsule = Capsule {
+                    code,
+                    left: glyph_run.offset() - padding_left,
+                    right: glyph_run.offset() + advance,
+                    top: center - half_height,
+                    bottom: center + half_height,
+                };
+                pending = match pending {
+                    Some(before) if before.continued_by(&capsule) => Some(before.joined(capsule)),
+                    before => {
+                        if let Some(before) = before {
+                            draw_capsule(before);
+                        }
+                        Some(capsule)
+                    }
+                };
+            }
+            if let Some(last) = pending {
+                draw_capsule(last);
             }
         }
     }
@@ -752,6 +785,37 @@ impl Layout {
                 default_text_color,
                 selection,
             );
+        }
+    }
+}
+
+/// The capsule under a piece of inline code on one line, in the paragraph's coordinates.
+#[derive(Clone, Copy)]
+struct Capsule {
+    /// The code's index in the paragraph's code ranges.
+    code: usize,
+    left: f32,
+    right: f32,
+    top: f32,
+    bottom: f32,
+}
+
+impl Capsule {
+    /// Whether `next` is more of the same code, right after this in either direction.
+    fn continued_by(&self, next: &Capsule) -> bool {
+        const TOUCHING: f32 = 0.5;
+        self.code == next.code
+            && ((next.left - self.right).abs() < TOUCHING
+                || (self.left - next.right).abs() < TOUCHING)
+    }
+
+    fn joined(self, other: Capsule) -> Capsule {
+        Capsule {
+            code: self.code,
+            left: self.left.min(other.left),
+            right: self.right.max(other.right),
+            top: self.top.min(other.top),
+            bottom: self.bottom.max(other.bottom),
         }
     }
 }
