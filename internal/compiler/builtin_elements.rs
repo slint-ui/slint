@@ -2410,6 +2410,10 @@ fn build(l: &mut Loader) {
         in property <length> border-top-right-radius;
         in property <length> border-bottom-left-radius;
         in property <length> border-bottom-right-radius;
+        in property <corner-shape> corner-top-left-shape;
+        in property <corner-shape> corner-top-right-shape;
+        in property <corner-shape> corner-bottom-left-shape;
+        in property <corner-shape> corner-bottom-right-shape;
         in property <length> offset-x;
         in property <length> offset-y;
         in property <color> color;

@@ -1813,6 +1813,10 @@ pub struct BoxShadow {
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
     pub border_bottom_right_radius: Property<LogicalLength>,
+    pub corner_top_left_shape: Property<CornerShape>,
+    pub corner_top_right_shape: Property<CornerShape>,
+    pub corner_bottom_left_shape: Property<CornerShape>,
+    pub corner_bottom_right_shape: Property<CornerShape>,
     // Shadow specific properties
     pub offset_x: Property<LogicalLength>,
     pub offset_y: Property<LogicalLength>,
@@ -1833,6 +1837,10 @@ impl BoxShadow {
         )
         .max(Default::default())
     }
+
+    pub fn logical_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        per_corner_shapes!(self)
+    }
 }
 
 impl RenderBorderRectangle for BoxShadow {
@@ -1846,7 +1854,7 @@ impl RenderBorderRectangle for BoxShadow {
         self.logical_border_radius()
     }
     fn corner_shape(self: Pin<&Self>) -> CornerShapes {
-        CornerShapes::default()
+        self.logical_corner_shape()
     }
     fn border_color(self: Pin<&Self>) -> Brush {
         self.border_color()
