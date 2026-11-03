@@ -170,6 +170,10 @@ fn runtime_property_value(
             property.value_brush = brush;
             ui::PropertyValueKind::Brush
         }
+        Value::MouseCursorInner(i_slint_core::cursor::MouseCursorInner::BuiltIn(cursor)) => {
+            property.value_string = cursor.to_string().into();
+            ui::PropertyValueKind::Enum
+        }
         Value::EnumerationValue(enumeration_name, value) => {
             let enumeration_type = i_slint_compiler::typeregister::TypeRegister::builtin()
                 .borrow()
@@ -781,6 +785,14 @@ mod tests {
             fallback,
         );
         assert_eq!(alignment.value_int, 4);
+        let cursor = super::runtime_property_value(
+            Some(Value::MouseCursorInner(i_slint_core::cursor::MouseCursorInner::BuiltIn(
+                i_slint_core::items::BuiltInMouseCursor::Pointer,
+            ))),
+            Default::default(),
+        );
+        assert_eq!(cursor.value_kind, ui::PropertyValueKind::Enum);
+        assert_eq!(cursor.value_string, "pointer");
     }
 
     #[test]

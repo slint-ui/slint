@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../../api.slint";
+import { Api, PropertyEditKind } from "../../../api.slint";
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
 import { InspectorComboBox, InspectorEditableField, InspectorEnumOptions, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
@@ -25,7 +25,7 @@ export component InspectorTypographySection inherits InspectorSection {
             wide: true;
             width: root.field-width;
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("font-family", InspectorContext.quote(text));
+                return text != "" && InspectorContext.commit-string("font-family", text);
             }
         }
 
@@ -40,7 +40,7 @@ export component InspectorTypographySection inherits InspectorSection {
                 options: InspectorEnumOptions.text-font-weight-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("font-weight", text);
+                    return text.is-float() && InspectorContext.commit-value("font-weight", { kind: PropertyEditKind.integer, integer: text.to-float() });
                 }
             }
 
@@ -50,7 +50,7 @@ export component InspectorTypographySection inherits InspectorSection {
                 commit-key: InspectorContext.field-key("font-size");
                 accepted(text) => {
                     return text.is-float()
-                        ? InspectorContext.commit-px-code("font-size", text)
+                        ? InspectorContext.commit-number("font-size", text.to-float(), "px")
                         : InspectorContext.commit-code("font-size", text);
                 }
             }
@@ -69,7 +69,7 @@ export component InspectorTypographySection inherits InspectorSection {
                 self.focus();
                 let requested = self.checked;
                 self.checked = root.italic;
-                InspectorContext.commit-code("font-italic", requested ? "true" : "false");
+                InspectorContext.commit-boolean("font-italic", requested);
             }
         }
     }

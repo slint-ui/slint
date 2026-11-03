@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
+import { Api, PropertyEditKind, FillData, OutlineTreeNode, ElementKind, BrushKind, EditorSurfaceMode } from "../ui/api.slint";
 import { FillSession } from "../ui/components/inspector/index.slint";
 import { Diagnostics, PreviewAvailability } from "../ui/diagnostics.slint";
 
@@ -106,10 +106,14 @@ export global Gallery {
             anchor-position: anchor, anchor-size: size,
         });
     }
-    callback fill-preview <=> Api.inspector-fill-preview;
-    fill-preview(key, name, value) => { return true; }
-    callback fill-commit <=> Api.inspector-fill-commit;
-    fill-commit(key, name, value) => { Gallery.fill = value; return true; }
+    private property <FillData> preview-fill;
+    callback property-preview <=> Api.inspector-preview;
+    property-preview(name, value) => {
+        if value.kind == PropertyEditKind.fill { Gallery.preview-fill = value.fill; }
+        return true;
+    }
+    callback property-commit <=> Api.inspector-commit;
+    property-commit() => { Gallery.fill = Gallery.preview-fill; return true; }
     callback select-row <=> Api.outline-select-element;
     select-row(uri, offset, notify) => {
         Api.current-element = { source-uri: uri, offset: offset };

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, FillData, BrushKind, LinearGradientAxis, SelectionRectangle } from "../../api.slint";
+import { Api, PropertyEditKind, FillData, BrushKind, LinearGradientAxis, SelectionRectangle } from "../../api.slint";
 
 export struct FillSessionTarget {
     key: string,
@@ -173,7 +173,15 @@ export global FillSession {
         if !FillSession.session-active || !FillSession.editable {
             return false;
         }
-        if Api.inspector-fill-preview(FillSession.request.target.key, FillSession.request.target.property-name, fill, FillSession.element-rotation, FillSession.request.target.canvas) {
+        if FillSession.request.target.session-key != "" && FillSession.request.target.session-key != FillSession.current-session-key {
+            FillSession.close-picker(false, false);
+            return false;
+        }
+        Api.inspector-cancel();
+        if Api.inspector-preview(FillSession.request.target.property-name, { kind: PropertyEditKind.fill, fill: fill })
+            && (!FillSession.request.target.canvas || FillSession.element-rotation == FillSession.request.target.element-rotation || Api.inspector-preview("transform-rotation", {
+                kind: PropertyEditKind.number, number: FillSession.element-rotation, unit: "deg",
+            })) {
             if fill.kind == BrushKind.radial {
                 FillSession.radial-center-initialized = FillSession.radial-center-initialized || fill.custom-center;
                 FillSession.radius-initialized = FillSession.radius-initialized || fill.custom-radius;
@@ -185,6 +193,8 @@ export global FillSession {
             FillSession.working-fill = fill;
             return true;
         }
+        Api.inspector-cancel();
+        FillSession.has-preview = false;
         FillSession.close-picker(false, false);
         return false;
     }
@@ -313,9 +323,7 @@ export global FillSession {
         }
         FillSession.session-active = false;
         FillSession.stop-panel-open = false;
-        let fill-changed = Api.fill-brush(FillSession.working-fill) != Api.fill-brush(FillSession.request.fill);
-        let rotation-changed = FillSession.request.target.canvas && FillSession.element-rotation != FillSession.request.target.element-rotation;
-        if !accept || (!fill-changed && !rotation-changed) || !Api.inspector-fill-commit(FillSession.request.target.key, FillSession.request.target.property-name, FillSession.working-fill, FillSession.element-rotation, fill-changed, rotation-changed) {
+        if !accept || (FillSession.has-preview && !Api.inspector-commit()) {
             if FillSession.has-preview {
                 Api.inspector-cancel();
             }

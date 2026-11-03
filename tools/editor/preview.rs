@@ -1060,47 +1060,28 @@ fn set_code_binding(
     )
 }
 
+fn notify_property_changed() {
+    let lsp = PREVIEW_STATE.with_borrow(|state| state.to_lsp.borrow().clone().unwrap());
+    lsp.send_telemetry(&mut [(
+        "type".to_string(),
+        serde_json::to_value("property_changed").unwrap(),
+    )])
+    .ok();
+}
+
 fn set_code_bindings(
     element_url: slint::SharedString,
     element_version: i32,
     element_offset: i32,
     bindings: impl IntoIterator<Item = ui::CodeBinding>,
 ) -> bool {
-    let lsp = PREVIEW_STATE.with_borrow(|ps| ps.to_lsp.borrow().clone().unwrap());
-    lsp.send_telemetry(&mut [(
-        "type".to_string(),
-        serde_json::to_value("property_changed").unwrap(),
-    )])
-    .ok();
+    notify_property_changed();
 
     let Some(edit) = evaluate_bindings(element_url, element_version, element_offset, bindings)
     else {
         return false;
     };
     send_workspace_edit("Edit properties".to_string(), edit, true)
-}
-
-fn set_color_binding(
-    element_url: slint::SharedString,
-    element_version: i32,
-    element_offset: i32,
-    property_name: slint::SharedString,
-    value: slint::Color,
-) {
-    // We need a CSS value which is rgba, color converts to a argb only :-/
-    let rgba: slint::RgbaColor<u8> = value.into();
-    let value: u32 = ((rgba.red as u32) << 24)
-        + ((rgba.green as u32) << 16)
-        + ((rgba.blue as u32) << 8)
-        + (rgba.alpha as u32);
-
-    let _ = set_code_binding(
-        element_url,
-        element_version,
-        element_offset,
-        property_name,
-        format!("#{value:08x}").into(),
-    );
 }
 
 fn set_element_id(
@@ -4403,7 +4384,7 @@ export component Main inherits Rectangle {
 
         let document_cache = Rc::new(document_cache);
         let offset = SOURCE.find("Rectangle {").unwrap() as i32;
-        for kind in ["single", "batch", "color"] {
+        for kind in ["single", "batch"] {
             for case in ["valid", "stale", "pending", "invalid"] {
                 let messages = Rc::new(RefCell::new(Vec::new()));
                 reset_preview_state(messages.clone());
@@ -4426,14 +4407,14 @@ export component Main inherits Rectangle {
                 );
                 assert!(messages.borrow().is_empty());
                 let accepted = match kind {
-                    "single" => Some(set_code_binding(
+                    "single" => set_code_binding(
                         url.as_str().into(),
                         version,
                         offset,
                         name,
                         "#12345678".into(),
-                    )),
-                    "batch" => Some(set_code_bindings(
+                    ),
+                    "batch" => set_code_bindings(
                         url.as_str().into(),
                         version,
                         offset,
@@ -4441,22 +4422,10 @@ export component Main inherits Rectangle {
                             ui::CodeBinding { name, value: "#12345678".into() },
                             ui::CodeBinding { name: "width".into(), value: "40px".into() },
                         ],
-                    )),
-                    "color" => {
-                        set_color_binding(
-                            url.as_str().into(),
-                            version,
-                            offset,
-                            name,
-                            slint::Color::from_argb_u8(0x78, 0x12, 0x34, 0x56),
-                        );
-                        None
-                    }
+                    ),
                     _ => unreachable!(),
                 };
-                if let Some(accepted) = accepted {
-                    assert_eq!(accepted, case == "valid", "{kind}: {case}");
-                }
+                assert_eq!(accepted, case == "valid", "{kind}: {case}");
                 let messages = messages.borrow();
                 assert_eq!(
                     messages
@@ -4627,6 +4596,16 @@ export component Main {
         messages
     }
 
+    fn inspector_test_workspace_edit(messages: &[PreviewToLspMessage]) -> lsp_types::WorkspaceEdit {
+        let mut edits = messages.iter().filter_map(|message| match message {
+            PreviewToLspMessage::SendWorkspaceEdit { edit, .. } => Some(edit),
+            _ => None,
+        });
+        let edit = edits.next().expect("Expected one workspace edit").clone();
+        assert!(edits.next().is_none());
+        edit
+    }
+
     fn apply_inspector_test_edit(edit: &lsp_types::WorkspaceEdit) -> Vec<text_edit::EditedText> {
         let cache = document_cache().unwrap();
         PREVIEW_STATE.with_borrow(|state| {
@@ -4639,6 +4618,10 @@ export component Main {
 
     fn inspector_test_target(editor: &ui::EditorUi, source: &str) {
         apply_availability_test_source(editor, source, true);
+        let api = editor.global::<ui::Api>();
+        api.on_inspector_preview(inspector::preview_property);
+        api.on_inspector_commit(inspector::commit_properties);
+        api.on_inspector_cancel(inspector::cancel);
         element_selection::restore_selection(
             ElementSelection {
                 path: SourcePath::from_url(
@@ -4697,10 +4680,11 @@ export component Main {
             60.
         );
         let sent = messages.as_ref().borrow();
-        let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = sent.as_slice() else {
-            panic!("Expected one edit for all staged properties");
-        };
-        let result = apply_inspector_test_edit(edit);
+        let edit = inspector_test_workspace_edit(&sent);
+        assert_eq!(sent.iter().filter(|message| matches!(message,
+            PreviewToLspMessage::TelemetryEvent(event) if event.get("type") == Some(&serde_json::json!("property_changed"))
+        )).count(), 1);
+        let result = apply_inspector_test_edit(&edit);
         assert_eq!(result.len(), 1);
         assert!(result[0].contents.contains("transform-rotation: 60deg;"));
         assert!(result[0].contents.contains("border-width: 3px;"));
@@ -4721,10 +4705,8 @@ export component Main {
                 editor.global::<ui::Api>().invoke_undo();
             }
             let sent = messages.as_ref().borrow();
-            let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = sent.as_slice() else {
-                panic!("Expected one atomic history edit");
-            };
-            let restored = apply_inspector_test_edit(edit);
+            let edit = inspector_test_workspace_edit(&sent);
+            let restored = apply_inspector_test_edit(&edit);
             assert_eq!(restored[0].contents, expected);
             current_source = restored[0].contents.clone();
         }
@@ -4768,16 +4750,9 @@ export component Main {
         assert!(inspector::preview_property("opacity".into(), inspector_number(0.5, "")));
         assert!(inspector::commit_properties());
         let messages = messages.as_ref().borrow();
-        let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = messages.as_slice() else {
-            panic!("Expected one typed property edit");
-        };
-        let result = apply_inspector_test_edit(edit);
-        for expression in [
-            "enabled: true;",
-            "count: 7;",
-            "alignment: TextHorizontalAlignment.center;",
-            "opacity: 0.5;",
-        ] {
+        let edit = inspector_test_workspace_edit(&messages);
+        let result = apply_inspector_test_edit(&edit);
+        for expression in ["enabled: true;", "count: 7;", "alignment: center;", "opacity: 0.5;"] {
             assert!(result[0].contents.contains(expression), "{expression}");
         }
         assert!(result[0].contents.contains(r#"label: "after\n\"text\"";"#));
@@ -4789,6 +4764,7 @@ export component Main {
         let editor = availability_test_editor();
         for action in ["cancel", "noop", "selection", "generation", "pending"] {
             inspector_test_target(&editor, ROTATED_SOURCE);
+            let messages = inspector_test_messages();
             let instance = component_instance().unwrap();
             let before = geometry_of(&instance, "inner").transform_rotation;
             assert!(
@@ -4826,6 +4802,7 @@ export component Main {
             assert_eq!(geometry_of(&instance, "inner").transform_rotation, previous);
             PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
             assert!(!file_edit_pending());
+            assert!(messages.as_ref().borrow().is_empty());
         }
         reset_preview_state(Default::default());
     }
@@ -4843,6 +4820,8 @@ export component Main {
             ("transform-rotation", inspector_number(f32::NAN, "deg")),
             ("transform-rotation", inspector_number(1., "px")),
             ("border-width", inspector_number(-1., "px")),
+            ("drop-shadow-blur", inspector_number(-1., "px")),
+            ("inner-shadow-blur", inspector_number(-1., "px")),
             ("missing-property", inspector_number(1., "px")),
             (
                 "transform-rotation",
@@ -4891,12 +4870,10 @@ export component Main {
             SelectionNotification::Never,
         );
         assert!(override_selected_element_rotation_impl(&node, 0, before.angle + 10.).is_some());
-        let (path, offset) = node.path_and_offset();
-        let url = path.to_url().unwrap();
-        let version = document_cache().unwrap().document_version(&url).unwrap();
-        let generation = editor.global::<ui::Api>().get_inspector_generation();
-        let key = format!("{url}:{version}:{}:0:{generation}", u32::from(offset));
-        assert!(inspector::preview(key.into(), "transform-rotation".into(), 60.));
+        assert!(inspector::preview_property(
+            "transform-rotation".into(),
+            inspector_number(60., "deg")
+        ));
         assert_ne!(geometry_of(&instance, "inner").transform_rotation, before.transform_rotation);
 
         apply_availability_test_source(&editor, "export component Main { invalid }", true);

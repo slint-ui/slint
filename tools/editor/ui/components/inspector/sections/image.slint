@@ -59,7 +59,7 @@ export component InspectorImageSection inherits InspectorSection {
                 width: root.field-width;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("image-fit", text);
+                    return text != "" && InspectorContext.commit-enum("image-fit", text);
                 }
             }
         }
@@ -92,7 +92,7 @@ export component InspectorImageSection inherits InspectorSection {
                 width: root.field-width;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("image-rendering", text);
+                    return text != "" && InspectorContext.commit-enum("image-rendering", text);
                 }
             }
         }
@@ -151,7 +151,7 @@ export component InspectorImageSection inherits InspectorSection {
                 width: root.field-width;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("horizontal-tiling", text);
+                    return text != "" && InspectorContext.commit-enum("horizontal-tiling", text);
                 }
             }
         }
@@ -184,7 +184,7 @@ export component InspectorImageSection inherits InspectorSection {
                 width: root.field-width;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("vertical-tiling", text);
+                    return text != "" && InspectorContext.commit-enum("vertical-tiling", text);
                 }
             }
         }

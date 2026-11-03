@@ -70,10 +70,6 @@ export struct ElementLibraryGroup {
     entries: [ElementLibraryEntry],
 }
 
-export struct InspectorNumberChange {
-    name: string,
-    value: float,
-}
 
 /// One device discovered as a possible remote-preview target.
 export struct RemoteViewerInfo {
@@ -599,12 +595,23 @@ export global Api {
         Api.inspector-cancel();
         let prefix = Api.shadow-prefix(inner);
         let enabled = !Api.has-shadow(prefix);
+        if enabled {
+            if !Api.inspector-preview(prefix + "color", { kind: PropertyEditKind.fill, fill: { kind: BrushKind.solid, color: inner ? #00000030 : #00000040 } })
+                || !Api.inspector-preview(prefix + "blur", { kind: PropertyEditKind.number, number: 16, unit: "px" })
+                || !Api.inspector-preview(prefix + "spread", { kind: PropertyEditKind.number, number: 0, unit: "px" })
+                || !Api.inspector-preview(prefix + "offset-x", { kind: PropertyEditKind.number, number: 0, unit: "px" })
+                || !Api.inspector-preview(prefix + "offset-y", { kind: PropertyEditKind.number, number: 8, unit: "px" })
+                || !Api.inspector-commit() {
+                Api.inspector-cancel();
+            }
+            return;
+        }
         Api.set-code-bindings(element.source-uri, element.source-version, element.offset, [
-            { name: prefix + "color", value: enabled ? (inner ? "#00000030" : "#00000040") : "" },
-            { name: prefix + "blur", value: enabled ? "16px" : "" },
-            { name: prefix + "spread", value: enabled ? "0px" : "" },
-            { name: prefix + "offset-x", value: enabled ? "0px" : "" },
-            { name: prefix + "offset-y", value: enabled ? "8px" : "" },
+            { name: prefix + "color", value: "" },
+            { name: prefix + "blur", value: "" },
+            { name: prefix + "spread", value: "" },
+            { name: prefix + "offset-x", value: "" },
+            { name: prefix + "offset-y", value: "" },
         ]);
     }
     pure callback image-source-file-name(source: string) -> string;
@@ -709,16 +716,9 @@ export global Api {
     in property <int> inspector-generation;
     in property <int> inspector-fill-generation;
     in property <bool> inspector-fill-refresh-pending;
-    pure callback inspector-values(key: string) -> [float];
     callback inspector-preview(name: string, value: PropertyEditValue) -> bool;
     callback inspector-commit() -> bool;
-    callback inspector-preview-number-temporary(key: string, name: string, value: float) -> bool;
-    callback inspector-commit-number-temporary(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
-    callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
-    callback inspector-fill-preview(key: string, name: string, value: FillData, rotation: float, rotate-element: bool) -> bool;
-    callback inspector-fill-commit(key: string, name: string, value: FillData, rotation: float, fill-changed: bool, rotation-changed: bool) -> bool;
     callback dismiss-fill-picker(position: Point, button: PointerEventButton);
 
     // ## Property Editor
@@ -730,7 +730,6 @@ export global Api {
             && Api.test-code-binding(element.source-uri, element.source-version, element.offset, name, value)
             && Api.set-code-binding(element.source-uri, element.source-version, element.offset, name, value);
     }
-    pure callback set-color-binding(element-url: string, element-version: int, element-offset: int, property-name: string, property-value: color);
     callback set-element-id(element-url: string, element-version: int, element-offset: int, new-id: string);
 
     pure callback string-is-single-line(value: string) -> bool;

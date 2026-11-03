@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, PaintStyle, Colors, Metrics, Typography, FieldStyle, ComboMenuStyle } from "../../style.slint";
+import { Api } from "../../api.slint";
 import { InspectorComboOption } from "control-data.slint";
 import { EditorIcons } from "../index.slint";
 
@@ -20,6 +21,10 @@ export component InspectorComboBox inherits InputSurface {
     in property <bool> fit-options: false;
     in property <string> placeholder: "";
     in property <length> popup-available-height: root.menu-style.max-height;
+    in property <string> commit-key: Api.current-element.source-uri + ":" + Api.current-element.source-version
+        + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
+    private property <string> opening-key;
+    changed commit-key => { fallback-popup.close(); }
     callback accepted(string) -> bool;
     focused: fallback-popup.is-open || combo-focus.has-focus;
     hovered: native-menu-touch.has-hover;
@@ -74,7 +79,7 @@ export component InspectorComboBox inherits InputSurface {
     }
 
     function accept-highlighted() -> bool {
-        if root.highlighted-index < 0 || root.highlighted-index >= root.option-count() {
+        if root.opening-key != root.commit-key || root.highlighted-index < 0 || root.highlighted-index >= root.option-count() {
             return false;
         }
         return root.accepted(root.options[root.highlighted-index].value);
@@ -101,6 +106,7 @@ export component InspectorComboBox inherits InputSurface {
         if !root.can-open {
             return;
         }
+        root.opening-key = root.commit-key;
         combo-focus.focus();
         root.highlighted-index = root.selected-index >= 0 ? root.selected-index : 0;
         if root.use-native-menu {
@@ -140,7 +146,7 @@ export component InspectorComboBox inherits InputSurface {
                 checkable: true;
                 checked: index == root.selected-index;
                 activated => {
-                    root.accepted(option.value);
+                    if root.opening-key == root.commit-key { root.accepted(option.value); }
                 }
             }
         }
@@ -281,7 +287,7 @@ export component InspectorComboBox inherits InputSurface {
                             row-touch := TouchArea {
                                 clicked => {
                                     root.highlighted-index = index;
-                                    if root.accepted(option.value) {
+                                    if root.opening-key == root.commit-key && root.accepted(option.value) {
                                         combo-focus.focus();
                                         fallback-popup.close();
                                     }
