@@ -15,41 +15,7 @@ pub(super) struct Edit {
     key: String,
     overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
     changes: Vec<(String, String)>,
-    fill: Option<(String, ui::FillData)>,
-}
-
-pub(super) struct FillRefresh {
-    pub(super) expected: text_edit::EditedText,
-    pub(super) submitted_edit: lsp_types::WorkspaceEdit,
-    pub(super) fill: ui::FillData,
-    pub(super) undo: Option<undo_redo::EditItem>,
-}
-
-pub(super) fn fill_contents_changed(url: &Url, content: &str) -> bool {
-    PREVIEW_STATE.with_borrow_mut(|state| {
-        let changed = state.source_code.get(url).is_none_or(|source| source.code != content);
-        let Some(refresh) = state.fill_refresh.as_mut() else { return false };
-        if refresh.expected.url != *url {
-            return false;
-        }
-        if refresh.expected.contents != content {
-            if changed {
-                refresh.undo = None;
-            }
-            return false;
-        }
-        true
-    })
-}
-
-fn clear_fill_refresh() {
-    let api = PREVIEW_STATE.with_borrow_mut(|state| {
-        state.fill_refresh = None;
-        state.api.upgrade()
-    });
-    if let Some(api) = api {
-        api.set_inspector_fill_refresh_pending(false);
-    }
+    fills: Vec<(String, ui::FillData)>,
 }
 
 pub(super) fn invalidate_fill() {
@@ -57,42 +23,6 @@ pub(super) fn invalidate_fill() {
     if let Some(api) = api {
         api.set_inspector_fill_generation(api.get_inspector_fill_generation().wrapping_add(1));
     }
-}
-
-pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
-    if !applied {
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            state.workspace_edit_sent = false;
-        });
-    }
-    let result = PREVIEW_STATE.with_borrow_mut(|state| {
-        let refresh = state.fill_refresh.as_mut()?;
-        if refresh.submitted_edit != edit {
-            return None;
-        }
-        let fill = refresh.fill.clone();
-        if !applied {
-            state.workspace_edit_sent = false;
-        } else {
-            if let Some(undo) = refresh.undo.take() {
-                state.undo_redo_stack.push_item(undo);
-            }
-            state.inspector_edit.take();
-        }
-        Some((state.api.upgrade(), fill))
-    });
-    let Some((api, fill)) = result else { return };
-    if applied {
-        if let Some(api) = api {
-            api.invoke_add_recent_fill(fill);
-        }
-    } else {
-        cancel();
-        invalidate_fill();
-    }
-    clear_fill_refresh();
-    PREVIEW_STATE.with_borrow(undo_redo::set_undo_redo_enabled);
-    undo_redo::apply_pending();
 }
 
 fn target(key: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
@@ -178,7 +108,7 @@ fn preview_values<'a>(
                 key: key.to_string(),
                 overrides: Vec::new(),
                 changes: Vec::new(),
-                fill: None,
+                fills: Vec::new(),
             });
             if !edit.overrides.iter().any(|(saved, _)| saved == &id) {
                 edit.overrides.push((id, previous));
@@ -339,8 +269,9 @@ pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue)
     preview_values(key.into(), node, [(name.as_str(), runtime)]);
     PREVIEW_STATE.with_borrow_mut(|state| {
         let edit = state.inspector_edit.as_mut().unwrap();
+        edit.fills.retain(|(staged_name, _)| staged_name != name.as_str());
         if value.kind == ui::PropertyEditKind::Fill {
-            edit.fill = Some((name.to_string(), value.fill.clone()));
+            edit.fills.push((name.to_string(), value.fill.clone()));
         }
         if let Some((_, staged)) =
             edit.changes.iter_mut().find(|(staged_name, _)| staged_name == name.as_str())
@@ -382,9 +313,9 @@ pub(super) fn commit_properties() -> bool {
         state
             .inspector_edit
             .as_ref()
-            .map(|edit| (edit.key.clone(), edit.changes.clone(), edit.fill.clone()))
+            .map(|edit| (edit.key.clone(), edit.changes.clone(), edit.fills.clone()))
     });
-    let Some((key, changes, fill)) = staged else { return false };
+    let Some((key, changes, mut fills)) = staged else { return false };
     let Some((node, url, version)) = target(&key) else {
         cancel();
         return false;
@@ -398,16 +329,19 @@ pub(super) fn commit_properties() -> bool {
         cancel();
         return true;
     }
-    let fill = fill
-        .filter(|(name, _)| changes.iter().any(|change| change.name == name.as_str()))
-        .map(|(_, fill)| fill);
+    fills.retain(|(name, _)| changes.iter().any(|change| change.name == name.as_str()));
     let accepted = property_edit(node, url, version, changes)
-        .is_some_and(|edit| submit_workspace_edit("Editing properties".into(), edit, true, fill));
+        .is_some_and(|edit| send_workspace_edit("Editing properties".into(), edit, true));
     if accepted && file_edit_pending() {
         notify_property_changed();
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
         });
+        if let Some(api) = PREVIEW_STATE.with_borrow(|state| state.api.upgrade()) {
+            for (_, fill) in fills {
+                api.invoke_add_recent_fill(fill);
+            }
+        }
     } else {
         cancel();
     }
