@@ -1762,12 +1762,6 @@ impl TypeLoader {
         parse_errors: Vec<Diagnostic>,
     ) {
         let mut file_dependencies = doc.referenced_file_resources.borrow().clone();
-        file_dependencies.extend(
-            doc.embedded_file_resources
-                .borrow()
-                .iter()
-                .filter_map(|resource| resource.path.clone()),
-        );
         file_dependencies.extend(doc.imports.iter().filter_map(|import| import.resolved.clone()));
         self.all_documents.file_dependencies.insert(path.clone(), file_dependencies);
         for dep in doc.imports.iter().filter_map(|import| import.resolved.as_ref()) {
