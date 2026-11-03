@@ -8,15 +8,18 @@ use anyrender::PaintScene;
 use i_slint_core::graphics::ResolvedBrush;
 #[cfg(any(feature = "image-pixel-format-rgb565", feature = "image-pixel-format-gray8"))]
 use i_slint_core::graphics::Rgba8Pixel;
+use i_slint_core::graphics::corner_path::{self, PathSink, contour_path, shaped_paths};
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{Image, ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::graphics::{
+    CornerShapes, Image, ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer,
+};
 use i_slint_core::item_rendering::{
     BorderRectLayout, CachedRenderingData, ItemCache, ItemRenderer, RenderBorderRectangle,
-    RenderImage, RenderRectangle, RenderText,
+    RenderImage, RenderRectangle, RenderText, clip_content_box, clip_content_contour,
 };
 use i_slint_core::items::{self, FillRule, ImageFit, ImageRendering, ItemRc};
 use i_slint_core::lengths::{
-    LogicalBorderRadius, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
     PhysicalBorderRadius, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
@@ -161,6 +164,16 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
         };
 
         let transform = self.current_state.transform;
+        if let Some(contours) = layout.shaped_contours(0.) {
+            self.fill_shaped(
+                &shaped_paths::<BezPathSink>(contours),
+                [rect.background(), layout.border_color],
+                layout.brush_size,
+                transform,
+            );
+            return;
+        }
+
         self.fill_with_brush(
             rect.background(),
             layout.brush_size,
@@ -689,28 +702,26 @@ impl<'a, S: PaintScene> ItemRenderer for AnyrenderItemRenderer<'a, S> {
     }
 
     fn combine_clip(&mut self, clip_rect: LogicalRect, radius: LogicalBorderRadius) -> bool {
-        let clip = &mut self.current_state.clip_rect;
-        let clip_region_valid = match clip.intersection(&clip_rect) {
-            Some(r) => {
-                *clip = r;
-                true
-            }
-            None => {
-                *clip = LogicalRect::default();
-                false
-            }
-        };
-
         let clip_shape = phys_rect_shape(clip_rect * self.scale_factor, radius * self.scale_factor);
+        self.push_clip(clip_rect, &clip_shape)
+    }
 
-        self.scene.push_clip_layer(
-            peniko::Fill::NonZero,
-            self.current_state.transform,
-            &clip_shape,
+    fn combine_contour_clip(
+        &mut self,
+        _item_rc: &ItemRc,
+        size: LogicalSize,
+        radius: LogicalBorderRadius,
+        border_width: LogicalLength,
+        shape: CornerShapes,
+    ) -> bool {
+        let (clip_rect, _) = clip_content_box(size, radius, border_width);
+        let inner = clip_content_contour(
+            size * self.scale_factor,
+            radius * self.scale_factor,
+            border_width * self.scale_factor,
+            shape,
         );
-        self.current_state.layer_count += 1;
-
-        clip_region_valid
+        self.push_clip(clip_rect, &contour_path::<BezPathSink>(&inner))
     }
 
     fn get_current_clip(&self) -> LogicalRect {
@@ -1020,6 +1031,27 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
         self.scene.pop_layer();
     }
 
+    /// Clips further drawing to `shape` until `restore_state`, with `clip_rect` its bounds.
+    /// Returns whether the clip region covers an area.
+    fn push_clip(&mut self, clip_rect: LogicalRect, shape: &impl kurbo::Shape) -> bool {
+        let clip = &mut self.current_state.clip_rect;
+        let clip_region_valid = match clip.intersection(&clip_rect) {
+            Some(r) => {
+                *clip = r;
+                true
+            }
+            None => {
+                *clip = LogicalRect::default();
+                false
+            }
+        };
+
+        self.scene.push_clip_layer(peniko::Fill::NonZero, self.current_state.transform, shape);
+        self.current_state.layer_count += 1;
+
+        clip_region_valid
+    }
+
     /// Push a compositing layer that does not clip its content.
     fn push_unclipped_layer(&mut self, blend: peniko::BlendMode, alpha: f32) {
         self.scene.push_layer(
@@ -1071,6 +1103,32 @@ impl<'a, S: PaintScene> AnyrenderItemRenderer<'a, S> {
                 peniko::BrushRef::from(&brush),
                 brush_transform,
                 shape,
+            );
+        }
+    }
+
+    /// Fills the background and border of `paths` with `brushes`, in that order.
+    fn fill_shaped(
+        &mut self,
+        (background, border): &corner_path::ShapedPaths<kurbo::BezPath>,
+        [background_brush, border_brush]: [Brush; 2],
+        brush_size: PhysicalSize,
+        transform: kurbo::Affine,
+    ) {
+        self.fill_with_brush(
+            background_brush,
+            brush_size,
+            transform,
+            peniko::Fill::NonZero,
+            background,
+        );
+        if let Some(border) = border {
+            self.fill_with_brush(
+                border_brush,
+                brush_size,
+                transform,
+                peniko::Fill::NonZero,
+                border,
             );
         }
     }
@@ -1197,6 +1255,38 @@ fn to_kurbo_size(size: PhysicalSize) -> kurbo::Size {
 
 fn phys_rect_shape(rect: PhysicalRect, radius: PhysicalBorderRadius) -> RectShape {
     RectShape::new(to_kurbo_rect(rect), radius)
+}
+
+/// Builds a kurbo path from corner geometry.
+#[derive(Default)]
+struct BezPathSink(kurbo::BezPath);
+
+impl PathSink for BezPathSink {
+    type Path = kurbo::BezPath;
+    fn move_to(&mut self, to: lyon_path::math::Point) {
+        self.0.move_to(sink_point(to));
+    }
+    fn line_to(&mut self, to: lyon_path::math::Point) {
+        self.0.line_to(sink_point(to));
+    }
+    fn cubic_to(
+        &mut self,
+        ctrl1: lyon_path::math::Point,
+        ctrl2: lyon_path::math::Point,
+        to: lyon_path::math::Point,
+    ) {
+        self.0.curve_to(sink_point(ctrl1), sink_point(ctrl2), sink_point(to));
+    }
+    fn close(&mut self) {
+        self.0.close_path();
+    }
+    fn build(self) -> kurbo::BezPath {
+        self.0
+    }
+}
+
+fn sink_point(p: lyon_path::math::Point) -> kurbo::Point {
+    kurbo::Point::new(p.x as f64, p.y as f64)
 }
 
 /// The average of `radius`, since anyrender's blurred box shadow takes a single radius
