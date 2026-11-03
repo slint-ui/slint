@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabWidget } from "std-widgets.slint";
+import { TabHeaderBase, TabBarLayoutBase } from "../../../tools/editor/controls/src/headless.slint";
+
+component ObservedHeader inherits TabHeaderBase {
+    callback observed();
+    out property <int> activation-count: observer.calls;
+    observer := Rectangle { property <int> calls; }
+    activated => { observer.calls += 1; root.observed(); }
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+    out property <int> local-calls;
+    out property <int> inherited-calls;
+    out property <int> private-calls: inherited.activation-count;
+    out property <int> index <=> tabs.current-index;
+    tabs := TabWidget {
+        bar << TabBarLayoutBase { }
+        Tab {
+            title: "Local";
+            header << TabHeaderBase {
+                min-width: 100px; min-height: 32px;
+                activated => { root.local-calls += 1; }
+            }
+        }
+        Tab {
+            title: "Inherited";
+            header << inherited := ObservedHeader {
+                min-width: 100px; min-height: 32px;
+                observed => { root.inherited-calls += 1; }
+            }
+        }
+    }
+}
+
+/*
+```rust
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let header = ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab)
+    .match_accessible_label("Local").find_first().unwrap();
+header.invoke_accessible_default_action();
+assert_eq!(instance.get_index(), 0);
+assert_eq!(instance.get_local_calls(), 1);
+```
+
+```rust
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let header = ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab)
+    .match_accessible_label("Inherited").find_first().unwrap();
+header.invoke_accessible_default_action();
+assert_eq!(instance.get_index(), 1);
+assert_eq!(instance.get_inherited_calls(), 1);
+assert_eq!(instance.get_private_calls(), 1);
+```
+*/

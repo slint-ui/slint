@@ -24,25 +24,30 @@ pub async fn lower_tabwidget(
     forwarded_references: &mut forward_inherited_expression::ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
-    // Collect before lowering: lowering rewrites base_type, which would hide
-    // other TabWidget elements from builtin_type() (an instance and the style
-    // wrapper both match). Dedup a sub-component root visited more than once.
-    // The empty check below also avoids loading std-widgets.slint when unused.
-    let mut seen = HashSet::new();
-    let mut tab_widgets = Vec::new();
     doc.visit_all_used_components(|component| {
         error_on_slot_in_inner_builtin(component, &["TabWidget"], diag);
-        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-            if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget")
-                && seen.insert(Rc::as_ptr(elem))
-            {
-                tab_widgets.push(elem.clone());
-            }
-        })
     });
-
+    let mut tab_widgets = collect_tab_widgets(doc);
     if tab_widgets.is_empty() {
         return;
+    }
+
+    loop {
+        let mut expanded = false;
+        for elem in &tab_widgets {
+            let bases = tabwidget_bases(elem);
+            if !bases.iter().any(|base| base.root_element.borrow().children.iter().any(is_tab))
+                && bases.iter().any(|base| base.root_element.borrow().children.iter().any(is_bar))
+            {
+                inline_bar_bases(elem, doc, type_loader, forwarded_references, diag);
+                expanded = true;
+            }
+        }
+        if !expanded {
+            break;
+        }
+        // Inlining copies nested widgets, so the old collection doesn't contain every instance.
+        tab_widgets = collect_tab_widgets(doc);
     }
 
     // If an element's base is itself a collected TabWidget that already has its own Tab
@@ -77,15 +82,6 @@ pub async fn lower_tabwidget(
             false
         })
         .collect();
-
-    for elem in &tab_widgets {
-        if tabwidget_bases(elem)
-            .iter()
-            .any(|base| base.root_element.borrow().children.iter().any(is_bar))
-        {
-            inline_bar_bases(elem, doc, type_loader, forwarded_references, diag);
-        }
-    }
 
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
@@ -172,6 +168,21 @@ pub async fn lower_tabwidget(
             diag,
         );
     }
+}
+
+fn collect_tab_widgets(doc: &Document) -> Vec<ElementRc> {
+    let mut seen = HashSet::new();
+    let mut widgets = Vec::new();
+    doc.visit_all_used_components(|component| {
+        recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
+            if matches!(elem.borrow().builtin_type(), Some(builtin) if builtin.name == "TabWidget")
+                && seen.insert(Rc::as_ptr(elem))
+            {
+                widgets.push(elem.clone());
+            }
+        });
+    });
+    widgets
 }
 
 fn is_bar(elem: &ElementRc) -> bool {
@@ -442,7 +453,27 @@ fn process_tabwidget(
         .make_rc()
     };
     for (header, panel, index) in custom_headers {
-        let activate = Expression::CodeBlock(vec![
+        let mut handler_source = header.clone();
+        let handler = loop {
+            let binding = handler_source.borrow().binding("activated").map(|b| b.clone());
+            if let Some(binding) = binding {
+                let callback_type = header
+                    .borrow()
+                    .lookup_property("activated", PropertyLookupMode::ComponentLocal)
+                    .property_type;
+                let handler = crate::layout::create_new_prop(
+                    &handler_source,
+                    "tab-header-activated".into(),
+                    callback_type,
+                );
+                handler_source.borrow_mut().set_binding(handler.name().clone(), binding);
+                break Some(NamedReference::new(&header, handler.name().clone()));
+            }
+            let base = handler_source.borrow().base_type.clone();
+            let ElementType::Component(base) = base else { break None };
+            handler_source = base.root_element.clone();
+        };
+        let mut activate = vec![
             Expression::SelfAssignment {
                 lhs: Expression::PropertyReference(NamedReference::new(
                     elem,
@@ -458,8 +489,15 @@ fn process_tabwidget(
                 arguments: vec![Expression::NumberLiteral(index as _, Unit::None)],
                 source_location: None,
             },
-        ]);
-        header.borrow_mut().set_binding("activated".into(), activate.into());
+        ];
+        if let Some(handler) = handler {
+            activate.push(Expression::FunctionCall {
+                function: Callable::Callback(handler),
+                arguments: vec![],
+                source_location: None,
+            });
+        }
+        header.borrow_mut().set_binding("activated".into(), Expression::CodeBlock(activate).into());
         let role = crate::typeregister::BUILTIN
             .enums
             .AccessibleRole
