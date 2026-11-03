@@ -5,6 +5,8 @@
 [package]
 name = "i-slint-renderer-skia"
 description = "Skia based renderer for Slint"
+categories = ["gui", "rendering"]
+keywords = ["skia", "vulkan", "opengl", "gui", "ui"]
 authors.workspace = true
 edition = "2024"
 homepage.workspace = true

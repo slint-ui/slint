@@ -250,6 +250,7 @@
     "streetsidesoftware",
     "tableview",
     "tabwidget",
+    "Tauri",
     "testcase",
     "textedit",
     "threadsafe", // asyncio loop.call_soon_threadsafe()

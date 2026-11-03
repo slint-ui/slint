@@ -1,8 +1,10 @@
 
 # Slint-python (Beta)
 
-[Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-python is the integration with Python.
+[Slint](https://slint.dev/) is a GUI toolkit to build native user interfaces for any device,
+with Python, Rust, C++, or JavaScript.
+Slint-python is the Python API for desktop and embedded Linux apps.
+Describe your UI in the `.slint` language and connect it to your Python code.
 
 **Warning**
 Slint-python is in a beta phase of development: the APIs, while mostly stable, may be subject to further changes. Any changes will be documented in the [ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md).
@@ -406,6 +408,23 @@ app.run()
 ```
 
 6. Run it with `uv run main.py`.
+
+## License
+
+Slint is open source and available under three licenses: you pick the one that fits your app.
+
+- If your app is open source, use the [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt), a widely used, OSI-approved open-source license.
+  It covers any platform, including embedded devices.
+- If your app is closed source and runs on desktop, mobile, or the web,
+  use the [Royalty-free License](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md).
+  It's free of charge, and only asks you to credit Slint, with the `AboutSlint` widget or the Slint badge on your website.
+- If your app is closed source and runs on an embedded device,
+  buy a [commercial license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
+  See the [pricing](https://slint.dev/pricing).
+
+Your own code can stay under a permissive license such as MIT or Apache-2.0.
+Anyone who forks it chooses their own Slint license, so they can reuse it in a closed-source app.
+The [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing) covers the details.
 
 ## Third-Party Licenses
 
