@@ -147,8 +147,9 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
-    uint32_t show_popup(const Parent *parent_component, PosGetter pos,
+    template<typename Component, typename Parent, typename PosGetter, typename AnchorGetter,
+             typename IsOpenSetter>
+    uint32_t show_popup(const Parent *parent_component, PosGetter pos, AnchorGetter anchor,
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item,
                         cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
@@ -170,8 +171,14 @@ public:
             PosGetter pos;
             decltype(popup) popup_component;
         };
+        struct PopupAnchorData
+        {
+            AnchorGetter anchor;
+            decltype(popup) popup_component;
+        };
 
         auto position_data = new PopupPositionData { std::move(pos), popup };
+        auto anchor_data = new PopupAnchorData { std::move(anchor), popup };
         // Keeps the parent component's `PopupWindow::is-open` property in sync: invoked with `true`
         // when the popup is shown and with `false` from every close path.
         auto is_open_data = new IsOpenSetter(std::move(is_open_setter));
@@ -182,7 +189,13 @@ public:
                     *pos = data->pos(data->popup_component);
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
-                position_data, close_policy, &parent_item, window_kind,
+                position_data,
+                [](void *user_data, cbindgen_private::PopupAnchor *anchor) {
+                    auto data = reinterpret_cast<PopupAnchorData *>(user_data);
+                    *anchor = data->anchor(data->popup_component);
+                },
+                [](void *user_data) { delete reinterpret_cast<PopupAnchorData *>(user_data); },
+                anchor_data, close_policy, &parent_item, window_kind,
                 [](void *user_data, bool is_open) {
                     (*reinterpret_cast<IsOpenSetter *>(user_data))(is_open);
                 },
@@ -238,8 +251,12 @@ public:
                     *pos = *reinterpret_cast<LogicalPosition *>(user_data);
                 },
                 [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
-                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, cbindgen_private::WindowKind::Menu,
+                position_data,
+                // Menus don't support a custom anchor; leave the (already default-initialized)
+                // out-param untouched.
+                [](void *, cbindgen_private::PopupAnchor *) {}, [](void *) {}, nullptr,
+                cbindgen_private::PopupClosePolicy::CloseOnClickOutside, &context_menu_rc,
+                cbindgen_private::WindowKind::Menu,
                 // Menus do not expose `is-open`, so the setter is a no-op.
                 [](void *, bool) {}, [](void *) {}, nullptr);
         popup->user_init();

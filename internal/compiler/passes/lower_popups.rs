@@ -4,7 +4,7 @@
 //! This pass transforms the PopupWindow element into a component
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::element_type::ElementType;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{EnumerationValue, Type};
 use crate::object_tree::*;
@@ -17,6 +17,7 @@ use std::rc::{Rc, Weak};
 
 const CLOSE_ON_CLICK: &str = "close-on-click";
 const CLOSE_POLICY: &str = "close-policy";
+const ANCHOR_PROPERTY_NAME: &str = "anchor";
 
 pub fn lower_popups(
     component: &Rc<Component>,
@@ -72,6 +73,9 @@ fn lower_popup_window(
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
     let parent_element = match parent_element {
         None => {
+            // Materialize `anchor` before the base type is swapped to Window below, otherwise
+            // components that `inherits PopupWindow` lose access to the builtin's property type.
+            materialize_anchor_property(popup_window_element);
             if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
                 popup_window_element.borrow_mut().base_type = window_type.clone();
             }
@@ -202,6 +206,12 @@ fn lower_popup_window(
     // converted to absolute coordinates in the run-time library.
     let coord_x = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("x"));
     let coord_y = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("y"));
+    let anchor =
+        NamedReference::new(&popup_comp.root_element, SmolStr::new_static(ANCHOR_PROPERTY_NAME));
+    // Ensure anchor is in property_declarations so lower_sub_component maps it as a Property
+    // (not as a native Window property, since Window has no anchor). Must happen before the
+    // base type is changed to Window below.
+    materialize_anchor_property(&popup_comp.root_element);
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
@@ -222,6 +232,7 @@ fn lower_popup_window(
 
     check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_x, diag);
 
+    // Change popup base_type to WindowItem type
     if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
         popup_window_element.borrow_mut().base_type = window_type.clone();
     }
@@ -233,10 +244,36 @@ fn lower_popup_window(
         x: coord_x,
         y: coord_y,
         close_policy,
+        anchor,
         parent_element: parent_element.clone(),
         is_tooltip: popup_window_element.borrow().is_tooltip,
         is_open,
     });
+}
+
+/// Declares `anchor` on `elem` if it derives directly from the builtin `PopupWindow`.
+/// The native `Window` type that replaces that base type has no `anchor`,
+/// so without the declaration the property would no longer resolve.
+/// An element deriving from a component takes the declaration from that component's root,
+/// which is lowered first.
+/// Declaring it again collides when the inlining pass merges the two.
+fn materialize_anchor_property(elem: &ElementRc) {
+    if !matches!(elem.borrow().base_type, ElementType::Builtin(_)) {
+        return;
+    }
+    let anchor_type = elem
+        .borrow()
+        .lookup_property(ANCHOR_PROPERTY_NAME, PropertyLookupMode::ComponentLocal)
+        .property_type;
+    if anchor_type != Type::Invalid {
+        elem.borrow_mut()
+            .property_declarations
+            .entry(SmolStr::new_static(ANCHOR_PROPERTY_NAME))
+            .or_insert_with(|| PropertyDeclaration {
+                property_type: anchor_type,
+                ..Default::default()
+            });
+    }
 }
 
 fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut BuildDiagnostics) {
