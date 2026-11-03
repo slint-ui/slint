@@ -47,7 +47,7 @@ def rewrite(data):
         end = body + size
         if section_id == 0:
             name_len, name_pos = read_leb(data, body)
-            name = data[name_pos:name_pos + name_len]
+            name = data[name_pos : name_pos + name_len]
             if name == b"target_features":
                 p = name_pos + name_len
                 count, p = read_leb(data, p)
@@ -55,13 +55,15 @@ def rewrite(data):
                 for _ in range(count):
                     prefix = data[p]
                     feature_len, fp = read_leb(data, p + 1)
-                    feature = data[fp:fp + feature_len]
+                    feature = data[fp : fp + feature_len]
                     p = fp + feature_len
                     if feature in UNKNOWN:
                         removed += 1
                     else:
                         kept.append(bytes([prefix]) + write_leb(feature_len) + feature)
-                payload = write_leb(len(name)) + name + write_leb(len(kept)) + b"".join(kept)
+                payload = (
+                    write_leb(len(name)) + name + write_leb(len(kept)) + b"".join(kept)
+                )
                 out += bytes([0]) + write_leb(len(payload)) + payload
                 pos = end
                 continue

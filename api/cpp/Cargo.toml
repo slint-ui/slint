@@ -45,7 +45,11 @@ renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "render
 renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
 renderer-skia-software = ["i-slint-backend-selector/renderer-skia-software"]
 renderer-vello = ["i-slint-backend-selector/renderer-vello"]
-renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software", "i-slint-backend-emscripten?/renderer-software"]
+renderer-software = [
+  "i-slint-backend-selector/renderer-software",
+  "dep:i-slint-renderer-software",
+  "i-slint-backend-emscripten?/renderer-software",
+]
 software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
 image-pixel-format-rgb565 = [
