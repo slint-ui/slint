@@ -18,6 +18,11 @@ Drag to move the map, twist with two fingers to turn it, and scroll, pinch, or d
 This works beside the planner too, where the globe waits a moment before it turns on its own again.
 After a minute without input, the random flights take over again.
 
+Pick one of three styles for the panels and controls with the switch at the bottom right, or beside the zoom buttons during a flight.
+The cockpit style frames the panels like the displays in a cockpit, with keys and lights.
+The wing style sweeps the corners like a pair of wings, and draws the route as an arc.
+The ticket style tears the panels like a boarding pass, and hangs the airports' codes on luggage tags.
+
 ## Running the Demo
 
 ```sh
