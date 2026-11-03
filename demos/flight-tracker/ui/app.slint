@@ -793,7 +793,11 @@ export component AppWindow inherits Window {
     }
 
     ScaleRotateGestureHandler {
-        enabled: root.screen == Screen.flight;
+        x: globe-view.x;
+        y: globe-view.y;
+        width: globe-view.width;
+        height: globe-view.height;
+        enabled: root.screen != Screen.zoom;
         property <float> last-scale: 1;
         property <angle> last-rotation;
         started => {
@@ -808,7 +812,7 @@ export component AppWindow inherits Window {
         }
 
         TouchArea {
-            enabled: root.screen == Screen.flight;
+            enabled: root.screen != Screen.zoom;
             property <length> last-x;
             property <length> last-y;
             pointer-event(event) => {
@@ -822,7 +826,8 @@ export component AppWindow inherits Window {
                 }
             }
             moved => {
-                root.dragged((self.mouse-x - self.last-x) / 1px, (self.mouse-y - self.last-y) / 1px);
+                // In the frame's pixels, which the entry screen shows smaller.
+                root.dragged((self.mouse-x - self.last-x) / frame.scale / 1px, (self.mouse-y - self.last-y) / frame.scale / 1px);
                 self.last-x = self.mouse-x;
                 self.last-y = self.mouse-y;
             }
