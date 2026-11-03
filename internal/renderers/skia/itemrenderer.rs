@@ -773,51 +773,12 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
                     path.fitted_path_events(item_rc)?;
 
-                let mut builder = skia_safe::PathBuilder::new();
-                builder.set_fill_type(match path.fill_rule() {
+                let mut skpath = to_skia_path(path_events.iter(), self.scale_factor.get());
+                skpath.set_fill_type(match path.fill_rule() {
                     i_slint_core::items::FillRule::Evenodd => skia_safe::PathFillType::EvenOdd,
                     i_slint_core::items::FillRule::Nonzero | _ => skia_safe::PathFillType::Winding,
                 });
-
-                for x in path_events.iter() {
-                    match x {
-                        lyon_path::Event::Begin { at } => {
-                            builder.move_to(to_skia_point(
-                                LogicalPoint::from_untyped(at) * self.scale_factor,
-                            ));
-                        }
-                        lyon_path::Event::Line { from: _, to } => {
-                            builder.line_to(to_skia_point(
-                                LogicalPoint::from_untyped(to) * self.scale_factor,
-                            ));
-                        }
-                        lyon_path::Event::Quadratic { from: _, ctrl, to } => {
-                            builder.quad_to(
-                                to_skia_point(LogicalPoint::from_untyped(ctrl) * self.scale_factor),
-                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
-                            );
-                        }
-
-                        lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
-                            builder.cubic_to(
-                                to_skia_point(
-                                    LogicalPoint::from_untyped(ctrl1) * self.scale_factor,
-                                ),
-                                to_skia_point(
-                                    LogicalPoint::from_untyped(ctrl2) * self.scale_factor,
-                                ),
-                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
-                            );
-                        }
-                        lyon_path::Event::End { last: _, first: _, close } => {
-                            if close {
-                                builder.close();
-                            }
-                        }
-                    }
-                }
-
-                (logical_offset * self.scale_factor, builder.detach()).into()
+                (logical_offset * self.scale_factor, skpath).into()
             }) {
                 Some(offset_and_path) => offset_and_path,
                 None => return,
@@ -1357,6 +1318,37 @@ pub fn to_skia_rrect(rect: &PhysicalRect, radius: &PhysicalBorderRadius) -> skia
             ],
         )
     }
+}
+
+/// Converts lyon path events to a Skia path, scaling every point by `scale`.
+fn to_skia_path(
+    events: impl IntoIterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
+    scale: f32,
+) -> skia_safe::Path {
+    let point = |p: lyon_path::math::Point| to_skia_point(PhysicalPoint::from_untyped(p * scale));
+    let mut builder = skia_safe::PathBuilder::new();
+    for event in events {
+        match event {
+            lyon_path::Event::Begin { at } => {
+                builder.move_to(point(at));
+            }
+            lyon_path::Event::Line { from: _, to } => {
+                builder.line_to(point(to));
+            }
+            lyon_path::Event::Quadratic { from: _, ctrl, to } => {
+                builder.quad_to(point(ctrl), point(to));
+            }
+            lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
+                builder.cubic_to(point(ctrl1), point(ctrl2), point(to));
+            }
+            lyon_path::Event::End { last: _, first: _, close } => {
+                if close {
+                    builder.close();
+                }
+            }
+        }
+    }
+    builder.detach()
 }
 
 impl ItemRendererFeatures for SkiaItemRenderer<'_> {
