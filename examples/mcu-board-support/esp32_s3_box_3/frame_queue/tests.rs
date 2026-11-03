@@ -10,7 +10,10 @@ use std::{
 };
 
 fn queue(capacity: usize) -> FrameQueue {
-    FrameQueue::new(Box::leak(vec![0; capacity].into_boxed_slice()))
+    FrameQueue::new(
+        Box::leak(vec![0; capacity].into_boxed_slice()),
+        core::array::from_fn(|_| vec![0; band_stream::SLOT_BYTES]),
+    )
 }
 
 fn pixels() -> Vec<Rgb565BigEndianPixel> {

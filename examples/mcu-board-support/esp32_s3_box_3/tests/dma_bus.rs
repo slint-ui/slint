@@ -23,7 +23,7 @@ pub mod dma {
             self.1 = len;
         }
         pub fn as_mut_slice(&mut self) -> &mut [u8] {
-            &mut self.0
+            &mut self.0[..self.1]
         }
     }
     pub struct DmaRxBuf(pub Vec<u8>, pub usize);
@@ -179,4 +179,20 @@ fn failed_submission_restores_both_buffers_and_spi_for_retry() {
         write(&mut bus, &[0x2c]).unwrap();
         assert_eq!(wire.borrow().bytes.last(), Some(&0x2c));
     }
+}
+
+#[test]
+fn buffer_writes_send_the_length_and_return_the_buffer_on_failure() {
+    let (mut bus, wire) = bus(8);
+    let data: Vec<u8> = (0..40).collect();
+    let (buffer, result) =
+        bus.write_buffer(DataMode, Command, Address, 0, dma::DmaTxBuf(data.clone(), 0), 25);
+    assert_eq!(result, Ok(()));
+    assert_eq!(wire.borrow().bytes, data[..25]);
+    wire.borrow_mut().fail_on = Some(2);
+    let (buffer, result) = bus.write_buffer(DataMode, Command, Address, 0, buffer, 40);
+    assert_eq!(result, Err(spi::Error));
+    assert_eq!(buffer.0, data);
+    write(&mut bus, &[7, 8]).unwrap();
+    assert_eq!(wire.borrow().bytes[25..], [7, 8]);
 }

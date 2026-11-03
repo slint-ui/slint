@@ -282,7 +282,7 @@ fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
     {
         static PACKET: static_cell::ConstStaticCell<[u8; frame_queue::INTERNAL_PACKET_BYTES]> =
             static_cell::ConstStaticCell::new([0; frame_queue::INTERNAL_PACKET_BYTES]);
-        let queue = FRAME_QUEUE.init(frame_queue::FrameQueue::new(PACKET.take()));
+        let queue = FRAME_QUEUE.init(frame_queue::FrameQueue::new(PACKET.take(), band_slots()));
         QUEUE_REF.store(queue, core::sync::atomic::Ordering::Release);
     }
     let buffer_provider = DrawBuffer {
@@ -306,6 +306,23 @@ fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
     }))
     .expect("backend already initialized");
     peripherals.USB_DEVICE
+}
+
+fn band_slots() -> [esp_hal::dma::DmaTxBuf; frame_queue::band_stream::SLOTS] {
+    use esp_hal::dma::{DmaDescriptor, DmaTxBuf};
+    use frame_queue::band_stream::{SLOT_BYTES, SLOTS};
+    // A PSRAM transmit descriptor covers up to 4095 bytes.
+    const DESCRIPTORS: usize = SLOT_BYTES.div_ceil(4095);
+    static SLOT_DESCRIPTORS: static_cell::ConstStaticCell<[[DmaDescriptor; DESCRIPTORS]; SLOTS]> =
+        static_cell::ConstStaticCell::new([[DmaDescriptor::EMPTY; DESCRIPTORS]; SLOTS]);
+    // Larger than the internal heap, so the allocator places it in PSRAM.
+    let pixels: &'static mut [u8] =
+        Box::leak(alloc::vec![0u8; SLOTS * SLOT_BYTES].into_boxed_slice());
+    let mut pixels = pixels.chunks_exact_mut(SLOT_BYTES);
+    let mut descriptors = SLOT_DESCRIPTORS.take().iter_mut();
+    core::array::from_fn(|_| {
+        DmaTxBuf::new(descriptors.next().unwrap(), pixels.next().unwrap()).unwrap()
+    })
 }
 
 impl EspBackend {
@@ -463,7 +480,7 @@ struct FramebufferLineBuffer<'a> {
     scratch: &'a mut [LinePixel],
     framebuffer: &'a mut [slint::platform::software_renderer::Rgb565BigEndianPixel],
     bands: &'a mut frame_queue::band_stream::BandWriter,
-    queue: &'a frame_queue::band_stream::BandQueue,
+    queue: &'a frame_queue::band_stream::BandQueue<frame_queue::Slot>,
 }
 
 fn wire_bytes(pixels: &[slint::platform::software_renderer::Rgb565BigEndianPixel]) -> &[u8] {

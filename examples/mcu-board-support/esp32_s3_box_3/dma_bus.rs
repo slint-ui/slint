@@ -56,25 +56,18 @@ impl DmaPanelBus {
         self.spi.as_mut().unwrap().apply_config(config)
     }
 
-    fn fill_buffer(
-        &mut self,
-        buffer: &mut DmaTxBuf,
-        fill: &mut impl FnMut(&mut [u8]) -> usize,
-    ) -> usize {
+    fn fill_buffer(&mut self, buffer: &mut DmaTxBuf, data: &[u8]) {
         #[cfg(feature = "box-display-profile")]
         let started = super::now_us();
-        let len = fill(buffer.as_mut_slice());
+        buffer.set_length(data.len());
         #[cfg(feature = "box-display-profile")]
-        let copied = super::now_us();
-        if len > 0 {
-            buffer.set_length(len);
-        }
+        let copy_started = super::now_us();
+        buffer.as_mut_slice()[..data.len()].copy_from_slice(data);
         #[cfg(feature = "box-display-profile")]
-        if len > 64 {
-            self.profile.copy_us += copied - started;
-            self.profile.setup_us += super::now_us() - copied;
+        if data.len() > 64 {
+            self.profile.setup_us += copy_started - started;
+            self.profile.copy_us += super::now_us() - copy_started;
         }
-        len
     }
 
     pub(super) fn half_duplex_write(
@@ -83,73 +76,94 @@ impl DmaPanelBus {
         command: Command,
         address: Address,
         dummy: u8,
-        mut data: &[u8],
+        data: &[u8],
     ) -> Result<(), Error> {
-        self.write_filled(mode, command, address, dummy, |buffer| {
-            let len = data.len().min(buffer.len());
-            buffer[..len].copy_from_slice(&data[..len]);
-            data = &data[len..];
-            len
-        })
-    }
-
-    /// Writes the bytes that `fill` places at the start of each buffer it receives,
-    /// until it returns zero. `fill` runs while the previous buffer transfers.
-    pub(super) fn write_filled(
-        &mut self,
-        mode: DataMode,
-        command: Command,
-        address: Address,
-        dummy: u8,
-        mut fill: impl FnMut(&mut [u8]) -> usize,
-    ) -> Result<(), Error> {
+        if data.is_empty() {
+            return Ok(());
+        }
         let mut spi = self.spi.take().unwrap();
         let mut buffer = self.tx.take().unwrap();
         let mut spare = self.spare_tx.take().unwrap();
-        let mut len = self.fill_buffer(&mut buffer, &mut fill);
-        while len > 0 {
+        let mut chunks = data.chunks(buffer.capacity());
+        let mut chunk = chunks.next().unwrap();
+        self.fill_buffer(&mut buffer, chunk);
+        loop {
             #[cfg(feature = "box-display-profile")]
             let submitted = super::now_us();
-            let transfer = match spi.half_duplex_write(mode, command, address, dummy, len, buffer) {
-                Ok(transfer) => transfer,
-                Err((error, spi, buffer)) => {
-                    self.spi = Some(spi);
-                    self.tx = Some(buffer);
-                    self.spare_tx = Some(spare);
-                    return Err(error);
-                }
-            };
+            let transfer =
+                match spi.half_duplex_write(mode, command, address, dummy, chunk.len(), buffer) {
+                    Ok(transfer) => transfer,
+                    Err((error, spi, buffer)) => {
+                        self.spi = Some(spi);
+                        self.tx = Some(buffer);
+                        self.spare_tx = Some(spare);
+                        return Err(error);
+                    }
+                };
             #[cfg(feature = "box-display-profile")]
-            if len > 64 {
+            if chunk.len() > 64 {
                 self.profile.setup_us += super::now_us() - submitted;
                 self.profile.chunks += 1;
             }
-            #[cfg(feature = "box-display-profile")]
-            let before = self.profile.copy_us;
-            let next = self.fill_buffer(&mut spare, &mut fill);
-            #[cfg(feature = "box-display-profile")]
-            {
-                self.profile.overlap_us += self.profile.copy_us - before;
+            let next = chunks.next();
+            if let Some(next) = next {
+                #[cfg(feature = "box-display-profile")]
+                let before = self.profile.copy_us;
+                self.fill_buffer(&mut spare, next);
+                #[cfg(feature = "box-display-profile")]
+                {
+                    self.profile.overlap_us += self.profile.copy_us - before;
+                }
             }
             #[cfg(feature = "box-display-profile")]
             let wait_started = super::now_us();
-            if len > 64 {
+            if chunk.len() > 64 {
                 while !transfer.is_done() {
                     esp_hal::rom::ets_delay_us(50);
                 }
             }
             (spi, buffer) = transfer.wait();
             #[cfg(feature = "box-display-profile")]
-            if len > 64 {
+            if chunk.len() > 64 {
                 self.profile.wait_us += super::now_us() - wait_started;
             }
+            let Some(next) = next else {
+                break;
+            };
             core::mem::swap(&mut buffer, &mut spare);
-            len = next;
+            chunk = next;
         }
         self.spi = Some(spi);
         self.tx = Some(buffer);
         self.spare_tx = Some(spare);
         Ok(())
+    }
+
+    /// Writes the first `len` bytes of `buffer`, which may live in PSRAM, and returns it.
+    pub(super) fn write_buffer(
+        &mut self,
+        mode: DataMode,
+        command: Command,
+        address: Address,
+        dummy: u8,
+        mut buffer: DmaTxBuf,
+        len: usize,
+    ) -> (DmaTxBuf, Result<(), Error>) {
+        buffer.set_length(len);
+        let spi = self.spi.take().unwrap();
+        let transfer = match spi.half_duplex_write(mode, command, address, dummy, len, buffer) {
+            Ok(transfer) => transfer,
+            Err((error, spi, buffer)) => {
+                self.spi = Some(spi);
+                return (buffer, Err(error));
+            }
+        };
+        while !transfer.is_done() {
+            esp_hal::rom::ets_delay_us(50);
+        }
+        let (spi, buffer) = transfer.wait();
+        self.spi = Some(spi);
+        (buffer, Ok(()))
     }
 
     pub(super) fn half_duplex_read(

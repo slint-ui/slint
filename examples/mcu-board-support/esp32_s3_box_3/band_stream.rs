@@ -3,7 +3,6 @@
 
 //! Streams changed rows to the display core while the renderer produces the rows below them.
 
-use alloc::{boxed::Box, vec};
 use core::{
     cell::UnsafeCell,
     sync::atomic::{AtomicU32, Ordering},
@@ -11,8 +10,7 @@ use core::{
 
 const STRIDE: usize = 320;
 pub(crate) const SLOT_BYTES: usize = 16 * 1024;
-// More slots than the 48 KiB internal heap holds, so the allocation lands in PSRAM.
-const SLOTS: usize = 4;
+pub(crate) const SLOTS: usize = 4;
 
 /// Pixel rows `y..y + height`, columns `x..x + width`. A zero height ends the frame.
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
@@ -36,22 +34,26 @@ impl Band {
     }
 }
 
+/// The storage of one slot's packed pixels, at least [`SLOT_BYTES`] long.
+pub(crate) trait SlotBuffer {
+    fn pixels(&mut self) -> &mut [u8];
+}
+
 /// A single-producer, single-consumer ring of packed bands.
-pub(crate) struct BandQueue {
-    pixels: *mut u8,
+pub(crate) struct BandQueue<S> {
+    slots: [UnsafeCell<Option<S>>; SLOTS],
     bands: [UnsafeCell<Band>; SLOTS],
     head: AtomicU32,
     tail: AtomicU32,
 }
 
 // The producer writes a slot only while it's outside `tail..head`; the consumer only reads inside.
-unsafe impl Sync for BandQueue {}
-unsafe impl Send for BandQueue {}
+unsafe impl<S: Send> Sync for BandQueue<S> {}
 
-impl BandQueue {
-    pub(crate) fn new() -> Self {
+impl<S: SlotBuffer> BandQueue<S> {
+    pub(crate) fn new(slots: [S; SLOTS]) -> Self {
         Self {
-            pixels: Box::leak(vec![0u8; SLOTS * SLOT_BYTES].into_boxed_slice()).as_mut_ptr(),
+            slots: slots.map(|slot| UnsafeCell::new(Some(slot))),
             bands: core::array::from_fn(|_| UnsafeCell::new(Band::default())),
             head: AtomicU32::new(0),
             tail: AtomicU32::new(0),
@@ -67,7 +69,8 @@ impl BandQueue {
         let slot = head as usize % SLOTS;
         unsafe {
             *self.bands[slot].get() = band;
-            fill(core::slice::from_raw_parts_mut(self.pixels.add(slot * SLOT_BYTES), band.bytes()));
+            let buffer = (*self.slots[slot].get()).as_mut().unwrap();
+            fill(&mut buffer.pixels()[..band.bytes()]);
         }
         self.head.store(head.wrapping_add(1), Ordering::Release);
     }
@@ -108,7 +111,7 @@ impl BandQueue {
     /// Returns the bytes sent, or the first error.
     pub(crate) fn drain<E>(
         &self,
-        mut send: impl FnMut(Band, &mut Run<'_>) -> Result<(), E>,
+        mut send: impl FnMut(Band, &mut Run<'_, S>) -> Result<(), E>,
     ) -> Result<usize, E> {
         let mut sent = 0;
         let mut error = None;
@@ -118,7 +121,7 @@ impl BandQueue {
                 self.tail.store(tail.wrapping_add(1), Ordering::Release);
                 return error.map_or(Ok(sent), Err);
             }
-            let mut run = Run { queue: self, band, offset: 0, sent: 0, ended: false };
+            let mut run = Run { queue: self, band, sent: 0, ended: false };
             if let Err(err) = send(band, &mut run) {
                 error.get_or_insert(err);
             }
@@ -128,44 +131,36 @@ impl BandQueue {
     }
 }
 
-/// The pixels of consecutive bands that continue one address window.
-pub(crate) struct Run<'a> {
-    queue: &'a BandQueue,
+/// Consecutive bands that continue one address window.
+pub(crate) struct Run<'a, S> {
+    queue: &'a BandQueue<S>,
     band: Band,
-    offset: usize,
     sent: usize,
     ended: bool,
 }
 
-impl Run<'_> {
-    /// Copies the run's next pixels into `output`, returning how many bytes it wrote.
-    /// Zero means the run ended.
-    pub(crate) fn fill(&mut self, output: &mut [u8]) -> usize {
-        let mut written = 0;
-        while written < output.len() && !self.ended {
+impl<S: SlotBuffer> Run<'_, S> {
+    /// Passes each band's slot buffer and byte count to `send`, which returns the buffer.
+    /// Stops at the first error.
+    pub(crate) fn send_each<E>(
+        &mut self,
+        mut send: impl FnMut(S, usize) -> (S, Result<(), E>),
+    ) -> Result<(), E> {
+        while !self.ended {
             let (tail, _) = self.queue.front();
-            let slot = tail as usize % SLOTS;
-            let data = unsafe {
-                core::slice::from_raw_parts(
-                    self.queue.pixels.add(slot * SLOT_BYTES),
-                    self.band.bytes(),
-                )
-            };
-            let len = (output.len() - written).min(data.len() - self.offset);
-            output[written..written + len].copy_from_slice(&data[self.offset..self.offset + len]);
-            written += len;
-            self.offset += len;
-            if self.offset == data.len() {
-                self.next_band(tail);
-            }
+            let slot = self.queue.slots[tail as usize % SLOTS].get();
+            let bytes = self.band.bytes();
+            let (buffer, result) = send(unsafe { (*slot).take().unwrap() }, bytes);
+            unsafe { *slot = Some(buffer) };
+            self.next_band(tail);
+            result?;
+            self.sent += bytes;
         }
-        self.sent += written;
-        written
+        Ok(())
     }
 
     fn next_band(&mut self, tail: u32) {
         self.queue.tail.store(tail.wrapping_add(1), Ordering::Release);
-        self.offset = 0;
         let (_, next) = self.queue.front();
         if next.height != 0 && next.continues(self.band) {
             self.band = next;
@@ -202,7 +197,7 @@ impl BandWriter {
         line: usize,
         changed: Option<(usize, usize)>,
         pixels: &[u8],
-        queue: &BandQueue,
+        queue: &BandQueue<impl SlotBuffer>,
     ) {
         if line != self.line {
             self.end_line(pixels, queue);
@@ -215,7 +210,7 @@ impl BandWriter {
     }
 
     /// Sends the remaining rows and ends the frame, if it changed anything.
-    pub(crate) fn finish(&mut self, pixels: &[u8], queue: &BandQueue) {
+    pub(crate) fn finish(&mut self, pixels: &[u8], queue: &BandQueue<impl SlotBuffer>) {
         self.end_line(pixels, queue);
         self.flush(pixels, queue);
         if core::mem::take(&mut self.published) {
@@ -223,7 +218,7 @@ impl BandWriter {
         }
     }
 
-    fn end_line(&mut self, pixels: &[u8], queue: &BandQueue) {
+    fn end_line(&mut self, pixels: &[u8], queue: &BandQueue<impl SlotBuffer>) {
         let Some((left, right)) = self.changed.take() else {
             self.flush(pixels, queue);
             return;
@@ -241,7 +236,7 @@ impl BandWriter {
         self.band = Some(Band { x: left, y, width: right - left, height: 1 });
     }
 
-    fn flush(&mut self, pixels: &[u8], queue: &BandQueue) {
+    fn flush(&mut self, pixels: &[u8], queue: &BandQueue<impl SlotBuffer>) {
         let Some(band) = self.band.take() else { return };
         queue.push(band, |output| {
             for (row, output) in output.chunks_exact_mut(band.width * 2).enumerate() {
@@ -256,34 +251,39 @@ impl BandWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{sync::Arc, thread, vec::Vec};
+    use std::{sync::Arc, thread, vec, vec::Vec};
+
+    impl SlotBuffer for Vec<u8> {
+        fn pixels(&mut self) -> &mut [u8] {
+            self
+        }
+    }
+
+    fn queue() -> BandQueue<Vec<u8>> {
+        BandQueue::new(core::array::from_fn(|_| vec![0; SLOT_BYTES]))
+    }
 
     /// Writes each run into an address window from its first band down to the last row,
     /// like the ILI9342C.
     struct FakePanel {
         memory: Vec<u8>,
-        buffer: usize,
     }
 
     impl FakePanel {
-        fn new(buffer: usize) -> Self {
-            Self { memory: vec![0; STRIDE * 240 * 2], buffer }
+        fn new() -> Self {
+            Self { memory: vec![0; STRIDE * 240 * 2] }
         }
 
-        fn send(&mut self, band: Band, run: &mut Run<'_>) -> Result<(), ()> {
-            let mut buffer = vec![0; self.buffer];
+        fn send(&mut self, band: Band, run: &mut Run<'_, Vec<u8>>) -> Result<(), ()> {
             let mut pixel = 0;
-            loop {
-                let len = run.fill(&mut buffer);
-                if len == 0 {
-                    return Ok(());
-                }
+            run.send_each(|buffer, len| {
                 for byte in &buffer[..len] {
                     let (row, column) = (pixel / (band.width * 2), pixel % (band.width * 2));
                     self.memory[(band.y + row) * STRIDE * 2 + band.x * 2 + column] = *byte;
                     pixel += 1;
                 }
-            }
+                (buffer, Ok(()))
+            })
         }
     }
 
@@ -293,7 +293,7 @@ mod tests {
         next: &[u8],
         lines: impl Iterator<Item = usize>,
         writer: &mut BandWriter,
-        queue: &BandQueue,
+        queue: &BandQueue<impl SlotBuffer>,
     ) {
         for line in lines {
             let row = line * STRIDE * 2..(line + 1) * STRIDE * 2;
@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn concurrent_frames_reach_the_panel_exactly() {
-        let queue = Arc::new(BandQueue::new());
+        let queue = Arc::new(queue());
         let frames: Vec<Vec<u8>> = vec![
             frame(1, |_, _| true),
             frame(2, |x, y| (40..90).contains(&y) && (10..200).contains(&x)),
@@ -337,7 +337,7 @@ mod tests {
             let queue = queue.clone();
             let count = frames.len();
             thread::spawn(move || {
-                let mut panel = FakePanel::new(7);
+                let mut panel = FakePanel::new();
                 for _ in 0..count {
                     queue.drain(|band, run| panel.send(band, run)).unwrap();
                 }
@@ -356,13 +356,13 @@ mod tests {
 
     #[test]
     fn full_screen_change_streams_as_one_run() {
-        let queue = BandQueue::new();
+        let queue = queue();
         let mut framebuffer = vec![0; STRIDE * 240 * 2];
         let mut writer = BandWriter::new();
         let next = frame(9, |_, _| true);
         let consumer = thread::scope(|scope| {
             let consumer = scope.spawn(|| {
-                let mut panel = FakePanel::new(8192);
+                let mut panel = FakePanel::new();
                 let mut bands = Vec::new();
                 let sent = queue
                     .drain(|band, run| {
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn unchanged_rows_and_skipped_lines_split_runs() {
-        let queue = BandQueue::new();
+        let queue = queue();
         let mut framebuffer = vec![0; STRIDE * 240 * 2];
         let mut writer = BandWriter::new();
         let next = frame(5, |x, y| (10..14).contains(&y) || ((30..34).contains(&y) && x < 8));
@@ -391,7 +391,7 @@ mod tests {
             let consumer = scope.spawn(|| {
                 let mut bands = Vec::new();
                 queue
-                    .drain(|band, _: &mut Run<'_>| {
+                    .drain(|band, _: &mut Run<'_, Vec<u8>>| {
                         bands.push(band);
                         Ok::<_, ()>(())
                     })
@@ -411,21 +411,42 @@ mod tests {
     }
 
     #[test]
+    fn a_failed_send_skips_the_rest_of_its_run_and_returns_every_buffer() {
+        let queue = queue();
+        queue.push(Band { x: 0, y: 0, width: 320, height: 2 }, |_| {});
+        queue.push(Band { x: 0, y: 2, width: 320, height: 2 }, |_| {});
+        queue.push(Band { x: 0, y: 10, width: 8, height: 1 }, |_| {});
+        queue.push(Band::default(), |_| {});
+        let mut runs = Vec::new();
+        let result = queue.drain(|band, run| {
+            runs.push(band.y);
+            run.send_each(|buffer, _| {
+                let result = if band.y == 0 { Err(()) } else { Ok(()) };
+                (buffer, result)
+            })
+        });
+        assert_eq!(result, Err(()));
+        assert_eq!(runs, [0, 10]);
+        assert!(!queue.pending());
+        assert!(queue.slots.iter().all(|slot| unsafe { (*slot.get()).is_some() }));
+    }
+
+    #[test]
     fn frame_size_is_known_before_sending() {
-        let queue = BandQueue::new();
+        let queue = queue();
         assert_eq!(queue.frame_within(1000), None);
         queue.push(Band { x: 0, y: 0, width: 320, height: 10 }, |_| {});
         assert_eq!(queue.frame_within(6400), None);
         assert_eq!(queue.frame_within(6399), Some(false));
         queue.push(Band::default(), |_| {});
         assert_eq!(queue.frame_within(6400), Some(true));
-        queue.drain(|_, _: &mut Run<'_>| Ok::<_, ()>(())).unwrap();
+        queue.drain(|_, _: &mut Run<'_, Vec<u8>>| Ok::<_, ()>(())).unwrap();
         assert_eq!(queue.frame_within(1000), None);
     }
 
     #[test]
     fn unchanged_frame_sends_nothing() {
-        let queue = BandQueue::new();
+        let queue = queue();
         let mut framebuffer = frame(5, |_, _| true);
         let next = framebuffer.clone();
         let mut writer = BandWriter::new();

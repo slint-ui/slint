@@ -19,6 +19,19 @@ pub(super) mod phase_clock;
 #[path = "band_stream.rs"]
 pub(super) mod band_stream;
 
+/// A streamed band's pixels, which the SPI DMA reads in place.
+#[cfg(not(test))]
+pub(super) type Slot = esp_hal::dma::DmaTxBuf;
+#[cfg(test)]
+pub(super) type Slot = alloc::vec::Vec<u8>;
+
+#[cfg(not(test))]
+impl band_stream::SlotBuffer for esp_hal::dma::DmaTxBuf {
+    fn pixels(&mut self) -> &mut [u8] {
+        self.as_mut_slice()
+    }
+}
+
 // The viewer also needs internal SRAM for the interpreter and CPU0 stack.
 pub(super) const INTERNAL_PACKET_BYTES: usize = 32 * 1024;
 
@@ -68,7 +81,7 @@ pub(super) struct FrameQueue {
     state: AtomicU32,
     pub(super) tick: AtomicU32,
     phase: phase_clock::Stamp,
-    bands: band_stream::BandQueue,
+    bands: band_stream::BandQueue<Slot>,
 }
 
 // A producer reserves WRITING before mutation. The consumer reads an ACTIVE packet.
@@ -76,7 +89,7 @@ pub(super) struct FrameQueue {
 unsafe impl Sync for FrameQueue {}
 
 impl FrameQueue {
-    pub(super) fn new(internal: &'static mut [u8]) -> Self {
+    pub(super) fn new(internal: &'static mut [u8], slots: [Slot; band_stream::SLOTS]) -> Self {
         Self {
             packet: UnsafeCell::new(Packet {
                 internal,
@@ -88,12 +101,12 @@ impl FrameQueue {
             state: AtomicU32::new(FREE),
             tick: AtomicU32::new(0),
             phase: phase_clock::Stamp::new(),
-            bands: band_stream::BandQueue::new(),
+            bands: band_stream::BandQueue::new(slots),
         }
     }
 
     /// The band stream, once no packet is waiting for or in transfer.
-    pub(super) fn bands(&self) -> &band_stream::BandQueue {
+    pub(super) fn bands(&self) -> &band_stream::BandQueue<Slot> {
         while self.state.load(Ordering::Acquire) != FREE {
             core::hint::spin_loop();
         }

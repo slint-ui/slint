@@ -90,17 +90,16 @@ impl Panel {
     pub(super) fn stream(
         &mut self,
         band: super::frame_queue::band_stream::Band,
-        run: &mut super::frame_queue::band_stream::Run<'_>,
+        run: &mut super::frame_queue::band_stream::Run<'_, super::frame_queue::Slot>,
     ) -> Result<(), Error> {
         let end = band.x + band.width - 1;
         self.command(0x2a, &[(band.x >> 8) as u8, band.x as u8, (end >> 8) as u8, end as u8])?;
         self.command(0x2b, &[(band.y >> 8) as u8, band.y as u8, 0, 239])?;
         self.command(0x2c, &[])?;
         self.cs.set_low();
-        let result =
-            self.spi.write_filled(DataMode::Single, Command::None, Address::None, 0, |buffer| {
-                run.fill(buffer)
-            });
+        let result = run.send_each(|buffer, len| {
+            self.spi.write_buffer(DataMode::Single, Command::None, Address::None, 0, buffer, len)
+        });
         self.cs.set_high();
         result
     }
