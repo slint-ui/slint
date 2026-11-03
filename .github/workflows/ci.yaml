@@ -282,6 +282,47 @@ jobs:
             - name: Start the todo example in an iPhone simulator
               run: scripts/dotnet_ios_smoke_test.sh examples/todo/dotnet-ios/bin/Debug/net10.0-ios/iossimulator-arm64/TodoIOS.app dev.slint.dotnet.todo 30
 
+    # Publishes BrowserTest as a trimmed Release build and runs its steps in headless Chrome, and builds the browser examples.
+    dotnet_browser:
+        if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'api_dotnet') }}
+        name: ".NET Browser"
+        runs-on: ubuntu-22.04
+        env:
+            DOTNET_CLI_TELEMETRY_OPTOUT: 1
+            DOTNET_NOLOGO: 1
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-emscripten
+                  components: llvm-tools
+                  key: x-dotnet-browser-v0
+            - name: Build slint-compiler, and the native library for the browser
+              run: |
+                  cargo build -p slint-compiler
+                  scripts/build_dotnet_browser.sh
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - name: Install the .NET WebAssembly workload
+              run: dotnet workload install wasm-tools
+            - name: Publish BrowserTest
+              run: dotnet publish api/dotnet/BrowserTest -c Release
+            - name: Run the steps of BrowserTest in headless Chrome
+              working-directory: api/dotnet/BrowserTest
+              run: |
+                  export CHROME=$(command -v google-chrome)
+                  root=bin/Release/net10.0/publish/wwwroot
+                  for steps in run callback-exception text-input; do
+                      node ../../../scripts/run_in_chrome.mjs steps/$steps.json $root
+                  done
+                  node ../../../scripts/run_in_chrome.mjs steps/run.json $root '?renderer=software'
+                  MOBILE=1 SCALE=3 node ../../../scripts/run_in_chrome.mjs steps/touch.json $root
+            - name: Build the browser examples
+              run: |
+                  dotnet build examples/todo/dotnet-browser/TodoBrowser.csproj
+                  dotnet build examples/gallery/dotnet-browser/GalleryBrowser.csproj
+
     # For changes to Slint internals, do a quick test on Linux for Python only.
     python_test_linux:
         if: ${{ inputs.full || contains(fromJSON(inputs.changes), 'internal') || contains(fromJSON(inputs.changes), 'api_python') || contains(fromJSON(inputs.changes), 'tests') }}

@@ -1,0 +1,12 @@
+namespace SlintApp;
+
+internal static class Program
+{
+    private static async Task Main()
+    {
+        using var app = AppWindow.Create();
+        app.OnRequestIncreaseValue(() => app.Counter++);
+        // The browser's thread can't block, so the app runs while RunAsync awaits.
+        await app.RunAsync();
+    }
+}

@@ -643,6 +643,7 @@ pub fn generate(
             "Show",
             "Hide",
             "Run",
+            "RunAsync",
             "Dispose",
             "Equals",
             "GetHashCode",
@@ -672,6 +673,10 @@ pub fn generate(
         let _ = writeln!(types, "    public void Hide() => Instance.Hide();");
         if is_window {
             let _ = writeln!(types, "    public void Run() => Instance.Run();");
+            let _ = writeln!(
+                types,
+                "    public global::System.Threading.Tasks.Task RunAsync() => Instance.RunAsync();"
+            );
         }
         let _ = writeln!(types, "    public void Dispose() => Instance.Dispose();");
         if is_window {

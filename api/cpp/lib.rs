@@ -20,9 +20,6 @@ use i_slint_core::window::{
 
 pub mod platform;
 
-#[cfg(all(target_os = "emscripten", feature = "std"))]
-mod emscripten;
-
 #[cfg(all(feature = "i-slint-backend-selector", not(target_os = "emscripten")))]
 use i_slint_backend_selector::{with_global_context, with_platform};
 
@@ -31,7 +28,7 @@ use i_slint_backend_selector::{with_global_context, with_platform};
 fn with_global_context<R>(
     f: impl FnOnce(&i_slint_core::SlintContext) -> R,
 ) -> Result<R, i_slint_core::platform::PlatformError> {
-    i_slint_core::with_global_context(emscripten::create_platform, f)
+    i_slint_core::with_global_context(i_slint_backend_emscripten::create_platform, f)
 }
 
 #[cfg(all(target_os = "emscripten", feature = "std"))]

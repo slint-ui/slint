@@ -399,6 +399,9 @@ fn main() -> std::io::Result<()> {
                 EmbedResourcesKind::EmbedTextures
             }
         };
+    } else if args.depfile.is_some() && matches!(format, OutputFormat::CSharp(_)) {
+        // C# loads the images at run time, and doesn't embed any, so this only lists them in the dependency file.
+        compiler_config.embed_resources = EmbedResourcesKind::ListAllResources;
     }
 
     compiler_config.debug_info |= format == OutputFormat::Llr;

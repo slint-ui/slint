@@ -20,6 +20,9 @@ internal unsafe struct AndroidCallbacks
 /// <summary>The exports of <c>api/dotnet/native</c>.</summary>
 internal static unsafe partial class NativeMethods
 {
+    // The imports that take function pointers take them as nint, behind wrappers with the typed signatures:
+    // Mono on WebAssembly has no interpreter-to-native call for function-pointer parameter types.
+
     public const string Library = "slint_dotnet";
 
     // lib.rs
@@ -47,10 +50,15 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_quit_event_loop();
 
-    [LibraryImport(Library)]
-    [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_invoke_from_event_loop(
+    public static bool slint_dotnet_invoke_from_event_loop(
         delegate* unmanaged<nint, void> callback,
+        nint userData)
+        => slint_dotnet_invoke_from_event_loop_raw((nint)callback, userData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_invoke_from_event_loop")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool slint_dotnet_invoke_from_event_loop_raw(
+        nint callback,
         nint userData);
 
     [LibraryImport(Library)]
@@ -62,6 +70,19 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     public static partial nuint slint_dotnet_struct_size(int kind);
+
+    // browser.rs
+
+    public static bool slint_dotnet_browser_start_event_loop(
+        delegate* unmanaged<nint, void> onQuit,
+        nint userData)
+        => slint_dotnet_browser_start_event_loop_raw((nint)onQuit, userData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_browser_start_event_loop")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool slint_dotnet_browser_start_event_loop_raw(
+        nint onQuit,
+        nint userData);
 
     // value.rs
 
@@ -280,20 +301,33 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     public static partial OwnedString slint_dotnet_string_new(Utf8Str s);
 
-    [LibraryImport(Library)]
-    [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_set_translator(
+    public static bool slint_dotnet_set_translator(
         delegate* unmanaged<nint, Utf8Str, Utf8Str, ulong, byte, Utf8Str, byte, OwnedString> translate,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_set_translator_raw((nint)translate, userData, (nint)dropUserData);
 
-    [LibraryImport(Library)]
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_set_translator")]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_live_component_set_reload_hook(
+    private static partial bool slint_dotnet_set_translator_raw(
+        nint translate,
+        nint userData,
+        nint dropUserData);
+
+    public static bool slint_dotnet_live_component_set_reload_hook(
         ComponentInstanceHandle instance,
         delegate* unmanaged<nint, void> call,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_live_component_set_reload_hook_raw(instance, (nint)call, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_live_component_set_reload_hook")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool slint_dotnet_live_component_set_reload_hook_raw(
+        ComponentInstanceHandle instance,
+        nint call,
+        nint userData,
+        nint dropUserData);
 
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
@@ -352,24 +386,41 @@ internal static unsafe partial class NativeMethods
         nint* args,
         nuint count);
 
-    [LibraryImport(Library)]
-    [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_component_instance_set_callback(
+    public static bool slint_dotnet_component_instance_set_callback(
         ComponentInstanceHandle instance,
         Utf8Str name,
         delegate* unmanaged<nint, nint*, nuint, nint*, void> callback,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_component_instance_set_callback_raw(instance, name, (nint)callback, userData, (nint)dropUserData);
 
-    [LibraryImport(Library)]
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_component_instance_set_callback")]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_component_instance_set_global_callback(
+    private static partial bool slint_dotnet_component_instance_set_callback_raw(
+        ComponentInstanceHandle instance,
+        Utf8Str name,
+        nint callback,
+        nint userData,
+        nint dropUserData);
+
+    public static bool slint_dotnet_component_instance_set_global_callback(
         ComponentInstanceHandle instance,
         Utf8Str global,
         Utf8Str name,
         delegate* unmanaged<nint, nint*, nuint, nint*, void> callback,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_component_instance_set_global_callback_raw(instance, global, name, (nint)callback, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_component_instance_set_global_callback")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool slint_dotnet_component_instance_set_global_callback_raw(
+        ComponentInstanceHandle instance,
+        Utf8Str global,
+        Utf8Str name,
+        nint callback,
+        nint userData,
+        nint dropUserData);
 
     // models.rs
 
@@ -413,23 +464,39 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     public static partial void slint_dotnet_timer_free(nint timer);
 
-    [LibraryImport(Library)]
+    public static bool slint_dotnet_timer_start(
+        TimerHandle timer,
+        bool repeated,
+        ulong intervalMs,
+        delegate* unmanaged<nint, void> call,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_timer_start_raw(timer, repeated, intervalMs, (nint)call, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_timer_start")]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_timer_start(
+    private static partial bool slint_dotnet_timer_start_raw(
         TimerHandle timer,
         [MarshalAs(UnmanagedType.U1)] bool repeated,
         ulong intervalMs,
-        delegate* unmanaged<nint, void> call,
+        nint call,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        nint dropUserData);
 
-    [LibraryImport(Library)]
-    [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_timer_single_shot(
+    public static bool slint_dotnet_timer_single_shot(
         ulong intervalMs,
         delegate* unmanaged<nint, void> call,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_timer_single_shot_raw(intervalMs, (nint)call, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_timer_single_shot")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    private static partial bool slint_dotnet_timer_single_shot_raw(
+        ulong intervalMs,
+        nint call,
+        nint userData,
+        nint dropUserData);
 
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
@@ -567,12 +634,19 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library)]
     public static partial void slint_dotnet_window_set_minimized(ComponentInstanceHandle instance, [MarshalAs(UnmanagedType.U1)] bool value);
 
-    [LibraryImport(Library)]
-    public static partial void slint_dotnet_window_on_close_requested(
+    public static void slint_dotnet_window_on_close_requested(
         ComponentInstanceHandle instance,
         delegate* unmanaged<nint, int> call,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_window_on_close_requested_raw(instance, (nint)call, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_window_on_close_requested")]
+    private static partial void slint_dotnet_window_on_close_requested_raw(
+        ComponentInstanceHandle instance,
+        nint call,
+        nint userData,
+        nint dropUserData);
 
     [LibraryImport(Library)]
     public static partial void slint_dotnet_window_dispatch_close_requested(ComponentInstanceHandle instance);
@@ -612,10 +686,18 @@ internal static unsafe partial class NativeMethods
         [MarshalAs(UnmanagedType.U1)] bool active,
         Utf8Str text);
 
-    [LibraryImport(Library)]
+    public static bool slint_dotnet_data_transfer_set_user_data(
+        ValueHandle value,
+        nint handle,
+        delegate* unmanaged<nint, void> release)
+        => slint_dotnet_data_transfer_set_user_data_raw(value, handle, (nint)release);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_data_transfer_set_user_data")]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool slint_dotnet_data_transfer_set_user_data(
-        ValueHandle value, nint handle, delegate* unmanaged<nint, void> release);
+    private static partial bool slint_dotnet_data_transfer_set_user_data_raw(
+        ValueHandle value,
+        nint handle,
+        nint release);
 
     [LibraryImport(Library)]
     public static partial nint slint_dotnet_data_transfer_user_data(ValueHandle value);
@@ -644,12 +726,19 @@ internal static unsafe partial class NativeMethods
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_backend_select(int api, int major, int minor, Utf8Str backend, Utf8Str renderer);
 
-    [LibraryImport(Library)]
-    public static partial int slint_dotnet_window_set_rendering_notifier(
+    public static int slint_dotnet_window_set_rendering_notifier(
         ComponentInstanceHandle instance,
         delegate* unmanaged<nint, int, nint, void> call,
         nint userData,
-        delegate* unmanaged<nint, void> dropUserData);
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_window_set_rendering_notifier_raw(instance, (nint)call, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_window_set_rendering_notifier")]
+    private static partial int slint_dotnet_window_set_rendering_notifier_raw(
+        ComponentInstanceHandle instance,
+        nint call,
+        nint userData,
+        nint dropUserData);
 
     [LibraryImport(Library)]
     public static partial int slint_dotnet_graphics_api_kind(nint api);

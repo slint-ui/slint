@@ -14,6 +14,8 @@ use std::thread::ThreadId;
 
 #[cfg(target_os = "android")]
 mod android;
+#[cfg(target_os = "emscripten")]
+mod browser;
 mod brush;
 mod instance;
 mod interpreter;
@@ -151,6 +153,8 @@ fn check_thread() -> Result<(), String> {
         return Err("Slint objects can only be used from the thread that first used Slint".into());
     }
     if claimed {
+        #[cfg(target_os = "emscripten")]
+        browser::install_platform();
         // Compiling works without a platform, so a missing backend only fails the calls that need one.
         let _ = i_slint_backend_selector::with_platform(|_| Ok(()));
         #[cfg(feature = "testing")]

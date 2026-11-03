@@ -83,11 +83,77 @@ public sealed record ExpectedApi(
 [EditorBrowsable(EditorBrowsableState.Never)]
 public static class GeneratedApi
 {
+    private static string? s_baseDirectory;
+
+    /// <summary>The build's project directory, for the absolute paths of generated code in the browser.</summary>
+    private static string? s_projectDirectory;
+
     /// <summary>
     /// The directory that generated code loads <c>.slint</c> files with relative paths from:
-    /// the application directory, or on Android the directory where <c>SlintActivity</c> extracts them.
+    /// the application directory, on Android the directory where <c>SlintActivity</c> extracts them,
+    /// and in the browser the directory where Slint writes the files that the assemblies embed.
     /// </summary>
-    public static string BaseDirectory { get; internal set; } = AppContext.BaseDirectory;
+    public static string BaseDirectory
+    {
+        get => s_baseDirectory ??= OperatingSystem.IsBrowser() ? WriteBrowserFiles() : AppContext.BaseDirectory;
+        internal set => s_baseDirectory = value;
+    }
+
+    /// <summary>The prefix of the resources that <c>Slint.targets</c> embeds for the browser, before the path relative to the project.</summary>
+    private const string BrowserResourcePrefix = "slint:";
+
+    /// <summary>
+    /// Writes the embedded files into Emscripten's file system and returns their base directory,
+    /// which is as many levels deep as the paths go up with <c>../</c>.
+    /// </summary>
+    private static string WriteBrowserFiles()
+    {
+        var files = (
+            from assembly in AppDomain.CurrentDomain.GetAssemblies()
+            where !assembly.IsDynamic
+            from name in assembly.GetManifestResourceNames()
+            where name.StartsWith(BrowserResourcePrefix, StringComparison.Ordinal)
+            select (assembly, name, path: name[BrowserResourcePrefix.Length..])).ToList();
+        var depth = files.Select(file => ParentLevels(file.path)).DefaultIfEmpty().Max();
+        var root = "/slint/" + string.Concat(Enumerable.Repeat("_/", depth));
+        foreach (var (assembly, name, relative) in files)
+        {
+            var path = Path.GetFullPath(Path.Combine(root, relative));
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var resource = assembly.GetManifestResourceStream(name)!;
+            using var file = File.Create(path);
+            resource.CopyTo(file);
+        }
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic))
+        {
+            using var resource = assembly.GetManifestResourceStream("slint-project-directory");
+            if (resource != null)
+            {
+                s_projectDirectory = new StreamReader(resource).ReadToEnd().Trim();
+                break;
+            }
+        }
+        return root;
+    }
+
+    private static int ParentLevels(string path)
+    {
+        var levels = 0;
+        while (path.AsSpan(levels * 3).StartsWith("../"))
+        {
+            levels++;
+        }
+        return levels;
+    }
+
+    /// <summary>Maps an absolute path of the build machine to where <see cref="WriteBrowserFiles"/> wrote it.</summary>
+    private static string BrowserPath(string path)
+    {
+        var root = BaseDirectory;
+        return s_projectDirectory == null || !path.StartsWith('/')
+            ? path
+            : Path.GetFullPath(Path.Combine(root, Path.GetRelativePath(s_projectDirectory, path)));
+    }
 
     /// <summary>Compiles <paramref name="path"/>, throwing with the diagnostics if it has errors.</summary>
     public static CompilationResult Load(
@@ -99,6 +165,13 @@ public static class GeneratedApi
         string? bundledTranslationsPath = null,
         DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
     {
+        if (OperatingSystem.IsBrowser())
+        {
+            path = Path.GetFullPath(path);
+            includePaths = includePaths?.Select(BrowserPath).ToList();
+            libraryPaths = libraryPaths?.ToDictionary(entry => entry.Key, entry => BrowserPath(entry.Value));
+            bundledTranslationsPath = bundledTranslationsPath == null ? null : BrowserPath(bundledTranslationsPath);
+        }
         using var compiler = new Compiler();
         if (translationDomain != null)
         {

@@ -42,6 +42,7 @@ The desktop projects are `WinExe`, so Windows doesn't open a console window for 
 | `slint`         | A desktop app for macOS, Linux, and Windows.                                               |
 | `slint-android` | An [Android](#android-preview) app.                                                        |
 | `slint-ios`     | An [iOS](#ios-preview) app.                                                                |
+| `slint-web`     | A [web](#web-preview) app, which runs in the browser.                                      |
 | `slint-xplat`   | A solution with a desktop, an Android, and an iOS project that share the UI and the logic. |
 
 `--app-id com.example.myapp` sets the Android package name and the iOS bundle ID.
@@ -52,6 +53,8 @@ Without the Android or iOS workload, pick the projects with `--platforms`:
 ```sh
 dotnet new slint-xplat -o MyApp --platforms desktop --platforms android
 ```
+
+`--platforms web` adds a web project, which needs the `wasm-tools` workload.
 
 Or set up the project yourself:
 
@@ -648,6 +651,71 @@ and `dotnet new slint-ios -o MyApp --app-id com.example.myapp` creates the app w
 - Native AOT works on devices: set `<PublishAot>true</PublishAot>` in the project file, not with `-p:`,
   which would also apply it to the Slint libraries, and run `dotnet publish -c Release -r ios-arm64`.
   Builds for the simulator keep using Mono.
+
+## Web (Preview)
+
+Slint runs in the browser on .NET's WebAssembly runtime, with the same C# API and generated code.
+It renders into a `<canvas>` with FemtoVG on WebGL 2.
+From 1.19.0-preview.11, the package has the library for the browser.
+`dotnet new slint-web -o MyApp` creates the app with the steps below already done, and `dotnet run` serves it.
+
+1. Install the workload that links Slint into .NET's WebAssembly runtime: `dotnet workload install wasm-tools`.
+2. Create a project with the WebAssembly SDK and your `.slint` file:
+
+   ```xml
+   <Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+     <PropertyGroup>
+       <TargetFramework>net10.0</TargetFramework>
+       <OutputType>Exe</OutputType>
+     </PropertyGroup>
+     <ItemGroup>
+       <SlintFile Include="ui/app-window.slint" />
+       <PackageReference Include="yurkinh.slint.net" Version="..." />
+     </ItemGroup>
+   </Project>
+   ```
+
+3. Add `wwwroot/index.html` with a canvas with the id `canvas`, and start .NET:
+
+   ```html
+   <canvas id="canvas"></canvas>
+   <script type="module">
+     import { dotnet } from "./_framework/dotnet.js";
+     await dotnet.run();
+   </script>
+   ```
+
+   Without a size, the canvas takes the window's preferred size.
+   With a size in its `style` attribute, such as `style="width: 100vw; height: 100vh"`, the window follows the page.
+
+4. Await `RunAsync` instead of calling `Run`, since the browser's thread can't block:
+
+   ```csharp
+   using var app = AppWindow.Create();
+   app.OnRequestIncreaseValue(() => app.Counter++);
+   await app.RunAsync();
+   ```
+
+   The task completes when `EventLoop.Quit` stops the loop, and fails with the exception of a callback.
+   `Run` throws in the browser.
+   On the desktop, `RunAsync` runs like `Run` and returns a completed task, so code that the platforms share can await it.
+
+Text input works with phones' keyboards and input methods, and copy and paste with the browser's clipboard shortcuts and menu.
+The build embeds the `.slint` files and the images they use in the assembly.
+
+Limits:
+
+- One window, which renders into the canvas.
+- Slint draws text with the Inter font, which it embeds; it can't use the browser's fonts,
+  so scripts that Inter lacks, such as Japanese, show no glyphs.
+- No live preview: `SlintLivePreview` doesn't apply to web projects.
+- The download: `dotnet.native.wasm` is about 7 MB with Brotli, which web servers usually serve compressed.
+- A path with a space in it doesn't work for the `.slint` files and images.
+- To use the software renderer instead of WebGL, set `SLINT_BACKEND` before .NET starts:
+  `await dotnet.withEnvironmentVariable("SLINT_BACKEND", "emscripten-software").run();`
+
+The [todo](https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/todo/dotnet-browser)
+and [gallery](https://github.com/yurkinh/slint/tree/dotnet_bindings/examples/gallery/dotnet-browser) examples run in the browser.
 
 ## Embedded Linux
 

@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# Builds the Slint and Slint.Compiler NuGet packages with the native binaries of every platform, and the templates package,
+# Builds the Slint and Slint.Compiler NuGet packages with the native binaries of every platform and the browser, and the templates package,
 # checks that projects, and apps from the templates, can build and run with them, and optionally publishes them to nuget.org.
 
 name: Build and publish the NuGet packages
@@ -112,8 +112,28 @@ jobs:
                   name: dotnet-binaries-ios
                   path: artifacts
 
+    # The static library for browser-wasm apps, which the package has in browser/ with Slint's JavaScript glue.
+    build_browser:
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: wasm32-unknown-emscripten
+                  components: llvm-tools
+                  key: dotnet-browser
+            - name: Build the library
+              run: |
+                  scripts/build_dotnet_browser.sh
+                  mkdir -p artifacts/browser
+                  cp target/browser/slint_dotnet.a artifacts/browser/
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: dotnet-binaries-browser
+                  path: artifacts
+
     pack:
-        needs: [build_binaries, build_ios]
+        needs: [build_binaries, build_ios, build_browser]
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v7
@@ -165,7 +185,7 @@ jobs:
                       mv README.community.md README.md
                   fi
                   dotnet pack Slint.Compiler -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintCompilerBinariesDir="$GITHUB_WORKSPACE/artifacts/compiler"
-                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native" -p:SlintAndroid=true -p:SlintIOSFramework="$GITHUB_WORKSPACE/artifacts/ios/slint_dotnet.xcframework"
+                  dotnet pack Slint -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}" -p:SlintNativeRuntimesDir="$GITHUB_WORKSPACE/artifacts/native" -p:SlintAndroid=true -p:SlintIOSFramework="$GITHUB_WORKSPACE/artifacts/ios/slint_dotnet.xcframework" -p:SlintBrowserLibrary="$GITHUB_WORKSPACE/artifacts/browser/slint_dotnet.a"
                   dotnet pack Templates -c Release -o "$GITHUB_WORKSPACE/packages" "${props[@]}"
             - uses: actions/upload-artifact@v7
               with:
@@ -377,8 +397,43 @@ jobs:
                   dotnet new slint-xplat -o XPlat --platforms ios --no-restore
                   dotnet build XPlat/XPlat.slnx
 
+    test_browser_package:
+        needs: pack
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: 10.0.401
+            - name: Install the .NET WebAssembly workload
+              run: dotnet workload install wasm-tools
+            - uses: actions/download-artifact@v8
+              with:
+                  name: nuget-packages
+                  path: packages
+            # A trimmed Release build, where trimming breaks most often, in headless Chrome.
+            - name: Publish an app from the slint-web template and click its button in headless Chrome
+              shell: bash
+              run: |
+                  compiler=$(ls packages/"$SLINT_PACKAGE_ID".Compiler.*.nupkg)
+                  version=${compiler#packages/"$SLINT_PACKAGE_ID".Compiler.}
+                  version=${version%.nupkg}
+                  dotnet new install "packages/$SLINT_PACKAGE_ID.Templates.$version.nupkg"
+                  mkdir templates && cd templates
+                  dotnet new nugetconfig
+                  dotnet nuget add source "$GITHUB_WORKSPACE/packages" --name local
+                  dotnet new slint-web -o WebApp --no-restore
+                  # Reports the start and the counter, for the steps to wait for.
+                  sed -i -e 's/app.OnRequestIncreaseValue(() => app.Counter++);/app.OnRequestIncreaseValue(() => System.Console.WriteLine($"counter: {++app.Counter}"));/' \
+                         -e 's/await app.RunAsync();/System.Console.WriteLine("ready");\n        await app.RunAsync();/' WebApp/Program.cs
+                  dotnet publish WebApp -c Release
+                  printf '[{ "wait": "ready" }, { "sleep": 500 }, { "click": [160, 118] }, { "wait": "counter: 43" }]\n' > steps.json
+                  CHROME=$(command -v google-chrome) node "$GITHUB_WORKSPACE/scripts/run_in_chrome.mjs" steps.json WebApp/bin/Release/net10.0/publish/wwwroot
+                  dotnet new slint-xplat -o XPlat --platforms web --no-restore
+                  dotnet build XPlat/XPlat.slnx
+
     publish:
-        needs: [test_packages, test_android_package, test_ios_package]
+        needs: [test_packages, test_android_package, test_ios_package, test_browser_package]
         if: ${{ inputs.publish }}
         runs-on: ubuntu-22.04
         environment:

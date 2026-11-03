@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ADDFB companyname Dmabuf getspecific jonathanpeppers kmsgrab Microcharts pthread simpleperf Skias uinput virgl xplat yurkinh -->
+<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab Microcharts nint pthread simpleperf Skias uinput virgl xplat yurkinh -->
 # .NET Bindings
 
 > Note for AI coding assistants (agents):
@@ -702,6 +702,92 @@ Next:
     - Costs: larger packages, a static build per runtime identifier, and longer links.
       `SLINT_DOTNET_NATIVE_LIBRARY` and swapping in a debug build of the library stop working, and apps without Native AOT gain nothing.
     - Prototype it on Windows first, and measure how much the static libraries add to the package.
+- **23.** DrawnUI for Slint, in the branch [`slint`](https://github.com/yurkinh/DrawnUi.Maui/tree/slint) of the fork yurkinh/DrawnUi.Maui, MIT licensed:
+  `DrawnUi.Slint`, a host for DrawnUI next to its MAUI, Blazor, OpenTK, and WPF hosts, for a pull request to DrawnUI.
+  DrawnUI is a UI framework drawn with SkiaSharp; a host gives its `Canvas` a surface, input, a UI thread, and frames.
+  - Phase 0 and 1, done: `SlintCanvasHost` runs a canvas in a `DrawnUiView` of `drawnui.slint`, on a raster surface,
+    with several views per window, the mouse, the wheel, and the keyboard, and DrawnUI's main thread on the Slint thread.
+  - Phase 2, done: the GPU path, opt-in with `SlintCanvasHost.UseGpu`, draws on the OpenGL context of Slint's FemtoVG renderer.
+    Slint's Skia renderer keeps its own Skia state of the context, which a second Skia on that context breaks.
+  - Phase 3, done: touch, a hidden `TextInput` for on-screen keyboards, and the sample on Android and iOS.
+    Still to check by hand: the on-screen keyboard's text reaching a DrawnUI editor on Android.
+    Not done: a `linuxkms` run.
+  - Phase 4, done: the `DrawnUi.Slint` package, whose build files make `drawnui.slint` importable and copy it to the output;
+    `DrawnUi.Slint.Game`; `SlintGallery`, with the OpenTK Hello app's pages, compiled unchanged, next to a Slint sidebar;
+    and `SlintPong`, DrawnUI's shared Pong in a whole window.
+  - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
+    so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
+  - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
+- **24.** Slint.NET in the browser, on .NET's WebAssembly runtime: the same C# API, generated code, and models as on the desktop.
+  `slint-dotnet` builds as a static library for `wasm32-unknown-emscripten` and links into the app's `dotnet.native.wasm`
+  through `NativeFileReference`, so the 153 imports stay P/Invokes.
+  It uses the Emscripten backend of C++, which moved to `internal/backends/emscripten` for both:
+  it renders into a `<canvas>` with FemtoVG on WebGL 2, or with the software renderer through `SLINT_BACKEND=emscripten-software`.
+  The test app is `api/dotnet/BrowserTest`, and `run_in_chrome.mjs` drives it in headless Chrome.
+  - Phase 0, done: in headless Chrome, an app compiles a component, sets and reads its properties, has Slint call a C# callback,
+    and renders a frame to a canvas.
+    It needed four changes:
+    - The objects lose the target features `bulk-memory-opt` and `call-indirect-overlong`, which the Emscripten 3.1.56 of .NET 10 doesn't know,
+      and `WasmNativeStrip` is off: `scripts/strip_wasm_features.py`.
+    - The interpreter's web-only code checks `target_os = "unknown"`, so Emscripten takes the native code, without `wasm-bindgen`.
+    - The 10 imports that take function pointers take them as `nint`, behind wrappers with the typed signatures:
+      Mono on WebAssembly has no interpreter-to-native call for function-pointer parameters, and aborts at the first one.
+    - The backend selector has no backend to pick for Emscripten, so `slint-dotnet` installs the Emscripten backend itself.
+      Slint reads Emscripten's environment, which the page sets with `withEnvironmentVariable`, not .NET's.
+  - Phase 1, done: the platform.
+    - `EventLoop.RunAsync`, `ComponentInstance.RunAsync`, and `RunAsync` on generated windows.
+      In the browser they return while the loop runs from `requestAnimationFrame`, through the backend's `start_event_loop`,
+      and the task completes when the loop quits, or fails with the exception of a callback; `Run` throws there.
+      Elsewhere they run like `Run`.
+    - `scripts/build_dotnet_browser.sh` builds `target/browser/slint_dotnet.a`, with the testing exports, since the app links every import.
+      For `browser-wasm`, `Slint.targets` adds it, Slint's JavaScript glue with `--js-library`, and the WebGL 2 settings.
+    - .NET's WebAssembly SDK has no files for Emscripten's file system, so the assembly embeds the `.slint` files and the images they use,
+      from the dependency file of `slint-compiler`, which lists the images for C# too.
+      `GeneratedApi` writes them back before it loads the first file.
+      On WebAssembly, Slint embeds the Inter font, so text needs no font from the page.
+    - `api/dotnet/BrowserTest`, a counter, and `examples/todo/dotnet-browser` run in headless Chrome with both renderers, also at a device pixel ratio of 2:
+      clicks, typing, a timer, `await` in a callback, quitting, and an exception in a callback.
+      `scripts/run_in_chrome.mjs` drives them with the steps of a JSON file, such as `BrowserTest/steps/run.json`.
+    - `dotnet.native.wasm` is 34.6 MB, or 11 MB with gzip, before any work on its size.
+  - Phase 2, done: input and paths, in the Emscripten backend, so C++ gets the input too.
+    - A hidden `<input>` has the focus while a Slint text input has it, at the text cursor, with the `inputmode` of its input type:
+      phones show their keyboard, and text without key events, an input method's composition, and the browser's `paste`, `copy`, and `cut` events reach Slint.
+      Outside those events, a copy goes to `navigator.clipboard`, and a paste gets nothing, since the browser reads the clipboard only in a `paste` event.
+    - Touch works with pointer events; tested with Chrome's emulation of a phone at a device pixel ratio of 3.
+    - The assembly embeds the files at their paths relative to the project, and `GeneratedApi` writes them under `/slint/`,
+      one level deeper for each `../` they start with.
+      The generated code has absolute include and library paths, so a project with them also embeds its directory, to map them.
+    - `BrowserTest` has steps for a phone's keyboard, an input method, the clipboard, touch, and an import through an include path.
+    - Slint draws text with the Inter font that it embeds on WebAssembly, and can't use the browser's fonts,
+      so Japanese and other scripts that Inter lacks show no glyphs; the steps check the text that reaches C#, not the pixels.
+    - Limits: a path with a space doesn't work, since the dependency file separates paths with spaces;
+      the files of all assemblies share `/slint/`; and an include path from a Windows build isn't mapped.
+  - Phase 3, done: packaging.
+    - `SlintBrowserLibrary` packs the static library with `slint_emscripten.js` in `browser/` of the package, where `Slint.targets` finds them.
+      `build_browser` of the publish workflow builds it, and `test_browser_package` publishes a trimmed Release app from the `slint-web` template,
+      clicks its button in headless Chrome, and builds `slint-xplat --platforms web`.
+      A package with it worked locally in the same steps.
+    - The templates `slint-web`, and `web` in `slint-xplat`, which isn't in the defaults since it needs the `wasm-tools` workload.
+    - `examples/gallery/dotnet-browser`, with its bundled translations, which the build embeds too; the gallery's logic moved to `GalleryLogic.cs`.
+    - The Emscripten backend creates the WebGL context in `slint_emscripten.js`:
+      the attributes struct of `emscripten_webgl_create_context` has `int` fields up to Emscripten 3.1.56, which .NET 10 links with,
+      and `bool` fields after, so the Rust struct overran the stack, which only the optimized link of a publish showed.
+    - `run_in_chrome.mjs` renders WebGL with SwiftShader, as CI's machines without a GPU do, and `LOCALE` sets the browser's language.
+    - A published app downloads `dotnet.native.wasm` of 33 MB, or 7.2 MB with Brotli.
+    - The browser examples aren't in `examples/dotnet.slnx`, since CI builds it without the `wasm-tools` workload.
+  - Phase 4, CI and docs:
+    - Done: `dotnet_browser` of `ci.yaml` publishes a trimmed Release build of `BrowserTest`, runs all its steps in headless Chrome,
+      with both renderers and a phone's touch, and builds the todo and gallery examples for the browser.
+      The steps press the shortcut key as `Mod`, which `run_in_chrome.mjs` turns into Meta on macOS and Control elsewhere.
+    - Next: What's New, the community page, and the article "Slint ♥ .NET, Part 2"; the README has a section already.
+  - From [Platform.Maui.Web](https://github.com/shinyorg/mauiplatforms), a MAUI backend for the browser that renders DOM elements:
+    `requestAnimationFrame` drives its animations from C#; a `buildTransitive` targets file registers its resources as static web assets;
+    and its CI tests the published, trimmed build in headless Chrome over the DevTools protocol, since trimming breaks most often.
+    It needs no workload, unlike Slint, which links native code: apps need the `wasm-tools` workload.
+  - Risks: the download, where `wasm-opt`, trimming, and precompiled `.slint` files without the compiler can help;
+    trimming of the generated code; and one thread, so nothing may block, such as a modal dialog's nested event loop.
+  - Limits of the backend: one window, which renders into the canvas.
+  - Later: WebAssembly AOT compilation.
 
 ## Live Reload
 
