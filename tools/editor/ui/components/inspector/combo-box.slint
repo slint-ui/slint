@@ -1,16 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Style, Colors, Metrics, ComboMenuStyle } from "../../style.slint";
+import { Style, Colors, Metrics, FieldStyle, PaintStyle, ComboMenuStyle } from "../../style.slint";
 import { Api } from "../../api.slint";
 import { InspectorComboOption } from "control-data.slint";
 import { EditorWindow } from "../index.slint";
+
+import { ComboBoxBase, ComboBoxPopupBase } from "../../../controls/src/headless.slint";
 
 import { InputSurface } from "../input-surface.slint";
 import { FloatingSurface } from "../floating-surface.slint";
 import { EditorScrollView } from "../editor-scroll-view.slint";
 
-export component InspectorComboBox inherits InputSurface {
+export component InspectorComboBox inherits ComboBoxBase {
+    in property <FieldStyle> style: Style.field;
     in property <ComboMenuStyle> menu-style: Style.combo-menu;
     in property <string> accessible-name: "";
     in property <string> value;
@@ -19,13 +22,36 @@ export component InspectorComboBox inherits InputSurface {
     in property <bool> wide: false;
     in property <bool> popup-above;
     in property <string> commit-key;
-    out property <bool> expanded: popup.is-open;
     callback accepted(string) -> bool;
     out property <string> preview-value: root.expanded && root.highlighted-index >= 0 && root.highlighted-index < root.options.length
         ? root.options[root.highlighted-index].value : "";
-    focused: root.expanded || root.focus-visible;
-    hovered: field-touch.has-hover;
-    forward-focus: combo-focus;
+    height: root.style.height;
+    left-padding: root.style.padding-inline;
+    right-padding: root.style.padding-end;
+    spacing: Metrics.space-small;
+    item-height: root.row-step;
+    popup-padding: root.menu-style.padding;
+    maximum-visible-items: max(1, floor((root.popup-height - 2 * root.popup-padding) / root.row-step));
+    model: Api.combo-option-values(root.options);
+    current-index: root.selected-index;
+    accessible-label: root.accessible-name;
+    accessible-value: root.value;
+
+    opening => {
+        root.opening-key = root.commit-key;
+        root.scroll-y = 0px;
+        root.reveal-option(root.selected-index);
+    }
+    accept-selection(index) => {
+        return index >= 0 && index < root.options.length
+            && (!root.expanded || root.opening-key == root.commit-key)
+            && root.accepted(root.options[index].value);
+    }
+    selected(value) => { root.current-index = root.selected-index; }
+    highlighted(index) => { root.reveal-option(index); }
+    changed selected-index => { root.current-index = root.selected-index; }
+    changed commit-key => { root.close(); }
+    changed options => { root.close(); }
 
     preferred-width: root.wide ? 0px : root.options-width;
     min-width: root.wide ? 0px : root.options-width;
@@ -33,25 +59,11 @@ export component InspectorComboBox inherits InputSurface {
     states [
         fitted when !root.wide: { root.max-width: root.options-width; }
     ]
-    accessible-role: AccessibleRole.combobox;
-    accessible-label: root.accessible-name;
-    accessible-value: root.value;
-    accessible-expanded: root.expanded;
-    accessible-enabled: root.enabled;
-    accessible-expandable: root.enabled && root.options.length > 0;
-    accessible-action-expand => {
-        root.show-popup(true);
-    }
-    accessible-action-default => {
-        root.show-popup(true);
-    }
-    accessible-action-set-value(value) => {
-        if root.enabled { root.choose(Api.combo-option-index(value, root.options)); }
-    }
-
+    private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
+        : root.expanded || root.focus-visible ? root.style.appearance.focus
+        : root.hovered ? root.style.appearance.hover : root.style.appearance.normal;
     private property <length> options-width: options-measure.preferred-width
         + root.style.padding-inline + root.style.padding-end + Metrics.space-small + Metrics.icon-medium;
-    private property <length> popup-padding: root.menu-style.padding;
     private property <length> row-step: root.menu-style.row-height + root.menu-style.spacing;
     private property <length> full-popup-height: root.options.length * root.row-step
         - root.menu-style.spacing + 2 * root.popup-padding;
@@ -60,22 +72,10 @@ export component InspectorComboBox inherits InputSurface {
     private property <bool> opens-above: (root.popup-above && root.available-above >= min(root.full-popup-height, root.menu-style.max-height))
         || (root.available-below < min(root.full-popup-height, root.menu-style.max-height)
             && root.available-above > root.available-below);
-    private property <length> popup-height: min(root.full-popup-height, root.menu-style.max-height,
+    popup-height: min(root.full-popup-height, root.menu-style.max-height,
         max(root.row-step + 2 * root.popup-padding, root.opens-above ? root.available-above : root.available-below));
-    private property <int> highlighted-index: -1;
-    private property <bool> focus-visible;
     private property <string> opening-key;
     private property <length> scroll-y;
-
-    changed commit-key => { popup.close(); }
-    changed enabled => { if !root.enabled { popup.close(); } }
-    changed options => { popup.close(); }
-    changed expanded => { if !root.expanded { root.highlighted-index = -1; } }
-    changed highlighted-index => {
-        if root.expanded && root.highlighted-index >= 0 && root.highlighted-index < root.options.length {
-            root.reveal-option(root.highlighted-index);
-        }
-    }
 
     function reveal-option(index: int) {
         let top = max(0, index) * root.row-step;
@@ -84,31 +84,6 @@ export component InspectorComboBox inherits InputSurface {
         else if bottom > -root.scroll-y + (root.popup-height - 2 * root.popup-padding) {
             root.scroll-y = (root.popup-height - 2 * root.popup-padding) - bottom;
         }
-    }
-
-    function move-highlight(delta: int) {
-        root.highlighted-index = clamp((root.highlighted-index < 0 ? max(0, root.selected-index) : root.highlighted-index) + delta,
-            0, root.options.length - 1);
-    }
-
-    function choose(index: int) {
-        if root.enabled && (!root.expanded || root.opening-key == root.commit-key)
-            && index >= 0 && index < root.options.length && root.accepted(root.options[index].value) {
-            combo-focus.focus();
-            popup.close();
-        }
-    }
-
-    function show-popup(keyboard: bool) {
-        if !root.enabled || root.options.length == 0 || root.expanded { return; }
-        combo-focus.focus();
-        combo-focus.clear-focus();
-        root.highlighted-index = -1;
-        root.opening-key = root.commit-key;
-        popup.show();
-        root.scroll-y = 0px;
-        root.reveal-option(root.selected-index);
-        if keyboard { root.highlighted-index = max(0, root.selected-index); }
     }
 
     Rectangle {
@@ -124,36 +99,24 @@ export component InspectorComboBox inherits InputSurface {
         }
     }
 
-    combo-focus := FocusScope {
+    background << InputSurface {
+        style: root.style;
         enabled: root.enabled;
-        focus-changed-event(reason) => {
-            root.focus-visible = self.has-focus && reason == FocusReason.tab-navigation;
-        }
-        key-pressed(event) => {
-            if event.text == Key.Return || event.text == Key.Space || event.text == Key.DownArrow
-                || event.text == Key.UpArrow || event.text == Key.F4 {
-                root.show-popup(true);
-                return accept;
-            }
-            return reject;
-        }
+        focused: root.expanded || root.focus-visible;
+        hovered: root.hovered;
     }
 
-    HorizontalLayout {
-        padding-left: root.style.padding-inline;
-        padding-right: root.style.padding-end;
-        spacing: Metrics.space-small;
-        cross-axis-alignment: center;
+    content << value-text := Text {
+        horizontal-stretch: 1;
+        text: root.value;
+        color: root.paint.foreground;
+        font-size: root.style.text.size;
+        vertical-alignment: center;
+        overflow: elide;
+    }
 
-        value-text := Text {
-            horizontal-stretch: 1;
-            text: root.value;
-            color: root.paint.foreground;
-            font-size: root.style.text.size;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-
+    indicator << Rectangle {
+        width: Metrics.icon-medium;
         Image {
             width: Metrics.icon-medium;
             height: Metrics.icon-medium;
@@ -163,104 +126,69 @@ export component InspectorComboBox inherits InputSurface {
         }
     }
 
-    field-touch := TouchArea {
-        enabled: root.enabled;
-        clicked => { root.show-popup(false); }
-    }
-
-    popup := PopupWindow {
-        x: 0px;
-        y: root.opens-above ? -self.height - Metrics.space-small : root.height + Metrics.space-small;
-        width: root.width;
-        height: root.popup-height;
-        close-policy: close-on-click-outside;
-        forward-focus: popup-focus;
+    popup << combo-popup := ComboBoxPopupBase {
+        popup-offset: root.opens-above ? -root.height - root.popup-height - Metrics.space-small : Metrics.space-small;
 
         popup-surface := FloatingSurface {
+            width: root.width;
+            height: root.popup-height;
             background: root.menu-style.background;
             border-color: root.menu-style.border;
             border-radius: Metrics.radius-large;
         }
 
-        popup-focus := FocusScope {
-            key-pressed(event) => {
-                if event.text == Key.Escape || event.text == Key.Tab {
-                    combo-focus.focus();
-                    popup.close();
-                    return event.text == Key.Tab ? reject : accept;
-                }
-                if event.text == Key.Home || event.text == Key.End {
-                    root.highlighted-index = event.text == Key.Home ? 0 : root.options.length - 1;
-                    return accept;
-                }
-                if event.text == Key.UpArrow {
-                    root.move-highlight(-1);
-                    return accept;
-                }
-                if event.text == Key.DownArrow {
-                    root.move-highlight(1);
-                    return accept;
-                }
-                if event.text == Key.Return || event.text == Key.Space {
-                    root.choose(root.highlighted-index < 0 ? max(0, root.selected-index) : root.highlighted-index);
-                    return accept;
-                }
-                return reject;
-            }
+        options-scroll := EditorScrollView {
+            x: root.popup-padding;
+            y: root.popup-padding;
+            width: root.width - 2 * root.popup-padding;
+            height: root.popup-height - 2 * root.popup-padding;
+            content-y <=> root.scroll-y;
+            content-width: self.width;
+            content-height: options-content.height;
+            mouse-drag-pan-enabled: true;
+            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
-            options-scroll := EditorScrollView {
-                x: root.popup-padding;
-                y: root.popup-padding;
-                width: parent.width - 2 * root.popup-padding;
-                height: parent.height - 2 * root.popup-padding;
-                content-y <=> root.scroll-y;
-                content-width: self.width;
-                content-height: options-content.height;
-                mouse-drag-pan-enabled: true;
-                horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+            options-content := Rectangle {
+                width: options-scroll.width;
+                height: options-layout.preferred-height;
 
-                options-content := Rectangle {
-                    width: options-scroll.width;
-                    height: options-layout.preferred-height;
+                options-layout := VerticalLayout {
+                    width: parent.width;
+                    alignment: start;
+                    spacing: root.menu-style.spacing;
 
-                    options-layout := VerticalLayout {
+                    for option[index] in root.options: Rectangle {
                         width: parent.width;
-                        alignment: start;
-                        spacing: root.menu-style.spacing;
+                        height: root.menu-style.row-height;
+                        border-radius: Metrics.radius-small + 1px;
+                        background: index == root.highlighted-index ? root.menu-style.highlight
+                            : index == root.selected-index ? Colors.selection.with-alpha(0.45) : transparent;
+                        border-width: index == root.highlighted-index ? Metrics.border-width : 0px;
+                        border-color: Colors.accent.with-alpha(0.26);
+                        accessible-role: AccessibleRole.list-item;
+                        accessible-label: option.label;
+                        accessible-checkable: true;
+                        accessible-checked: index == root.selected-index;
+                        accessible-action-default => { combo-popup.selected(index); }
 
-                        for option[index] in root.options: Rectangle {
-                            width: parent.width;
-                            height: root.menu-style.row-height;
-                            border-radius: Metrics.radius-small + 1px;
-                            background: index == root.highlighted-index ? root.menu-style.highlight
-                                : index == root.selected-index ? Colors.selection.with-alpha(0.45) : transparent;
-                            border-width: index == root.highlighted-index ? Metrics.border-width : 0px;
-                            border-color: Colors.accent.with-alpha(0.26);
-                            accessible-role: AccessibleRole.list-item;
-                            accessible-label: option.label;
-                            accessible-checkable: true;
-                            accessible-checked: index == root.selected-index;
-                            accessible-action-default => { root.choose(index); }
+                        option-text := Text {
+                            x: max(0px, root.style.padding-inline - root.popup-padding);
+                            width: parent.width - self.x - max(0px, root.style.padding-end - root.popup-padding);
+                            text: option.label;
+                            color: root.style.appearance.normal.foreground;
+                            font-size: root.style.text.size;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
 
-                            option-text := Text {
-                                x: max(0px, root.style.padding-inline - root.popup-padding);
-                                width: parent.width - self.x - max(0px, root.style.padding-end - root.popup-padding);
-                                text: option.label;
-                                color: root.style.appearance.normal.foreground;
-                                font-size: root.style.text.size;
-                                vertical-alignment: center;
-                                overflow: elide;
+                        TouchArea {
+                            clicked => {
+                                combo-popup.selected(index);
                             }
 
-                            TouchArea {
-                                clicked => {
-                                    root.choose(index);
-                                }
-
-                                changed has-hover => {
-                                    if self.has-hover {
-                                        root.highlighted-index = index;
-                                    }
+                            changed has-hover => {
+                                if self.has-hover {
+                                    combo-popup.highlight(index);
                                 }
                             }
                         }

@@ -13,6 +13,7 @@ use slint::{
 slint::slint! {
     #[edition = "1.19"]
     import { InspectorTextFieldBase } from "../ui/components/inspector/text-field-base.slint";
+    import { ComboBoxBase, ComboBoxPopupBase } from "../controls/src/headless.slint";
     import { Style, FieldStyle } from "../ui/style.slint";
 
     export component InspectorInputTest inherits Window {
@@ -50,6 +51,70 @@ slint::slint! {
             accepted(text) => { return true; }
         }
     }
+    export component ComboSelectionTest inherits Window {
+        width: 240px;
+        height: 160px;
+        in property <bool> allow-selection;
+        out property <int> selection: combo.current-index;
+        out property <bool> expanded: combo.expanded;
+        out property <int> openings;
+        out property <bool> opening-was-closed;
+        out property <int> selections;
+        public function open() { combo.open(); }
+        public function select(index: int) { combo.select(index); }
+
+        combo := ComboBoxBase {
+            width: 140px;
+            height: 32px;
+            item-height: 28px;
+            model: ["One", "Two", "Three"];
+            opening => {
+                root.openings += 1;
+                root.opening-was-closed = !self.expanded;
+            }
+            accept-selection(index) => { return root.allow-selection; }
+            selected(value) => { root.selections += 1; }
+            background << Rectangle { background: white; }
+            content << Text { text: combo.current-value; }
+            popup << ComboBoxPopupBase { Rectangle { background: white; } }
+        }
+    }
+}
+
+#[test]
+fn headless_combo_rejects_edits_before_changing_selection_or_closing() {
+    use slint::platform::Key;
+
+    i_slint_backend_testing::init_no_event_loop();
+    let editor = ComboSelectionTest::new().unwrap();
+    editor.show().unwrap();
+    let key = |key: Key| {
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: key.into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+        slint::platform::update_timers_and_animations();
+    };
+    editor.invoke_open();
+    assert_eq!(editor.get_openings(), 1);
+    assert!(editor.get_opening_was_closed());
+    key(Key::DownArrow);
+    key(Key::Return);
+    assert!(editor.get_expanded());
+    assert_eq!(editor.get_selection(), 0);
+    assert_eq!(editor.get_selections(), 0);
+    editor.set_allow_selection(true);
+    key(Key::Return);
+    assert!(!editor.get_expanded());
+    assert_eq!(editor.get_selection(), 1);
+    assert_eq!(editor.get_selections(), 1);
+    editor.invoke_open();
+    key(Key::Home);
+    key(Key::Escape);
+    assert_eq!(editor.get_selection(), 1);
+    assert_eq!(editor.get_selections(), 1);
+    editor.set_allow_selection(false);
+    editor.invoke_select(2);
+    assert_eq!(editor.get_selection(), 1);
+    assert_eq!(editor.get_selections(), 1);
 }
 
 #[test]
