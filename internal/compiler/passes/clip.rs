@@ -79,31 +79,54 @@ fn create_clip_element(parent_elem: &ElementRc, clip_type: &ElementType) {
     }
 
     copy_optional_binding(parent_elem, "border-width", &clip);
-    if super::border_radius::BORDER_RADIUS_PROPERTIES
-        .iter()
-        .any(|property_name| parent_elem.borrow().is_binding_set(property_name, true))
-    {
-        for optional_binding in super::border_radius::BORDER_RADIUS_PROPERTIES.iter() {
-            copy_optional_binding(parent_elem, optional_binding, &clip);
-        }
-    } else if parent_elem.borrow().binding("border-radius").is_some() {
-        for prop in super::border_radius::BORDER_RADIUS_PROPERTIES.iter() {
-            clip.borrow_mut().set_binding(
-                SmolStr::new(prop),
-                Expression::PropertyReference(NamedReference::new(
-                    parent_elem,
-                    SmolStr::new_static("border-radius"),
-                ))
-                .into(),
-            );
-        }
-    }
+    bind_corner_properties(
+        parent_elem,
+        &clip,
+        "border-radius",
+        super::border_radius::BORDER_RADIUS_PROPERTIES,
+    );
+    bind_corner_properties(
+        parent_elem,
+        &clip,
+        "border-corner-shape",
+        super::border_radius::CORNER_SHAPE_PROPERTIES,
+    );
+
     clip.borrow_mut().set_binding(
         SmolStr::new_static("clip"),
         BindingExpression::new_two_way(
             NamedReference::new(parent_elem, SmolStr::new_static("clip")).into(),
         ),
     );
+}
+
+/// Binds the clip's `per_corner` properties to the parent's, or to its `uniform` property
+/// when the parent sets no corner on its own.
+fn bind_corner_properties(
+    parent_elem: &ElementRc,
+    clip: &ElementRc,
+    uniform: &'static str,
+    per_corner: [&'static str; 4],
+) {
+    if per_corner
+        .iter()
+        .any(|property_name| parent_elem.borrow().is_binding_set(property_name, true))
+    {
+        for optional_binding in per_corner {
+            copy_optional_binding(parent_elem, optional_binding, clip);
+        }
+    } else if parent_elem.borrow().binding(uniform).is_some() {
+        for prop in per_corner {
+            clip.borrow_mut().set_binding(
+                SmolStr::new_static(prop),
+                Expression::PropertyReference(NamedReference::new(
+                    parent_elem,
+                    SmolStr::new_static(uniform),
+                ))
+                .into(),
+            );
+        }
+    }
 }
 
 fn copy_optional_binding(
