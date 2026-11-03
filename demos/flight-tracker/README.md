@@ -18,10 +18,11 @@ Drag to move the map, twist with two fingers to turn it, and scroll, pinch, or d
 This works beside the planner too, where the globe waits a moment before it turns on its own again.
 After a minute without input, the random flights take over again.
 
-Pick one of three styles for the panels and controls with the switch at the bottom right, or beside the zoom buttons during a flight.
+Pick one of four styles for the panels and controls with the switch at the bottom right, or beside the zoom buttons during a flight.
 The cockpit style frames the panels like the displays in a cockpit, with keys and lights.
 The wing style sweeps the corners like a pair of wings, and draws the route as an arc.
 The ticket style tears the panels like a boarding pass, and hangs the airports' codes on luggage tags.
+The board style shows the codes and readings on the flaps of an airport's departures board, which flip as they change.
 
 ## Running the Demo
 
@@ -61,6 +62,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   Each frame, `main.rs` projects them to the screen with the camera's matrices, and passes their positions to Slint.
 
 The map data comes from [Natural Earth](https://www.naturalearthdata.com/), the airports from [OurAirports](https://ourairports.com/), and the imagery from [NASA's Visible Earth](https://visibleearth.nasa.gov/), all in the public domain.
+The board uses [JetBrains Mono](https://www.jetbrains.com/lp/mono/), under the SIL Open Font License.
 `data/convert.py` converts them into the files in `data/`.
 
 Without a GPU, set `SLINT_WGPU_CPU=1` to render on the CPU, for example with Mesa's lavapipe.
