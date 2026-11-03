@@ -14,6 +14,7 @@ const CORNERS: [&str; 4] = [
 pub(super) struct Edit {
     key: String,
     overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
+    changes: Vec<(String, String)>,
 }
 
 pub(super) struct FillRefresh {
@@ -101,6 +102,11 @@ fn target_with_root(
     key: &str,
     allow_root: bool,
 ) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
+    let (node, url, version, expected) = current_target(allow_root)?;
+    (key == expected).then_some((node, url, version))
+}
+
+fn current_target(allow_root: bool) -> Option<(ElementRcNode, Url, SourceFileVersion, String)> {
     let (selected, instance_index) = if let Some(selected) = selected_element() {
         let index = selected.instance_index as i32;
         (selected, index)
@@ -137,7 +143,7 @@ fn target_with_root(
         u32::from(offset),
         instance_index
     );
-    (key == expected).then_some((node, url, version))
+    Some((node, url, version, expected))
 }
 
 fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, SourceFileVersion)> {
@@ -208,9 +214,11 @@ fn preview_values<'a>(
             .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
         let previous = property.as_ref().get();
         PREVIEW_STATE.with_borrow_mut(|state| {
-            let edit = state
-                .inspector_edit
-                .get_or_insert_with(|| Edit { key: key.to_string(), overrides: Vec::new() });
+            let edit = state.inspector_edit.get_or_insert_with(|| Edit {
+                key: key.to_string(),
+                overrides: Vec::new(),
+                changes: Vec::new(),
+            });
             if !edit.overrides.iter().any(|(saved, _)| saved == &id) {
                 edit.overrides.push((id, previous));
             }
@@ -225,12 +233,209 @@ fn preview_values<'a>(
 }
 
 pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool {
-    let Some((node, _, _, names)) = validate(&key, &name, value) else { return false };
-    preview_values(
-        key,
-        node,
-        names.into_iter().map(|name| (name, slint_interpreter::Value::Number(value as f64))),
+    let Some((_, _, _, names)) = validate(&key, &name, value) else { return false };
+    let unit = if name == "transform-rotation" { "deg" } else { "px" };
+    names.into_iter().all(|name| {
+        preview_property(
+            name.into(),
+            ui::PropertyEditValue {
+                kind: ui::PropertyEditKind::Number,
+                number: value,
+                unit: unit.into(),
+                ..Default::default()
+            },
+        )
+    })
+}
+
+fn number_value(
+    number: f32,
+    unit: &str,
+    property_type: &i_slint_compiler::langtype::Type,
+) -> Option<f64> {
+    use i_slint_compiler::expression_types::{Unit, WrittenUnit};
+    use i_slint_compiler::langtype::Type;
+    if !number.is_finite() {
+        return None;
+    }
+    let (number, unit) = unit.parse::<WrittenUnit>().ok()?.normalize(number as f64);
+    if unit.ty() == *property_type {
+        return Some(number);
+    }
+    if unit == Unit::Percent && *property_type == Type::Float32 {
+        return Some(number / 100.);
+    }
+    if !matches!(property_type, Type::LogicalLength | Type::PhysicalLength | Type::Rem)
+        || !matches!(unit, Unit::Px | Unit::Phx | Unit::Rem)
+    {
+        return None;
+    }
+    let instance = component_instance()?;
+    let scale = instance.window().scale_factor() as f64;
+    let font_size = i_slint_core::items::WindowItem::resolved_default_font_size(
+        instance.as_item_tree(i_slint_core::InternalToken),
     )
+    .get() as f64;
+    let logical = match unit {
+        Unit::Phx => number / scale,
+        Unit::Rem => number * font_size,
+        _ => number,
+    };
+    Some(match property_type {
+        Type::PhysicalLength => logical * scale,
+        Type::Rem => logical / font_size,
+        _ => logical,
+    })
+}
+
+fn source_node(node: &ElementRcNode) -> Option<ElementRcNode> {
+    let (path, offset) = node.path_and_offset();
+    document_cache()?.element_at_offset(&path.to_url()?, offset)
+}
+
+fn edit_value(
+    node: &ElementRcNode,
+    name: &str,
+    value: &ui::PropertyEditValue,
+) -> Option<(String, slint_interpreter::Value)> {
+    use i_slint_compiler::element_type::PropertyLookupMode;
+    use i_slint_compiler::langtype::Type;
+    use slint_interpreter::Value;
+    let node = source_node(node)?;
+    let property_type = node
+        .as_element()
+        .borrow()
+        .lookup_property(name, PropertyLookupMode::ComponentLocal)
+        .property_type;
+    let (expression, runtime) = match value.kind {
+        ui::PropertyEditKind::Number => {
+            let runtime = number_value(value.number, &value.unit, &property_type)?;
+            let nonnegative = CORNERS.contains(&name)
+                || matches!(
+                    name,
+                    "border-radius"
+                        | "border-width"
+                        | "backdrop-blur"
+                        | "padding"
+                        | "spacing"
+                        | "drop-shadow-blur"
+                        | "inner-shadow-blur"
+                );
+            if nonnegative && value.number < 0. {
+                return None;
+            }
+            (format!("{}{}", value.number, value.unit), Value::Number(runtime))
+        }
+        ui::PropertyEditKind::Integer if property_type == Type::Int32 => {
+            (value.integer.to_string(), Value::Number(value.integer as f64))
+        }
+        ui::PropertyEditKind::Boolean if property_type == Type::Bool => {
+            (value.boolean.to_string(), Value::Bool(value.boolean))
+        }
+        ui::PropertyEditKind::String if property_type == Type::String => (
+            ui::convert_simple_string(value.text.clone()).to_string(),
+            Value::String(value.text.clone()),
+        ),
+        ui::PropertyEditKind::Enumeration => {
+            let Type::Enumeration(enumeration) = property_type else { return None };
+            if !enumeration.values.iter().any(|member| member.as_str() == value.text.as_str()) {
+                return None;
+            }
+            (
+                format!("{}.{}", enumeration.name, value.text),
+                Value::EnumerationValue(enumeration.name.to_string(), value.text.to_string()),
+            )
+        }
+        ui::PropertyEditKind::Fill => (
+            ui::fill_expression(value.fill.clone()).to_string(),
+            fill_value(&node, name, &value.fill)?,
+        ),
+        _ => return None,
+    };
+    Some((expression, runtime))
+}
+
+pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue) -> bool {
+    let Some((node, _, _, key)) = current_target(true) else {
+        cancel();
+        return false;
+    };
+    if PREVIEW_STATE
+        .with_borrow(|state| state.inspector_edit.as_ref().is_some_and(|edit| edit.key != key))
+    {
+        cancel();
+        return false;
+    }
+    let Some((expression, runtime)) = edit_value(&node, &name, &value) else { return false };
+    if file_edit_pending() {
+        return false;
+    }
+    preview_values(key.into(), node, [(name.as_str(), runtime)]);
+    PREVIEW_STATE.with_borrow_mut(|state| {
+        let edit = state.inspector_edit.as_mut().unwrap();
+        if let Some((_, staged)) =
+            edit.changes.iter_mut().find(|(staged_name, _)| staged_name == name.as_str())
+        {
+            *staged = expression;
+        } else {
+            edit.changes.push((name.to_string(), expression));
+        }
+    });
+    true
+}
+
+fn changed_properties(
+    node: &ElementRcNode,
+    changes: &[(String, String)],
+) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
+    let properties = source_node(node)
+        .map(|node| properties::get_properties(&node, properties::LayoutKind::None))
+        .unwrap_or_default();
+    changes
+        .iter()
+        .filter(|(name, expression)| {
+            !properties
+                .iter()
+                .find(|property| property.name == name.as_str())
+                .and_then(|property| property.defined_at.as_ref())
+                .is_some_and(|definition| {
+                    definition.code_block_or_expression.to_string().trim() == expression
+                })
+        })
+        .map(|(name, expression)| {
+            i_slint_editor_preview::editing::PropertyChange::new(name, expression.clone())
+        })
+        .collect()
+}
+
+pub(super) fn commit_properties() -> bool {
+    let staged = PREVIEW_STATE.with_borrow(|state| {
+        state.inspector_edit.as_ref().map(|edit| (edit.key.clone(), edit.changes.clone()))
+    });
+    let Some((key, changes)) = staged else { return false };
+    let Some((node, url, version)) = target_with_root(&key, true) else {
+        cancel();
+        return false;
+    };
+    if file_edit_pending() || changes.is_empty() {
+        cancel();
+        return false;
+    }
+    let changes = changed_properties(&node, &changes);
+    if changes.is_empty() {
+        cancel();
+        return true;
+    }
+    let accepted = property_edit(node, url, version, changes)
+        .is_some_and(|edit| send_workspace_edit("Editing properties".into(), edit, true));
+    if accepted && file_edit_pending() {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
+    } else {
+        cancel();
+    }
+    accepted
 }
 
 fn valid_shadow_changes(changes: &[ui::InspectorNumberChange]) -> bool {
@@ -430,42 +635,11 @@ pub(super) fn commit_fill(
 }
 
 pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
-    if file_edit_pending() {
+    if !preview(key, name, value) {
         cancel();
         return false;
     }
-    let Some((node, url, version, names)) = validate(&key, &name, value) else { return false };
-    let unit = if name == "transform-rotation" { "deg" } else { "px" };
-    let changes = names
-        .iter()
-        .map(|name| {
-            i_slint_editor_preview::editing::PropertyChange::new(name, format!("{value}{unit}"))
-        })
-        .collect::<Vec<_>>();
-    let edit = property_edit(node, url, version, changes);
-    let accepted = edit.is_some_and(|edit| {
-        send_workspace_edit(
-            match name.as_str() {
-                "transform-rotation" => "Rotating element",
-                "border-width" => "Changing border width",
-                "backdrop-blur" => "Changing backdrop blur",
-                "padding" => "Changing layout padding",
-                "spacing" => "Changing layout spacing",
-                _ => "Changing border radius",
-            }
-            .into(),
-            edit,
-            true,
-        )
-    });
-    if accepted {
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            state.inspector_edit.take();
-        });
-    } else {
-        cancel();
-    }
-    accepted
+    commit_properties()
 }
 
 pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
@@ -507,6 +681,26 @@ pub(super) fn refresh() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_numbers_normalize_units_and_validate_the_property_type() {
+        use i_slint_compiler::langtype::Type;
+        for (number, unit, property_type, expected) in [
+            (2., "cm", Type::LogicalLength, Some(75.6)),
+            (2., "s", Type::Duration, Some(2000.)),
+            (0.5, "turn", Type::Angle, Some(180.)),
+            (50., "%", Type::Percent, Some(50.)),
+            (50., "%", Type::Float32, Some(0.5)),
+            (0.5, "", Type::Float32, Some(0.5)),
+            (f32::NAN, "px", Type::LogicalLength, None),
+            (f32::INFINITY, "deg", Type::Angle, None),
+            (2., "px", Type::Angle, None),
+            (2., "invalid", Type::LogicalLength, None),
+            (2., "", Type::Bool, None),
+        ] {
+            assert_eq!(number_value(number, unit, &property_type), expected);
+        }
+    }
 
     #[test]
     fn shadow_batches_validate_before_previewing() {

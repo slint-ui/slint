@@ -26,7 +26,7 @@ export component InspectorLayoutSection inherits InspectorSection {
             scrubbable: self.numeric-value;
             scrub-value: self.editor-value.value-float;
             scrub-has-minimum: true;
-            scrub-preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, name, value); }
+            scrub-preview(value) => { return Api.inspector-preview-number-temporary(InspectorContext.inspector-key, name, value); }
             scrub-accepted(value) => { return InspectorContext.commit-inspector(name, value); }
             scrub-canceled(value) => { Api.inspector-cancel(); }
             accepted(text) => {

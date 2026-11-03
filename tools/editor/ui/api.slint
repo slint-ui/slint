@@ -281,6 +281,25 @@ export struct FillData {
     radius-y: float,
 }
 
+export enum PropertyEditKind {
+    number,
+    integer,
+    boolean,
+    string,
+    enumeration,
+    fill,
+}
+
+export struct PropertyEditValue {
+    kind: PropertyEditKind,
+    number: float,
+    unit: string,
+    integer: int,
+    boolean: bool,
+    text: string,
+    fill: FillData,
+}
+
 export enum ColorFieldMode {
     source,
     solid,
@@ -691,8 +710,10 @@ export global Api {
     in property <int> inspector-fill-generation;
     in property <bool> inspector-fill-refresh-pending;
     pure callback inspector-values(key: string) -> [float];
-    callback inspector-preview(key: string, name: string, value: float) -> bool;
-    callback inspector-commit(key: string, name: string, value: float) -> bool;
+    callback inspector-preview(name: string, value: PropertyEditValue) -> bool;
+    callback inspector-commit() -> bool;
+    callback inspector-preview-number-temporary(key: string, name: string, value: float) -> bool;
+    callback inspector-commit-number-temporary(key: string, name: string, value: float) -> bool;
     callback inspector-cancel();
     callback inspector-preview-shadow(key: string, changes: [InspectorNumberChange]) -> bool;
     callback inspector-commit-shadow(key: string, changes: [InspectorNumberChange]) -> bool;

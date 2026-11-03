@@ -14,7 +14,7 @@ export global InspectorContext {
     out property <[float]> control-values: Api.inspector-values(InspectorContext.inspector-key);
 
     public function commit-inspector(name: string, value: float) -> bool {
-        return Api.inspector-commit(InspectorContext.inspector-key, name, value);
+        return Api.inspector-commit-number-temporary(InspectorContext.inspector-key, name, value);
     }
 
     public pure function has-backend-rect() -> bool {
