@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview cannot search elements (the wrapper has no item tree).
+//ignore: cpp-live-preview
+
 // While a menu of the MenuBar is open, hovering another entry of the menu bar switches menus,
 // also when the menu bar isn't at the window origin, as in a preview that embeds the window.
 
@@ -48,5 +51,27 @@ assert!(find("New").is_some());
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: center("Edit") });
 assert!(find("New").is_none());
 assert!(find("Copy").is_some());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+auto find = [&](const char *label) {
+    return slint::testing::ElementHandle::find_by_accessible_label(handle, label);
+};
+auto center = [&](const char *label) {
+    auto element = find(label)[0];
+    auto position = element.absolute_position();
+    auto size = element.size();
+    return slint::LogicalPosition({ position.x + size.width / 2, position.y + size.height / 2 });
+};
+auto file = center("File");
+slint_testing::send_mouse_click(&instance, file.x, file.y);
+assert(!find("New").empty());
+instance.window().dispatch_pointer_move_event(center("Edit"));
+assert(find("New").empty());
+assert(!find("Copy").empty());
 ```
 */

@@ -116,7 +116,7 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 // press outside the menu should close it, without reaching the TouchArea
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(0.0, 0.0), button: PointerEventButton::Left });
-assert_eq!(instance.get_result(), "UpLeft");
+assert_eq!(instance.get_result(), "");
 ```
 
 ```cpp

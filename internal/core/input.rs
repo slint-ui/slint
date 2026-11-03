@@ -1769,8 +1769,8 @@ pub struct MouseInputResult {
 /// Process the `mouse_event` on the `component`. The `mouse_input_state` is the previous
 /// dispatch state (grab stack, cursor, in-flight drag); the returned [`MouseInputResult`]
 /// carries the state that replaces it and whether the event was consumed.
-/// A non-empty `menu_owner_path` (descendants of `root`, starting with a child of it)
-/// restricts the event to the subtree of its last item.
+/// A non-empty `menu_owner_path` is the path from `root` to the menu bar,
+/// and restricts the event to the menu bar's subtree.
 pub fn process_mouse_input(
     root: ItemRc,
     menu_owner_path: &[ItemWeak],

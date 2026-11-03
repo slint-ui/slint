@@ -720,6 +720,7 @@ pub struct WindowInner {
     next_popup_id: Cell<NonZeroU32>,
     overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
+    press_blocked_by_menu: Cell<Option<PointerEventButton>>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     ctx: core::cell::OnceCell<crate::SlintContext>,
@@ -793,6 +794,7 @@ impl WindowInner {
             next_popup_id: Cell::new(NonZeroU32::MIN),
             overlays: Default::default(),
             had_popup_on_press: Default::default(),
+            press_blocked_by_menu: Default::default(),
             close_requested: Default::default(),
             click_state: ClickState::default(),
             prevent_focus_change: Default::default(),
@@ -811,6 +813,7 @@ impl WindowInner {
         self.focus_item_position_tracker.clear();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
+        self.press_blocked_by_menu.set(None);
         self.touch_state.replace(Default::default());
         self.component.replace(ItemTreeRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
@@ -1076,12 +1079,14 @@ impl WindowInner {
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
+            let mut blocked_by_menu = false;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
                 if matches!(popup.window_kind, WindowKind::ToolTip) {
                     continue;
                 }
                 item_tree = None;
                 menubar_item = None;
+                blocked_by_menu = false;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                     let mouse_inside_popup = event
@@ -1108,6 +1113,20 @@ impl WindowInner {
                     item.downcast::<crate::items::ContextMenu>()
                         .is_some_and(|menu| menu.as_pin_ref().is_menu_bar())
                 });
+                blocked_by_menu = menubar_item.is_none();
+            }
+
+            match &event {
+                MouseEvent::Pressed { button, .. } => {
+                    self.press_blocked_by_menu.set(blocked_by_menu.then_some(*button));
+                }
+                MouseEvent::Released { button, .. }
+                    if self.press_blocked_by_menu.take() == Some(*button) =>
+                {
+                    item_tree = None;
+                    menubar_item = None;
+                }
+                _ => {}
             }
 
             let (root, menu_owner_path) = match menubar_item {
