@@ -685,8 +685,15 @@ export component AppWindow inherits Window {
     /// How far the flight's panels have slid in, from 0 to 1.
     property <float> flight-in: root.screen == Screen.flight ? 1 : 0;
     animate flight-in {
-        duration: 450ms;
-        easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+        duration: 350ms;
+        easing: spring;
+    }
+    property <bool> started;
+    /// How far the planner has slid in on startup, from 0 to 1.
+    property <float> planner-in: root.started ? 1 : 0;
+    animate planner-in {
+        duration: 350ms;
+        easing: spring;
     }
     /// Where the controls rest at the bottom.
     property <length> controls-y: root.height - controls.height - root.bottom-edge - (root.narrow ? 0 : 14px);
@@ -892,7 +899,7 @@ export component AppWindow inherits Window {
 
             Rectangle {
                 opacity: root.screen == Screen.flight ? 1 : 0;
-                animate opacity { duration: 300ms; }
+                animate opacity { duration: 200ms; }
             for label in root.labels: Rectangle {
                 x: label.x * 1px;
                 y: label.y * 1px;
@@ -945,13 +952,23 @@ export component AppWindow inherits Window {
         }
     }
 
+    // A change in `init` wouldn't animate, as the panel hasn't been laid out yet.
+    Timer {
+        interval: 500ms;
+        running: !root.started;
+        triggered => {
+            root.started = true;
+        }
+    }
+
     // The planner, beside the globe, or below it on a phone held upright. It stays instantiated,
     // so its fields keep their text during a flight.
     Glass {
         property <length> rest-y: root.narrow ? root.entry-globe-y + root.entry-globe-height + 8px : root.top-edge;
         visible: root.zoom-progress < 1;
-        x: root.narrow ? root.left-edge : root.left-edge - root.zoom-progress * (self.width + root.left-edge + 30px);
-        y: root.narrow ? self.rest-y + root.zoom-progress * (root.height - self.rest-y + 30px) : self.rest-y;
+        property <float> away: 1 - root.planner-in + root.zoom-progress;
+        x: root.narrow ? root.left-edge : root.left-edge - self.away * (self.width + root.left-edge + 30px);
+        y: root.narrow ? self.rest-y + self.away * (root.height - self.rest-y + 30px) : self.rest-y;
         width: root.narrow ? root.content-width : root.panel-width;
         height: root.height - self.rest-y - root.bottom-edge;
         VerticalLayout {
