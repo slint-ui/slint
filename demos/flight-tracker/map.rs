@@ -9,7 +9,7 @@
 //! The map is equirectangular: x runs from 180° west to 180° east, and y from the north pole to
 //! the south pole. Red holds the signed distance to the coast, 0.5 on the coast and more on
 //! land, so that the shader draws sharp coasts however far it magnifies the map. Green holds
-//! the distance to the nearest border, 1 on a border, and blue the lights of the cities.
+//! the distance to the nearest border, 1 on a border. Blue is unused.
 //! Alpha holds the distance to the nearest border signed by its side, 0.5 on a border: unlike
 //! the unsigned distance, it interpolates exactly across a border, so the shader draws thin
 //! borders where it magnifies the map.
@@ -41,16 +41,6 @@ fn rings(text: &str) -> impl Iterator<Item = Vec<Point>> + '_ {
         }
         ring
     })
-}
-
-/// The longitude, latitude, and population in thousands of each city.
-pub fn cities() -> impl Iterator<Item = (f32, f32, f32)> {
-    include_str!("data/cities.txt").lines().filter(|line| !line.starts_with('#')).filter_map(
-        |line| {
-            let mut values = line.split(' ').map(|value| value.parse::<f32>().ok());
-            Some((values.next()?? / 100.0, values.next()?? / 100.0, values.next()??))
-        },
-    )
 }
 
 fn to_map((lon, lat): Point) -> (f32, f32) {
@@ -159,32 +149,6 @@ fn distances(lines: impl Iterator<Item = Vec<Point>>) -> (Vec<f32>, Vec<f32>) {
     (distance, signed)
 }
 
-/// Glows around the cities, larger and brighter for larger ones.
-fn lights() -> Vec<f32> {
-    let mut light = vec![0.0f32; (WIDTH * HEIGHT) as usize];
-    for (lon, lat, population) in cities() {
-        let (cx, cy) = to_map((lon, lat));
-        let millions = population / 1000.0;
-        let sigma = 0.8 + 1.0 * millions.sqrt().min(3.0);
-        let brightness = (0.35 + 0.2 * millions.max(0.05).log10()).clamp(0.15, 1.0);
-        // Pixels get narrower towards the poles.
-        let stretch = 1.0 / lat.to_radians().cos().max(0.2);
-        let (rx, ry) = (3.0 * sigma * stretch, 3.0 * sigma);
-        for y in (cy - ry) as i32..=(cy + ry) as i32 {
-            if y < 0 || y >= HEIGHT as i32 {
-                continue;
-            }
-            for x in (cx - rx) as i32..=(cx + rx) as i32 {
-                let dx = (x as f32 + 0.5 - cx) / stretch;
-                let dy = y as f32 + 0.5 - cy;
-                let value = brightness * (-(dx * dx + dy * dy) / (2.0 * sigma * sigma)).exp();
-                light[(y as u32 * WIDTH + x.rem_euclid(WIDTH as i32) as u32) as usize] += value;
-            }
-        }
-    }
-    light
-}
-
 impl Map {
     pub fn new() -> Self {
         let land = rings(include_str!("data/land.txt"));
@@ -193,7 +157,6 @@ impl Map {
         let lake_inside = inside(rings(include_str!("data/lakes.txt")));
         let (coast, _) = distances(land.chain(lakes));
         let (borders, border_sides) = distances(rings(include_str!("data/borders.txt")));
-        let lights = lights();
         let byte = |value: f32| (value.clamp(0.0, 1.0) * 255.0 + 0.5) as u8;
         let mut base = Vec::with_capacity((WIDTH * HEIGHT * 4) as usize);
         for i in 0..(WIDTH * HEIGHT) as usize {
@@ -201,7 +164,7 @@ impl Map {
             let land = 0.5 + 0.5 * sign * coast[i] / SPREAD;
             let border = 1.0 - borders[i] / SPREAD;
             let border_side = 0.5 + 0.5 * border_sides[i] / SIDE_SPREAD;
-            base.extend_from_slice(&[byte(land), byte(border), byte(lights[i]), byte(border_side)]);
+            base.extend_from_slice(&[byte(land), byte(border), 0, byte(border_side)]);
         }
 
         let mut levels = vec![base];

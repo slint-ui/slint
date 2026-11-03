@@ -880,12 +880,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let imagery = renderer::Imagery::decode(include_bytes!("data/earth.jpg"))
                 .expect("the imagery is a valid JPEG")
                 .compress(device.features());
+            // NASA's Black Marble.
+            let night = renderer::Imagery::decode(include_bytes!("data/night.jpg"))
+                .expect("the night imagery is a valid JPEG")
+                .compress(device.features());
             let info = device.adapter_info();
             app.set_gpu_text(
                 format!("{} ({:?}, {:?})", info.name, info.backend, imagery.format).into(),
             );
             graphics = Some((
-                Renderer::new(device, queue, &map, &imagery, FRAME_VIEW_FORMAT),
+                Renderer::new(device, queue, &map, &imagery, &night, FRAME_VIEW_FORMAT),
                 device.clone(),
             ));
             return;

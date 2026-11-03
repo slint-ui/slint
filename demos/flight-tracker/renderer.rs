@@ -98,6 +98,7 @@ impl Renderer {
         queue: &wgpu::Queue,
         map: &Map,
         imagery: &Imagery,
+        night: &Imagery,
         format: wgpu::TextureFormat,
     ) -> Self {
         let texture = device.create_texture_with_data(
@@ -138,6 +139,25 @@ impl Renderer {
             },
             wgpu::util::TextureDataOrder::LayerMajor,
             &day.levels.concat(),
+        );
+        let night_texture = device.create_texture_with_data(
+            queue,
+            &wgpu::TextureDescriptor {
+                label: Some("globe night imagery"),
+                size: wgpu::Extent3d {
+                    width: night.width,
+                    height: night.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: night.levels.len() as u32,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: night.format,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            &night.levels.concat(),
         );
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::Repeat,
@@ -193,10 +213,21 @@ impl Renderer {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
         let view = texture.create_view(&Default::default());
         let day_view = day_texture.create_view(&Default::default());
+        let night_view = night_texture.create_view(&Default::default());
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("globe"),
             layout: &layout,
@@ -213,6 +244,10 @@ impl Renderer {
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(&day_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&night_view),
                 },
             ],
         });
