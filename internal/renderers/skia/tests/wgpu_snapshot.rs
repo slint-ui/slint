@@ -7,6 +7,7 @@
 
 #![cfg(feature = "unstable-wgpu-30")]
 
+use std::io::Write;
 use std::rc::Rc;
 
 use i_slint_core::api::PhysicalSize;
@@ -149,6 +150,8 @@ fn center_pixel(window: &slint::Window) -> [u8; 4] {
 #[test]
 fn snapshot() {
     let Some(wgpu) = init_offscreen_platform() else {
+        // libtest captures `eprintln!` of a passing test, but not writes to the stream itself.
+        writeln!(std::io::stderr(), "skipping: no WGPU adapter that Skia can use").unwrap();
         return;
     };
 
