@@ -293,6 +293,21 @@ fn source_node(node: &ElementRcNode) -> Option<ElementRcNode> {
     document_cache()?.element_at_offset(&path.to_url()?, offset)
 }
 
+fn string_expression(value: &str) -> String {
+    let mut expression = String::from("\"");
+    for character in value.chars() {
+        match character {
+            '"' => expression.push_str("\\\""),
+            '\\' => expression.push_str("\\\\"),
+            '\n' => expression.push_str("\\n"),
+            character if character.is_control() => expression.extend(character.escape_unicode()),
+            character => expression.push(character),
+        }
+    }
+    expression.push('"');
+    expression
+}
+
 fn edit_value(
     node: &ElementRcNode,
     name: &str,
@@ -332,10 +347,9 @@ fn edit_value(
         ui::PropertyEditKind::Boolean if property_type == Type::Bool => {
             (value.boolean.to_string(), Value::Bool(value.boolean))
         }
-        ui::PropertyEditKind::String if property_type == Type::String => (
-            ui::convert_simple_string(value.text.clone()).to_string(),
-            Value::String(value.text.clone()),
-        ),
+        ui::PropertyEditKind::String if property_type == Type::String => {
+            (string_expression(&value.text), Value::String(value.text.clone()))
+        }
         ui::PropertyEditKind::Enumeration => {
             let Type::Enumeration(enumeration) = property_type else { return None };
             if !enumeration.values.iter().any(|member| member.as_str() == value.text.as_str()) {
@@ -681,6 +695,23 @@ pub(super) fn refresh() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn string_expressions_roundtrip() {
+        for value in [
+            "apostrophe's",
+            "tab\there",
+            "carriage\rreturn",
+            "back\\slash",
+            "\\{interpolation}",
+            "quotes \"here\"\n🦊\0",
+        ] {
+            assert_eq!(
+                i_slint_compiler::literals::unescape_string(&string_expression(value)).as_deref(),
+                Some(value)
+            );
+        }
+    }
 
     #[test]
     fn typed_numbers_normalize_units_and_validate_the_property_type() {
