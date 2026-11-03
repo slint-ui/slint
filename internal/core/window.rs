@@ -12,8 +12,8 @@ use crate::api::{
 use crate::cursor::{MouseCursorHandling, MouseCursorInner};
 use crate::input::{
     BackendDragEvent, ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent,
-    KeyEventResult, KeyEventType, Keys, MouseEvent, MouseInputState, PointerEventButton,
-    TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
+    KeyEventResult, KeyEventType, KeyboardModifiers, Keys, MouseEvent, MouseInputState,
+    PointerEventButton, TextCursorBlinker, TouchHistory, TouchPhase, TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -1777,6 +1777,13 @@ impl WindowInner {
         if !have_focus {
             self.context().modifiers().take();
         }
+    }
+
+    /// Releases the keyboard modifiers that the platform reports as not held.
+    /// Call it when the platform reports the modifier state.
+    pub fn release_modifiers_not_held(&self, held: KeyboardModifiers) {
+        let modifiers = self.context().modifiers();
+        modifiers.set(modifiers.get().release_not_held(held));
     }
 
     /// Returns true of the window is the active window. That typically implies having the
