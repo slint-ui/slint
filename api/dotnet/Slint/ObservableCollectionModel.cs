@@ -33,7 +33,7 @@ public sealed class ObservableCollectionModel<T> : Model<T>, IDisposable
         }
         _source = source;
         notifying.CollectionChanged += OnCollectionChanged;
-        Watch(_source);
+        Subscribe(_source);
     }
 
     /// <inheritdoc/>
@@ -83,16 +83,16 @@ public sealed class ObservableCollectionModel<T> : Model<T>, IDisposable
         switch (e.Action)
         {
             case NotifyCollectionChangedAction.Add when e.NewStartingIndex >= 0:
-                Watch(e.NewItems!);
+                Subscribe(e.NewItems!);
                 NotifyRowAdded(e.NewStartingIndex, e.NewItems!.Count);
                 break;
             case NotifyCollectionChangedAction.Remove when e.OldStartingIndex >= 0:
-                Unwatch(e.OldItems!);
+                Unsubscribe(e.OldItems!);
                 NotifyRowRemoved(e.OldStartingIndex, e.OldItems!.Count);
                 break;
             case NotifyCollectionChangedAction.Replace when e.NewStartingIndex >= 0:
-                Unwatch(e.OldItems!);
-                Watch(e.NewItems!);
+                Unsubscribe(e.OldItems!);
+                Subscribe(e.NewItems!);
                 for (var i = 0; i < e.NewItems!.Count; i++)
                 {
                     NotifyRowChanged(e.NewStartingIndex + i);
@@ -104,14 +104,14 @@ public sealed class ObservableCollectionModel<T> : Model<T>, IDisposable
                 NotifyRowAdded(e.NewStartingIndex, e.NewItems!.Count);
                 break;
             default:
-                Unwatch(_subscribed.ToArray());
-                Watch(_source);
+                Unsubscribe(_subscribed.ToArray());
+                Subscribe(_source);
                 NotifyReset();
                 break;
         }
     }
 
-    private void Watch(System.Collections.IEnumerable items)
+    private void Subscribe(System.Collections.IEnumerable items)
     {
         foreach (var item in items)
         {
@@ -123,7 +123,7 @@ public sealed class ObservableCollectionModel<T> : Model<T>, IDisposable
         }
     }
 
-    private void Unwatch(System.Collections.IEnumerable items)
+    private void Unsubscribe(System.Collections.IEnumerable items)
     {
         foreach (var item in items)
         {
