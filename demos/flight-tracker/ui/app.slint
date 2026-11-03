@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MIT
 
 import { ListView } from "std-widgets.slint";
+import "fonts/JetBrainsMonoNL-Bold.ttf";
 
 /// How much the demo spends on its looks, see `adaptive.rs`.
 export enum Quality { low, medium, high }
 
 /// The shapes of the panels and controls.
-export enum Style { cockpit, wing, ticket }
+export enum Style { cockpit, wing, ticket, board }
 
 global Theme {
     /// The panels blur the globe behind them in high quality, and are flat and more opaque
@@ -18,23 +19,24 @@ global Theme {
     out property <bool> cockpit: self.style == Style.cockpit;
     out property <bool> wing: self.style == Style.wing;
     out property <bool> ticket: self.style == Style.ticket;
-    out property <color> text: #e8eef6;
-    out property <color> muted: #8b98a9;
+    out property <bool> board: self.style == Style.board;
+    out property <color> text: self.board ? #f2efe6 : #e8eef6;
+    out property <color> muted: self.board ? #8f8b80 : #8b98a9;
     /// Placeholders and the frame rate, dimmer than `muted`.
-    out property <color> faint: #ffffff50;
-    out property <color> accent: #2379f4;
-    out property <color> accent-light: #6aaeff;
+    out property <color> faint: self.board ? #f2efe650 : #ffffff50;
+    out property <color> accent: self.board ? #f5c400 : #2379f4;
+    out property <color> accent-light: self.board ? #ffd84a : #6aaeff;
     /// Behind the globe on the entry screen.
-    out property <color> background: #04070c;
-    out property <color> surface: #0a111a;
-    out property <color> glass: self.surface.with-alpha(self.blur ? 0.5 : 0.88);
-    out property <color> line: #ffffff1c;
+    out property <color> background: self.board ? #060606 : #04070c;
+    out property <color> surface: self.board ? #0d0e10 : #0a111a;
+    out property <color> glass: self.surface.with-alpha(self.board ? (self.blur ? 0.86 : 0.95) : self.blur ? 0.5 : 0.88);
+    out property <color> line: self.board ? #ffffff14 : #ffffff1c;
     /// A tint over the glass for buttons and fields, and its hover and pressed states.
-    out property <color> fill: #ffffff12;
+    out property <color> fill: self.board ? #ffffff0d : #ffffff12;
     out property <color> fill-hover: #ffffff1f;
     out property <color> fill-pressed: #ffffff2a;
     /// The off state of a toggle, and the part of the route still ahead.
-    out property <color> track: #ffffff30;
+    out property <color> track: self.board ? #ffffff22 : #ffffff30;
     out property <length> margin: 16px;
 }
 
@@ -100,7 +102,7 @@ export struct Label {
 component Glass inherits Rectangle {
     in property <bool> mirrored;
     /// The corners that aren't swept.
-    in property <length> radius: Theme.cockpit ? 2px : Theme.wing ? 3px : 6px;
+    in property <length> radius: Theme.cockpit ? 2px : Theme.wing ? 3px : Theme.board ? 4px : 6px;
     in property <length> sweep: Theme.wing ? 56px : self.radius;
     /// The length of the brackets on the corners in the cockpit style, or 0 for none.
     in property <length> bracket: 12px;
@@ -129,6 +131,184 @@ component Glass inherits Rectangle {
             x: parent.right ? parent.width - self.width : 0;
             width: 2px;
             background: Theme.accent-light;
+        }
+    }
+
+    // The rivets of the board's housing.
+    for corner in (Theme.board && root.width > 80px ? 4 : 0): Rectangle {
+        x: Math.mod(corner, 2) == 0 ? 6px : root.width - self.width - 6px;
+        y: corner < 2 ? 6px : root.height - self.height - 6px;
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: #ffffff30;
+    }
+}
+
+/// One half of a flap of `Flaps`, showing the character at `index` of `text`.
+component FlapHalf inherits Rectangle {
+    in property <string> text;
+    in property <int> index;
+    /// The lower half, or else the upper one.
+    in property <bool> lower;
+    in property <length> flap-height;
+    in property <length> advance;
+    /// Where the character starts on the flap.
+    in property <length> inset;
+    /// The width of the character, or of all of the text on one flap.
+    in property <length> cell;
+    in property <length> size;
+    in property <color> ink;
+    clip: true;
+    border-top-left-radius: root.lower ? 0 : 2px;
+    border-top-right-radius: root.lower ? 0 : 2px;
+    border-bottom-left-radius: root.lower ? 2px : 0;
+    border-bottom-right-radius: root.lower ? 2px : 0;
+    // Clips the neighbors of the character.
+    Rectangle {
+        x: root.inset;
+        width: root.cell;
+        clip: true;
+        Text {
+            x: -root.index * root.advance;
+            y: root.lower ? -root.flap-height / 2 : 0;
+            width: self.preferred-width;
+            height: root.flap-height;
+            text: root.text;
+            color: root.ink;
+            font-family: "JetBrains Mono NL";
+            font-size: root.size;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+}
+
+/// Text on a split-flap display, as on an airport's departures board.
+/// Each character has a flap of its own, and the flaps flip when the text changes.
+component Flaps {
+    in property <string> text;
+    in property <length> size: 16px;
+    in property <color> color: Theme.text;
+    /// Shows all of the text on one flap.
+    in property <bool> whole;
+    /// Dark on yellow, like a sign.
+    in property <bool> lit;
+    /// How long the flaps show a text before they flip to a newer one.
+    in property <duration> hold: 50ms;
+    property <string> shown;
+    property <string> previous;
+    property <int> flips;
+    property <float> turn: self.flips;
+    animate turn { duration: 520ms; }
+    /// How far the flaps have turned from `previous` to `shown`, from 0 to 1.
+    property <float> progress: self.turn == self.flips ? 1 : self.turn - Math.floor(self.turn);
+    property <int> count: self.whole ? 1 : max(1, self.shown.character-count);
+    property <length> gap: max(3px, self.size * 0.2);
+    // The font is monospaced, so every character advances by the same width.
+    property <length> advance: measure.preferred-width / max(1, self.shown.character-count);
+    property <length> flap-width: self.whole ? measure.preferred-width + 2 * self.gap : self.advance + self.gap;
+    property <length> inset: self.gap / 2 + (self.whole ? self.gap / 2 : 0);
+    property <brush> upper: self.lit ? #ffd21f : #2a2b30;
+    property <brush> lower: self.lit ? #e3b400 : #18191c;
+    property <color> ink: self.lit ? #111111 : self.color;
+    width: self.count * (self.flap-width + 2px) - 2px;
+    height: self.size * 1.42;
+    init => {
+        self.shown = self.text;
+        self.previous = self.text;
+    }
+
+    Timer {
+        interval: root.hold;
+        running: root.shown != root.text;
+        triggered => {
+            root.previous = root.shown;
+            root.shown = root.text;
+            root.flips += 1;
+        }
+    }
+
+    measure := Text {
+        visible: false;
+        text: root.shown;
+        font-family: "JetBrains Mono NL";
+        font-size: root.size;
+        font-weight: 700;
+    }
+
+    for index in root.count: flap := Rectangle {
+        // Each flap starts a little after the one on its left.
+        property <float> t: clamp(root.progress * (1 + (root.count - 1) * 0.15) - index * 0.15, 0, 1);
+        x: index * (root.flap-width + 2px);
+        width: root.flap-width;
+        FlapHalf {
+            y: 0;
+            height: root.height / 2;
+            background: root.upper;
+            text: root.shown;
+            index: index;
+            flap-height: root.height;
+            advance: root.advance;
+            inset: root.inset;
+            cell: root.whole ? measure.preferred-width : root.advance;
+            size: root.size;
+            ink: root.ink;
+        }
+
+        FlapHalf {
+            y: root.height / 2;
+            height: root.height / 2;
+            lower: true;
+            background: root.lower;
+            text: flap.t < 0.5 ? root.previous : root.shown;
+            index: index;
+            flap-height: root.height;
+            advance: root.advance;
+            inset: root.inset;
+            cell: root.whole ? measure.preferred-width : root.advance;
+            size: root.size;
+            ink: root.ink;
+        }
+
+        // The upper half of the old character, falling about the hinge.
+        if flap.t < 0.5: FlapHalf {
+            y: 0;
+            height: root.height / 2;
+            background: root.upper;
+            text: root.previous;
+            index: index;
+            flap-height: root.height;
+            advance: root.advance;
+            inset: root.inset;
+            cell: root.whole ? measure.preferred-width : root.advance;
+            size: root.size;
+            ink: root.ink;
+            transform-origin: { x: 0, y: self.height };
+            transform-scale-y: (1 - 2 * flap.t) * 100%;
+        }
+        // The lower half of the new character, falling into place.
+        if flap.t >= 0.5 && flap.t < 1: FlapHalf {
+            y: root.height / 2;
+            height: root.height / 2;
+            lower: true;
+            background: root.lower;
+            text: root.shown;
+            index: index;
+            flap-height: root.height;
+            advance: root.advance;
+            inset: root.inset;
+            cell: root.whole ? measure.preferred-width : root.advance;
+            size: root.size;
+            ink: root.ink;
+            transform-origin: { x: 0, y: 0 };
+            transform-scale-y: (2 * flap.t - 1) * 100%;
+        }
+        // The hinge.
+        Rectangle {
+            y: (root.height - self.height) / 2;
+            height: 1px;
+            background: #000000c0;
         }
     }
 }
@@ -175,8 +355,9 @@ component PillButton inherits Rectangle {
     /// See `Glass`.
     in property <bool> mirrored;
     callback clicked;
-    property <length> radius: Theme.cockpit ? 2px : 4px;
+    property <length> radius: Theme.cockpit ? 2px : Theme.board ? 3px : 4px;
     property <length> sweep: Theme.wing ? self.height / 2 : self.radius;
+    property <color> ink: root.primary && Theme.board ? #111111 : Theme.text;
     height: 36px;
     min-width: content.preferred-width + 28px;
     border-top-left-radius: root.mirrored ? root.radius : root.sweep;
@@ -197,7 +378,7 @@ component PillButton inherits Rectangle {
             width: 16px;
             height: 16px;
             source: root.icon;
-            colorize: Theme.text;
+            colorize: root.ink;
             transform-rotation: 90deg;
         }
         // The stub of a ticket.
@@ -215,10 +396,11 @@ component PillButton inherits Rectangle {
             }
         }
         if root.text != "": Text {
-            text: root.text;
-            color: Theme.text;
+            text: Theme.board ? root.text.to-uppercase() : root.text;
+            color: root.ink;
+            font-family: Theme.board ? "JetBrains Mono NL" : "";
             font-size: 13px;
-            font-weight: 600;
+            font-weight: Theme.board ? 700 : 600;
             vertical-alignment: center;
         }
     }
@@ -240,7 +422,7 @@ component RoundButton inherits Glass {
     callback clicked;
     width: 40px;
     height: 40px;
-    radius: Theme.cockpit ? 2px : Theme.wing ? 5px : 6px;
+    radius: Theme.cockpit ? 2px : Theme.wing ? 5px : Theme.board ? 3px : 6px;
     sweep: Theme.wing ? self.width / 2 : self.radius;
     bracket: 0;
     background: root.checked ? Theme.accent : Theme.glass;
@@ -263,7 +445,7 @@ component RoundButton inherits Glass {
         width: 18px;
         height: 18px;
         source: root.icon;
-        colorize: Theme.text;
+        colorize: root.checked && Theme.board ? #111111 : Theme.text;
     }
 
     touch := TouchArea {
@@ -367,7 +549,15 @@ component Toggle {
         }
     }
 
-    if !Theme.cockpit: Rectangle {
+    if Theme.board: Flaps {
+        x: parent.width - self.width;
+        text: root.checked ? "ON" : "OFF";
+        size: 13px;
+        whole: true;
+        color: root.checked ? Theme.accent : Theme.muted;
+    }
+
+    if !Theme.cockpit && !Theme.board: Rectangle {
         property <length> radius: Theme.wing ? 3px : 4px;
         property <length> sweep: Theme.wing ? self.height / 2 : self.radius;
         x: parent.width - self.width;
@@ -415,7 +605,7 @@ component Segmented {
     callback picked(index: int);
     property <length> cell: self.width / self.options.length;
     height: 36px;
-    if !Theme.wing: Rectangle {
+    if !Theme.wing && !Theme.board: Rectangle {
         border-radius: Theme.cockpit ? 2px : 4px;
         border-width: Theme.cockpit ? 1px : 0;
         border-color: Theme.line;
@@ -432,7 +622,7 @@ component Segmented {
         background: Theme.fill;
     }
 
-    for index in (Theme.wing ? 0 : root.options.length - 1): Rectangle {
+    for index in (Theme.wing || Theme.board ? 0 : root.options.length - 1): Rectangle {
         x: root.cell * (index + 1);
         y: Theme.cockpit ? 9px : 5px;
         width: 1px;
@@ -445,7 +635,7 @@ component Segmented {
         }
     }
 
-    if root.current >= 0: Rectangle {
+    if root.current >= 0 && !Theme.board: Rectangle {
         property <length> inset: Theme.cockpit ? 0 : Theme.wing ? 2px : 3px;
         property <length> radius: Theme.cockpit ? 0 : 3px;
         property <length> sweep: Theme.wing ? self.height / 2 : self.radius;
@@ -471,15 +661,23 @@ component Segmented {
         }
     }
 
-    for option[index] in root.options: Text {
+    for option[index] in root.options: Rectangle {
         x: root.cell * index;
         width: root.cell;
-        text: option;
-        color: index == root.current ? Theme.text : Theme.muted;
-        font-size: 13px;
-        font-weight: 600;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+        if !Theme.board: Text {
+            text: option;
+            color: index == root.current ? Theme.text : Theme.muted;
+            font-size: 13px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        if Theme.board: Flaps {
+            text: option.to-uppercase();
+            size: 12px;
+            whole: true;
+            lit: index == root.current;
+        }
         TouchArea {
             mouse-cursor: pointer;
             clicked => {
@@ -521,11 +719,21 @@ component Stat {
                 text: root.label;
             }
 
-            Text {
+            if !Theme.board: Text {
                 text: root.value;
                 color: Theme.text;
                 font-size: root.value-size;
                 font-weight: 600;
+            }
+            if Theme.board: HorizontalLayout {
+                alignment: start;
+                Flaps {
+                    text: root.value;
+                    size: root.value-size * 0.8;
+                    whole: true;
+                    // The readings change all the time, and the board shows them every few seconds.
+                    hold: 3s;
+                }
             }
         }
     }
@@ -568,11 +776,17 @@ component FlightCard inherits Panel {
                 if Theme.ticket: Caption {
                     text: "From";
                 }
-                origin-code := Text {
-                    text: root.flight.origin.code;
-                    color: Theme.text;
-                    font-size: root.code-size;
-                    font-weight: 800;
+                origin-code := HorizontalLayout {
+                    if !Theme.board: Text {
+                        text: root.flight.origin.code;
+                        color: Theme.text;
+                        font-size: root.code-size;
+                        font-weight: 800;
+                    }
+                    if Theme.board: Flaps {
+                        text: root.flight.origin.code;
+                        size: root.code-size * 0.8;
+                    }
                 }
 
                 Text {
@@ -595,7 +809,7 @@ component FlightCard inherits Panel {
                 property <float> peak: self.line-y / 1px - 19;
                 property <float> t: root.flight.progress;
                 property <float> arc-y: (1 - self.t) * (1 - self.t) * self.ends + 2 * self.t * (1 - self.t) * self.peak + self.t * self.t * self.ends;
-                if !Theme.wing: Rectangle {
+                if !Theme.wing && !Theme.board: Rectangle {
                     y: parent.line-y - 1px;
                     height: 2px;
                     background: Theme.track;
@@ -607,8 +821,16 @@ component FlightCard inherits Panel {
                     height: Math.mod(tick, 5) == 0 ? 14px : 8px;
                     background: Theme.track;
                 }
+                for tile in (Theme.board ? 14 : 0): Rectangle {
+                    x: (parent.width + 2px) * tile / 14;
+                    y: parent.line-y + 6px;
+                    width: (parent.width + 2px) / 14 - 2px;
+                    height: 10px;
+                    border-radius: 1px;
+                    background: tile < root.flight.progress * 14 ? Theme.accent : #ffffff1c;
+                }
                 // The flown part, from the origin to the aircraft.
-                if !Theme.wing: Rectangle {
+                if !Theme.wing && !Theme.board: Rectangle {
                     x: 0;
                     y: parent.line-y - 1px;
                     width: aircraft-icon.x + aircraft-icon.width / 2;
@@ -640,7 +862,7 @@ component FlightCard inherits Panel {
                 }
                 aircraft-icon := AircraftIcon {
                     x: Theme.wing ? parent.w * parent.t * 1px - self.width / 2 : (parent.width - self.width) * root.flight.progress;
-                    y: Theme.wing ? parent.arc-y * 1px - self.height / 2 : parent.line-y - self.height / 2;
+                    y: Theme.wing ? parent.arc-y * 1px - self.height / 2 : parent.line-y - self.height / 2 - (Theme.board ? 6px : 0);
                     width: 24px;
                     height: 24px;
                     transform-rotation: 90deg + (Theme.wing ? atan2(2 * (1 - 2 * parent.t) * (parent.peak - parent.ends), parent.w) : 0deg);
@@ -663,12 +885,18 @@ component FlightCard inherits Panel {
                     text: "To";
                     horizontal-alignment: right;
                 }
-                Text {
-                    text: root.flight.destination.code;
-                    color: Theme.text;
-                    font-size: root.code-size;
-                    font-weight: 800;
-                    horizontal-alignment: right;
+                HorizontalLayout {
+                    alignment: end;
+                    if !Theme.board: Text {
+                        text: root.flight.destination.code;
+                        color: Theme.text;
+                        font-size: root.code-size;
+                        font-weight: 800;
+                    }
+                    if Theme.board: Flaps {
+                        text: root.flight.destination.code;
+                        size: root.code-size * 0.8;
+                    }
                 }
 
                 Text {
@@ -836,11 +1064,11 @@ component AirportMarker {
     height: 0;
     visible: root.marker.shown;
     Rectangle {
-        property <length> radius: Theme.cockpit ? 0 : Theme.wing ? 1px : self.width / 2;
+        property <length> radius: Theme.cockpit || Theme.board ? 0 : Theme.wing ? 1px : self.width / 2;
         property <length> sweep: Theme.wing ? self.width / 2 : self.radius;
         x: -self.width / 2;
         y: -self.height / 2;
-        width: Theme.cockpit ? 11px : 12px;
+        width: Theme.cockpit ? 11px : Theme.board ? 10px : 12px;
         height: self.width;
         transform-rotation: Theme.cockpit ? 45deg : 0deg;
         border-top-left-radius: self.sweep;
@@ -849,7 +1077,7 @@ component AirportMarker {
         border-bottom-left-radius: self.radius;
         background: root.destination ? Theme.accent-light : white;
         border-width: 2px;
-        border-color: root.destination ? white : Theme.accent;
+        border-color: Theme.board ? #111111 : root.destination ? white : Theme.accent;
         drop-shadow-blur: 6px;
         drop-shadow-color: #0009;
     }
@@ -874,8 +1102,17 @@ component AirportMarker {
         background: root.tag-background;
     }
 
+    if Theme.board: Flaps {
+        x: root.tag-x;
+        y: -self.height / 2;
+        text: root.marker.code;
+        size: 12px;
+        color: root.destination ? Theme.accent : white;
+    }
+
     Rectangle {
         property <length> radius: Theme.ticket ? 3px : 2px;
+        visible: !Theme.board;
         property <length> sweep: Theme.wing ? self.height / 2 : self.radius;
         x: root.tag-x;
         y: -self.height / 2;
@@ -915,6 +1152,8 @@ component AirportMarker {
 
 component AirportRow inherits Rectangle {
     in property <AirportItem> airport;
+    /// The row's place in the list, for the board's stripes.
+    in property <int> index;
     callback clicked();
     property <length> radius: Theme.cockpit ? 2px : Theme.wing ? 3px : 4px;
     property <length> sweep: Theme.wing ? 16px : self.radius;
@@ -923,13 +1162,13 @@ component AirportRow inherits Rectangle {
     border-top-right-radius: root.radius;
     border-bottom-right-radius: root.sweep;
     border-bottom-left-radius: root.radius;
-    background: touch.has-hover ? Theme.fill-hover : transparent;
+    background: touch.has-hover ? Theme.fill-hover : Theme.board && Math.mod(root.index, 2) == 1 ? #ffffff08 : transparent;
     if Theme.cockpit && touch.has-hover: Rectangle {
         x: 0;
         width: 2px;
         background: Theme.accent-light;
     }
-    Text {
+    if !Theme.board: Text {
         x: 10px;
         width: 44px;
         text: root.airport.code;
@@ -938,13 +1177,19 @@ component AirportRow inherits Rectangle {
         font-weight: 700;
         vertical-alignment: center;
     }
-
+    if Theme.board: Flaps {
+        x: 8px;
+        text: root.airport.code;
+        size: 14px;
+        color: Theme.accent;
+    }
     VerticalLayout {
-        x: 60px;
-        width: parent.width - 70px;
+        x: Theme.board ? 72px : 60px;
+        width: parent.width - self.x - 10px;
         alignment: center;
         Text {
-            text: "\{root.airport.city}, \{root.airport.country}";
+            text: Theme.board ? "\{root.airport.city}, \{root.airport.country}".to-uppercase() : "\{root.airport.city}, \{root.airport.country}";
+            font-family: Theme.board ? "JetBrains Mono NL" : "";
             color: Theme.text;
             font-size: 14px;
             overflow: elide;
@@ -1392,11 +1637,15 @@ export component AppWindow inherits Window {
                 spacing: 10px;
                 VerticalLayout {
                     horizontal-stretch: 1;
-                    Text {
+                    if !Theme.board: Text {
                         text: "Where to?";
                         color: Theme.text;
                         font-size: root.narrow ? 22px : 28px;
                         font-weight: 800;
+                    }
+                    if Theme.board: Flaps {
+                        text: "WHERE TO?";
+                        size: root.narrow ? 17px : 21px;
                     }
 
                     Text {
@@ -1462,7 +1711,8 @@ export component AppWindow inherits Window {
 
             ListView {
                 vertical-stretch: 1;
-                for airport in root.results: AirportRow {
+                for airport[index] in root.results: AirportRow {
+                    index: index;
                     airport: airport;
                     clicked => {
                         root.choose(airport);
@@ -1548,7 +1798,7 @@ export component AppWindow inherits Window {
         width: root.narrow ? root.content-width : bar.preferred-width;
         height: bar.preferred-height;
         mirrored: true;
-        radius: 6px;
+        radius: Theme.board ? 4px : 6px;
         sweep: Theme.wing ? self.height / 2 : self.radius;
         bracket: 0;
         background: Theme.cockpit ? transparent : Theme.glass;
@@ -1691,18 +1941,18 @@ export component AppWindow inherits Window {
         width: style-bar.preferred-width;
         height: style-bar.preferred-height;
         mirrored: true;
-        radius: 6px;
+        radius: Theme.board ? 4px : 6px;
         sweep: Theme.wing ? self.height / 2 : self.radius;
         bracket: 8px;
         style-bar := HorizontalLayout {
             padding: 6px;
             Segmented {
-                width: 216px;
+                width: 296px;
                 mirrored: true;
-                options: ["Cockpit", "Wing", "Ticket"];
-                current: Theme.cockpit ? 0 : Theme.wing ? 1 : 2;
+                options: ["Cockpit", "Wing", "Ticket", "Board"];
+                current: Theme.cockpit ? 0 : Theme.wing ? 1 : Theme.ticket ? 2 : 3;
                 picked(index) => {
-                    Theme.style = index == 0 ? Style.cockpit : index == 1 ? Style.wing : Style.ticket;
+                    Theme.style = index == 0 ? Style.cockpit : index == 1 ? Style.wing : index == 2 ? Style.ticket : Style.board;
                     root.interacted();
                 }
             }
