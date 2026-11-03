@@ -769,7 +769,6 @@ export component AppWindow inherits Window {
             horizontal-tiling: repeat;
             vertical-tiling: repeat;
             colorize: #6aaeff;
-            opacity: 0.6;
         }
 
         Rectangle {
@@ -778,6 +777,16 @@ export component AppWindow inherits Window {
             width: root.entry-globe-width;
             height: root.entry-globe-height;
             background: @radial-gradient(circle, #2379f440 0%, #2379f410 45%, #04070c00 70%);
+        }
+
+        // The globe's shadow on the pattern, so that the globe floats above it.
+        Rectangle {
+            property <length> globe-size: min(root.entry-globe-width, root.entry-globe-height) * 0.84;
+            width: self.globe-size * 1.15;
+            height: self.width;
+            x: root.entry-globe-x + (root.entry-globe-width - self.width) / 2;
+            y: root.entry-globe-y + (root.entry-globe-height - self.height) / 2 + self.globe-size * 0.05;
+            background: @radial-gradient(circle, #000000d0 0%, #000000d0 48%, #00000060 60%, #00000000 72%);
         }
     }
 
