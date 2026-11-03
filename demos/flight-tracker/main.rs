@@ -437,7 +437,7 @@ impl Demo {
         self.stage_time += dt;
         match self.stage {
             Stage::Entry => {
-                self.entry_longitude += ENTRY_SPIN * dt;
+                self.entry_longitude -= ENTRY_SPIN * dt;
                 if kiosk && self.stage_time >= PROPOSE_SECONDS && !self.proposed {
                     self.proposed = true;
                     let origin = match self.planned {
