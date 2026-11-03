@@ -83,14 +83,21 @@ impl SerialConnection {
             if let Some(previous) = previous {
                 let _ = previous.join();
             }
+            let answered = std::cell::Cell::new(false);
             let report = |event| {
+                answered.set(answered.get() || matches!(event, SerialEvent::Connected { .. }));
                 let _ = events.send(event);
             };
-            let session = open_port(&port_name).and_then(|port| {
+            let session = open_port(&port_name).and_then(|mut port| {
                 let reader = port.try_clone().map_err(|err| err.to_string())?;
                 let stop_reading = Arc::new(AtomicBool::new(false));
                 let reader = spawn_reader(reader, reader_inputs, stop_reading.clone());
-                let session = run_session(port, &input_receiver, &report);
+                let session = run_session(&mut port, &input_receiver, &report);
+                // Closing waits for the device to read what's left, up to 30 s on Linux,
+                // and a device that didn't answer the `Hello` may never read it
+                if !answered.get() {
+                    let _ = port.clear(serialport::ClearBuffer::Output);
+                }
                 // The reader's handle keeps the port open
                 stop_reading.store(true, Ordering::Relaxed);
                 let _ = reader.join();
