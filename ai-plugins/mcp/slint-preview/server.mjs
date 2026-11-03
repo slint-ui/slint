@@ -11,7 +11,7 @@ import { extname, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 
-const VIEW_URI = "ui://slint/preview.html";
+const VIEW_URI = "ui://slint/preview-v2.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
 const VIEW_START_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_VIEW_START_TIMEOUT_MS ?? 10000,
@@ -69,6 +69,7 @@ const tools = [
         icons,
         description:
             "Preview saved Slint source using the matching Wasm interpreter. " +
+            "Each call opens a new preview card; don't repeat it to recover from startup or capture failures. " +
             "Pass `path` to preview a file on disk, with its imports and images, or `source` for a snippet that imports only from std-widgets.slint. " +
             "This acknowledges the request, not a successful render. " +
             "Always call get_preview_screenshot and check for errors before confirming the preview works.",
@@ -380,7 +381,11 @@ const toolCalls = {
 
 function readView() {
     // The .in suffix prevents Codex from offering this MCP App template as a standalone website.
-    return readFileSync(new URL("view.html.in", import.meta.url), "utf8");
+    return readFileSync(new URL("view.html.in", import.meta.url), "utf8")
+        .replace("__CURSOR_PNG__", readFileSync(new URL("assets/canvas-cursor.png", import.meta.url)).toString("base64"))
+        .replace(/__ICON_([a-z-]+)__/g, (_, name) =>
+            readFileSync(new URL(`assets/${name}.svg`, import.meta.url), "utf8"),
+        );
 }
 
 const handlers = {

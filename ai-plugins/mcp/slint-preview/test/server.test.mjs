@@ -74,7 +74,7 @@ test("reports the plugin version", async () => {
 test("lists preview_slint with its view, and the view's own tools for the view only", async () => {
     const { result } = await request("tools/list");
     const preview = result.tools.find((t) => t.name === "preview_slint");
-    assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview.html");
+    assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview-v2.html");
     for (const name of [
         "read_slint_file",
         "read_binary_file",
@@ -100,7 +100,7 @@ test("all tools declare their annotations", async () => {
 
 function assertServesInterpreter(content, url, hosts) {
     assert.equal(content.mimeType, "text/html;profile=mcp-app");
-    assert.doesNotMatch(content.text, /__[A-Z_]+__/);
+    assert.doesNotMatch(content.text, /__[A-Za-z_-]+__/);
     assert.ok(content.text.includes(url), url);
     const { csp } = content._meta.ui;
     assert.deepEqual(csp.connectDomains, hosts);
@@ -109,7 +109,7 @@ function assertServesInterpreter(content, url, hosts) {
 
 test("serves the view with the snapshot interpreter", async () => {
     const { result } = await request("resources/read", {
-        uri: "ui://slint/preview.html",
+        uri: "ui://slint/preview-v2.html",
     });
     assertServesInterpreter(
         result.contents[0],
@@ -126,8 +126,9 @@ test("serves the view with the interpreter of the plugin's release on the releas
             "assets/slint.svg",
             "mcp/slint-preview/server.mjs",
             "mcp/slint-preview/view.html.in",
+            "mcp/slint-preview/assets",
         ]) {
-            cpSync(new URL(file, pluginRoot), join(root, file));
+            cpSync(new URL(file, pluginRoot), join(root, file), { recursive: true });
         }
         writeFileSync(
             join(root, "mcp/slint-preview/channel.json"),
@@ -144,7 +145,7 @@ test("serves the view with the interpreter of the plugin's release on the releas
                 jsonrpc: "2.0",
                 id: 1,
                 method: "resources/read",
-                params: { uri: "ui://slint/preview.html" },
+                params: { uri: "ui://slint/preview-v2.html" },
             }) + "\n",
         );
         const [line] = await once(lines, "line");
@@ -164,7 +165,7 @@ test("lists the view resource", async () => {
     const { result } = await request("resources/list");
     assert.deepEqual(
         result.resources.map((r) => [r.uri, r.mimeType]),
-        [["ui://slint/preview.html", "text/html;profile=mcp-app"]],
+        [["ui://slint/preview-v2.html", "text/html;profile=mcp-app"]],
     );
 });
 

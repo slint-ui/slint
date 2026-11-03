@@ -9,9 +9,25 @@
 <style>
   :root {
     color-scheme: light dark;
-    --text: light-dark(#171717, #fafafa);
-    --muted: light-dark(#6b6b6b, #a3a3a3);
+    --text: light-dark(#293442, #e5e7eb);
+    --muted: light-dark(#728093, #adb2bc);
     --error: light-dark(#b42318, #f97066);
+    --surface: light-dark(#f7f9fc, #303238);
+    --border: light-dark(#c6cfd9, #5b616a);
+    --accent: light-dark(#0d99ff, #49a7ff);
+    --icon: light-dark(#647187, #adb2bc);
+    --raised-top: light-dark(#fff, #373a40);
+    --raised-bottom: light-dark(#f3f5f7, #303238);
+    --hover-bottom: light-dark(#edf3f9, #373a40);
+    --recessed-top: light-dark(#edf1f5, #25272b);
+    --recessed-bottom: light-dark(#f6f8fa, #292b30);
+    --floating-top: light-dark(#fdfefe, #373a40);
+    --floating-bottom: light-dark(#f0f3f8, #292b30);
+    --selected: light-dark(#e3f1fc, #3a4c62);
+    --ambient-shadow: light-dark(#18202b14, #0000002e);
+    --key-shadow: light-dark(#18202b17, #00000021);
+    --highlight: light-dark(#ffffffcc, #ffffff0d);
+    --floating-surface: linear-gradient(155deg, var(--floating-top), var(--surface) 48%, var(--floating-bottom));
   }
   body {
     margin: 0;
@@ -20,6 +36,45 @@
     font: 13px/1.4 system-ui, sans-serif;
   }
   #stage { overflow: hidden; }
+  #preview-frame { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; }
+  #preview-tools-toggle[hidden], #annotation-layer[hidden] { display: none; }
+  button, textarea { font: inherit; color: inherit; }
+  button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: linear-gradient(180deg, var(--raised-top), var(--raised-bottom)); cursor: default; transition: border-color 120ms, box-shadow 120ms, color 120ms; }
+  button:hover:not(:disabled) { background: linear-gradient(180deg, var(--raised-top), var(--hover-bottom)); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button svg { width: 16px; height: 16px; flex: none; color: var(--icon); transition: color 120ms; }
+  button:disabled { opacity: .5; cursor: default; }
+  #preview-tools-toggle { position: fixed; left: 10px; bottom: 10px; z-index: 2; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 11px; border-color: color-mix(in srgb, var(--border) 70%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--recessed-top) 70%, transparent), color-mix(in srgb, var(--recessed-bottom) 70%, transparent)); box-shadow: inset 0 1px color-mix(in srgb, var(--highlight) 70%, transparent), 0 2px 6px var(--ambient-shadow), 0 1px 2px var(--key-shadow); }
+  #preview-tools-toggle:hover, #preview-tools-toggle[aria-expanded="true"] { background: linear-gradient(180deg, color-mix(in srgb, var(--raised-top) 70%, transparent), color-mix(in srgb, var(--hover-bottom) 70%, transparent)); }
+  #preview-tools-toggle[aria-expanded="true"] { border-top-left-radius: 0; border-top-right-radius: 0; border-top-color: transparent; }
+  #preview-tools-toggle svg { width: 18px; height: 18px; }
+  #preview-tools-panel, #annotation-editor { position: fixed; inset: auto; margin: 0; box-sizing: border-box; border: 1px solid var(--border); border-radius: 12px; background: var(--floating-surface); color: var(--text); box-shadow: inset 0 1px var(--highlight), 0 8px 24px var(--ambient-shadow), 0 2px 6px var(--key-shadow); }
+  #preview-tools-panel { width: min(148px, calc(100vw - 16px)); padding: 8px; border-bottom-left-radius: 0; }
+  #preview-tools-panel > button { width: 100%; min-height: 38px; justify-content: flex-start; gap: 10px; text-align: left; box-shadow: inset 0 1px var(--highlight), 0 1px 2px var(--key-shadow); }
+  #preview-tools-panel > button svg { width: 18px; height: 18px; }
+  #preview-appearance-label { margin: 10px 4px 6px; color: var(--muted); font-size: 11px; font-weight: 500; }
+  #preview-theme { display: flex; gap: 3px; padding: 3px; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 9px; background: linear-gradient(180deg, var(--recessed-top), var(--recessed-bottom)); }
+  #preview-theme button { flex: 1; min-height: 29px; border-color: transparent; padding: 4px 8px; background: transparent; }
+  #preview-theme button[aria-pressed="true"] { border-color: var(--border); background: linear-gradient(180deg, var(--raised-top), var(--raised-bottom)); box-shadow: 0 1px 2px var(--key-shadow); }
+  #preview-theme button[aria-pressed="true"] svg { color: var(--accent); }
+  #preview-tools-panel button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: linear-gradient(180deg, var(--raised-top), var(--selected)); box-shadow: inset 0 1px var(--highlight), 0 2px 4px var(--key-shadow); }
+  #preview-tools-panel button:hover:not(:disabled) svg { color: var(--accent); }
+  #preview-tools-panel button:active:not(:disabled) { background: var(--selected); box-shadow: inset 0 1px 3px var(--key-shadow); }
+  #annotate[aria-pressed="true"] { color: var(--accent); background: var(--selected); }
+  #annotate[aria-pressed="true"] svg { color: var(--accent); }
+  #annotation-hint { position: fixed; bottom: 10px; left: 56px; max-width: calc(100% - 110px); padding: 5px 8px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--floating-surface); pointer-events: none; }
+  #annotation-hint:empty { display: none; }
+  #annotation-layer { position: absolute; inset: 0; cursor: url("data:image/png;base64,__CURSOR_PNG__") 14 14, default; touch-action: none; }
+  #annotation-snapshot { width: 100%; height: 100%; display: block; pointer-events: none; }
+  #annotation-snapshot[hidden], #annotation-pin[hidden] { display: none; }
+  #annotation-pin { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #e5484d; border: 2px solid white; box-shadow: 0 0 0 1px #b42318; transform: translate(-50%, -50%); pointer-events: none; }
+  #annotation-editor { width: min(288px, calc(100vw - 16px)); padding: 12px; }
+  #annotation-editor label { display: block; margin-bottom: 6px; font-weight: 500; }
+  #annotation-comment { box-sizing: border-box; width: 100%; min-height: 72px; max-height: min(240px, 45vh); field-sizing: content; resize: none; overflow-y: auto; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: linear-gradient(180deg, var(--recessed-top), var(--recessed-bottom)); outline: none; }
+  #annotation-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+  #annotation-send { border-color: transparent; background: var(--accent); color: #fff; }
+  #annotation-error { color: var(--error); margin-top: 6px; }
+  #annotation-error:empty { display: none; }
   canvas { display: block; margin-inline: auto; outline: none; }
   canvas[hidden] { display: none; }
   /* winit writes the canvas size inline in logical pixels; a fitted canvas keeps the size the view gives it. */
@@ -51,8 +106,33 @@
   <button id="retry" type="button">Retry preview</button>
   <details><summary>Technical details</summary><pre id="crash-details"></pre></details>
 </section>
-<div id="stage"><canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas></div>
+<div id="stage"><div id="preview-frame">
+  <canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas>
+  <div id="annotation-layer" hidden>
+    <img id="annotation-snapshot" alt="Selected Slint preview" hidden>
+    <span id="annotation-pin" hidden></span>
+  </div>
+  <span id="annotation-hint" role="status"></span>
+</div></div>
+<button id="preview-tools-toggle" type="button" aria-label="Preview tools" aria-expanded="false" aria-controls="preview-tools-panel" title="Preview tools" hidden>__ICON_sliders-horizontal__</button>
 <ul id="diagnostics"></ul>
+<div id="preview-tools-panel" popover="auto" aria-label="Preview tools">
+  <button id="annotate" type="button" aria-pressed="false">__ICON_message-square-plus__Annotate</button>
+  <div id="preview-appearance-label">Appearance</div>
+  <div id="preview-theme" role="group" aria-labelledby="preview-appearance-label">
+    <button id="preview-light" type="button" aria-label="Light" title="Light" aria-pressed="false">__ICON_sun__</button>
+    <button id="preview-dark" type="button" aria-label="Dark" title="Dark" aria-pressed="false">__ICON_moon__</button>
+  </div>
+</div>
+<form id="annotation-editor" popover="manual" aria-label="Annotate Slint preview">
+  <label for="annotation-comment">What should change here?</label>
+  <textarea id="annotation-comment" placeholder="Describe the change…"></textarea>
+  <div id="annotation-error" role="alert"></div>
+  <div id="annotation-actions">
+    <button id="annotation-cancel" type="button">Cancel</button>
+    <button id="annotation-send" type="submit" disabled>Send to Codex</button>
+  </div>
+</form>
 <script type="module">
   const INTERPRETER_URL = "__INTERPRETER_URL__";
   const CHANNEL = "__CHANNEL__";
@@ -66,6 +146,169 @@
   const crashEl = document.getElementById("crash");
   const crashDetailsEl = document.getElementById("crash-details");
   const retryButton = document.getElementById("retry");
+  const toolsToggle = document.getElementById("preview-tools-toggle");
+  const toolsPanel = document.getElementById("preview-tools-panel");
+  const lightButton = document.getElementById("preview-light");
+  const darkButton = document.getElementById("preview-dark");
+  const annotateButton = document.getElementById("annotate");
+  const annotationHint = document.getElementById("annotation-hint");
+  const annotationLayer = document.getElementById("annotation-layer");
+  const annotationSnapshot = document.getElementById("annotation-snapshot");
+  const annotationPin = document.getElementById("annotation-pin");
+  const annotationEditor = document.getElementById("annotation-editor");
+  const annotationComment = document.getElementById("annotation-comment");
+  const annotationSend = document.getElementById("annotation-send");
+  const annotationCancel = document.getElementById("annotation-cancel");
+  const annotationError = document.getElementById("annotation-error");
+  let annotation = null;
+  let annotationSending = false;
+  let renderedInput = null;
+  let themeOverride = null;
+
+  function positionComment() {
+    if (!annotation) return;
+    const rect = canvas.getBoundingClientRect();
+    const editor = annotationEditor.getBoundingClientRect();
+    const { u, v } = annotation.point;
+    const x = rect.left + u * rect.width;
+    const y = rect.top + v * rect.height;
+    annotationEditor.style.left = `${Math.max(8, Math.min(x + 12, window.innerWidth - editor.width - 8))}px`;
+    annotationEditor.style.top = `${Math.max(8, Math.min(y + 12, window.innerHeight - editor.height - 8))}px`;
+  }
+  new ResizeObserver(positionComment).observe(annotationEditor);
+
+  toolsToggle.addEventListener("click", () => {
+    toolsPanel.togglePopover();
+    if (!toolsPanel.matches(":popover-open")) return;
+    const toggle = toolsToggle.getBoundingClientRect();
+    const panel = toolsPanel.getBoundingClientRect();
+    toolsPanel.style.left = `${Math.max(8, Math.min(toggle.left, window.innerWidth - panel.width - 8))}px`;
+    toolsPanel.style.top = `${Math.max(8, toggle.top - panel.height + 1)}px`;
+  });
+  toolsPanel.addEventListener("toggle", (event) => {
+    toolsToggle.setAttribute("aria-expanded", String(event.newState === "open"));
+  });
+  for (const [button, theme] of [[lightButton, "light"], [darkButton, "dark"]]) {
+    button.addEventListener("click", () => {
+      themeOverride = theme;
+      applyTheme();
+    });
+  }
+
+  function closeAnnotation() {
+    annotation = null;
+    annotationEditor.hidePopover();
+    annotationSnapshot.hidden = true;
+    annotationPin.hidden = true;
+    annotationComment.value = "";
+    annotationError.textContent = "";
+    annotationSend.disabled = true;
+    lightButton.disabled = false;
+    darkButton.disabled = false;
+  }
+
+  function setAnnotationMode(enabled) {
+    closeAnnotation();
+    annotationLayer.hidden = !enabled;
+    annotateButton.setAttribute("aria-pressed", String(enabled));
+    annotationHint.textContent = enabled ? "Click a point in the preview" : "";
+  }
+
+  annotateButton.addEventListener("click", () => {
+    setAnnotationMode(annotationLayer.hidden);
+    toolsPanel.hidePopover();
+  });
+  annotationCancel.addEventListener("click", () => {
+    closeAnnotation();
+    annotationHint.textContent = "Click a point in the preview";
+  });
+  annotationComment.addEventListener("input", () => {
+    annotationSend.disabled = annotationSending || !annotationComment.value.trim();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !annotationLayer.hidden && !annotationSending) {
+      event.preventDefault();
+      setAnnotationMode(false);
+      annotateButton.focus();
+    }
+  });
+  annotationLayer.addEventListener("pointerdown", (event) => event.preventDefault());
+  annotationLayer.addEventListener("click", (event) => {
+    if (annotationSending) return;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const u = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const v = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+    try {
+      // Capture once so the point and screenshot stay paired while the user types.
+      if (!annotation) {
+        const capture = captureCanvas();
+        annotation = { capture, input: renderedInput, size: designSize, theme: hostIsDark ? "dark" : "light" };
+        annotationSnapshot.src = `data:image/png;base64,${capture.png}`;
+        annotationSnapshot.hidden = false;
+        lightButton.disabled = true;
+        darkButton.disabled = true;
+      }
+      annotation.point = { u, v };
+      annotationPin.style.left = `${u * 100}%`;
+      annotationPin.style.top = `${v * 100}%`;
+      annotationPin.hidden = false;
+      annotationEditor.showPopover();
+      positionComment();
+      annotationHint.textContent = "";
+      annotationComment.focus();
+    } catch (error) {
+      annotationHint.textContent = `Couldn't capture the preview: ${error.message ?? error}`;
+      closeAnnotation();
+    }
+  });
+
+  annotationEditor.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const comment = annotationComment.value.trim();
+    if (!annotation || !comment || annotationSending) return;
+    annotationSending = true;
+    annotationSend.disabled = true;
+    annotateButton.disabled = true;
+    annotationCancel.disabled = true;
+    annotationError.textContent = "";
+    const { capture, input, size, theme, point: { u, v } } = annotation;
+    const x = Math.min(capture.width - 1, Math.round(u * capture.width));
+    const y = Math.min(capture.height - 1, Math.round(v * capture.height));
+    const text = [
+      "Slint preview annotation:",
+      input.path ? `Source file: ${input.path}` : `Source snippet:\n${input.source}`,
+      input.projectRoot ? `Project root: ${input.projectRoot}` : "",
+      input.style ? `Widget style: ${input.style}` : "",
+      `Preview theme: ${theme}`,
+      `Clicked point: x=${x}, y=${y} in the attached ${capture.width}×${capture.height} screenshot.`,
+      `Slint position: x=${Math.round(u * size.width)}, y=${Math.round(v * size.height)} in a ${size.width}×${size.height} UI (logical pixels).`,
+      "Coordinates start at the top-left.",
+    ].filter(Boolean).join("\n");
+    try {
+      const context = await request("ui/update-model-context", {
+        content: [
+          { type: "text", text, annotations: { audience: ["assistant"] } },
+          { type: "image", data: capture.png, mimeType: "image/png", annotations: { audience: ["assistant"] } },
+        ],
+      });
+      if (context?.isError) throw new Error("Couldn't attach the preview. Try again.");
+      const result = await request("ui/message", {
+        role: "user",
+        content: [{ type: "text", text: comment }],
+      });
+      if (result?.isError) throw new Error("The host couldn't send the annotation. Try again.");
+      setAnnotationMode(false);
+      annotationHint.textContent = "Annotation sent";
+    } catch (error) {
+      annotationError.textContent = error.message ?? String(error);
+    } finally {
+      annotationSending = false;
+      annotationSend.disabled = !annotationComment.value.trim();
+      annotateButton.disabled = false;
+      annotationCancel.disabled = false;
+    }
+  });
 
   let nextId = 1;
   const pending = new Map();
@@ -87,6 +330,7 @@
   const DARK_QUERY = "(prefers-color-scheme: dark)";
   const nativeMatchMedia = window.matchMedia.bind(window);
   let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
+  let hostTheme = hostIsDark ? "dark" : "light";
   const darkQueryLists = [];
   // A design wider than the view renders at a reduced scale factor, so it stays crisp, rather than the
   // browser shrinking the drawn canvas. winit takes the scale factor from devicePixelRatio, watches it
@@ -137,9 +381,12 @@
   };
 
   function applyTheme(context) {
-    if (context?.theme !== "light" && context?.theme !== "dark") return;
-    document.documentElement.style.colorScheme = context.theme;
-    const isDark = context.theme === "dark";
+    if (context?.theme === "light" || context?.theme === "dark") hostTheme = context.theme;
+    const theme = themeOverride ?? hostTheme;
+    document.documentElement.style.colorScheme = theme;
+    lightButton.setAttribute("aria-pressed", String(theme === "light"));
+    darkButton.setAttribute("aria-pressed", String(theme === "dark"));
+    const isDark = theme === "dark";
     if (isDark === hostIsDark) return;
     hostIsDark = isDark;
     for (const list of darkQueryLists) list.dispatchEvent(new Event("change"));
@@ -241,6 +488,8 @@
   function handlePanic(message) {
     if (!interpreter) return;
     const { previewId, runtime } = interpreter;
+    setAnnotationMode(false);
+    toolsToggle.hidden = true;
     interpreter.panic(new Panic(message));
     interpreter = null;
     instance = null;
@@ -335,6 +584,10 @@
 
   let instance = null;
   async function render({ source, path, projectRoot, style }, previewId) {
+    setAnnotationMode(false);
+    toolsPanel.hidePopover();
+    toolsToggle.hidden = true;
+    renderedInput = null;
     let url = "main.slint";
     let loadImport = null;
     let loadResource = null;
@@ -424,6 +677,8 @@
     await untilPanic(current, instance.show());
     await finishMeasuring();
     showStatus("");
+    renderedInput = { source, path, projectRoot, style };
+    toolsToggle.hidden = false;
   }
 
   // Each preview_slint result names its preview, and each tool input renders the next one.

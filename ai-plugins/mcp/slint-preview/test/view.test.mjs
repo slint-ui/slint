@@ -41,6 +41,9 @@ function startView({
     });
     const element = () => ({
         style: { setProperty() {} },
+        addEventListener() {},
+        setAttribute() {},
+        hidePopover() {},
         dataset: {},
         classList: { add() {}, remove() {} },
         textContent: "",
@@ -65,15 +68,13 @@ function startView({
         },
     });
     const elements = new Map(
-        [
-            "status",
-            "preview",
-            "diagnostics",
-            "stage",
-            "crash",
-            "crash-details",
-            "retry",
-        ].map((id) => [id, element()]),
+        ["status", "preview", "diagnostics", "stage", "crash", "crash-details", "retry", "annotate",
+            "annotation-hint", "annotation-layer", "annotation-snapshot", "annotation-pin",
+            "annotation-editor", "annotation-comment", "annotation-send", "annotation-error",
+            "annotation-cancel", "preview-tools-toggle", "preview-tools-panel", "preview-light", "preview-dark"].map((id) => [
+            id,
+            element(),
+        ]),
     );
     elements.get("preview").hidden = true;
     elements.get("crash").hidden = true;
@@ -156,6 +157,7 @@ function startView({
     const context = {
         window,
         document: {
+            addEventListener() {},
             getElementById: (id) => elements.get(id),
             documentElement: { style: {} },
             body: element(),
