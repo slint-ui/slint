@@ -681,12 +681,14 @@ impl Frames {
 
 fn update_rows<T: Clone + PartialEq + 'static>(model: &slint::VecModel<T>, rows: Vec<T>) {
     use slint::Model;
-    if model.row_count() != rows.len() {
-        model.set_vec(rows);
-        return;
+    // Without a reset, the rows that stay keep their elements.
+    for index in (rows.len()..model.row_count()).rev() {
+        model.remove(index);
     }
     for (index, row) in rows.into_iter().enumerate() {
-        if model.row_data(index).as_ref() != Some(&row) {
+        if index >= model.row_count() {
+            model.push(row);
+        } else if model.row_data(index).as_ref() != Some(&row) {
             model.set_row_data(index, row);
         }
     }
