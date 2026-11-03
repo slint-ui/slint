@@ -5,8 +5,12 @@
 //! module for rendering the tree of items
 
 use super::items::*;
+use crate::graphics::corner_geometry::{
+    BorderContours, Contour, border_contours, offset_outline, offset_outlines,
+};
 use crate::graphics::{
-    Color, CornerShapes, FontRequest, Image, IntRect, adjust_rect_and_border_for_inner_drawing,
+    BorderRadius, Color, CornerShapes, FontRequest, Image, IntRect,
+    adjust_rect_and_border_for_inner_drawing,
 };
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
@@ -399,6 +403,8 @@ pub trait RenderBorderRectangle {
 pub struct BorderRectLayout {
     /// The size of the border box, for resolving the background and border brushes.
     pub brush_size: euclid::Size2D<f32, PhysicalPx>,
+    /// The corner radii of the border box, before adjusting for the border width.
+    pub radius: PhysicalBorderRadius,
     /// The corner radii of the outer border box, adjusted for the border width.
     pub outer_radius: PhysicalBorderRadius,
     /// The rectangle to fill with the background brush.
@@ -409,9 +415,9 @@ pub struct BorderRectLayout {
     pub border_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `border_rect`.
     pub border_radius: PhysicalBorderRadius,
-    /// The shape of each corner, shared by `background_rect` and `border_rect`: a shape
-    /// doesn't change as the radius is adjusted for the border inset.
-    pub corner_shape: CornerShapes,
+    /// The shape of each corner, or `None` when the corners draw as the rounded rectangles
+    /// `background_rect` and `border_rect`; otherwise see [`Self::shaped_contours`].
+    pub corner_shape: Option<CornerShapes>,
     /// The stroke width of the border; zero for transparent borders.
     pub border_width: euclid::Length<f32, PhysicalPx>,
     /// The border brush.
@@ -432,6 +438,11 @@ impl BorderRectLayout {
             return None;
         }
         let brush_size = geometry.size;
+        let radius = rect.border_radius().cast() * scale_factor;
+        let corner_shape = rect.border_corner_shape();
+        let rounded_radius = corner_shape.rounded_rect_radius(radius);
+        let corner_shape = rounded_radius.is_none().then_some(corner_shape);
+        let radius = rounded_radius.unwrap_or(radius);
 
         let border_color = rect.border_color();
         let opaque_border = border_color.is_opaque();
@@ -446,8 +457,7 @@ impl BorderRectLayout {
         // least half the border width, so that the outer edge keeps a radius at all;
         // this is incorrect when the radius is smaller than that, but that can't be
         // helped - better a radius a bit too big than no radius.
-        let fill_radius = (rect.border_radius().cast() * scale_factor)
-            .outer(border_width / 2. + euclid::Length::new(0.01));
+        let fill_radius = radius.outer(border_width / 2. + euclid::Length::new(0.01));
         let border_radius = fill_radius.inner(border_width / 2.);
 
         let (background_rect, background_radius) = if opaque_border {
@@ -465,15 +475,43 @@ impl BorderRectLayout {
 
         Some(Self {
             brush_size,
+            radius,
             outer_radius: fill_radius,
             background_rect,
             background_radius,
             border_rect: geometry,
             border_radius,
-            corner_shape: rect.border_corner_shape(),
+            corner_shape,
             border_width,
             border_color,
         })
+    }
+
+    /// The background and border contours when the layout has a `corner_shape`, grown by
+    /// `spread` as for a box shadow's
+    /// [`source`](crate::graphics::boxshadow::BoxShadowOptions::source).
+    /// The border is `None` without a border.
+    /// Build their paths with [`shaped_paths`](crate::graphics::corner_path::shaped_paths).
+    pub fn shaped_contours(&self, spread: f32) -> Option<(Contour, Option<BorderContours>)> {
+        let corner_shape = self.corner_shape?;
+        let rect = euclid::Rect::from_size(self.brush_size).to_untyped();
+        let border_width = self.border_width.get();
+        if border_width <= 0. {
+            return Some((offset_outline(rect, self.radius, corner_shape, spread), None));
+        }
+        if self.background_rect == self.border_rect {
+            // Under an opaque border, the background ends in the middle of the border, where
+            // neither antialiased edge shows the other.
+            let [outer, inner, background] = offset_outlines(
+                rect,
+                self.radius,
+                corner_shape,
+                [spread, spread - border_width, spread - border_width / 2.],
+            );
+            return Some((background, Some(BorderContours { outer, inner })));
+        }
+        let contours = border_contours(rect, self.radius, corner_shape, border_width, spread);
+        Some((contours.outer.clone(), Some(contours)))
     }
 }
 
@@ -500,6 +538,23 @@ pub fn clip_content_box(
         ),
     );
     (rect, radius.inner(border_width))
+}
+
+/// The inner edge of the border of an item of `size` whose corners have `radius` and
+/// `shape`: what [`ItemRenderer::combine_contour_clip`] clips to.
+/// Unlike with [`clip_content_box`], the edge isn't the same shape at a smaller radius.
+pub fn clip_content_contour<U>(
+    size: euclid::Size2D<f32, U>,
+    radius: BorderRadius<f32, U>,
+    border_width: euclid::Length<f32, U>,
+    shape: CornerShapes,
+) -> Contour {
+    offset_outline(
+        euclid::Rect::from_size(size).to_untyped(),
+        radius,
+        shape,
+        -border_width.get().max(0.),
+    )
 }
 
 /// Trait for an item that represents an Image towards the renderer
@@ -814,9 +869,31 @@ pub trait ItemRenderer {
     /// an item of `size` with corners of `radius` and `shape` and a border of `border_width`.
     /// Returns whether the clip region covers an area, like [`Self::combine_clip`].
     ///
+    /// Corners that draw as a rounded rectangle clip to [`clip_content_box`] with
+    /// [`Self::combine_clip`], any others with [`Self::combine_contour_clip`].
+    fn combine_shaped_clip(
+        &mut self,
+        item_rc: &ItemRc,
+        size: LogicalSize,
+        radius: LogicalBorderRadius,
+        border_width: LogicalLength,
+        shape: CornerShapes,
+    ) -> bool {
+        match shape.rounded_rect_radius(radius.cast::<f32>()) {
+            Some(rounded) => {
+                let (rect, radius) = clip_content_box(size, rounded.cast(), border_width);
+                self.combine_clip(rect, radius)
+            }
+            None => self.combine_contour_clip(item_rc, size, radius, border_width, shape),
+        }
+    }
+
+    /// Like [`Self::combine_shaped_clip`], for corners that don't draw as a rounded
+    /// rectangle: clips to [`clip_content_contour`].
+    ///
     /// The default clips to [`clip_content_box`] with [`Self::combine_clip`], so every
     /// corner is round.
-    fn combine_shaped_clip(
+    fn combine_contour_clip(
         &mut self,
         _item_rc: &ItemRc,
         size: LogicalSize,

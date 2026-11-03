@@ -5,11 +5,15 @@
 
 /*!
 Paths of rectangles whose corners have a [`CornerShape`], for renderers that draw paths.
+Renderers keep drawing a rectangle whose corners are all round with their own rounded
+rectangle primitive; see [`Outline`].
 */
 
 #[cfg(doc)]
 use super::border_radius::CornerShape;
-use super::corner_geometry::{BorderContours, Contour, ContourVertex, TOLERANCE};
+use super::border_radius::CornerShapes;
+use super::corner_geometry::{BorderContours, Contour, ContourVertex, TOLERANCE, offset_outline};
+use crate::lengths::{PhysicalBorderRadius, PhysicalPx};
 use lyon_path::math::{Point, Vector};
 #[cfg(not(feature = "std"))]
 #[allow(unused_imports)]
@@ -29,6 +33,17 @@ pub trait PathSink {
     fn close(&mut self);
     /// The path of the segments received so far.
     fn build(self) -> Self::Path;
+    /// Appends `rect` with round corners of `radius`, as one subpath.
+    /// Override it to use the renderer's rounded rectangle primitive.
+    fn add_rounded_rect(
+        &mut self,
+        rect: euclid::Rect<f32, PhysicalPx>,
+        radius: PhysicalBorderRadius,
+    ) where
+        Self: Sized,
+    {
+        add_contour(self, &offset_outline(rect.to_untyped(), radius, CornerShapes::default(), 0.));
+    }
 }
 
 /// The path of `contour`.
@@ -36,6 +51,63 @@ pub fn contour_path<S: PathSink + Default>(contour: &Contour) -> S::Path {
     let mut sink = S::default();
     add_contour(&mut sink, contour);
     sink.build()
+}
+
+/// The outline of a rectangle whose corners have a [`CornerShape`].
+#[derive(Debug, Clone)]
+pub enum Outline {
+    /// A rectangle with round or sharp corners, for the renderer's rounded rectangle primitive.
+    RoundedRect(euclid::Rect<f32, PhysicalPx>, PhysicalBorderRadius),
+    /// Any other outline, for [`add_contour`].
+    Shaped(Contour),
+}
+
+impl Outline {
+    /// The outline of `rect` with corners of `radius` and `corner_shape`, grown by `spread`,
+    /// or shrunk for a negative `spread`.
+    pub fn new(
+        rect: euclid::Rect<f32, PhysicalPx>,
+        radius: PhysicalBorderRadius,
+        corner_shape: CornerShapes,
+        spread: f32,
+    ) -> Self {
+        match corner_shape.rounded_rect_radius(radius) {
+            Some(radius) => {
+                let grown = rect.inflate(spread, spread);
+                Self::RoundedRect(
+                    euclid::Rect::new(grown.origin, grown.size.max(euclid::Size2D::zero())),
+                    radius.spread(spread),
+                )
+            }
+            None => Self::Shaped(offset_outline(rect.to_untyped(), radius, corner_shape, spread)),
+        }
+    }
+}
+
+/// Appends `outline` to `sink`.
+pub fn add_outline(sink: &mut impl PathSink, outline: &Outline) {
+    match outline {
+        Outline::RoundedRect(rect, radius) => sink.add_rounded_rect(*rect, *radius),
+        Outline::Shaped(contour) => add_contour(sink, contour),
+    }
+}
+
+/// The path of `outline`.
+pub fn outline_path<S: PathSink + Default>(outline: &Outline) -> S::Path {
+    let mut sink = S::default();
+    add_outline(&mut sink, outline);
+    sink.build()
+}
+
+/// The background and border paths of
+/// [`BorderRectLayout::shaped_contours`](crate::item_rendering::BorderRectLayout::shaped_contours).
+pub type ShapedPaths<P> = (P, Option<P>);
+
+/// The paths of the background and border `contours`, for filling with the nonzero rule.
+pub fn shaped_paths<S: PathSink + Default>(
+    (background, border): (Contour, Option<BorderContours>),
+) -> ShapedPaths<S::Path> {
+    (contour_path::<S>(&background), border.map(|border| border_path::<S>(&border)))
 }
 
 /// Appends `contour` to `sink`.
@@ -144,11 +216,9 @@ mod tests {
     use alloc::vec::Vec;
     use lyon_path::iterator::PathIterator;
 
-    use super::super::border_radius::{CornerShape, CornerShapes};
+    use super::super::border_radius::CornerShape;
     use super::super::corner_geometry::tests::{SHAPES, distance_to_polyline};
-    use super::super::corner_geometry::{
-        TOLERANCE, offset_outline, superellipse_at, superellipse_n,
-    };
+    use super::super::corner_geometry::{TOLERANCE, superellipse_at, superellipse_n};
 
     struct LyonSink(lyon_path::path::Builder);
 
