@@ -221,8 +221,10 @@ fn init_board() -> esp_hal::peripherals::USB_DEVICE<'static> {
         // refresh direction in both production and profiling builds.
         let mut panel = panel.borrow_mut();
         panel.command(0xc8, &[0xff, 0x93, 0x42]).unwrap();
-        panel.command(0xb1, &[0, 0x1b]).unwrap();
-        panel.command(0xb5, &[28, 29, 0x0a, 0x14]).unwrap();
+        panel.command(0xb1, &panel::FRAME_RATE_CONTROL).unwrap();
+        panel
+            .command(0xb5, &[panel::FRONT_PORCH as u8, panel::BACK_PORCH as u8, 0x0a, 0x14])
+            .unwrap();
         panel.command(0x36, &[0xd8]).unwrap();
         delay.delay_ms(50);
     }

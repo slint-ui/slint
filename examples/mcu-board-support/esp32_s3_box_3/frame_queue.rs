@@ -27,6 +27,8 @@ const READY: u32 = 1;
 const ACTIVE: u32 = 2;
 const WRITING: u32 = 3;
 const MAX_RECTS: usize = 64;
+// Larger streamed frames wait for the scan to start at the top, so the write stays behind it.
+const UNSYNCHRONIZED_FRAME_BYTES: usize = 320 * 240 * 2 / 4;
 
 #[derive(Clone, Copy, Default)]
 struct Rectangle {
@@ -222,18 +224,22 @@ impl FrameQueue {
         loop {
             if self.bands.pending() {
                 #[cfg(feature = "box-display-profile")]
+                let wait_started = super::now_us();
+                let small = || self.bands.frame_within(UNSYNCHRONIZED_FRAME_BYTES) == Some(true);
+                let small_frame = small();
+                if !small_frame {
+                    panel.wait_scan_start(small);
+                }
+                #[cfg(feature = "box-display-profile")]
                 let started = super::now_us();
-                let _bytes = self
-                    .bands
-                    .drain(|band, data| {
-                        panel.packed_rectangle(band.x, band.y, band.width, band.height, data)
-                    })
-                    .unwrap();
+                let _bytes = self.bands.drain(|band, run| panel.stream(band, run)).unwrap();
                 #[cfg(feature = "box-display-profile")]
                 log::info!(
-                    "BOX_TRANSFER,bytes={},transfer_us={},streamed=1",
+                    "BOX_TRANSFER,bytes={},transfer_us={},wait_us={},small={}",
                     _bytes,
-                    super::now_us() - started
+                    super::now_us() - started,
+                    started - wait_started,
+                    small_frame
                 );
                 after_transfer();
                 continue;
@@ -247,7 +253,8 @@ impl FrameQueue {
             let cycles = if previous_blank == 0 {
                 1
             } else {
-                ((blank - previous_blank + 8350) / 16700).max(1) as u32
+                let refresh = u64::from(super::panel::REFRESH_US);
+                ((blank - previous_blank + refresh / 2) / refresh).max(1) as u32
             };
             previous_blank = blank;
 

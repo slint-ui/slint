@@ -23,7 +23,7 @@ pub mod dma {
             self.1 = len;
         }
         pub fn as_mut_slice(&mut self) -> &mut [u8] {
-            &mut self.0[..self.1]
+            &mut self.0
         }
     }
     pub struct DmaRxBuf(pub Vec<u8>, pub usize);

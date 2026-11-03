@@ -43,10 +43,12 @@ The LCD remains at 40 MHz.
 
 The BOX-3 backend renders into a retained framebuffer.
 A DMA display worker on the second core sends each band of changed rows while the renderer works on the rows below.
-A full-screen update sends 150 KiB over 40 MHz SPI, so it spans more than one panel refresh.
+A full-screen update sends 150 KiB over 40 MHz SPI in about 32 ms, which spans more than one panel refresh.
+To avoid tearing, the panel refreshes at 58 Hz and scans at about half the write speed,
+and large updates start just as the panel scans its first row.
 Use `mcu-board-support/esp32-s3-box-3` for the basic line-buffer backend.
 
-Add `mcu-board-support/box-display-profile` to log rendering and transfer times over the USB connection.
+Add `mcu-board-support/box-display-profile` to log rendering, scan-wait, and transfer times over the USB connection.
 Leave it disabled for normal use.
 
 The backlight stays on during display transfers.

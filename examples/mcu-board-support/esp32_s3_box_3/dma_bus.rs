@@ -56,18 +56,25 @@ impl DmaPanelBus {
         self.spi.as_mut().unwrap().apply_config(config)
     }
 
-    fn fill_buffer(&mut self, buffer: &mut DmaTxBuf, data: &[u8]) {
+    fn fill_buffer(
+        &mut self,
+        buffer: &mut DmaTxBuf,
+        fill: &mut impl FnMut(&mut [u8]) -> usize,
+    ) -> usize {
         #[cfg(feature = "box-display-profile")]
         let started = super::now_us();
-        buffer.set_length(data.len());
+        let len = fill(buffer.as_mut_slice());
         #[cfg(feature = "box-display-profile")]
-        let copy_started = super::now_us();
-        buffer.as_mut_slice()[..data.len()].copy_from_slice(data);
-        #[cfg(feature = "box-display-profile")]
-        if data.len() > 64 {
-            self.profile.setup_us += copy_started - started;
-            self.profile.copy_us += super::now_us() - copy_started;
+        let copied = super::now_us();
+        if len > 0 {
+            buffer.set_length(len);
         }
+        #[cfg(feature = "box-display-profile")]
+        if len > 64 {
+            self.profile.copy_us += copied - started;
+            self.profile.setup_us += super::now_us() - copied;
+        }
+        len
     }
 
     pub(super) fn half_duplex_write(
@@ -76,62 +83,68 @@ impl DmaPanelBus {
         command: Command,
         address: Address,
         dummy: u8,
-        data: &[u8],
+        mut data: &[u8],
     ) -> Result<(), Error> {
-        if data.is_empty() {
-            return Ok(());
-        }
+        self.write_filled(mode, command, address, dummy, |buffer| {
+            let len = data.len().min(buffer.len());
+            buffer[..len].copy_from_slice(&data[..len]);
+            data = &data[len..];
+            len
+        })
+    }
+
+    /// Writes the bytes that `fill` places at the start of each buffer it receives,
+    /// until it returns zero. `fill` runs while the previous buffer transfers.
+    pub(super) fn write_filled(
+        &mut self,
+        mode: DataMode,
+        command: Command,
+        address: Address,
+        dummy: u8,
+        mut fill: impl FnMut(&mut [u8]) -> usize,
+    ) -> Result<(), Error> {
         let mut spi = self.spi.take().unwrap();
         let mut buffer = self.tx.take().unwrap();
         let mut spare = self.spare_tx.take().unwrap();
-        let mut chunks = data.chunks(buffer.capacity());
-        let mut chunk = chunks.next().unwrap();
-        self.fill_buffer(&mut buffer, chunk);
-        loop {
+        let mut len = self.fill_buffer(&mut buffer, &mut fill);
+        while len > 0 {
             #[cfg(feature = "box-display-profile")]
             let submitted = super::now_us();
-            let transfer =
-                match spi.half_duplex_write(mode, command, address, dummy, chunk.len(), buffer) {
-                    Ok(transfer) => transfer,
-                    Err((error, spi, buffer)) => {
-                        self.spi = Some(spi);
-                        self.tx = Some(buffer);
-                        self.spare_tx = Some(spare);
-                        return Err(error);
-                    }
-                };
+            let transfer = match spi.half_duplex_write(mode, command, address, dummy, len, buffer) {
+                Ok(transfer) => transfer,
+                Err((error, spi, buffer)) => {
+                    self.spi = Some(spi);
+                    self.tx = Some(buffer);
+                    self.spare_tx = Some(spare);
+                    return Err(error);
+                }
+            };
             #[cfg(feature = "box-display-profile")]
-            if chunk.len() > 64 {
+            if len > 64 {
                 self.profile.setup_us += super::now_us() - submitted;
                 self.profile.chunks += 1;
             }
-            let next = chunks.next();
-            if let Some(next) = next {
-                #[cfg(feature = "box-display-profile")]
-                let before = self.profile.copy_us;
-                self.fill_buffer(&mut spare, next);
-                #[cfg(feature = "box-display-profile")]
-                {
-                    self.profile.overlap_us += self.profile.copy_us - before;
-                }
+            #[cfg(feature = "box-display-profile")]
+            let before = self.profile.copy_us;
+            let next = self.fill_buffer(&mut spare, &mut fill);
+            #[cfg(feature = "box-display-profile")]
+            {
+                self.profile.overlap_us += self.profile.copy_us - before;
             }
             #[cfg(feature = "box-display-profile")]
             let wait_started = super::now_us();
-            if chunk.len() > 64 {
+            if len > 64 {
                 while !transfer.is_done() {
                     esp_hal::rom::ets_delay_us(50);
                 }
             }
             (spi, buffer) = transfer.wait();
             #[cfg(feature = "box-display-profile")]
-            if chunk.len() > 64 {
+            if len > 64 {
                 self.profile.wait_us += super::now_us() - wait_started;
             }
-            let Some(next) = next else {
-                break;
-            };
             core::mem::swap(&mut buffer, &mut spare);
-            chunk = next;
+            len = next;
         }
         self.spi = Some(spi);
         self.tx = Some(buffer);
