@@ -859,7 +859,7 @@ Next:
     `examples/mvvm/dotnet`, in `examples/dotnet.slnx`, binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples)
     to a Slint UI, one global per page, ported with their MIT notice.
     `dotnet new slint --mvvm` adds a `MainViewModel`; CI instantiates it, and the publish workflow builds it with the packages.
-- **26.** UI written in C#, after item 25, with a shared core and two front ends.
+- **26.** Postponed: UI written in C#, with a shared core and two front ends.
   Slint creates no elements from C# at run time, so the core turns a tree of C# builders into `.slint` source,
   which the interpreter compiles once per page, and C# then sets the page's properties.
   Measured on an Apple Silicon Mac with the release build: a page without the standard widgets compiles in 11 ms,
@@ -880,6 +880,41 @@ Next:
 - **27.** Faster compiling, 1–2 weeks: every app compiles the standard widgets at startup, about 170 ms of the 180 ms above, and more in the browser.
   Keep the compiled widget library across builds in the compiler's type loader, or compile the `.slint` files at build time.
   This speeds up the startup of every app, and the pages of item 26.
+- **28.** Mapsui for Slint, in a branch `slint` of a fork of [Mapsui](https://github.com/Mapsui/Mapsui), MIT licensed, 3–4 weeks:
+  `Mapsui.UI.Slint` next to Mapsui's controls for MAUI, Avalonia, WPF, WinUI, Uno, Eto, Blazor, Android, and iOS, for a pull request to Mapsui.
+  Mapsui is a map component for .NET that draws with SkiaSharp,
+  with tiles from OpenStreetMap and other servers, vector layers, styles, widgets, and NetTopologySuite geometries.
+  - What there is: `Mapsui`, `Mapsui.Rendering.Skia`, and `Mapsui.Tiling` target `net8.0` and `net9.0`, and need no UI framework.
+    Each platform's `MapControl` imports the shared project `Mapsui.UI.Shared`, about 600 lines with `#if` per platform,
+    and adds about 170 lines in Eto, the smallest, to 370 in MAUI.
+    A platform supplies a canvas to draw on, `InvalidateCanvas`, the size, the pixel density, the UI thread,
+    the pointer, the wheel, and the Shift key.
+    `RenderController` asks for a redraw from a background task, at most every 8 ms, and the control draws on its UI thread.
+    The navigator turns the pointers into pan, zoom, and rotation, through `ManipulationTracker`.
+  - The port draws the map into an `SKBitmap`, and shows it with `Image.FromPremultipliedRgba8`, as Microcharts does in item 21.
+    It works with every Slint renderer, `linuxkms` included, at the cost of a CPU draw and a copy per frame.
+    DrawnUI's OpenGL path of item 23 is an option for later, if panning a full-screen map is too slow.
+  - The control keeps its own copy of the 100 or so lines from SkiaSharp to an `Image`, instead of a package shared with items 21 and 23:
+    each goes to a different project upstream, which wouldn't want another dependency for so little.
+  - Slint's side, `mapsui.slint`, follows DrawnUI's: a `MapsuiView` with a `view-id`, an `Image`, a `TouchArea`,
+    a `ScaleRotateGestureHandler` for pinch and rotation, and a `FocusScope`,
+    and a `MapsuiHost` global with callbacks for the size and the input, which the app exports.
+    C# attaches a `MapControl` to a view: `using var map = MapControl.Attach(window.Instance, viewId: 0);`.
+  - Phase 0, 2–3 days: a prototype on macOS with OpenStreetMap tiles, panning with the mouse, and zooming with the wheel.
+    Measure the draw and copy of a frame at 2x, and check that Mapsui's `net9.0` assemblies run in a `net10.0` app.
+  - Phase 1, 1 week: `Mapsui.UI.Slint`, for `net10.0`, with the `__SLINT__` define in `Mapsui.UI.Shared`:
+    resizing, the scale factor, redraws marshalled to the Slint thread with `InvokeFromEventLoop`,
+    the `Info` event and widgets on tap, the Shift key, the cursor while panning, opening links, and `Dispose`.
+  - Phase 2, 1 week: touch and pinch through `ScaleRotateGestureHandler`, the trackpad on macOS,
+    and the control on Android and iOS, with `net10.0-android` and `net10.0-ios`, tested on the Pixel_9 emulator and the iPhone.
+  - Phase 3, 3–4 days: `Mapsui.Samples.Slint`, a sample browser with a Slint list of the samples of `Mapsui.Samples.Common`,
+    about 170 files, which run unchanged, like `Mapsui.Samples.Eto` does.
+    Also `examples/mapsui/dotnet` in this repository, a small map next to Slint widgets.
+  - Phase 4, 2–3 days: the package `Mapsui.Slint`, built and tested in Mapsui's CI, and the pull request to Mapsui,
+    depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
+  - Later: the browser, where SkiaSharp's WebAssembly library links into the same app as Slint's,
+    which item 24 hasn't tried, and tile servers need CORS.
+  - Limits: inside a view, screen readers see one image; Mapsui's `MapView`, a MAUI control with pins and callouts, isn't part of it.
 
 ## Live Reload
 

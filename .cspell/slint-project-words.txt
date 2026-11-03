@@ -823,3 +823,4 @@ Zeroable
 zeroconf
 zstd
 தோசை
+Mapsui
