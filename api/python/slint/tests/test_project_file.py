@@ -83,15 +83,21 @@ def test_library_paths_come_from_the_project_file(
 
 def test_an_invalid_project_file_is_reported(tmp_path: pathlib.Path) -> None:
     directory = tmp_path.resolve()
-    (directory / "slint-project.json").write_text("{")
+    project_file = directory / "slint-project.json"
+    project_file.write_text("{")
     write_main(directory, "export component Main inherits Window { }")
 
     with pytest.raises(CompileError) as error:
         load_file(directory)
-    assert any(
-        "slint-project.json" in diagnostic.message
+    diagnostics = [
+        diagnostic
         for diagnostic in error.value.diagnostics
-    )
+        if diagnostic.source_file is not None
+        and pathlib.Path(diagnostic.source_file) == project_file
+    ]
+    assert len(diagnostics) == 1
+    assert diagnostics[0].message == "EOF while parsing an object"
+    assert (diagnostics[0].line_number, diagnostics[0].column_number) == (1, 1)
 
 
 @pytest.mark.parametrize("project_input", ["directory", "manifest"])

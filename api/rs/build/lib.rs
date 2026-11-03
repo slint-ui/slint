@@ -350,7 +350,10 @@ impl CompilerConfiguration {
     fn resolve_project_file(
         self,
         project_directory: &Path,
-    ) -> Result<(i_slint_compiler::CompilerConfiguration, Option<ProjectFile>), String> {
+    ) -> Result<
+        (i_slint_compiler::CompilerConfiguration, Option<ProjectFile>),
+        i_slint_compiler::diagnostics::Diagnostic,
+    > {
         let (_, project_file) = project_file::resolve_input(project_directory)?;
         Ok((self.resolve(project_file.as_ref()), project_file))
     }
@@ -993,7 +996,7 @@ fn missing_main_is_a_compilation_error() {
         let CompileError::CompileError(messages) = error else {
             panic!("Expected a compilation error, got {error:?}");
         };
-        assert_eq!(messages, vec![format!("{} has no 'main' to compile", project_file.display())]);
+        assert_eq!(messages, ["Project file has no 'main' to compile"]);
     });
 }
 
@@ -1102,7 +1105,11 @@ fn directory_without_project_file_is_a_compilation_error() {
             CompilerConfiguration::new(),
         )
         .unwrap_err();
-        assert!(error.to_string().contains("slint-project.json"), "{error}");
+        let CompileError::CompileError(messages) = error else {
+            panic!("Expected a compilation error, got {error:?}");
+        };
+        let expected = std::fs::read(project_file_path_in(test_root)).unwrap_err().to_string();
+        assert_eq!(messages, [expected]);
     });
 }
 

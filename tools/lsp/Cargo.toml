@@ -4,7 +4,7 @@
 # cSpell: ignore nucleo
 [package]
 name = "slint-lsp"
-description = "A language server protocol implementation for Slint"
+description = "Language server for Slint, with live preview and visual editing of GUIs"
 authors = ["Slint Developers <info@slint.dev>"]
 edition.workspace = true
 homepage = "https://slint.dev"
@@ -13,7 +13,7 @@ repository.workspace = true
 rust-version.workspace = true
 version = "1.19.0"
 categories = ["gui", "development-tools", "command-line-utilities"]
-keywords = ["lsp", "ui", "toolkit"]
+keywords = ["lsp", "language-server", "live-preview", "gui", "ui"]
 default-run = "slint-lsp"
 
 [package.metadata.bundle]

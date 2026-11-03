@@ -49,7 +49,7 @@ jobs:
             const prs = manual
               ? [(await github.rest.pulls.get({ ...context.repo, pull_number: manual })).data]
               : await github.paginate(github.rest.pulls.list, {
-                  ...context.repo, state: 'open', sort: 'created', direction: 'desc', per_page: 100,
+                  ...context.repo, state: 'open', sort: 'created', direction: 'asc', per_page: 100,
                 });
 
             // Replies to review comments count as reviews by the author.
@@ -59,9 +59,8 @@ jobs:
             }
 
             // Whether someone is on the team: they can push to the repository,
-            // or have triage access. Their PRs get a review from the team
-            // anyway, so only triage the others. `permission` reports triage
-            // access as `read`; only `role_name` tells it apart.
+            // or have triage access. `permission` reports triage access as
+            // `read`; only `role_name` tells it apart.
             const members = new Map();
             async function isTeamMember(login) {
               if (!members.has(login)) {
@@ -72,7 +71,7 @@ jobs:
             }
 
             // The contribution_agreement job in pr_checks.yaml passes once the
-            // author accepted the contribution terms.
+            // author accepted the contribution terms. It skips team members.
             async function acceptedAgreement(pr) {
               const { data } = await github.rest.checks.listForRef({
                 ...context.repo, ref: pr.head.sha, check_name: 'contribution_agreement',
@@ -96,7 +95,7 @@ jobs:
               if (!manual && await reviewedByOthers(pr)) continue;
 
               // A manual run triages the PR it was asked for, whoever wrote it.
-              if (!manual && (await isTeamMember(pr.user.login) || !await acceptedAgreement(pr))) continue;
+              if (!manual && !await isTeamMember(pr.user.login) && !await acceptedAgreement(pr)) continue;
               numbers.push(pr.number);
             }
             core.notice(numbers.length ? `Triaging ${numbers.map(n => `#${n}`).join(', ')}` : 'Nothing to triage');

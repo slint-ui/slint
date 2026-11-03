@@ -696,6 +696,7 @@ Tdefmt
 tempor
 termcolor
 testdata
+texel
 texels
 texteditor
 textinput
@@ -744,6 +745,7 @@ unpark
 unparseable
 unpic
 Unpremul
+unpremultiplies
 unpremultiply
 unsendable
 usbc
