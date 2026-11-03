@@ -35,7 +35,7 @@ const ARRIVED_SECONDS: f32 = 7.0;
 const PROPOSE_SECONDS: f32 = 2.5;
 const TAKE_OFF_SECONDS: f32 = 4.0;
 /// How long the globe takes to grow from its place on the entry screen to the window, or back.
-const ZOOM_SECONDS: f32 = 1.4;
+const ZOOM_SECONDS: f32 = 0.9;
 /// How fast the globe on the entry screen turns, in radians per second.
 const ENTRY_SPIN: f32 = 0.08;
 /// How much of its place on the entry screen the globe fills.
@@ -44,7 +44,7 @@ const ENTRY_FILL: f32 = 0.84;
 const IDLE: Duration = Duration::from_secs(60);
 /// The kiosk's flights are at least this long, and at most the other.
 const KIOSK_KM: (f32, f32) = (1500.0, 13000.0);
-const VIEW_TRANSITION: f32 = 2.0;
+const VIEW_TRANSITION: f32 = 1.5;
 const MAX_LABELS: usize = 24;
 /// The most physical pixels per logical pixel the globe renders at, so that phones with a
 /// scale factor of 3 render fewer than half the pixels of their full resolution.
