@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab Microcharts nint pthread simpleperf Skias uinput virgl xplat yurkinh -->
+<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab Microcharts nint pthread simpleperf Skias uinput virgl wwwroot xplat yurkinh -->
 # .NET Bindings
 
 > Note for AI coding assistants (agents):

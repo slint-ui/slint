@@ -1,6 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore rustlib
 
 # Builds slint-dotnet as a static library for wasm32-unknown-emscripten into target/browser/slint_dotnet.a,
 # which Slint.targets links into browser-wasm apps.

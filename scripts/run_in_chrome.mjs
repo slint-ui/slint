@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+// cSpell: ignore swiftshader
 
 // Runs a browser app in headless Chrome, follows the steps of a JSON file, and prints the page's console.
 // Serves the folders itself and drives Chrome over the DevTools protocol, with no npm packages (Node 22+).
@@ -59,13 +60,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const profile = await mkdtemp(join(tmpdir(), 'slint-browser-'));
 const port = 9300 + Math.floor(Math.random() * 500);
 // WebGL renders with SwiftShader, as on a machine without a GPU, such as in CI.
-const chrome = spawn(chromePath, ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
-  `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
+// On Linux, CI runners don't allow Chrome's sandbox, and their /dev/shm is small.
+const linux = process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : [];
+const chrome = spawn(chromePath, ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', ...linux,
+  `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+let chromeErrors = '';
+chrome.stderr.on('data', data => { chromeErrors += data; });
+chrome.on('error', error => { chromeErrors += error.message; });
 
 let status = 1;
 try {
   let targets;
-  for (let i = 0; i < 100 && !targets; i++) { try { targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); } catch { await sleep(100); } }
+  for (let i = 0; i < 300 && !targets; i++) { try { targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); } catch { await sleep(100); } }
+  if (!targets) throw new Error(`Chrome didn't start at ${chromePath}:\n${chromeErrors}`);
   const ws = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
   await new Promise(r => ws.onopen = r);
   let id = 0;
