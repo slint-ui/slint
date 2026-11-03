@@ -13,6 +13,8 @@
 - Bind a view model, such as one written with CommunityToolkit.Mvvm, to a component:
   `[SlintViewModel(typeof(AppWindow))]` generates `app.Bind(viewModel)`, which binds properties, collections, and commands by name.
   `app.Instance.Bind(viewModel)` binds them one by one. See [View Models](README.md#view-models).
+  Validation errors, such as those of `ObservableValidator`, bind to a property per field,
+  and the running state of an asynchronous command to a property, such as for a spinner.
 
 ## 1.19.0-preview.11
 

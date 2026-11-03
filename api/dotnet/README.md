@@ -390,6 +390,9 @@ app.Run();
 - A collection, such as an `ObservableCollection<T>`, binds to an array property with the same item type, see [Models](#models).
 - A command, such as `SaveCommand` from `[RelayCommand]`, binds to the callback `save`,
   and its `CanExecute` to the boolean property `save-enabled`, if the component has it.
+  For an asynchronous command, its `IsRunning` binds to the boolean property `save-running`, such as to show a spinner.
+- With validation through `INotifyDataErrorInfo`, as `ObservableValidator` does, the errors of `Name` bind to the string property `name-error`,
+  one per line, and `HasErrors` binds to `has-errors` like any property.
 
 The build warns about a member whose type doesn't fit the component's member of the same name.
 For other names and conversions, add bindings to the result of `Bind`,
@@ -401,6 +404,8 @@ using var binding = app.Instance.Bind(viewModel)
     .Property("note", vm => vm.Note, (vm, value) => vm.Note = value)
     .Collection("people", vm => vm.People, p => new Person { Name = p.Name })
     .Command("submit", vm => vm.SubmitCommand, enabledProperty: "can-submit")
+    .Property("busy", vm => vm.SubmitCommand.IsRunning)
+    .Errors("email-error", nameof(viewModel.Email))
     .ToViewModel<int>("selected", (vm, value) => vm.Selected = value);
 ```
 

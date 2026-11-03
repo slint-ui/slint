@@ -15,7 +15,10 @@ namespace Slint;
 /// both ways when the view model's property has a setter.
 /// A collection binds to an array property with the same item type.
 /// A command <c>SaveCommand</c>, also one from <c>[RelayCommand]</c> of CommunityToolkit.Mvvm, binds to the callback <c>save</c>,
-/// and its <c>CanExecute</c> to the boolean property <c>save-enabled</c>, if the component has it.
+/// its <c>CanExecute</c> to the boolean property <c>save-enabled</c>, and for an asynchronous command
+/// its <c>IsRunning</c> to the boolean property <c>save-running</c>, if the component has them.
+/// For a view model with <see cref="INotifyDataErrorInfo"/>, the errors of a property <c>Name</c>
+/// bind to the string property <c>name-error</c>, see <see cref="ViewModelBinding{TViewModel}.Errors"/>.
 /// The result binds more members with the methods of <see cref="ViewModelBinding{TViewModel}"/>.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
@@ -38,7 +41,8 @@ public static class ViewModelBindingExtensions
 
 /// <summary>
 /// The bindings between a view model and a component, from <see cref="ViewModelBindingExtensions.Bind"/>.
-/// When the view model raises <see cref="INotifyPropertyChanged.PropertyChanged"/>, from any thread,
+/// When the view model raises <see cref="INotifyPropertyChanged.PropertyChanged"/> or <see cref="INotifyDataErrorInfo.ErrorsChanged"/>,
+/// or a bound command raises <see cref="INotifyPropertyChanged.PropertyChanged"/>, from any thread,
 /// the bindings read the view model again on the Slint thread, and set the properties whose values changed.
 /// </summary>
 public sealed class ViewModelBinding<TViewModel> : IDisposable
@@ -61,6 +65,10 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
         if (viewModel is INotifyPropertyChanged notifying)
         {
             notifying.PropertyChanged += OnViewModelChanged;
+        }
+        if (viewModel is INotifyDataErrorInfo validating)
+        {
+            validating.ErrorsChanged += OnErrorsChanged;
         }
     }
 
@@ -178,11 +186,19 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
             if (command != null)
             {
                 command.CanExecuteChanged -= OnCanExecuteChanged;
+                if (command is INotifyPropertyChanged notifying)
+                {
+                    notifying.PropertyChanged -= OnViewModelChanged;
+                }
             }
             command = next;
             if (command != null)
             {
                 command.CanExecuteChanged += OnCanExecuteChanged;
+                if (command is INotifyPropertyChanged notifying)
+                {
+                    notifying.PropertyChanged += OnViewModelChanged;
+                }
             }
             UpdateEnabled();
         }
@@ -207,6 +223,20 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
         return this;
     }
 
+    /// <summary>
+    /// Sets the string property <paramref name="name"/> to the errors of the view model's property <paramref name="member"/>,
+    /// one per line, or to an empty string without errors.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The view model doesn't implement <see cref="INotifyDataErrorInfo"/>.</exception>
+    public ViewModelBinding<TViewModel> Errors(string name, string member)
+    {
+        if (_viewModel is not INotifyDataErrorInfo validating)
+        {
+            throw new InvalidOperationException($"{typeof(TViewModel).Name} doesn't implement INotifyDataErrorInfo, as ObservableValidator does.");
+        }
+        return Property(name, _ => string.Join("\n", validating.GetErrors(member).Cast<object?>().Select(error => error?.ToString())));
+    }
+
     /// <summary>Removes the bindings; the component keeps the values it has.</summary>
     public void Dispose()
     {
@@ -219,6 +249,10 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
         {
             notifying.PropertyChanged -= OnViewModelChanged;
         }
+        if (_viewModel is INotifyDataErrorInfo validating)
+        {
+            validating.ErrorsChanged -= OnErrorsChanged;
+        }
         foreach (var disposable in _disposables)
         {
             disposable.Dispose();
@@ -227,7 +261,9 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
         _refreshers.Clear();
     }
 
-    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnErrorsChanged(object? sender, DataErrorsChangedEventArgs e) => OnViewModelChanged(sender, null);
+
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs? e)
     {
         if (Environment.CurrentManagedThreadId == _slintThread)
         {

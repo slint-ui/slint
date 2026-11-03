@@ -25,6 +25,7 @@
     <SlintFile Include="ui/import-paths.slint" />
     <SlintFile Include="ui/translated.slint" />
     <SlintFile Include="ui/view-model.slint" />
+    <SlintFile Include="ui/form-view.slint" />
     <SlintProject Include="ui/project" />
     <SlintLibraryPath Include="tags" Path="ui/lib/" />
   </ItemGroup>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -28,6 +29,21 @@ public sealed partial class PersonViewModel : ObservableObject
     private void Save() => Saved++;
 
     private bool CanSave() => Age >= 18;
+}
+
+[SlintViewModel(typeof(FormView))]
+public sealed partial class FormViewModel : ObservableValidator
+{
+    public TaskCompletionSource Gate { get; } = new();
+
+    [ObservableProperty]
+    [NotifyDataErrorInfo]
+    [Required]
+    [MinLength(2)]
+    private string _firstName = "Ada";
+
+    [RelayCommand]
+    private Task Submit() => Gate.Task;
 }
 
 [TestClass]
@@ -116,5 +132,43 @@ public sealed class ViewModelBindingTests
             Testing.MockElapsedTime(0);
             Assert.AreEqual(2, vm.TagCount);
         }
+    });
+
+    [TestMethod]
+    public void GeneratedBindShowsErrorsAndRunningCommands() => SlintThread.Run(() =>
+    {
+        using var form = FormView.Create();
+        var vm = new FormViewModel();
+        using var binding = form.Bind(vm);
+        Assert.AreEqual("", form.FirstNameError);
+        Assert.IsFalse(form.HasErrors);
+
+        form.TypeFirstName("A");
+        Testing.MockElapsedTime(0);
+        StringAssert.Contains(form.FirstNameError, "minimum length of '2'");
+        Assert.IsTrue(form.HasErrors);
+
+        form.TypeFirstName("Al");
+        Testing.MockElapsedTime(0);
+        Assert.AreEqual("", form.FirstNameError);
+        Assert.IsFalse(form.HasErrors);
+
+        Assert.IsTrue(form.SubmitEnabled);
+        form.ClickSubmit();
+        Assert.IsTrue(form.SubmitRunning);
+        Assert.IsFalse(form.SubmitEnabled);
+
+        EventLoop.Run(async () =>
+        {
+            vm.Gate.SetResult();
+            await vm.SubmitCommand.ExecutionTask!;
+            // The command ends its run in a continuation of its own, which may come after this one.
+            for (var i = 0; i < 100 && form.SubmitRunning; i++)
+            {
+                await Task.Delay(10);
+            }
+        });
+        Assert.IsFalse(form.SubmitRunning);
+        Assert.IsTrue(form.SubmitEnabled);
     });
 }

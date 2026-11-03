@@ -117,29 +117,49 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
 
             var calls = new StringBuilder();
             var toViewModel = new StringBuilder();
-            var enabledProperties = new HashSet<string>();
+            var consumed = new HashSet<string>();
+            string? BoolProperty(string name)
+            {
+                if (componentProperties.TryGetValue(name, out var p)
+                    && p.Property.Type.SpecialType == SpecialType.System_Boolean && p.Property.SetMethod != null)
+                {
+                    consumed.Add(name);
+                    return p.SlintName;
+                }
+                return null;
+            }
             foreach (var callback in callbacks)
             {
-                if (!commands.Contains(callback.Key + "Command"))
+                if (!commands.TryGetValue(callback.Key + "Command", out var isAsync))
                 {
                     continue;
                 }
-                var enabled = componentProperties.TryGetValue(callback.Key + "Enabled", out var e)
-                    && e.Property.Type.SpecialType == SpecialType.System_Boolean && e.Property.SetMethod != null
-                    ? $"\"{e.SlintName}\""
-                    : "null";
-                if (enabled != "null")
-                {
-                    enabledProperties.Add(callback.Key + "Enabled");
-                }
+                var enabled = BoolProperty(callback.Key + "Enabled") is { } e ? $"\"{e}\"" : "null";
                 calls.Append($"\n            .Command(\"{callback.Value}\", static vm => vm.{callback.Key}Command, {enabled})");
+                if (isAsync && BoolProperty(callback.Key + "Running") is { } running)
+                {
+                    calls.Append($"\n            .Property(\"{running}\", static vm => vm.{callback.Key}Command.IsRunning)");
+                }
+            }
+            if (viewModel.AllInterfaces.Any(i => i.ToDisplayString() == "System.ComponentModel.INotifyDataErrorInfo"))
+            {
+                foreach (var entry in componentProperties)
+                {
+                    var member = entry.Key.EndsWith("Error") ? entry.Key.Substring(0, entry.Key.Length - "Error".Length) : null;
+                    if (member != null && properties.ContainsKey(member) && !properties.ContainsKey(entry.Key)
+                        && entry.Value.Property.Type.SpecialType == SpecialType.System_String && entry.Value.Property.SetMethod != null)
+                    {
+                        consumed.Add(entry.Key);
+                        calls.Append($"\n            .Errors(\"{entry.Value.SlintName}\", \"{member}\")");
+                    }
+                }
             }
 
             foreach (var entry in componentProperties)
             {
                 var name = entry.Key;
                 var (slintName, componentProperty) = entry.Value;
-                if (enabledProperties.Contains(name) || !properties.TryGetValue(name, out var vmProperty))
+                if (consumed.Contains(name) || !properties.TryGetValue(name, out var vmProperty))
                 {
                     continue;
                 }
@@ -211,10 +231,10 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
     /// The properties of the view model and its base classes, with those that <c>[ObservableProperty]</c> generates,
     /// and the names of its commands, with those that <c>[RelayCommand]</c> generates.
     /// </summary>
-    private static (Dictionary<string, Member> Properties, HashSet<string> Commands) ViewModelMembers(INamedTypeSymbol viewModel)
+    private static (Dictionary<string, Member> Properties, Dictionary<string, bool> Commands) ViewModelMembers(INamedTypeSymbol viewModel)
     {
         var properties = new Dictionary<string, Member>();
-        var commands = new HashSet<string>();
+        var commands = new Dictionary<string, bool>();
         for (var type = viewModel; type != null && type.SpecialType != SpecialType.System_Object; type = type.BaseType)
         {
             foreach (var member in type.GetMembers())
@@ -228,7 +248,7 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
                     case IPropertySymbol { DeclaredAccessibility: Accessibility.Public, IsIndexer: false } property:
                         if (IsCommand(property.Type))
                         {
-                            commands.Add(property.Name);
+                            commands[property.Name] = HasIsRunning(property.Type);
                         }
                         else if (!properties.ContainsKey(property.Name))
                         {
@@ -244,7 +264,7 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
                         }
                         break;
                     case IMethodSymbol method when HasAttribute(method, RelayCommandAttribute):
-                        commands.Add(RelayCommandName(method.Name));
+                        commands[RelayCommandName(method.Name)] = method.ReturnType.ToDisplayString().StartsWith("System.Threading.Tasks.Task");
                         break;
                 }
             }
@@ -254,6 +274,10 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
 
     private static bool HasAttribute(ISymbol symbol, string name) =>
         symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == name);
+
+    private static bool HasIsRunning(ITypeSymbol type) =>
+        new[] { type }.Concat(type.AllInterfaces).Any(t => t.GetMembers("IsRunning").OfType<IPropertySymbol>()
+            .Any(p => p.Type.SpecialType == SpecialType.System_Boolean));
 
     private static bool IsCommand(ITypeSymbol type) =>
         type.ToDisplayString() == "System.Windows.Input.ICommand"

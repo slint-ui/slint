@@ -849,8 +849,11 @@ Next:
     One generator doesn't see what another generates, so it derives the members of `[ObservableProperty]` and `[RelayCommand]`
     from the rules of CommunityToolkit.Mvvm.
     The tests bind a view model of CommunityToolkit.Mvvm both ways, with a command whose `CanExecute` follows a property.
-  - Phase 3, commands and validation, 1 week: `CanExecute` and the running state of asynchronous commands as properties,
-    and the errors of `INotifyDataErrorInfo` per field.
+  - Phase 3, done: a bound command refreshes the bindings when it raises `PropertyChanged`,
+    so `IsRunning` of an asynchronous command binds as a property, which the generator does for a boolean `save-running`.
+    `Errors` binds a string property to the errors of a field from `INotifyDataErrorInfo`, refreshed on `ErrorsChanged`,
+    which the generator does for a string `name-error`; `HasErrors` binds by name.
+    The test binds an `ObservableValidator` with `[NotifyDataErrorInfo]`, and an asynchronous `[RelayCommand]`.
   - Phase 4, sample and docs, 1 week: the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples) with a Slint UI,
     an MVVM option in the templates, the README, and a smoke test.
 - **26.** UI written in C#, after item 25, with a shared core and two front ends.
