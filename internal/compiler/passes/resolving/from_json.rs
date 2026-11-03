@@ -4,44 +4,61 @@
 //! Implements the `@from-json(...)` compile-time macro: reads a JSON file at compile time
 //! and converts a value from it into an [`Expression`] matching the target property's type.
 
-use crate::diagnostics::Spanned;
 use crate::expression_tree::{Expression, Unit};
 use crate::langtype::Type;
 use crate::lookup::LookupCtx;
-use crate::parser::{SyntaxKind, SyntaxToken, syntax_nodes};
+use crate::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
 use smol_str::SmolStr;
 use std::path::PathBuf;
 
-pub fn lower(node: &syntax_nodes::AtFromJson, ctx: &mut LookupCtx) -> Expression {
-    let string_tokens: Vec<SyntaxToken> = node
-        .children_with_tokens()
-        .filter_map(|n| n.into_token())
-        .filter(|t| t.kind() == SyntaxKind::StringLiteral)
-        .collect();
+/// One `.member` or `[index]` applied to the value of a `@from-json(...)` call.
+pub enum Step {
+    Member(SyntaxToken),
+    Index(syntax_nodes::Expression),
+}
 
-    let Some(path_token) = string_tokens.first() else {
+/// If `node` is a chain of `.member` and `[index]` on a `@from-json(...)` call,
+/// returns the call and the steps in source order.
+pub fn as_chain(node: &SyntaxNode) -> Option<(syntax_nodes::AtFromJson, Vec<Step>)> {
+    let mut steps = Vec::new();
+    let mut current = node.clone();
+    loop {
+        current = match current.kind() {
+            SyntaxKind::AtFromJson => break,
+            SyntaxKind::MemberAccess => {
+                let member = syntax_nodes::MemberAccess::from(current);
+                steps.push(Step::Member(member.child_token(SyntaxKind::Identifier)?));
+                member.Expression().into()
+            }
+            SyntaxKind::IndexExpression => {
+                let (array, index) = syntax_nodes::IndexExpression::from(current).Expression();
+                steps.push(Step::Index(index));
+                array.into()
+            }
+            SyntaxKind::Expression => current.first_child()?,
+            _ => return None,
+        };
+    }
+    steps.reverse();
+    Some((current.into(), steps))
+}
+
+/// Lowers `node`, followed by `steps`, to a literal of the expected type.
+/// `whole` is the complete expression, used to report a mismatching value.
+pub fn lower(
+    node: &syntax_nodes::AtFromJson,
+    steps: &[Step],
+    whole: &SyntaxNode,
+    ctx: &mut LookupCtx,
+) -> Expression {
+    let Some(path_token) = node.child_token(SyntaxKind::StringLiteral) else {
         debug_assert!(ctx.diag.has_errors());
         return Expression::Invalid;
     };
     let Some(path_str) =
-        crate::literals::unescape_string_reporting(Some(path_token), ctx.diag, node)
+        crate::literals::unescape_string_reporting(Some(&path_token), ctx.diag, node)
     else {
         return Expression::Invalid;
-    };
-
-    let pointer_token = string_tokens.get(1);
-    let pointer_str = match pointer_token {
-        Some(tok) => match crate::literals::unescape_string_reporting(Some(tok), ctx.diag, node) {
-            Some(s) => Some(s),
-            None => return Expression::Invalid,
-        },
-        None => None,
-    };
-    // Where to point path/key-not-found diagnostics: the JSON-path argument if there is
-    // one, otherwise the whole macro call (the 1-arg form has no second token to point at).
-    let path_error_source: &dyn Spanned = match pointer_token {
-        Some(t) => t,
-        None => node,
     };
 
     let target_ty = target_type(ctx);
@@ -51,7 +68,7 @@ pub fn lower(node: &syntax_nodes::AtFromJson, ctx: &mut LookupCtx) -> Expression
     ) {
         ctx.diag.push_error(
             "Cannot use @from-json() here: the type of the value is not known".into(),
-            node,
+            whole,
         );
         return Expression::Invalid;
     }
@@ -59,7 +76,7 @@ pub fn lower(node: &syntax_nodes::AtFromJson, ctx: &mut LookupCtx) -> Expression
     let resolved = resolve_path(&path_str, node, ctx);
 
     let Some(file) = crate::fileaccess::load_file(&resolved) else {
-        ctx.diag.push_error(format!("Cannot find JSON file {}", resolved.display()), path_token);
+        ctx.diag.push_error(format!("Cannot find JSON file {}", resolved.display()), &path_token);
         return Expression::Invalid;
     };
     ctx.diag.all_loaded_files.insert(file.canon_path.clone());
@@ -69,12 +86,12 @@ pub fn lower(node: &syntax_nodes::AtFromJson, ctx: &mut LookupCtx) -> Expression
         Err(err) => {
             ctx.diag.push_error(
                 format!("Cannot read JSON file {}: {err}", resolved.display()),
-                path_token,
+                &path_token,
             );
             return Expression::Invalid;
         }
     };
-    // Strip a UTF-8 BOM if present; some editors add one and serde_json rejects it.
+    // serde_json rejects the UTF-8 BOM that some editors write.
     let bytes = bytes.strip_prefix(&[0xEFu8, 0xBB, 0xBF]).unwrap_or(&bytes);
 
     let json: serde_json::Value = match serde_json::from_slice(bytes) {
@@ -82,68 +99,140 @@ pub fn lower(node: &syntax_nodes::AtFromJson, ctx: &mut LookupCtx) -> Expression
         Err(err) => {
             ctx.diag.push_error(
                 format!("Cannot parse JSON file {}: {err}", resolved.display()),
-                path_token,
+                &path_token,
             );
             return Expression::Invalid;
         }
-    };
-
-    let segments: Vec<SmolStr> = if let Some(pointer_str) = &pointer_str {
-        let mut segments = Vec::new();
-        for segment in pointer_str.split('/') {
-            if segment.is_empty() {
-                ctx.diag.push_error(
-                    format!("Empty segment in the JSON path '{pointer_str}'"),
-                    path_error_source,
-                );
-                return Expression::Invalid;
-            }
-            segments.push(SmolStr::from(segment));
-        }
-        segments
-    } else {
-        let Some(name) = ctx.property_name else {
-            ctx.diag.push_error(
-                "@from-json() without a second argument can only be used in a property binding; \
-                 pass the JSON path as the second argument"
-                    .into(),
-                node,
-            );
-            return Expression::Invalid;
-        };
-        vec![SmolStr::from(name)]
     };
 
     let mut current = &json;
-    let mut consumed: Vec<SmolStr> = Vec::new();
-    for segment in &segments {
-        let Some(obj) = current.as_object() else {
-            ctx.diag.push_error(
-                format!(
-                    "'{}' in the JSON file {} is not an object",
-                    breadcrumb(&consumed),
-                    resolved.display()
-                ),
-                path_error_source,
-            );
+    let mut path = JsonPath::default();
+    for step in steps {
+        let next = match step {
+            Step::Member(token) => member(current, token, &path, &resolved, ctx),
+            Step::Index(index) => element(current, index, &path, &resolved, ctx),
+        };
+        let Some((segment, value)) = next else {
             return Expression::Invalid;
         };
-        let Some(value) = lookup_key(obj, segment) else {
-            ctx.diag.push_error(
-                format!(
-                    "No key '{segment}' in '{}' of the JSON file {}",
-                    breadcrumb(&consumed),
-                    resolved.display()
-                ),
-                path_error_source,
-            );
-            return Expression::Invalid;
-        };
+        path.0.push(segment);
         current = value;
-        consumed.push(segment.clone());
     }
 
-    json_to_expression(current, &target_ty, &mut consumed, &resolved, node, ctx)
+    json_to_expression(current, &target_ty, &mut path, &resolved, whole, ctx)
+}
+
+/// Looks up the key named by `token` in `value`.
+fn member<'a>(
+    value: &'a serde_json::Value,
+    token: &SyntaxToken,
+    path: &JsonPath,
+    file: &std::path::Path,
+    ctx: &mut LookupCtx,
+) -> Option<(Segment, &'a serde_json::Value)> {
+    let name = token.text();
+    let Some(object) = value.as_object() else {
+        ctx.diag.push_error(path.not_a(file, "an object"), token);
+        return None;
+    };
+    let Some((key, value)) = lookup_key(object, name) else {
+        let message = if path.0.is_empty() {
+            format!("No key '{name}' at the root of the JSON file {}", file.display())
+        } else {
+            format!("No key '{name}' in '{path}' of the JSON file {}", file.display())
+        };
+        ctx.diag.push_error(message, token);
+        return None;
+    };
+    Some((Segment::Key(key.into()), value))
+}
+
+/// Looks up the element at the integer literal `index` in `value`.
+fn element<'a>(
+    value: &'a serde_json::Value,
+    index: &syntax_nodes::Expression,
+    path: &JsonPath,
+    file: &std::path::Path,
+    ctx: &mut LookupCtx,
+) -> Option<(Segment, &'a serde_json::Value)> {
+    let Some(i) = integer_literal(index) else {
+        ctx.diag.push_error(
+            "The index into a @from-json() value must be an integer literal, such as '[0]'".into(),
+            index,
+        );
+        return None;
+    };
+    let Some(array) = value.as_array() else {
+        ctx.diag.push_error(path.not_a(file, "an array"), index);
+        return None;
+    };
+    let Some(element) = usize::try_from(i).ok().and_then(|i| array.get(i)) else {
+        ctx.diag.push_error(
+            format!(
+                "Index {i} is out of range for the JSON array {}, which has {} elements",
+                path.location(file),
+                array.len()
+            ),
+            index,
+        );
+        return None;
+    };
+    Some((Segment::Index(i as usize), element))
+}
+
+/// The value of `expr` if it's an integer literal, optionally negated.
+fn integer_literal(expr: &syntax_nodes::Expression) -> Option<i64> {
+    match expr.first_child() {
+        None => expr.child_token(SyntaxKind::NumberLiteral)?.text().parse().ok(),
+        Some(node) if node.kind() == SyntaxKind::UnaryOpExpression => {
+            let unary = syntax_nodes::UnaryOpExpression::from(node);
+            unary.child_token(SyntaxKind::Minus)?;
+            integer_literal(&unary.Expression()).map(|i| -i)
+        }
+        Some(_) => None,
+    }
+}
+
+/// A position inside a JSON document, as the sequence of keys and indices that leads there.
+#[derive(Default)]
+struct JsonPath(Vec<Segment>);
+
+enum Segment {
+    Key(SmolStr),
+    Index(usize),
+}
+
+impl std::fmt::Display for JsonPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, segment) in self.0.iter().enumerate() {
+            match segment {
+                Segment::Key(key) if i == 0 => write!(f, "{key}")?,
+                Segment::Key(key) => write!(f, ".{key}")?,
+                Segment::Index(index) => write!(f, "[{index}]")?,
+            }
+        }
+        Ok(())
+    }
+}
+
+impl JsonPath {
+    /// "at 'a.b' in FILE", or "at the root of FILE".
+    fn location(&self, file: &std::path::Path) -> String {
+        if self.0.is_empty() {
+            format!("at the root of {}", file.display())
+        } else {
+            format!("at '{self}' in {}", file.display())
+        }
+    }
+
+    /// The error for a value that isn't `what` ("an object" or "an array").
+    fn not_a(&self, file: &std::path::Path, what: &str) -> String {
+        if self.0.is_empty() {
+            format!("The root of the JSON file {} is not {what}", file.display())
+        } else {
+            format!("'{self}' in the JSON file {} is not {what}", file.display())
+        }
+    }
 }
 
 /// The type this `@from-json(...)` call must produce: the contextual expected type, falling
@@ -176,23 +265,19 @@ fn resolve_path(s: &str, node: &syntax_nodes::AtFromJson, ctx: &LookupCtx) -> Pa
         })
 }
 
-/// Look up `key` in `map`: try an exact match first, then fall back to a scan comparing
+/// Look up `key` in `map`: try an exact match first, then fall back to comparing
 /// `normalize_identifier`-normalized (underscore/dash-insensitive) keys.
 fn lookup_key<'a>(
     map: &'a serde_json::Map<String, serde_json::Value>,
     key: &str,
-) -> Option<&'a serde_json::Value> {
-    if let Some(v) = map.get(key) {
-        return Some(v);
+) -> Option<(&'a str, &'a serde_json::Value)> {
+    if let Some((k, v)) = map.get_key_value(key) {
+        return Some((k, v));
     }
     let normalized_key = crate::parser::normalize_identifier(key);
     map.iter()
         .find(|(k, _)| crate::parser::normalize_identifier(k) == normalized_key)
-        .map(|(_, v)| v)
-}
-
-fn breadcrumb(consumed: &[SmolStr]) -> String {
-    if consumed.is_empty() { "the root".into() } else { consumed.join("/") }
+        .map(|(k, v)| (k.as_str(), v))
 }
 
 fn json_kind(value: &serde_json::Value) -> &'static str {
@@ -207,32 +292,28 @@ fn json_kind(value: &serde_json::Value) -> &'static str {
 }
 
 /// Report that `value` cannot be used for `target`, and return `Expression::Invalid`.
-/// A plain function (not a closure) so it can be called from anywhere in `json_to_expression`
-/// without holding a long-lived borrow of `breadcrumb_segments` across the whole match.
 fn mismatch(
     value: &serde_json::Value,
     target: &Type,
-    breadcrumb_segments: &[SmolStr],
+    path: &JsonPath,
     file: &std::path::Path,
-    node: &syntax_nodes::AtFromJson,
+    node: &SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {
     if matches!(value, serde_json::Value::Null) {
         ctx.diag.push_error(
             format!(
-                "The JSON value at '{}' in {} is null, which cannot be used for a value of type {target}",
-                breadcrumb(breadcrumb_segments),
-                file.display()
+                "The JSON value {} is null, which cannot be used for a value of type {target}",
+                path.location(file)
             ),
             node,
         );
     } else {
         ctx.diag.push_error(
             format!(
-                "Cannot use the JSON {} at '{}' in {} for a value of type {target}",
+                "Cannot use the JSON {} {} for a value of type {target}",
                 json_kind(value),
-                breadcrumb(breadcrumb_segments),
-                file.display()
+                path.location(file)
             ),
             node,
         );
@@ -243,19 +324,19 @@ fn mismatch(
 fn json_to_expression(
     value: &serde_json::Value,
     target: &Type,
-    breadcrumb_segments: &mut Vec<SmolStr>,
+    path: &mut JsonPath,
     file: &std::path::Path,
-    node: &syntax_nodes::AtFromJson,
+    node: &SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {
     match target {
         Type::Bool => match value {
             serde_json::Value::Bool(b) => Expression::BoolLiteral(*b),
-            _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            _ => mismatch(value, target, path, file, node, ctx),
         },
         Type::String => match value {
             serde_json::Value::String(s) => Expression::StringLiteral(s.as_str().into()),
-            _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            _ => mismatch(value, target, path, file, node, ctx),
         },
         Type::Int32 => match value.as_f64() {
             Some(n) if n.fract() == 0.0 => Expression::Cast {
@@ -264,45 +345,37 @@ fn json_to_expression(
             },
             Some(n) => {
                 ctx.diag.push_error(
-                    format!(
-                        "The JSON number {n} at '{}' in {} is not an integer",
-                        breadcrumb(breadcrumb_segments),
-                        file.display()
-                    ),
+                    format!("The JSON number {n} {} is not an integer", path.location(file)),
                     node,
                 );
                 Expression::Invalid
             }
-            None => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            None => mismatch(value, target, path, file, node, ctx),
         },
         Type::Float32 => match value.as_f64() {
             Some(n) => Expression::NumberLiteral(n, Unit::None),
-            None => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            None => mismatch(value, target, path, file, node, ctx),
         },
         Type::Percent => match value.as_f64() {
             Some(n) => Expression::NumberLiteral(n, Unit::Percent),
-            None => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            None => mismatch(value, target, path, file, node, ctx),
         },
         Type::Duration | Type::PhysicalLength | Type::LogicalLength | Type::Rem | Type::Angle => {
             match value.as_f64() {
                 Some(n) => Expression::NumberLiteral(n, target.default_unit().unwrap()),
-                None => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+                None => mismatch(value, target, path, file, node, ctx),
             }
         }
         Type::Color => match value {
-            serde_json::Value::String(s) => {
-                color_expression(s, breadcrumb_segments, file, node, ctx)
-            }
-            _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            serde_json::Value::String(s) => color_expression(s, path, file, node, ctx),
+            _ => mismatch(value, target, path, file, node, ctx),
         },
         Type::Brush => match value {
-            serde_json::Value::String(s) => {
-                match color_expression(s, breadcrumb_segments, file, node, ctx) {
-                    Expression::Invalid => Expression::Invalid,
-                    color => Expression::Cast { from: Box::new(color), to: Type::Brush },
-                }
-            }
-            _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            serde_json::Value::String(s) => match color_expression(s, path, file, node, ctx) {
+                Expression::Invalid => Expression::Invalid,
+                color => Expression::Cast { from: Box::new(color), to: Type::Brush },
+            },
+            _ => mismatch(value, target, path, file, node, ctx),
         },
         Type::Enumeration(e) => match value {
             serde_json::Value::String(s) => {
@@ -326,52 +399,37 @@ fn json_to_expression(
                     }
                 }
             }
-            _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            _ => mismatch(value, target, path, file, node, ctx),
         },
         Type::Array(elem_ty) => match value.as_array() {
             Some(arr) => {
                 let elem_ty = (**elem_ty).clone();
                 let mut values = Vec::with_capacity(arr.len());
                 for (i, v) in arr.iter().enumerate() {
-                    breadcrumb_segments.push(SmolStr::from(format!("[{i}]")));
-                    values.push(json_to_expression(
-                        v,
-                        &elem_ty,
-                        breadcrumb_segments,
-                        file,
-                        node,
-                        ctx,
-                    ));
-                    breadcrumb_segments.pop();
+                    path.0.push(Segment::Index(i));
+                    values.push(json_to_expression(v, &elem_ty, path, file, node, ctx));
+                    path.0.pop();
                 }
                 Expression::Array { element_ty: elem_ty, values }
             }
-            None => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            None => mismatch(value, target, path, file, node, ctx),
         },
         Type::Struct(st) => match value.as_object() {
             Some(obj) => {
                 let mut values = std::collections::BTreeMap::new();
                 for (field_name, field_ty) in &st.fields {
                     let expr = match lookup_key(obj, field_name) {
-                        Some(v) => {
-                            breadcrumb_segments.push(field_name.clone());
-                            let e = json_to_expression(
-                                v,
-                                field_ty,
-                                breadcrumb_segments,
-                                file,
-                                node,
-                                ctx,
-                            );
-                            breadcrumb_segments.pop();
+                        Some((key, v)) => {
+                            path.0.push(Segment::Key(key.into()));
+                            let e = json_to_expression(v, field_ty, path, file, node, ctx);
+                            path.0.pop();
                             e
                         }
                         None => {
                             ctx.diag.push_warning(
                                 format!(
-                                    "The JSON object at '{}' in {} has no key for the struct field '{field_name}'; using its default value",
-                                    breadcrumb(breadcrumb_segments),
-                                    file.display()
+                                    "The JSON object {} has no key for the struct field '{field_name}'; using its default value",
+                                    path.location(file)
                                 ),
                                 node,
                             );
@@ -382,9 +440,9 @@ fn json_to_expression(
                 }
                 Expression::Struct { ty: st.clone(), values }
             }
-            None => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+            None => mismatch(value, target, path, file, node, ctx),
         },
-        _ => mismatch(value, target, breadcrumb_segments, file, node, ctx),
+        _ => mismatch(value, target, path, file, node, ctx),
     }
 }
 
@@ -397,9 +455,9 @@ fn color_from_str(s: &str) -> Option<u32> {
 /// diagnostic and return `Expression::Invalid` if `s` isn't a valid color.
 fn color_expression(
     s: &str,
-    breadcrumb_segments: &[SmolStr],
+    path: &JsonPath,
     file: &std::path::Path,
-    node: &syntax_nodes::AtFromJson,
+    node: &SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {
     match color_from_str(s) {
@@ -409,11 +467,7 @@ fn color_expression(
         },
         None => {
             ctx.diag.push_error(
-                format!(
-                    "Cannot parse '{s}' as a color, at '{}' in {}",
-                    breadcrumb(breadcrumb_segments),
-                    file.display()
-                ),
+                format!("Cannot parse '{s}' as a color, {}", path.location(file)),
                 node,
             );
             Expression::Invalid
