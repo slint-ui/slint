@@ -23,6 +23,7 @@ struct Globals {
 @group(0) @binding(1) var map: texture_2d<f32>;
 @group(0) @binding(2) var map_sampler: sampler;
 @group(0) @binding(3) var day_imagery: texture_2d<f32>;
+@group(0) @binding(4) var night_imagery: texture_2d<f32>;
 
 const PI: f32 = 3.14159265;
 const TAU: f32 = 6.2831853;
@@ -100,6 +101,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         vec2<f32>(du_smooth.x, dv.x),
         vec2<f32>(du_smooth.y, dv.y)
     ).rgb;
+    let city_light = textureSampleGrad(
+        night_imagery,
+        map_sampler,
+        uv,
+        vec2<f32>(du_smooth.x, dv.x),
+        vec2<f32>(du_smooth.y, dv.y)
+    ).r;
     // The land and the borders, a pixel wide at their edges however far the map is magnified.
     let size = vec2<f32>(textureDimensions(map));
     let texels_per_pixel = max(
@@ -146,7 +154,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let glow = (halo_color * limb_light + vec3<f32>(1.0, 0.5, 0.2) * limb_dusk * 0.6) * halo * 0.6;
 
     // The ground.
-    let city_light = map_texel.b;
     let view = -direction;
     let facing = max(dot(normal, view), 0.0);
     let fresnel = pow(1.0 - facing, 5.0);
@@ -165,7 +172,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     lit += vec3<f32>(1.0, 0.92, 0.8) * glint;
     lit = mix(lit, vec3<f32>(0.95, 0.95, 0.85), border * 0.45 * day);
     let night_ground = imagery * vec3<f32>(0.02, 0.025, 0.04);
-    let lights = vec3<f32>(1.0, 0.72, 0.38) * city_light * land * 1.6;
+    let lights = vec3<f32>(1.0, 0.72, 0.38) * city_light * 2.0;
     var ground = mix(night_ground + lights + vec3<f32>(0.05, 0.03, 0.035) * twilight, lit, day);
     ground += vec3<f32>(0.35, 0.6, 1.0) * fresnel * mix(0.03, 0.25, day);
     ground += terminator_color * terminator * 0.16;
