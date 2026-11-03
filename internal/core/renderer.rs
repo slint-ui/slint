@@ -3,9 +3,12 @@
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use core::cell::{OnceCell, RefCell};
 use core::pin::Pin;
 
-use crate::api::PlatformError;
+use crate::api::{
+    GraphicsAPI, PlatformError, RenderingNotifier, RenderingState, SetRenderingNotifierError,
+};
 #[cfg(feature = "std")]
 use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
 use crate::item_tree::ItemTreeRef;
@@ -36,6 +39,32 @@ pub struct ContentWidths {
     pub min: LogicalLength,
     /// The width the text takes without wrapping.
     pub max: LogicalLength,
+}
+
+/// The notifier that [`RendererSealed::set_rendering_notifier()`] registers.
+/// The notifier may call back into the renderer, so `notify()` skips it while it's running.
+#[derive(Default)]
+pub struct RenderingNotifierCell(OnceCell<RefCell<Box<dyn RenderingNotifier>>>);
+
+impl RenderingNotifierCell {
+    pub fn set(
+        &self,
+        notifier: Box<dyn RenderingNotifier>,
+    ) -> Result<(), SetRenderingNotifierError> {
+        self.0.set(RefCell::new(notifier)).map_err(|_| SetRenderingNotifierError::AlreadySet)
+    }
+
+    pub fn is_set(&self) -> bool {
+        self.0.get().is_some()
+    }
+
+    pub fn notify(&self, state: RenderingState, graphics_api: &GraphicsAPI) {
+        if let Some(notifier) = self.0.get()
+            && let Ok(mut notifier) = notifier.try_borrow_mut()
+        {
+            notifier.notify(state, graphics_api);
+        }
+    }
 }
 
 /// This trait represents a Renderer that can render a slint scene.
@@ -411,4 +440,49 @@ pub trait RendererSealed {
 
     /// Whether the renderer supports transformations such as rotations and scaling or not.
     fn supports_transformations(&self) -> bool;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloc::vec::Vec;
+
+    #[test]
+    fn rendering_notifier_cell_is_reentrant() {
+        let cell = Rc::new(RenderingNotifierCell::default());
+        let calls = Rc::new(RefCell::new(Vec::new()));
+        let api = GraphicsAPI::NativeOpenGL { get_proc_address: &|_| core::ptr::null() };
+        assert!(!cell.is_set());
+        cell.set(Box::new({
+            let cell = Rc::downgrade(&cell);
+            let calls = calls.clone();
+            move |state, api: &GraphicsAPI| {
+                calls.borrow_mut().push(state);
+                let cell = cell.upgrade().unwrap();
+                assert!(cell.is_set());
+                cell.notify(RenderingState::AfterRendering, api);
+                assert!(matches!(
+                    cell.set(Box::new(|_, _: &GraphicsAPI| {})),
+                    Err(SetRenderingNotifierError::AlreadySet)
+                ));
+            }
+        }))
+        .unwrap();
+        assert!(cell.is_set());
+        cell.notify(RenderingState::BeforeRendering, &api);
+        cell.notify(RenderingState::BeforeRendering, &api);
+        assert!(matches!(
+            cell.set(Box::new(|_, _: &GraphicsAPI| {})),
+            Err(SetRenderingNotifierError::AlreadySet)
+        ));
+        cell.notify(RenderingState::RenderingTeardown, &api);
+        assert!(matches!(
+            calls.borrow().as_slice(),
+            [
+                RenderingState::BeforeRendering,
+                RenderingState::BeforeRendering,
+                RenderingState::RenderingTeardown
+            ]
+        ));
+    }
 }

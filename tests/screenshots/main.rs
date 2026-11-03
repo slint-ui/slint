@@ -25,6 +25,9 @@ mod femtovg;
 #[cfg(all(test, any(feature = "skia", feature = "femtovg")))]
 mod shadow;
 
+#[cfg(all(test, any(feature = "skia", feature = "femtovg")))]
+mod rendering_notifier;
+
 #[cfg(test)]
 include!(concat!(env!("OUT_DIR"), "/generated.rs"));
 
