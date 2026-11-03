@@ -12,6 +12,7 @@
   The task completes when the loop quits, or fails with the exception of a callback.
   On the desktop, `RunAsync` runs like `Run`, so code that the platforms share can await it.
   `EventLoop.RunAsync` and `ComponentInstance.RunAsync` do the same.
+- Update to the latest Slint, where a `Path` honors its `fill-rule` with the Skia and software renderers.
 - Templates: the desktop apps of `dotnet new slint` and `slint-xplat` are `WinExe`,
   so Windows no longer opens a console window next to the app's window.
   To do the same in an existing app, set `<OutputType>WinExe</OutputType>`, see the README.

@@ -656,6 +656,7 @@ and `dotnet new slint-ios -o MyApp --app-id com.example.myapp` creates the app w
 
 Slint runs in the browser on .NET's WebAssembly runtime, with the same C# API and generated code.
 It renders into a `<canvas>` with FemtoVG on WebGL 2.
+From 1.19.0-preview.11, the package has the library for the browser.
 `dotnet new slint-web -o MyApp` creates the app with the steps below already done, and `dotnet run` serves it.
 
 1. Install the workload that links Slint into .NET's WebAssembly runtime: `dotnet workload install wasm-tools`.
