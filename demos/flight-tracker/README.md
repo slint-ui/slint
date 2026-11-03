@@ -14,7 +14,8 @@ On its own, the demo picks the flights like a kiosk, and during a flight it swit
 The flights are sped up, but the speed, altitude, temperature, and the time to go are those of a real flight.
 
 Search for the airports by city, name, country, or code, and during a flight, Plan a flight returns to the planner.
-Drag to move the map, and scroll, pinch, or double-click to zoom.
+Drag to move the map, twist with two fingers to turn it, and scroll, pinch, or double-click to zoom.
+This works beside the planner too, where the globe waits a moment before it turns on its own again.
 After a minute without input, the random flights take over again.
 
 ## Running the Demo

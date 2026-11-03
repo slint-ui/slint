@@ -8,7 +8,7 @@ use std::f32::consts::PI;
 use std::rc::Rc;
 use std::time::Duration;
 
-use glam::{Mat4, Vec2, Vec3, Vec4Swizzles};
+use glam::{Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
 use slint::wgpu_30::{WGPUConfiguration, WGPUSettings, wgpu};
 
 use atlas::{Airport, City};
@@ -38,6 +38,11 @@ const TAKE_OFF_SECONDS: f32 = 4.0;
 const ZOOM_SECONDS: f32 = 0.9;
 /// How fast the globe on the entry screen turns, in radians per second.
 const ENTRY_SPIN: f32 = 0.08;
+/// How long the globe on the entry screen waits after the user turned it, before it turns on
+/// its own again.
+const ENTRY_SPIN_PAUSE: f32 = 4.0;
+/// The latitude that the globe on the entry screen shows at the center.
+const ENTRY_LATITUDE: f32 = 20.0 * PI / 180.0;
 /// How much of its place on the entry screen the globe fills.
 const ENTRY_FILL: f32 = 0.84;
 /// After how long without input the kiosk takes over again.
@@ -245,8 +250,15 @@ struct Demo {
     /// How much of the window's height, and of its width, the globe's place on the entry
     /// screen shows of a frame rendered for the whole window.
     entry_view: Vec2,
-    /// Where the globe on the entry screen looks while there's no route, as a longitude.
-    entry_longitude: f32,
+    /// The point at the center of the globe on the entry screen.
+    entry_target: Vec3,
+    /// The compass direction that points up on the globe on the entry screen.
+    entry_heading: f32,
+    /// How much the user zoomed into the globe on the entry screen, as a part of the range at
+    /// which it fills its place.
+    entry_zoom: f32,
+    /// Seconds since the user last moved the globe on the entry screen.
+    entry_held: f32,
     camera: Camera,
     view: View,
     view_time: f32,
@@ -290,7 +302,10 @@ impl Demo {
             proposal: None,
             proposed: false,
             entry_view: Vec2::ONE,
-            entry_longitude: 0.0,
+            entry_target: surface(0.0, ENTRY_LATITUDE),
+            entry_heading: 0.0,
+            entry_zoom: 1.0,
+            entry_held: ENTRY_SPIN_PAUSE,
             camera: Camera::new(Pose::top_down(position, 3.0)),
             view: View::Route,
             view_time: 0.0,
@@ -319,13 +334,32 @@ impl Demo {
         }
     }
 
-    /// Where the camera looks at the turning globe on the entry screen.
-    fn entry_pose(&self) -> Pose {
-        let target = surface(self.entry_longitude, 20f32.to_radians());
+    /// The camera's range at which the globe fills its place on the entry screen.
+    fn entry_fit_range(&self) -> f32 {
         // The globe's radius on the screen, as a part of half the frame's height.
         let fit = ENTRY_FILL * self.entry_view.y.min(self.entry_view.x);
-        let distance = 1.0 / (fit * (FOV_Y / 2.0).tan()).atan().sin();
-        Pose::top_down(target, distance - 1.0)
+        1.0 / (fit * (FOV_Y / 2.0).tan()).atan().sin() - 1.0
+    }
+
+    /// Where the camera looks at the turning globe on the entry screen.
+    fn entry_pose(&self) -> Pose {
+        let range = (self.entry_fit_range() * self.entry_zoom).max(MIN_RANGE);
+        Pose { target: self.entry_target, heading: self.entry_heading, tilt: 0.0, range }
+    }
+
+    /// Turns the globe on the entry screen upright, zoomed out, with `longitude` at the center.
+    fn reset_entry(&mut self, longitude: f32) {
+        self.entry_target = surface(longitude, ENTRY_LATITUDE);
+        self.entry_heading = 0.0;
+        self.entry_zoom = 1.0;
+        self.entry_held = ENTRY_SPIN_PAUSE;
+    }
+
+    /// Stops the globe on the entry screen from turning on its own for a while, and stops the
+    /// kiosk from taking off under the user's hands.
+    fn hold_entry(&mut self, app: &AppWindow) {
+        self.entry_held = 0.0;
+        app.set_kiosk(false);
     }
 
     /// Starts the planned flight, growing the globe to the window.
@@ -345,7 +379,7 @@ impl Demo {
         if self.stage == Stage::Flight {
             // The globe turns on from over the aircraft.
             let position = self.flight.position();
-            self.entry_longitude = position.x.atan2(position.z);
+            self.reset_entry(position.x.atan2(position.z));
             self.camera.transition(VIEW_TRANSITION);
             self.set_stage(Stage::Returning);
         }
@@ -436,7 +470,10 @@ impl Demo {
 
     /// Zooms in by `factor`, down to `MIN_RANGE`.
     fn zoom_by(&mut self, factor: f32, aspect: f32) {
-        if self.view == View::Free {
+        if self.stage == Stage::Entry {
+            let closest = MIN_RANGE / self.entry_fit_range();
+            self.entry_zoom = (self.entry_zoom / factor).clamp(closest.min(1.0), 1.0);
+        } else if self.view == View::Free {
             self.camera.pose.range = Camera::zoomed(self.camera.pose.range, factor);
         } else {
             let base = self.base_range(self.view, aspect);
@@ -449,7 +486,10 @@ impl Demo {
         self.stage_time += dt;
         match self.stage {
             Stage::Entry => {
-                self.entry_longitude -= ENTRY_SPIN * dt;
+                self.entry_held += dt;
+                let resume = camera::ease((self.entry_held - ENTRY_SPIN_PAUSE) / 2.0);
+                let spin = ENTRY_SPIN * self.entry_zoom * resume;
+                self.entry_target = Quat::from_rotation_y(-spin * dt) * self.entry_target;
                 if kiosk && self.stage_time >= PROPOSE_SECONDS && !self.proposed {
                     self.proposed = true;
                     let origin = match self.planned {
@@ -516,7 +556,15 @@ impl Demo {
     }
 
     fn update_camera(&mut self, aspect: f32, height: f32, dt: f32) {
-        if matches!(self.stage, Stage::Entry | Stage::Returning | Stage::ZoomingOut) {
+        if self.stage == Stage::Entry && (self.dragging || self.camera.is_coasting()) {
+            if !self.dragging {
+                self.camera.coast(height, dt);
+            }
+            self.camera.pose.range = self.entry_pose().range;
+            self.entry_target = self.camera.pose.target;
+            self.entry_heading = self.camera.pose.heading;
+            self.entry_held = 0.0;
+        } else if matches!(self.stage, Stage::Entry | Stage::Returning | Stage::ZoomingOut) {
             let goal = self.entry_pose();
             self.camera.follow(goal, dt);
         } else if self.view == View::Free {
@@ -751,6 +799,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 if demo.stage == Stage::Entry {
                     // Starts the kiosk's wait for proposing a flight over.
                     demo.set_stage(Stage::Entry);
+                    let target = demo.entry_target;
+                    demo.reset_entry(target.x.atan2(target.z));
+                    demo.camera.transition(VIEW_TRANSITION);
                 }
                 if demo.view == View::Free {
                     demo.set_view(View::Route);
@@ -767,9 +818,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     app.on_drag_started({
         let interact = interact.clone();
         move || {
-            interact(&|demo, _| {
-                demo.view = View::Free;
-                demo.view_chosen = true;
+            interact(&|demo, app| {
+                if demo.stage == Stage::Entry {
+                    demo.hold_entry(app);
+                } else {
+                    demo.view = View::Free;
+                    demo.view_chosen = true;
+                }
                 demo.dragging = true;
                 demo.last_drag = web_time::Instant::now();
                 demo.camera.hold();
@@ -779,9 +834,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     app.on_twisted({
         let interact = interact.clone();
         move |degrees| {
-            interact(&|demo, _| {
-                demo.view = View::Free;
-                demo.view_chosen = true;
+            interact(&|demo, app| {
+                if demo.stage == Stage::Entry {
+                    demo.hold_entry(app);
+                    demo.entry_heading -= degrees.to_radians();
+                } else {
+                    demo.view = View::Free;
+                    demo.view_chosen = true;
+                }
                 demo.camera.twist(degrees.to_radians());
             })
         }
@@ -814,6 +874,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         let interact = interact.clone();
         move |factor| {
             interact(&|demo, app| {
+                if demo.stage == Stage::Entry {
+                    demo.hold_entry(app);
+                }
                 demo.zoom_by(factor, window_aspect(app));
             })
         }
