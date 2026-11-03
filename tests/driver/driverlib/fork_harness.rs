@@ -15,11 +15,18 @@
 use libtest_mimic::{Arguments, Failed, Trial};
 use satchel::TestCase;
 use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+/// How long a test's process may run before it gets killed and the test fails.
+const TEST_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Runs `tests`, forking a process per test, and exits with the result.
 /// The child calls `init` before its test.
 pub fn test_main(tests: impl Iterator<Item = &'static TestCase>, init: fn()) {
-    let args = Arguments::from_args();
+    let mut args = Arguments::from_args();
+    // One test at a time unless `--test-threads` says otherwise: the tests' windows open at the
+    // same spot, and on macOS a window covered by another test's window isn't rendered.
+    args.test_threads.get_or_insert(1);
     let tests: Vec<_> = tests.collect();
 
     // cargo forwards `--exact <name>` to every test binary of a package, so a name
@@ -53,11 +60,27 @@ fn qualified_name(test: &TestCase) -> String {
 
 fn run_forked(name: &str) -> Result<(), Failed> {
     println!("### FORKING TEST: {name}");
-    let status = Command::new(std::env::current_exe()?)
+    let mut child = Command::new(std::env::current_exe()?)
         .args(["--exact", name])
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
-        .status()?;
+        .spawn()?;
+    let start = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if start.elapsed() > TEST_TIMEOUT {
+            child.kill()?;
+            child.wait()?;
+            println!("### SUBPROCESS TIMED OUT");
+            return Err(Failed::from(format!(
+                "Test {name} timed out after {} seconds",
+                TEST_TIMEOUT.as_secs()
+            )));
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
     println!("### SUBPROCESS STATUS: {status}");
 
     if status.success() {

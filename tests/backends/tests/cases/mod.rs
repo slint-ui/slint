@@ -4,6 +4,10 @@
 pub mod context_menu;
 pub mod menubar;
 pub mod platform_uses_mock_data;
+pub mod popupwindow_location;
+pub mod popupwindow_size;
+pub mod popupwindow_size2;
+pub mod popupwindow_size_layout;
 pub mod set_size_before_show;
 pub mod text_input_password;
 use std::sync::{

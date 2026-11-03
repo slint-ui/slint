@@ -21,11 +21,14 @@ use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 #[cfg(muda)]
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::renderer::DrawOutcome;
+use i_slint_core::window::PopupWindowLocation;
+use i_slint_core::window::WindowKind;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWeb;
 #[cfg(target_family = "windows")]
 use winit::platform::windows::WindowExtWindows;
+use winit::window::WindowPositioner;
 
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 #[cfg(muda)]
@@ -491,6 +494,8 @@ pub struct WinitWindowAdapter {
     pub shared_backend_data: Rc<SharedBackendData>,
     window: corelib::api::Window,
     pub(crate) self_weak: Weak<Self>,
+    /// The parent window adapter if available
+    parent: Weak<Self>,
     pending_redraw: Cell<bool>,
     constraints: Cell<corelib::window::LayoutConstraints>,
     /// Indicates if the window is shown, from the perspective of the API user.
@@ -499,6 +504,9 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    /// Specifies if the current platform supports native popup
+    /// with winit or not
+    support_native_popup: Cell<bool>,
     /// Mirrors the transparency the live window was given, so that a property update only
     /// reaches the NSWindow when the value actually changes.
     #[cfg(target_os = "macos")]
@@ -578,6 +586,7 @@ impl WinitWindowAdapter {
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
+        parent: Weak<Self>,
     ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
@@ -614,6 +623,9 @@ impl WinitWindowAdapter {
             context_menu: Default::default(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
+            parent,
+            // We don't know it yet if we have native support because X11 does not, while Wayland has
+            support_native_popup: Cell::new(cfg!(any(target_os = "windows", target_os = "macos"))),
             window_icon: Default::default(),
             custom_cursor_source: Cell::new(None),
             cursor_pos: Default::default(),
@@ -621,6 +633,10 @@ impl WinitWindowAdapter {
             current_resize_direction: Default::default(),
             touch_finger_ids: Default::default(),
         });
+
+        // The renderer must be set, because otherwise for text layout infos the scale factor is not available
+        <Self as WindowAdapter>::renderer(&self_rc)
+            .set_window_adapter(&(self_rc.clone() as Rc<dyn WindowAdapter>));
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
 
@@ -694,32 +710,36 @@ impl WinitWindowAdapter {
             let activation_token = active_event_loop.read_token_from_env();
             reset_activation_token_env();
             #[cfg(feature = "wayland")]
-            if winit_wayland::ActiveEventLoopExtWayland::is_wayland(active_event_loop)
-                && (xdg_app_id.is_some() || activation_token.is_some())
-            {
-                let mut attributes = winit_wayland::WindowAttributesWayland::default();
-                if let Some(xdg_app_id) = &xdg_app_id {
-                    attributes = attributes.with_name(xdg_app_id.as_str(), "");
+            if winit_wayland::ActiveEventLoopExtWayland::is_wayland(active_event_loop) {
+                self.support_native_popup.set(true);
+                if xdg_app_id.is_some() || activation_token.is_some() {
+                    let mut attributes = winit_wayland::WindowAttributesWayland::default();
+                    if let Some(xdg_app_id) = &xdg_app_id {
+                        attributes = attributes.with_name(xdg_app_id.as_str(), "");
+                    }
+                    if let Some(token) = activation_token.clone() {
+                        attributes = attributes.with_activation_token(token);
+                    }
+                    window_attributes =
+                        window_attributes.with_platform_attributes(Box::new(attributes));
                 }
-                if let Some(token) = activation_token.clone() {
-                    attributes = attributes.with_activation_token(token);
-                }
-                window_attributes =
-                    window_attributes.with_platform_attributes(Box::new(attributes));
             }
+
             #[cfg(feature = "x11")]
-            if winit_x11::ActiveEventLoopExtX11::is_x11(active_event_loop)
-                && (xdg_app_id.is_some() || activation_token.is_some())
-            {
-                let mut attributes = winit_x11::WindowAttributesX11::default();
-                if let Some(xdg_app_id) = &xdg_app_id {
-                    attributes = attributes.with_name(xdg_app_id.as_str(), "");
+            if winit_x11::ActiveEventLoopExtX11::is_x11(active_event_loop) {
+                // Currently x11 does not support native popups
+                self.support_native_popup.set(false);
+                if xdg_app_id.is_some() || activation_token.is_some() {
+                    let mut attributes = winit_x11::WindowAttributesX11::default();
+                    if let Some(xdg_app_id) = &xdg_app_id {
+                        attributes = attributes.with_name(xdg_app_id.as_str(), "");
+                    }
+                    if let Some(token) = activation_token {
+                        attributes = attributes.with_activation_token(token);
+                    }
+                    window_attributes =
+                        window_attributes.with_platform_attributes(Box::new(attributes));
                 }
-                if let Some(token) = activation_token {
-                    attributes = attributes.with_activation_token(token);
-                }
-                window_attributes =
-                    window_attributes.with_platform_attributes(Box::new(attributes));
             }
         }
 
@@ -1494,6 +1514,25 @@ impl WinitWindowAdapter {
                 self.window()
                     .dispatch_event_with_result(corelib::platform::WindowEvent::CloseRequested)?;
             }
+            WinitWindowEvent::Destroyed => {
+                if let Some(parent) = self.parent.upgrade() {
+                    let parent_inner = WindowInner::from_pub(parent.window());
+                    let popup_id =
+                        parent_inner.active_popups().iter().find_map(|popup| {
+                            match &popup.location {
+                                PopupWindowLocation::TopLevel(adapter)
+                                    if std::ptr::addr_eq(Rc::as_ptr(adapter), self) =>
+                                {
+                                    Some(popup.popup_id)
+                                }
+                                _ => None,
+                            }
+                        });
+                    if let Some(popup_id) = popup_id {
+                        parent_inner.close_popup(popup_id);
+                    }
+                }
+            }
             WinitWindowEvent::Focused(have_focus) => {
                 // Work around https://github.com/rust-windowing/winit/issues/4371
                 let have_focus =
@@ -2212,7 +2251,12 @@ impl WindowAdapter for WinitWindowAdapter {
                 window.set_outer_position(position_for_winit(winit_pos))
             }
             WinitWindowOrNone::None(attributes) => {
-                attributes.borrow_mut().position = Some(winit_pos);
+                let mut attributes = attributes.borrow_mut();
+                attributes.position = Some(winit_pos);
+                // winit places a window with a positioner by its anchor rect, not by `position`.
+                if let Some(positioner) = attributes.positioner.as_mut() {
+                    positioner.anchor_rect.0 = winit_pos;
+                }
             }
         }
     }
@@ -2409,6 +2453,10 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.parent.upgrade().map(|rc| rc as _)
+    }
+
     fn start_window_move(&self) {
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             let _ = winit_window.drag_window();
@@ -2649,6 +2697,79 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 self.self_weak.clone(),
             )));
         }
+    }
+
+    fn create_child_window_adapter(
+        &self,
+        window_kind: WindowKind,
+    ) -> Option<Rc<dyn WindowAdapter>> {
+        if !self.support_native_popup.get() {
+            return None;
+        }
+
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            use crate::winit::window::WindowType;
+            use raw_window_handle::HasWindowHandle;
+
+            let mut window_attributes = WindowAttributes::default()
+                .with_title("child window")
+                .with_decorations(false)
+                .with_visible(true)
+                .with_active(window_kind != WindowKind::ToolTip)
+                .with_window_type(WindowType::Popup)
+                // winit's default positioner centers the popup on its position.
+                .with_positioner(WindowPositioner::new(
+                    winit::window::WindowAnchor::TopLeft,
+                    (
+                        winit::dpi::LogicalPosition::new(0., 0.).into(),
+                        winit::dpi::LogicalSize::new(1., 1.).into(),
+                    ),
+                    winit::dpi::LogicalPosition::new(0., 0.).into(),
+                    winit::window::WindowGravity::BottomRight,
+                    winit::window::WindowConstraintAdjustment::SLIDE_X
+                        | winit::window::WindowConstraintAdjustment::SLIDE_Y,
+                ));
+
+            if let Ok(parent) = winit_window.window_handle() {
+                window_attributes =
+                    unsafe { window_attributes.with_parent_window(Some(parent.as_raw())) };
+
+                if let Ok(adapter) = crate::create_renderer(&self.shared_backend_data).map_or_else(
+                    |e| {
+                        crate::try_create_window_with_fallback_renderer(
+                            &self.shared_backend_data.clone(),
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar,
+                            self.self_weak.clone(),
+                        )
+                        .ok_or_else(|| {
+                            format!("Winit backend failed to find a suitable renderer: {e}")
+                        })
+                    },
+                    |renderer| {
+                        Ok(WinitWindowAdapter::new(
+                            self.shared_backend_data.clone(),
+                            renderer,
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar,
+                            self.self_weak.clone(),
+                        ))
+                    },
+                ) {
+                    adapter.support_native_popup.set(self.support_native_popup.get());
+                    // Add to inactive_windows so that it gets shown in the next event loop round
+                    self.shared_backend_data
+                        .inactive_windows
+                        .borrow_mut()
+                        .push(Rc::downgrade(&adapter));
+
+                    return Some(adapter as _);
+                }
+            }
+        }
+        None
     }
 
     #[cfg(muda)]
