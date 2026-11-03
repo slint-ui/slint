@@ -617,14 +617,15 @@ impl SoftwareRenderer {
                 {
                     let gradient_background = gradient_background(&background);
                     if !gradient_background.is_some_and(Brush::is_opaque) {
-                        let mut bg = TargetPixel::background();
-                        if gradient_background.is_none() {
-                            TargetPixel::blend(&mut bg, background.color().into());
-                        }
+                        let background_color = if gradient_background.is_none() {
+                            background.color().into()
+                        } else {
+                            PremultipliedRgbaColor::default()
+                        };
                         renderer.actual_renderer.processor.foreach_ranges(
                             &dirty_region.bounding_rect(),
                             |_, buffer, _, _| {
-                                buffer.fill(bg);
+                                fill_background(buffer, background_color);
                             },
                         );
                     }
@@ -1315,6 +1316,16 @@ where
     }
 }
 
+fn fill_background<Pixel: TargetPixel>(buffer: &mut [Pixel], color: PremultipliedRgbaColor) {
+    if color.alpha == u8::MAX {
+        Pixel::blend_slice(buffer, color);
+    } else {
+        let mut background = Pixel::background();
+        background.blend(color);
+        buffer.fill(background);
+    }
+}
+
 fn render_window_frame_by_line(
     window: &WindowInner,
     background: Brush,
@@ -1327,10 +1338,11 @@ fn render_window_frame_by_line(
 
     let to_draw_tr = scene.dirty_region.bounding_rect();
 
-    let mut background_color = TargetPixel::background();
-    if gradient_background.is_none() {
-        TargetPixel::blend(&mut background_color, background.color().into());
-    }
+    let background_color = if gradient_background.is_none() {
+        background.color().into()
+    } else {
+        PremultipliedRgbaColor::default()
+    };
 
     while scene.current_line < to_draw_tr.origin.y_length() + to_draw_tr.size.height_length() {
         for r in &scene.current_line_ranges {
@@ -1352,7 +1364,7 @@ fn render_window_frame_by_line(
                     let items = match first_cover {
                         Some(i) => &items[..=i],
                         None => {
-                            line_buffer.fill(background_color);
+                            fill_background(line_buffer, background_color);
                             items
                         }
                     };
@@ -3987,4 +3999,30 @@ fn rounded_rectangle_partial_render_is_identical() {
             processor.process_rectangle(&args, *clip, &[])
         });
     }
+}
+
+#[test]
+fn background_fill_clears_previous_pixels_with_matching_alpha() {
+    use i_slint_core::graphics::Rgb8Pixel;
+
+    fn check<Pixel: TargetPixel + bytemuck::Pod>(initial: Pixel) {
+        for alpha in 0..=255 {
+            let color = PremultipliedRgbaColor::from(Color::from_argb_u8(alpha, 213, 97, 41));
+            let mut expected = Pixel::background();
+            expected.blend(color);
+            for len in [0, 1, 31, 32, 320] {
+                let mut actual = alloc::vec![initial; len];
+                fill_background(&mut actual, color);
+                assert_eq!(
+                    bytemuck::cast_slice::<Pixel, u8>(&actual),
+                    bytemuck::cast_slice::<Pixel, u8>(&alloc::vec![expected; len]),
+                    "alpha {alpha}, length {len}"
+                );
+            }
+        }
+    }
+    check(Rgb8Pixel::new(41, 119, 213));
+    check(Rgb565Pixel::from_rgb(41, 119, 213));
+    check(Rgb565BigEndianPixel::from_rgb(41, 119, 213));
+    check(PremultipliedRgbaColor::from(Color::from_argb_u8(81, 41, 119, 213)));
 }

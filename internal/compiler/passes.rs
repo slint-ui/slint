@@ -23,6 +23,8 @@ mod default_geometry;
 mod deprecated_rotation_origin;
 #[cfg(feature = "renderer-software")]
 mod embed_glyphs;
+#[cfg(feature = "renderer-software")]
+pub use embed_glyphs::SystemFonts;
 mod embed_images;
 mod flickable;
 mod focus_handling;
@@ -353,7 +355,10 @@ pub async fn run_passes(
                 std::iter::once(&*doc).chain(type_loader.all_documents()),
                 diag,
             );
-            embed_glyphs::shared_font_collection(custom)
+            embed_glyphs::shared_font_collection(
+                custom,
+                type_loader.compiler_config.system_fonts.as_ref(),
+            )
         });
     #[cfg(not(feature = "renderer-software"))]
     let font_collection: Option<embed_images::SharedFontCollection> = None;
@@ -364,6 +369,8 @@ pub async fn run_passes(
         type_loader.compiler_config.const_scale_factor.unwrap_or(1.),
         &type_loader.compiler_config.resource_url_mapper,
         font_collection.as_ref(),
+        #[cfg(feature = "renderer-software")]
+        type_loader.compiler_config.resource_cache.as_ref(),
         diag,
     )
     .await;

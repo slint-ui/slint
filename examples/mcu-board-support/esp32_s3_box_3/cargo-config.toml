@@ -5,7 +5,7 @@
 ESP_LOG = "INFO"
 
 [target.xtensa-esp32s3-none-elf]
-runner = "espflash flash --monitor --flash-size 16mb"
+runner = "espflash flash --monitor --flash-size 16mb --flash-mode qio"
 rustflags = ["-C", "link-arg=-Wl,-Tlinkall.x"]
 
 [build]

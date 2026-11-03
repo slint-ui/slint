@@ -38,9 +38,8 @@ xtask = "run --locked --package xtask --"
 rustflags = [
   "-C",
   "link-arg=-nostartfiles",
-  # Without this flag, we get miscompilation of floating point operations that cause the clipping region to be totally wrong
   "-C",
-  "target-feature=-fp",
+  "target-feature=+fp",
 ]
 
 [target.xtensa-esp32s2-none-elf]

@@ -44,7 +44,7 @@ slint-build = { path = "../../api/rs/build" }
 [workspace]
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
 debug = true
 
 # The Xtensa LLVM backend fails on the compiler at "s", "z" and 1 ("Cannot select").

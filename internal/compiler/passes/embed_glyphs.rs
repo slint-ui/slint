@@ -22,6 +22,16 @@ use skrifa::MetadataProvider;
 #[derive(Clone)]
 struct Font {
     font: fontique::QueryFont,
+    source: std::sync::Arc<std::sync::OnceLock<crate::resource_cache::FontSource>>,
+}
+
+impl Font {
+    fn new(font: fontique::QueryFont) -> Self {
+        Self { font, source: Default::default() }
+    }
+    fn source(&self) -> crate::resource_cache::FontSource {
+        self.source.get_or_init(|| crate::resource_cache::FontSource::new(&self.font)).clone()
+    }
 }
 
 /// The fontique collection shared by `embed_glyphs` and `embed_images`, together
@@ -64,12 +74,42 @@ pub fn read_custom_fonts<'a>(
     fonts
 }
 
+/// A system-font snapshot reusable across compilations.
+/// Imported fonts and fonts selected through environment variables remain local to each compilation.
+/// Create a new snapshot to discover installed or removed system fonts.
+#[cfg(feature = "renderer-software")]
+#[derive(Clone)]
+pub struct SystemFonts(std::sync::Arc<std::sync::LazyLock<std::sync::Mutex<fontique::Collection>>>);
+
+#[cfg(feature = "renderer-software")]
+impl Default for SystemFonts {
+    fn default() -> Self {
+        Self(std::sync::Arc::new(std::sync::LazyLock::new(|| {
+            std::sync::Mutex::new(sharedfontique::system_collection(false))
+        })))
+    }
+}
+
+#[cfg(feature = "renderer-software")]
+impl SystemFonts {
+    fn collection(&self, shared: bool) -> sharedfontique::Collection {
+        sharedfontique::init_collection(self.0.lock().unwrap().clone(), shared)
+    }
+}
+
 /// Wraps the system fonts plus the imported `custom_fonts` into a [`SharedFontCollection`].
 #[cfg(feature = "renderer-software")]
-pub fn shared_font_collection(custom_fonts: Vec<(SourcePath, Vec<u8>)>) -> SharedFontCollection {
+pub fn shared_font_collection(
+    custom_fonts: Vec<(SourcePath, Vec<u8>)>,
+    system_fonts: Option<&SystemFonts>,
+) -> SharedFontCollection {
+    let system_fonts = system_fonts.cloned();
     let init: Box<dyn FnOnce() -> std::sync::Mutex<FontCollection> + Send + Sync> =
         Box::new(move || {
-            let mut collection = sharedfontique::create_collection(true);
+            let mut collection = system_fonts.map_or_else(
+                || sharedfontique::create_collection(true),
+                |system| system.collection(true),
+            );
             let mut custom_font_paths = HashMap::new();
             let mut custom_font_map = BTreeMap::new();
             for (path, bytes) in custom_fonts {
@@ -154,7 +194,7 @@ pub fn embed_glyphs(
         }
     }
 
-    let fallback_fonts = get_fallback_fonts();
+    let fallback_fonts = get_fallback_fonts(compiler_config.system_fonts.as_ref());
 
     // The collection (system fonts + imported fonts) is built once and shared with
     // `embed_images`; the imported-font paths come with it.
@@ -297,6 +337,7 @@ pub fn embed_glyphs(
         let axes = font_ref.axes();
         let wght_axis = axes.iter().find(|axis| axis.tag() == skrifa::Tag::new(b"wght"));
 
+        let font = Font::new(font.clone());
         if let Some(wght_axis) = wght_axis {
             // Variable font: embed one BitmapFont per requested weight
             let weights = if font_weights.is_empty() {
@@ -311,7 +352,7 @@ pub fn embed_glyphs(
 
                 let embedded = embed_font(
                     family_name.to_owned(),
-                    Font { font: font.clone() },
+                    font.clone(),
                     &pixel_sizes,
                     characters_seen.iter().cloned(),
                     &fallback_fonts,
@@ -326,7 +367,7 @@ pub fn embed_glyphs(
             // Static font: embed once
             let embedded = embed_font(
                 family_name.to_owned(),
-                Font { font: font.clone() },
+                font.clone(),
                 &pixel_sizes,
                 characters_seen.iter().cloned(),
                 &fallback_fonts,
@@ -352,10 +393,13 @@ pub fn embed_glyphs(
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
-fn get_fallback_fonts() -> Vec<Font> {
+fn get_fallback_fonts(system_fonts: Option<&SystemFonts>) -> Vec<Font> {
     let mut fallback_fonts = Vec::new();
 
-    let mut collection = sharedfontique::create_collection(false);
+    let mut collection = system_fonts.map_or_else(
+        || sharedfontique::create_collection(false),
+        |system| system.collection(false),
+    );
     let mut query = collection.query();
     query.set_families(
         sharedfontique::FALLBACK_FAMILIES.into_iter().map(fontique::QueryFamily::Generic).chain(
@@ -364,7 +408,7 @@ fn get_fallback_fonts() -> Vec<Font> {
     );
 
     query.matches_with(|query_font| {
-        fallback_fonts.push(Font { font: query_font.clone() });
+        fallback_fonts.push(Font::new(query_font.clone()));
         fontique::QueryStatus::Continue
     });
 
@@ -385,14 +429,58 @@ fn embed_font(
 ) -> BitmapFont {
     let coords_i16: Vec<i16> = normalized_coords.iter().map(|c| c.to_bits()).collect();
 
+    #[cfg(feature = "sdf-fonts")]
+    let sdf = _compiler_config.use_sdf_fonts;
+    #[cfg(not(feature = "sdf-fonts"))]
+    let sdf = false;
+    let glyph_count = character_coverage.size_hint().0.saturating_mul(pixel_sizes.len());
+    let caching = _compiler_config.resource_cache.is_some()
+        && (sdf || font.font.blob.data().len() <= 1024 * 1024 || glyph_count >= 1024);
+    let mut sources = if caching { vec![font.source()] } else { Vec::new() };
+    let mut character_sources = Vec::new();
     let character_map: Vec<char> = character_coverage
-        .filter(|code_point| {
-            core::iter::once(&font)
+        .filter(|ch| {
+            let Some(selected) = core::iter::once(&font)
                 .chain(fallback_fonts.iter())
-                .any(|font| swash_font_ref(font).charmap().map(*code_point) != 0)
+                .find(|font| swash_font_ref(font).charmap().map(*ch) != 0)
+            else {
+                return false;
+            };
+            if caching {
+                let selected = selected.source();
+                let index =
+                    if let Some(index) = sources.iter().position(|source| source == &selected) {
+                        index
+                    } else {
+                        sources.push(selected);
+                        sources.len() - 1
+                    };
+                character_sources.push(index);
+            }
+            true
         })
         .collect();
     assert!(character_map.len() <= u16::MAX as usize, "more than 65535 glyphs are not supported");
+
+    let key = _compiler_config.resource_cache.as_ref().map(|_| crate::resource_cache::FontKey {
+        family: family_name.clone(),
+        sources,
+        character_sources,
+        characters: character_map.clone(),
+        pixel_sizes: pixel_sizes.to_vec(),
+        normalized_coords: coords_i16.clone(),
+        variations: _variations.iter().map(|(tag, value)| (*tag, value.to_bits())).collect(),
+        weight: override_weight,
+        #[cfg(feature = "sdf-fonts")]
+        sdf: _compiler_config.use_sdf_fonts,
+        #[cfg(not(feature = "sdf-fonts"))]
+        sdf: false,
+    });
+    if let Some(font) =
+        key.as_ref().and_then(|key| _compiler_config.resource_cache.as_ref()?.font(key))
+    {
+        return font;
+    }
 
     #[cfg(feature = "sdf-fonts")]
     let glyphs = if _compiler_config.use_sdf_fonts {
@@ -410,7 +498,7 @@ fn embed_font(
         skrifa::metrics::Metrics::new(&font_ref, skrifa::instance::Size::unscaled(), location);
     let attrs = skrifa::attribute::Attributes::new(&font_ref);
 
-    BitmapFont {
+    let result = BitmapFont {
         family_name: family_name.into_bytes(),
         character_map,
         units_per_em: metrics.units_per_em as f32,
@@ -425,7 +513,11 @@ fn embed_font(
         sdf: _compiler_config.use_sdf_fonts,
         #[cfg(not(feature = "sdf-fonts"))]
         sdf: false,
+    };
+    if let Some(key) = key {
+        _compiler_config.resource_cache.as_ref().unwrap().insert_font(key, &result);
     }
+    result
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -746,4 +838,38 @@ pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut BTr
             }
         })
     })
+}
+
+#[cfg(all(test, feature = "renderer-software"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fallback_snapshot_matches_fresh_discovery() {
+        let expected = get_fallback_fonts(None);
+        let system = SystemFonts::default();
+        for _ in 0..2 {
+            let actual = get_fallback_fonts(Some(&system));
+            assert_eq!(actual.len(), expected.len());
+            assert!(
+                actual.iter().zip(&expected).all(|(a, b)| a.font.index == b.font.index
+                    && a.font.blob.data() == b.font.blob.data())
+            );
+        }
+    }
+
+    #[test]
+    fn system_font_snapshot_keeps_imported_fonts_local_to_a_compilation() {
+        let system = SystemFonts::default();
+        let path = SourcePath::File("imported.ttf".into());
+        let bytes = include_bytes!("../../common/sharedfontique/Inter-VariableFont.ttf").to_vec();
+        let imported = shared_font_collection(vec![(path.clone(), bytes)], Some(&system));
+        let family = imported.lock().unwrap().custom_fonts[&path].family.0;
+
+        let next = shared_font_collection(Vec::new(), Some(&system));
+        let mut next = next.lock().unwrap();
+        assert!(next.custom_fonts.is_empty());
+        assert!(next.custom_font_paths.is_empty());
+        assert!(next.collection.family(family).is_none());
+    }
 }

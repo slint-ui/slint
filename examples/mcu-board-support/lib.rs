@@ -6,6 +6,10 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![no_std]
+#![cfg_attr(
+    all(target_arch = "xtensa", feature = "box-optimized-display"),
+    feature(asm_experimental_arch)
+)]
 
 extern crate alloc;
 
@@ -40,7 +44,8 @@ mod stm32u5g9j_dk2;
 pub use stm32u5g9j_dk2::*;
 
 #[cfg(feature = "esp32-s3-box-3")]
-#[path = "esp32_s3_box_3/esp32_s3_box_3.rs"]
+#[cfg_attr(not(feature = "box-optimized-display"), path = "esp32_s3_box_3/esp32_s3_box_3.rs")]
+#[cfg_attr(feature = "box-optimized-display", path = "esp32_s3_box_3/optimized.rs")]
 mod esp32_s3_box_3;
 #[cfg(feature = "esp32-s3-box-3")]
 pub use esp_hal::main as entry;
