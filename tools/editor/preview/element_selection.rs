@@ -232,8 +232,8 @@ pub fn highlight_positions(
 ) -> slint::ModelRc<ui::SelectionRectangle> {
     // The model holds a preview instance, so bindings must recreate it after a reload.
     super::PREVIEW_STATE.with_borrow(|state| {
-        if let Some(api) = state.api.upgrade() {
-            api.get_inspector_generation();
+        if let Some(properties_api) = state.properties.upgrade() {
+            properties_api.get_inspector_generation();
         }
     });
     let Some(component_instance) = super::component_instance() else {

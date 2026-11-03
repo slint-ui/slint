@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties } from "../../../properties.slint";
+
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
-import { Api } from "../../../api.slint";
+
 import { EditorAngles } from "../../index.slint";
 import { InspectorPropertyRow, InspectorRotationKnob, InspectorSection, InspectorValueField } from "../index.slint";
 import { InspectorContext } from "context.slint";
@@ -66,11 +68,11 @@ export component InspectorGeometrySection inherits InspectorSection {
         label: @tr("Rotation");
         height: Metrics.control-large;
         knob := InspectorRotationKnob {
-            value: Api.editor-number-property("transform-rotation", 0);
+            value: Properties.editor-number-property("transform-rotation", 0);
             commit-key: InspectorContext.inspector-key;
             preview(value) => { return InspectorContext.preview-number("transform-rotation", value, "deg"); }
             accepted(value) => { return InspectorContext.commit-number("transform-rotation", value, "deg"); }
-            canceled => { Api.inspector-cancel(); }
+            canceled => { Properties.inspector-cancel(); }
         }
         InspectorValueField {
             width: parent.width - root.style.label-width - 2 * root.style.padding - 2 * root.style.row-gap - knob.width;
@@ -80,7 +82,7 @@ export component InspectorGeometrySection inherits InspectorSection {
             scrubbable: true; scrub-value: knob.visual-value;
             scrub-preview(value) => { return InspectorContext.preview-number("transform-rotation", value, "deg"); }
             scrub-accepted(value) => { return InspectorContext.commit-number("transform-rotation", value, "deg"); }
-            scrub-canceled(value) => { Api.inspector-cancel(); }
+            scrub-canceled(value) => { Properties.inspector-cancel(); }
             accepted(text) => { return text.is-float() && InspectorContext.commit-number("transform-rotation", text.to-float(), "deg"); }
         }
     }

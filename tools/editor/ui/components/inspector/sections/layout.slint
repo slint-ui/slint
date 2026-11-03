@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties, PropertyValue } from "../../../properties.slint";
+
 import { Style, InspectorStyle } from "../../../style.slint";
-import { Api, PropertyValue } from "../../../api.slint";
+
 import { InspectorPropertyRow, InspectorSection, InspectorValueField } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
@@ -14,8 +16,8 @@ export component InspectorLayoutSection inherits InspectorSection {
     for name in ["padding", "spacing"]: InspectorPropertyRow {
         label: name == "padding" ? @tr("Padding") : @tr("Spacing");
         InspectorValueField {
-            property <PropertyValue> layout-value: Api.source-property-value-data(name, {});
-            property <PropertyValue> editor-value: Api.editor-property-value-data(name);
+            property <PropertyValue> layout-value: Properties.source-property-value-data(name, {});
+            property <PropertyValue> editor-value: Properties.editor-property-value-data(name);
             property <bool> numeric-value: self.layout-value.code == ""
                 || (self.layout-value.is-number-literal
                     && self.layout-value.value-resolved
@@ -28,7 +30,7 @@ export component InspectorLayoutSection inherits InspectorSection {
             scrub-has-minimum: true;
             scrub-preview(value) => { return InspectorContext.preview-number(name, value, "px"); }
             scrub-accepted(value) => { return InspectorContext.commit-number(name, value, "px"); }
-            scrub-canceled(value) => { Api.inspector-cancel(); }
+            scrub-canceled(value) => { Properties.inspector-cancel(); }
             accepted(text) => {
                 return text.is-float() ? InspectorContext.commit-number(name, text.to-float(), "px") : InspectorContext.commit-code(name, text);
             }

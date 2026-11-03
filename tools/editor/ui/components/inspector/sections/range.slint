@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../../api.slint";
+import { Properties } from "../../../properties.slint";
+
 import { InspectorEditableField, InspectorPropertyRow, InspectorSection } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
@@ -15,7 +16,7 @@ export component InspectorRangeSection inherits InspectorSection {
 
         InspectorEditableField {
             accessible-name: @tr("Range value");
-            value: InspectorContext.property-number-label("value", Api.source-property-value("minimum", "0"));
+            value: InspectorContext.property-number-label("value", Properties.source-property-value("minimum", "0"));
             commit-key: InspectorContext.field-key("value");
             accepted(text) => {
                 return text.is-float() ? InspectorContext.commit-number("value", text.to-float(), "") : InspectorContext.commit-code("value", text);

@@ -74,7 +74,10 @@ pub fn initialize(
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         *preview_state.to_lsp.borrow_mut() = Some(to_lsp.clone());
         let api = editor_ui.global::<ui::Api>();
+        let properties_api = editor_ui.global::<ui::Properties>();
         preview_state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+        preview_state.properties =
+            <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
         preview_state.editor_ui = Some(editor_ui.clone_strong());
         preview_state.settings = settings;
     });
@@ -279,6 +282,7 @@ fn set_override(id: &SmolStr, value: Option<slint_interpreter::Value>) {
 pub struct PreviewState {
     pub editor_ui: Option<ui::EditorUi>,
     pub api: slint::Weak<ui::Api<'static>>,
+    pub properties: slint::Weak<ui::Properties<'static>>,
     property_range_declarations: Option<ui::PropertyDeclarations>,
     /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
@@ -371,9 +375,10 @@ impl PreviewState {
         self.inspector_edit = None;
         self.resources.clear();
         if let Some(api) = self.api.upgrade() {
+            let properties_api = self.properties.upgrade().unwrap();
             api.set_preview_area(Default::default());
             api.set_current_element(Default::default());
-            api.set_properties(Default::default());
+            properties_api.set_properties(Default::default());
             api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
             ui::ui_set_project_components(&api, &[]);
             ui::ui_set_preview_data(&api, Default::default(), None);
@@ -2236,12 +2241,13 @@ fn previewed_component_changed() {
                 .unwrap_or_default();
 
             if let Some(api) = preview_state.api.upgrade() {
+                let properties_api = preview_state.properties.upgrade().unwrap();
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes =
                         ui::palette::collect_palette(&document_cache, &previewed_url, &win);
-                    ui::palette::set_palette(&api, palettes);
+                    ui::palette::set_palette(&properties_api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
                 ui::ui_set_project_components(&api, &preview_state.known_components);
@@ -2969,6 +2975,7 @@ fn set_selected_element(
         };
 
         if let Some(api) = preview_state.api.upgrade() {
+            let properties_api = preview_state.properties.upgrade().unwrap();
             api.set_selection(ui::Selection {
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
@@ -2993,7 +3000,7 @@ fn set_selected_element(
                     let win = i_slint_core::window::WindowInner::from_pub(editor_ui.window())
                         .window_adapter();
                     let palettes = ui::palette::collect_palette(&document_cache, &uri, &win);
-                    ui::palette::set_palette(&api, palettes);
+                    ui::palette::set_palette(&properties_api, palettes);
                 }
 
                 let in_layout = match parent_layout_kind {
@@ -3006,6 +3013,7 @@ fn set_selected_element(
                 if let Some(editor_ui) = &preview_state.editor_ui {
                     preview_state.property_range_declarations = Some(ui::ui_set_properties(
                         &api,
+                        &properties_api,
                         editor_ui.window(),
                         &document_cache,
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
@@ -3016,7 +3024,7 @@ fn set_selected_element(
                     && !preview_state.workspace_edit_sent)
             {
                 api.set_current_element(Default::default());
-                api.set_properties(Default::default());
+                properties_api.set_properties(Default::default());
                 api.set_selection(ui::Selection { highlight_index: -1, ..Default::default() });
                 preview_state.property_range_declarations = None;
                 selection = None;
@@ -3547,10 +3555,13 @@ mod tests {
         reset_preview_state(Default::default());
         let editor = ui::create_ui().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         ui::diagnostics::setup(&editor.global::<ui::Diagnostics>());
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.editor_ui = Some(editor.clone_strong());
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.properties =
+                <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.set_current_component(PreviewComponent {
                 url: i_slint_editor_preview::test::main_test_file_name().to_url().unwrap(),
                 component: None,
@@ -4105,12 +4116,15 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let editor = ui::EditorUi::new().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         for notification in [SelectionNotification::Never, SelectionNotification::Now] {
             let notify_now = notification == SelectionNotification::Now;
             let messages = Rc::new(RefCell::new(Vec::new()));
             reset_preview_state(messages.clone());
             PREVIEW_STATE.with_borrow_mut(|state| {
                 state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+                state.properties =
+                    <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             });
 
             set_selected_element(
@@ -4410,10 +4424,13 @@ export component Main inherits Rectangle {
         reset_preview_state(Default::default());
         let editor = ui::EditorUi::new().unwrap();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         let path = std::env::temp_dir().join("inspector-push.slint");
         let url = Url::from_file_path(&path).unwrap();
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.api = <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api);
+            state.properties =
+                <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api);
             state.selected = Some(ElementSelection {
                 path: SourcePath::new(path),
                 offset: 0.into(),
@@ -4426,14 +4443,14 @@ export component Main inherits Rectangle {
                 .insert(url.clone(), SourceCodeCacheEntry { version: Some(1), code: "old".into() });
         });
         set_contents(&VersionedUrl::new(url.clone(), Some(1)), "old".into());
-        assert_eq!(api.get_inspector_generation(), 0);
+        assert_eq!(properties_api.get_inspector_generation(), 0);
         let unrelated = Url::from_file_path(std::env::temp_dir().join("unrelated.slint")).unwrap();
         set_contents(&VersionedUrl::new(unrelated, Some(2)), "other".into());
-        assert_eq!(api.get_inspector_generation(), 0);
+        assert_eq!(properties_api.get_inspector_generation(), 0);
         set_contents(&VersionedUrl::new(url.clone(), Some(2)), "old".into());
-        assert_eq!(api.get_inspector_generation(), 1);
+        assert_eq!(properties_api.get_inspector_generation(), 1);
         set_contents(&VersionedUrl::new(url, Some(2)), "new".into());
-        assert_eq!(api.get_inspector_generation(), 2);
+        assert_eq!(properties_api.get_inspector_generation(), 2);
         reset_preview_state(Default::default());
     }
 
@@ -4561,13 +4578,13 @@ export component Main {
 
     fn inspector_test_target(editor: &ui::EditorUi, source: &str) {
         apply_availability_test_source(editor, source, true);
-        let api = editor.global::<ui::Api>();
-        api.on_inspector_preview(inspector::preview_property);
-        api.on_inspector_commit(inspector::commit_properties);
-        api.on_inspector_cancel(inspector::cancel);
+        let properties_api = editor.global::<ui::Properties>();
+        properties_api.on_inspector_preview(inspector::preview_property);
+        properties_api.on_inspector_commit(inspector::commit_properties);
+        properties_api.on_inspector_cancel(inspector::cancel);
         slint_editor::component_support::recent_fills::setup(
-            &api,
-            <ui::Api as slint::Global<'_, ui::EditorUi>>::as_weak(&api),
+            &properties_api,
+            <ui::Properties as slint::Global<'_, ui::EditorUi>>::as_weak(&properties_api),
         );
         element_selection::restore_selection(
             ElementSelection {
@@ -4716,6 +4733,7 @@ export component Main {
         inspector_test_target(&editor, &source);
         let messages = inspector_test_messages();
         let api = editor.global::<ui::Api>();
+        let properties_api = editor.global::<ui::Properties>();
         let first = slint::Color::from_rgb_u8(255, 0, 0);
         let border = slint::Color::from_rgb_u8(0, 0, 255);
         let latest = slint::Color::from_rgb_u8(0, 255, 0);
@@ -4734,12 +4752,12 @@ export component Main {
                 }
             ));
         }
-        assert_eq!(api.get_recent_fills().row_count(), 0);
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
         assert!(inspector::commit_properties());
         assert!(file_edit_pending());
         assert!(api.get_undo_enabled());
         assert_eq!(
-            api.get_recent_fills().iter().map(|fill| fill.color).collect::<Vec<_>>(),
+            properties_api.get_recent_fills().iter().map(|fill| fill.color).collect::<Vec<_>>(),
             [latest, border]
         );
         let edit = inspector_test_workspace_edit(&messages.as_ref().borrow());
@@ -4749,7 +4767,7 @@ export component Main {
         assert!(result[0].contents.contains("drop-shadow-color: #778899;"));
         assert!(!inspector::commit_properties());
         inspector::cancel();
-        assert_eq!(api.get_recent_fills().row_count(), 2);
+        assert_eq!(properties_api.get_recent_fills().row_count(), 2);
         reset_preview_state(Default::default());
     }
 
@@ -4782,7 +4800,7 @@ export component Main {
                     PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
                 }
             }
-            assert_eq!(editor.global::<ui::Api>().get_recent_fills().row_count(), 0);
+            assert_eq!(editor.global::<ui::Properties>().get_recent_fills().row_count(), 0);
             assert!(messages.as_ref().borrow().is_empty());
             PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
         }
@@ -4824,8 +4842,9 @@ export component Main {
                     PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
                 }
                 _ => {
-                    let api = editor.global::<ui::Api>();
-                    api.set_inspector_generation(api.get_inspector_generation() + 1);
+                    let properties_api = editor.global::<ui::Properties>();
+                    properties_api
+                        .set_inspector_generation(properties_api.get_inspector_generation() + 1);
                     assert!(!inspector::commit_properties());
                 }
             }
