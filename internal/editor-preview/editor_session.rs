@@ -1114,12 +1114,13 @@ impl EditorSession {
         if roots.iter().any(|root| SourcePath::from_url(root) == SourcePath::from_url(&url)) {
             self.reload_document_without_project_discovery(url, &mut BuildDiagnostics::default())
                 .await;
+            Ok(Default::default())
         } else if self.forget_rust_macro_edition(&url) {
-            return self.reapply_effective_configuration().await;
+            self.reapply_effective_configuration().await
         } else {
-            self.document_cache.retain_documents(&roots)?;
+            let removed = self.document_cache.retain_documents(&roots)?;
+            Ok(removed.into_iter().map(|url| (url, None, Vec::new())).collect())
         }
-        Ok(Default::default())
     }
 
     pub async fn load_document(
@@ -1267,6 +1268,7 @@ impl EditorSession {
         let version = self.document_cache.document_version(&url);
 
         self.drop_document_impl(url.clone())?;
+        self.document_cache.forget_file_dependencies(&url);
 
         let mut diagnostics = match self.forget_rust_macro_edition(&url) {
             true => self.reapply_effective_configuration().await?,
@@ -1778,6 +1780,27 @@ mod preview_tests {
         for messages in &messages {
             assert_project_contents(messages, &url, disk, None);
         }
+    }
+
+    #[test]
+    fn closing_a_document_outside_the_roots_clears_the_diagnostics_of_what_it_loaded() {
+        let project = tempfile::tempdir().unwrap();
+        let imported = project.path().join("imported.slint");
+        std::fs::write(&imported, "export component Imported {}").unwrap();
+        let url = Url::from_file_path(project.path().join("main.slint")).unwrap();
+        let source =
+            r#"import { Imported } from "imported.slint"; export component Main { Imported {} }"#;
+        let mut session = crate::test::session_with(crate::test::empty_document_cache());
+        spin_on::spin_on(session.open_document(source.into(), url.clone(), Some(1))).unwrap();
+
+        let diagnostics = spin_on::spin_on(session.close_document(url.clone())).unwrap();
+
+        let cleared = diagnostics
+            .into_iter()
+            .map(|(url, version, diagnostics)| (url, version, diagnostics.is_empty()))
+            .collect::<HashSet<_>>();
+        let imported = Url::from_file_path(&imported).unwrap();
+        assert_eq!(cleared, HashSet::from([(url, None, true), (imported, None, true)]));
     }
 
     #[test]

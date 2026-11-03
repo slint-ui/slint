@@ -50,7 +50,7 @@ struct LoadedDocuments {
     /// The dependencies of the currently loaded files.
     /// Maps all the files that depends directly on the key
     dependencies: HashMap<SourcePath, HashSet<SourcePath>>,
-    /// The files each document imports or references, see [`TypeLoader::drop_document`].
+    /// The files each document imports or references.
     file_dependencies: HashMap<SourcePath, HashSet<SourcePath>>,
 }
 
@@ -1074,7 +1074,7 @@ impl TypeLoader {
     /// Returns the list of all (transitive) dependencies.
     ///
     /// This forces the compiler to entirely reload the document from scratch.
-    /// Its file dependencies remain available until it reloads or [`Self::retain_documents`] removes it.
+    /// Its file dependencies remain available until it reloads or [`Self::forget_file_dependencies`] removes them.
     /// To only cause a re-analyze, but not a reparse, use [Self::invalidate_document]
     pub fn drop_document(
         &mut self,
@@ -1088,6 +1088,14 @@ impl TypeLoader {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path} is still loading")))
         } else {
             Ok(dependencies)
+        }
+    }
+
+    /// Removes the file dependencies of a dropped document that won't reload,
+    /// such as one whose file is deleted.
+    pub fn forget_file_dependencies(&mut self, path: &SourcePath) {
+        if self.all_documents.file_dependencies.remove(path).is_some() {
+            self.bump_revision();
         }
     }
 
@@ -1159,7 +1167,7 @@ impl TypeLoader {
             .collect::<HashSet<_>>();
         for path in &removed {
             self.drop_document(path)?;
-            self.all_documents.file_dependencies.remove(path);
+            self.forget_file_dependencies(path);
         }
         Ok(removed)
     }

@@ -294,4 +294,33 @@ mod tests {
             assert!(!after_close.allows(path), "{}", path.display());
         }
     }
+
+    #[test]
+    fn revokes_the_files_of_a_deleted_import_but_keeps_its_path() {
+        use i_slint_live_preview::file_watcher::FileChangeKind;
+
+        let project = tempfile::tempdir().unwrap();
+        let [main, imported, image] =
+            ["main.slint", "imported.slint", "logo.png"].map(|file| project.path().join(file));
+        std::fs::write(&image, []).unwrap();
+        std::fs::write(
+            &imported,
+            r#"export component Imported { Image { source: @image-url("logo.png"); } }"#,
+        )
+        .unwrap();
+        let source = r#"import { Imported } from "imported.slint";
+            export component Main { Imported {} }"#;
+        let mut session = crate::test::session_with(empty_document_cache());
+        crate::test::load(&mut session, &main, source);
+        assert!(access(&session.document_cache).allows(&image));
+
+        std::fs::remove_file(&imported).unwrap();
+        let imported_url = lsp_types::Url::from_file_path(&imported).unwrap();
+        spin_on::spin_on(session.trigger_file_watcher(imported_url, FileChangeKind::Deleted))
+            .unwrap();
+
+        let access = access(&session.document_cache);
+        assert!(access.allows(&imported));
+        assert!(!access.allows(&image));
+    }
 }

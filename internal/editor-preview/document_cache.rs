@@ -352,6 +352,10 @@ impl DocumentCache {
         Ok(self.type_loader.drop_document(&path)?.iter().filter_map(|path| path.to_url()).collect())
     }
 
+    pub fn forget_file_dependencies(&mut self, url: &Url) {
+        self.type_loader.forget_file_dependencies(&SourcePath::from_url(url));
+    }
+
     /// Invalidate a document and all its dependencies.
     /// return the list of dependencies that were invalidated.
     ///
