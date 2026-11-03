@@ -121,6 +121,25 @@ mod tests {
         assert!(!access.allows(&unused));
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn reads_a_referenced_image_through_a_symlinked_directory() {
+        let [project, elsewhere] = [(); 2].map(|_| tempfile::tempdir().unwrap());
+        std::fs::write(elsewhere.path().join("logo.png"), []).unwrap();
+        let assets = project.path().join("assets");
+        std::os::unix::fs::symlink(elsewhere.path(), &assets).unwrap();
+        let source = project.path().join("main.slint");
+        let contents =
+            r#"export component Main { Image { source: @image-url("assets/logo.png"); } }"#;
+        std::fs::write(&source, contents).unwrap();
+
+        let mut session = crate::test::session_with(empty_document_cache());
+        crate::test::load(&mut session, &source, contents);
+        let access = access(&session.document_cache);
+
+        assert!(access.allows(&assets.join("logo.png")));
+    }
+
     #[test]
     fn reads_the_files_of_a_library_outside_the_project() {
         let [project, library] = [(); 2].map(|_| tempfile::tempdir().unwrap());
