@@ -604,7 +604,13 @@ Done:
   - Risks: the download, where `wasm-opt`, trimming, and precompiled `.slint` files without the compiler can help;
     trimming of the generated code; and one thread, so nothing may block, such as a modal dialog's nested event loop.
   - Limits of the backend: one window, which renders into the canvas.
+  - Hot reload, tested with an app from the `slint-web` template of 1.19.0-preview.11:
+    `dotnet watch` applies C# changes while the page runs, and keeps its state.
+    A `.slint` change regenerates the C# code but leaves the embedded file in the running assembly,
+    so it needs a restart with Ctrl+R; the README and the web templates say so.
   - Next, when an app needs it:
+    - Live reload of `.slint` files in the browser, such as by serving them in Debug builds,
+      so that `dotnet watch` refreshes the page or the app recompiles them.
     - Fonts for the scripts that Inter lacks, such as an app's own font through the `.slint` files, embedded like the images.
     - The download: `wasm-opt` on the link, and `.slint` files compiled at build time, so that the compiler stays out of the app.
     - Paths with spaces, the files of several assemblies in directories of their own, and include paths from Windows builds.

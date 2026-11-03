@@ -54,7 +54,8 @@ const server = createServer(async (req, res) => {
   res.writeHead(404).end();
 }).listen(0, '127.0.0.1');
 await new Promise(r => server.once('listening', r));
-const url = `http://127.0.0.1:${server.address().port}/${query}`;
+// URL opens a page that another server serves, such as `dotnet watch`, instead of the folders.
+const url = process.env.URL ?? `http://127.0.0.1:${server.address().port}/${query}`;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const profile = await mkdtemp(join(tmpdir(), 'slint-browser-'));

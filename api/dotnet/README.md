@@ -360,6 +360,7 @@ From another thread, call `EventLoop.InvokeFromEventLoop` to run code on the Sli
 
 Change the UI and the code of a running application without restarting it:
 `.slint` files reload through Slint's live reload, and C# code through .NET Hot Reload.
+In the browser, only C# code reloads, see [Web](#web-preview).
 
 ### `.slint` Files
 
@@ -720,12 +721,15 @@ From 1.19.0-preview.11, the package has the library for the browser.
 Text input works with phones' keyboards and input methods, and copy and paste with the browser's clipboard shortcuts and menu.
 The build embeds the `.slint` files and the images they use in the assembly.
 
+`dotnet watch` applies C# changes while the page runs, and keeps the page's state.
+A `.slint` change needs a restart: press Ctrl+R in `dotnet watch`, which rebuilds the assembly with the new file.
+Reloading the page isn't enough, and `SlintLivePreview` doesn't apply to web projects.
+
 Limits:
 
 - One window, which renders into the canvas.
 - Slint draws text with the Inter font, which it embeds; it can't use the browser's fonts,
   so scripts that Inter lacks, such as Japanese, show no glyphs.
-- No live preview: `SlintLivePreview` doesn't apply to web projects.
 - The download: `dotnet.native.wasm` is about 7 MB with Brotli, which web servers usually serve compressed.
 - A path with a space in it doesn't work for the `.slint` files and images.
 - To use the software renderer instead of WebGL, set `SLINT_BACKEND` before .NET starts:
