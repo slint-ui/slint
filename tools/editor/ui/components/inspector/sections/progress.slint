@@ -21,7 +21,7 @@ export component InspectorProgressSection inherits InspectorSection {
                 self.focus();
                 let requested = self.checked;
                 self.checked = root.indeterminate;
-                InspectorContext.commit-code("indeterminate", requested ? "true" : "false");
+                InspectorContext.commit-boolean("indeterminate", requested);
             }
         }
     }
@@ -31,10 +31,10 @@ export component InspectorProgressSection inherits InspectorSection {
 
         InspectorEditableField {
             accessible-name: @tr("Progress value");
-            value: Api.source-property-value("progress", "0");
+            value: InspectorContext.property-number-label("progress", "0");
             commit-key: InspectorContext.field-key("progress");
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("progress", text);
+                return text.is-float() ? InspectorContext.commit-number("progress", text.to-float(), "") : InspectorContext.commit-code("progress", text);
             }
         }
     }

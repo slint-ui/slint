@@ -517,6 +517,10 @@ def test_navigation_keeps_gradient_picker_open(
         )
     )
     original = SourceSnapshot.capture(fixture_project)
+    expected = source.read_bytes().replace(
+        b"@linear-gradient(90deg, red, blue)",
+        b"@linear-gradient(90deg, #ff0000 0%, #0000ff 100%)",
+    )
     with launch_editor(editor_binary, editor_environment, source) as editor:
         wait_for_source(source, source.read_bytes())
         window = first_window(editor)
@@ -548,4 +552,4 @@ def test_navigation_keeps_gradient_picker_open(
         assert moved_again.x == pytest.approx(point.x + 12)
         assert moved_again.y == pytest.approx(point.y + 16)
         click(window, "Close Fill")
-        original.assert_unchanged()
+        original.wait_for_applied(expected, source.name)

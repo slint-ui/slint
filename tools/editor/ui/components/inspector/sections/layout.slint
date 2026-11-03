@@ -26,11 +26,11 @@ export component InspectorLayoutSection inherits InspectorSection {
             scrubbable: self.numeric-value;
             scrub-value: self.editor-value.value-float;
             scrub-has-minimum: true;
-            scrub-preview(value) => { return Api.inspector-preview-number-temporary(InspectorContext.inspector-key, name, value); }
-            scrub-accepted(value) => { return InspectorContext.commit-inspector(name, value); }
+            scrub-preview(value) => { return InspectorContext.preview-number(name, value, "px"); }
+            scrub-accepted(value) => { return InspectorContext.commit-number(name, value, "px"); }
             scrub-canceled(value) => { Api.inspector-cancel(); }
             accepted(text) => {
-                return text.is-float() ? InspectorContext.commit-inspector(name, text.to-float()) : InspectorContext.commit-code(name, text);
+                return text.is-float() ? InspectorContext.commit-number(name, text.to-float(), "px") : InspectorContext.commit-code(name, text);
             }
         }
     }

@@ -13,10 +13,10 @@ export component InspectorCurrentIndexSection inherits InspectorSection {
 
         InspectorEditableField {
             accessible-name: @tr("Current index");
-            value: Api.source-property-value("current-index", "-1");
+            value: InspectorContext.property-number-label("current-index", "-1");
             commit-key: InspectorContext.field-key("current-index");
             accepted(text) => {
-                return text != "" && InspectorContext.commit-code("current-index", text);
+                return text.is-float() ? InspectorContext.commit-number("current-index", text.to-float(), "") : InspectorContext.commit-code("current-index", text);
             }
         }
     }

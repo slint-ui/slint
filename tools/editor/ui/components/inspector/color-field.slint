@@ -8,7 +8,7 @@ import { InspectorColorValueField } from "color-value-field.slint";
 import { InputSurface } from "../input-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
-import { Api, BrushKind, ColorFieldData, ColorFieldMode, FillData } from "../../api.slint";
+import { Api, PropertyEditKind, BrushKind, ColorFieldData, ColorFieldMode, FillData } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
@@ -42,12 +42,16 @@ export component InspectorColorField inherits Rectangle {
         swatch-visible: false;
         width: parent.width;
         commit-key: root.commit-key;
-        accepted(color, expression) => { return root.accepted(expression); }
+        accepted(color, expression) => {
+            if !root.preview-color(color) || !Api.inspector-commit() { Api.inspector-cancel(); return false; }
+            return true;
+        }
         preview(color) => {
-            return Api.inspector-fill-preview(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color), root.element-rotation, false);
+            return root.preview-color(color);
         }
         scrub-accepted(color) => {
-            return Api.inspector-fill-commit(root.preview-key, root.property-name, Api.fill-with-color(root.data.fill, color), root.element-rotation, true, false);
+            if !root.preview-color(color) || !Api.inspector-commit() { Api.inspector-cancel(); return false; }
+            return true;
         }
         scrub-canceled(color) => { Api.inspector-cancel(); }
         swatch-activated => { root.show-picker(); }
@@ -152,6 +156,10 @@ export component InspectorColorField inherits Rectangle {
                 swatch-focus.focus();
             }
         }
+    }
+
+    function preview-color(color: color) -> bool {
+        return Api.inspector-preview(root.property-name, { kind: PropertyEditKind.fill, fill: Api.fill-with-color(root.data.fill, color) });
     }
 
     function show-picker() {

@@ -22,10 +22,10 @@ export component InspectorBorderSection inherits InspectorSection {
             scrubbable: true;
             scrub-value: self.border-value.value-float;
             scrub-has-minimum: true;
-            scrub-preview(value) => { return Api.inspector-preview-number-temporary(InspectorContext.inspector-key, "border-width", value); }
-            scrub-accepted(value) => { return InspectorContext.commit-inspector("border-width", value); }
+            scrub-preview(value) => { return InspectorContext.preview-number("border-width", value, "px"); }
+            scrub-accepted(value) => { return InspectorContext.commit-number("border-width", value, "px"); }
             scrub-canceled(value) => { Api.inspector-cancel(); }
-            accepted(text) => { return text.is-float() && InspectorContext.commit-inspector("border-width", text.to-float()); }
+            accepted(text) => { return text.is-float() && InspectorContext.commit-number("border-width", text.to-float(), "px"); }
         }
     }
 

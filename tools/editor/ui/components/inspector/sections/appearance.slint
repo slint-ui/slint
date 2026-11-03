@@ -15,7 +15,17 @@ export component InspectorAppearanceSection inherits InspectorSection {
     use-shared-title: true;
 
     pure function corner-property(index: int) -> string {
-        return index < 0 ? "all-corners" : ["border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius"][index];
+        return ["border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius"][index];
+    }
+
+    function preview-corner(index: int, value: float) -> bool {
+        let accepted = index >= 0 ? InspectorContext.preview-number(root.corner-property(index), value, "px")
+            : InspectorContext.preview-number(root.corner-property(0), value, "px")
+                && InspectorContext.preview-number(root.corner-property(1), value, "px")
+                && InspectorContext.preview-number(root.corner-property(2), value, "px")
+                && InspectorContext.preview-number(root.corner-property(3), value, "px");
+        if !accepted { Api.inspector-cancel(); }
+        return accepted;
     }
 
     VerticalLayout {
@@ -47,7 +57,7 @@ export component InspectorAppearanceSection inherits InspectorSection {
 
         if InspectorContext.is-rectangle-selection(): InspectorColorField {
             accessible-name: @tr("Rectangle background");
-            element-rotation: InspectorContext.control-values[0];
+            element-rotation: Api.editor-number-property("transform-rotation", 0);
             target-size: { width: InspectorContext.selected-width(), height: InspectorContext.selected-height() };
             value: Api.source-property-value("background", "");
             swatch: InspectorContext.property-brush("background");
@@ -81,13 +91,16 @@ export component InspectorAppearanceSection inherits InspectorSection {
         padding-right: root.style.padding;
         InspectorCornerEditor {
             width: root.pane-width - 2 * root.style.padding - Metrics.border-width;
-            values: [InspectorContext.control-values[1], InspectorContext.control-values[2], InspectorContext.control-values[3], InspectorContext.control-values[4]];
+            values: [Api.editor-number-property(root.corner-property(0), Api.editor-number-property("border-radius", 0)), Api.editor-number-property(root.corner-property(1), Api.editor-number-property("border-radius", 0)), Api.editor-number-property(root.corner-property(2), Api.editor-number-property("border-radius", 0)), Api.editor-number-property(root.corner-property(3), Api.editor-number-property("border-radius", 0))];
+            source-values: [Api.number-property(root.corner-property(0), Api.number-property("border-radius", 0)), Api.number-property(root.corner-property(1), Api.number-property("border-radius", 0)), Api.number-property(root.corner-property(2), Api.number-property("border-radius", 0)), Api.number-property(root.corner-property(3), Api.number-property("border-radius", 0))];
             maximum: min(InspectorContext.selected-width(), InspectorContext.selected-height()) / 2px;
             selection-key: InspectorContext.selection-key;
             commit-key: InspectorContext.inspector-key;
-            preview(index, value) => { return Api.inspector-preview-number-temporary(InspectorContext.inspector-key, root.corner-property(index), value); }
+            preview(index, value) => { return root.preview-corner(index, value); }
             accepted(index, value) => {
-                return InspectorContext.commit-inspector(root.corner-property(index), value);
+                if !root.preview-corner(index, value) { return false; }
+                if !Api.inspector-commit() { Api.inspector-cancel(); return false; }
+                return true;
             }
             canceled => { Api.inspector-cancel(); }
         }

@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, CoordinateSpace, CodeBinding, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../../api.slint";
-import { InspectorEnumOptions } from "../enum-options.slint";
+import { Api, CoordinateSpace, CodeBinding, ElementInformation, PropertyValueKind, PropertyEditKind, PropertyEditValue, SelectionRectangle } from "../../../api.slint";
 
 export global InspectorContext {
     out property <ElementInformation> element-information: Api.current-element;
@@ -11,10 +10,35 @@ export global InspectorContext {
         : [];
     out property <string> selection-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index;
     out property <string> inspector-key: InspectorContext.element-information.source-uri + ":" + InspectorContext.element-information.source-version + ":" + InspectorContext.element-information.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
-    out property <[float]> control-values: Api.inspector-values(InspectorContext.inspector-key);
+    public function commit-value(name: string, value: PropertyEditValue) -> bool {
+        if !Api.inspector-preview(name, value) || !Api.inspector-commit() {
+            Api.inspector-cancel();
+            return false;
+        }
+        return true;
+    }
 
-    public function commit-inspector(name: string, value: float) -> bool {
-        return Api.inspector-commit-number-temporary(InspectorContext.inspector-key, name, value);
+    public function preview-number(name: string, value: float, unit: string) -> bool {
+        return Api.inspector-preview(name, { kind: PropertyEditKind.number, number: value, unit: unit });
+    }
+
+    public function commit-number(name: string, value: float, unit: string) -> bool {
+        let property = Api.source-property-value-data(name, {});
+        return InspectorContext.commit-value(name, property.value-kind == PropertyValueKind.integer
+            ? { kind: PropertyEditKind.integer, integer: value }
+            : { kind: PropertyEditKind.number, number: value, unit: unit });
+    }
+
+    public function commit-boolean(name: string, value: bool) -> bool {
+        return InspectorContext.commit-value(name, { kind: PropertyEditKind.boolean, boolean: value });
+    }
+
+    public function commit-enum(name: string, value: string) -> bool {
+        return InspectorContext.commit-value(name, { kind: PropertyEditKind.enumeration, text: value });
+    }
+
+    public function commit-string(name: string, value: string) -> bool {
+        return InspectorContext.commit-value(name, { kind: PropertyEditKind.string, text: value });
     }
 
     public pure function has-backend-rect() -> bool {
@@ -300,6 +324,11 @@ export global InspectorContext {
         return Api.hooked-property-value-data(property-name, { value-string: value, value-kind: PropertyValueKind.string }).value-string;
     }
 
+    public pure function property-number-label(property-name: string, fallback: string) -> string {
+        let property = Api.hooked-property-value-data(property-name, { value-string: Api.source-property-value(property-name, fallback) });
+        return property.value-kind == PropertyValueKind.float ? "\{property.value-float}" : property.value-string;
+    }
+
     public pure function property-length-label(property-name: string, fallback: string) -> string {
         let property = Api.source-property-value-data(property-name, {});
         let value = property.code == "" ? fallback
@@ -316,10 +345,6 @@ export global InspectorContext {
             InspectorContext.element-information.offset,
             bindings,
         );
-    }
-
-    public pure function quote(value: string) -> string {
-        return "\"" + value + "\"";
     }
 
     public function choose-image-source() {
@@ -341,12 +366,12 @@ export global InspectorContext {
         if column < 0 || column > 2 || row < 0 || row > 2 {
             return false;
         }
-        if column == InspectorEnumOptions.option-index("horizontal-alignment", "center", InspectorEnumOptions.image-horizontal-alignment-options) && row == InspectorEnumOptions.option-index("vertical-alignment", "center", InspectorEnumOptions.image-vertical-alignment-options) {
-            return true;
+        if !Api.inspector-preview("horizontal-alignment", { kind: PropertyEditKind.enumeration, text: column == 0 ? "left" : column == 1 ? "center" : "right" })
+            || !Api.inspector-preview("vertical-alignment", { kind: PropertyEditKind.enumeration, text: row == 0 ? "top" : row == 1 ? "center" : "bottom" })
+            || !Api.inspector-commit() {
+            Api.inspector-cancel();
+            return false;
         }
-        return InspectorContext.commit-codes([
-            { name: "horizontal-alignment", value: column == 0 ? "left" : column == 1 ? "center" : "right" },
-            { name: "vertical-alignment", value: row == 0 ? "top" : row == 1 ? "center" : "bottom" },
-        ]);
+        return true;
     }
 }

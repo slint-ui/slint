@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, InspectorNumberChange } from "../../api.slint";
+import { Api, PropertyEditKind } from "../../api.slint";
 import { CanvasView } from "../canvas-view.slint";
 import { FillSession } from "fill-session.slint";
 import { Diagnostics } from "../../diagnostics.slint";
@@ -42,12 +42,6 @@ export global ShadowSession {
     private property <string> gesture-key;
     out property <ShadowGesture> gesture;
     private property <ShadowValues> draft;
-    private property <ShadowValues> source-values: {
-        offset-x: Api.number-property(prefix + "offset-x", 0),
-        offset-y: Api.number-property(prefix + "offset-y", 8),
-        blur: Api.number-property(prefix + "blur", 16),
-        spread: Api.number-property(prefix + "spread", 0),
-    };
     out property <ShadowValues> values: dragging ? draft : {
         offset-x: Api.editor-number-property(prefix + "offset-x", 0),
         offset-y: Api.editor-number-property(prefix + "offset-y", 8),
@@ -141,22 +135,21 @@ export global ShadowSession {
         ShadowSession.dragging = true;
         CanvasView.manipulating = true;
     }
-    pure function changes(gesture: ShadowGesture, values: ShadowValues) -> [InspectorNumberChange] {
-        if gesture == ShadowGesture.offset {
-            return [
-                { name: ShadowSession.prefix + "offset-x", value: values.offset-x.round() },
-                { name: ShadowSession.prefix + "offset-y", value: values.offset-y.round() },
-            ];
-        }
-        return [{
-            name: ShadowSession.prefix + (gesture == ShadowGesture.blur ? "blur" : "spread"),
-            value: gesture == ShadowGesture.blur ? max(0, values.blur.round()) : values.spread.round(),
-        }];
+    function preview-values(gesture: ShadowGesture, values: ShadowValues) -> bool {
+        return gesture == ShadowGesture.offset
+            ? Api.inspector-preview(ShadowSession.prefix + "offset-x", { kind: PropertyEditKind.number, number: values.offset-x.round(), unit: "px" })
+                && Api.inspector-preview(ShadowSession.prefix + "offset-y", { kind: PropertyEditKind.number, number: values.offset-y.round(), unit: "px" })
+            : Api.inspector-preview(ShadowSession.prefix + (gesture == ShadowGesture.blur ? "blur" : "spread"), {
+                kind: PropertyEditKind.number,
+                number: gesture == ShadowGesture.blur ? max(0, values.blur.round()) : values.spread.round(),
+                unit: "px",
+            });
     }
     public function preview(values: ShadowValues) -> bool {
         if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
         if !ShadowSession.dragging { return false; }
-        if Api.inspector-preview-shadow(ShadowSession.gesture-key, ShadowSession.changes(ShadowSession.gesture, values)) {
+        if ShadowSession.gesture-key != ShadowSession.key { ShadowSession.cancel(); return false; }
+        if ShadowSession.preview-values(ShadowSession.gesture, values) {
             ShadowSession.draft = values;
             return true;
         }
@@ -165,15 +158,15 @@ export global ShadowSession {
     }
     public function commit(gesture: ShadowGesture, values: ShadowValues) -> bool {
         if !ShadowSession.canvas-active { ShadowSession.close(); return false; }
-        let source = ShadowSession.source-values;
-        let unchanged = gesture == ShadowGesture.offset ? values.offset-x == source.offset-x && values.offset-y == source.offset-y
-            : gesture == ShadowGesture.blur ? values.blur == source.blur : values.spread == source.spread;
-        if unchanged { ShadowSession.cancel(); return true; }
-        let key = ShadowSession.dragging ? ShadowSession.gesture-key : ShadowSession.key;
+        if ShadowSession.dragging && ShadowSession.gesture-key != ShadowSession.key {
+            ShadowSession.cancel();
+            return false;
+        }
+        let previewed = ShadowSession.preview-values(gesture, values);
         ShadowSession.dragging = false;
         CanvasView.manipulating = false;
         ShadowSession.gesture = gesture;
-        let accepted = Api.inspector-commit-shadow(key, ShadowSession.changes(gesture, values));
+        let accepted = previewed && Api.inspector-commit();
         if !accepted { Api.inspector-cancel(); }
         return accepted;
     }

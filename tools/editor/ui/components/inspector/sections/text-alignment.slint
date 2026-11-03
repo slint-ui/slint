@@ -30,7 +30,7 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
                 options: InspectorEnumOptions.text-horizontal-alignment-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("horizontal-alignment", text);
+                    return text != "" && InspectorContext.commit-enum("horizontal-alignment", text);
                 }
             }
 
@@ -51,7 +51,7 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
                 options: InspectorEnumOptions.text-vertical-alignment-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("vertical-alignment", text);
+                    return text != "" && InspectorContext.commit-enum("vertical-alignment", text);
                 }
             }
 

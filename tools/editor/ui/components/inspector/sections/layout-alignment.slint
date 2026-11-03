@@ -30,7 +30,7 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
                 options: InspectorEnumOptions.layout-alignment-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("alignment", text);
+                    return text != "" && InspectorContext.commit-enum("alignment", text);
                 }
             }
 
@@ -51,7 +51,7 @@ export component InspectorLayoutAlignmentSection inherits InspectorSection {
                 options: InspectorEnumOptions.layout-alignment-options;
                 popup-available-height: max(Style.inspector-field.height, root.popup-bottom - self.absolute-position.y - Metrics.space-medium);
                 accepted(text) => {
-                    return text != "" && InspectorContext.commit-code("cross-axis-line-alignment", text);
+                    return text != "" && InspectorContext.commit-enum("cross-axis-line-alignment", text);
                 }
             }
 

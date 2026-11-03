@@ -21,7 +21,7 @@ export component InspectorCheckedSection inherits InspectorSection {
                 self.focus();
                 let requested = self.checked;
                 self.checked = root.value;
-                InspectorContext.commit-code("checked", requested ? "true" : "false");
+                InspectorContext.commit-boolean("checked", requested);
             }
         }
     }
