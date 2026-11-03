@@ -518,6 +518,15 @@ cpp! {{
         }
 
         bool event(QEvent *event) override {
+            switch (event->type()) {
+            case QEvent::MouseButtonPress:
+            case QEvent::KeyPress:
+            case QEvent::TouchBegin:
+                g_receivedInputPress = true;
+                break;
+            default:
+                break;
+            }
             if (event->type() == QEvent::Gesture) {
                 auto *ge = static_cast<QGestureEvent*>(event);
                 if (auto *pinch = static_cast<QPinchGesture*>(ge->gesture(Qt::PinchGesture))) {
@@ -2942,7 +2951,14 @@ impl WindowAdapterInternal for QtWindow {
             WindowKind::Menu => Qt_WindowType_Popup,
         };
         cpp! {unsafe [parent_ptr as "QWidget*", child_ptr as "QWidget*", window_kind as "Qt::WindowType"] {
-            child_ptr->setParent(parent_ptr, window_kind);
+            auto type = window_kind;
+            // A Wayland popup grab needs the serial of a press. Without one, Qt's xdg-shell
+            // plugin or the compositor closes a Qt::Popup right away. A Qt::ToolTip becomes an
+            // xdg_popup without a grab.
+            if (type == Qt::Popup && !g_receivedInputPress
+                    && QGuiApplication::platformName().startsWith(QLatin1String("wayland")))
+                type = Qt::ToolTip;
+            child_ptr->setParent(parent_ptr, type);
         }};
         Some(child_window as _)
     }

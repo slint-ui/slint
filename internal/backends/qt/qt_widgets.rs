@@ -159,6 +159,7 @@ cpp! {{
     using QPainterPtr = std::unique_ptr<QPainter>;
 
     static bool g_lastWindowClosed = false; // global to track window closure when using processEvents().
+    static bool g_receivedInputPress = false;
 
     /// Make sure there is an instance of QApplication.
     /// The `from_qt_backend` argument specifies if we know that we are running
