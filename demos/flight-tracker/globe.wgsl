@@ -55,9 +55,9 @@ fn stars(direction: vec3<f32>) -> vec3<f32> {
     let center = cell + 0.25 + 0.5 * hash3(cell + 17.0);
     let distance = length(p - center);
     let twinkle = 0.8 + 0.2 * sin(globals.options.z * (1.0 + 3.0 * random.y) + random.z * TAU);
-    let brightness = pow((random.x - 0.92) / 0.08, 3.0) * twinkle;
+    let brightness = min(pow((random.x - 0.92) / 0.08, 2.0) * 2.0, 1.0) * twinkle;
     let tint = mix(vec3<f32>(0.75, 0.82, 1.0), vec3<f32>(1.0, 0.9, 0.75), random.y);
-    return tint * brightness * smoothstep(0.12, 0.0, distance);
+    return tint * brightness * smoothstep(0.1 + 0.14 * random.z, 0.0, distance);
 }
 
 @fragment
