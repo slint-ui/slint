@@ -2717,7 +2717,10 @@ fn generate_sub_component_body(
         let idx = usize::from(idx);
         let repeater_id = format_smolstr!("repeater_{}", idx);
 
-        let model = compile_expression(&repeated.model.borrow(), &ctx);
+        let (model, is_number_model) = {
+            let model = repeated.model.borrow();
+            (compile_expression(&model, &ctx), is_number_model(&model, &ctx))
+        };
 
         // FIXME: optimize  if repeated.model.is_constant()
         properties_init_code.push(format!(
@@ -2777,9 +2780,10 @@ fn generate_sub_component_body(
         let rep_type = match data_type {
             Some(data_type) => {
                 format_smolstr!(
-                    "::slint::private_api::Repeater<class {}, {}>",
+                    "::slint::private_api::Repeater<class {}, {}{}>",
                     ident(&sc.name),
-                    data_type.cpp_type().unwrap()
+                    data_type.cpp_type().unwrap(),
+                    if is_number_model { ", true" } else { "" }
                 )
             }
             None => format_smolstr!("::slint::private_api::Conditional<class {}>", ident(&sc.name)),
@@ -4432,6 +4436,21 @@ impl std::fmt::Display for crate::expression_types::ImageReference {
     }
 }
 
+/// Whether the model of a `for` is a number, which C++ represents as its row count
+/// (see the `Cast` to `Type::Model` in `compile_expression`).
+fn is_number_model(model: &llr::Expression, ctx: &EvaluationContext) -> bool {
+    match model {
+        llr::Expression::Cast { from, to: Type::Model } => {
+            matches!(from.ty(ctx), Type::Float32 | Type::Int32)
+        }
+        llr::Expression::CodeBlock(statements) => {
+            statements.last().is_some_and(|last| is_number_model(last, ctx))
+        }
+        llr::Expression::Condition { true_expr, .. } => is_number_model(true_expr, ctx),
+        _ => false,
+    }
+}
+
 #[allow(
     clippy::redundant_closure_call,
     reason = "in debug builds, the closures keep the locals of the arms out of this recursive frame"
@@ -4529,7 +4548,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
                     format!(
-                        "std::make_shared<::slint::private_api::UIntModel>(std::max(0, ::slint::private_api::saturating_float_to_int({f})))"
+                        "size_t(std::max(0, ::slint::private_api::saturating_float_to_int({f})))"
                     )
                 }
                 (Type::Array(_), Type::Model) => f,

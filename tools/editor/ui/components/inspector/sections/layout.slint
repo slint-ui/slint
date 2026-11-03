@@ -15,15 +15,16 @@ export component InspectorLayoutSection inherits InspectorSection {
         label: name == "padding" ? @tr("Padding") : @tr("Spacing");
         InspectorValueField {
             property <PropertyValue> layout-value: Api.source-property-value-data(name, {});
+            property <PropertyValue> editor-value: Api.editor-property-value-data(name);
             property <bool> numeric-value: self.layout-value.code == ""
                 || (self.layout-value.is-number-literal
                     && self.layout-value.value-resolved
                     && self.layout-value.visual-items[self.layout-value.value-int] == "px");
             accessible-name: name == "padding" ? @tr("Layout padding") : @tr("Layout spacing");
-            value: self.numeric-value ? "\{self.layout-value.value-float}" : self.layout-value.code;
+            value: self.numeric-value ? "\{self.editor-value.value-float}" : self.layout-value.code;
             commit-key: InspectorContext.inspector-key;
             scrubbable: self.numeric-value;
-            scrub-value: self.layout-value.value-float;
+            scrub-value: self.editor-value.value-float;
             scrub-has-minimum: true;
             scrub-preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, name, value); }
             scrub-accepted(value) => { return InspectorContext.commit-inspector(name, value); }

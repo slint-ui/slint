@@ -1,16 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, PropertyValue } from "../../../api.slint";
+import { Api } from "../../../api.slint";
 import { InspectorEditableField, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorProgressSection inherits InspectorSection {
-    private property <PropertyValue> runtime-indeterminate: Api.runtime-property-value-data("indeterminate", {});
-    private property <PropertyValue> source-indeterminate: Api.source-property-value-data("indeterminate", {});
-    private property <bool> indeterminate: root.runtime-indeterminate.value-resolved
-        ? root.runtime-indeterminate.value-bool
-        : root.source-indeterminate.code != "" && root.source-indeterminate.value-bool;
+    private property <bool> indeterminate: Api.editor-property-value-data("indeterminate").value-bool;
     changed indeterminate => { toggle.checked = root.indeterminate; }
 
     title: @tr("Progress");

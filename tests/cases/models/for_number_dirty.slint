@@ -1,0 +1,103 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #9218: `for i in count` keeps the instances of the existing rows when `count` is
+// re-evaluated, whether its value changes or not.
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+
+    in property <int> value: 2;
+    in property <bool> toggle;
+    property <int> count: toggle ? value : value;
+    in-out property <string> r;
+
+    HorizontalLayout {
+        for i in count: TouchArea {
+            property <int> c;
+            init => {
+                r += "init" + i + ".";
+            }
+            clicked => {
+                c += 1;
+                r += "click" + i + "(" + c + ").";
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq!(instance.get_r(), "init0.init1.click0(1).");
+instance.set_r("".into());
+
+// `count` is dirty but has the same value
+instance.set_toggle(true);
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq!(instance.get_r(), "click0(2).");
+instance.set_r("".into());
+
+// A row is added
+instance.set_value(3);
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq!(instance.get_r(), "init2.click0(3).");
+instance.set_r("".into());
+
+// Rows are removed
+instance.set_value(1);
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq!(instance.get_r(), "click0(4).");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq(instance.get_r(), "init0.init1.click0(1).");
+instance.set_r("");
+
+// `count` is dirty but has the same value
+instance.set_toggle(true);
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq(instance.get_r(), "click0(2).");
+instance.set_r("");
+
+// A row is added
+instance.set_value(3);
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq(instance.get_r(), "init2.click0(3).");
+instance.set_r("");
+
+// Rows are removed
+instance.set_value(1);
+slint_testing::send_mouse_click(&instance, 10., 50.);
+assert_eq(instance.get_r(), "click0(4).");
+```
+
+```js
+var instance = new slint.TestCase({});
+slintlib.private_api.send_mouse_click(instance, 10., 50.);
+assert.equal(instance.r, "init0.init1.click0(1).");
+instance.r = "";
+
+// `count` is dirty but has the same value
+instance.toggle = true;
+slintlib.private_api.send_mouse_click(instance, 10., 50.);
+assert.equal(instance.r, "click0(2).");
+instance.r = "";
+
+// A row is added
+instance.value = 3;
+slintlib.private_api.send_mouse_click(instance, 10., 50.);
+assert.equal(instance.r, "init2.click0(3).");
+instance.r = "";
+
+// Rows are removed
+instance.value = 1;
+slintlib.private_api.send_mouse_click(instance, 10., 50.);
+assert.equal(instance.r, "click0(4).");
+```
+*/

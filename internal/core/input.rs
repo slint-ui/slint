@@ -467,6 +467,24 @@ impl InternalKeyboardModifierState {
         Some(self)
     }
 
+    /// Clears the modifiers that aren't in `held`, and keeps AltGr,
+    /// which platforms don't report among the held modifiers.
+    pub(crate) fn release_not_held(mut self, held: KeyboardModifiers) -> Self {
+        if !held.alt {
+            (self.left_alt, self.right_alt) = (false, false);
+        }
+        if !held.control {
+            (self.left_control, self.right_control) = (false, false);
+        }
+        if !held.meta {
+            (self.left_meta, self.right_meta) = (false, false);
+        }
+        if !held.shift {
+            (self.left_shift, self.right_shift) = (false, false);
+        }
+        self
+    }
+
     pub fn shift(&self) -> bool {
         self.right_shift || self.left_shift
     }

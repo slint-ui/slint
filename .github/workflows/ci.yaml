@@ -23,21 +23,6 @@ on:
             description: "JSON list of the matched groups from ci_path_filters.yaml"
             type: string
             default: '[]'
-      secrets:
-        CLOUDFLARE_API_TOKEN:
-          required: true
-        CLOUDFLARE_ACCOUNT_ID:
-          required: true
-        CLOUDFLARE_API_TOKEN_2:
-          required: true
-        CLOUDFLARE_ACCOUNT_ID_2:
-          required: true
-        ANDROID_KEYSTORE_PASSWORD:
-          required: true
-        ANDROID_KEYSTORE_BASE64:
-          required: true
-        READ_WRITE_PRIVATE_KEY:
-          required: true
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
@@ -89,16 +74,9 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                include:
-                    - name: Rust and UI on macOS
-                      os: macos-15
-                      run_ui_tests: true
-                    - name: Rust and UI on Linux
-                      os: ubuntu-22.04
-                      run_ui_tests: true
-                    - name: Rust on Windows
-                      os: windows-2022
-                      run_ui_tests: false
+                include: ${{ fromJSON(inputs.full
+                    && '[{"name":"Rust and UI on macOS","os":"macos-15","run_ui_tests":true},{"name":"Rust and UI on Linux","os":"ubuntu-22.04","run_ui_tests":true},{"name":"Rust on Windows","os":"windows-2022","run_ui_tests":false}]'
+                    || '[{"name":"Rust and UI on Linux","os":"ubuntu-22.04","run_ui_tests":true}]') }}
         runs-on: ${{ matrix.os }}
         timeout-minutes: 120
         permissions:
@@ -110,6 +88,8 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
+              with:
+                  extra-packages: weston
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -141,16 +121,14 @@ jobs:
                   uv run --no-sync ty check
                   uv run --no-sync ruff check
                   uv run --no-sync ruff format --check
-            - name: Build the visual editor UI test binary
-              if: matrix.run_ui_tests
-              run: cargo build --release --locked -p slint-editor --all-features --features slint/mcp --timings
             - name: Run visual editor UI tests
               if: matrix.run_ui_tests
               working-directory: tools/editor/ui-tests
               env:
                   SLINT_BACKEND: headless-skia
                   RUST_LOG: slint_editor=debug,i_slint_editor_preview=debug
-                  SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/release/slint-editor
+                  # cargo test builds the binary for the integration tests in tools/editor/tests.
+                  SLINT_EDITOR_BINARY: ${{ github.workspace }}/target/debug/slint-editor
               run: ./run-tests.sh --basetemp="${{ runner.temp }}/visual-editor-ui-tests"
 
             - name: Upload UI test failure diagnostics
@@ -580,11 +558,8 @@ jobs:
     docs:
         if: ${{ !inputs.full && (contains(fromJSON(inputs.changes), 'docs_build') || contains(fromJSON(inputs.changes), 'slint_sc')) }}
         uses: ./.github/workflows/build_docs.yaml
-        secrets:
-          READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
         with:
           release: false
-          app-id: ${{ vars.READ_WRITE_APP_ID }}
           slint-sc-coverage: ${{ inputs.full || contains(fromJSON(inputs.changes), 'slint_sc') || contains(fromJSON(inputs.changes), 'safety_docs') }}
           node-python-docs: ${{ contains(fromJSON(inputs.changes), 'node_python_docs') }}
 
@@ -752,7 +727,7 @@ jobs:
               with:
                   distribution: temurin
                   java-version: '17'
-            - uses: gradle/actions/setup-gradle@v6.4.0
+            - uses: gradle/actions/setup-gradle@v6.4.1
             # The Android Gradle plugin installs the NDK and CMake versions it needs
             # itself, without retrying a failed download.
             - name: Install the Android NDK and CMake
@@ -881,8 +856,6 @@ jobs:
         CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
         CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
-        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
 
     servo_example:
