@@ -832,8 +832,12 @@ Next:
   so the `Slint` package doesn't depend on the toolkit:
   `INotifyPropertyChanged`, `INotifyCollectionChanged`, `ICommand`, and `INotifyDataErrorInfo`.
   The messenger and dependency injection of the toolkit need nothing from Slint.
-  - Phase 1, foundations, 1 week: change notifications of component properties for C#,
-    from the change tracking of Slint's core that the Python bindings use, and a model over an `ObservableCollection<T>`.
+  - Phase 1, done: `ComponentInstance.WatchProperty` and `WatchGlobalProperty` call C# after a property changes,
+    through a `ChangeTracker` of Slint's core, which runs once per frame.
+    `ObservableCollectionModel<T>` follows a list with `INotifyCollectionChanged`, and the items with `INotifyPropertyChanged`,
+    and passes the rows that `.slint` code sets, inserts, or removes to the list; Slint has no notification for a move,
+    so a move is a removal and an insertion.
+    A watch of a live component reads the instance it started with, until it reads again after a reload.
   - Phase 2, bindings, 1–1.5 weeks: an explicit, typed binding API, safe for trimming and Native AOT,
     then a source generator that binds a view model to a component by name, such as `FirstName` to `first-name`,
     `SubmitCommand` to the callback `submit` and the property `submit-enabled`, and `Todos` to a model.

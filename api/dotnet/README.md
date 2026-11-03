@@ -130,7 +130,7 @@ For each `<SlintFile>`, the build generates C# classes in the project's root nam
 
 | Slint | C# |
 |---|---|
-| exported component | a class with a static `Create()` method, plus `Show()`, `Hide()`, and `Run()` |
+| exported component | a class with a static `Create()` method, plus `Show()`, `Hide()`, `Run()`, and `RunAsync()` |
 | global | a class, available as a property of each component |
 | `in`, `out`, and `in-out` properties | properties; `out` properties are read-only |
 | function | a method |
@@ -142,6 +142,15 @@ Names become PascalCase: `request-increase-value` becomes `RequestIncreaseValue`
 A component exported under another name too, such as with `export { AppWindow as MainWindow }`,
 gets a class for each name.
 Structs and enums keep only their own name.
+
+To run code after a property changes, such as one that the user edits, watch it through the component's `Instance`:
+
+```csharp
+using var watch = app.Instance.WatchProperty("counter", () => Console.WriteLine(app.Counter));
+```
+
+Slint checks once per frame, so several changes between two frames call the handler once.
+`WatchGlobalProperty` watches a property of a global.
 
 The types map as follows:
 
@@ -316,6 +325,17 @@ todos.Add(new TodoItem { Title = "Write the docs" });
 ```
 
 `AddRange`, `InsertRange`, and `RemoveRange` change several rows with one notification.
+
+For a collection of a view model, such as an `ObservableCollection<T>`, use an `ObservableCollectionModel<T>`.
+It follows the collection's changes, and the changes of items that implement `INotifyPropertyChanged`.
+`Map` turns the items into the structs of the `.slint` file:
+
+```csharp
+using var people = new ObservableCollectionModel<PersonViewModel>(viewModel.People);
+app.People = people.Map(p => new Person { Name = p.Name, Age = p.Age });
+```
+
+Change the collection from the Slint thread, and dispose the model to stop following it.
 
 To show your own data, derive from `Model<T>`,
 and call `NotifyRowChanged`, `NotifyRowAdded`, `NotifyRowRemoved`, or `NotifyReset` when it changes.

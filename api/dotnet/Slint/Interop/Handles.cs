@@ -37,6 +37,15 @@ internal sealed class ComponentDefinitionHandle : NativeHandle
     }
 }
 
+internal sealed class PropertyTrackerHandle : NativeHandle
+{
+    protected override bool ReleaseHandle()
+    {
+        NativeMethods.slint_dotnet_property_tracker_free(handle);
+        return true;
+    }
+}
+
 internal sealed class ComponentInstanceHandle : NativeHandle
 {
     protected override bool ReleaseHandle()

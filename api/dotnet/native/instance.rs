@@ -5,6 +5,7 @@ use std::ffi::c_void;
 #[cfg(feature = "live-preview")]
 use std::{cell::RefCell, rc::Rc};
 
+use i_slint_core::properties::ChangeTracker;
 #[cfg(feature = "live-preview")]
 use i_slint_live_preview::live_component::LiveReloadingComponent;
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
@@ -159,6 +160,71 @@ pub unsafe extern "C" fn slint_dotnet_component_instance_set_global_property(
         let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
         instance.set_property(Some(global), name, value)
     })
+}
+
+/// Where a tracker reads its property: the component, or the latest reload of a live one.
+enum TrackedInstance {
+    Static(slint_interpreter::Weak<ComponentInstance>),
+    #[cfg(feature = "live-preview")]
+    Live(std::rc::Weak<RefCell<LiveReloadingComponent>>),
+}
+
+impl TrackedInstance {
+    fn read(&self, global: Option<&str>, name: &str) -> Value {
+        let read = |instance: &ComponentInstance| match global {
+            Some(global) => instance.get_global_property(global, name).ok(),
+            None => instance.get_property(name).ok(),
+        };
+        let value = match self {
+            Self::Static(weak) => weak.upgrade().and_then(|instance| read(&instance)),
+            #[cfg(feature = "live-preview")]
+            Self::Live(weak) => weak.upgrade().and_then(|live| read(live.borrow().instance())),
+        };
+        value.unwrap_or_default()
+    }
+}
+
+/// Calls `changed` with `user_data` after the property changes, the property of `global` unless it's empty.
+/// Slint calls it while it runs its change handlers, once per frame.
+/// Takes ownership of `user_data`, also on failure.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_property_tracker_new(
+    instance: &DotnetInstance,
+    global: Utf8Str,
+    name: Utf8Str,
+    changed: unsafe extern "C" fn(user_data: *mut c_void),
+    user_data: *mut c_void,
+    drop_user_data: unsafe extern "C" fn(user_data: *mut c_void),
+) -> *mut ChangeTracker {
+    let action = ManagedAction { call: changed, user_data, drop_user_data };
+    guard(std::ptr::null_mut(), move || {
+        let (global, name) = unsafe { (global.as_str()?, name.as_str()?) };
+        let global = (!global.is_empty()).then(|| global.to_owned());
+        let name = name.to_owned();
+        let tracked = match instance {
+            DotnetInstance::Static(instance) => TrackedInstance::Static(instance.as_weak()),
+            #[cfg(feature = "live-preview")]
+            DotnetInstance::Live(live) => TrackedInstance::Live(Rc::downgrade(live)),
+        };
+        instance
+            .with(|i| match &global {
+                Some(global) => i.get_global_property(global, &name),
+                None => i.get_property(&name),
+            })
+            .map_err(|e| e.to_string())?;
+        let tracker = ChangeTracker::default();
+        tracker.init(
+            (tracked, global, name),
+            |(tracked, global, name)| tracked.read(global.as_deref(), name),
+            move |_, _| action.call(),
+        );
+        Ok(into_raw(tracker))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_property_tracker_free(tracker: *mut ChangeTracker) {
+    unsafe { release(tracker) }
 }
 
 unsafe fn borrowed_args(args: *const *const Value, count: usize) -> Vec<Value> {

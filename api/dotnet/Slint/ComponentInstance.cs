@@ -243,6 +243,27 @@ public sealed unsafe class ComponentInstance : IDisposable
             return null;
         });
 
+    /// <summary>
+    /// Calls <paramref name="changed"/> on the Slint thread after the property's value changes, until the result is disposed.
+    /// Slint checks once per frame, so several changes between two frames call it once.
+    /// </summary>
+    /// <exception cref="SlintException">The component has no property <paramref name="name"/>.</exception>
+    public IDisposable WatchProperty(string name, Action changed) => Watch("", name, changed);
+
+    /// <summary>Like <see cref="WatchProperty"/>, for a property of the global <paramref name="global"/>.</summary>
+    public IDisposable WatchGlobalProperty(string global, string name, Action changed) => Watch(global, name, changed);
+
+    private IDisposable Watch(string global, string name, Action changed)
+    {
+        ArgumentNullException.ThrowIfNull(changed);
+        using var globalStr = new PinnedUtf8(global);
+        using var nameStr = new PinnedUtf8(name);
+        var tracker = NativeMethods.slint_dotnet_property_tracker_new(
+            _handle, globalStr.Str, nameStr.Str, &ActionTrampoline.Invoke, ActionTrampoline.Alloc(changed), &ActionTrampoline.Release);
+        NativeError.Check(tracker);
+        return tracker;
+    }
+
     /// <summary>Shows the window of the component.</summary>
     public void Show() => NativeError.Check(NativeMethods.slint_dotnet_component_instance_show(_handle));
 
