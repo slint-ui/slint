@@ -11,10 +11,10 @@ from canvas_interactions import center as element_center
 from editor_sync import wait_for_source
 from inspector_interactions import (
     FIELDS,
-    combo_popup_position,
     edit_field,
     inspector_field,
     slider_position,
+    upward_combo_popup_position,
     wait_for_field,
 )
 from slint_testing import keys
@@ -2489,7 +2489,6 @@ def test_image_fit_hover_preview_is_transient_and_survives_commit(
         )
         combo.single_click(slint_testing.PointerEventButton.Left)
         preview = element(window, "Image fit example")
-        expect(preview).to_have_value("contain")
         value_text = element(combo, id="InspectorComboBox::value-text")
         options = element(window, id="InspectorComboBox::options-content")
         cover = element(options, "cover", role=slint_testing.AccessibleRole.ListItem)
@@ -2498,12 +2497,14 @@ def test_image_fit_hover_preview_is_transient_and_survives_commit(
             value_text.absolute_position.x
             == combo.absolute_position.x + option_text.absolute_position.x
         )
-        window.dispatch_event(
-            slint_testing.PointerMoveEvent(
-                combo_popup_position(window, combo, cover, above=True)
+        for value in ("contain", "cover"):
+            option = element(options, value, role=slint_testing.AccessibleRole.ListItem)
+            window.dispatch_event(
+                slint_testing.PointerMoveEvent(
+                    upward_combo_popup_position(window, combo, option)
+                )
             )
-        )
-        expect(preview).to_have_value("cover")
+            expect(preview).to_have_value(value)
         expect(
             element(options, "contain", role=slint_testing.AccessibleRole.ListItem)
         ).to_be_checked()

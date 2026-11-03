@@ -13,6 +13,8 @@ use slint::{
 slint::slint! {
     #[edition = "1.19"]
     import { InspectorTextFieldBase } from "../ui/components/inspector/text-field-base.slint";
+    import { InspectorComboBox } from "../ui/components/inspector/combo-box.slint";
+    import { EditorWindow } from "../ui/components/index.slint";
     import { ComboBoxBase, ComboBoxPopupBase } from "../controls/src/headless.slint";
     import { Style, FieldStyle } from "../ui/style.slint";
 
@@ -78,6 +80,91 @@ slint::slint! {
             content << Text { text: combo.current-value; }
             popup << ComboBoxPopupBase { Rectangle { background: white; } }
         }
+    }
+    export component InspectorComboPlacementTest inherits Window {
+        width: 400px;
+        height: 400px;
+        in property <bool> show-preview-on-open;
+        out property <bool> preview-visible;
+        out property <bool> focus-visible: combo.focus-visible;
+        public function focus-before() { before.focus(); }
+        init => { EditorWindow.width = root.width; EditorWindow.height = root.height; }
+        before := FocusScope { x: 0px; y: 0px; width: 1px; height: 1px; }
+        combo := InspectorComboBox {
+            x: 20px; y: 180px; width: 220px;
+            accessible-name: "Placement combo";
+            wide: true;
+            options: [{ value: "one", label: "One" }, { value: "two", label: "Two" }, { value: "three", label: "Three" }];
+            model: ["one", "two", "three"];
+            value: "Two";
+            selected-index: 1;
+            popup-upwards: root.preview-visible;
+            popup-opening => { root.preview-visible = root.show-preview-on-open; }
+            accepted(value) => { return true; }
+        }
+        if root.preview-visible: preview := Rectangle {
+            x: 20px; y: combo.y + combo.height + 8px; width: 220px; height: 100px;
+            accessible-role: image;
+            accessible-label: "Placement preview";
+        }
+    }
+}
+
+#[test]
+fn inspector_combo_overlaps_selection_and_keeps_preview_clear() {
+    use i_slint_backend_testing::ElementHandle;
+    use i_slint_core::window::{PopupWindowLocation, WindowInner};
+    use slint::platform::Key;
+
+    i_slint_backend_testing::init_no_event_loop();
+    for show_preview in [false, true] {
+        let editor = InspectorComboPlacementTest::new().unwrap();
+        editor.set_show_preview_on_open(show_preview);
+        editor.show().unwrap();
+        let combo =
+            ElementHandle::find_by_accessible_label(&editor, "Placement combo").next().unwrap();
+        combo.mock_single_click(PointerEventButton::Left);
+        slint::platform::update_timers_and_animations();
+        assert!(!editor.get_focus_visible());
+        let popup_position = {
+            let window = WindowInner::from_pub(editor.window());
+            let popups = window.active_popups();
+            match popups.last().unwrap().location {
+                PopupWindowLocation::ChildWindow(position) => position,
+                _ => panic!("expected an embedded popup"),
+            }
+        };
+        let popup = ElementHandle::find_by_element_id(&editor, "InspectorComboBox::popup-surface")
+            .next()
+            .unwrap();
+        let popup_bottom = popup_position.y + popup.size().height;
+        let control_center = combo.absolute_position().y + combo.size().height / 2.;
+        if show_preview {
+            let preview = ElementHandle::find_by_accessible_label(&editor, "Placement preview")
+                .next()
+                .unwrap();
+            assert_eq!(popup_bottom, combo.absolute_position().y + combo.size().height);
+            assert!(popup_bottom < preview.absolute_position().y);
+        } else {
+            let selected = ElementHandle::find_by_accessible_label(&editor, "Two")
+                .find(|item| {
+                    item.accessible_role()
+                        == Some(i_slint_backend_testing::AccessibleRole::ListItem)
+                })
+                .unwrap();
+            assert_eq!(
+                popup_position.y + selected.absolute_position().y + selected.size().height / 2.,
+                control_center
+            );
+            assert!(popup_bottom > combo.absolute_position().y + combo.size().height);
+        }
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Escape.into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Escape.into() });
+        assert!(!editor.get_focus_visible());
+        editor.invoke_focus_before();
+        editor.window().dispatch_event(WindowEvent::KeyPressed { text: Key::Tab.into() });
+        editor.window().dispatch_event(WindowEvent::KeyReleased { text: Key::Tab.into() });
+        assert!(editor.get_focus_visible());
     }
 }
 

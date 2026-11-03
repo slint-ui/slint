@@ -20,9 +20,10 @@ export component InspectorComboBox inherits ComboBoxBase {
     in property <int> selected-index: -1;
     in property <[InspectorComboOption]> options;
     in property <bool> wide: false;
-    in property <bool> popup-above;
+    in property <bool> popup-upwards: false;
     in property <string> commit-key;
     callback accepted(string) -> bool;
+    callback popup-opening();
     out property <string> preview-value: root.expanded && root.highlighted-index >= 0 && root.highlighted-index < root.options.length
         ? root.options[root.highlighted-index].value : "";
     height: root.style.height;
@@ -38,9 +39,15 @@ export component InspectorComboBox inherits ComboBoxBase {
     accessible-value: root.value;
 
     opening => {
+        root.popup-opening();
         root.opening-key = root.commit-key;
         root.scroll-y = 0px;
         root.reveal-option(root.selected-index);
+        root.popup-y = clamp(root.popup-upwards ? root.height - root.popup-height
+                : (root.height - root.menu-style.row-height) / 2 - root.popup-padding
+                    - max(0, root.selected-index) * root.row-step - root.scroll-y,
+            Metrics.space-regular - root.absolute-position.y,
+            EditorWindow.height - Metrics.space-regular - root.absolute-position.y - root.popup-height);
     }
     accept-selection(index) => {
         return index >= 0 && index < root.options.length
@@ -60,20 +67,18 @@ export component InspectorComboBox inherits ComboBoxBase {
         fitted when !root.wide: { root.max-width: root.options-width; }
     ]
     private property <PaintStyle> paint: !root.enabled ? root.style.appearance.disabled
-        : root.expanded || root.focus-visible ? root.style.appearance.focus
+        : root.focus-visible ? root.style.appearance.focus
         : root.hovered ? root.style.appearance.hover : root.style.appearance.normal;
     private property <length> options-width: options-measure.preferred-width
         + root.style.padding-inline + root.style.padding-end + Metrics.space-small + Metrics.icon-medium;
     private property <length> row-step: root.menu-style.row-height + root.menu-style.spacing;
     private property <length> full-popup-height: root.options.length * root.row-step
         - root.menu-style.spacing + 2 * root.popup-padding;
-    private property <length> available-above: max(0px, root.absolute-position.y - Metrics.space-regular);
-    private property <length> available-below: max(0px, EditorWindow.height - root.absolute-position.y - root.height - Metrics.space-regular);
-    private property <bool> opens-above: (root.popup-above && root.available-above >= min(root.full-popup-height, root.menu-style.max-height))
-        || (root.available-below < min(root.full-popup-height, root.menu-style.max-height)
-            && root.available-above > root.available-below);
     popup-height: min(root.full-popup-height, root.menu-style.max-height,
-        max(root.row-step + 2 * root.popup-padding, root.opens-above ? root.available-above : root.available-below));
+        max(root.row-step + 2 * root.popup-padding, root.popup-upwards
+            ? root.absolute-position.y + root.height - Metrics.space-regular
+            : EditorWindow.height - 2 * Metrics.space-regular));
+    private property <length> popup-y;
     private property <string> opening-key;
     private property <length> scroll-y;
 
@@ -102,7 +107,7 @@ export component InspectorComboBox inherits ComboBoxBase {
     background << InputSurface {
         style: root.style;
         enabled: root.enabled;
-        focused: root.expanded || root.focus-visible;
+        focused: root.focus-visible;
         hovered: root.hovered;
     }
 
@@ -127,7 +132,7 @@ export component InspectorComboBox inherits ComboBoxBase {
     }
 
     popup << combo-popup := ComboBoxPopupBase {
-        popup-offset: root.opens-above ? -root.height - root.popup-height - Metrics.space-small : Metrics.space-small;
+        popup-offset: root.popup-y - root.height;
 
         popup-surface := FloatingSurface {
             width: root.width;

@@ -15,7 +15,6 @@ export component InspectorImageSection inherits InspectorSection {
     private property <string> selection-key: InspectorContext.selection-key;
     private property <bool> preview-visible;
     private property <string> fit: InspectorEnumOptions.option-value("image-fit", "fill", InspectorEnumOptions.image-fit-options);
-    private property <bool> fit-menu-open: fit-combo.expanded;
     private property <string> pending-fit;
     private property <string> displayed-fit: fit-combo.preview-value != "" ? fit-combo.preview-value : root.pending-fit != "" ? root.pending-fit : root.fit;
     private property <image> preview-picture: @image-url("../../../assets/image-fit-preview.svg");
@@ -25,7 +24,6 @@ export component InspectorImageSection inherits InspectorSection {
         root.pending-fit = "";
     }
     changed fit => { root.pending-fit = ""; }
-    changed fit-menu-open => { if root.fit-menu-open { root.preview-visible = true; } }
 
     title: @tr("Image");
 
@@ -75,8 +73,9 @@ export component InspectorImageSection inherits InspectorSection {
                     selected-index: InspectorEnumOptions.option-index("image-fit", "fill", InspectorEnumOptions.image-fit-options);
                     options: InspectorEnumOptions.image-fit-options;
                     wide: true;
+                    popup-upwards: root.preview-visible;
+                    popup-opening => { root.preview-visible = true; }
                     width: root.field-width - preview-toggle.width - Metrics.space-compact;
-                    popup-above: true;
                     accepted(text) => {
                         if InspectorContext.commit-code("image-fit", text) {
                             root.pending-fit = text;
