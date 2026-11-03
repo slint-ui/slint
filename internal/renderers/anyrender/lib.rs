@@ -18,8 +18,12 @@
 //! Concrete backends (vello over wgpu, vello_cpu over softbuffer, ...) live
 //! in their own crates and only need to implement `SlintWindowRenderer`.
 //!
-//! Shadows of opaque backgrounds use the backend's analytic box shadow primitive.
-//! Translucent and border-only shadows require Gaussian blur filters on compositing layers.
+//! Shadows of opaque backgrounds and inner shadows use the backend's analytic box shadow
+//! primitive.
+//! Blurred, it only draws round corners of one radius (linebender/vello#1245),
+//! so these shadows average per-corner radii.
+//! Translucent and border-only shadows, and blurred shadows with corner shapes,
+//! require Gaussian blur filters on compositing layers.
 //! `anyrender_vello` 0.15 ignores these filters, rendering those shadows without blur.
 //! For `anyrender_vello_cpu` 0.18, enable its `filters` feature and leave
 //! `multithreading` disabled, because that configuration ignores filters.
