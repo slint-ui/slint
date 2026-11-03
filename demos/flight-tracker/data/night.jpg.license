@@ -1,0 +1,4 @@
+# cSpell: ignore Román VIIRS
+SPDX-License-Identifier: CC-PDDC
+SPDX-FileCopyrightText: NASA Earth Observatory, Earth at Night (Black Marble) 2016, by Joshua Stevens, using Suomi NPP VIIRS data from Miguel Román, NASA GSFC (https://visibleearth.nasa.gov/). This work is in the public domain.
+Comment: Converted with convert.py from BlackMarble_2016_3km_gray.jpg
