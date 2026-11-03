@@ -247,9 +247,8 @@ component Segmented {
 
 component Caption inherits Text {
     color: Theme.muted;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 component Stat {
@@ -291,13 +290,13 @@ component FlightCard inherits Glass {
         spacing: root.small ? 8px : 10px;
         HorizontalLayout {
             Caption {
-                text: root.flight.phase == Phase.boarding ? "BOARDING" : root.flight.phase == Phase.arrived ? "LANDED" : "IN FLIGHT";
+                text: root.flight.phase == Phase.boarding ? "Boarding" : root.flight.phase == Phase.arrived ? "Landed" : "In flight";
                 color: Theme.accent-light;
             }
 
             Caption {
                 horizontal-alignment: right;
-                text: root.kiosk ? "RANDOM FLIGHTS" : "YOUR FLIGHT";
+                text: root.kiosk ? "Random flights" : "Your flight";
             }
         }
 
@@ -374,13 +373,13 @@ component FlightCard inherits Glass {
         HorizontalLayout {
             spacing: 16px;
             Stat {
-                label: "TIME TO GO";
+                label: "Time to go";
                 value: root.flight.remaining-time;
                 value-size: root.small ? 16px : 18px;
             }
 
             Stat {
-                label: "DISTANCE TO GO";
+                label: "Distance to go";
                 value: root.flight.remaining-distance;
                 value-size: root.small ? 16px : 18px;
             }
@@ -408,19 +407,19 @@ component StatusCard inherits Glass {
             spacing-vertical: 12px;
             Row {
                 Stat {
-                    label: "GROUND SPEED";
+                    label: "Ground speed";
                     value: root.flight.speed;
                     value-size: root.small ? 16px : 18px;
                 }
 
                 Stat {
-                    label: "ALTITUDE";
+                    label: "Altitude";
                     value: root.flight.altitude;
                     value-size: root.small ? 16px : 18px;
                 }
 
                 Stat {
-                    label: "OUTSIDE AIR";
+                    label: "Outside air";
                     value: root.flight.temperature;
                     value-size: root.small ? 16px : 18px;
                 }
@@ -428,17 +427,17 @@ component StatusCard inherits Glass {
 
             if !root.small: Row {
                 Stat {
-                    label: "HEADING";
+                    label: "Heading";
                     value: root.flight.heading;
                 }
 
                 Stat {
-                    label: "FLOWN";
+                    label: "Flown";
                     value: root.flight.flown-distance;
                 }
 
                 Stat {
-                    label: "TOTAL";
+                    label: "Total";
                     value: root.flight.total-distance;
                 }
             }
@@ -446,7 +445,7 @@ component StatusCard inherits Glass {
         if root.flight.phase == Phase.boarding: VerticalLayout {
             spacing: 4px;
             Caption {
-                text: "NEXT FLIGHT";
+                text: "Next flight";
             }
 
             Text {
@@ -466,7 +465,7 @@ component StatusCard inherits Glass {
         if root.flight.phase == Phase.arrived: VerticalLayout {
             spacing: 4px;
             Caption {
-                text: "WELCOME TO";
+                text: "Welcome to";
             }
 
             Text {
@@ -1014,7 +1013,7 @@ export component AppWindow inherits Window {
             }
 
             from-field := AirportField {
-                label: "FROM";
+                label: "From";
                 active: root.active-field == 0;
                 activated => {
                     root.active-field = 0;
@@ -1033,7 +1032,7 @@ export component AppWindow inherits Window {
             }
 
             to-field := AirportField {
-                label: "TO";
+                label: "To";
                 active: root.active-field == 1;
                 activated => {
                     root.active-field = 1;
@@ -1052,7 +1051,7 @@ export component AppWindow inherits Window {
             }
 
             Caption {
-                text: root.results.length == 1 ? "1 AIRPORT" : "\{root.results.length} AIRPORTS";
+                text: root.results.length == 1 ? "1 airport" : "\{root.results.length} airports";
             }
 
             ListView {
@@ -1171,7 +1170,7 @@ export component AppWindow inherits Window {
             padding: 16px;
             spacing: 6px;
             Caption {
-                text: "QUALITY";
+                text: "Quality";
             }
 
             Segmented {
