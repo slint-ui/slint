@@ -395,6 +395,31 @@ fn svg_rasterized_again_when_magnified() {
 }
 
 #[test]
+fn snapshot_has_straight_alpha() {
+    init_skia();
+
+    let compiler = slint_interpreter::Compiler::default();
+    let source = r#"
+        export component App inherits Window {
+            width: 4px;
+            height: 4px;
+            background: transparent;
+            Rectangle {
+                background: #ff000080;
+            }
+        }
+    "#;
+    let result = poll_once(compiler.build_from_source(source.into(), Default::default())).unwrap();
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let component = result.components().last().unwrap().create().unwrap();
+    component.show().unwrap();
+
+    let snapshot = component.window().take_snapshot().unwrap();
+    let pixel = snapshot.as_slice()[0];
+    assert_eq!([pixel.r, pixel.g, pixel.b, pixel.a], [255, 0, 0, 0x80]);
+}
+
+#[test]
 fn rendering_notifier_removes_elements() {
     use i_slint_core::api::SetRenderingNotifierError;
     use i_slint_core::model::VecModel;
