@@ -7,10 +7,16 @@ import { ColorIndicator } from "color-indicator.slint";
 export component GradientStopMarker inherits Rectangle {
     in property <bool> active;
     in property <color> stop-color;
-    width: 24px;
+    in property <length> marker-size: 24px;
+    in property <length> marker-radius: 5px;
+    in property <color> inactive-color: PickerStyles.slider-color;
+    in property <color> active-color: PickerStyles.focused-color;
+    in property <color> checker-light: white;
+    in property <color> checker-dark: #e1e1e1;
+    width: root.marker-size;
     height: self.width;
-    background: active ? PickerStyles.focused-color : PickerStyles.slider-color;
-    border-radius: 5px;
+    background: active ? root.active-color : root.inactive-color;
+    border-radius: root.marker-radius;
 
     Rectangle {
         y: 1px;
@@ -26,6 +32,8 @@ export component GradientStopMarker inherits Rectangle {
 
     ColorIndicator {
         color: root.stop-color;
+        checker-light: root.checker-light;
+        checker-dark: root.checker-dark;
     }
 
     @children

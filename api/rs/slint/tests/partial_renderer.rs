@@ -110,6 +110,11 @@ impl SkiaTestWindow {
             slint::LogicalSize::new(size.width as _, size.height as _)
         })
     }
+    fn pixel(&self, x: u32, y: u32) -> slint::Rgba8Pixel {
+        let pixels = self.render_buffer.pixels.borrow();
+        let pixels = pixels.as_ref().unwrap();
+        pixels.as_slice()[(y * pixels.width() + x) as usize]
+    }
     fn last_dirty_region_bounding_box_origin(&self) -> Option<slint::LogicalPosition> {
         self.render_buffer.last_dirty_region.borrow().as_ref().map(|r| {
             let origin = r.bounding_rect().origin;
@@ -198,6 +203,7 @@ impl i_slint_renderer_skia::software_surface::RenderBuffer for SkiaTestSoftwareB
 #[test]
 fn simple() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: yellow;
             background: black;
@@ -249,6 +255,7 @@ fn simple() {
 #[test]
 fn visibility() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> c : true;
             in property <bool> another: false;
@@ -326,6 +333,7 @@ fn visibility() {
 #[test]
 fn if_condition() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> c : true;
             background: black;
@@ -371,6 +379,7 @@ fn if_condition() {
 #[test]
 fn list_view() {
     slint::slint! {
+        #[edition = "1.19"]
         // We can't rely on the style as they are all different so implement our own in very basic terms
         component ListView inherits Flickable {
             out property <length> visible-width <=> self.width;
@@ -452,6 +461,7 @@ fn list_view() {
 /// test for #6932
 fn scale_factor() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
         }
     }
@@ -470,6 +480,7 @@ fn scale_factor() {
 #[test]
 fn rotated_image() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <angle> rotation <=> i.transform-rotation;
             in property <length> x-pos <=> i.x;
@@ -534,6 +545,7 @@ fn rotated_image() {
 #[test]
 fn window_background() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: yellow;
             background: c;
@@ -560,6 +572,7 @@ fn window_background() {
 #[test]
 fn touch_area_doesnt_cause_redraw() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: yellow;
             in property <length> touch-area-1-x <=> ta1.x;
@@ -629,6 +642,7 @@ fn touch_area_doesnt_cause_redraw() {
 /// is not covered by the parent's repaint and would otherwise leave a ghost.
 fn moving_rendering_dirty_item_clears_old_position() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <length> pos;
             in property <color> c: red;
@@ -679,6 +693,7 @@ fn moving_rendering_dirty_item_clears_old_position() {
 /// even though nothing but the stacking order changed. See #12397.
 fn dynamic_z_order() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <int> z-red: 1;
             in property <int> z-blue: 2;
@@ -749,6 +764,7 @@ fn do_test_no_repaint(window: &MinimalSoftwareWindow) {
 /// across several others repaints, and that a z change preserving the order repaints nothing.
 fn dynamic_z_order_repeater() {
     slint::slint! {
+        #[edition = "1.19"]
         struct ZItem { px: length, py: length, z: int }
         export component Ui inherits Window {
             in property <[ZItem]> items;
@@ -824,6 +840,7 @@ fn dynamic_z_order_repeater() {
 /// top of B, so the A∩B overlap must be repainted (via A's rect).
 fn dynamic_z_order_reversal() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> rev: false;
             background: black;
@@ -868,6 +885,7 @@ fn dynamic_z_order_reversal() {
 /// overlap of the swapped pair must still be repainted.
 fn dynamic_z_order_swap_with_appearing_sibling() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> front: false;
             background: black;
@@ -900,6 +918,7 @@ fn dynamic_z_order_swap_with_appearing_sibling() {
 #[test]
 fn shadow_redraw_beyond_geometry() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <length> x-pos: 10px;
             Rectangle {
@@ -907,6 +926,7 @@ fn shadow_redraw_beyond_geometry() {
                 y: 10px;
                 width: 20px;
                 height: 20px;
+                background: white;
                 drop-shadow-blur: 5px;
                 drop-shadow-offset-x: 15px;
                 drop-shadow-offset-y: 5px;
@@ -945,22 +965,239 @@ fn shadow_redraw_beyond_geometry() {
     let move_delta = 10.;
     let shadow_height = /* rect height */ 20. + 2. * /*blur */ 5.;
 
-    let old_shadow_x = /* rect x */ 10. + /* shadow offset */ 15. - /* blur */ 5.;
+    let old_rect_x = 10.;
+    let old_shadow_x = old_rect_x + /* shadow offset */ 15. - /* blur */ 5.;
     let old_shadow_y = /* rect y */ 10. + /* shadow offset */ 5. - /* blur */ 5.;
+    let new_shadow_right = old_shadow_x + move_delta + shadow_width;
 
     assert_eq!(
         window.last_dirty_region_bounding_box_size(),
-        Some(slint::LogicalSize { width: shadow_width + move_delta, height: shadow_height })
+        Some(slint::LogicalSize { width: new_shadow_right - old_rect_x, height: shadow_height })
     );
     assert_eq!(
         window.last_dirty_region_bounding_box_origin(),
-        Some(slint::LogicalPosition { x: old_shadow_x, y: old_shadow_y })
+        Some(slint::LogicalPosition { x: old_rect_x, y: old_shadow_y })
+    );
+}
+
+#[test]
+fn backdrop_blur_redraws_as_a_whole() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            in property <length> x-pos: 10px;
+            Rectangle {
+                x: root.x-pos;
+                y: 20px;
+                width: 10px;
+                height: 10px;
+                background: red;
+            }
+            Rectangle {
+                x: 50px;
+                y: 10px;
+                width: 100px;
+                height: 40px;
+                background: #fff4;
+                backdrop-blur: 4px;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert!(!window.draw_if_needed());
+
+    // Moving far from the blur only repaints the old and new position.
+    ui.set_x_pos(20.);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 20., height: 10. })
+    );
+
+    // Moving next to the blur, within the 3 * 4px it samples beyond its edges, repaints the
+    // whole blur and that margin (clipped to the window at the top).
+    ui.set_x_pos(30.);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 20., y: 0. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 142., height: 62. })
+    );
+}
+
+#[test]
+fn backdrop_blur_opacity_over_translucent_backdrop() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            background: transparent;
+            Rectangle {
+                background: #ffffff40;
+            }
+            Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 100px;
+                height: 40px;
+                backdrop-blur: 4px;
+                opacity: 0.5;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+    assert!(window.draw_if_needed());
+
+    // Blurring and fading a uniform backdrop leaves it as it is, inside and outside the blur.
+    let expected = slint::Rgba8Pixel { r: 64, g: 64, b: 64, a: 64 };
+    for (x, y) in [(10, 10), (100, 70), (200, 200)] {
+        let pixel = window.pixel(x, y);
+        for (channel, expected) in [
+            (pixel.r, expected.r),
+            (pixel.g, expected.g),
+            (pixel.b, expected.b),
+            (pixel.a, expected.a),
+        ] {
+            assert!(channel.abs_diff(expected) <= 1, "pixel at {x},{y} is {pixel:?}");
+        }
+    }
+}
+
+#[test]
+fn backdrop_blur_redraws_as_a_whole_for_a_removed_item() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            in property <bool> show: true;
+            Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 100px;
+                height: 40px;
+                background: #fff4;
+                backdrop-blur: 4px;
+            }
+            if root.show: Rectangle {
+                x: 140px;
+                y: 60px;
+                width: 30px;
+                height: 10px;
+                background: red;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert!(!window.draw_if_needed());
+
+    // The removed rectangle overlaps the blur, so the whole blur and its 3 * 4px margin repaint.
+    ui.set_show(false);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 38., y: 38. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 132., height: 64. })
+    );
+}
+
+#[test]
+fn backdrop_blur_redraws_for_changes_outside_its_clip() {
+    slint::slint! {
+        #[edition = "1.19"]
+        export component Ui inherits Window {
+            in property <length> x-pos: 30px;
+            Rectangle {
+                x: root.x-pos;
+                y: 60px;
+                width: 10px;
+                height: 10px;
+                background: red;
+            }
+            Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 100px;
+                height: 100px;
+                clip: true;
+                Rectangle {
+                    x: 0px;
+                    y: 0px;
+                    width: 100px;
+                    height: 40px;
+                    background: #fff4;
+                    backdrop-blur: 4px;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(250, 250).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+    assert!(!window.draw_if_needed());
+
+    // The red rectangle is outside the clip, but within the 3 * 4px the blur samples beyond it.
+    // Everything the blur samples is repainted, including the parts outside of the clip,
+    // so that the blur doesn't read the previous frame's pixels there.
+    ui.set_x_pos(35.);
+    assert!(window.draw_if_needed());
+    assert_eq!(
+        window.last_dirty_region_bounding_box_origin(),
+        Some(slint::LogicalPosition { x: 30., y: 38. })
+    );
+    assert_eq!(
+        window.last_dirty_region_bounding_box_size(),
+        Some(slint::LogicalSize { width: 132., height: 64. })
     );
 }
 
 #[test]
 fn text_alignment() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <color> c: green;
             Text {
@@ -1012,6 +1249,7 @@ fn text_alignment() {
 #[test]
 fn nowrap_text_change_doesnt_change_height() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <string> first-text: "First text";
             out property <length> first-label-width: first-label.width;
@@ -1055,6 +1293,7 @@ fn create_item_tree_during_rendering() {
     // materializes all three levels before rendering, so every rectangle
     // lands in the first draw's dirty region.
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> cond1: false;
             property <bool> cond2: false;
@@ -1131,6 +1370,7 @@ fn create_item_tree_during_rendering() {
 #[test]
 fn init_property_read_does_not_trigger_redraw() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 100px;
             height: 100px;
@@ -1180,6 +1420,7 @@ fn init_property_read_does_not_trigger_redraw() {
 #[test]
 fn issue_9882_borrow_mut() {
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             in-out property <[string]> strings: ["Home"];
             VerticalLayout {
@@ -1222,6 +1463,7 @@ fn issue_9882_borrow_mut() {
 /// Check that changing the position of a rectangle is properly tracked when RepaintBufferType::NewBuffer is used.
 fn position_tracking_without_partial_rendering() {
     slint::slint! {
+        #[edition = "1.19"]
         export component App inherits Window {
             width: 180px;
             height: 260px;
@@ -1292,6 +1534,7 @@ fn position_tracking_without_partial_rendering() {
 #[test]
 fn partial_rendering_does_not_cull_scaled_items() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 300px;
             height: 300px;
@@ -1373,6 +1616,7 @@ fn partial_rendering_does_not_cull_scaled_items() {
 #[test]
 fn partial_rendering_does_not_cull_rotated_items() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 300px;
             height: 300px;
@@ -1426,6 +1670,7 @@ fn partial_rendering_does_not_cull_rotated_items() {
 #[test]
 fn partial_rendering_nested_scales() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 300px;
             height: 300px;
@@ -1500,6 +1745,7 @@ fn partial_rendering_nested_scales() {
 #[test]
 fn layer_visible_after_becoming_non_zero_sized() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 32px;
             height: 32px;
@@ -1558,6 +1804,7 @@ fn layer_rendered_at_correct_position() {
     // partially scrolled out of the visible area. This makes the layer
     // texture miss the left portion of the item.
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             width: 64px;
             height: 64px;
@@ -1636,6 +1883,7 @@ fn layer_rendered_at_correct_position() {
 #[test]
 fn partial_rendering_popup_position_size_change() {
     slint::slint! {
+        #[edition = "1.19"]
         global MyProperty {
             in-out property<length> popup-x: 0px;
             in-out property<length> popup-y: 0px;
@@ -1815,6 +2063,7 @@ fn partial_rendering_popup_position_size_change() {
 #[test]
 fn destroy_never_rendered_item() {
     slint::slint! {
+        #[edition = "1.19"]
         export component Ui inherits Window {
             in property <bool> c : false;
             background: black;

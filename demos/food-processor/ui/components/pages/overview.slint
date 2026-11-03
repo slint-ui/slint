@@ -1,0 +1,118 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe } from "../../recipe-adapter.slint";
+import { Styles } from "../../styles.slint";
+import { Bubble } from "../bubble.slint";
+import { RecipePhoto } from "../recipe-photo.slint";
+
+export component OverviewPage inherits HorizontalLayout {
+    in property <Recipe> recipe;
+
+    callback start-clicked();
+
+    spacing: Styles.side-margin;
+
+    RecipePhoto {
+        width: Styles.recipe-photo-width;
+        height: Styles.recipe-photo-height;
+        border-radius: Styles.border-radius;
+        horizontal-stretch: 0;
+        vertical-stretch: 0;
+        photo: root.recipe.photo;
+    }
+
+    VerticalLayout {
+        alignment: start;
+        spacing: Styles.spacing-md;
+        title := Text {
+            wrap: word-wrap;
+            font-size: Styles.title-font-size;
+            font-weight: FontWeight.semi-bold;
+            color: #171717;
+            text: recipe.title;
+        }
+
+        rating := HorizontalLayout {
+            visible: root.recipe.rating != "";
+            height: Styles.compact-row-height;
+            spacing: Styles.spacing-md;
+            alignment: start;
+            Rectangle {
+                width: stars.preferred-width;
+                stars := HorizontalLayout {
+                    for i[index] in recipe.rating.to-float().ceil(): Image {
+                        source: @image-url("../../images/star.jpg");
+                        width: Styles.medium-icon-size;
+                    }
+                }
+            }
+
+            Text {
+                text: recipe.rating;
+                font-size: Styles.heading-font-size;
+                font-weight: FontWeight.bold;
+                color: #171717;
+            }
+
+            Text {
+                text: recipe.reviews + " ratings";
+                font-size: Styles.small-font-size;
+                font-weight: FontWeight.normal;
+                color: #737373;
+                vertical-alignment: center;
+            }
+        }
+
+        info := Rectangle {
+            height: bubbles.preferred-height;
+            bubbles := HorizontalLayout {
+                alignment: LayoutAlignment.space-between;
+                Bubble {
+                    icon: @image-url("../../images/prep.jpg");
+                    title: "PREP";
+                    time: recipe.prep-time;
+                }
+
+                Bubble {
+                    icon: @image-url("../../images/duration.jpg");
+                    title: "TOTAL";
+                    time: recipe.total-time + " Min.";
+                }
+
+                Bubble {
+                    icon: @image-url("../../images/portions.jpg");
+                    title: "PORTIONS";
+                    time: recipe.portions;
+                }
+            }
+        }
+
+        about := Rectangle {
+            background: white;
+            border-radius: Styles.border-radius;
+            border-width: Styles.outline-width;
+            border-color: #E5E5E5;
+
+            VerticalLayout {
+                spacing: Styles.spacing-lg;
+                padding: Styles.spacing-lg;
+
+                Text {
+                    text: "About This Recipe";
+                    font-size: Styles.regular-font-size;
+                    font-weight: FontWeight.bold;
+                    color: #171717;
+                }
+
+                Text {
+                    text: root.recipe.description;
+                    font-size: Styles.small-font-size;
+                    color: #525252;
+                    font-weight: FontWeight.normal;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

@@ -50,6 +50,9 @@ MyDialog4 := Dialog {
 //                                      >     <error{dialog-button-role used outside of a Dialog's direct child}
     }
 
+    StandardButton { kind: cancel; dialog-button-role: accept; }
+//                                                     >     <warning{'dialog-button-role' overrides the role that a 'StandardButton' gets from its 'kind': remove it, or use a 'Button' for a custom role}
+
     init => {
         r.dialog-button-role = DialogButtonRole.action;
 //      >                                            <error{The property must be known at compile time and cannot be changed at runtime}

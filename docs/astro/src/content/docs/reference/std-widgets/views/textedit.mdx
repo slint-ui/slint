@@ -60,6 +60,11 @@ TextEdit {
 Set to true when the widget currently has the focus.
 </SlintProperty>
 
+### has-selection
+<SlintProperty propName="has-selection" typeName="bool" propertyVisibility="out">
+`true` when text is selected.
+</SlintProperty>
+
 ### enabled
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true" >
 When false, nothing can be entered.
@@ -155,6 +160,12 @@ Copies the selected text to the clipboard and removes it from the editable area.
 
 ### paste()
 Pastes the text content of the clipboard at the cursor position. This function takes effect regardless of the `read-only` and `enabled` properties.
+
+### undo()
+Undoes the last text operation. This function takes effect regardless of the `read-only` and `enabled` properties.
+
+### redo()
+Redoes the last undone text operation. This function takes effect regardless of the `read-only` and `enabled` properties.
 
 ## Callbacks
 

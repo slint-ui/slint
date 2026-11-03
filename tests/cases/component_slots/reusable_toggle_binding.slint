@@ -1,0 +1,209 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch } from "../../../tools/editor/controls/src/basic.slint";
+import { ButtonBase } from "../../../tools/editor/controls/src/headless.slint";
+import { ButtonInterface } from "std-widget-interfaces.slint";
+
+component ToggleButton inherits Button {
+    checkable: true;
+}
+
+component ActionHost {
+    slot <ButtonInterface> action;
+    in-out property <bool> checked;
+    callback changed(bool);
+    action {
+        checked <=> root.checked;
+        clicked => { root.changed(root.checked); }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 300px;
+
+    in-out property <bool> selected;
+    in-out property <bool> actions-enabled: true;
+    out property <int> clicks;
+    out property <int> toggles;
+    out property <string> events;
+    out property <bool> pressed: action.pressed;
+    out property <bool> test: root.clicks == 0 && root.toggles == 0 && !root.selected;
+
+    public function focus-action() { action.focus(); }
+    public function focus-headless() { headless.focus(); }
+    public function activate-headless() { headless.activate(); }
+
+    action-host := ActionHost {
+        x: 20px;
+        y: 20px;
+        width: 160px;
+        height: 44px;
+        checked <=> root.selected;
+        changed(value) => {
+            root.clicks += 1;
+            root.events += value ? "button:on;" : "button:off;";
+        }
+        action << action := ToggleButton {
+            text: "Toggle action";
+            enabled: root.actions-enabled;
+        }
+    }
+
+    CheckBox {
+        x: 20px;
+        y: 90px;
+        width: 240px;
+        height: 44px;
+        text: "Shared checkbox";
+        checked <=> root.selected;
+        enabled: root.actions-enabled;
+        toggled => {
+            root.toggles += 1;
+            root.events += self.checked ? "checkbox:on;" : "checkbox:off;";
+        }
+    }
+
+    Switch {
+        x: 20px;
+        y: 160px;
+        width: 240px;
+        height: 44px;
+        text: "Shared switch";
+        checked <=> root.selected;
+        enabled: root.actions-enabled;
+        toggled => {
+            root.toggles += 1;
+            root.events += self.checked ? "switch:on;" : "switch:off;";
+        }
+    }
+
+    headless := ButtonBase {
+        x: 300px;
+        y: 20px;
+        width: 140px;
+        height: 80px;
+        text: "Custom action";
+        checkable: true;
+        checked <=> root.selected;
+        enabled: root.actions-enabled;
+        content << VerticalLayout {
+            spacing: 4px;
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                background: headless.checked ? green : gray;
+            }
+            Text { text: headless.text; }
+        }
+        clicked => {
+            root.clicks += 1;
+            root.events += root.selected ? "custom:on;" : "custom:off;";
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let key = |key: Key, pressed: bool| {
+    slint_testing::send_keyboard_char(&instance, key.into(), pressed);
+};
+for headless in [false, true] {
+    if headless { instance.invoke_focus_headless(); }
+    else { instance.invoke_focus_action(); }
+    for modifier in [Key::Control, Key::Alt, Key::Meta] {
+        for activation in [Key::Space, Key::Return] {
+            key(modifier.clone(), true);
+            key(activation.clone(), true);
+            key(activation, false);
+            key(modifier.clone(), false);
+            assert_eq!(instance.get_clicks(), 0, "a modifier shortcut activated a button");
+            assert!(!instance.get_selected());
+        }
+    }
+}
+instance.invoke_focus_action();
+key(Key::Space, true);
+key(Key::Space, true);
+assert!(instance.get_pressed());
+assert!(!instance.get_selected());
+assert_eq!(instance.get_clicks(), 0);
+key(Key::Space, false);
+assert!(!instance.get_pressed());
+assert!(instance.get_selected());
+assert_eq!(instance.get_clicks(), 1);
+assert_eq!(instance.get_events(), "button:on;");
+
+key(Key::Space, true);
+instance.invoke_focus_headless();
+key(Key::Space, false);
+assert_eq!(instance.get_clicks(), 1);
+key(Key::Return, true);
+key(Key::Escape, true);
+key(Key::Escape, false);
+key(Key::Return, false);
+assert_eq!(instance.get_clicks(), 1);
+
+instance.set_actions_enabled(false);
+slint::platform::update_timers_and_animations();
+instance.invoke_activate_headless();
+assert_eq!(instance.get_clicks(), 1);
+assert!(instance.get_selected());
+```
+
+```rust
+use slint::platform::PointerEventButton;
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let find = |label: &str| {
+    ElementHandle::find_by_accessible_label(&instance, label).next().unwrap()
+};
+let action = find("Toggle action");
+let checkbox = find("Shared checkbox");
+let switch = find("Shared switch");
+let custom = find("Custom action");
+
+action.mock_single_click(PointerEventButton::Right);
+action.mock_single_click(PointerEventButton::Middle);
+assert_eq!(instance.get_clicks(), 0);
+assert!(!instance.get_selected());
+
+action.mock_single_click(PointerEventButton::Left);
+assert!(instance.get_selected());
+assert_eq!(instance.get_events(), "button:on;");
+assert_eq!(instance.get_toggles(), 0);
+for element in [&action, &checkbox, &switch, &custom] {
+    assert_eq!(element.accessible_checked(), Some(true));
+}
+checkbox.mock_single_click(PointerEventButton::Left);
+assert!(!instance.get_selected());
+switch.invoke_accessible_default_action();
+assert!(instance.get_selected());
+custom.invoke_accessible_default_action();
+assert!(!instance.get_selected());
+assert_eq!(instance.get_clicks(), 2);
+assert_eq!(instance.get_toggles(), 2);
+assert_eq!(instance.get_events(), "button:on;checkbox:off;switch:on;custom:off;");
+
+instance.set_selected(true);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_clicks(), 2);
+assert_eq!(instance.get_toggles(), 2);
+instance.set_actions_enabled(false);
+slint::platform::update_timers_and_animations();
+for element in [&action, &checkbox, &switch, &custom] {
+    assert_eq!(element.accessible_checked(), Some(true));
+    assert_eq!(element.accessible_enabled(), Some(false));
+    element.invoke_accessible_default_action();
+    element.mock_single_click(PointerEventButton::Left);
+}
+assert_eq!(instance.get_clicks(), 2);
+assert_eq!(instance.get_toggles(), 2);
+assert!(instance.get_selected());
+```
+*/

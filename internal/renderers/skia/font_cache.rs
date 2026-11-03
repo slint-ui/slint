@@ -78,7 +78,7 @@ impl FontCache {
 
     fn load_typeface_internal(&self, font: &parley::FontData) -> Option<skia_safe::Typeface> {
         let typeface = self.font_mgr.new_from_data(
-            skia_safe::Data::new_copy(font.data.as_ref()),
+            skia_safe::Data::new_with_owner(font.data.clone()),
             if font.index > 0 { Some(font.index as _) } else { None },
         );
 
@@ -93,7 +93,7 @@ impl FontCache {
                 .and_then(|ttc| ttc.get(font.index).ok())
                 .map(|ttf| write_fonts::FontBuilder::new().copy_missing_tables(ttf).build())
                 .and_then(|new_ttf| {
-                    self.font_mgr.new_from_data(skia_safe::Data::new_copy(&new_ttf), None)
+                    self.font_mgr.new_from_data(skia_safe::Data::new_with_owner(new_ttf), None)
                 })
         {
             return Some(typeface);

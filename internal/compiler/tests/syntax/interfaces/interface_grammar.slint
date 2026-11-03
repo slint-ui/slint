@@ -5,16 +5,11 @@
 // Kept apart from the semantic tests (a syntax error suppresses semantic analysis of the file) and
 // from the `implement`-statement syntax errors (declaration-level parse recovery breaks them).
 
-interface Base {
-    out property <bool> test;
-}
-
 // `:=` is not valid to declare an interface.
 interface ColonEqual := {
 //                   ><error{':=' to declare an interface is not supported. Remove the ':='}
 }
 
-// Interface inheritance is not supported.
-export interface Inherits inherits Base {
-//                        >      <error{Interface inheritance is not supported}
+interface DanglingInherits inherits {
+//                                  ^error{Syntax error: expected Identifier}
 }

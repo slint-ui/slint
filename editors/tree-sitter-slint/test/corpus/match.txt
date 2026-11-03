@@ -1,0 +1,435 @@
+================================================================================
+match_negative_number
+================================================================================
+
+component Test {
+    match n {
+        -1: Rectangle { }
+        -1.5px: Rectangle { }
+        *: Rectangle { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (unary_expression
+              (unary_prec_operator)
+              (expression
+                (value
+                  (int_value)))))
+          (component
+            (user_type_identifier)
+            (block)))
+        (match_case
+          (expression
+            (unary_expression
+              (unary_prec_operator)
+              (expression
+                (value
+                  (length_value)))))
+          (component
+            (user_type_identifier)
+            (block)))
+        (wildcard_match_case
+          (component
+            (user_type_identifier)
+            (block)))))))
+
+================================================================================
+match_string
+================================================================================
+
+component Test {
+    match s {
+        "a": Text { }
+        "b": { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (value
+              (string_value)))
+          (component
+            (user_type_identifier)
+            (block)))
+        (match_case
+          (expression
+            (value
+              (string_value))))))))
+
+================================================================================
+match_enum
+================================================================================
+
+component Test {
+    match mode {
+        Mode.foo: Rectangle { }
+        bar: Rectangle { }
+        *: { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (member_access
+              (expression
+                (simple_identifier))
+              (expression
+                (simple_identifier))))
+          (component
+            (user_type_identifier)
+            (block)))
+        (match_case
+          (expression
+            (simple_identifier))
+          (component
+            (user_type_identifier)
+            (block)))
+        (wildcard_match_case)))))
+
+================================================================================
+match_comments
+================================================================================
+
+component Test {
+    match n {
+        // first
+        0: Rectangle { }
+        /* wildcard */
+        *: Rectangle { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (line_comment)
+        (match_case
+          (expression
+            (value
+              (int_value)))
+          (component
+            (user_type_identifier)
+            (block)))
+        (block_comment)
+        (wildcard_match_case
+          (component
+            (user_type_identifier)
+            (block)))))))
+
+================================================================================
+match_identifier_callback_handlers
+================================================================================
+
+component Test {
+    callback match;
+    callback match-int(int);
+    match => { }
+    match() => { }
+    match => debug("match");
+    match (value) => { }
+    match(first, second) => { }
+    Child {
+        match => { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (callback
+        (simple_identifier))
+      (callback
+        (simple_identifier)
+        (type
+          (builtin_type_identifier)))
+      (callback_event
+        (simple_identifier)
+        (imperative_block))
+      (callback_event
+        (simple_identifier)
+        (arguments)
+        (imperative_block))
+      (callback_event
+        (simple_identifier)
+        (expression
+          (function_call
+            (simple_identifier)
+            (arguments
+              (argument
+                (expression
+                  (value
+                    (string_value))))))))
+      (callback_event
+        (simple_identifier)
+        (arguments
+          (argument
+            (expression
+              (simple_identifier))))
+        (imperative_block))
+      (callback_event
+        (simple_identifier)
+        (arguments
+          (argument
+            (expression
+              (simple_identifier)))
+          (argument
+            (expression
+              (simple_identifier))))
+        (imperative_block))
+      (component
+        (user_type_identifier)
+        (block
+          (callback_event
+            (simple_identifier)
+            (imperative_block)))))))
+
+================================================================================
+match_identifier_properties
+================================================================================
+
+component Test {
+    in-out property <int> match: 1;
+    in-out property <int> alias <=> match;
+    changed match => { }
+    animate match { duration: 1s; }
+    Child {
+        match: 2;
+    }
+    Child {
+        match <=> root.other;
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (property
+        (property_visibility)
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (expression
+          (value
+            (int_value))))
+      (property
+        (property_visibility)
+        (type
+          (builtin_type_identifier))
+        (simple_identifier)
+        (expression
+          (simple_identifier)))
+      (changed_event
+        (simple_identifier)
+        (imperative_block))
+      (animate_statement
+        (expression
+          (simple_identifier))
+        (animate_body
+          (animate_option
+            (animate_option_identifier)
+            (expression
+              (value
+                (duration_value))))))
+      (component
+        (user_type_identifier)
+        (block
+          (property_assignment
+            (simple_identifier)
+            (expression
+              (value
+                (int_value))))))
+      (component
+        (user_type_identifier)
+        (block
+          (binding_alias
+            (simple_identifier)
+            (expression
+              (member_access
+                (expression
+                  (reference_identifier))
+                (expression
+                  (simple_identifier))))))))))
+
+================================================================================
+match_identifier_components
+================================================================================
+
+component match { }
+
+component Test {
+    first := match { }
+    match { }
+    if condition: match { }
+    for i in 2: match { }
+    match value {
+        1: match { }
+        *: match { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block))
+  (component_definition
+    (user_type_identifier)
+    (block
+      (component
+        (simple_identifier)
+        (user_type_identifier)
+        (block))
+      (component
+        (user_type_identifier)
+        (block))
+      (if_statement
+        (expression
+          (simple_identifier))
+        (component
+          (user_type_identifier)
+          (block)))
+      (for_loop
+        (simple_indexed_identifier
+          (simple_identifier))
+        (for_range
+          (expression
+            (value
+              (int_value))))
+        (component
+          (user_type_identifier)
+          (block)))
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (value
+              (int_value)))
+          (component
+            (user_type_identifier)
+            (block)))
+        (wildcard_match_case
+          (component
+            (user_type_identifier)
+            (block)))))))
+
+================================================================================
+match_identifier_slots
+================================================================================
+
+component Test {
+    slot match;
+    match { }
+    Child {
+        match << Rectangle { }
+    }
+    Child {
+        match << match;
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (slot_declaration
+        (simple_identifier))
+      (component
+        (user_type_identifier)
+        (block))
+      (component
+        (user_type_identifier)
+        (block
+          (slot_assignment
+            (simple_identifier)
+            (component
+              (user_type_identifier)
+              (block)))))
+      (component
+        (user_type_identifier)
+        (block
+          (slot_forwarding
+            (simple_identifier)
+            (expression
+              (simple_identifier))))))))
+
+================================================================================
+match_identifier_subjects
+================================================================================
+
+component Test {
+    match match {
+        match: Rectangle { }
+        *: Rectangle { }
+    }
+    match (value) {
+        1: Rectangle { }
+    }
+}
+--------------------------------------------------------------------------------
+
+(sourcefile
+  (component_definition
+    (user_type_identifier)
+    (block
+      (match_element
+        (expression
+          (simple_identifier))
+        (match_case
+          (expression
+            (simple_identifier))
+          (component
+            (user_type_identifier)
+            (block)))
+        (wildcard_match_case
+          (component
+            (user_type_identifier)
+            (block))))
+      (match_element
+        (expression
+          (parens_op
+            (expression
+              (simple_identifier))))
+        (match_case
+          (expression
+            (value
+              (int_value)))
+          (component
+            (user_type_identifier)
+            (block)))))))

@@ -1,47 +1,162 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { InspectorTokens } from "tokens.slint";
+import { Style, Typography, FieldStyle } from "../../style.slint";
+
+import { EditorCursors } from "../index.slint";
+
 import { InspectorTextFieldBase } from "text-field-base.slint";
 
-export component InspectorValueField inherits Rectangle {
+export component InspectorValueField inherits FocusScope {
+    in property <FieldStyle> style: Style.inspector-field;
     in property <string> accessible-name: "";
     in property <string> prefix;
+    in property <string> suffix: "";
+    in property <length> suffix-width: 0px;
     in property <int> corner-index: -1;
     in property <string> value;
-    in property <bool> enabled: true;
     in property <string> commit-key: "";
+    in property <length> radius: root.style.radius;
+    in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
+    in property <bool> normalize-accepted: false;
+    in property <bool> live-edit: false;
+    in property <bool> muted-value: false;
+    in property <bool> show-focus-border: true;
+    in property <bool> scrubbable: false;
+    in property <float> scrub-value;
+    in property <bool> scrub-has-minimum: false;
+    in property <float> scrub-minimum;
+    in property <bool> scrub-has-maximum: false;
+    in property <float> scrub-maximum;
+    out property <bool> input-focused: field.input-focused;
     callback accepted(string) -> bool;
+    callback normalized(string) -> string;
+    callback scrub-started();
+    callback scrub-preview(float) -> bool;
+    callback scrub-accepted(float) -> bool;
+    callback scrub-canceled(float);
+    private property <MouseCursor> scrub-cursor: root.scrubbable ? MouseCursor.custom(EditorCursors.scrub-horizontal-image(), 16, 16) : MouseCursor.text;
+    private property <bool> scrubbing;
+    private property <length> scrub-start-x;
+    private property <float> scrub-initial-value;
+    private property <float> scrub-drag-value;
 
-    width: InspectorTokens.column-width;
-    height: InspectorTokens.field-height;
+    width: Style.inspector-layout.column-width;
+    height: root.style.height;
 
-    InspectorTextFieldBase {
-        accessible-name: root.accessible-name;
-        width: parent.width;
-        value: root.value;
-        enabled: root.enabled;
-        commit-key: root.commit-key;
-        accepted(text) => {
-            return root.accepted(text);
-        }
+    changed commit-key => { root.cancel-scrub(); }
 
-        if root.corner-index >= 0: Path {
-            width: 12px;
-            height: 12px;
-            // Top-left, top-right, bottom-left, and bottom-right corner outlines.
-            commands: root.corner-index == 0 ? "M 2 11 L 2 6 Q 2 2 6 2 L 11 2"
-                : root.corner-index == 1 ? "M 1 2 L 6 2 Q 10 2 10 6 L 10 11"
-                : root.corner-index == 2 ? "M 2 1 L 2 6 Q 2 10 6 10 L 11 10"
-                : "M 1 10 L 6 10 Q 10 10 10 6 L 10 1";
-            stroke: InspectorTokens.muted;
-            stroke-width: 1px;
-        }
-        if root.corner-index < 0: Text {
-            text: root.prefix;
-            color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
-            font-size: 11px;
-            vertical-alignment: center;
+    function cancel-scrub() {
+        let active = root.scrubbing;
+        root.scrubbing = false;
+        scrub-gesture.cancel();
+        if active { root.scrub-canceled(root.scrub-initial-value); }
+    }
+
+    function update-scrub(mouse-x: length) {
+        let delta = (mouse-x - root.scrub-start-x) / 1px;
+        let stepped-value = (root.scrub-initial-value + delta).round();
+        let minimum-clamped = root.scrub-has-minimum ? max(root.scrub-minimum, stepped-value) : stepped-value;
+        let value = root.scrub-has-maximum ? min(root.scrub-maximum, minimum-clamped) : minimum-clamped;
+        root.scrub-drag-value = value;
+        if !root.scrub-preview(value) {
+            root.cancel-scrub();
         }
     }
+
+    function begin-scrub(mouse-x: length) {
+        root.focus();
+        root.scrub-started();
+        root.scrubbing = true;
+        root.scrub-start-x = mouse-x;
+        root.scrub-initial-value = root.scrub-value;
+        root.scrub-drag-value = root.scrub-initial-value;
+    }
+
+    function finish-scrub() {
+        if !root.scrubbing { return; }
+        let value = root.scrub-drag-value;
+        root.scrubbing = false;
+        if value != root.scrub-initial-value {
+            if !root.scrub-accepted(value) {
+                root.scrub-canceled(root.scrub-initial-value);
+            }
+        } else {
+            root.scrub-canceled(root.scrub-initial-value);
+        }
+    }
+
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.scrubbing {
+            root.cancel-scrub();
+            return accept;
+        }
+        return reject;
+    }
+
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.scrub-cursor;
+        scrub-gesture := SwipeGestureHandler {
+            enabled: root.enabled && root.scrubbable;
+            handle-swipe-left: true;
+            handle-swipe-right: true;
+            moved => {
+                if self.swiping {
+                    if !root.scrubbing {
+                        root.begin-scrub(self.pressed-position.x + self.absolute-position.x);
+                    }
+                    root.update-scrub(self.current-position.x + self.absolute-position.x);
+                }
+            }
+            swiped => { root.finish-scrub(); }
+            cancelled => { root.cancel-scrub(); }
+
+            if root.scrubbable: Rectangle {
+                accessible-role: slider;
+                accessible-label: @tr("{} scrubber", root.accessible-name);
+                accessible-value: root.scrubbing ? "\{root.scrub-drag-value}" : "\{root.scrub-value}";
+                accessible-enabled: root.enabled;
+            }
+
+            field := InspectorTextFieldBase {
+                style: root.style;
+                unfocused-cursor: root.scrub-cursor;
+                radius: root.radius;
+                horizontal-alignment: root.horizontal-alignment;
+                suffix: root.suffix;
+                suffix-width: root.suffix-width;
+                normalize-accepted: root.normalize-accepted;
+                live-edit: root.live-edit;
+                muted-value: root.muted-value;
+                show-focus-border: root.show-focus-border;
+                accessible-name: root.accessible-name;
+                width: parent.width;
+                value: root.scrubbing ? "\{root.scrub-drag-value}" : root.value;
+                enabled: root.enabled;
+                commit-key: root.commit-key;
+                accepted(text) => { return root.accepted(text); }
+                normalized(text) => { return root.normalized(text); }
+
+                if root.corner-index >= 0: Image {
+                    width: 9px;
+                    height: 9px;
+                    accessible-role: none;
+                    source: @image-url("../../assets/radius-rounded.svg");
+                    colorize: root.style.appearance.muted;
+                    transform-rotation: root.corner-index == 1 ? 90deg : root.corner-index == 2 ? 270deg : root.corner-index == 3 ? 180deg : 0deg;
+                }
+                if root.corner-index < 0 && root.prefix != "": Text {
+                    width: root.style.prefix-width;
+                    height: field.height;
+                    text: root.prefix;
+                    color: root.style.appearance.muted;
+                    font-size: Typography.caption.size;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
 }

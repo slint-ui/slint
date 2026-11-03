@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use cfg_aliases::cfg_aliases;
 use std::path::PathBuf;
 
 /// Mirror the `/STACK` setting from `.cargo/config.toml`, which is not shipped
@@ -12,20 +13,26 @@ fn bump_windows_stack_size() {
 }
 
 fn main() {
+    cfg_aliases! {
+        enable_skia: { any(
+            feature = "renderer-skia",
+            feature = "renderer-skia-opengl",
+            feature = "renderer-skia-software",
+            feature = "renderer-skia-vulkan"
+        ) },
+    }
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_REMOTE");
     bump_windows_stack_size();
-    // The slint!{} macro in remote.rs needs the experimental
-    // new_with_existing_window constructor.
-    if std::env::var_os("CARGO_FEATURE_REMOTE").is_some() {
-        println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+    #[cfg(feature = "remote")]
+    {
+        let mut config = slint_build::CompilerConfiguration::new();
         // Android needs the Material style so the UI's ListView scrolls by touch.
-        println!("cargo:rerun-if-env-changed=SLINT_STYLE");
         if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android")
             && std::env::var_os("SLINT_STYLE").is_none()
         {
-            println!("cargo:rustc-env=SLINT_STYLE=material");
+            config = config.with_style("material".into());
         }
+        slint_build::compile_with_config(".", config).unwrap();
         generate_third_party_licenses();
     }
 }

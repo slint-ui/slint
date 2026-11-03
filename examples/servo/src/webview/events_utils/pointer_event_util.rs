@@ -50,9 +50,9 @@ fn handle_mouse_events(pointer_event: &PointerEvent, point: WebViewPoint) -> Inp
 
 fn get_mouse_button(point_event: &PointerEvent) -> MouseButton {
     match point_event.button {
-        PointerEventButton::Left => MouseButton::Left,
-        PointerEventButton::Right => MouseButton::Right,
-        PointerEventButton::Middle => MouseButton::Middle,
-        _ => MouseButton::Left,
+        PointerEventButton::Left => MouseButton::Primary,
+        PointerEventButton::Right => MouseButton::Secondary,
+        PointerEventButton::Middle => MouseButton::Auxiliary,
+        _ => MouseButton::Primary,
     }
 }

@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, ComboBox, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+
+export struct Padding {
+    left: length,
+    right: length,
+    top: length,
+    bottom: length,
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 400px;
+    in-out property <length> horizontal: 17px;
+    in-out property <length> vertical: 11px;
+    in-out property <bool> override-edges;
+    in-out property <string> label;
+    out property <Padding> expected: {
+        left: root.override-edges ? 7px : root.horizontal,
+        right: root.horizontal,
+        top: root.override-edges ? 3px : root.vertical,
+        bottom: root.vertical,
+    };
+    out property <Padding> button-padding: { left: button.left-padding, right: button.right-padding, top: button.top-padding, bottom: button.bottom-padding };
+    out property <Padding> checkbox-padding: { left: choice.left-padding, right: choice.right-padding, top: choice.top-padding, bottom: choice.bottom-padding };
+    out property <Padding> switch-padding: { left: toggle.left-padding, right: toggle.right-padding, top: toggle.top-padding, bottom: toggle.bottom-padding };
+    out property <Padding> combo-padding: { left: combo.left-padding, right: combo.right-padding, top: combo.top-padding, bottom: combo.bottom-padding };
+    out property <Padding> field-padding: { left: field.left-padding, right: field.right-padding, top: field.top-padding, bottom: field.bottom-padding };
+    out property <length> checkbox-indicator-width: choice.indicator-size;
+    out property <length> switch-indicator-width: toggle.track-width;
+    out property <bool> test: root.button-padding == root.expected && root.checkbox-padding == root.expected
+        && root.switch-padding == root.expected && root.combo-padding == root.expected && root.field-padding == root.expected
+        && button.font-weight == 400 && choice.font-weight == 400 && toggle.font-weight == 400
+        && combo.font-weight == 400 && field.font-weight == 400;
+
+    button := Button {
+        x: 20px; y: 20px; width: 300px; height: 80px;
+        text: "Button";
+        horizontal-padding: root.horizontal;
+        vertical-padding: root.vertical;
+        left-padding: root.override-edges ? 7px : self.horizontal-padding;
+        top-padding: root.override-edges ? 3px : self.vertical-padding;
+    }
+    choice := CheckBox {
+        x: 20px; y: 110px;
+        accessible-label: "Layout checkbox";
+        text: root.label;
+        horizontal-padding: root.horizontal;
+        vertical-padding: root.vertical;
+        left-padding: root.override-edges ? 7px : self.horizontal-padding;
+        top-padding: root.override-edges ? 3px : self.vertical-padding;
+    }
+    toggle := Switch {
+        x: 20px; y: 165px;
+        accessible-label: "Layout switch";
+        text: root.label;
+        horizontal-padding: root.horizontal;
+        vertical-padding: root.vertical;
+        left-padding: root.override-edges ? 7px : self.horizontal-padding;
+        top-padding: root.override-edges ? 3px : self.vertical-padding;
+    }
+    combo := ComboBox {
+        x: 20px; y: 220px; width: 300px;
+        placeholder-text: "Choose an option";
+        current-index: -1;
+        model: ["One", "Two"];
+        horizontal-padding: root.horizontal;
+        vertical-padding: root.vertical;
+        left-padding: root.override-edges ? 7px : self.horizontal-padding;
+        top-padding: root.override-edges ? 3px : self.vertical-padding;
+    }
+    field := LineEdit {
+        x: 20px; y: 285px; width: 300px; height: 80px;
+        accessible-label: "Layout field";
+        placeholder-text: "Field";
+        horizontal-padding: root.horizontal;
+        vertical-padding: root.vertical;
+        left-padding: root.override-edges ? 7px : self.horizontal-padding;
+        top-padding: root.override-edges ? 3px : self.vertical-padding;
+        leading << leading := Rectangle { width: 8px; height: 8px; }
+    }
+}
+
+/*
+```rust
+use slint_testing::ElementHandle;
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+for overrides in [false, true] {
+    instance.set_override_edges(overrides);
+    for (horizontal, vertical) in [(17., 11.), (23., 15.)] {
+        instance.set_horizontal(horizontal);
+        instance.set_vertical(vertical);
+        assert!(instance.get_test());
+        let padding = instance.get_expected();
+        let checkbox = ElementHandle::find_by_accessible_label(&instance, "Layout checkbox").next().unwrap();
+        let switch = ElementHandle::find_by_accessible_label(&instance, "Layout switch").next().unwrap();
+        for label in ["", "Optional label", ""] {
+            instance.set_label(label.into());
+            for (control, indicator_width) in [(&checkbox, instance.get_checkbox_indicator_width()), (&switch, instance.get_switch_indicator_width())] {
+                let empty_width = indicator_width + padding.left + padding.right;
+                if label.is_empty() { assert_eq!(control.size().width, empty_width); }
+                else { assert!(control.size().width > empty_width); }
+            }
+        }
+        let field = ElementHandle::find_by_accessible_label(&instance, "Layout field").next().unwrap();
+        let leading = ElementHandle::find_by_element_id(&instance, "TestCase::leading").next().unwrap();
+        assert_eq!(leading.absolute_position().x - field.absolute_position().x, padding.left);
+        assert_eq!(leading.absolute_position().y - field.absolute_position().y, padding.top);
+    }
+}
+```
+*/

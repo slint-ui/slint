@@ -1,0 +1,188 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component ExternalBinding {
+    slot content << default-label := Text {
+        text: "Default";
+    }
+    out property <length> width-of-default: default-label.width;
+//                                          >                  <error{Move references to the default content of slot 'content' inside that content}
+    content { }
+}
+
+export component ExternalTwoWayBinding {
+    slot content << default-label := Text {
+        text: "Default";
+    }
+    out property <string> label <=> default-label.text;
+//                              >                     <error{Move references to the default content of slot 'content' inside that content}
+    content { }
+}
+
+export component ExternalState {
+    slot content << default-label := Text {
+        text: "Default";
+    }
+    in property <bool> highlighted;
+    states [
+        highlighted when highlighted: {
+            default-label.color: red;
+//          >                 <error{Move references to the default content of slot 'content' inside that content}
+        }
+    ]
+    content { }
+}
+
+export component ExternalChangeCallback {
+    slot content << default-label := Text {
+        text: "Default";
+    }
+    in property <bool> highlighted;
+    changed highlighted => {
+        default-label.text = "Changed";
+//      >                 <error{Move references to the default content of slot 'content' inside that content}
+    }
+    content { }
+}
+
+export component ExternalCallbackHandler {
+    slot content << default-label := Text {
+        text: "Default";
+    }
+    callback reset();
+    reset => {
+        default-label.text = "Reset";
+//      >                 <error{Move references to the default content of slot 'content' inside that content}
+    }
+    content { }
+}
+
+export component ExternalStateAnimation {
+    slot content << default-label := Text {
+        text: "Default";
+    }
+    in property <bool> highlighted;
+    states [
+        highlighted when highlighted: {
+            in {
+                animate default-label.color {
+//                      >                  <error{Move references to the default content of slot 'content' inside that content}
+                    duration: 100ms;
+                }
+            }
+        }
+    ]
+    content { }
+}
+
+export component TwoReferencesInOneElement {
+    slot content << default-label := Text {
+        text: "Default";
+    }
+    out property <length> default-width: default-label.width;
+//                                       >                  <error{Move references to the default content of slot 'content' inside that content}
+    out property <length> default-height: default-label.height;
+//                                        >                   <error{Move references to the default content of slot 'content' inside that content}
+    content { }
+}
+
+export component ExternalFromSibling {
+    slot bar << i-text := Text {
+        text: "Default";
+    }
+    Text {
+        text: i-text.text;
+//            >          <error{Move references to the default content of slot 'bar' inside that content}
+    }
+
+    bar { }
+}
+
+export component ValidReferences {
+    in property <string> title;
+    slot content << Rectangle {
+        first := Text {
+            text: title;
+        }
+
+        Text {
+            text: first.text;
+        }
+    }
+    content { }
+}
+
+export component NestedPlaceholder {
+    slot outer << Rectangle {
+        inner { }
+//      >       <error{The slot 'inner' cannot appear in the default content of slot 'outer'}
+        @children
+//      >       <error{The @children placeholder cannot appear in the default content of slot 'outer'}
+    }
+    slot inner;
+    outer { }
+}
+
+export component DuplicatePlaceholder {
+    slot content << Text { }
+    content { }
+
+    content { }
+//  >         <error{The slot 'content' can only appear once in an element}
+}
+
+export component PathDefault {
+    slot commands << MoveTo {
+        x: 0;
+        y: 0;
+    }
+    Path {
+        commands { }
+    }
+}
+
+interface ButtonControl {
+    callback clicked();
+}
+
+export component TypedDefault {
+    slot <ButtonControl> control << Rectangle { }
+//                                  >           <error{Typed slots don't support default content yet}
+    control { }
+}
+
+export component ButtonBase {
+    slot <ButtonControl> control;
+    out property <int> count;
+    control {
+        clicked => {
+            root.count += 1;
+        }
+    }
+}
+
+component Inner inherits Rectangle {
+    slot header << Text { }
+    header { }
+}
+
+export component ForwardedDefault inherits Rectangle {
+    slot heading << Text { }
+//                  >      <error{Remove the default content of the forwarded slot 'heading'; set it on the target slot 'header' instead}
+    Inner {
+        header << heading;
+    }
+}
+
+component InnerWithoutDefault inherits Rectangle {
+    slot header;
+    header { }
+}
+
+export component ForwardedDefaultToSlotWithoutDefault inherits Rectangle {
+    slot heading << Text { }
+//                  >      <error{Remove the default content of the forwarded slot 'heading'; set it on the target slot 'header' instead}
+    InnerWithoutDefault {
+        header << heading;
+    }
+}

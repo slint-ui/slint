@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::expression_tree::{Expression, TwoWayBinding, Unit};
-use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
+use i_slint_compiler::element_type::ElementType;
+use i_slint_compiler::expression_tree::{Expression, TwoWayBinding};
+use i_slint_compiler::expression_types::Unit;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::native_class::PropertyVisibility;
+use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration};
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
@@ -14,8 +17,8 @@ use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 
+use i_slint_compiler::source_path::SourcePath;
 use std::collections::HashSet;
-use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub enum CodeBlockOrExpression {
@@ -59,7 +62,7 @@ pub struct DefinitionInformation {
 
 #[derive(Clone, Debug)]
 pub struct DeclarationInformation {
-    pub path: PathBuf,
+    pub path: SourcePath,
     pub start_position: TextSize,
 }
 
@@ -157,7 +160,7 @@ fn add_element_properties(
                 decl.as_ref().and_then(|d| d.Type()).map(|t| t.into()).unwrap_or(n.clone());
 
             DeclarationInformation {
-                path: n.source_file.path().to_path_buf(),
+                path: n.source_file.path().clone(),
                 start_position: ty_node.text_range().start(),
             }
         });
@@ -311,6 +314,7 @@ pub enum LayoutKind {
     HorizontalBox,
     VerticalBox,
     GridLayout,
+    FlexboxLayout,
 }
 
 fn insert_property_definitions(
@@ -352,7 +356,7 @@ fn insert_property_definitions(
             ElementType::Builtin(b) => b
                 .properties
                 .get(prop)
-                .and_then(|p| p.default_value.expr(element))
+                .and_then(|p| Expression::from_builtin_default(&p.default_value, Some(element)))
                 .unwrap_or_default(),
             _ => Expression::Invalid,
         }
@@ -429,7 +433,10 @@ pub(super) fn get_properties(
                         visibility: t.property_visibility,
                         declared_at: None,
                         defined_at: None,
-                        default_value: t.default_value.expr(&current_element),
+                        default_value: Expression::from_builtin_default(
+                            &t.default_value,
+                            Some(&current_element),
+                        ),
                         group: b.name.clone(),
                         group_priority: depth,
                     })
@@ -453,13 +460,10 @@ pub(super) fn get_properties(
                         depth,
                         i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
                             .iter()
-                            .cloned(),
-                    ));
-                    result.extend(get_reserved_properties(
-                        &b.name,
-                        depth,
-                        i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES
-                            .iter()
+                            .chain(i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES)
+                            .chain(
+                                i_slint_compiler::typeregister::RESERVED_BACKDROP_BLUR_PROPERTIES,
+                            )
                             .cloned(),
                     ));
                 }
@@ -497,7 +501,10 @@ pub(super) fn get_properties(
                         .chain(std::iter::once((transform_origin.0, transform_origin.1.into()))),
                 ));
 
-                if matches!(b.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout") {
+                if matches!(
+                    b.name.as_str(),
+                    "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "FlexboxLayout"
+                ) {
                     // Add the padding that is otherwise filtered out
                     result.extend(get_reserved_properties(
                         &b.name,
@@ -526,7 +533,9 @@ pub(super) fn get_properties(
                 LayoutKind::None => true,
                 LayoutKind::HorizontalBox => p.name.as_str() != "x",
                 LayoutKind::VerticalBox => p.name.as_str() != "y",
-                LayoutKind::GridLayout => !["x", "y"].contains(&p.name.as_str()),
+                LayoutKind::GridLayout | LayoutKind::FlexboxLayout => {
+                    !["x", "y"].contains(&p.name.as_str())
+                }
             })
             .map(|mut p| {
                 match p.name.as_str() {
@@ -746,20 +755,7 @@ fn create_text_document_edit_for_set_binding_on_known_property(
     )
 }
 
-pub fn set_binding(
-    uri: Url,
-    version: SourceFileVersion,
-    element: &i_slint_editor_preview::ElementRcNode,
-    property_name: &str,
-    new_expression: String,
-    format: i_slint_editor_preview::ByteFormat,
-) -> Option<lsp_types::WorkspaceEdit> {
-    set_binding_impl(uri, version, element, property_name, new_expression, format).map(|edit| {
-        i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![edit])
-    })
-}
-
-pub fn set_binding_impl(
+fn set_binding(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
@@ -769,6 +765,17 @@ pub fn set_binding_impl(
 ) -> Option<lsp_types::TextDocumentEdit> {
     let properties = get_properties(element, LayoutKind::None);
     let property = get_property_information(&properties, property_name).ok()?;
+
+    if new_expression.is_empty() {
+        if property.defined_at.is_none() {
+            return Some(i_slint_editor_preview::editing::create_text_document_edit(
+                uri,
+                version,
+                vec![],
+            ));
+        }
+        return remove_binding(uri, version, element, property_name, format).ok();
+    }
 
     if property.defined_at.is_some() {
         // Change an already defined property:
@@ -793,7 +800,7 @@ pub fn set_binding_impl(
     }
 }
 
-pub fn set_bindings(
+fn set_bindings(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
@@ -802,14 +809,10 @@ pub fn set_bindings(
 ) -> Option<lsp_types::WorkspaceEdit> {
     let edits = properties
         .iter()
-        .filter_map(|p| {
-            set_binding_impl(uri.clone(), version, element, &p.name, p.value.clone(), format)
-        })
-        .collect::<Vec<_>>();
+        .map(|p| set_binding(uri.clone(), version, element, &p.name, p.value.clone(), format))
+        .collect::<Option<Vec<_>>>()?;
 
-    (edits.len() == properties.len()).then_some(
-        i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(edits),
-    )
+    Some(i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(edits))
 }
 
 fn element_at_source_code_position(
@@ -853,22 +856,13 @@ pub fn update_element_properties(
     )
 }
 
-fn create_workspace_edit_for_remove_binding(
-    uri: Url,
-    version: SourceFileVersion,
-    range: lsp_types::Range,
-) -> lsp_types::WorkspaceEdit {
-    let edit = lsp_types::TextEdit { range, new_text: String::new() };
-    i_slint_editor_preview::editing::create_workspace_edit(uri.clone(), version, vec![edit])
-}
-
-pub fn remove_binding(
+fn remove_binding(
     uri: Url,
     version: SourceFileVersion,
     element: &i_slint_editor_preview::ElementRcNode,
     property_name: &str,
     format: i_slint_editor_preview::ByteFormat,
-) -> Result<lsp_types::WorkspaceEdit> {
+) -> Result<lsp_types::TextDocumentEdit> {
     let source_file = element.with_element_node(|node| node.source_file.clone());
 
     let token = find_property_binding_offset(element, property_name)
@@ -891,7 +885,7 @@ pub fn remove_binding(
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: String::new() };
-                return Ok(i_slint_editor_preview::editing::create_workspace_edit(
+                return Ok(i_slint_editor_preview::editing::create_text_document_edit(
                     uri.clone(),
                     version,
                     vec![edit],
@@ -903,7 +897,7 @@ pub fn remove_binding(
                 let range =
                     util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
                 let edit = lsp_types::TextEdit { range, new_text: ";".into() };
-                return Ok(i_slint_editor_preview::editing::create_workspace_edit(
+                return Ok(i_slint_editor_preview::editing::create_text_document_edit(
                     uri.clone(),
                     version,
                     vec![edit],
@@ -947,7 +941,12 @@ pub fn remove_binding(
 
             let range =
                 util::text_range_to_lsp_range(&source_file, TextRange::new(start, end), format);
-            return Ok(create_workspace_edit_for_remove_binding(uri, version, range));
+            let edit = lsp_types::TextEdit { range, new_text: String::new() };
+            return Ok(i_slint_editor_preview::editing::create_text_document_edit(
+                uri,
+                version,
+                vec![edit],
+            ));
         }
         if ancestor.kind() == SyntaxKind::Element {
             // There should have been a binding before the element!
@@ -1583,7 +1582,7 @@ component MainWindow inherits Window {
         let declaration = foo_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 3);
         assert_eq!(start_position.character, 20); // This should probably point to the start of
         // `property<int> foo = 42`, not to the `<`
@@ -1612,6 +1611,9 @@ component MainWindow inherits Window {
             }
             lay3 := VerticalBox {
                 slider2 := Slider { value: 0.5; }
+                Rectangle {}
+            }
+            lay4 := FlexboxLayout {
                 Rectangle {}
             }
         }
@@ -1643,6 +1645,16 @@ component MainWindow inherits Window {
 
         let (l, c) =
             source.line_column(source.source().unwrap().find("lay3 :=").unwrap(), dc.format);
+        let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
+        let property = find_property(&result, "padding").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-left").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+        let property = find_property(&result, "padding-top").unwrap();
+        assert_eq!(property.ty, Type::LogicalLength);
+
+        let (l, c) =
+            source.line_column(source.source().unwrap().find("lay4 :=").unwrap(), dc.format);
         let (_, result) = properties_at_position_in_cache(l as u32, c as u32, &dc, &url).unwrap();
         let property = find_property(&result, "padding").unwrap();
         assert_eq!(property.ty, Type::LogicalLength);
@@ -1699,7 +1711,7 @@ component SomeRect inherits Rectangle {
         let declaration = glob_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 2);
         assert_eq!(glob_property.group, "");
         assert!(find_property(&result, "width").is_none());
@@ -1710,7 +1722,7 @@ component SomeRect inherits Rectangle {
         let declaration = abcd_property.declared_at.as_ref().unwrap();
         let start_position =
             util::text_size_to_lsp_position(&source, declaration.start_position, dc.format);
-        assert_eq!(declaration.path, source.path());
+        assert_eq!(&declaration.path, source.path());
         assert_eq!(start_position.line, 7);
         assert_eq!(abcd_property.group, "");
 
@@ -1945,7 +1957,16 @@ component MyComp {
         new_value: &str,
     ) -> Option<lsp_types::WorkspaceEdit> {
         let (element, _, dc, url) = properties_at_position(18, 15).unwrap();
-        set_binding(url, None, &element, property_name, new_value.to_string(), dc.format)
+        set_bindings(
+            url,
+            None,
+            &element,
+            &[i_slint_editor_preview::editing::PropertyChange::new(
+                property_name,
+                new_value.to_string(),
+            )],
+            dc.format,
+        )
     }
 
     #[test]
@@ -2006,6 +2027,35 @@ component MyComp {
     }
 
     #[test]
+    fn test_set_bindings_removes_and_updates_atomically() {
+        let source =
+            "component Foo inherits Rectangle {\n    width: 30px;\n    background: red;\n}\n";
+        let (dc, uri, _) = i_slint_editor_preview::test::loaded_document_cache(source.into());
+        let element = dc
+            .element_at_offset(&uri, TextSize::new(source.find("Rectangle").unwrap() as u32))
+            .unwrap();
+        let changes = vec![
+            i_slint_editor_preview::editing::PropertyChange::new("background", String::new()),
+            i_slint_editor_preview::editing::PropertyChange::new("width", "40px".into()),
+            i_slint_editor_preview::editing::PropertyChange::new(
+                "drop-shadow-color",
+                String::new(),
+            ),
+        ];
+        let edit = set_bindings(uri.clone(), None, &element, &changes, dc.format).unwrap();
+        let applied =
+            i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        assert_eq!(
+            applied[0].contents,
+            "component Foo inherits Rectangle {\n    width: 40px;\n}\n"
+        );
+
+        let mut invalid = changes;
+        invalid.push(i_slint_editor_preview::editing::PropertyChange::new("unknown", "1".into()));
+        assert!(set_bindings(uri, None, &element, &invalid, dc.format).is_none());
+    }
+
+    #[test]
     fn test_remove_binding() {
         let source = r#"
 component Foo inherits Window {
@@ -2018,7 +2068,10 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap(),
+            ]);
 
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
@@ -2035,7 +2088,10 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Foo {").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "background", dc.format).unwrap(),
+            ]);
 
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
@@ -2067,7 +2123,10 @@ component Foo inherits Window {
         let elem = dc
             .element_at_offset(&uri, TextSize::new(source.find("Window").unwrap() as u32))
             .unwrap();
-        let edit = remove_binding(uri.clone(), None, &elem, "test1", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "test1", dc.format).unwrap(),
+            ]);
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
@@ -2084,7 +2143,10 @@ component Foo inherits Window {
 "#
         );
 
-        let edit = remove_binding(uri.clone(), None, &elem, "test2", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "test2", dc.format).unwrap(),
+            ]);
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(
@@ -2099,7 +2161,10 @@ component Foo inherits Window {
 "#
         );
 
-        let edit = remove_binding(uri.clone(), None, &elem, "test3", dc.format).unwrap();
+        let edit =
+            i_slint_editor_preview::editing::create_workspace_edit_from_text_document_edits(vec![
+                remove_binding(uri.clone(), None, &elem, "test3", dc.format).unwrap(),
+            ]);
         let applied =
             i_slint_editor_preview::editing::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
         assert_eq!(

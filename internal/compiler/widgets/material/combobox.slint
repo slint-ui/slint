@@ -7,14 +7,10 @@ import { ListItem, StateLayer } from "components.slint";
 import { ComboBoxBase } from "../common/combobox-base.slint";
 import { ScrollView } from "./scrollview.slint";
 
-export component ComboBox {
-    in property <[string]> model <=> base.model;
-    in property <bool> enabled <=> base.enabled;
-    out property <bool> has-focus <=> base.has-focus;
-    in-out property <int> current-index <=> base.current-index;
-    in-out property <string> current-value <=> base.current-value;
+import { ComboBoxInterface } from "../common/std-widget-interfaces.slint";
 
-    callback selected <=> base.selected;
+export component ComboBox {
+    implement ComboBoxInterface <=> base;
 
     property <int> visible-items: min(6, model.length);
     property <length> popup-scroll-y: -max(0, root.current-index - root.visible-items + 1) * MaterialSizeSettings.item-height;
@@ -59,8 +55,6 @@ export component ComboBox {
     }
 
     background := Rectangle {
-        width: 100%;
-        height: 100%;
         border-radius: 4px;
         border-width: 1px;
         border-color: MaterialPalette.border;
@@ -87,7 +81,7 @@ export component ComboBox {
         icon := Image {
             width: 24px;
             height: 24px;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: center;
             source: Icons.expand-more;
             colorize: MaterialPalette.control-foreground;
             accessible-role: none;

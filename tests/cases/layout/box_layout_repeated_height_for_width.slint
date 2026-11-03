@@ -1,0 +1,238 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #13655: a repeated or conditional cell holding a height-for-width item
+// (word-wrapped Text, unsized Image) must measure its height at the width it
+// is given, like an equivalent static cell, not at the item's preferred width
+// (a single line for the Text).
+
+component WrapItem inherits VerticalLayout {
+    in property <string> text;
+    Text {
+        text: root.text;
+        wrap: word-wrap;
+    }
+}
+
+// Sized to the height its content reports at 200px wide.
+component Probe inherits Rectangle {
+    width: 200px;
+    height: self.preferred-height;
+}
+
+// Its height comes through a Flickable, so its width-taking layout function
+// ignores the width. That function gets inlined into the repeated cell, and the
+// generated Rust code must not warn about the unused argument (`deny(warnings)`).
+component Slide inherits Rectangle {
+    height: content.preferred-height;
+    Flickable {
+        width: 100%;
+        HorizontalLayout {
+            content := Rectangle {
+                width: root.width;
+                @children
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 1000px;
+    height: 1000px;
+
+    property <string> lorem: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
+    property <image> img: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+
+    // The wrapped height of `lorem` at a few widths.
+    ref-200 := Text { width: 200px; wrap: word-wrap; text: lorem; visible: false; }
+    ref-150 := Text { width: 150px; wrap: word-wrap; text: lorem; visible: false; }
+    ref-100 := Text { width: 100px; wrap: word-wrap; text: lorem; visible: false; }
+
+    // Text: the shape from the issue.
+    t-for-vlayout := Probe {
+        VerticalLayout {
+            for i in 3: VerticalLayout {
+                Text { wrap: word-wrap; text: lorem; }
+            }
+        }
+    }
+    t-if-vlayout := Probe {
+        VerticalLayout {
+            if true: VerticalLayout {
+                Text { wrap: word-wrap; text: lorem; }
+            }
+        }
+    }
+    t-for-rect := Probe {
+        VerticalLayout {
+            for i in 3: Rectangle {
+                VerticalLayout {
+                    Text { wrap: word-wrap; text: lorem; }
+                }
+            }
+        }
+    }
+    t-for-text := Probe {
+        VerticalLayout {
+            for i in 3: Text { wrap: word-wrap; text: lorem; }
+        }
+    }
+    t-for-component := Probe {
+        VerticalLayout {
+            for i in 3: WrapItem { text: lorem; }
+        }
+    }
+    t-for-padded := Probe {
+        VerticalLayout {
+            padding-left: 25px;
+            for i in 2: VerticalLayout {
+                padding-right: 25px;
+                Text { wrap: word-wrap; text: lorem; }
+            }
+        }
+    }
+    t-for-row := Probe {
+        VerticalLayout {
+            for i in 2: HorizontalLayout {
+                Rectangle { width: 100px; }
+                VerticalLayout {
+                    Text { wrap: word-wrap; text: lorem; }
+                }
+            }
+        }
+    }
+    t-hlayout := Probe {
+        HorizontalLayout {
+            for i in 2: VerticalLayout {
+                Text { wrap: word-wrap; text: lorem; }
+            }
+        }
+    }
+    t-hlayout-if := Probe {
+        HorizontalLayout {
+            Rectangle { width: 100px; }
+            if true: Rectangle {
+                VerticalLayout {
+                    Text { wrap: word-wrap; text: lorem; }
+                }
+            }
+        }
+    }
+    // Not in a layout: the repeated cell's info merges into its parent's.
+    t-merge-vlayout := Probe {
+        for i in 1: VerticalLayout {
+            Text { wrap: word-wrap; text: lorem; }
+        }
+    }
+    // A Text outside a layout defaults to its preferred width, a single line;
+    // the repeated one must match the static one.
+    t-merge-text := Probe {
+        for i in 1: Text { wrap: word-wrap; text: lorem; }
+    }
+    t-static-text := Probe {
+        Text { wrap: word-wrap; text: lorem; }
+    }
+
+    t-for-slide := Probe {
+        VerticalLayout {
+            for i in 2: Slide {
+                VerticalLayout {
+                    Text { wrap: word-wrap; text: lorem; }
+                }
+            }
+        }
+    }
+    t-flickable := Flickable {
+        width: 200px;
+        height: 20px;
+        for i in 2: VerticalLayout {
+            Text { wrap: word-wrap; text: lorem; }
+        }
+    }
+
+    // Image: a 128x128 image keeps its aspect ratio, so its height is its width.
+    i-for-vlayout := Probe {
+        VerticalLayout {
+            for i in 2: VerticalLayout {
+                Image { source: img; }
+            }
+        }
+    }
+    i-if-rect := Probe {
+        VerticalLayout {
+            if true: Rectangle {
+                VerticalLayout {
+                    Image { source: img; }
+                }
+            }
+        }
+    }
+    i-for-image := Probe {
+        VerticalLayout {
+            for i in 2: Image { source: img; }
+        }
+    }
+    i-hlayout := Probe {
+        HorizontalLayout {
+            for i in 2: VerticalLayout {
+                Image { source: img; }
+            }
+        }
+    }
+    i-for-row := Probe {
+        VerticalLayout {
+            for i in 2: HorizontalLayout {
+                Rectangle { width: 50px; }
+                VerticalLayout {
+                    Image { source: img; }
+                }
+            }
+        }
+    }
+    i-merge-vlayout := Probe {
+        for i in 1: VerticalLayout {
+            Image { source: img; }
+        }
+    }
+
+    out property <bool> test: ref-200.preferred-height > 20px
+        && ref-150.preferred-height > ref-200.preferred-height
+        && ref-100.preferred-height > ref-150.preferred-height
+        && t-for-vlayout.height == 3 * ref-200.preferred-height
+        && t-if-vlayout.height == ref-200.preferred-height
+        && t-for-rect.height == 3 * ref-200.preferred-height
+        && t-for-text.height == 3 * ref-200.preferred-height
+        && t-for-component.height == 3 * ref-200.preferred-height
+        && t-for-padded.height == 2 * ref-150.preferred-height
+        && t-for-row.height == 2 * ref-100.preferred-height
+        && t-hlayout.height == ref-100.preferred-height
+        && t-hlayout-if.height == ref-100.preferred-height
+        && t-merge-vlayout.height == ref-200.preferred-height
+        && t-merge-text.height == t-static-text.height
+        && t-for-slide.height == 2 * ref-200.preferred-height
+        && t-flickable.viewport-height == ref-200.preferred-height
+        && i-for-vlayout.height == 400px
+        && i-if-rect.height == 200px
+        && i-for-image.height == 400px
+        && i-hlayout.height == 100px
+        && i-for-row.height == 300px
+        && i-merge-vlayout.height == 200px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

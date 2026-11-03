@@ -6,8 +6,9 @@
 //! Note that the layout default properties are handled in the lower_layout pass
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{ElementType, PropertyLookupMode, Type};
+use crate::langtype::Type;
 use crate::object_tree::Component;
 use smol_str::SmolStr;
 use std::rc::Rc;
@@ -85,6 +86,26 @@ pub fn apply_default_properties_from_style(
                         ))
                         .into(),
                         to: Type::Brush,
+                    });
+                    elem.set_binding_if_not_set("selection-background-color".into(), || {
+                        Expression::Cast {
+                            from: Expression::PropertyReference(NamedReference::new(
+                                &palette.root_element,
+                                SmolStr::new_static("selection-background"),
+                            ))
+                            .into(),
+                            to: Type::Color,
+                        }
+                    });
+                    elem.set_binding_if_not_set("selection-foreground-color".into(), || {
+                        Expression::Cast {
+                            from: Expression::PropertyReference(NamedReference::new(
+                                &palette.root_element,
+                                SmolStr::new_static("selection-foreground"),
+                            ))
+                            .into(),
+                            to: Type::Color,
+                        }
                     });
                 }
                 "Dialog" | "Window" => {

@@ -4,10 +4,11 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[cfg(not(target_arch = "wasm32"))]
 use i_slint_core::graphics::BorrowedOpenGLTexture;
+#[cfg(feature = "image-pixel-format-rgb565")]
+use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
+use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer, SharedPixelBuffer};
 use i_slint_core::items::ImageTiling;
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::{ImageInner, items::ImageRendering};
@@ -18,17 +19,18 @@ pub trait TextureImporter
 where
     Self: femtovg::Renderer + Sized,
 {
-    #[cfg(not(target_family = "wasm"))]
-    fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture;
+    fn convert_opengl_texture(opengl_texture: &BorrowedOpenGLTexture) -> Self::NativeTexture;
 
     #[cfg(feature = "unstable-wgpu-30")]
     fn convert_wgpu_30_texture(wgpu_texture: wgpu_30::Texture) -> Self::NativeTexture;
 }
 
 impl TextureImporter for femtovg::renderer::OpenGl {
-    #[cfg(not(target_family = "wasm"))]
-    fn convert_opengl_texture(opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
-        glow::NativeTexture(opengl_texture)
+    fn convert_opengl_texture(opengl_texture: &BorrowedOpenGLTexture) -> Self::NativeTexture {
+        #[cfg(any(not(target_arch = "wasm32"), target_os = "emscripten"))]
+        return glow::NativeTexture(opengl_texture.texture_id);
+        #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
+        return opengl_texture.texture.clone();
     }
 
     #[cfg(feature = "unstable-wgpu-30")]
@@ -39,8 +41,7 @@ impl TextureImporter for femtovg::renderer::OpenGl {
 
 #[cfg(feature = "wgpu-30")]
 impl TextureImporter for femtovg::renderer::WGPURenderer {
-    #[cfg(not(target_family = "wasm"))]
-    fn convert_opengl_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
+    fn convert_opengl_texture(_opengl_texture: &BorrowedOpenGLTexture) -> Self::NativeTexture {
         todo!()
     }
 
@@ -97,7 +98,14 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
             "internal error: this can only fail if the filtered image was zero width or height",
         );
 
-        self.canvas.borrow_mut().filter_image(filtered_image.id, filter, self.id);
+        let mut canvas = self.canvas.borrow_mut();
+        // filter_image() clamps a Gaussian blur to the sigma of one shader pass (8); a chain runs
+        // larger blurs at a downsampled size instead. If the chain can't run (e.g. its scratch
+        // images don't fit the transient budget), the clamped single pass is better than nothing.
+        if canvas.filter_image_chain(filtered_image.id, &[filter], self.id).is_err() {
+            canvas.filter_image(filtered_image.id, filter, self.id);
+        }
+        drop(canvas);
 
         filtered_image
     }
@@ -138,7 +146,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
         let image_flags = base_image_flags(scaling, tiling);
 
         let image_id = match image {
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))]
             ImageInner::HTMLImage(html_image) => {
                 if html_image.is_loaded() {
                     // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
@@ -159,14 +167,9 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     return None;
                 }
             }
-            #[cfg(not(target_arch = "wasm32"))]
-            ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture {
-                texture_id,
-                size,
-                origin,
-                ..
-            }) => {
-                let image_flags = match origin {
+            ImageInner::BorrowedOpenGLTexture(opengl_texture) => {
+                let size = opengl_texture.size;
+                let image_flags = match opengl_texture.origin {
                     i_slint_core::graphics::BorrowedOpenGLTextureOrigin::TopLeft => image_flags,
                     i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
                         image_flags | femtovg::ImageFlags::FLIP_Y
@@ -178,7 +181,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                 canvas
                     .borrow_mut()
                     .create_image_from_native_texture(
-                        <R as TextureImporter>::convert_opengl_texture(*texture_id),
+                        <R as TextureImporter>::convert_opengl_texture(opengl_texture),
                         femtovg::ImageInfo::new(
                             image_flags,
                             size.width as _,
@@ -189,9 +192,11 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
                     .unwrap()
             }
             #[cfg(feature = "unstable-wgpu-30")]
-            ImageInner::WGPUTexture(i_slint_core::graphics::WGPUTexture::WGPU30Texture(
-                texture,
-            )) => {
+            ImageInner::WGPUTexture(texture) => {
+                #[allow(irrefutable_let_patterns)]
+                let i_slint_core::graphics::WGPUTexture::WGPU30Texture(texture) = &**texture else {
+                    return None;
+                };
                 let texture = texture.clone();
                 let size = texture.size();
 
@@ -210,7 +215,18 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
             }
             _ => {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
-                let (image_source, flags) = image_buffer_to_image_source(&buffer);
+                // femtovg has no 16-bit texture format; expand to RGB8 for the upload.
+                #[cfg(feature = "image-pixel-format-rgb565")]
+                let buffer = if let SharedImageBuffer::RGB565(b) = &buffer {
+                    let mut rgb = SharedPixelBuffer::<Rgb8Pixel>::new(b.width(), b.height());
+                    for (dst, src) in rgb.make_mut_slice().iter_mut().zip(b.as_slice()) {
+                        *dst = (*src).into();
+                    }
+                    SharedImageBuffer::RGB8(rgb)
+                } else {
+                    buffer
+                };
+                let (image_source, flags) = image_buffer_to_image_source(&buffer)?;
                 canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()
             }
         };
@@ -302,29 +318,44 @@ impl<R: femtovg::Renderer + TextureImporter> TextureCache<R> {
 
 fn image_buffer_to_image_source(
     buffer: &SharedImageBuffer,
-) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
+) -> Option<(femtovg::ImageSource<'_>, femtovg::ImageFlags)> {
+    fn image_source<Pixel: Clone>(buffer: &SharedPixelBuffer<Pixel>) -> imgref::ImgRef<'_, Pixel> {
+        let pixels = buffer.as_slice();
+        let read = buffer.width() as u64 * buffer.height() as u64;
+        // `femtovg::Canvas::create_image` is unsound: it is safe to call, yet it hands the driver
+        // the buffer's pointer along with the pixel count from `ImageSource::dimensions()`, so an
+        // `ImgRef` that overstates its buffer reads out of bounds.
+        assert!(pixels.len() as u64 >= read);
+        imgref::ImgRef::new(&pixels[..read as usize], buffer.width() as _, buffer.height() as _)
+    }
+
     match buffer {
-        SharedImageBuffer::RGB8(buffer) => (
-            {
-                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
-                    .into()
-            },
-            femtovg::ImageFlags::empty(),
-        ),
-        SharedImageBuffer::RGBA8(buffer) => (
-            {
-                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
-                    .into()
-            },
-            femtovg::ImageFlags::empty(),
-        ),
-        SharedImageBuffer::RGBA8Premultiplied(buffer) => (
-            {
-                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
-                    .into()
-            },
-            femtovg::ImageFlags::PREMULTIPLIED,
-        ),
+        // Expanded to RGB8 before upload; see Texture::new_from_image.
+        #[cfg(feature = "image-pixel-format-rgb565")]
+        SharedImageBuffer::RGB565(..) => {
+            unreachable!("RGB565 buffers are converted to RGB8 before the femtovg upload")
+        }
+        SharedImageBuffer::RGB8(buffer) => {
+            Some((image_source(buffer).into(), femtovg::ImageFlags::empty()))
+        }
+        SharedImageBuffer::RGBA8(buffer) => {
+            Some((image_source(buffer).into(), femtovg::ImageFlags::empty()))
+        }
+        SharedImageBuffer::RGBA8Premultiplied(buffer) => {
+            Some((image_source(buffer).into(), femtovg::ImageFlags::PREMULTIPLIED))
+        }
+        #[cfg(feature = "image-pixel-format-gray8")]
+        SharedImageBuffer::Gray8(buffer) => {
+            use rgb::FromSlice;
+            let source = image_source(buffer);
+            // femtovg takes `rgb::Gray` pixels, which have the same one-byte layout.
+            let pixels = buffer.as_bytes()[..source.buf().len()].as_gray();
+            Some((
+                imgref::ImgRef::new(pixels, source.width(), source.height()).into(),
+                femtovg::ImageFlags::empty(),
+            ))
+        }
+        _ => None,
     }
 }
 

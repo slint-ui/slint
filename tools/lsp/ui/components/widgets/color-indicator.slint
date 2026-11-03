@@ -9,6 +9,9 @@ export component ColorIndicator {
     in property <color> color;
     in property <length> border-radius;
     in property <length> border-width;
+    in property <color> checker-light: white;
+    in property <color> checker-dark: #e1e1e1;
+    in property <color> outline-color: EditorPalette.text-color.with-alpha(10%);
     property <{hue: float, saturation: float, value: float, alpha: float}> hsv-color: color.to-hsv();
 
     Rectangle {
@@ -24,7 +27,7 @@ export component ColorIndicator {
             x: parent.width / 2;
             width: 50%;
             // work around lack of masking by hiding the background and checkerboard when alpha is 1
-            background: hsv-color.alpha < 1 ? white : transparent;
+            background: hsv-color.alpha < 1 ? root.checker-light : transparent;
             Image {
                 visible: hsv-color.alpha < 1;
                 width: 100%;
@@ -34,7 +37,7 @@ export component ColorIndicator {
                 source: Icons.checkerboard-tiny;
                 vertical-tiling: repeat;
                 horizontal-tiling: repeat;
-                colorize: #e1e1e1;
+                colorize: root.checker-dark;
             }
 
             Rectangle {
@@ -44,7 +47,7 @@ export component ColorIndicator {
         Rectangle {
             border-radius: root.border-radius;
             border-width: root.border-width;
-            border-color: EditorPalette.text-color.with-alpha(10%);
+            border-color: root.outline-color;
         }
 
         @children

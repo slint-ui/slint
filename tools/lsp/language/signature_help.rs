@@ -175,6 +175,7 @@ fn make_signature_info(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::language::test::CURSOR_EMOJI;
 
     /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an signature help request will be done as if the cursor was there
     fn query_signature_help(file: &str) -> Option<SignatureHelp> {
@@ -187,7 +188,6 @@ mod tests {
     }
 
     fn query_signature_help_impl(file: &str, experimental: bool) -> Option<SignatureHelp> {
-        const CURSOR_EMOJI: char = '🔺';
         let offset = (file.find(CURSOR_EMOJI).unwrap() as u32).into();
         let source = file.replace(CURSOR_EMOJI, "");
         let (mut dc, uri, _) = if experimental {
@@ -251,7 +251,7 @@ export component Abc {
             sh,
             SignatureHelp {
                 signatures: vec![
-                    make_signature_info("Pow", vec!["float".into()], Some(0),),
+                    make_signature_info("Pow", vec!["y: float".into()], Some(0),),
                     make_signature_info(
                         "abc",
                         vec![
@@ -261,7 +261,7 @@ export component Abc {
                         ],
                         Some(1)
                     ),
-                    make_signature_info("Pow", vec!["float".into(), "float".into()], Some(1)),
+                    make_signature_info("Pow", vec!["x: float".into(), "y: float".into()], Some(1)),
                 ],
                 active_signature: None,
                 active_parameter: None

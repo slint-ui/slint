@@ -126,4 +126,39 @@ slint_testing::send_mouse_click(&instance, 7., 50.);
 assert_eq!(instance.get_mode(), 3);
 assert_eq!(instance.get_tab(), "settings");
 ```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.mode, 0);
+assert.equal(instance.tab, "home");
+
+slintlib.private_api.send_mouse_click(instance, 7., 50.);
+assert.equal(instance.mode, 0);
+assert.equal(instance.tab, "menu");
+
+slintlib.private_api.send_mouse_click(instance, 12., 50.);
+assert.equal(instance.mode, 1);
+assert.equal(instance.tab, "menu");
+
+slintlib.private_api.send_mouse_click(instance, 7., 50.);
+assert.equal(instance.mode, 1);
+assert.equal(instance.tab, "profile");
+
+slintlib.private_api.send_mouse_click(instance, 12., 50.);
+assert.equal(instance.mode, 2);
+assert.equal(instance.tab, "profile");
+
+slintlib.private_api.send_mouse_click(instance, 7., 50.);
+assert.equal(instance.mode, 2);
+assert.equal(instance.tab, "store");
+
+slintlib.private_api.send_mouse_click(instance, 12., 50.);
+assert.equal(instance.mode, 3);
+assert.equal(instance.tab, "store");
+
+slintlib.private_api.send_mouse_click(instance, 7., 50.);
+assert.equal(instance.mode, 3);
+assert.equal(instance.tab, "settings");
+```
 */

@@ -79,6 +79,7 @@ info."UIApplicationSceneManifest".UIApplicationSupportsMultipleScenes = false
 info."UIApplicationSceneManifest".UISceneConfigurations.UIWindowSceneSessionRoleApplication = [
     { UISceneConfigurationName = "Slint", UISceneDelegateClassName = "SlintWindowSceneDelegate" },
 ]
+info."CADisableMinimumFrameDurationOnPhone" = true
 """
 
     def post_generate(self, base_path: Path) -> None:

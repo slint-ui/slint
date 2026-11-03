@@ -58,6 +58,11 @@ pub(super) fn invalidate_fill() {
 }
 
 pub(super) fn workspace_edit_finished(edit: lsp_types::WorkspaceEdit, applied: bool) {
+    if !applied {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.workspace_edit_sent = false;
+        });
+    }
     let result = PREVIEW_STATE.with_borrow_mut(|state| {
         let refresh = state.fill_refresh.as_mut()?;
         if refresh.submitted_edit != edit {
@@ -110,9 +115,10 @@ fn target_with_root(
         let no_selected_instance = -1;
         (
             ElementSelection {
-                path: url.to_file_path().ok()?,
+                path: i_slint_compiler::source_path::SourcePath::from(url),
                 offset: (element.offset as u32).into(),
                 instance_index: 0,
+                editing_text: false,
             },
             no_selected_instance,
         )
@@ -121,7 +127,7 @@ fn target_with_root(
     };
     let node = selected.as_element_node()?;
     let (path, offset) = node.path_and_offset();
-    let url = Url::from_file_path(path).ok()?;
+    let url = path.to_url()?;
     let version = document_cache()?.document_version(&url);
     let generation = PREVIEW_STATE
         .with_borrow(|state| state.api.upgrade().map(|api| api.get_inspector_generation()))?;
@@ -144,7 +150,9 @@ fn fill_target(key: &str, property_name: &str) -> Option<(ElementRcNode, Url, So
 fn names(name: &str) -> Option<Vec<&str>> {
     match name {
         "all-corners" => Some(CORNERS.to_vec()),
-        "transform-rotation" => Some(vec![name]),
+        "transform-rotation" | "border-width" | "backdrop-blur" | "padding" | "spacing" => {
+            Some(vec![name])
+        }
         name if CORNERS.contains(&name) => Some(vec![name]),
         _ => None,
     }
@@ -180,11 +188,10 @@ pub(super) fn cancel() {
     }
 }
 
-fn preview_value(
+fn preview_values<'a>(
     key: SharedString,
     node: ElementRcNode,
-    names: &[&str],
-    value: slint_interpreter::Value,
+    values: impl IntoIterator<Item = (&'a str, slint_interpreter::Value)>,
 ) -> bool {
     let hash = node.with_element_debug(|debug| debug.element_hash);
     if PREVIEW_STATE.with_borrow(|state| {
@@ -194,8 +201,8 @@ fn preview_value(
     }
     let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
     let mut overrides = (*overrides).borrow_mut();
-    for name in names {
-        let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(*name));
+    for (name, value) in values {
+        let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(name));
         let property = overrides
             .entry(id.clone())
             .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
@@ -208,7 +215,7 @@ fn preview_value(
                 edit.overrides.push((id, previous));
             }
         });
-        property.as_ref().set(Some(value.clone()));
+        property.as_ref().set(Some(value));
     }
     drop(overrides);
     if let Some(instance) = component_instance() {
@@ -219,7 +226,83 @@ fn preview_value(
 
 pub(super) fn preview(key: SharedString, name: SharedString, value: f32) -> bool {
     let Some((node, _, _, names)) = validate(&key, &name, value) else { return false };
-    preview_value(key, node, &names, slint_interpreter::Value::Number(value as f64))
+    preview_values(
+        key,
+        node,
+        names.into_iter().map(|name| (name, slint_interpreter::Value::Number(value as f64))),
+    )
+}
+
+fn valid_shadow_changes(changes: &[ui::InspectorNumberChange]) -> bool {
+    if !changes.iter().all(|change| change.value.is_finite()) {
+        return false;
+    }
+    ["drop-shadow-", "inner-shadow-"].into_iter().any(|prefix| match changes {
+        [change] => match change.name.strip_prefix(prefix) {
+            Some("blur") => change.value >= 0.,
+            Some("spread") => true,
+            _ => false,
+        },
+        [first, second] => matches!(
+            (first.name.strip_prefix(prefix), second.name.strip_prefix(prefix)),
+            (Some("offset-x"), Some("offset-y")) | (Some("offset-y"), Some("offset-x"))
+        ),
+        _ => false,
+    })
+}
+
+pub(super) fn preview_shadow(
+    key: SharedString,
+    changes: slint::ModelRc<ui::InspectorNumberChange>,
+) -> bool {
+    let changes = changes.iter().collect::<Vec<_>>();
+    let target = target(&key).filter(|_| valid_shadow_changes(&changes));
+    let Some((node, _, _)) = target else {
+        cancel();
+        return false;
+    };
+    preview_values(
+        key,
+        node,
+        changes.iter().map(|change| {
+            (change.name.as_str(), slint_interpreter::Value::Number(change.value as f64))
+        }),
+    )
+}
+
+pub(super) fn commit_shadow(
+    key: SharedString,
+    changes: slint::ModelRc<ui::InspectorNumberChange>,
+) -> bool {
+    if file_edit_pending() {
+        cancel();
+        return false;
+    }
+    let changes = changes.iter().collect::<Vec<_>>();
+    let target = target(&key).filter(|_| valid_shadow_changes(&changes));
+    let Some((node, url, version)) = target else {
+        cancel();
+        return false;
+    };
+    let changes = changes
+        .iter()
+        .map(|change| {
+            i_slint_editor_preview::editing::PropertyChange::new(
+                change.name.as_str(),
+                format!("{}px", change.value),
+            )
+        })
+        .collect();
+    let accepted = property_edit(node, url, version, changes)
+        .is_some_and(|edit| send_workspace_edit("Changing shadow".into(), edit, true));
+    if accepted && file_edit_pending() {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
+    } else {
+        cancel();
+    }
+    accepted
 }
 
 fn fill_value(
@@ -227,12 +310,15 @@ fn fill_value(
     name: &str,
     fill: &ui::FillData,
 ) -> Option<slint_interpreter::Value> {
-    use i_slint_compiler::langtype::{PropertyLookupMode, Type};
+    use i_slint_compiler::element_type::PropertyLookupMode;
+    use i_slint_compiler::langtype::Type;
     if !fill.angle.is_finite()
         || !fill.center_x.is_finite()
         || !fill.center_y.is_finite()
         || !fill.radius.is_finite()
+        || !fill.radius_y.is_finite()
         || (fill.custom_radius && fill.radius <= 0.)
+        || (fill.custom_radius && fill.radial_ellipse && fill.radius_y <= 0.)
         || fill.stops.iter().any(|s| !s.position.is_finite())
     {
         return None;
@@ -249,7 +335,13 @@ fn fill_value(
     }
 }
 
-pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+pub(super) fn preview_fill(
+    key: SharedString,
+    name: SharedString,
+    value: ui::FillData,
+    rotation: f32,
+    rotate_element: bool,
+) -> bool {
     let Some((node, _, _)) = fill_target(&key, &name) else {
         cancel();
         return false;
@@ -258,7 +350,15 @@ pub(super) fn preview_fill(key: SharedString, name: SharedString, value: ui::Fil
         cancel();
         return false;
     };
-    preview_value(key, node, &[name.as_str()], value)
+    if rotate_element && !rotation.is_finite() {
+        cancel();
+        return false;
+    }
+    let mut values = vec![(name.as_str(), value)];
+    if rotate_element {
+        values.push(("transform-rotation", slint_interpreter::Value::Number(rotation as f64)));
+    }
+    preview_values(key, node, values)
 }
 
 fn property_edit(
@@ -279,34 +379,61 @@ fn property_edit(
     )
 }
 
-pub(super) fn commit_fill(key: SharedString, name: SharedString, value: ui::FillData) -> bool {
+pub(super) fn commit_fill(
+    key: SharedString,
+    name: SharedString,
+    value: ui::FillData,
+    rotation: f32,
+    fill_changed: bool,
+    rotation_changed: bool,
+) -> bool {
     let Some((node, url, version)) = fill_target(&key, &name) else {
         cancel();
         return false;
     };
-    if fill_value(&node, &name, &value).is_none() {
+    if fill_value(&node, &name, &value).is_none()
+        || !rotation.is_finite()
+        || (!fill_changed && !rotation_changed)
+    {
         cancel();
         return false;
     }
-    let fill = ui::fill_expression(value.clone());
-    let edit = property_edit(
-        node,
-        url,
-        version,
-        vec![i_slint_editor_preview::editing::PropertyChange::new(name.as_str(), fill.to_string())],
-    );
+    let mut changes = Vec::new();
+    if fill_changed {
+        let fill = ui::fill_expression(value.clone());
+        changes.push(i_slint_editor_preview::editing::PropertyChange::new(
+            name.as_str(),
+            fill.to_string(),
+        ));
+    }
+    if rotation_changed {
+        changes.push(i_slint_editor_preview::editing::PropertyChange::new(
+            "transform-rotation",
+            format!("{rotation}deg"),
+        ));
+    }
+    let edit = property_edit(node, url, version, changes);
     let Some(edit) = edit else {
         cancel();
         return false;
     };
-    let accepted = submit_workspace_edit("Editing fill".into(), edit, true, Some(value));
+    let accepted =
+        submit_workspace_edit("Editing fill".into(), edit, true, fill_changed.then_some(value));
     if !accepted {
         cancel();
+    } else if !fill_changed {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.inspector_edit.take();
+        });
     }
     accepted
 }
 
 pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool {
+    if file_edit_pending() {
+        cancel();
+        return false;
+    }
     let Some((node, url, version, names)) = validate(&key, &name, value) else { return false };
     let unit = if name == "transform-rotation" { "deg" } else { "px" };
     let changes = names
@@ -318,10 +445,13 @@ pub(super) fn commit(key: SharedString, name: SharedString, value: f32) -> bool 
     let edit = property_edit(node, url, version, changes);
     let accepted = edit.is_some_and(|edit| {
         send_workspace_edit(
-            if name == "transform-rotation" {
-                "Rotating element"
-            } else {
-                "Changing border radius"
+            match name.as_str() {
+                "transform-rotation" => "Rotating element",
+                "border-width" => "Changing border width",
+                "backdrop-blur" => "Changing backdrop blur",
+                "padding" => "Changing layout padding",
+                "spacing" => "Changing layout spacing",
+                _ => "Changing border radius",
             }
             .into(),
             edit,
@@ -343,8 +473,11 @@ pub(super) fn values(key: SharedString) -> slint::ModelRc<f32> {
         let (node, _, _) = target(&key)?;
         let selected = selected_element()?;
         let instance = component_instance()?;
-        let geometry =
-            instance.element_positions(&node.element).get(selected.instance_index).copied()?;
+        let (path, offset) = node.path_and_offset();
+        let geometry = instance
+            .component_positions(&path, offset.into())
+            .get(selected.instance_index)
+            .copied()?;
         let radii = geometry.corner_radii;
         Some(vec![
             geometry.transform_rotation,
@@ -368,5 +501,52 @@ pub(super) fn refresh() {
     let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
     if let Some(api) = api {
         api.set_inspector_generation(api.get_inspector_generation().wrapping_add(1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shadow_batches_validate_before_previewing() {
+        let change = |name: &str, value| ui::InspectorNumberChange { name: name.into(), value };
+        for prefix in ["drop-shadow-", "inner-shadow-"] {
+            for changes in [
+                vec![change(&format!("{prefix}blur"), 0.)],
+                vec![change(&format!("{prefix}spread"), -64.)],
+                vec![
+                    change(&format!("{prefix}offset-x"), -8.),
+                    change(&format!("{prefix}offset-y"), 0.),
+                ],
+                vec![
+                    change(&format!("{prefix}offset-y"), -8.),
+                    change(&format!("{prefix}offset-x"), 0.),
+                ],
+            ] {
+                assert!(valid_shadow_changes(&changes));
+            }
+        }
+        for changes in [
+            vec![],
+            vec![change("drop-shadow-blur", -1.)],
+            vec![change("drop-shadow-spread", f32::NAN)],
+            vec![change("drop-shadow-blur", f32::INFINITY)],
+            vec![change("background", 1.)],
+            vec![change("drop-shadow-offset-x", 8.)],
+            vec![change("drop-shadow-offset-x", 8.), change("inner-shadow-offset-y", 8.)],
+            vec![change("drop-shadow-spread", 1.), change("drop-shadow-spread", 2.)],
+            vec![change("drop-shadow-offset-x", 1.), change("drop-shadow-offset-x", 2.)],
+            vec![change("inner-shadow-blur", 1.), change("inner-shadow-spread", 2.)],
+            vec![change("inner-shadow-offset-x", f32::NAN), change("inner-shadow-offset-y", 8.)],
+            vec![change("drop-shadow-offset-y", f32::INFINITY), change("drop-shadow-offset-x", 8.)],
+            vec![
+                change("drop-shadow-offset-x", 8.),
+                change("drop-shadow-offset-y", 8.),
+                change("drop-shadow-blur", 16.),
+            ],
+        ] {
+            assert!(!valid_shadow_changes(&changes));
+        }
     }
 }

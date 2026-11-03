@@ -43,16 +43,17 @@ cargo llvm-cov clean --workspace
 # safety manual's per-line links don't depend on the checkout location.
 # The driver measures the coverage of each .slint case and keeps it as lcov in
 # SLINT_SC_COVERAGE_DIR.
+# RUSTC_BOOTSTRAP=1 is needed for --branch, which passes -Zcoverage-options=branch, only available in nightly Rust.
 SLINT_TEST_REPORT="$PWD/$results/driver.json" CARGO_TERM_COLOR=never \
     SLINT_SC_COVERAGE_DIR="$PWD/$out/slint-sc-coverage" \
-    cargo llvm-cov --no-report --remap-path-prefix -p slint-sc 2>&1 \
+    RUSTC_BOOTSTRAP=1 cargo llvm-cov --branch --no-report --remap-path-prefix -p slint-sc 2>&1 \
     | tee "$results/runtime-tests.log"
 
 # The full export (not --summary-only): the per-function region counts feed
 # the fully/partially/untested statistics in the safety manual. The driver
 # links the slint-sc-coverage tool, which the reports leave out: it measures
 # the runtime, it is not part of it.
-report="cargo llvm-cov report --remap-path-prefix --ignore-filename-regex tools/slint-sc-coverage"
+report="cargo llvm-cov report --branch --remap-path-prefix --ignore-filename-regex tools/slint-sc-coverage"
 $report --json --output-path "$out/coverage.json"
 $report --lcov --output-path "$out/lcov.info"
 $report --html --output-dir "$out"

@@ -1,14 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore glcontext webglcontextlost webglcontextrestored
+// cSpell: ignore glcontext glprobe webglcontextlost webglcontextrestored
 use std::rc::Rc;
 #[cfg(supports_opengl)]
 use std::rc::Weak;
 use std::sync::Arc;
 
+use i_slint_core::graphics::RequestedGraphicsAPI;
+#[cfg(all(supports_opengl, target_os = "windows"))]
+use i_slint_core::graphics::RequestedOpenGLVersion;
+use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{DrawOutcome, Renderer};
-use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 #[cfg(supports_opengl)]
 use i_slint_renderer_femtovg::{FemtoVGOpenGLRendererExt, opengl};
 use i_slint_renderer_femtovg::{FemtoVGRenderer, FemtoVGRendererExt};
@@ -21,6 +24,11 @@ use super::WinitCompatibleRenderer;
 
 #[cfg(all(supports_opengl, not(target_arch = "wasm32")))]
 mod glcontext;
+#[cfg(all(supports_opengl, target_os = "windows"))]
+mod glprobe;
+
+#[cfg(all(supports_opengl, target_os = "windows"))]
+const OPENGL_2_REQUIRED: &str = "The FemtoVG renderer requires an OpenGL 2.0 driver";
 
 #[cfg(supports_opengl)]
 pub struct GlutinFemtoVGRenderer {
@@ -34,6 +42,19 @@ impl GlutinFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
+        // Bail out before a window is created, so that the backend can still fall back to
+        // another renderer (#13762).
+        #[cfg(target_os = "windows")]
+        {
+            let desktop_opengl_required = matches!(
+                shared_backend_data.requested_graphics_api,
+                Some(RequestedGraphicsAPI::OpenGL(RequestedOpenGLVersion::OpenGL(_)))
+            );
+            if !desktop_opengl_required && !glprobe::opengl_2_available() {
+                return Err(OPENGL_2_REQUIRED.into());
+            }
+        }
+
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
             _requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
@@ -217,7 +238,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         // Use the Ext entry point so we get the `DrawOutcome` back without changing
         // `FemtoVGRenderer::render`'s public `Result<(), _>` signature.
-        self.renderer.render_transformed_with_post_callback(0., (0., 0.), window.size(), None)
+        self.renderer.render_transformed(0., (0., 0.), window.size())
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
@@ -225,7 +246,14 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
     }
 
     fn suspend(&self) -> Result<(), PlatformError> {
+        // Also releases the winit window the callback holds on to.
+        self.renderer.set_pre_present_callback(None);
         self.renderer.clear_graphics_context()
+    }
+
+    #[cfg(target_os = "windows")]
+    fn presentation_may_use_transparency(&self) -> bool {
+        self.renderer.presentation_may_use_transparency()
     }
 
     fn resume(
@@ -278,6 +306,11 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
                 Ok(())
             },
         )?;
+
+        self.renderer.set_pre_present_callback(Some(Box::new({
+            let winit_window = winit_window.clone();
+            move || winit_window.pre_present_notify()
+        })));
 
         Ok(winit_window)
     }

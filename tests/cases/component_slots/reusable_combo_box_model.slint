@@ -1,0 +1,181 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ComboBox } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 640px;
+    height: 280px;
+    in-out property <[string]> model;
+    in-out property <int> current-index <=> combo.current-index;
+    in-out property <string> current-value <=> combo.current-value;
+    in-out property <length> text-size: 14px;
+    in-out property <length> label-padding: 6px;
+    out property <bool> expanded: combo.expanded;
+    out property <bool> focused: combo.has-focus;
+    out property <int> highlighted-index: combo.highlighted-index;
+    out property <int> selections;
+    out property <bool> test: root.current-index == -1 && root.current-value == "";
+    public function open() { combo.open(); }
+    public function focus-combo() { combo.focus(); }
+    public function focus-next() { next.focus(); }
+    combo := ComboBox {
+        accessible-label: "Dynamic selection";
+        x: 20px;
+        y: 20px;
+        width: 220px;
+        height: 40px;
+        model: root.model;
+        maximum-visible-items: 2;
+        selected(value) => { root.selections += 1; }
+    }
+    next := FocusScope {
+        x: 300px;
+        y: 20px;
+        width: 40px;
+        height: 40px;
+    }
+    VerticalLayout {
+        y: 120px;
+        width: 300px;
+        height: 1px;
+        ComboBox {
+            accessible-label: "Sized selection";
+            model: ["An enlarged label"];
+            font-size: root.text-size;
+            vertical-padding: root.label-padding;
+        }
+    }
+    ComboBox {
+        accessible-label: "Preferred selection";
+        x: 20px;
+        y: 200px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        model: ["Wide"];
+        indicator-width: 300px;
+        horizontal-padding: 40px;
+        font-size: 36px;
+    }
+    ComboBox {
+        accessible-label: "Compact selection";
+        x: 440px;
+        y: 200px;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        font-size: 10px;
+        horizontal-padding: 0px;
+        vertical-padding: 0px;
+        spacing: 0px;
+    }
+}
+
+/*
+```rust
+use slint::{Model, SharedString, VecModel};
+use slint::platform::Key;
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+let wide = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Preferred selection").next().unwrap();
+let arrow = wide.query_descendants().match_type_name("Path").find_first().unwrap();
+assert!(arrow.absolute_position().x + arrow.size().width <= wide.absolute_position().x + wide.size().width - 40. + 0.1,
+    "The ComboBox preferred size clips its configured indicator");
+let compact = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Compact selection").next().unwrap();
+assert!(compact.size().width >= 16. && compact.size().width < 120.);
+assert!(compact.size().height > 0. && compact.size().height < 32.);
+let model = std::rc::Rc::new(VecModel::from(vec!["Duplicate".into(), "Other".into(), "Duplicate".into()]));
+// https://github.com/slint-ui/slint/issues/7632
+instance.set_model(model.clone().into());
+instance.set_current_index(2);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_current_value(), "Duplicate");
+assert_eq!(instance.get_selections(), 0);
+instance.invoke_focus_combo();
+for modifier in [Key::Control, Key::Meta] {
+    slint_testing::send_keyboard_char(&instance, modifier.into(), true);
+    slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), true);
+    slint_testing::send_keyboard_char(&instance, Key::UpArrow.into(), false);
+    slint_testing::send_keyboard_char(&instance, Key::Space.into(), true);
+    slint_testing::send_keyboard_char(&instance, Key::Space.into(), false);
+    slint_testing::send_keyboard_char(&instance, modifier.into(), false);
+    assert_eq!(instance.get_current_index(), 2, "A modified arrow changed the selection");
+    assert_eq!(instance.get_selections(), 0);
+    assert!(!instance.get_expanded());
+}
+instance.set_current_value("Duplicate".into());
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_current_index(), 2);
+instance.set_current_value("Other".into());
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_current_index(), 1);
+instance.set_current_value("Duplicate".into());
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_current_index(), 0);
+instance.invoke_open();
+let rows = slint_testing::ElementQuery::from_root(&instance)
+    .match_accessible_role(slint_testing::AccessibleRole::ListItem).find_all();
+assert_eq!(rows.len(), 3);
+assert!(rows.iter().all(|row| row.accessible_item_selectable() == Some(true)));
+assert_eq!(rows.iter().filter(|row| row.accessible_item_selected() == Some(true)).count(), 1);
+assert_eq!(rows[0].accessible_item_selected(), Some(true));
+slint_testing::send_keyboard_char(&instance, Key::End.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::End.into(), false);
+assert_eq!(instance.get_highlighted_index(), 2);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(rows[0].accessible_item_selected(), Some(true));
+assert_eq!(rows[2].accessible_item_selected(), Some(false));
+model.set_row_data(0, "Renamed".into());
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_current_value(), "Renamed");
+assert_eq!(instance.get_highlighted_index(), 2);
+model.remove(2);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_highlighted_index(), 1);
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Escape.into(), false);
+assert!(!instance.get_expanded());
+assert_eq!(instance.get_current_value(), "Renamed");
+assert_eq!(instance.get_selections(), 0);
+instance.invoke_open();
+model.remove(1);
+model.remove(0);
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_expanded());
+assert!(instance.get_focused());
+assert_eq!(instance.get_current_index(), -1);
+assert_eq!(instance.get_current_value(), "");
+assert_eq!(instance.get_highlighted_index(), -1);
+model.push("Replacement".into());
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_current_index(), -1);
+assert_eq!(instance.get_current_value(), "");
+instance.invoke_open();
+slint_testing::send_keyboard_char(&instance, Key::Return.into(), true);
+slint_testing::send_keyboard_char(&instance, Key::Return.into(), false);
+assert_eq!(instance.get_current_value(), "Replacement");
+assert_eq!(instance.get_selections(), 1);
+instance.invoke_open();
+instance.invoke_focus_next();
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_expanded());
+assert!(!instance.get_focused());
+instance.set_model(std::rc::Rc::new(VecModel::<SharedString>::default()).into());
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_focused());
+assert_eq!(instance.get_selections(), 1);
+for (font, padding) in [(14., 6.), (36., 6.), (14., 20.)] {
+    instance.set_text_size(font);
+    instance.set_label_padding(padding);
+    slint::platform::update_timers_and_animations();
+    let control = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Sized selection").next().unwrap();
+    let label = control.query_descendants().match_type_name("Text").find_all().into_iter()
+        .find(|text| text.size().width > 0.).unwrap();
+    let position = control.absolute_position();
+    let label_position = label.absolute_position();
+    assert!(label_position.y >= position.y + padding - 0.1);
+    assert!(label_position.y + label.size().height <= position.y + control.size().height - padding + 0.1,
+        "A {font}px combo label overflows {}px high control with {padding}px padding", control.size().height);
+}
+```
+*/

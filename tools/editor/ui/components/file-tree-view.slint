@@ -1,13 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Style, Colors, Metrics, TreeStyle } from "../style.slint";
+import { EditorInput } from "editor-input.slint";
 import { FileTreeIcons } from "file-tree-icons.slint";
-import { EditorTreeTokens } from "editor-tree-tokens.slint";
+import { Icons } from "icons.slint";
+
 import { Api, FileTreeNode, FileTreeNodeKind } from "../api.slint";
 import { Project } from "../project.slint";
-import { ListView, Palette } from "std-widgets.slint";
+import { Diagnostics, FileDiagnosticSummary } from "../diagnostics.slint";
+import { ListView } from "std-widgets.slint";
+import { EditorScrollIndicators } from "editor-scroll-view.slint";
 
 component FileTreeRow inherits Rectangle {
+    in property <TreeStyle> style: Style.tree;
     in property <FileTreeNode> node;
     in property <int> max-gutter-columns: 8;
     in property <bool> tree-has-hover: false;
@@ -22,9 +28,11 @@ component FileTreeRow inherits Rectangle {
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: touch.has-hover;
     property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
-    property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? #474747 : #c4c4c4;
-    property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? #303030 : #e2e2e2;
-    property <color> error-color: Palette.color-scheme == ColorScheme.dark ? #ff7b72 : #cf222e;
+    property <color> selected-guide-color: root.style.selected-guide;
+    property <color> guide-color: root.style.file-guide;
+    property <color> error-color: Colors.danger;
+    private property <FileDiagnosticSummary> diagnostic-summary: Diagnostics.file-diagnostics(node.path);
+    private property <string> diagnostic-description: diagnostic-summary.error-count == 0 && diagnostic-summary.warning-count == 0 ? "" : "\{diagnostic-summary.error-count} errors, \{diagnostic-summary.warning-count} warnings in the active preview";
 
     callback row-hover-changed(string, bool);
     callback row-focus-requested(string);
@@ -32,24 +40,27 @@ component FileTreeRow inherits Rectangle {
     callback rename-finished();
     callback rename-submitted();
 
-    init => {
+    function focus-if-current() {
         if root.keyboard-current && !root.editing {
             row-focus.focus();
         }
+    }
+
+    init => {
+        focus-if-current();
     }
 
     changed keyboard-current => {
-        if root.keyboard-current && !root.editing {
-            row-focus.focus();
-        }
+        focus-if-current();
     }
 
-    height: EditorTreeTokens.row-height + (rename-error == "" ? 0px : EditorTreeTokens.row-height);
+    height: root.style.row.height + (rename-error == "" ? 0px : root.style.row.height);
     horizontal-stretch: 1;
-    border-radius: EditorTreeTokens.row-radius;
-    background: node.is-selected || row-focus.has-focus ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
+    border-radius: root.style.row.radius;
+    background: node.is-selected || row-focus.has-focus || root.keyboard-current ? root.style.row.selected-background : touch.has-hover ? root.style.row.hover-background : transparent;
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.node.path;
+    accessible-description: root.diagnostic-description;
     accessible-item-selectable: !root.folder;
     accessible-item-selected: root.node.is-selected;
     accessible-expanded: root.folder && root.node.is-expanded;
@@ -104,25 +115,23 @@ component FileTreeRow inherits Rectangle {
         }
 
         HorizontalLayout {
-            alignment: stretch;
             cross-axis-alignment: center;
-            padding-left: EditorTreeTokens.row-padding-inline;
-            padding-right: EditorTreeTokens.row-padding-inline;
-            spacing: 0px;
+            padding-left: root.style.row.padding-inline;
+            padding-right: root.style.row.padding-inline;
 
             if root.gutter-segments > 0: HorizontalLayout {
                 horizontal-stretch: 0;
                 alignment: start;
 
                 for slot[index] in root.max-gutter-columns: Rectangle {
-                    width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
-                    height: EditorTreeTokens.row-height;
+                    width: index < root.gutter-segments ? root.style.row.toggle-width : 0px;
+                    height: root.style.row.height;
 
                     if index < root.gutter-segments && (root.tree-has-hover || index == root.selected-guide-index): Rectangle {
                         property <bool> active-folder-guide: index == root.selected-guide-index;
-                        x: (parent.width - EditorTreeTokens.guide-width) / 2;
-                        width: EditorTreeTokens.guide-width;
-                        height: EditorTreeTokens.row-height;
+                        x: (parent.width - root.style.guide-width) / 2;
+                        width: root.style.guide-width;
+                        height: root.style.row.height;
                         background: active-folder-guide ? root.selected-guide-color : root.guide-color;
                     }
                 }
@@ -130,43 +139,59 @@ component FileTreeRow inherits Rectangle {
 
             Rectangle {
                 horizontal-stretch: 0;
-                width: EditorTreeTokens.disclosure-hit-size;
-                height: EditorTreeTokens.row-height;
+                width: root.style.row.hit-size;
+                height: root.style.row.height;
 
                 Image {
                     visible: root.folder && root.node.has-children;
-                    width: 12px;
-                    height: 12px;
+                    width: Metrics.icon-small;
+                    height: Metrics.icon-small;
                     x: 0px;
                     y: (parent.height - self.height) / 2;
-                    source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
-                    colorize: EditorTreeTokens.muted-text;
+                    source: root.node.is-expanded ? Icons.chevron-down : Icons.chevron-right;
+                    colorize: root.style.row.muted;
                 }
             }
 
             HorizontalLayout {
                 horizontal-stretch: 1;
-                spacing: EditorTreeTokens.content-gap;
-                alignment: stretch;
+                spacing: root.style.row.gap;
                 cross-axis-alignment: center;
-                padding-right: EditorTreeTokens.row-padding-inline;
-                min-height: EditorTreeTokens.row-height;
+                padding-right: root.style.row.padding-inline;
+                min-height: root.style.row.height;
 
-                Image {
+                Rectangle {
                     horizontal-stretch: 0;
-                    width: EditorTreeTokens.icon-size;
-                    height: EditorTreeTokens.icon-size;
-                    vertical-alignment: center;
-                    source: root.folder
-                        ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
-                        : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
-                        : FileTreeIcons.file-code;
-                    colorize: root.folder ? EditorTreeTokens.directory-icon : EditorTreeTokens.muted-text;
+                    width: root.style.row.icon-size;
+                    height: root.style.row.icon-size;
+                    Image {
+                        width: parent.width;
+                        height: parent.height;
+                        source: root.folder
+                            ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                            : root.node.kind == FileTreeNodeKind.image ? Icons.image
+                            : FileTreeIcons.file-code;
+                        colorize: root.folder ? root.style.row.directory-icon : root.style.row.muted;
+                    }
+                    if root.diagnostic-summary.error-count > 0 || root.diagnostic-summary.warning-count > 0: Rectangle {
+                        x: parent.width - self.width + 2px;
+                        y: parent.height - self.height + 2px;
+                        width: 11px;
+                        height: 11px;
+                        border-radius: self.width / 2;
+                        background: root.style.row.selected-background;
+                        Image {
+                            source: Icons.alert;
+                            width: parent.width;
+                            height: parent.height;
+                            colorize: root.diagnostic-summary.error-count > 0 ? Colors.danger : Colors.warning;
+                        }
+                    }
                 }
 
                 Rectangle {
                     horizontal-stretch: 1;
-                    height: EditorTreeTokens.row-height;
+                    height: root.style.row.height;
 
                     Text {
                         visible: !root.editing;
@@ -174,84 +199,106 @@ component FileTreeRow inherits Rectangle {
                         height: parent.height;
                         vertical-alignment: center;
                         text: root.node.label;
-                        color: EditorTreeTokens.text;
-                        font-size: EditorTreeTokens.row-font-size;
+                        color: root.style.row.foreground;
+                        font-size: root.style.row.font-size;
                         overflow: elide;
-                        wrap: no-wrap;
                     }
                 }
             }
         }
 
-        if root.editing: Rectangle {
-            x: EditorTreeTokens.row-padding-inline
-                + root.gutter-segments * EditorTreeTokens.toggle-width
-                + EditorTreeTokens.disclosure-hit-size
-                + EditorTreeTokens.icon-size
-                + EditorTreeTokens.content-gap;
-            y: 2px;
+        if root.editing: input := EditorInput {
+            x: root.style.row.padding-inline
+                + root.gutter-segments * root.style.row.toggle-width
+                + root.style.row.hit-size
+                + root.style.row.icon-size
+                + root.style.row.gap;
+            y: (root.style.row.height - Style.field.height) / 2;
             width: root.width + root.rename-right-extension - self.x;
-            height: EditorTreeTokens.row-height - 4px;
-            border-width: 1px;
-            border-color: root.rename-error == "" ? Palette.border : root.error-color;
-            background: Palette.control-background;
-
-            input := TextInput {
-                x: 1px;
-                width: parent.width - 2px;
-                height: parent.height;
-                text <=> root.rename-name;
-                color: EditorTreeTokens.text;
-                font-size: EditorTreeTokens.row-font-size;
-                vertical-alignment: center;
-                single-line: true;
-                wrap: no-wrap;
-                accessible-label: "Rename " + root.node.label;
-                init => {
-                    self.focus();
-                    self.set-selection-offsets(0, root.node.rename-selection-end);
+            value: root.rename-name;
+            live-edit: true;
+            select-all-on-focus: false;
+            accessible-name: @tr("Rename {}", root.node.label);
+            border-color: root.rename-error == "" ? self.paint.border : root.error-color;
+            init => {
+                self.focus-input();
+                self.select-range(0, root.node.rename-selection-end);
+            }
+            accepted(value) => { root.rename-name = value; return true; }
+            focus-lost => { if root.editing { root.rename-submitted(); } }
+            keyboard(event) => {
+                if event.text == Key.Return {
+                    root.rename-submitted();
+                    return accept;
                 }
-                accepted => { root.rename-submitted(); }
-                changed has-focus => {
-                    if root.editing && !self.has-focus {
-                        root.rename-submitted();
-                    }
+                if event.text == Key.Escape {
+                    root.rename-finished();
+                    row-focus.focus();
+                    return accept;
                 }
-                key-pressed(event) => {
-                    if event.text == Key.Escape {
-                        root.rename-finished();
-                        row-focus.focus();
-                        return accept;
-                    }
-                    return reject;
-                }
+                return reject;
             }
         }
     }
 
     if root.rename-error != "": Text {
-        x: EditorTreeTokens.disclosure-hit-size + EditorTreeTokens.icon-size;
-        y: EditorTreeTokens.row-height;
+        x: root.style.row.hit-size + root.style.row.icon-size;
+        y: root.style.row.height;
         width: parent.width - self.x;
-        height: EditorTreeTokens.row-height;
+        height: root.style.row.height;
         text: root.rename-error;
         color: root.error-color;
-        font-size: EditorTreeTokens.row-font-size;
+        font-size: root.style.row.font-size;
         overflow: elide;
-        wrap: no-wrap;
     }
 
-    touch := TouchArea {
-        enabled: !root.editing;
-        mouse-cursor: pointer;
-        clicked => {
-            root.focus-row();
-            root.activate();
+    context-menu := ContextMenuArea {
+        enabled: false;
+
+        Menu {
+            MenuItem {
+                title: @tr("Rename");
+                activated => {
+                    root.focus-row();
+                    root.begin-rename();
+                }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: @tr("Copy Path");
+                activated => { Api.copy-file-path(root.node.path); }
+            }
+            MenuSeparator {}
+            MenuItem {
+                title: @tr("Open Slint File");
+                enabled: root.node.is-slint-file;
+                activated => { Api.open-file(root.node.path); }
+            }
         }
+
+        touch := TouchArea {
+            enabled: !root.editing;
+            clicked => {
+                root.focus-row();
+                root.activate();
+            }
+            pointer-event(event) => {
+                if !root.folder && event.button == PointerEventButton.right && event.kind == PointerEventKind.down {
+                    root.focus-row();
+                    context-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+            }
+        }
+    }
+    Tooltip {
+        text: root.diagnostic-description != ""
+            ? @markdown("\{root.diagnostic-description}")
+            : @markdown("\{root.node.path}");
     }
 }
 
-export component FileTreeView inherits ListView {
+export component FileTreeView inherits Rectangle {
+    in property <TreeStyle> style: Style.tree;
     in property <length> rename-right-extension;
     private property <string> hovered-row-key: "";
     private property <string> focused-row-key: "";
@@ -262,33 +309,52 @@ export component FileTreeView inherits ListView {
 
     horizontal-stretch: 1;
     accessible-role: AccessibleRole.tree;
-    accessible-label: "Files";
+    accessible-label: @tr("Files");
 
-    for row in Project.file-tree: FileTreeRow {
-        width: root.visible-width - root.rename-right-extension;
-        node: row;
-        tree-has-hover: root.tree-has-hover;
-        keyboard-current: row.path == root.focused-row-key;
-        editing: row.path == root.editing-row-key;
-        rename-right-extension: root.rename-right-extension;
-        rename-name <=> root.rename-name;
-        rename-error: row.path == root.editing-row-key ? root.rename-error : "";
-        row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
-        row-focus-requested(path) => {
-            if root.editing-row-key != "" && root.editing-row-key != path {
-                root.submit-rename();
+    tree := ListView {
+        width: parent.width;
+        height: parent.height;
+        accessible-role: AccessibleRole.none;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+
+        for row in Project.file-tree: FileTreeRow {
+            style: root.style;
+            width: tree.visible-width - root.rename-right-extension;
+            node: row;
+            tree-has-hover: root.tree-has-hover;
+            keyboard-current: row.path == root.focused-row-key;
+            editing: row.path == root.editing-row-key;
+            rename-right-extension: root.rename-right-extension;
+            rename-name <=> root.rename-name;
+            rename-error: row.path == root.editing-row-key ? root.rename-error : "";
+            row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
+            row-focus-requested(path) => {
+                if root.editing-row-key != "" && root.editing-row-key != path {
+                    root.submit-rename();
+                }
+                root.focused-row-key = path;
             }
-            root.focused-row-key = path;
+            rename-started(path) => {
+                root.rename-error = "";
+                root.editing-row-key = path;
+            }
+            rename-finished => {
+                root.rename-error = "";
+                root.editing-row-key = "";
+            }
+            rename-submitted => { root.submit-rename(); }
         }
-        rename-started(path) => {
-            root.rename-error = "";
-            root.editing-row-key = path;
-        }
-        rename-finished => {
-            root.rename-error = "";
-            root.editing-row-key = "";
-        }
-        rename-submitted => { root.submit-rename(); }
+    }
+
+    scroll-indicators := EditorScrollIndicators {
+        content-width: tree.content-width;
+        content-height: tree.content-height;
+        visible-width: tree.visible-width;
+        visible-height: tree.visible-height;
+        content-x <=> tree.content-x;
+        content-y <=> tree.content-y;
+        scrolled => { tree.scrolled(); }
     }
 
     function submit-rename() {

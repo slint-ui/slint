@@ -209,6 +209,104 @@ assert!(t.get_test());
 
 ```
 
+```d.ts
+export interface Test {
+    get b1(): Required<slint.Brush>;
+    set b1(value: slint.Brush | slint.RgbaColor | string);
+    b1bri: number;
+    b1hue: number;
+    b1sat: number;
+    get b2(): Required<slint.Brush>;
+    set b2(value: slint.Brush | slint.RgbaColor | string);
+    get b3(): Required<slint.Brush>;
+    set b3(value: slint.Brush | slint.RgbaColor | string);
+    get b4(): Required<slint.Brush>;
+    set b4(value: slint.Brush | slint.RgbaColor | string);
+    get b5(): Required<slint.Brush>;
+    set b5(value: slint.Brush | slint.RgbaColor | string);
+    get bwood(): Required<slint.Brush>;
+    set bwood(value: slint.Brush | slint.RgbaColor | string);
+    bwood_bri: number;
+    bwood_hue: number;
+    bwood_sat: number;
+    get c1(): Required<slint.Brush>;
+    set c1(value: slint.Brush | slint.RgbaColor | string);
+    get c2(): Required<slint.Brush>;
+    set c2(value: slint.Brush | slint.RgbaColor | string);
+    get c3(): Required<slint.Brush>;
+    set c3(value: slint.Brush | slint.RgbaColor | string);
+    get g1(): Required<slint.Brush>;
+    set g1(value: slint.Brush | slint.RgbaColor | string);
+    get gr1(): Required<slint.Brush>;
+    set gr1(value: slint.Brush | slint.RgbaColor | string);
+    gr1bri: number;
+    gr1hue: number;
+    gr1sat: number;
+    get hsv_angle1(): Required<slint.Brush>;
+    set hsv_angle1(value: slint.Brush | slint.RgbaColor | string);
+    get hsv_angle2(): Required<slint.Brush>;
+    set hsv_angle2(value: slint.Brush | slint.RgbaColor | string);
+    get i1(): Required<slint.Brush>;
+    set i1(value: slint.Brush | slint.RgbaColor | string);
+    get invisible(): Required<slint.Brush>;
+    set invisible(value: slint.Brush | string);
+    get new_green(): Required<slint.Brush>;
+    set new_green(value: slint.Brush | slint.RgbaColor | string);
+    get oklch_angle1(): Required<slint.Brush>;
+    set oklch_angle1(value: slint.Brush | slint.RgbaColor | string);
+    get oklch_angle2(): Required<slint.Brush>;
+    set oklch_angle2(value: slint.Brush | slint.RgbaColor | string);
+    get oklch_angle3(): Required<slint.Brush>;
+    set oklch_angle3(value: slint.Brush | slint.RgbaColor | string);
+    get oklch_pct1(): Required<slint.Brush>;
+    set oklch_pct1(value: slint.Brush | slint.RgbaColor | string);
+    get oklch_pct2(): Required<slint.Brush>;
+    set oklch_pct2(value: slint.Brush | slint.RgbaColor | string);
+    get oklch1(): Required<slint.Brush>;
+    set oklch1(value: slint.Brush | slint.RgbaColor | string);
+    get oklch2(): Required<slint.Brush>;
+    set oklch2(value: slint.Brush | slint.RgbaColor | string);
+    get p1(): Required<slint.Brush>;
+    set p1(value: slint.Brush | slint.RgbaColor | string);
+    get r1(): Required<slint.Brush>;
+    set r1(value: slint.Brush | slint.RgbaColor | string);
+    r1bri: number;
+    r1hue: number;
+    r1sat: number;
+    get r2(): Required<slint.Brush>;
+    set r2(value: slint.Brush | slint.RgbaColor | string);
+    get r3(): Required<slint.Brush>;
+    set r3(value: slint.Brush | slint.RgbaColor | string);
+    get r4(): Required<slint.Brush>;
+    set r4(value: slint.Brush | slint.RgbaColor | string);
+    get r5(): Required<slint.Brush>;
+    set r5(value: slint.Brush | slint.RgbaColor | string);
+    test: boolean;
+    readonly test_hsv: boolean;
+    readonly test_hsv_angle: boolean;
+    readonly test_hsv_bri: boolean;
+    readonly test_hsv_hue: boolean;
+    readonly test_hsv_sat: boolean;
+    readonly test_hsv_wrap: boolean;
+    readonly test_oklch_angle: boolean;
+    readonly test_oklch_blue: boolean;
+    readonly test_oklch_create: boolean;
+    readonly test_oklch_percent: boolean;
+    readonly test_oklch_red: boolean;
+    readonly test_oklch_white: boolean;
+    readonly test_rgb: boolean;
+    get y1(): Required<slint.Brush>;
+    set y1(value: slint.Brush | slint.RgbaColor | string);
+    y1bri: number;
+    y1hue: number;
+    y1sat: number;
+    get y2(): Required<slint.Brush>;
+    set y2(value: slint.Brush | slint.RgbaColor | string);
+}
+
+export declare const Test: { new(properties?: Partial<Omit<Test, "b1" | "b2" | "b3" | "b4" | "b5" | "bwood" | "c1" | "c2" | "c3" | "g1" | "gr1" | "hsv_angle1" | "hsv_angle2" | "i1" | "invisible" | "new_green" | "oklch_angle1" | "oklch_angle2" | "oklch_angle3" | "oklch_pct1" | "oklch_pct2" | "oklch1" | "oklch2" | "p1" | "r1" | "r2" | "r3" | "r4" | "r5" | "y1" | "y2"> & { b1: slint.Brush | slint.RgbaColor | string; b2: slint.Brush | slint.RgbaColor | string; b3: slint.Brush | slint.RgbaColor | string; b4: slint.Brush | slint.RgbaColor | string; b5: slint.Brush | slint.RgbaColor | string; bwood: slint.Brush | slint.RgbaColor | string; c1: slint.Brush | slint.RgbaColor | string; c2: slint.Brush | slint.RgbaColor | string; c3: slint.Brush | slint.RgbaColor | string; g1: slint.Brush | slint.RgbaColor | string; gr1: slint.Brush | slint.RgbaColor | string; hsv_angle1: slint.Brush | slint.RgbaColor | string; hsv_angle2: slint.Brush | slint.RgbaColor | string; i1: slint.Brush | slint.RgbaColor | string; invisible: slint.Brush | string; new_green: slint.Brush | slint.RgbaColor | string; oklch_angle1: slint.Brush | slint.RgbaColor | string; oklch_angle2: slint.Brush | slint.RgbaColor | string; oklch_angle3: slint.Brush | slint.RgbaColor | string; oklch_pct1: slint.Brush | slint.RgbaColor | string; oklch_pct2: slint.Brush | slint.RgbaColor | string; oklch1: slint.Brush | slint.RgbaColor | string; oklch2: slint.Brush | slint.RgbaColor | string; p1: slint.Brush | slint.RgbaColor | string; r1: slint.Brush | slint.RgbaColor | string; r2: slint.Brush | slint.RgbaColor | string; r3: slint.Brush | slint.RgbaColor | string; r4: slint.Brush | slint.RgbaColor | string; r5: slint.Brush | slint.RgbaColor | string; y1: slint.Brush | slint.RgbaColor | string; y2: slint.Brush | slint.RgbaColor | string; }>): Test & Omit<slint.ComponentHandle, keyof Test> };
+```
+
 ```js
 var t = new slint.Test({});
 assert(t.r1.toString() == t.r2.toString());

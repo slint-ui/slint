@@ -3,7 +3,13 @@
 
 # cSpell: ignore AFAICT ARGN endwhile GENEX REALPATH
 # Set up machinery to handle SLINT_EMBED_RESOURCES target property
-set(DEFAULT_SLINT_EMBED_RESOURCES as-absolute-path CACHE STRING
+# A web page or an iOS app bundle can't read files from the build machine
+if(EMSCRIPTEN OR IOS)
+    set(_slint_default_embed_resources embed-files)
+else()
+    set(_slint_default_embed_resources as-absolute-path)
+endif()
+set(DEFAULT_SLINT_EMBED_RESOURCES ${_slint_default_embed_resources} CACHE STRING
     "The default resource embedding option to pass to the Slint compiler")
 set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
     "as-absolute-path" "embed-files" "embed-for-software-renderer" "embed-for-software-renderer-with-sdf")
@@ -11,14 +17,63 @@ set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
 # define_property(TARGET PROPERTY SLINT_EMBED_RESOURCES
 #     INITIALIZE_FROM_VARIABLE DEFAULT_SLINT_EMBED_RESOURCES)
 
+# Reads the "main" file of a slint-project.json into `out_var`.
+# string(JSON) rejects comments, so they're dropped first, skipping over string literals.
+function(_slint_project_file_main project_file out_var)
+    file(READ "${project_file}" content)
+    string(LENGTH "${content}" length)
+    set(json "")
+    set(state "code")
+    set(index 0)
+    while(index LESS length)
+        string(SUBSTRING "${content}" ${index} 2 pair)
+        string(SUBSTRING "${pair}" 0 1 char)
+        if(state STREQUAL "string")
+            if(char STREQUAL "\\")
+                string(APPEND json "${pair}")
+                math(EXPR index "${index} + 1")
+            else()
+                string(APPEND json "${char}")
+                if(char STREQUAL "\"")
+                    set(state "code")
+                endif()
+            endif()
+        elseif(state STREQUAL "line-comment")
+            if(char STREQUAL "\n")
+                string(APPEND json "${char}")
+                set(state "code")
+            endif()
+        elseif(state STREQUAL "block-comment")
+            if(pair STREQUAL "*/")
+                math(EXPR index "${index} + 1")
+                set(state "code")
+            endif()
+        elseif(pair STREQUAL "//")
+            set(state "line-comment")
+        elseif(pair STREQUAL "/*")
+            math(EXPR index "${index} + 1")
+            set(state "block-comment")
+        else()
+            string(APPEND json "${char}")
+            if(char STREQUAL "\"")
+                set(state "string")
+            endif()
+        endif()
+        math(EXPR index "${index} + 1")
+    endwhile()
+
+    string(JSON main ERROR_VARIABLE error GET "${json}" main)
+    if(error)
+        message(FATAL_ERROR "${project_file} has no 'main' to compile: ${error}")
+    endif()
+    set(${out_var} "${main}" PARENT_SCOPE)
+endfunction()
+
 function(SLINT_TARGET_SOURCES target)
     # Parse the NAMESPACE argument
-    cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE;COMPILATION_UNITS" "LIBRARY_PATHS" ${ARGN})
+    cmake_parse_arguments(SLINT_TARGET_SOURCES "" "NAMESPACE;COMPILATION_UNITS;EDITION" "LIBRARY_PATHS" ${ARGN})
 
     get_target_property(enabled_features Slint::Slint SLINT_ENABLED_FEATURES)
-    if ("EXPERIMENTAL" IN_LIST enabled_features)
-        list(APPEND SLINT_COMPILER_ENV_VARS SLINT_ENABLE_EXPERIMENTAL_FEATURES=1)
-    endif()
     if ("SYSTEM_TESTING" IN_LIST enabled_features)
         list(APPEND SLINT_COMPILER_ENV_VARS SLINT_EMIT_DEBUG_INFO=1)
     endif()
@@ -34,6 +89,10 @@ function(SLINT_TARGET_SOURCES target)
         list(REMOVE_AT ARGN ${_index})
         # If the namespace is not empty, add the --cpp-namespace argument
         set(_SLINT_CPP_NAMESPACE_ARG "--cpp-namespace=${SLINT_TARGET_SOURCES_NAMESPACE}")
+    endif()
+
+    if (DEFINED SLINT_TARGET_SOURCES_EDITION)
+        set(_SLINT_EDITION_ARG "--edition=${SLINT_TARGET_SOURCES_EDITION}")
     endif()
 
     if (DEFINED SLINT_TARGET_SOURCES_COMPILATION_UNITS)
@@ -52,8 +111,21 @@ function(SLINT_TARGET_SOURCES target)
     endwhile()
 
     foreach (it IN ITEMS ${SLINT_TARGET_SOURCES_UNPARSED_ARGUMENTS})
-        get_filename_component(_SLINT_BASE_NAME ${it} NAME_WE)
-        get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+        get_filename_component(_SLINT_ABSOLUTE ${it} ABSOLUTE BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+        get_filename_component(_SLINT_INPUT_NAME "${_SLINT_ABSOLUTE}" NAME)
+        if(_SLINT_INPUT_NAME STREQUAL "slint-project.json")
+            get_filename_component(_SLINT_ABSOLUTE "${_SLINT_ABSOLUTE}" DIRECTORY)
+        endif()
+        get_filename_component(_SLINT_ABSOLUTE "${_SLINT_ABSOLUTE}" REALPATH)
+        set(_SLINT_INPUT_DEPENDENCY ${_SLINT_ABSOLUTE})
+        if(IS_DIRECTORY "${_SLINT_ABSOLUTE}")
+            set(_SLINT_INPUT_DEPENDENCY "${_SLINT_ABSOLUTE}/slint-project.json")
+            _slint_project_file_main("${_SLINT_INPUT_DEPENDENCY}" _SLINT_MAIN)
+            get_filename_component(_SLINT_BASE_NAME ${_SLINT_MAIN} NAME_WE)
+            set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_SLINT_INPUT_DEPENDENCY}")
+        else()
+            get_filename_component(_SLINT_BASE_NAME ${it} NAME_WE)
+        endif()
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
 
         set(t_prop "$<TARGET_GENEX_EVAL:${target},$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>>")
@@ -88,6 +160,7 @@ function(SLINT_TARGET_SOURCES target)
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                 --depfile ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
                 --style ${_SLINT_STYLE}
+                ${_SLINT_EDITION_ARG}
                 --embed-resources=${embed}
                 --translation-domain=${translation_domain_arg}
                 ${no_default_translation_context_arg}
@@ -96,7 +169,7 @@ function(SLINT_TARGET_SOURCES target)
                 ${scale_factor_arg}
                 ${bundle_translations_arg}
                 ${cpp_files_arg}
-            DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
+            DEPENDS Slint::slint-compiler ${_SLINT_INPUT_DEPENDENCY}
             COMMENT "Generating ${_SLINT_BASE_NAME}.h"
             DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

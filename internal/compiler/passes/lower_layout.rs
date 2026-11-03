@@ -6,11 +6,14 @@
 use lyon_path::geom::euclid::approxeq::ApproxEq;
 use std::sync::Arc;
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
+use crate::expression_types::{MinMaxOp, Orientation, Unit};
 use crate::langtype::Type;
-use crate::langtype::{ElementType, PropertyLookupMode};
 use crate::layout::*;
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::{TypeRegister, layout_info_type};
@@ -40,8 +43,9 @@ pub(crate) fn synthesize_layoutinfo_v_with_constraint_on(
         prop_name.clone(),
         PropertyDeclaration {
             property_type: function_ty,
-            visibility: crate::object_tree::PropertyVisibility::Private,
+            visibility: PropertyVisibility::Private,
             pure: Some(true),
+            synthesized: true,
             ..Default::default()
         },
     );
@@ -96,12 +100,15 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                     };
                     return;
                 }
-                // Builtin height-for-width: replace the default -1 with
-                // the cross-axis size. The second arg is the
+                // Builtin height-for-width: replace the unconstrained argument
+                // with the cross-axis size. The second arg is the
                 // `cross_axis_constraint` of `ImplicitLayoutInfo`.
                 if target.borrow().is_builtin_height_for_width() {
                     debug_assert!(arguments.len() >= 2);
                     if let Some(second) = arguments.get_mut(1) {
+                        // The binding analysis reads the same argument to tell
+                        // whether the item reads its own width.
+                        debug_assert!(is_unconstrained_layout_info_arg(second));
                         *second = width_param.clone();
                     }
                 }
@@ -111,13 +118,6 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
             // PropertyReference to an element's vertical layout-info prop
             // whose target has the parametrized function: swap for the function call.
             let target = nr.element();
-            let is_vertical_layout_info = target
-                .borrow()
-                .effective_layout_info_prop(Orientation::Vertical)
-                .map(|prop_nr| {
-                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
-                })
-                .unwrap_or(false);
             // A forwarded scalar constraint (`min-height: inner.min-height`) reads
             // the target's implicit min/preferred/max-height, which is its
             // layoutinfo-v at the *unconstrained* width. Thread the cross-axis
@@ -130,6 +130,17 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                 _ => None,
             };
             if let Some(field) = constraint_field {
+                // A bare forward is what the replacement below handles; only a constraint
+                // wrapping one has to be rewritten through its binding (#13523).
+                let own_binding = target.borrow().binding(nr.name()).and_then(|b| {
+                    (!matches!(b.expression, Expression::PropertyReference(..)))
+                        .then(|| b.expression.clone())
+                });
+                if let Some(mut own_binding) = own_binding {
+                    rewrite_layoutinfo_v_for_constraint(&mut own_binding, width_param);
+                    *sub = own_binding;
+                    return;
+                }
                 if let Some(constrained_nr) =
                     target.borrow().inherited_layout_info_v_with_constraint()
                 {
@@ -150,6 +161,13 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                 }
                 return;
             }
+            let is_vertical_layout_info = target
+                .borrow()
+                .effective_layout_info_prop(Orientation::Vertical)
+                .map(|prop_nr| {
+                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
+                })
+                .unwrap_or(false);
             if !is_vertical_layout_info {
                 return;
             }
@@ -434,12 +452,12 @@ fn lower_grid_layout(
     let layout_cache_prop_h = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-cache-h"),
-        Type::LayoutCache,
+        Type::ArrayOfCoord,
     );
     let layout_cache_prop_v = create_new_prop(
         grid_layout_element,
         SmolStr::new_static("layout-cache-v"),
-        Type::LayoutCache,
+        Type::ArrayOfCoord,
     );
     let layout_info_prop_h = create_new_prop(
         grid_layout_element,
@@ -528,7 +546,10 @@ fn lower_grid_layout(
                 layout_child.borrow_mut().base_type = type_register.empty_type();
                 collected_children.push(layout_child);
             } else {
-                component.optimized_elements.borrow_mut().push(layout_child);
+                component.optimized_elements.borrow_mut().push(OptimizedElement {
+                    element: layout_child,
+                    former_parent: Rc::downgrade(grid_layout_element),
+                });
             }
         } else {
             grid.add_element(
@@ -770,7 +791,8 @@ impl GridLayout {
                 let e = nr.element();
                 let mut nr = nr.clone();
                 if e.borrow().repeated.is_some()
-                    && let crate::langtype::ElementType::Component(c) = e.borrow().base_type.clone()
+                    && let crate::element_type::ElementType::Component(c) =
+                        e.borrow().base_type.clone()
                 {
                     nr = NamedReference::new(&c.root_element, nr.name().clone())
                 };
@@ -902,7 +924,7 @@ impl GridLayout {
                         let e = nr.element();
                         let mut nr = nr.clone();
                         if e.borrow().repeated.is_some()
-                            && let crate::langtype::ElementType::Component(c) =
+                            && let crate::element_type::ElementType::Component(c) =
                                 e.borrow().base_type.clone()
                         {
                             nr = NamedReference::new(&c.root_element, nr.name().clone())
@@ -1551,6 +1573,7 @@ fn lower_box_layout(
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
         cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
+        is_synthesized_repeated_merge: false,
     };
 
     let layout_info_prop_v = create_new_prop(
@@ -1590,7 +1613,7 @@ fn lower_box_layout(
             create_new_prop(
                 layout_element,
                 SmolStr::new_static("layout-cache-ortho"),
-                Type::LayoutCache,
+                Type::ArrayOfCoord,
             )
         });
 
@@ -1600,7 +1623,7 @@ fn lower_box_layout(
     };
 
     let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::ArrayOfCoord);
     // Default stretch bindings, only used when there is no `cross-axis-alignment`.
     let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
         let pads = layout.geometry.padding.begin_end(orientation.orthogonal());
@@ -1648,7 +1671,16 @@ fn lower_box_layout(
             }
         } else {
             let (pad_expr, size_expr) = stretch_bindings.as_ref().unwrap();
-            if let Some(pad_expr) = pad_expr {
+            if let Some(binding) =
+                actual_elem.borrow().binding(pad).filter(|binding| binding.has_binding())
+            {
+                if !fixed_ortho {
+                    diag.push_warning(
+                        format!("The layout stretches the '{ortho}' of this element, so '{pad}' can move it past the edge, consider setting its '{ortho}' too, or using the layout's 'padding' or 'cross-axis-alignment'"),
+                        &*binding,
+                    );
+                }
+            } else if let Some(pad_expr) = pad_expr {
                 actual_elem.borrow_mut().set_binding(pad.into(), pad_expr.clone().into());
             }
             if !fixed_ortho {
@@ -1728,7 +1760,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
 
     // FlexboxLayout needs 4 values per item: x, y, width, height
     let layout_cache_prop =
-        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::LayoutCache);
+        create_new_prop(layout_element, SmolStr::new_static("layout-cache"), Type::ArrayOfCoord);
     let layout_info_prop_v = create_new_prop(
         layout_element,
         SmolStr::new_static("layoutinfo-v"),
@@ -1890,9 +1922,9 @@ fn lower_dialog_layout(
         Type::ArrayOfU16,
     );
     let layout_cache_prop_h =
-        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::LayoutCache);
+        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-h"), Type::ArrayOfCoord);
     let layout_cache_prop_v =
-        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-v"), Type::LayoutCache);
+        create_new_prop(dialog_element, SmolStr::new_static("layout-cache-v"), Type::ArrayOfCoord);
     let layout_info_prop_h = create_new_prop(
         dialog_element,
         SmolStr::new_static("layoutinfo-h"),
@@ -1930,9 +1962,14 @@ fn lower_dialog_layout(
                     &role_binding,
                 );
             }
+            if is_standard_button(&layout_child.borrow()) {
+                diag.push_warning(
+                    "'dialog-button-role' overrides the role that a 'StandardButton' gets from its 'kind': remove it, or use a 'Button' for a custom role".into(),
+                    &role_binding,
+                );
+            }
             true
-        } else if matches!(&layout_child.borrow().lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
-        {
+        } else if is_standard_button(&layout_child.borrow()) {
             // layout_child is a StandardButton
             match layout_child.borrow().binding("kind") {
                 None => diag.push_error(
@@ -1997,8 +2034,10 @@ fn lower_dialog_layout(
                                         pure: None,
                                         shadowed_name: None,
                                         shadowable: false,
+                                        testable: false,
                                         moved_from: None,
                                         deprecated: None,
+                                        synthesized: false,
                                     });
                             }
                         }
@@ -2439,6 +2478,18 @@ fn check_number_literal_is_positive_integer(
         }
         _ => false,
     }
+}
+
+/// Whether lowering `parent` requires `name` to be set on its child `elem`,
+/// even to its default value: the `kind` of a StandardButton in a Dialog
+pub(crate) fn dialog_requires_binding(parent: &ElementRc, elem: &Element, name: &str) -> bool {
+    name == "kind"
+        && parent.borrow().builtin_type().is_some_and(|b| b.name == "Dialog")
+        && is_standard_button(elem)
+}
+
+fn is_standard_button(elem: &Element) -> bool {
+    matches!(&elem.lookup_property("kind", PropertyLookupMode::ComponentLocal).property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
 }
 
 fn recognized_layout_types() -> &'static [&'static str] {

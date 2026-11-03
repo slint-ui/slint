@@ -10,6 +10,7 @@
         "slint"
       ],
       "injection-regex": "^slint$",
+      "highlights": "../zed/languages/slint/highlights.scm",
       "class-name": "TreeSitterSlint"
     }
   ],

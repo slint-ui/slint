@@ -1,0 +1,33 @@
+{
+    "sourceVersion": 1,
+    "exportScale": 1,
+    "pngEnabled": true,
+    "images": {},
+    "root": {
+        "id": "frame",
+        "name": "SVG Paint Bounds",
+        "type": "FRAME",
+        "properties": {
+            "x": 0, "y": 0, "width": 80, "height": 60,
+            "opacity": 1, "visible": true, "rotation": 0,
+            "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1 }, "opacity": 1 }],
+            "strokes": [], "effects": [], "clipsContent": true
+        },
+        "errors": [],
+        "children": [{
+            "id": "vector",
+            "name": "Overflowing Vector",
+            "type": "VECTOR",
+            "properties": {
+                "x": 20, "y": 20, "width": 24, "height": 16,
+                "opacity": 1, "visible": true, "rotation": 0
+            },
+            "errors": [],
+            "exports": {
+                "pngOmitted": "svg",
+                "svgBounds": { "x": -5, "y": -3, "width": 34, "height": 24 },
+                "svg": { "value": "<svg width=\"34\" height=\"24\" viewBox=\"0 0 34 24\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"34\" height=\"24\" fill=\"red\"/><rect x=\"5\" y=\"3\" width=\"24\" height=\"16\" fill=\"blue\"/></svg>" }
+            }
+        }]
+    }
+}

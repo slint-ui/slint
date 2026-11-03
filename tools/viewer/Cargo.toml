@@ -4,7 +4,7 @@
 # cSpell: ignore shlex
 [package]
 name = "slint-viewer"
-description = "The viewer binary for Slint"
+description = "Preview .slint UI files with hot reload"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -13,7 +13,7 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 categories = ["gui", "development-tools", "command-line-utilities"]
-keywords = ["viewer", "gui", "ui", "toolkit"]
+keywords = ["viewer", "preview", "hot-reload", "gui", "ui"]
 
 [features]
 # Enable the embedded MCP server; requires SLINT_MCP_PORT to be set at runtime.
@@ -33,6 +33,7 @@ renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia", "dep:i-slint-renderer-skia"]
 renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "dep:i-slint-renderer-skia"]
 renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "dep:i-slint-renderer-skia"]
+renderer-skia-software = ["slint-interpreter/renderer-skia-software", "dep:i-slint-renderer-skia"]
 renderer-vello = ["slint-interpreter/renderer-vello"]
 renderer-software = ["slint-interpreter/renderer-software"]
 
@@ -58,6 +59,7 @@ gettext = ["i-slint-core/gettext-rs"]
 ## Enable the remote viewer mode (--remote flag)
 remote = [
   "dep:slint",
+  "dep:slint-build",
   "i-slint-live-preview/remote",
   "dep:tokio",
   "dep:async-compat",
@@ -77,7 +79,7 @@ remote = [
 default = ["backend-default", "renderer-femtovg", "renderer-software", "remote"]
 
 [dependencies]
-i-slint-compiler = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["std"] }
 i-slint-core = { workspace = true }
 i-slint-renderer-software = { workspace = true, features = ["std"] }
 i-slint-renderer-skia = { workspace = true, optional = true }
@@ -111,7 +113,7 @@ tempfile = "3"
 #
 # That's why we chose zeroconf for Apple platforms and mdns-sd for the other platforms.
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
-mdns-sd = { version = "0.20.0", default-features = false, optional = true }
+mdns-sd = { version = "0.21.6", default-features = false, optional = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 zeroconf = { version = "0.18", optional = true }
@@ -142,11 +144,27 @@ avahi-sys = "LGPL-3.0-or-later"
 
 [package.metadata.android]
 package = "dev.slint.viewer"
+
+[package.metadata.android.sdk]
 min_sdk_version = 26
 target_sdk_version = 36
 
 [package.metadata.android.application]
 label = "Slint Viewer"
 
+[[package.metadata.android.application.activity]]
+name = "android.app.NativeActivity"
+
+[[package.metadata.android.application.activity.meta_data]]
+name = "android.app.lib_name"
+
+[[package.metadata.android.application.activity.intent_filter]]
+actions = ["android.intent.action.VIEW", "android.intent.action.MAIN"]
+categories = ["android.intent.category.LAUNCHER"]
+
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
+
+[build-dependencies]
+cfg_aliases = { workspace = true }
+slint-build = { workspace = true, optional = true }

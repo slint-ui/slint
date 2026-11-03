@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Embedding glyphs bakes one font into the binary,
+// so a family no installed font provides is reported rather than silently replaced.
+
+export component Test inherits Window {
+    default-font-family: "NoSuchFamily-4997";
+//                       >                  <warning{no font found for family 'NoSuchFamily-4997', embedding the default font instead; add the font with 'import "my-font.ttf";'}
+}

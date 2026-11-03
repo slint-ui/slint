@@ -1,0 +1,42 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+interface I {
+    in-out property <int> value;
+}
+
+component Impl {
+    in-out property <int> value;
+}
+
+component Host inherits Window {
+    out property <int> seen: control.value;
+    slot <I> control;
+    control {
+        value: 6;
+    }
+}
+
+export component TestCase inherits Host {
+    control << Impl { }
+
+    out property <bool> test: root.seen == 6;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

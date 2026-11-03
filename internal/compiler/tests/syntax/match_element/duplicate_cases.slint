@@ -108,3 +108,14 @@ export component DuplicateCaseTwice {
 //      ^error{Duplicate case value}
     }
 }
+
+export component DuplicateCaseWithBrush {
+    in-out property <brush> fill: #123;
+
+    match fill {
+        #ff0000: Rectangle { }
+        red: Rectangle { }
+//      > <error{Duplicate case value}
+        *: Rectangle { }
+    }
+}

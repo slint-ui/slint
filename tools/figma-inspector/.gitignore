@@ -1,5 +1,15 @@
+node_modules/
+dist/
+zip/
+test-results/
+playwright-report/
+.vitest-attachments/
+.vitest/
+.cache/
+.DS_Store
+*.local
 
-dist
-dist.zip
-.tmp
-!*.d.ts
+
+dist-dev/
+
+tests/__screenshots__/

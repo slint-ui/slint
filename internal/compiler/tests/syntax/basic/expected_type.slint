@@ -52,4 +52,29 @@ export component Test inherits Rectangle {
     // `length` is a property, not a method
     property<int> len: arr.length();
 //                     >          <error{The expression is not a function}
+
+    // a statement that isn't the last one still resolves against the type of the block
+    property<color> discarded: { red; blue };
+//                               > <warning{Expression has no effect}
+
+    // `accept` in an `if` that isn't the last statement used to be an unknown identifier
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == "q" {
+                self.clear-focus();
+                accept;
+//              >    <warning{Expression has no effect}
+            }
+            reject
+        }
+    }
+
+    // a `let` without a declared type takes the type of its value
+    property<color> untyped_let: { let c = red; c };
+//                                         > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+
+    // the base of an index expression isn't the value of the enclosing position
+    property<[color]> indexed: [[red]][0];
+//                               > <error{Unknown unqualified identifier 'red'. Did you mean 'Colors.red'?}
+//                             >         <^error{Cannot convert [<error>] to [color]}
 }

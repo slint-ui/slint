@@ -1,0 +1,94 @@
+---
+title: ISO 26262-6
+description: How Slint SC meets ISO 26262-6, product development at the software level.
+---
+
+See [Status](/norm-mapping/#status) for what each status means.
+The methods each requirement refers to are in the [Method Tables](/norm-mapping/iso-26262-6-methods/).
+
+## Clause 5: General Topics
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 5.4.1 | Suitable processes and environments | Partly met | [Development Process](/safety-plan/development-process/), and the [V-Model per Change](/safety-plan/lifecycle/#v-model-per-change), which keeps requirement, code, and tests consistent. The test suite script doesn't check yet that it runs on a qualified toolchain. Interaction with system and hardware development is the integrator's. |
+| 5.4.2 | Criteria for selecting the language | Open | Slint SC is written in Rust, but the rationale against the criteria is missing. |
+| 5.4.3 | Coding guidelines | Partly met | [Coding Standards](/safety-plan/coding-standards/); see [Table 1](/norm-mapping/iso-26262-6-methods/#table-1-coding-guidelines). |
+
+## Clause 6: Software Safety Requirements
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 6.4.1 | Deriving the software safety requirements | Met | The [Assumed Safety Requirements](/runtime/assumed-safety-requirements/), refined by the paragraphs of the [Reference](/reference/); see [Safety Requirements](/safety-plan/standards-compliance/#safety-requirements). |
+| 6.4.2 | What the specification considers | Partly met | The runtime has one configuration, accesses no hardware, and its external interfaces are the [Generated Code](/reference/generated-code/) and [Touch Input](/reference/input/). Timing constraints and operating modes aren't stated yet. |
+| 6.4.3 | ASIL decomposition | N/A | Not used. |
+| 6.4.4 | Hardware-software interface | N/A | The runtime accesses no hardware; see [Properties](/safety-plan/architecture/#properties). |
+| 6.4.5 | Functions without safety requirements | Met | The runtime has no functions other than those the [Reference](/reference/) specifies. |
+| 6.4.6 | Verifying the hardware-software interface | N/A | There's no hardware-software interface; see 6.4.4. |
+| 6.4.7 | Verifying the software safety requirements | Partly met | Every requirement paragraph is reviewed with its pull request ([C-07](/safety-plan/development-phases/#on-every-change)). There's no record of what the review checked yet. |
+
+## Clause 7: Software Architectural Design
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 7.4.1 | Notations | Met | [Architecture Design](/safety-plan/architecture/); see [Table 2](/norm-mapping/iso-26262-6-methods/#table-2-architecture-notations). |
+| 7.4.2 | Properties to consider | Partly met | [Architectural Design](/safety-plan/architecture/#architectural-design) lists the properties, but doesn't argue each one yet. |
+| 7.4.3 | Design principles | Partly met | See [Table 3](/norm-mapping/iso-26262-6-methods/#table-3-architecture-principles). |
+| 7.4.4 | Down to software units | Partly met | [Software Units](/safety-plan/architecture/#software-units) names the compiler, the runtime, and the generated code. The units inside the runtime aren't identified yet. |
+| 7.4.5 | Static and dynamic design | Met | [Static Design](/safety-plan/architecture/#static-design) and [Dynamic Design](/safety-plan/architecture/#dynamic-design). |
+| 7.4.6 | Allocating requirements to units | Open | The requirement paragraphs aren't allocated to the runtime, the generated code, or the compiler yet. |
+| 7.4.7 | Pre-existing software elements | Partly met | The runtime has no dependencies; see [Dependencies](/safety-plan/architecture/#dependencies). The evidence for Rust's `core` library, which the runtime uses, is missing. |
+| 7.4.8 | Components of different ASILs | Integrator | [`slint.aou.freedom-from-interference`](/user-manual/#slint.aou.freedom-from-interference). |
+| 7.4.9 | Software partitioning | Integrator | [`slint.aou.freedom-from-interference`](/user-manual/#slint.aou.freedom-from-interference). |
+| 7.4.10 | Safety-oriented analysis | Partly met | [Safety Analysis](/runtime/safety-analysis/). Input errors, panics, and arithmetic overflow aren't analyzed yet. |
+| 7.4.11 | Dependent failure analysis | Open | [S-12](/safety-plan/lifecycle/#once-to-set-up) plans the analysis, which doesn't exist yet. |
+| 7.4.12 | Safety mechanisms | Partly met | [`slint.runtime.avd.buffer-size-check`](/runtime/safety-analysis/#slint.runtime.avd.buffer-size-check). The argument that verification covers the other errors is missing. |
+| 7.4.13 | Upper estimate of resources | Open | [`slint.aou.timing`](/user-manual/#slint.aou.timing) asks the integrator to measure on the target, but the estimate for Slint SC itself is missing. |
+| 7.4.14 | Verifying the architecture | Partly met | See [Table 4](/norm-mapping/iso-26262-6-methods/#table-4-architecture-verification). |
+
+## Clause 8: Software Unit Design and Implementation
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 8.4.1 | Applicability | Met | Every unit of the runtime and of the generated code is safety-related. |
+| 8.4.2 | Units consistent with the architecture | Partly met | A change updates the architecture where it affects it ([C-03](/safety-plan/development-phases/#on-every-change)). Consistency can't be shown unit by unit until 7.4.4 identifies the units. |
+| 8.4.3 | Notations | Met | See [Table 5](/norm-mapping/iso-26262-6-methods/#table-5-unit-design-notations). |
+| 8.4.4 | Unit specification | Partly met | The [Reference](/reference/) and the [runtime API documentation](/api/slint_sc/) describe the behavior. Neither describes the internal design yet. |
+| 8.4.5 | Design principles | Partly met | [Design Principles](/safety-plan/coding-standards/#design-principles); see [Table 6](/norm-mapping/iso-26262-6-methods/#table-6-unit-design-principles). |
+
+## Clause 9: Software Unit Verification
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 9.4.1 | Applicability | Met | See 8.4.1. |
+| 9.4.2 | Verification methods | Partly met | [Verification](/safety-plan/verification/) and [Test Suites](/safety-plan/test-suites/); see [Table 7](/norm-mapping/iso-26262-6-methods/#table-7-unit-verification). |
+| 9.4.3 | Deriving test cases | Partly met | See [Table 8](/norm-mapping/iso-26262-6-methods/#table-8-unit-test-derivation). |
+| 9.4.4 | Requirement and structural coverage | Partly met | The [Traceability Matrix](/qualification-report/traceability-matrix/), and [Metrics](/safety-plan/test-coverage/#metrics); see [Table 9](/norm-mapping/iso-26262-6-methods/#table-9-unit-structural-coverage). That the instrumentation doesn't change the test results isn't shown yet. |
+| 9.4.5 | Test environment | Partly met | [Test Environment and Targets](/safety-plan/verification/#test-environment-and-targets). The run on a 32-bit target configuration is missing. |
+
+## Clause 10: Software Integration and Verification
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 10.4.1 | Integration approach | Partly met | The [Runtime Test Cases](/safety-plan/test-suites/#runtime-test-cases) integrate the runtime with generated code. The integration steps aren't described yet. |
+| 10.4.2 | Verification methods | Partly met | See [Table 10](/norm-mapping/iso-26262-6-methods/#table-10-integration-verification). |
+| 10.4.3 | Deriving test cases | Partly met | See [Table 11](/norm-mapping/iso-26262-6-methods/#table-11-integration-test-derivation). |
+| 10.4.4 | Requirement coverage | Met | The [Traceability Matrix](/qualification-report/traceability-matrix/). |
+| 10.4.5 | Structural coverage | Met | See [Table 12](/norm-mapping/iso-26262-6-methods/#table-12-integration-structural-coverage). |
+| 10.4.6 | Only specified functions in a release | Partly met | Test code builds only for tests. The `private_unstable_api` module of the runtime is public, for the generated code, and application code can call it. |
+| 10.4.7 | Test environment | Partly met | See 9.4.5. |
+
+## Clause 11: Testing of the Embedded Software
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| 11.4.1 | Test environments | Integrator | [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests). The test suite for the target is missing ([S-11](/safety-plan/lifecycle/#once-to-set-up)). |
+| 11.4.2 | Test methods | Integrator | See [Table 14](/norm-mapping/iso-26262-6-methods/#table-14-embedded-software-tests). |
+| 11.4.3 | Deriving test cases | Integrator | See [Table 15](/norm-mapping/iso-26262-6-methods/#table-15-embedded-software-test-derivation). |
+| 11.4.4 | Evaluating the results | Integrator | [`slint.aou.target-tests`](/user-manual/#slint.aou.target-tests). |
+
+## Annex C: Software Configuration
+
+| Requirement | Topic | Status | How |
+| --- | --- | --- | --- |
+| C.4.1 to C.4.5 | Configuration data | N/A | The runtime has one configuration; see [Specification](/runtime/#specification). The `.slint` files are the integrator's source code, verified under [`slint.aou.verify-generated`](/user-manual/#slint.aou.verify-generated). |
+| C.4.6 to C.4.11 | Calibration data | N/A | Slint SC has no calibration data. |

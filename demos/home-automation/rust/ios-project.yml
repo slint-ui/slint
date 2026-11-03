@@ -13,6 +13,7 @@ targets:
     info:
         path: Info.plist
         properties:
+            CADisableMinimumFrameDurationOnPhone: true
             UILaunchScreen:
                 - ImageRespectSafeAreaInsets: false
             UIApplicationSceneManifest:

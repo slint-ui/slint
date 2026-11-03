@@ -1,0 +1,48 @@
+---
+title: Assumed Safety Requirements
+description: The safety requirements Slint SC is developed to, derived from its assumed use.
+---
+
+import Addresses from '../../../components/Addresses.astro';
+
+<Addresses>ISO 26262-2 6.4.5.7 a</Addresses>
+
+We don't know which products Slint SC will end up in.
+So we assume how Slint SC will be used, and derive the safety requirements of Slint SC from that assumed use.
+The integrator confirms that the requirements fit their safety concept; see [`slint.aou.requirements`](/user-manual/#slint.aou.requirements).
+
+## Assumed Use
+
+Slint SC renders the safety-related part of a user interface into a frame buffer, and handles touch input on it.
+Examples are a warning lamp, a status reading, or a button that acknowledges an alarm.
+
+A malfunction of Slint SC can then lead to a hazard in four ways:
+
+* The display shows wrong information, such as the wrong color or a truncated reading.
+* The display misses information, such as a warning that doesn't appear.
+* The display shows information that's no longer true, such as a cleared warning that stays.
+* A touch invokes an action the user didn't mean, or misses an action the user did mean.
+
+What the information means, and what an action does, is the integrator's concern.
+
+## Requirements
+
+Each requirement is assumed at ASIL B.
+Specification paragraphs refine each requirement, and every specification paragraph is traced to a test in the [Traceability Matrix](/qualification-report/traceability-matrix/).
+The [Safety Analysis](/runtime/safety-analysis/) lists the errors that would violate each requirement.
+
+| Identifier | Requirement | Refined by | Errors that violate it |
+| --- | --- | --- | --- |
+| <span id="slint.asr.render">`slint.asr.render`</span> | Rendering either paints the frame the specification defines for the current property values, or reports an error and paints nothing. | [Rendering](/reference/rendering/), [`sls.gen.render-rgb8`](/reference/generated-code/#sls.gen.render-rgb8), [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error) | `paint-order`, `blend-wrong`, `wrong-clip` |
+| <span id="slint.asr.current">`slint.asr.current`</span> | A rendered frame reflects the property values set before rendering started, and only values that existed together. | [Bindings](/reference/language/bindings/), [Properties](/reference/language/properties/), [`sls.gen.prop.set`](/reference/generated-code/#sls.gen.prop.set) | `stale-property`, `eval-order` |
+| <span id="slint.asr.complete">`slint.asr.complete`</span> | Rendering writes every pixel of the frame buffer, so nothing of an earlier frame remains. | [`sls.paint.window-opaque`](/reference/rendering/#sls.paint.window-opaque), [`sls.paint.blend.opaque`](/reference/rendering/#sls.paint.blend.opaque) | `stale-pixels` |
+| <span id="slint.asr.input">`slint.asr.input`</span> | A touch event invokes exactly the callbacks the input model defines for it, and no others. | [Touch Input](/reference/input/), [`sls.gen.dispatch-touch-event`](/reference/generated-code/#sls.gen.dispatch-touch-event) | None yet |
+| <span id="slint.asr.no-interference">`slint.asr.no-interference`</span> | Slint SC writes no memory except the component and the frame buffer it's given, allocates no memory, and holds no global state. | [Architecture Design](/safety-plan/architecture/#properties) | `buffer-overrun` |
+
+The compiler has requirements of its own, such as rejecting everything outside the subset.
+The compiler's requirements are in the [Tool Evaluation Report](/evaluation-report/potential-errors/), since the compiler is a tool.
+
+:::caution[TODO]
+The Safety Analysis has no error that violates `slint.asr.input`, such as a click delivered to the wrong `TouchArea`.
+Add the input errors, and their detection.
+:::

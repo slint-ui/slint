@@ -3,8 +3,13 @@
 
 // Removing a row destroys the repeated item tree of that row right away, while the handler that
 // triggered the removal keeps running: the event dispatch holds the inner element's own item tree
-// alive, but its parent chain is gone. Reaching an item through that dead chain — here row-fs in
-// the removed row and fs in the root — must not panic; it simply does nothing.
+// alive, but its parent chain is gone. Nothing the handler reaches for through that dead chain may
+// panic. A read yields the default, a write is dropped, and a call does nothing.
+
+struct Rec {
+    len: length,
+    name: string,
+}
 
 export component TestCase {
     width: 300px;
@@ -14,9 +19,20 @@ export component TestCase {
     callback remove-row();
 
     out property <int> clicked;
+    in-out property <int> counter;
+    in-out property <MouseCursor> cursor: MouseCursor.crosshair;
     out property <bool> fs-has-focus: fs.has-focus;
+    out property <bool> ta-enabled: ta.enabled;
+
+    callback noop() -> int;
+    callback noop2() -> int;
+    callback rec-cb() -> Rec;
+    in-out property <Rec> rec: { len: 5px, name: "n" };
+    function bump() -> int { root.counter += 1; return root.counter; }
 
     fs := FocusScope { }
+    ta := TouchArea { x: 0px; y: 0px; width: 0px; height: 0px; }
+    tmr := Timer { interval: 1s; running: false; triggered => { } }
 
     for row in model: Rectangle {
         x: 0px;
@@ -27,12 +43,26 @@ export component TestCase {
         row-fs := FocusScope { }
 
         for _idx in 1: TouchArea {
+            // In the inner repeater, so it outlives the removal along with the handler.
+            live-rect := Rectangle { }
+
             clicked => {
                 root.clicked += 1;
                 root.remove-row();
-                // This row is gone, so neither target is reachable anymore.
+                // This row is gone, so nothing below reaches its target anymore.
                 row-fs.focus();
                 fs.focus();
+                row = 42;
+                // Two callbacks, so one operator has a missing value on both sides.
+                root.counter = root.noop() + root.noop2();
+                root.counter = root.bump();
+                ta.enabled = !ta.enabled;
+                self.enabled = ta.enabled;
+                self.mouse-cursor = root.cursor;
+                live-rect.width = root.rec.len;
+                live-rect.height = root.rec-cb().len;
+                live-rect.background = root.rec.name == "" ? red : blue;
+                tmr.restart();
             }
         }
     }
@@ -49,6 +79,8 @@ instance.on_remove_row(move || { m.remove(0); });
 
 slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq!(instance.get_clicked(), 1);
+assert_eq!(instance.get_counter(), 0);
+assert!(instance.get_ta_enabled());
 assert_eq!(model.row_count(), 0);
 assert!(!instance.get_fs_has_focus());
 
@@ -66,6 +98,8 @@ instance.on_remove_row([model] { model->erase(0); });
 
 slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq(instance.get_clicked(), 1);
+assert_eq(instance.get_counter(), 0);
+assert(instance.get_ta_enabled());
 assert_eq(model->row_count(), 0);
 assert(!instance.get_fs_has_focus());
 
@@ -83,6 +117,8 @@ instance.model = model;
 
 slintlib.private_api.send_mouse_click(instance, 50., 50.);
 assert.equal(instance.clicked, 1);
+assert.equal(instance.counter, 0);
+assert(instance.ta_enabled);
 assert.equal(instance.model.length, 0);
 assert(!instance.fs_has_focus);
 

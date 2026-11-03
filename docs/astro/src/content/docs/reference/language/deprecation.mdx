@@ -1,0 +1,53 @@
+---
+title: Deprecation
+description: Marking a property, callback, or function as deprecated with @deprecated.
+---
+
+The `@deprecated` annotation marks a property, callback, or function as deprecated.
+Use it to evolve a component's public API and give users time to migrate to the replacement.
+The compiler warns wherever the member is used from outside the component that declares it,
+and the warning carries the annotation's message:
+
+```slint
+component Inner {
+    in-out property <int> new-prop;
+    @deprecated("Use 'new-prop' instead") in-out property <int> old-prop <=> new-prop;
+
+    // No warning: uses within the declaring component are fine.
+    in-out property <int> internal: old-prop;
+}
+
+export component Example {
+    inner := Inner { }
+    // Warning: The property 'old-prop' has been deprecated: Use 'new-prop' instead
+    out property <int> value: inner.old-prop;
+}
+```
+
+## Syntax
+
+Place `@deprecated` before the declaration, ahead of any visibility or purity modifier,
+and write the message in parentheses:
+
+```slint
+@deprecated("Compute it from 'new-prop' instead") in-out property <int> older-prop: 42;
+@deprecated("Use 'new-callback' instead") callback old-callback();
+@deprecated("Use 'new-function' instead") public pure function old-function() -> int { 1 }
+```
+
+- The message is mandatory.
+  `@deprecated` without parentheses is a compile error.
+- The message must be a plain string literal.
+  A `\{}` template expression in it is a compile error.
+- An empty message, `@deprecated("")`, deprecates without naming a replacement.
+- A declaration can carry `@deprecated` only once.
+
+## Warnings
+
+Using a deprecated member produces a warning, not an error, so existing code keeps compiling.
+Any use warns: reading, assigning, binding, aliasing with `<=>`, animating, calling, or setting a handler.
+
+The component that declares the member can keep using it without warnings,
+since it still has to implement it.
+
+Apart from the warning, a deprecated member works exactly as before.

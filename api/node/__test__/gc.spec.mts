@@ -8,6 +8,9 @@ import {
     loadSource,
     private_api,
     ArrayModel,
+    FilterModel,
+    SortModel,
+    MapModel,
     Model,
 } from "../dist/index.js";
 
@@ -685,6 +688,51 @@ test("custom model capturing instance does not prevent GC", async () => {
     expect(weakRef.deref()).toBeUndefined();
 });
 
+// --- Adapter model callback GC tests ---
+//
+// native_{filter,sort,map}_model_new hold the user's callback only weakly;
+// NativeAdapterModel keeps it alive for as long as the adapter lives.
+
+test("FilterModel predicate function survives GC", async () => {
+    const source = new ArrayModel([1, 2, 3, 4, 5, 6]);
+    const even = new FilterModel(source, (x) => x % 2 === 0);
+
+    await gcAndYield();
+
+    // FilterModel builds its mapping eagerly at construction time (before the
+    // GC pass), so reading it back proves nothing about the predicate's
+    // survival on its own; `reset()` forces a fresh evaluation.
+    even.reset();
+
+    // A collected predicate degrades to "drop every row" (see
+    // native_filter_model_new): row_count staying at 3 proves the closure
+    // is still callable.
+    expect(even.rowCount()).toBe(3);
+    expect(Array.from(even)).toEqual([2, 4, 6]);
+});
+
+test("SortModel compare function survives GC", async () => {
+    const source = new ArrayModel([5, 3, 1, 4, 2]);
+    const sorted = new SortModel(source, (a, b) => a - b);
+
+    await gcAndYield();
+
+    // A collected comparator degrades to Ordering::Equal for every pair
+    // (see native_sort_model_new), leaving the source order unchanged.
+    expect(Array.from(sorted)).toEqual([1, 2, 3, 4, 5]);
+});
+
+test("MapModel map function survives GC", async () => {
+    const source = new ArrayModel([1, 2, 3]);
+    const doubled = new MapModel(source, (x) => x * 2);
+
+    await gcAndYield();
+
+    // A collected map function degrades to the identity (see
+    // native_map_model_new), returning the untransformed source values.
+    expect(Array.from(doubled)).toEqual([2, 4, 6]);
+});
+
 // --- DataTransfer userData ---
 
 test("DataTransfer userData cycle does not prevent GC", async () => {
@@ -766,4 +814,95 @@ test("DataTransfer userData survives clone after original is collected", async (
     await gcAndYield();
     expect(echoedWeak.deref()).toBeUndefined();
     expect(payloadWeak.deref()).toBeUndefined();
+});
+
+test("model assigned again and to a second instance: collected with both", async () => {
+    let modelRef: WeakRef<object>;
+
+    function phase1() {
+        const source = `export struct Data { items: [int] }
+        export component Test {
+            in-out property <[int]> items;
+            in-out property <Data> data;
+        }`;
+        const Test = (loadSource(source, "gc-reassign-model.slint") as any)
+            .Test;
+        const first = new Test();
+        const second = new Test();
+
+        const model = new ArrayModel([1, 2]);
+        modelRef = new WeakRef(model);
+        first.items = model;
+        first.items = model;
+        first.data = { items: model };
+        second.items = model;
+
+        return { first: new WeakRef(first), second };
+    }
+
+    let { first, second } = phase1();
+    await gcAndYield();
+    expect(first.deref()).toBeUndefined();
+    expect(modelRef!.deref()).toBeDefined();
+    expect(second.items.rowData(1)).toBe(2);
+
+    const secondRef = new WeakRef(second);
+    second = null;
+    await gcAndYield();
+    expect(secondRef.deref()).toBeUndefined();
+    expect(modelRef!.deref()).toBeUndefined();
+});
+
+test("replaced model is collected while the instance is alive", async () => {
+    const source = `export component Test {
+        in-out property <[int]> items;
+    }`;
+    const instance = new (
+        loadSource(source, "gc-replace-reassigned-model.slint") as any
+    ).Test();
+
+    function assignTwice() {
+        const model = new ArrayModel([1]);
+        instance.items = model;
+        instance.items = model;
+        return new WeakRef(model);
+    }
+    const modelRef = assignTwice();
+    instance.items = new ArrayModel([2]);
+
+    await gcAndYield();
+    expect(modelRef.deref()).toBeUndefined();
+    expect(instance.items.rowData(0)).toBe(2);
+});
+
+test("model read from a property survives in another instance, then collected", async () => {
+    let readBackRef: WeakRef<object>;
+
+    function phase1() {
+        const source = `export component Test {
+            in-out property <[int]> items: [1, 2, 3];
+        }`;
+        const Test = (loadSource(source, "gc-read-back-model.slint") as any)
+            .Test;
+        const first = new Test();
+        const second = new Test();
+
+        const readBack = first.items;
+        readBackRef = new WeakRef(readBack);
+        second.items = readBack;
+        second.items = second.items;
+
+        return { first: new WeakRef(first), second };
+    }
+
+    let { first, second } = phase1();
+    await gcAndYield();
+    expect(first.deref()).toBeUndefined();
+    expect(readBackRef!.deref()).toBeUndefined();
+    expect(Array.from(second.items)).toStrictEqual([1, 2, 3]);
+
+    const secondRef = new WeakRef(second);
+    second = null;
+    await gcAndYield();
+    expect(secondRef.deref()).toBeUndefined();
 });

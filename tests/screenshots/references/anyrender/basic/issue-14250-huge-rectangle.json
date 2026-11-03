@@ -1,0 +1,187 @@
+[
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M1,1 L23,1 L23,40029 L1,40029 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.0,
+        -40000.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M1,1 L23,1 L23,40029 L1,40029 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 2.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.0,
+        -40000.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M1,8 C1,4.134 4.134,1 8,1 L16,1 C19.866,1 23,4.134 23,8 L23,32992 C23,32995.866 19.866,32999 16,32999 L8,32999 C4.134,32999 1,32995.866 1,32992 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        36.0,
+        4.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M1,8 C1,4.134 4.134,1 8,1 L16,1 C19.866,1 23,4.134 23,8 L23,32992 C23,32995.866 19.866,32999 16,32999 L8,32999 C4.134,32999 1,32995.866 1,32992 Z",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 2.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        36.0,
+        4.0
+      ]
+    }
+  },
+  {
+    "Fill": {
+      "brush": {
+        "Gradient": {
+          "extend": "Pad",
+          "hue_direction": "Shorter",
+          "interpolation_alpha_space": "Premultiplied",
+          "interpolation_cs": "Srgb",
+          "kind": {
+            "Linear": {
+              "end": {
+                "x": 33000.0,
+                "y": 12.0
+              },
+              "start": {
+                "x": 0.0,
+                "y": 12.0
+              }
+            }
+          },
+          "stops": [
+            {
+              "color": {
+                "components": [
+                  1.0,
+                  1.0,
+                  0.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 0.0
+            },
+            {
+              "color": {
+                "components": [
+                  0.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "cs": "Srgb",
+                "flags": {
+                  "missing": 0,
+                  "name": 0
+                }
+              },
+              "offset": 1.0
+            }
+          ]
+        }
+      },
+      "brush_transform": null,
+      "fill": "NonZero",
+      "shape": "M0,6 C0,2.6863 2.6863,0 6,0 L32994,0 C32997.3137,0 33000,2.6863 33000,6 L33000,18 C33000,21.3137 32997.3137,24 32994,24 L6,24 C2.6863,24 0,21.3137 0,18 Z",
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        4.0,
+        36.0
+      ]
+    }
+  }
+]

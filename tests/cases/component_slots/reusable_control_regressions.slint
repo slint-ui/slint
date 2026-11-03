@@ -1,0 +1,250 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, CheckBox, Switch, ComboBox, LineEdit } from "../../../tools/editor/controls/src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 480px;
+    in-out property <bool> enabled: true;
+    in-out property <int> index <=> combo.current-index;
+    in-out property <string> value <=> combo.current-value;
+    in-out property <[string]> model: ["Zero", "One", "Two", "Three"];
+    in-out property <length> combo-height: 40px;
+    in-out property <length> indicator-width: 16px;
+    in-out property <length> field-width: 220px;
+    out property <bool> expanded: combo.expanded;
+    out property <bool> combo-focused: combo.has-focus;
+    out property <bool> other-focused: other.has-focus;
+    out property <int> highlighted: combo.highlighted-index;
+    out property <int> selections;
+    out property <int> activations;
+    out property <bool> pressed: button.pressed || check.pressed || switch.pressed;
+    out property <bool> test: root.index == 0 && root.value == "Zero"
+        && initial.current-index == 3 && initial.current-value == "Three";
+
+    public function focus-control(index: int) {
+        if index == 0 { button.focus(); }
+        else if index == 1 { check.focus(); }
+        else { switch.focus(); }
+    }
+    public function focus-other() { other.focus(); }
+    public function focus-combo() { combo.focus(); }
+    public function open() { combo.open(); }
+    public function close() { combo.close(); }
+    public function focus-field() { field.focus(); }
+    public function set-cursor(offset: int) { field.set-selection-offsets(offset, offset); }
+
+    combo := ComboBox {
+        x: 20px;
+        y: 20px;
+        width: 220px;
+        height: root.combo-height;
+        indicator-width: root.indicator-width;
+        accessible-label: "Selection";
+        model: root.model;
+        selected(value) => { root.selections += 1; }
+    }
+    initial := ComboBox {
+        x: 300px;
+        y: 20px;
+        width: 220px;
+        height: 40px;
+        model: root.model;
+        current-index: 100;
+    }
+    button := Button {
+        x: 20px;
+        y: 230px;
+        text: "Button";
+        enabled: root.enabled;
+        clicked => { root.activations += 1; }
+    }
+    check := CheckBox {
+        x: 180px;
+        y: 230px;
+        text: "CheckBox";
+        enabled: root.enabled;
+        toggled => { root.activations += 1; }
+    }
+    switch := Switch {
+        x: 340px;
+        y: 230px;
+        text: "Switch";
+        enabled: root.enabled;
+        toggled => { root.activations += 1; }
+    }
+    field := LineEdit {
+        x: 20px;
+        y: 300px;
+        width: root.field-width;
+        min-width: 0px;
+        height: 40px;
+        text: "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+        accessible-label: "Field";
+    }
+    other := FocusScope { x: 20px; y: 400px; width: 40px; height: 40px; }
+}
+
+/*
+```rust
+use slint::platform::{Key, WindowEvent};
+let instance = TestCase::new().unwrap();
+let key = |key: Key, down: bool| slint_testing::send_keyboard_char(&instance, key.into(), down);
+let repeat = |key: Key| { instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: key.into() }); };
+for control in 0..3 {
+    for activation in [Key::Space, Key::Return] {
+        instance.invoke_focus_control(control);
+        let count = instance.get_activations();
+        key(activation, true);
+        repeat(activation);
+        assert!(instance.get_pressed());
+        assert_eq!(instance.get_activations(), count);
+        key(activation, false);
+        assert_eq!(instance.get_activations(), count + 1);
+
+        key(activation, true);
+        key(Key::Escape, true);
+        key(Key::Escape, false);
+        repeat(activation);
+        assert!(!instance.get_pressed());
+        key(activation, false);
+        assert_eq!(instance.get_activations(), count + 1);
+
+        key(activation, true);
+        instance.invoke_focus_other();
+        instance.invoke_focus_control(control);
+        repeat(activation);
+        assert!(!instance.get_pressed());
+        key(activation, false);
+        assert_eq!(instance.get_activations(), count + 1);
+
+        key(activation, true);
+        instance.set_enabled(false);
+        slint::platform::update_timers_and_animations();
+        instance.set_enabled(true);
+        repeat(activation);
+        assert!(!instance.get_pressed());
+        key(activation, false);
+        assert_eq!(instance.get_activations(), count + 1);
+        key(activation, true);
+        key(activation, false);
+        assert_eq!(instance.get_activations(), count + 2);
+    }
+}
+```
+
+```rust
+use slint::platform::{Key, WindowEvent};
+let instance = TestCase::new().unwrap();
+let key = |key: Key, down: bool| slint_testing::send_keyboard_char(&instance, key.into(), down);
+let repeat = |key: Key| { instance.window().dispatch_event(WindowEvent::KeyPressRepeated { text: key.into() }); };
+for activation in [Key::Space, Key::Return, Key::F4, Key::DownArrow] {
+    instance.invoke_focus_combo();
+    let count = instance.get_selections();
+    if activation == Key::DownArrow { key(Key::Alt, true); }
+    key(activation, true);
+    assert!(instance.get_expanded());
+    for _ in 0..3 { repeat(activation); }
+    key(activation, false);
+    if activation == Key::DownArrow { key(Key::Alt, false); }
+    assert!(instance.get_expanded());
+    assert_eq!(instance.get_selections(), count);
+    key(Key::DownArrow, true);
+    repeat(Key::DownArrow);
+    key(Key::DownArrow, false);
+    assert_eq!(instance.get_highlighted(), 2);
+    key(Key::Return, true);
+    assert!(!instance.get_expanded());
+    repeat(Key::Return);
+    key(Key::Return, false);
+    assert!(!instance.get_expanded());
+    assert_eq!(instance.get_selections(), count + 1);
+    instance.set_index(0);
+    slint::platform::update_timers_and_animations();
+}
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+assert!(instance.get_test());
+for initial in [-1, 0, 3] {
+    for requested in [-100, -2, -1, 0, 3, 4, 100] {
+        instance.set_index(initial);
+        slint::platform::update_timers_and_animations();
+        instance.set_index(requested);
+        slint::platform::update_timers_and_animations();
+        let expected = requested.clamp(-1, 3);
+        assert_eq!(instance.get_index(), expected);
+        assert_eq!(instance.get_value().as_str(), ["", "Zero", "One", "Two", "Three"][(expected + 1) as usize]);
+        assert_eq!(instance.get_selections(), 0);
+    }
+}
+instance.invoke_open();
+slint::platform::update_timers_and_animations();
+assert!(instance.get_expanded());
+instance.invoke_focus_other();
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_expanded());
+assert!(instance.get_other_focused());
+assert!(!instance.get_combo_focused());
+assert_eq!(instance.get_selections(), 0);
+instance.invoke_open();
+slint::platform::update_timers_and_animations();
+assert!(instance.get_expanded());
+assert!(instance.get_combo_focused());
+instance.invoke_close();
+assert!(instance.get_combo_focused());
+instance.invoke_focus_other();
+slint_testing::send_mouse_click(&instance, 100., 40.);
+slint::platform::update_timers_and_animations();
+assert!(instance.get_expanded());
+assert!(instance.get_combo_focused());
+instance.invoke_focus_other();
+slint::platform::update_timers_and_animations();
+assert!(!instance.get_expanded());
+assert!(instance.get_other_focused());
+assert!(!instance.get_combo_focused());
+instance.set_model(std::rc::Rc::new(slint::VecModel::<slint::SharedString>::default()).into());
+instance.set_index(100);
+slint::platform::update_timers_and_animations();
+assert_eq!(instance.get_index(), -1);
+assert_eq!(instance.get_value(), "");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let combo = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Selection").next().unwrap();
+let arrow = combo.query_descendants().match_type_name("Path").find_first().unwrap();
+for height in [40., 160.] {
+    for width in [8., 16., 32.] {
+        instance.set_combo_height(height);
+        instance.set_indicator_width(width);
+        slint::platform::update_timers_and_animations();
+        let left = arrow.absolute_position().x;
+        let right = left + arrow.size().width;
+        assert!((arrow.size().width - width).abs() < 0.01);
+        assert!(left >= combo.absolute_position().x);
+        assert!(right <= combo.absolute_position().x + combo.size().width);
+        assert!(arrow.size().height <= combo.size().height);
+    }
+}
+instance.invoke_focus_field();
+instance.invoke_set_cursor(15);
+slint::platform::update_timers_and_animations();
+let field = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Field").next().unwrap();
+let input = field.query_descendants().match_id("LineEditBase::input").find_first().unwrap();
+for width in [60., 220., 80., 180.] {
+    instance.set_field_width(width);
+    slint::platform::update_timers_and_animations();
+    let resized = input.absolute_position().x;
+    instance.invoke_set_cursor(14);
+    instance.invoke_set_cursor(15);
+    slint::platform::update_timers_and_animations();
+    assert!((resized - input.absolute_position().x).abs() < 0.01);
+    if width == 60. { assert!(resized < field.absolute_position().x); }
+}
+```
+*/

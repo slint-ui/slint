@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 8,
+  "selection": {
+    "nodeId": "1:4",
+    "nodeName": "Circle"
+  },
+  "root": {
+    "kind": "ellipse",
+    "id": "1:4",
+    "name": "Circle",
+    "x": 0,
+    "y": 0,
+    "width": 72,
+    "height": 72,
+    "opacity": 1,
+    "visible": true,
+    "rotation": 0,
+    "layoutSizingHorizontal": null,
+    "layoutSizingVertical": null,
+    "layoutPositioning": "auto"
+  }
+}

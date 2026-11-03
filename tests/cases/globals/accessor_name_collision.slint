@@ -70,5 +70,6 @@ instance.State.set_sort_dir(4);
 assert.equal(instance.sort_dir, 4);
 instance.State.toggle();
 assert(instance.State.on_toggle);
+assert.equal(instance[slintlib.globalsSymbol].State, instance.State);
 ```
 */

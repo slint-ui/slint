@@ -35,12 +35,13 @@ impl ElementRcNodeExt for editor_preview::ElementRcNode {
     fn layout_kind(&self) -> crate::preview::ui::LayoutKind {
         self.with_element_debug(|di| match &di.layout {
             Some(layout::Layout::GridLayout(_)) => ui::LayoutKind::Grid,
+            Some(layout::Layout::FlexboxLayout(_)) => ui::LayoutKind::Flexbox,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
-                orientation: layout::Orientation::Horizontal,
+                orientation: i_slint_compiler::expression_types::Orientation::Horizontal,
                 ..
             })) => ui::LayoutKind::Horizontal,
             Some(layout::Layout::BoxLayout(layout::BoxLayout {
-                orientation: layout::Orientation::Vertical,
+                orientation: i_slint_compiler::expression_types::Orientation::Vertical,
                 ..
             })) => ui::LayoutKind::Vertical,
             _ => ui::LayoutKind::None,
@@ -48,7 +49,8 @@ impl ElementRcNodeExt for editor_preview::ElementRcNode {
     }
 
     fn geometries(&self, component_instance: &ComponentInstance) -> Vec<HighlightedRect> {
-        component_instance.element_positions(self.as_element())
+        let (path, offset) = self.path_and_offset();
+        component_instance.component_positions(&path, offset.into())
     }
 
     fn geometry_at(

@@ -30,6 +30,16 @@ SCENARIO("SharedString API")
         REQUIRE(std::string_view(str.data()) == "Foo");
     }
 
+    SECTION("Construct from default constructed string_view")
+    {
+        // A default constructed string_view has a null data() pointer.
+        REQUIRE(slint::SharedString(std::string_view {}).empty());
+        str = std::string_view {};
+        REQUIRE(str.empty());
+        str += std::string_view {};
+        REQUIRE(str.empty());
+    }
+
     SECTION("Construct from char*")
     {
         str = "Bar";
@@ -74,6 +84,42 @@ SCENARIO("SharedString API")
     {
         str = "Hello";
         REQUIRE(std::string_view(str.to_uppercase().data()) == "HELLO");
+    }
+
+    SECTION("invalid UTF-8")
+    {
+        // An invalid byte, a truncated 3-byte sequence, and a truncated 2-byte sequence at the end.
+        // The literals are split so that the hex escapes don't absorb the following letters.
+        constexpr std::string_view invalid = "ab\xff"
+                                             "cd\xe2\x82"
+                                             "ef\xc3";
+        const slint::SharedString replaced = u8"ab\uFFFDcd\uFFFDef\uFFFD";
+
+        REQUIRE(slint::SharedString(invalid) == replaced);
+        REQUIRE(slint::SharedString(std::string(invalid).c_str()) == replaced);
+        REQUIRE(slint::SharedString(std::u8string_view(
+                        reinterpret_cast<const char8_t *>(invalid.data()), invalid.size()))
+                == replaced);
+
+        str = invalid;
+        REQUIRE(str == replaced);
+        REQUIRE(std::string_view(str.data()) == std::string_view(replaced));
+
+        str = std::string(invalid).c_str();
+        REQUIRE(str == replaced);
+
+        str = "ok";
+        str += invalid;
+        REQUIRE(str == slint::SharedString("ok") + replaced);
+
+        REQUIRE(slint::SharedString("x") + invalid == slint::SharedString("x") + replaced);
+
+        // Overlong encoding and an encoded surrogate are invalid too.
+        REQUIRE(slint::SharedString("\xc0\xaf") == u8"\uFFFD\uFFFD");
+        REQUIRE(slint::SharedString("\xed\xa0\x80") == u8"\uFFFD\uFFFD\uFFFD");
+
+        // Valid multi-byte sequences are kept as-is.
+        REQUIRE(slint::SharedString("\xc3\xa9\xf0\x9f\xa6\x8a") == u8"\u00E9\U0001F98A");
     }
 }
 
@@ -235,6 +281,13 @@ TEST_CASE("Image")
     }
 
     {
+        auto animated_path = SOURCE_DIR "/../../../internal/core/graphics/image/testdata/twice.png";
+        auto actual_path = Image::load_from_path(animated_path).path();
+        REQUIRE(actual_path.has_value());
+        REQUIRE(*actual_path == animated_path);
+    }
+
+    {
         std::ifstream file(SOURCE_DIR "/redpixel.png", std::ios::binary);
         std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)),
                                   std::istreambuf_iterator<char>());
@@ -273,6 +326,37 @@ TEST_CASE("Image")
         REQUIRE(size.height == 2);
         REQUIRE(!img.path().has_value());
     }
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565
+    auto red565 = Rgb565Pixel(red);
+    auto blu565 = Rgb565Pixel(blu);
+    Rgb565Pixel some_565_data[] = { red565, red565, blu565, red565, blu565, blu565 };
+    img = Image(SharedPixelBuffer<Rgb565Pixel>(3, 2, some_565_data));
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 3);
+        REQUIRE(size.height == 2);
+        REQUIRE(!img.path().has_value());
+        auto rgba8 = img.to_rgba8();
+        REQUIRE(rgba8.has_value());
+        // A full component scales back up to 0xff.
+        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0xff, 0, 0, 0xff });
+    }
+#endif
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8
+    Gray8Pixel some_gray8_data[] = { { 0x00 }, { 0x7f }, { 0xff }, { 0x40 }, { 0x80 }, { 0xc0 } };
+    img = Image(SharedPixelBuffer<Gray8Pixel>(3, 2, some_gray8_data));
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 3);
+        REQUIRE(size.height == 2);
+        REQUIRE(!img.path().has_value());
+        auto rgba8 = img.to_rgba8();
+        REQUIRE(rgba8.has_value());
+        // The luminance is written to all three channels, and the image is opaque.
+        REQUIRE(*rgba8->begin() == Rgba8Pixel { 0, 0, 0, 0xff });
+        REQUIRE(*(rgba8->begin() + 2) == Rgba8Pixel { 0xff, 0xff, 0xff, 0xff });
+    }
+#endif
 }
 
 TEST_CASE("Image buffer access")
@@ -402,6 +486,16 @@ TEST_CASE("StyledText public API")
 
         auto empty = StyledText::from_plain_text("");
         REQUIRE(!(text == empty));
+    }
+
+    SECTION("invalid UTF-8")
+    {
+        REQUIRE(StyledText::from_plain_text("a\xff")
+                == StyledText::from_plain_text(SharedString(u8"a\uFFFD")));
+
+        auto markdown = StyledText::from_markdown("*a*\xff");
+        REQUIRE(markdown.has_value());
+        REQUIRE(*markdown == *StyledText::from_markdown(SharedString(u8"*a*\uFFFD")));
     }
 
     SECTION("from_markdown success")

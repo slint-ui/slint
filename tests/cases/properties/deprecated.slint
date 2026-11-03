@@ -9,13 +9,13 @@ component Inner {
     in-out property <int> new-prop: 1;
     in-out property <{ field: int }> a-struct;
 
-    @deprecated in-out property <int> old-prop <=> new-prop;
-    @deprecated in-out property <int> struct-alias <=> a-struct.field;
+    @deprecated("") in-out property <int> old-prop <=> new-prop;
+    @deprecated("") in-out property <int> struct-alias <=> a-struct.field;
 
     // A deprecated property declared on a nested element also works.
     the-rect := Rectangle {
         in-out property <int> nested: 7;
-        @deprecated in-out property <int> nested-alias <=> nested;
+        @deprecated("") in-out property <int> nested-alias <=> nested;
     }
     in-out property <int> nested-alias <=> the-rect.nested-alias;
 }

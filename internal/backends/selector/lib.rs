@@ -20,6 +20,17 @@ pub use i_slint_core::SlintContext;
 use i_slint_core::platform::Platform;
 use i_slint_core::platform::PlatformError;
 
+fn ensure_requested_backend_available(event_loop: &str) -> Result<(), PlatformError> {
+    #[cfg(not(all(feature = "mcp", supports_headless)))]
+    if event_loop == "headless" {
+        return Err(
+            "headless backend is not available in this build; recompile the application with Slint's \"mcp\" feature enabled"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt), not(target_os = "android")))]
 fn create_qt_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(default_backend::Backend::new()))
@@ -46,29 +57,33 @@ fn create_headless_backend(renderer: &str) -> Result<Box<dyn Platform + 'static>
     )))
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(target_os = "android")] {
+core::cfg_select! {
+    target_os = "android" => {
         const DEFAULT_BACKEND_NAME: &str = "";
-    } else if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
+    }
+    all(feature = "i-slint-backend-qt", not(no_qt)) => {
         use i_slint_backend_qt as default_backend;
         const DEFAULT_BACKEND_NAME: &str = "qt";
-    } else if #[cfg(feature = "i-slint-backend-winit")] {
+    }
+    feature = "i-slint-backend-winit" => {
         use i_slint_backend_winit as default_backend;
         const DEFAULT_BACKEND_NAME: &str = "winit";
-    } else if #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))] {
+    }
+    all(feature = "i-slint-backend-linuxkms", target_os = "linux") => {
         use i_slint_backend_linuxkms as default_backend;
         const DEFAULT_BACKEND_NAME: &str = "linuxkms";
-    } else {
+    }
+    _ => {
         const DEFAULT_BACKEND_NAME: &str = "";
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(all(not(target_os = "android"), any(
-            all(feature = "i-slint-backend-qt", not(no_qt)),
-            feature = "i-slint-backend-winit",
-            all(feature = "i-slint-backend-linuxkms", target_os = "linux")
-        )))] {
+core::cfg_select! {
+    all(not(target_os = "android"), any(
+        all(feature = "i-slint-backend-qt", not(no_qt)),
+        feature = "i-slint-backend-winit",
+        all(feature = "i-slint-backend-linuxkms", target_os = "linux")
+    )) => {
         fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
             use alloc::borrow::Cow;
 
@@ -109,6 +124,7 @@ cfg_if::cfg_if! {
             let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
             let backend_config = backend_config.to_lowercase();
             let (event_loop, _renderer) = parse_backend_env_var(backend_config.as_str());
+            ensure_requested_backend_available(event_loop)?;
 
             match event_loop {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
@@ -140,7 +156,8 @@ cfg_if::cfg_if! {
         pub use default_backend::{
             native_widgets, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
         };
-    } else {
+    }
+    _ => {
         pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
             Err(PlatformError::NoPlatform)
         }

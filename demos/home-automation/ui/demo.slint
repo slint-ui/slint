@@ -11,5 +11,10 @@ export component AppWindow inherits Window {
     preferred-width: 960px;
     preferred-height: 540px;
 
-    MainScreen { }
+    MainScreen {
+        x: root.safe-area-insets.left;
+        y: root.safe-area-insets.top;
+        width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+        height: root.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+    }
 }

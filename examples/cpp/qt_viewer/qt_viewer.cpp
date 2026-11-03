@@ -18,12 +18,22 @@ void show_diagnostics(QWidget *root,
     QString text;
 
     for (auto diagnostic : diags) {
-        text += (diagnostic.level == slint::interpreter::DiagnosticLevel::Warning
-                         ? QApplication::translate("qt_viewer", "warning: %1\n")
-                         : (diagnostic.level == slint::interpreter::DiagnosticLevel::Note
-                                    ? QApplication::translate("qt_viewer", "note: %1")
-                                    : QApplication::translate("qt_viewer", "error: %1\n")))
-                        .arg(QString::fromUtf8(diagnostic.message.data()));
+        QString format;
+        switch (diagnostic.level) {
+        case slint::interpreter::DiagnosticLevel::Warning:
+            format = QApplication::translate("qt_viewer", "warning: %1\n");
+            break;
+        case slint::interpreter::DiagnosticLevel::Info:
+            format = QApplication::translate("qt_viewer", "info: %1\n");
+            break;
+        case slint::interpreter::DiagnosticLevel::Note:
+            format = QApplication::translate("qt_viewer", "note: %1\n");
+            break;
+        default:
+            format = QApplication::translate("qt_viewer", "error: %1\n");
+            break;
+        }
+        text += format.arg(QString::fromUtf8(diagnostic.message.data()));
 
         text += QApplication::translate("qt_viewer", "location: %1")
                         .arg(QString::fromUtf8(diagnostic.source_file.data()));

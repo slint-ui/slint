@@ -20,7 +20,7 @@ struct Nested {
     label: string,
 }
 
-// Declares only a subset of the keys at the root of from-json-data.json
+// Declares only a subset of the keys at the root of from-json/data.json
 struct Root {
     int_property: int,
     a-string: string,
@@ -29,50 +29,50 @@ struct Root {
 
 export component SuperSimple {
     // The whole file: the root object converts to a struct, the root array to an array
-    property <Root> root_object: @from-json("from-json-data.json");
-    property <[int]> root_array: @from-json("from-json-array.json");
+    property <Root> root_object: @from-json("from-json/data.json");
+    property <[int]> root_array: @from-json("from-json/array.json");
 
     // Member access, flat and nested.
     // The JSON keys use underscores, so 'sub-element' also proves that dashes match them.
-    property <int> different_name_value: @from-json("from-json-data.json").different_name;
-    property <int> nested_value: @from-json("from-json-data.json").element.sub-element.different_name;
+    property <int> different_name_value: @from-json("from-json/data.json").different_name;
+    property <int> nested_value: @from-json("from-json/data.json").element.sub-element.different_name;
 
     // Indexing with a constant integer, on its own and combined with member access
-    property <int> root_array_element: @from-json("from-json-array.json")[2];
-    property <int> an_array_element: @from-json("from-json-data.json").an_array[0];
-    property <Point> an_array_struct_element: @from-json("from-json-data.json").an_array_of_structs[1];
-    property <int> an_array_struct_element_field: @from-json("from-json-data.json").an_array_of_structs[1].y;
+    property <int> root_array_element: @from-json("from-json/array.json")[2];
+    property <int> an_array_element: @from-json("from-json/data.json").an_array[0];
+    property <Point> an_array_struct_element: @from-json("from-json/data.json").an_array_of_structs[1];
+    property <int> an_array_struct_element_field: @from-json("from-json/data.json").an_array_of_structs[1].y;
 
     // scalar types
-    property <float> a_float: @from-json("from-json-data.json").a_float;
-    property <string> a_string: @from-json("from-json-data.json").a_string;
-    property <bool> a_bool: @from-json("from-json-data.json").a_bool;
-    property <percent> a_percent: @from-json("from-json-data.json").a_percent;
-    property <length> a_length: @from-json("from-json-data.json").a_length;
-    property <duration> a_duration: @from-json("from-json-data.json").a_duration;
-    property <angle> a_angle: @from-json("from-json-data.json").a_angle;
-    property <color> a_color: @from-json("from-json-data.json").a_color;
-    property <color> a_named_color: @from-json("from-json-data.json").a_named_color;
+    property <float> a_float: @from-json("from-json/data.json").a_float;
+    property <string> a_string: @from-json("from-json/data.json").a_string;
+    property <bool> a_bool: @from-json("from-json/data.json").a_bool;
+    property <percent> a_percent: @from-json("from-json/data.json").a_percent;
+    property <length> a_length: @from-json("from-json/data.json").a_length;
+    property <duration> a_duration: @from-json("from-json/data.json").a_duration;
+    property <angle> a_angle: @from-json("from-json/data.json").a_angle;
+    property <color> a_color: @from-json("from-json/data.json").a_color;
+    property <color> a_named_color: @from-json("from-json/data.json").a_named_color;
     // A color string also converts to a brush
-    property <brush> a_color_as_brush: @from-json("from-json-data.json").a_color;
+    property <brush> a_color_as_brush: @from-json("from-json/data.json").a_color;
     // Parsing an enum. The enums are represented as strings in the json file
-    property <MyEnum> an_enum: @from-json("from-json-data.json").an_enum;
-    property <MyEnum> an_enum_prefixed: @from-json("from-json-data.json").an_enum_prefixed;
+    property <MyEnum> an_enum: @from-json("from-json/data.json").an_enum;
+    property <MyEnum> an_enum_prefixed: @from-json("from-json/data.json").an_enum_prefixed;
 
     // array / struct, including nesting and array-of-struct
-    property <[int]> an_array: @from-json("from-json-data.json").an_array;
-    property <Point> a_struct: @from-json("from-json-data.json").a_struct;
-    property <Nested> a_nested_struct: @from-json("from-json-data.json").a_nested_struct;
-    property <[Point]> an_array_of_structs: @from-json("from-json-data.json").an_array_of_structs;
+    property <[int]> an_array: @from-json("from-json/data.json").an_array;
+    property <Point> a_struct: @from-json("from-json/data.json").a_struct;
+    property <Nested> a_nested_struct: @from-json("from-json/data.json").a_nested_struct;
+    property <[Point]> an_array_of_structs: @from-json("from-json/data.json").an_array_of_structs;
 
     // a struct field missing from the JSON object is defaulted
-    property <Point> a_partial_struct: @from-json("from-json-data.json").a_partial_struct;
-//                                     >                                                <warning{The JSON object at 'a_partial_struct' in 📂/tests/syntax/expressions/from-json-data.json has no key for the struct field 'y'; using its default value}
+    property <Point> a_partial_struct: @from-json("from-json/data.json").a_partial_struct;
+//                                     >                                                <warning{The JSON object at 'a_partial_struct' in 📂/tests/syntax/expressions/from-json/data.json has no key for the struct field 'y'; using its default value}
 
     // an image path relative to the JSON file, and an image embedded as a data URI
-    property <image> an_image: @from-json("from-json-data.json").an_image;
-    property <image> an_image_data_uri: @from-json("from-json-data.json").an_image_data_uri;
+    property <image> an_image: @from-json("from-json/data.json").an_image;
+    property <image> an_image_data_uri: @from-json("from-json/data.json").an_image_data_uri;
 
     // extra JSON keys not declared on the struct are silently ignored
-    property <Point> a_struct_with_extra_keys: @from-json("from-json-data.json").a_struct_with_extra_keys;
+    property <Point> a_struct_with_extra_keys: @from-json("from-json/data.json").a_struct_with_extra_keys;
 }

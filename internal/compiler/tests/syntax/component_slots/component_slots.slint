@@ -29,6 +29,13 @@ export component FailReservedSlotName inherits Rectangle {
 //       >      <error{The name 'children' is reserved for the default slot. Use @children instead}
 }
 
+export component FailReservedSlotAssignment inherits Rectangle {
+    Base {
+        children << Rectangle { }
+//      >      <error{The name 'children' is reserved for the default slot; add the element as a direct child instead}
+    }
+}
+
 export component FailDuplicateSlotDeclaration inherits Rectangle {
     slot header;
     slot header;

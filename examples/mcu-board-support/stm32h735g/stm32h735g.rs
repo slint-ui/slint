@@ -320,6 +320,7 @@ impl slint::platform::Platform for StmBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::SwappedBuffers,
         );
+        window.set_size(slint::PhysicalSize::new(DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32));
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -339,11 +340,6 @@ impl slint::platform::Platform for StmBackend {
         let mut work_fb: &mut [TargetPixel] = fb2;
 
         let mut last_touch = None;
-        self.window
-            .borrow()
-            .as_ref()
-            .unwrap()
-            .set_size(slint::PhysicalSize::new(DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32));
         loop {
             slint::platform::update_timers_and_animations();
 

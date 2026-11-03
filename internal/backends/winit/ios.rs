@@ -18,3 +18,10 @@ pub(crate) use scene::{
 };
 pub(crate) use trait_observer::TraitChangeObserver;
 pub(crate) use virtual_keyboard::{KeyboardNotifications, register_keyboard_notifications};
+
+/// Metal rejects GPU work from an app in the background, see #14086.
+pub(crate) fn is_in_background() -> bool {
+    let mtm = objc2::MainThreadMarker::new().expect("UIKit is only accessible on the main thread");
+    objc2_ui_kit::UIApplication::sharedApplication(mtm).applicationState()
+        == objc2_ui_kit::UIApplicationState::Background
+}

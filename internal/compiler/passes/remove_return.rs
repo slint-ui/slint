@@ -633,7 +633,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
         for key in to.fields.keys() {
             let (key, expression) = values
                 .remove_entry(key)
-                .unwrap_or_else(|| (key.clone(), to.default_value_for_field(key)));
+                .unwrap_or_else(|| (key.clone(), Expression::default_value_for_field(&to, key)));
             new_values.insert(key, expression);
         }
         return Expression::Struct { values: new_values, ty: to };
@@ -655,7 +655,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
                 name: key.clone(),
             }
         } else {
-            to.default_value_for_field(key)
+            Expression::default_value_for_field(&to, key)
         };
         new_values.insert(key.clone(), expression);
     }

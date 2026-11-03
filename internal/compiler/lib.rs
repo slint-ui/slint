@@ -1,53 +1,94 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore inlines namedreference pathutils
+// cSpell: ignore inlines namedreference
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // It would be nice to keep the compiler free of unsafe code
 #![deny(unsafe_code)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
 
 #[cfg(feature = "proc_macro_span")]
 extern crate proc_macro;
 
+#[cfg(feature = "std")]
 use core::future::Future;
+#[cfg(feature = "std")]
 use core::pin::Pin;
+#[cfg(feature = "std")]
 use std::cell::RefCell;
+#[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(feature = "std")]
 use std::rc::Rc;
 
+#[cfg(feature = "std")]
 mod builtin_elements;
+#[macro_use]
+pub mod builtin_functions;
+#[cfg(feature = "std")]
 pub mod builtin_macros;
+#[cfg(feature = "std")]
 pub mod data_uri;
+#[cfg(feature = "std")]
 pub mod diagnostics;
+#[cfg(feature = "std")]
+pub mod element_type;
 pub mod embedded_resources;
+#[cfg(feature = "std")]
+pub mod experimental_features;
+#[cfg(feature = "std")]
 pub mod expression_tree;
+pub mod expression_types;
+#[cfg(feature = "std")]
 pub mod fileaccess;
+#[cfg(feature = "std")]
 pub mod generator;
 pub mod langtype;
+#[cfg(feature = "std")]
 pub mod layout;
+#[cfg(feature = "std")]
 pub mod lexer;
+#[cfg(feature = "std")]
 pub mod literals;
 pub mod llr;
+#[cfg(feature = "std")]
 pub mod lookup;
+#[cfg(feature = "std")]
 pub mod namedreference;
+pub mod names;
+pub mod native_class;
+#[cfg(feature = "std")]
 pub mod object_tree;
+#[cfg(feature = "std")]
 pub mod parser;
-pub mod pathutils;
+#[cfg(feature = "std")]
+pub mod project_file;
+pub mod property_analysis;
+pub mod source_path;
+#[cfg(feature = "std")]
 pub mod symbol_counters;
-#[cfg(feature = "bundle-translations")]
 pub mod translations;
+#[cfg(feature = "std")]
 pub mod typeloader;
 pub mod typeregister;
 
+#[cfg(feature = "std")]
 pub mod passes;
 
+#[cfg(feature = "std")]
 use crate::generator::OutputFormat;
-use std::path::Path;
+#[cfg(feature = "std")]
+pub use experimental_features::{ExperimentalFeature, ExperimentalFeatures};
+#[cfg(feature = "std")]
+use source_path::SourcePath;
 
 /// Specify how the resources are embedded by the compiler
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg(feature = "std")]
 pub enum EmbedResourcesKind {
     /// Embeds nothing (only useful for interpreter)
     Nothing,
@@ -73,8 +114,9 @@ pub enum EmbedResourcesKind {
 
 /// This enum specifies the default translation context when no context is explicitly
 /// specified in the `@tr("context" => ...)` macro.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
+#[cfg(feature = "std")]
 pub enum DefaultTranslationContext {
     /// The default translation context is the component name in which the `@tr` is written.
     ///
@@ -89,6 +131,7 @@ pub enum DefaultTranslationContext {
 
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 #[non_exhaustive]
+#[cfg(feature = "std")]
 pub enum ComponentSelection {
     /// All components that inherit from Window.
     ///
@@ -106,6 +149,11 @@ pub enum ComponentSelection {
 
     /// The component with the given name is generated
     Named(String),
+
+    /// All exported components, regardless if they inherit Window or not
+    ///
+    /// A document that exports no component, such as a library of globals, is valid.
+    AllExported,
 }
 
 /// Type alias for the callback to open files mentioned in `import` statements
@@ -113,17 +161,20 @@ pub enum ComponentSelection {
 /// This is a dyn-compatible version of:
 ///
 /// ```ignore
-/// async fn(String) -> Option<std::io::Result<String>>
+/// async fn(SourcePath) -> Option<std::io::Result<String>>
 /// ```
 ///
 /// Unfortunately AsyncFn is not dyn-compatible yet.
+#[cfg(feature = "std")]
 pub type OpenImportCallback =
-    Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
+    Rc<dyn Fn(SourcePath) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
+#[cfg(feature = "std")]
 pub type ResourceUrlMapper =
     Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
+#[cfg(feature = "std")]
 pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
@@ -167,14 +218,24 @@ pub struct CompilerConfiguration {
     /// expose the accessible role and properties
     pub accessibility: bool,
 
-    /// Add support for experimental features
-    pub enable_experimental: bool,
+    /// The experimental language features that compile instead of reporting an error
+    pub experimental_features: ExperimentalFeatures,
+    /// The names in `SLINT_ENABLE_EXPERIMENTAL_FEATURES` that aren't experimental features
+    pub unknown_experimental_features: Vec<String>,
+
+    /// The Slint release whose language behavior to use. `None` keeps the behavior from
+    /// before editions existed.
+    pub edition: Option<project_file::SlintEdition>,
+
+    /// Where `edition` is set, such as in a project file. A warning about the edition points
+    /// there, and there is no such warning without it.
+    pub edition_location: Option<diagnostics::SourceLocation>,
 
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
     /// When Some, this is the path where the translations are looked at to bundle the translations
     #[cfg(feature = "bundle-translations")]
-    pub translation_path_bundle: Option<std::path::PathBuf>,
+    pub bundled_translations_path: Option<std::path::PathBuf>,
     /// Default translation context
     pub default_translation_context: DefaultTranslationContext,
 
@@ -207,6 +268,10 @@ pub struct CompilerConfiguration {
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
 
+    /// The project directory that a tool was given as input.
+    /// Generated Python code loads it at run time so that run time applies the same project file.
+    pub input_project_directory: Option<std::path::PathBuf>,
+
     /// Set automatically when the output format is `SlintSc`.
     /// The compiler rejects all features not supported by the
     /// safety-critical subset.
@@ -219,7 +284,21 @@ pub struct CompilerConfiguration {
     pub is_preview: bool,
 }
 
+#[cfg(feature = "std")]
 impl CompilerConfiguration {
+    /// The absolute path of the directory the translations are bundled from, if any.
+    pub fn absolute_bundled_translations_path(&self) -> Option<String> {
+        #[cfg(feature = "bundle-translations")]
+        return self.bundled_translations_path.as_ref().map(|path| {
+            std::path::absolute(path)
+                .unwrap_or_else(|_| path.clone())
+                .to_string_lossy()
+                .into_owned()
+        });
+        #[cfg(not(feature = "bundle-translations"))]
+        return None;
+    }
+
     pub fn new(output_format: OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
@@ -277,7 +356,10 @@ impl CompilerConfiguration {
             Err(_) => output_format == OutputFormat::Interpreter && !cfg!(target_family = "wasm"),
         };
 
-        let enable_experimental = std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
+        let (experimental_features, unknown_experimental_features) =
+            std::env::var("SLINT_ENABLE_EXPERIMENTAL_FEATURES")
+                .map(|list| ExperimentalFeatures::parse_list(&list))
+                .unwrap_or_default();
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
@@ -306,7 +388,10 @@ impl CompilerConfiguration {
             const_scale_factor,
             const_image_sizes,
             accessibility: true,
-            enable_experimental,
+            experimental_features,
+            unknown_experimental_features,
+            edition: None,
+            edition_location: None,
             translation_domain: None,
             default_translation_context: DefaultTranslationContext::ComponentName,
             no_native_menu: false,
@@ -319,11 +404,12 @@ impl CompilerConfiguration {
             #[cfg(all(feature = "renderer-software", feature = "sdf-fonts"))]
             use_sdf_fonts: false,
             #[cfg(feature = "bundle-translations")]
-            translation_path_bundle: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
+            bundled_translations_path: std::env::var("SLINT_BUNDLE_TRANSLATIONS")
                 .ok()
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            input_project_directory: None,
             #[cfg(feature = "slint-sc")]
             slint_sc,
             is_preview: false,
@@ -334,6 +420,7 @@ impl CompilerConfiguration {
 /// Prepare for compilation of the source file
 /// - storing parser configuration
 /// - setting up the parser
+#[cfg(feature = "std")]
 fn prepare_for_compile(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
@@ -345,15 +432,48 @@ fn prepare_for_compile(
         compiler_config.accessibility = false;
     }
 
-    diagnostics.enable_experimental = compiler_config.enable_experimental;
+    match compiler_config.edition.map(project_file::SlintEdition::supported) {
+        None => diagnostics.push_info_with_span(
+            project_file::SlintEdition::missing_edition_info(),
+            Default::default(),
+        ),
+        Some(Err(message)) => diagnostics.push_error_with_span(message, Default::default()),
+        Some(Ok(_)) => {}
+    }
+    if let Some(location) = &compiler_config.edition_location
+        && let Some(warning) =
+            compiler_config.edition.and_then(|e| e.behavior_change_warning("edition"))
+    {
+        diagnostics.push_warning_with_span(warning, location.clone());
+    }
     #[cfg(feature = "slint-sc")]
     {
         diagnostics.slint_sc = compiler_config.slint_sc;
     }
 
+    for name in &compiler_config.unknown_experimental_features {
+        diagnostics.push_error_with_span(
+            format!(
+                "SLINT_ENABLE_EXPERIMENTAL_FEATURES contains the unknown feature '{name}'. Use one of [{}]",
+                ExperimentalFeatures::all()
+            ),
+            Default::default(),
+        );
+    }
+    let experimental_features = compiler_config.experimental_features;
+    if !experimental_features.is_empty() {
+        diagnostics.push_info_with_span(
+            format!(
+                "Using experimental features [{experimental_features}], which may change or be removed in any Slint release"
+            ),
+            Default::default(),
+        );
+    }
+
     typeloader::TypeLoader::new(compiler_config, diagnostics)
 }
 
+#[cfg(feature = "std")]
 pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
@@ -391,63 +511,58 @@ pub async fn compile_syntax_node(
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics` and a `TypeLoader` with all compilation passes applied.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics` and a
+/// `TypeLoader` with all compilation passes applied.
+#[cfg(feature = "std")]
 pub async fn load_root_file(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (std::path::PathBuf, diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, _) =
-        loader.load_root_file(path, source_path, source_code, false, &mut diagnostics).await;
-
-    (path, diagnostics, loader)
+    loader.load_root_file(path, source_code, false, &mut diagnostics).await;
+    (diagnostics, loader)
 }
 
 /// Pass a file to the compiler and process it fully, applying all the
 /// necessary compilation passes, just like `load_root_file`.
 ///
-/// This returns a `Tuple` containing the actual cleaned `path` to the file,
-/// a set of `BuildDiagnostics`, a `TypeLoader` with all compilation passes
-/// applied and another `TypeLoader` with a minimal set of passes applied to it.
+/// This returns a `Tuple` containing a set of `BuildDiagnostics`, a `TypeLoader`
+/// with all compilation passes applied and another `TypeLoader` with a minimal
+/// set of passes applied to it.
+#[cfg(feature = "std")]
 pub async fn load_root_file_with_raw_type_loader(
-    path: &Path,
-    source_path: &Path,
+    path: &SourcePath,
     source_code: String,
     mut diagnostics: diagnostics::BuildDiagnostics,
     #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
-) -> (
-    std::path::PathBuf,
-    diagnostics::BuildDiagnostics,
-    typeloader::TypeLoader,
-    Option<typeloader::TypeLoader>,
-) {
+) -> (diagnostics::BuildDiagnostics, typeloader::TypeLoader, Option<typeloader::TypeLoader>) {
     let mut loader = prepare_for_compile(&mut diagnostics, compiler_config);
-
-    let (path, raw_type_loader) =
-        loader.load_root_file(path, source_path, source_code, true, &mut diagnostics).await;
-
-    (path, diagnostics, loader, raw_type_loader)
+    let raw_type_loader = loader.load_root_file(path, source_code, true, &mut diagnostics).await;
+    (diagnostics, loader, raw_type_loader)
 }
 
-/// Returns true and emits an error if experimental features should be disabled.
-///
-/// Some experimental features are used internally which is why this function also checks
-/// `TypeRegister::expose_internal_types`.
+/// Returns true and reports an error on `source`, naming `what`, if `feature` is disabled.
+#[cfg(feature = "std")]
 fn reject_experimental_feature(
     diagnostics: &mut diagnostics::BuildDiagnostics,
     type_register: &typeregister::TypeRegister,
-    feature: &str,
+    feature: ExperimentalFeature,
+    what: &str,
     source: &dyn diagnostics::Spanned,
 ) -> bool {
-    if !diagnostics.enable_experimental && !type_register.expose_internal_types {
-        diagnostics.push_error(format!("'{feature}' is an experimental feature"), source);
-        true
-    } else {
-        false
+    let rejected = !type_register.experimental_features.contains(feature);
+    if rejected {
+        diagnostics.push_error(experimental_feature_error(what, feature), source);
     }
+    rejected
+}
+
+/// The error message for using `what` while `feature` is disabled.
+#[cfg(feature = "std")]
+fn experimental_feature_error(what: &str, feature: ExperimentalFeature) -> String {
+    format!(
+        "'{what}' is experimental. Add '{feature}' to the SLINT_ENABLE_EXPERIMENTAL_FEATURES environment variable or to 'experimental-features' in the project file"
+    )
 }

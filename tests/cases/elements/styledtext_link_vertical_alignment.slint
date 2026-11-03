@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A link is clickable where the text is drawn, which `vertical-alignment` moves down.
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    bottom := StyledText {
+        x: 0;
+        y: 0;
+        width: 150px;
+        height: 200px;
+        default-font-size: 20px;
+        vertical-alignment: TextVerticalAlignment.bottom;
+        text: @markdown("[link](https://slint.dev/bottom)");
+        link-clicked(url) => {
+            clicked_link_url = url;
+        }
+    }
+
+    center := StyledText {
+        x: 150px;
+        y: 0;
+        width: 150px;
+        height: 200px;
+        default-font-size: 20px;
+        vertical-alignment: TextVerticalAlignment.center;
+        text: @markdown("[link](https://slint.dev/center)");
+        link-clicked(url) => {
+            clicked_link_url = url;
+        }
+    }
+
+    out property <bool> test: true;
+    in-out property <string> clicked_link_url: "";
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// The text sits at the bottom of the item: a click there follows the link, one at the top doesn't.
+slint_testing::send_mouse_click(&instance, 10.0, 190.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev/bottom");
+instance.set_clicked_link_url("".into());
+slint_testing::send_mouse_click(&instance, 10.0, 10.0);
+assert_eq!(instance.get_clicked_link_url(), "");
+
+// Centered: the link is in the middle of the item.
+slint_testing::send_mouse_click(&instance, 160.0, 100.0);
+assert_eq!(instance.get_clicked_link_url(), "https://slint.dev/center");
+instance.set_clicked_link_url("".into());
+slint_testing::send_mouse_click(&instance, 160.0, 10.0);
+assert_eq!(instance.get_clicked_link_url(), "");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+slint_testing::send_mouse_click(&instance, 10., 190.);
+assert_eq(instance.get_clicked_link_url(), "https://slint.dev/bottom");
+instance.set_clicked_link_url("");
+slint_testing::send_mouse_click(&instance, 10., 10.);
+assert_eq(instance.get_clicked_link_url(), "");
+
+slint_testing::send_mouse_click(&instance, 160., 100.);
+assert_eq(instance.get_clicked_link_url(), "https://slint.dev/center");
+instance.set_clicked_link_url("");
+slint_testing::send_mouse_click(&instance, 160., 10.);
+assert_eq(instance.get_clicked_link_url(), "");
+```
+*/

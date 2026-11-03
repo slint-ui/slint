@@ -29,6 +29,11 @@ export component ImplementGlobal {
 //            >       <error{Cannot implement MyGlobal. It is not an interface}
 }
 
+// A base without '@children' doesn't restrict the interface name.
+export component ImplementOnBaseWithoutChildren inherits PlainComponent {
+    implement HelloInterface <=> self;
+}
+
 // Unknown interface name.
 export component ImplementUnknown {
     implement Bar <=> self;

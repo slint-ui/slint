@@ -22,7 +22,7 @@
 //! The `Empty` behind the conditional `Repeater` is never used.
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::langtype::ElementType;
+use crate::element_type::ElementType;
 use crate::typeloader::TypeLoader;
 use crate::{expression_tree, object_tree::*};
 use std::cell::RefCell;
@@ -90,6 +90,7 @@ fn process_component_container(element: &ElementRc, empty_type: &ElementType) {
         inline_depth: elem.inline_depth,
         repeated: Some(RepeatedElementInfo {
             model: expression_tree::Expression::BoolLiteral(false),
+            model_location: None,
             model_data_id: Default::default(),
             index_id: Default::default(),
             is_conditional_element: true,

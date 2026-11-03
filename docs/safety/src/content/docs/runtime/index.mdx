@@ -1,0 +1,31 @@
+---
+title: Runtime Safety Documentation
+description: The specification of the slint-sc runtime, and what integrating it needs.
+---
+
+The `slint-sc` runtime ships inside the customer's binary.
+The runtime is developed under ISO 26262-6; see [How Slint SC Is Developed](/safety-plan/#how-slint-sc-is-developed).
+This document is the specification of the runtime.
+The document also lists what an integrator needs to integrate the runtime.
+
+* [Assumed Safety Requirements](/runtime/assumed-safety-requirements/): the safety requirements Slint SC is developed to, derived from its assumed use.
+* [Safety Analysis](/runtime/safety-analysis/): what can go wrong in the runtime, and the measure or constraint that covers each error.
+
+## Specification
+
+The rows follow the list in ISO 26262-8 12.4.2.1.
+ISO 26262-8 12.4.2.1 is about reusing existing components, but its list covers what an integrator needs to know about any component.
+
+| Item | Where |
+| --- | --- |
+| a) Unique identification | The `slint-sc` crate from `api/slint-sc`, of the release under qualification |
+| b) Maximum target ASIL | ASIL B; see [Integrity Level](/safety-plan/standards-compliance/#integrity-level) |
+| c) Development and verification activities | [Lifecycle](/safety-plan/lifecycle/) |
+| d) Requirements of the component | The [rendering model](/reference/rendering/) and the [generated code contract](/reference/generated-code/), one identified paragraph per requirement |
+| e) Requirements of the intended use | [User Manual](/user-manual/) |
+| f) Configuration | The crate has no features and no dependencies, so the crate has one configuration |
+| g) Interfaces and shared resources | The [slint-sc Runtime API](/api/slint_sc/), and the frame buffer the application owns; see [Architecture Design](/safety-plan/architecture/#properties) |
+| h) Application manual | [User Manual](/user-manual/) |
+| i) Integration instructions | [Add the Runtime](/user-manual/get-started/installation/#add-the-runtime) in the User Manual |
+| j) Reactions under anomalous operating conditions | [Safety Analysis](/runtime/safety-analysis/); a frame buffer of the wrong size is rejected per [`sls.gen.render-error`](/reference/generated-code/#sls.gen.render-error) |
+| k) Known anomalies and workarounds | [Known Problems](/user-manual/known-problems/) |

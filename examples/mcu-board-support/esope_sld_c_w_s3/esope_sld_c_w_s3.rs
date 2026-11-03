@@ -314,6 +314,7 @@ impl slint::platform::Platform for EspBackend {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
+        window.set_size(PhysicalSize::new(LCD_H_RES.into(), LCD_V_RES.into()));
         self.window.replace(Some(window.clone()));
         Ok(window)
     }
@@ -336,10 +337,6 @@ impl slint::platform::Platform for EspBackend {
             _backlight,
             _touch_reset,
         } = self.state.borrow_mut().take().expect("event loop already running");
-
-        // Tell Slint the window dimensions match the display resolution
-        let size = PhysicalSize::new(LCD_H_RES.into(), LCD_V_RES.into());
-        self.window.borrow().as_ref().expect("Window adapter not created").set_size(size);
 
         // Start the esp-rtos scheduler that drives the embassy executors on both cores.
         info!("=== esp-rtos Initialization ===");

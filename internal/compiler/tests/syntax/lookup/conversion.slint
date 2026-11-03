@@ -68,7 +68,7 @@ export X := Rectangle {
     property <{x: int}> object5: { x: 1, y: 2, z: 3};
 //                               >                  <warning{Conversion to { x: int,} ignores the extra fields 'y' and 'z'}
     property <[Data]> object6: [{ a: "1", b: 2, extra: 3 }];
-//                             >                           <warning{Conversion to Data ignores the extra field 'extra'}
+//                              >                        <warning{Conversion to Data ignores the extra field 'extra'}
 
     property <{a: int, b: int, c: int}> src: { a: 1, b: 2, c: 3 };
     property <{a: int, b: int}> from_var: src;
@@ -83,9 +83,8 @@ export X := Rectangle {
     property <{inner: {x: int, y: int}}> sub_err: { inner: { x: 1, typo: 2 } };
 //                                                >                           <error{Cannot convert { typo: float,x: float,} to { x: int,y: int,}: Field 'typo' not found}
 
-    property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}]; //  (FIXME: error location)  (FIXME: duplicated)
-//                               >                                      <error{Cannot convert string to int}
-//                               >                                      <^error{Cannot convert string to int}
+    property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}];
+//                                                  >   <error{Cannot convert string to int}
 
     property <int> arr1: [];
 //                       > <error{Cannot convert [void] to int}

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { defineConfig } from "astro/config";
+import { defineSlintDocsConfig } from "@slint/common-files/src/utils/astro-config";
 import starlight from "@astrojs/starlight";
 import sitemap from "@astrojs/sitemap";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
@@ -37,7 +37,7 @@ const _cppBase = _cppAtRoot
     ? undefined
     : CPP_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
-export default defineConfig({
+export default defineSlintDocsConfig({
     site: _cppSite,
     ...(_cppBase ? { base: _cppBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
@@ -76,6 +76,9 @@ export default defineConfig({
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/HeaderCppDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent:
+                    "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 // Internal links are relative so they resolve under the deploy

@@ -44,6 +44,7 @@ This method combines your Rust code with the `.slint` design markup in one file,
 
 ```rust,no_run
 slint::slint!{
+    #[edition = "1.19"]
     export component HelloWorld inherits Window {
         Text {
             text: "hello world";
@@ -75,11 +76,11 @@ build = "build.rs"
 edition = "2021"
 
 [dependencies]
-slint = "1.16.0"
+slint = "1.19.0"
 ...
 
 [build-dependencies]
-slint-build = "1.16.0"
+slint-build = "1.19.0"
 ```
 
 Use the API of the slint-build crate in the `build.rs` file:
@@ -149,7 +150,11 @@ For each top-level callback
   - [`fn invoke_<callback_name>(&self)`](docs::generated_code::SampleComponent::invoke_hello): to invoke the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
 
-Note: All dashes (`-`) are replaced by underscores (`_`) in names of types or functions.
+In the names of types, struct fields, and functions, use underscores (`_`) in place of dashes (`-`).
+If a name is a Rust keyword, such as a struct field `type`,
+write it as a [raw identifier](https://doc.rust-lang.org/reference/identifiers.html#raw-identifiers): `r#type`.
+Rust doesn't accept `self`, `Self`, `super`, and `crate` as raw identifiers;
+add a trailing underscore to these instead, such as `self_`.
 
 After instantiating the component, call [`ComponentHandle::run()`] on show it on the screen and spin the event loop to
 react to input events. To show multiple components simultaneously, call [`ComponentHandle::show()`] on each instance.
@@ -219,7 +224,6 @@ pub use i_slint_core::api::*;
 #[doc(hidden)]
 #[deprecated(note = "Experimental type was made public by mistake")]
 pub use i_slint_core::component_factory::ComponentFactory;
-#[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
 pub use i_slint_core::input::{Keys, KeysParseError};
 #[doc(hidden)]
@@ -375,8 +379,11 @@ macro_rules! include_modules {
 #[i_slint_core_macros::slint_doc]
 /// Initialize translations when using the `gettext` feature.
 ///
-/// Call this in your main function with the path where translations are located.
+/// Call this at the start of your main function, before starting other threads,
+/// with the path where translations are located.
 /// This macro internally calls the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+/// It also sets the C library's `LC_MESSAGES` locale from the environment,
+/// which isn't thread-safe.
 ///
 /// The first argument of the macro must be an expression that implements `Into<std::path::PathBuf>`.
 /// It specifies the directory in which gettext should search for translations.
@@ -486,7 +493,7 @@ pub mod platform {
     ///
     /// It is only enabled when the `renderer-software` Slint feature is enabled.
     pub mod software_renderer {
-        pub use i_slint_renderer_software::*;
+        pub use i_slint_renderer_software::api::*;
     }
 }
 
@@ -535,7 +542,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_18_0;
+pub struct VersionCheck_1_19_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -587,7 +594,7 @@ pub mod wgpu_30 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.18", features = ["unstable-wgpu-30"] }
+    //! slint = { version = "~1.19", features = ["unstable-wgpu-30"] }
     //! ```
     //!
     //! `main.rs`:
@@ -597,6 +604,7 @@ pub mod wgpu_30 {
     //! use wgpu::util::DeviceExt;
     //!
     //!slint::slint!{
+    //!    #[edition = "1.19"]
     //!    export component HelloWorld inherits Window {
     //!        preferred-width: 320px;
     //!        preferred-height: 300px;
@@ -667,14 +675,16 @@ pub mod winit_030 {
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Winit releases become available.
     //!
-    //! Use the types and traits in this module in combination with other APIs to access additional window properties,
-    //! create custom windows, or hook into the winit event loop.
+    //! Use the types and traits in this module for what Slint's own API doesn't cover,
+    //! such as accessing additional window properties, creating custom windows, or hooking into the winit event loop.
+    //! Slint keeps managing the window, so not every combination of winit calls is supported.
+    //! Slint may override state that it controls itself, such as the cursor, the size, or the IME state.
     //!
-    //! For example, use the [`WinitWindowAccessor`] to obtain access to the underling [`winit::window::Window`]:
+    //! For example, use the [`WinitWindowAccessor`] to access the underlying [`winit::window::Window`]:
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.18", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.19", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
@@ -683,6 +693,7 @@ pub mod winit_030 {
     //! use slint::winit_030::{WinitWindowAccessor, winit};
     //!
     //! slint::slint!{
+    //!     #[edition = "1.19"]
     //!     import { VerticalBox, Button } from "std-widgets.slint";
     //!     export component HelloWorld inherits Window {
     //!         callback clicked;
@@ -730,9 +741,9 @@ pub mod winit_030 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-011")]
-pub mod fontique_011 {
-    //! Fontique 0.11 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-012")]
+pub mod fontique_012 {
+    //! Fontique 0.12 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -743,9 +754,8 @@ pub mod fontique_011 {
     pub use i_slint_common::sharedfontique::fontique;
 
     #[i_slint_core_macros::slint_doc]
-    /// Returns a clone of [`fontique::Collection`] that's used by Slint for text rendering. It's set up
-    /// with shared storage, so fonts registered with the returned collection or additionally configured font
-    /// fallbacks apply to the entire process.
+    /// Returns a clone of the [`fontique::Collection`] used for text rendering in the current thread's context.
+    /// It uses shared storage, so Slint sees the fonts you register and the fallbacks you configure.
     ///
     /// Note: The recommended way of including custom fonts is at compile time of Slint files. For details,
     ///       see also the [Font Handling](slint:FontHandling) documentation.
@@ -755,25 +765,25 @@ pub mod fontique_011 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.18", features = ["unstable-fontique-011"] }
+    /// slint = { version = "~1.19", features = ["unstable-fontique-012"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_011::fontique;
+    /// use slint::fontique_012::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_011::shared_collection();
+    ///     let mut collection = slint::fontique_012::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_bytes(*b"Hira"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Kana"), None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_bytes(*b"Kana"), None), fonts.iter().map(|x| x.0));
     ///     collection
-    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hani"), None), fonts.iter().map(|x| x.0));
+    ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_bytes(*b"Hani"), None), fonts.iter().map(|x| x.0));
     ///     // ...
     /// }
     /// ```
@@ -782,5 +792,40 @@ pub mod fontique_011 {
             ctx.font_context().borrow().collection.clone()
         })
         .unwrap()
+    }
+
+    /// Sets the font collection used for text rendering in the current thread's context.
+    /// Slint uses your collection as is and adds the fonts that `.slint` files import.
+    /// To skip system font discovery, create the collection with `system_fonts: false`.
+    ///
+    /// Call this before Slint initializes the platform, for example by creating a component
+    /// or by calling [`set_platform()`](crate::platform::set_platform).
+    /// If the platform is already initialized, this returns an error.
+    ///
+    /// To register fonts after this call, use the collection returned by [`shared_collection()`].
+    ///
+    /// For example, to make a font bundled with your application the default font:
+    ///
+    /// ```rust,no_run
+    /// use slint::fontique_012::fontique;
+    ///
+    /// let mut collection = fontique::Collection::new(fontique::CollectionOptions {
+    ///     system_fonts: false,
+    ///     ..Default::default()
+    /// });
+    /// let font_data = std::fs::read("fonts/MyFont.ttf")?;
+    /// let fonts = collection.register_fonts(fontique::Blob::new(std::sync::Arc::new(font_data)), None);
+    /// // Text without a `font-family` uses the generic sans-serif family.
+    /// collection.set_generic_families(
+    ///     fontique::GenericFamily::SansSerif,
+    ///     fonts.iter().map(|(family_id, _)| *family_id),
+    /// );
+    /// slint::fontique_012::set_shared_collection(collection)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn set_shared_collection(
+        collection: fontique::Collection,
+    ) -> Result<(), crate::PlatformError> {
+        i_slint_core::font_collection::supply(collection)
     }
 }

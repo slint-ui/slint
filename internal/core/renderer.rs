@@ -46,6 +46,8 @@ pub struct ContentWidths {
 pub trait Renderer: RendererSealed {}
 impl<T: RendererSealed> Renderer for T {}
 
+const NO_BITMAP_FONT_SUPPORT: &str = "Internal error: The current renderer cannot load fonts build with the `EmbedForSoftwareRenderer` option. Please use the software Renderer, or disable that option when building your slint files";
+
 /// Implementation details behind [`Renderer`], but since this
 /// trait is not exported in the public API, it is not possible for the
 /// users to re-implement these functions.
@@ -125,8 +127,8 @@ pub trait RendererSealed {
     #[cfg(not(feature = "shared-parley"))]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::HasFont>,
-        item_rc: &crate::item_tree::ItemRc,
+        font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize;
 
@@ -136,14 +138,19 @@ pub trait RendererSealed {
     #[cfg(feature = "shared-parley")]
     fn char_size(
         &self,
-        text_item: Pin<&dyn crate::item_rendering::HasFont>,
-        item_rc: &crate::item_tree::ItemRc,
+        font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
         ch: char,
     ) -> LogicalSize {
         self.slint_context()
             .and_then(|ctx| {
                 let mut font_ctx = ctx.font_context().borrow_mut();
-                crate::textlayout::sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch)
+                crate::textlayout::sharedparley::char_size(
+                    &mut font_ctx,
+                    &font_request,
+                    line_height_factor,
+                    ch,
+                )
             })
             .unwrap_or_default()
     }
@@ -174,16 +181,21 @@ pub trait RendererSealed {
     fn text_line_height(
         &self,
         font_request: crate::graphics::FontRequest,
+        line_height_factor: Option<f32>,
     ) -> Option<LogicalLength> {
         #[cfg(feature = "shared-parley")]
         {
             let ctx = self.slint_context()?;
             let mut font_ctx = ctx.font_context().borrow_mut();
-            crate::textlayout::sharedparley::text_line_height(&mut font_ctx, &font_request)
+            crate::textlayout::sharedparley::text_line_height(
+                &mut font_ctx,
+                &font_request,
+                line_height_factor,
+            )
         }
         #[cfg(not(feature = "shared-parley"))]
         {
-            let _ = font_request;
+            let _ = (font_request, line_height_factor);
             None
         }
     }
@@ -269,6 +281,17 @@ pub trait RendererSealed {
         true
     }
 
+    /// Whether this renderer lays `text`'s text out through parley, so that the byte offsets
+    /// parley hit-testing yields are the ones it draws.
+    #[cfg(feature = "shared-parley")]
+    fn text_has_parley_layout(
+        &self,
+        _text: Pin<&dyn crate::item_rendering::RenderText>,
+        _item_rc: &ItemRc,
+    ) -> bool {
+        true
+    }
+
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
         &self,
@@ -333,14 +356,22 @@ pub trait RendererSealed {
         let requested_path = path.canonicalize().unwrap_or_else(|_| path.into());
         let contents = std::fs::read(requested_path)?;
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
+        ctx.font_context().borrow_mut().register_fonts(contents.into());
         Ok(())
     }
 
     fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
-        crate::debug_log!(
-            "Internal error: The current renderer cannot load fonts build with the `EmbedForSoftwareRenderer` option. Please use the software Renderer, or disable that option when building your slint files"
-        );
+        crate::debug_log!("{NO_BITMAP_FONT_SUPPORT}");
+    }
+
+    /// Like [`Self::register_bitmap_font`], for a font that the renderer keeps until its
+    /// last owner drops it.
+    #[cfg(feature = "owned-pre-rendered-resources")]
+    fn register_shared_bitmap_font(
+        &self,
+        _font: &Rc<crate::graphics::BitmapFont<crate::graphics::OwnedStorage>>,
+    ) {
+        crate::debug_log!("{NO_BITMAP_FONT_SUPPORT}");
     }
 
     /// This function is called through the public API to register a callback that the backend needs to invoke during

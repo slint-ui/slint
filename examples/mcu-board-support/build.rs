@@ -7,20 +7,25 @@ fn main() -> std::io::Result<()> {
     #[allow(unused)]
     let mut memory_x_source: Option<std::path::PathBuf> = None;
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "pico-st7789")] {
+    core::cfg_select! {
+        feature = "pico-st7789" => {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico_st7789", "board_config.toml"].iter().collect());
-        } else if #[cfg(feature = "pico2-st7789")] {
+        }
+        feature = "pico2-st7789" => {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico2_st7789", "board_config.toml"].iter().collect());
-        } else if #[cfg(feature = "pico2-touch-lcd-2-8")] {
+        }
+        feature = "pico2-touch-lcd-2-8" => {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "pico2_touch_lcd_2_8", "board_config.toml"].iter().collect());
             memory_x_source = Some([env!("CARGO_MANIFEST_DIR"), "pico2_touch_lcd_2_8", "memory.x"].iter().collect());
-        } else if #[cfg(feature = "stm32h735g")] {
+        }
+        feature = "stm32h735g" => {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "stm32h735g", "board_config.toml"].iter().collect());
             memory_x_source = Some([env!("CARGO_MANIFEST_DIR"), "stm32h735g", "memory.x"].iter().collect());
-        } else if #[cfg(feature = "stm32u5g9j-dk2")] {
+        }
+        feature = "stm32u5g9j-dk2" => {
             board_config_path = Some([env!("CARGO_MANIFEST_DIR"), "stm32u5g9j_dk2", "board_config.toml"].iter().collect());
         }
+        _ => {}
     }
 
     if let Some(path) = board_config_path {

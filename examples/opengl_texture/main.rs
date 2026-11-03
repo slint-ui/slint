@@ -1,15 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-use std::num::NonZeroU32;
 use std::rc::Rc;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
 
 use glow::HasContext;
 
 macro_rules! define_scoped_binding {
-    (struct $binding_ty_name:ident => $obj_name:path, $param_name:path, $binding_fn:ident, $target_name:path) => {
+    (struct $binding_ty_name:ident => $obj_name:path, $param_name:path, $get_fn:ident, $binding_fn:ident $(, $target_name:path)?) => {
         struct $binding_ty_name {
             saved_value: Option<$obj_name>,
             gl: Rc<glow::Context>,
@@ -18,10 +20,14 @@ macro_rules! define_scoped_binding {
         impl $binding_ty_name {
             unsafe fn new(gl: &Rc<glow::Context>, new_binding: Option<$obj_name>) -> Self {
                 unsafe {
-                    let saved_value =
-                        NonZeroU32::new(gl.get_parameter_i32($param_name) as u32).map($obj_name);
+                    // glow's web backend only reports bindings of objects created through the same
+                    // glow::Context, and Slint's renderer uses its own.
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let saved_value = gl.$get_fn($param_name);
+                    #[cfg(target_arch = "wasm32")]
+                    let saved_value = None;
 
-                    gl.$binding_fn($target_name, new_binding);
+                    gl.$binding_fn($($target_name,)? new_binding);
                     Self { saved_value, gl: gl.clone() }
                 }
             }
@@ -30,43 +36,17 @@ macro_rules! define_scoped_binding {
         impl Drop for $binding_ty_name {
             fn drop(&mut self) {
                 unsafe {
-                    self.gl.$binding_fn($target_name, self.saved_value);
-                }
-            }
-        }
-    };
-    (struct $binding_ty_name:ident => $obj_name:path, $param_name:path, $binding_fn:ident) => {
-        struct $binding_ty_name {
-            saved_value: Option<$obj_name>,
-            gl: Rc<glow::Context>,
-        }
-
-        impl $binding_ty_name {
-            unsafe fn new(gl: &Rc<glow::Context>, new_binding: Option<$obj_name>) -> Self {
-                unsafe {
-                    let saved_value =
-                        NonZeroU32::new(gl.get_parameter_i32($param_name) as u32).map($obj_name);
-
-                    gl.$binding_fn(new_binding);
-                    Self { saved_value, gl: gl.clone() }
-                }
-            }
-        }
-
-        impl Drop for $binding_ty_name {
-            fn drop(&mut self) {
-                unsafe {
-                    self.gl.$binding_fn(self.saved_value);
+                    self.gl.$binding_fn($($target_name,)? self.saved_value);
                 }
             }
         }
     };
 }
 
-define_scoped_binding!(struct ScopedTextureBinding => glow::NativeTexture, glow::TEXTURE_BINDING_2D, bind_texture, glow::TEXTURE_2D);
-define_scoped_binding!(struct ScopedFrameBufferBinding => glow::NativeFramebuffer, glow::DRAW_FRAMEBUFFER_BINDING, bind_framebuffer, glow::DRAW_FRAMEBUFFER);
-define_scoped_binding!(struct ScopedVBOBinding => glow::NativeBuffer, glow::ARRAY_BUFFER_BINDING, bind_buffer, glow::ARRAY_BUFFER);
-define_scoped_binding!(struct ScopedVAOBinding => glow::NativeVertexArray, glow::VERTEX_ARRAY_BINDING, bind_vertex_array);
+define_scoped_binding!(struct ScopedTextureBinding => glow::Texture, glow::TEXTURE_BINDING_2D, get_parameter_texture, bind_texture, glow::TEXTURE_2D);
+define_scoped_binding!(struct ScopedFrameBufferBinding => glow::Framebuffer, glow::DRAW_FRAMEBUFFER_BINDING, get_parameter_framebuffer, bind_framebuffer, glow::DRAW_FRAMEBUFFER);
+define_scoped_binding!(struct ScopedVBOBinding => glow::Buffer, glow::ARRAY_BUFFER_BINDING, get_parameter_buffer, bind_buffer, glow::ARRAY_BUFFER);
+define_scoped_binding!(struct ScopedVAOBinding => glow::VertexArray, glow::VERTEX_ARRAY_BINDING, get_parameter_vertex_array, bind_vertex_array);
 
 struct DemoTexture {
     texture: glow::Texture,
@@ -399,13 +379,21 @@ impl DemoRenderer {
             gl.use_program(None);
         }
 
+        let size = (self.next_texture.width, self.next_texture.height).into();
+        #[cfg(not(target_arch = "wasm32"))]
         let result_texture = unsafe {
             slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
                 self.next_texture.texture.0,
-                (self.next_texture.width, self.next_texture.height).into(),
+                size,
             )
             .build()
         };
+        #[cfg(target_arch = "wasm32")]
+        let result_texture = slint::BorrowedOpenGLTextureBuilder::new_webgl_2d_rgba_texture(
+            self.gl.as_web_gl_texture(self.next_texture.texture).unwrap(),
+            size,
+        )
+        .build();
 
         std::mem::swap(&mut self.next_texture, &mut self.displayed_texture);
 
@@ -413,7 +401,13 @@ impl DemoRenderer {
     }
 }
 
-fn main() {
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
+pub fn main() {
+    // This provides better error messages in debug mode.
+    // It's disabled in release mode so it doesn't bloat up the file size.
+    #[cfg(all(debug_assertions, target_arch = "wasm32"))]
+    console_error_panic_hook::set_once();
+
     slint::BackendSelector::new()
         .require_opengl_es()
         .select()
@@ -432,9 +426,32 @@ fn main() {
             match state {
                 slint::RenderingState::RenderingSetup => {
                     let context = match graphics_api {
+                        #[cfg(not(target_arch = "wasm32"))]
                         slint::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
                             glow::Context::from_loader_function_cstr(|s| get_proc_address(s))
                         },
+                        #[cfg(target_arch = "wasm32")]
+                        slint::GraphicsAPI::WebGL { canvas_element_id, context_type } => {
+                            use wasm_bindgen::JsCast;
+
+                            let canvas = web_sys::window()
+                                .unwrap()
+                                .document()
+                                .unwrap()
+                                .get_element_by_id(canvas_element_id)
+                                .unwrap()
+                                .dyn_into::<web_sys::HtmlCanvasElement>()
+                                .unwrap();
+
+                            let webgl2_context = canvas
+                                .get_context(context_type)
+                                .unwrap()
+                                .unwrap()
+                                .dyn_into::<web_sys::WebGl2RenderingContext>()
+                                .unwrap();
+
+                            glow::Context::from_webgl2_context(webgl2_context)
+                        }
                         _ => return,
                     };
                     underlay = Some(DemoRenderer::new(context))

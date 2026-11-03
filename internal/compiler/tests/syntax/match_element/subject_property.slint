@@ -1,0 +1,48 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Hidden {
+    in-out property <bool> cond;
+    match-subject: 42;
+//  >           <error{Unknown property match-subject}
+    out property <bool> before: root.match-subject;
+//                                   >           <error{Element 'Empty' does not have a property 'match-subject'}
+    match cond {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    out property <bool> after: root.match-subject;
+//                                  >           <error{Element 'Empty' does not have a property 'match-subject'}
+    Text {
+        text: root.match-subject ? "a" : "b";
+//                 >           <error{Element 'Empty' does not have a property 'match-subject'}
+    }
+}
+
+export component HiddenTwoWay {
+    in-out property <bool> cond;
+    match-subject <=> cond;
+//  >           <error{Unknown property match-subject}
+    in-out property <bool> alias <=> root.match-subject;
+//                                        >           <error{Element 'Empty' does not have a property 'match-subject'}
+    match cond {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+    Rectangle {
+        property <bool> local;
+        local <=> root.match-subject;
+//                     >           <error{Element 'Empty' does not have a property 'match-subject'}
+    }
+}
+
+export component UserDeclared {
+    in-out property <bool> cond;
+    in-out property <int> match-subject: 42;
+    out property <int> copy: root.match-subject;
+    in-out property <int> alias <=> root.match-subject;
+    match cond {
+        true: Rectangle { }
+        false: Rectangle { }
+    }
+}

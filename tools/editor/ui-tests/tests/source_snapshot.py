@@ -7,6 +7,28 @@ from difflib import unified_diff
 from pathlib import Path
 
 
+def replace_once(source: bytes, old: bytes, new: bytes) -> bytes:
+    assert source.count(old) == 1
+    return source.replace(old, new, 1)
+
+
+def wait_for_source_change(source_file: Path, baseline: bytes) -> bytes:
+    from editor_sync import wait_for_source
+    from ui_driver import wait_until
+
+    def changed_source() -> bytes | None:
+        source = source_file.read_bytes()
+        if not source or source == baseline:
+            return None
+        try:
+            wait_for_source(source_file, source, timeout=0.1)
+        except AssertionError:
+            return None
+        return source if source_file.read_bytes() == source else None
+
+    return wait_until(changed_source)
+
+
 def slint_sources(project: Path) -> dict[Path, bytes]:
     return {
         path.relative_to(project): path.read_bytes()

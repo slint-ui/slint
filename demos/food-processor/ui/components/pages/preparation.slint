@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe } from "../../recipe-adapter.slint";
+import { Styles } from "../../styles.slint";
+
+component StepItem inherits HorizontalLayout {
+    in property <int> step-number;
+    in property <string> step-text;
+
+    spacing: Styles.spacing-lg;
+    alignment: start;
+
+    Rectangle {
+        width: Styles.large-icon-size;
+        height: self.width;
+        border-radius: Styles.border-radius;
+        background: Styles.slint-blue;
+
+        Text {
+            text: root.step-number;
+            font-size: Styles.small-font-size;
+            font-weight: FontWeight.bold;
+            color: white;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+
+    Text {
+        text: root.step-text;
+        font-size: Styles.small-font-size;
+        color: #737373;
+        font-weight: FontWeight.normal;
+        wrap: word-wrap;
+        vertical-alignment: center;
+    }
+}
+
+export component PreparationPage inherits VerticalLayout {
+    in property <Recipe> recipe;
+    spacing: Styles.spacing-lg;
+    padding: Styles.side-margin;
+    alignment: start;
+
+    Text {
+        text: "Step by Step";
+        font-size: Styles.regular-font-size;
+        font-weight: FontWeight.semi-bold;
+        color: #171717;
+    }
+
+    VerticalLayout {
+        spacing: Styles.spacing-lg;
+
+        for step[index] in root.recipe.steps: StepItem {
+            step-number: index + 1;
+            step-text: step;
+        }
+    }
+}

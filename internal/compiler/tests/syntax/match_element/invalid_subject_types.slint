@@ -1,0 +1,169 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Types and expressions a match element rejects as its subject, because no
+// literal case can be compared against them.
+
+enum Fruit {
+    apple,
+    pear,
+}
+
+struct Basket {
+    count: int,
+}
+
+export global Settings {
+    in-out property <int> volume: 3;
+}
+
+export component ValueTypes {
+    property <image> picture;
+    property <styled-text> rich: @markdown("hi");
+    property <Basket> basket: { count: 1 };
+    property <{ count: int }> anonymous: { count: 1 };
+    property <Point> point;
+    property <[int]> counts: [1, 2];
+    property <MouseCursor> cursor: default;
+    property <keys> pressed;
+    property <data-transfer> transfer;
+    property <component-factory> factory;
+    property <length> spacing: 10px;
+
+    match picture {
+//        >      <error{Cannot match on 'image'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        @image-url("x.png"): Rectangle { }
+        *: Rectangle { }
+    }
+    match rich {
+//        >   <error{Cannot match on 'styled-text'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        @markdown("hi"): Rectangle { }
+        *: Rectangle { }
+    }
+    match basket {
+//        >     <error{Cannot match on 'Basket'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        { count: 1 }: Rectangle { }
+        *: Rectangle { }
+    }
+    match anonymous {
+//        >        <error{Cannot match on '{ count: int,}'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        { count: 1 }: Rectangle { }
+        *: Rectangle { }
+    }
+    match point {
+//        >    <error{Cannot match on 'Point'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        { x: 1px, y: 1px }: Rectangle { }
+        *: Rectangle { }
+    }
+    match counts {
+//        >     <error{Cannot match on '[int]'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        [1, 2]: Rectangle { }
+        *: Rectangle { }
+    }
+    match cursor {
+//        >     <error{Cannot match on 'MouseCursor'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        MouseCursor.pointer: Rectangle { }
+        *: Rectangle { }
+    }
+    match pressed {
+//        >      <error{Cannot match on 'keys'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        "a": Rectangle { }
+        *: Rectangle { }
+    }
+    match transfer {
+//        >       <error{Cannot match on 'data-transfer'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        "a": Rectangle { }
+        *: Rectangle { }
+    }
+    match factory {
+//        >      <error{Cannot match on 'component-factory'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match (spacing * spacing) {
+//        >                  <error{Cannot match on '(px²)'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        100px: Rectangle { }
+        *: Rectangle { }
+    }
+    match picture {
+//        >      <error{Cannot match on 'image'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        *: Rectangle { }
+//      >              <warning{Unnecessary match statement always matches the '*' case}
+    }
+}
+
+export component EasingSubject {
+    property <easing> curve: linear;
+
+    match curve {
+//        >    <error{Cannot match on 'easing'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        linear: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component VoidSubject {
+    function nothing() { }
+
+    match nothing() {
+//        >        <error{Cannot match on 'void'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        1: Rectangle { }
+    }
+    match nothing() {
+//        >        <error{Cannot match on 'void'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        "a": Rectangle { }
+        *: Rectangle { }
+    }
+    match nothing() {
+//        >        <error{Cannot match on 'void'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value}
+        *: Rectangle { }
+//      >              <warning{Unnecessary match statement always matches the '*' case}
+    }
+}
+
+export component SubjectExpressions {
+    callback clicked();
+    pure function next(value: int) -> int {
+        return value + 1;
+    }
+
+    rect := Rectangle { }
+
+    match clicked {
+//        >      <error{Callback must be called. Did you forgot the '()'?}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match next {
+//        >   <error{Function must be called. Did you forgot the '()'?}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match rect {
+//        >   <error{Cannot take reference of an element}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match Settings {
+//        >       <error{Cannot take reference of an element}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match Basket {
+//        >     <error{Unknown unqualified identifier 'Basket'}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+    match Fruit {
+//        >    <error{Cannot take reference to an enum}
+        apple: Rectangle { }
+//      >   <error{Unknown unqualified identifier 'apple'. Did you mean 'Fruit.apple'?}
+//      >   <^error{Cases must be literal values}
+        *: Rectangle { }
+    }
+    match missing {
+//        >      <error{Unknown unqualified identifier 'missing'}
+        1: Rectangle { }
+        *: Rectangle { }
+    }
+}

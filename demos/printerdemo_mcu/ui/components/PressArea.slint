@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+export component PressArea inherits TouchArea {
+    mouse-cursor: pointer;
+
+    out property <bool> pressed-inside: self.pressed
+        && self.mouse-x >= 0px && self.mouse-x < self.width
+        && self.mouse-y >= 0px && self.mouse-y < self.height;
+    out property <float> press-progress: pressed-inside ? 1 : 0;
+    animate press-progress { duration: 80ms; easing: ease-out; }
+}

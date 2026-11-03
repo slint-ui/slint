@@ -1,14 +1,15 @@
-
 # Slint-node (Beta)
 
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
-[Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
-Slint-node is the integration with Node.js.
+[Slint](https://slint.dev/) is a GUI toolkit to build native user interfaces for any device,
+with JavaScript, Rust, C++, or Python.
+Slint-node is the JavaScript and TypeScript API for Node.js, Deno, and Bun.
+Describe your UI in the `.slint` language and connect it to your JavaScript code.
+Slint renders the UI itself, so desktop and embedded Linux apps don't need a webview or a bundled Chromium.
 
-To get started you use the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart).
-We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
-the code of a minimal application using Slint that can be used as a starting point to your program.
+To get started, follow the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart),
+or start from the [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template), a minimal app.
 
 **Warning: Beta**
 Slint-node is still in the early stages of development: APIs will change and important features are still being developed.
@@ -30,16 +31,15 @@ Slint is available via NPM, so you can install by running the following command:
 npm install slint-ui
 ```
 
-This requires **[Node.js](https://nodejs.org/download/release/)** (v20 or newer). Pre-built binaries are
+This requires **[Node.js](https://nodejs.org/download/release/)** (v22.18 or newer). Pre-built binaries are
 included for Linux (x86-64 and ARM64, glibc), macOS (ARM64), and Windows (x86-64 and ARM64).
 
 ### Building from Source
 
 On platforms without pre-built binaries, build Slint-node from a checkout of this repository by running
 `pnpm install && pnpm build` in `api/node`. You need to install the following components:
-
-  * **[pnpm](https://www.pnpm.io/)**
-  * **[Rust compiler](https://www.rust-lang.org/tools/install)**
+- **[pnpm](https://www.pnpm.io/)**
+- **[Rust compiler](https://www.rust-lang.org/tools/install)**
 
 You will also need a few more dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
 
@@ -56,14 +56,14 @@ import * as slint from "slint-ui";
 Next, load a slint file with the `loadFile` function:
 
 ```js
-let ui = slint.loadFile("ui/main.slint");
+let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 ```
 
 Combining these two steps leads us to the obligatory "Hello World" example:
 
 ```js
 import * as slint from "slint-ui";
-let ui = slint.loadFile(new URL(".ui/main.slint", import.meta.url));
+let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let main = new ui.Main();
 main.run();
 ```
@@ -72,9 +72,9 @@ For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/
 
 ## API Overview
 
-### Instantiating a Component
+### Loading `.slint` Files
 
-The following example shows how to instantiate a Slint component from JavaScript.
+The examples in this section use the following component:
 
 **`ui/main.slint`**
 
@@ -96,16 +96,43 @@ an object which allow to initialize the value of public properties or callbacks.
 dash in `.slint` can be given either as declared (`"my-property"`) or with underscores (`my_property`),
 which is how it is exposed on the instance.
 
-**`main.js`**
+#### `import` the `.slint` File (Recommended)
+
+Import `.slint` files directly.
+Load `slint-ui/register` before your own code:
+
+```sh
+node --import slint-ui/register app.mjs
+deno run --preload npm:slint-ui/register app.ts
+bun --preload slint-ui/register app.ts
+```
 
 ```js
 import * as slint from "slint-ui";
-// In this example, the main.slint file exports a module which
-// has a counter property and a clicked callback
+import { MainWindow } from "./ui/main.slint";
+
+let component = new MainWindow({
+    counter: 42,
+    clicked: function () {
+        console.log("hello");
+    },
+});
+```
+
+#### `loadFile()`
+
+Alternatively, call `loadFile()` at runtime.
+Use this for dynamic loading or to pass compiler options like `style` or `includePaths`:
+
+```js
+import * as slint from "slint-ui";
+
 let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
 
@@ -147,7 +174,9 @@ let ui = slint.loadFile(new URL("ui/my-component.slint", import.meta.url));
 let component = new ui.MyComponent();
 
 // connect to a callback
-component.clicked = function() { console.log("hello"); };
+component.clicked = function () {
+    console.log("hello");
+};
 // emit a callback
 component.clicked();
 ```
@@ -187,23 +216,23 @@ let result = component.my_function();
 
 The types used for properties in .slint design markup each translate to specific types in JavaScript. The follow table summarizes the entire mapping:
 
-| `.slint` Type | JavaScript Type | Notes |
-| --- | --- | --- |
-| `int` | `Number` | |
-| `float` | `Number` | |
-| `string` | `String` | |
-| `color` | `RgbaColor` |  |
-| `brush` | `Brush` |  |
-| `image` | `ImageData` |  |
-| `data-transfer` | `DataTransfer` | Drag-and-drop and clipboard payload; usually obtained from a callback parameter. See [Drag and Drop](https://docs.slint.dev/latest/docs/guide/development/drag-and-drop/). |
-| `length` | `Number` | |
-| `physical_length` | `Number` | |
-| `duration` | `Number` | The number of milliseconds |
-| `angle` | `Number` | The angle in degrees |
-| structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
-| array | `Array` or any implementation of Model | |
-| `styled-text` | `StyledText` | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create. |
-| enumeration | `String` | The value of an enum |
+| `.slint` Type     | JavaScript Type                        | Notes                                                                                                                                                                      |
+| ----------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `int`             | `Number`                               |                                                                                                                                                                            |
+| `float`           | `Number`                               |                                                                                                                                                                            |
+| `string`          | `String`                               |                                                                                                                                                                            |
+| `color`           | `RgbaColor`                            |                                                                                                                                                                            |
+| `brush`           | `Brush`                                |                                                                                                                                                                            |
+| `image`           | `ImageData`                            |                                                                                                                                                                            |
+| `data-transfer`   | `DataTransfer`                         | Drag-and-drop and clipboard payload; usually obtained from a callback parameter. See [Drag and Drop](https://docs.slint.dev/latest/docs/guide/development/drag-and-drop/). |
+| `length`          | `Number`                               |                                                                                                                                                                            |
+| `physical_length` | `Number`                               |                                                                                                                                                                            |
+| `duration`        | `Number`                               | The number of milliseconds                                                                                                                                                 |
+| `angle`           | `Number`                               | The angle in degrees                                                                                                                                                       |
+| structure         | `Object`                               | Structures are mapped to JavaScript objects where each structure field is a property.                                                                                      |
+| array             | `Array` or any implementation of Model |                                                                                                                                                                            |
+| `styled-text`     | `StyledText`                           | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create.                                                                                                 |
+| enumeration       | `String`                               | The value of an enum                                                                                                                                                       |
 
 ### Arrays and Models
 
@@ -218,11 +247,10 @@ component.model = [1, 2, 3];
 component.model = component.model.concat(4);
 ```
 
-Another option is to set a model object.  A model object has the following function:
-
-* `rowCount()`: returns the number of element in the model.
-* `rowData(index)`: return the row at the given index
-* `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
+Another option is to set a model object. A model object has the following function:
+- `rowCount()`: returns the number of element in the model.
+- `rowData(index)`: return the row at the given index
+- `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
 
 As an example, here is the implementation of the `ArrayModel` (which is available as `slint.ArrayModel`)
 
@@ -304,7 +332,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
@@ -340,7 +367,6 @@ export component MyComponent inherits Window {
 **`main.js`**
 
 ```js
-
 import * as slint from "slint-ui";
 
 let ui = slint.loadFile(new URL("my-component.slint", import.meta.url));
@@ -352,3 +378,20 @@ component.position = "top";
 // use the value of the enum
 component.position = ui.Position.bottom;
 ```
+
+## License
+
+Slint is open source and available under three licenses: you pick the one that fits your app.
+
+- If your app is open source, use the [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt), a widely used, OSI-approved open-source license.
+  It covers any platform, including embedded devices.
+- If your app is closed source and runs on desktop, mobile, or the web,
+  use the [Royalty-free License](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md).
+  It's free of charge, and only asks you to credit Slint, with the `AboutSlint` widget or the Slint badge on your website.
+- If your app is closed source and runs on an embedded device,
+  buy a [commercial license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
+  See the [pricing](https://slint.dev/pricing).
+
+Your own code can stay under a permissive license such as MIT or Apache-2.0.
+Anyone who forks it chooses their own Slint license, so they can reuse it in a closed-source app.
+The [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing) covers the details.

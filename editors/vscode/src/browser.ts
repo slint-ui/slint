@@ -68,10 +68,20 @@ function startClient(
 
             client.add_updater((cl) => {
                 cl?.onRequest("slint/load_file", async (param: string) => {
-                    const contents = await vscode.workspace.fs.readFile(
-                        Uri.parse(param, true),
-                    );
-                    return new TextDecoder().decode(contents);
+                    try {
+                        const contents = await vscode.workspace.fs.readFile(
+                            Uri.parse(param, true),
+                        );
+                        return new TextDecoder().decode(contents);
+                    } catch (error) {
+                        if (
+                            error instanceof vscode.FileSystemError &&
+                            error.code === "FileNotFound"
+                        ) {
+                            return null;
+                        }
+                        throw error;
+                    }
                 });
             });
 

@@ -167,6 +167,14 @@ pub struct PyStruct {
 }
 
 impl PyStruct {
+    /// The Slint name of the field that Python calls `key`, the inverse of `ident`.
+    fn field_name<'a>(&self, key: &'a str) -> &'a str {
+        match key.strip_suffix('_') {
+            Some(name) if self.data.get_field(key).is_none() && ident(name) == key => name,
+            _ => key,
+        }
+    }
+
     fn field_type(&self, key: &str) -> Option<Type> {
         self.expected_type.as_ref().and_then(|t| match t {
             Type::Struct(s) => s.fields.get(key).cloned(),
@@ -178,6 +186,7 @@ impl PyStruct {
 #[pymethods]
 impl PyStruct {
     fn __getattr__(&self, key: &str) -> PyResult<SlintToPyValue> {
+        let key = self.field_name(key);
         self.data.get_field(key).map_or_else(
             || {
                 Err(pyo3::exceptions::PyAttributeError::new_err(format!(
@@ -187,15 +196,16 @@ impl PyStruct {
             |value| Ok(self.type_collection.to_py_value(value.clone(), self.field_type(key))),
         )
     }
-    fn __setattr__(&mut self, py: Python<'_>, key: String, value: Py<PyAny>) -> PyResult<()> {
-        let field_type = self.field_type(&key);
+    fn __setattr__(&mut self, py: Python<'_>, key: &str, value: Py<PyAny>) -> PyResult<()> {
+        let key = self.field_name(key);
+        let field_type = self.field_type(key);
         let pv = TypeCollection::slint_value_from_py_value(
             py,
             &value,
             Some(&self.type_collection),
             field_type.as_ref(),
         )?;
-        self.data.set_field(key, pv);
+        self.data.set_field(key.into(), pv);
         Ok(())
     }
 

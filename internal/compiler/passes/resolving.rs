@@ -9,22 +9,26 @@
 //!
 //! Most of the code for the resolving actually lies in the expression_tree module
 
+use crate::builtin_functions::BuiltinFunction;
 use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::element_type::{ElementType, PropertyLookupMode};
 use crate::expression_tree::*;
-use crate::langtype;
-use crate::langtype::{
-    ElementType, KeyboardModifiers, PropertyLookupMode, Struct, StructName, Type,
+use crate::expression_types::{
+    ImageReference, OperatorClass, RadialGradientShape, Unit, operator_class,
 };
+use crate::langtype::{self, KeyboardModifiers, Struct, StructName, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult, LookupResultCallable};
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, TextRange, identifier_text, syntax_nodes,
 };
+use crate::source_path::SourcePath;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
@@ -61,6 +65,7 @@ fn resolve_expression(
             current_token: None,
             local_variables: Vec::new(),
             expected_type_probe: None,
+            value_discarded: false,
         };
         lookup_ctx.expected_type = lookup_ctx.return_type().clone();
 
@@ -81,7 +86,7 @@ fn resolve_expression(
                 Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
                     .maybe_convert_to(
                         lookup_ctx.property_type.clone(),
-                        node,
+                        Some(&node.clone().into()),
                         lookup_ctx.diag,
                         &lookup_ctx.symbol_counters,
                     )
@@ -148,6 +153,27 @@ fn resolve_match_elements(
             diag,
         );
         let case_type = match_element.subject.ty();
+        let domain = MatchSubjectDomain::of(&case_type);
+        if matches!(domain, MatchSubjectDomain::Unsupported) {
+            diag.push_error(
+                format!(
+                    "Cannot match on '{case_type}'. Match on a value with a literal syntax, such as an 'int', 'string', 'color', or enum value"
+                ),
+                &match_element.node.Expression(),
+            );
+            continue;
+        }
+        if CaseValue::new(&match_element.subject).is_some() {
+            diag.push_warning(
+                "Match subject is a literal, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        } else if is_literal_only(&match_element.subject) {
+            diag.push_warning(
+                "Match subject is a constant expression, so the same case always applies".into(),
+                &match_element.node.Expression(),
+            );
+        }
         for case in &mut match_element.cases {
             resolve_expression(
                 elem,
@@ -164,14 +190,18 @@ fn resolve_match_elements(
         let values: Vec<Option<CaseValue>> =
             match_element.cases.iter().map(|case| CaseValue::new(&case.value)).collect();
         check_duplicate_cases(&match_element.cases, &values, diag);
-        check_exhaustiveness(match_element, &values, diag);
+        check_case_coverage(match_element, domain, &values, diag);
 
         let subject_ref = crate::layout::create_new_prop(elem, "match-subject".into(), case_type);
         let subject = std::mem::replace(
             &mut match_element.subject,
             Expression::PropertyReference(subject_ref.clone()),
         );
-        elem.borrow_mut().set_binding(subject_ref.name().clone(), subject.into());
+        let subject_location = match_element.node.Expression().to_source_location();
+        elem.borrow_mut().set_binding(
+            subject_ref.name().clone(),
+            BindingExpression::new_with_span(subject, subject_location),
+        );
 
         match_element.lower_to_conditional_elements();
     }
@@ -186,20 +216,23 @@ fn check_case_value(value: &Expression, node: &SyntaxNode, diag: &mut BuildDiagn
                 | Expression::BoolLiteral(..)
                 | Expression::EnumerationValue(..)
         );
-    let is_valid_cast = matches!(
-        value,
-        Expression::Cast { from, to, .. }
-            if as_number_literal(from).is_some()
-                && matches!(to, Type::Color | Type::Int32)
-    );
+    let is_valid_cast = match value {
+        Expression::Cast { from, to: Type::Brush } => is_color_literal(from),
+        Expression::Cast { from, to: Type::Color | Type::Int32 } => {
+            as_number_literal(from).is_some()
+        }
+        _ => false,
+    };
 
-    if let Some((number, Unit::None)) = as_number_literal(value)
+    if let Expression::Cast { from, to: Type::Int32, .. } = value
+        && let Some((number, _)) = as_number_literal(from)
         && number.fract() != 0.0
     {
-        diag.push_warning("Floating point comparison is not recommended".into(), node);
-    }
-
-    if is_literal || is_valid_cast {
+        diag.push_error(
+            format!("'{number}' is not an integer, so it never matches an 'int' subject"),
+            node,
+        );
+    } else if is_literal || is_valid_cast {
         // pass
     } else if matches!(value, Expression::Cast { .. }) {
         diag.push_error("Cannot perform type conversion".into(), node);
@@ -216,28 +249,25 @@ fn as_number_literal(value: &Expression) -> Option<(f64, Unit)> {
     }
 }
 
-#[derive(PartialEq)]
-enum CaseValue {
-    Number(f64, Unit),
-    String(SmolStr),
-    Bool(bool),
-    Enumeration(langtype::EnumerationValue),
+fn is_color_literal(value: &Expression) -> bool {
+    matches!(value, Expression::Cast { from, to: Type::Color } if as_number_literal(from).is_some())
 }
 
-impl CaseValue {
-    fn new(value: &Expression) -> Option<Self> {
-        match value {
-            Expression::Cast { from, .. } => Self::new(from),
-            Expression::UnaryOp { sub, op: '-' } => match Self::new(sub)? {
-                Self::Number(number, unit) => Some(Self::Number(-number, unit)),
-                _ => None,
-            },
-            Expression::NumberLiteral(number, unit) => Some(Self::Number(*number, *unit)),
-            Expression::StringLiteral(string) => Some(Self::String(string.clone())),
-            Expression::BoolLiteral(boolean) => Some(Self::Bool(*boolean)),
-            Expression::EnumerationValue(value) => Some(Self::Enumeration(value.clone())),
-            _ => None, // For invalid non-literals
+fn is_literal_only(expr: &Expression) -> bool {
+    match expr {
+        Expression::NumberLiteral(..)
+        | Expression::StringLiteral(..)
+        | Expression::BoolLiteral(..)
+        | Expression::EnumerationValue(..) => true,
+        Expression::Cast { from, .. } => is_literal_only(from),
+        Expression::UnaryOp { sub, .. } => is_literal_only(sub),
+        Expression::BinaryExpression { lhs, rhs, .. } => {
+            is_literal_only(lhs) && is_literal_only(rhs)
         }
+        Expression::Condition { condition, true_expr, false_expr, .. } => {
+            is_literal_only(condition) && is_literal_only(true_expr) && is_literal_only(false_expr)
+        }
+        _ => false,
     }
 }
 
@@ -247,40 +277,31 @@ fn check_duplicate_cases(
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    let mut seen: Vec<&CaseValue> = Vec::with_capacity(values.len());
+    #[allow(
+        clippy::mutable_key_type,
+        reason = "CaseValue's Enumeration variant has interior mutability, but Eq/Hash only use its Arc pointer and index, never the Enumeration's contents"
+    )]
+    let mut seen = HashSet::with_capacity(values.len());
     for (case, value) in cases.iter().zip(values) {
         let Some(value) = value else {
             continue; // not a valid literal
         };
-        if seen.contains(&value) {
+        if !seen.insert(value) {
             diag.push_error("Duplicate case value".into(), &case.node);
-        } else {
-            seen.push(value);
         }
     }
 }
 
-impl std::fmt::Display for CaseValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CaseValue::Number(number, _) => write!(f, "{number}"),
-            CaseValue::String(string) => write!(f, "{string:?}"),
-            CaseValue::Bool(boolean) => write!(f, "{boolean}"),
-            CaseValue::Enumeration(value) => write!(f, "{value}"),
-        }
-    }
-}
-
-/// Reports a match element that does not cover every value its subject can take
-fn check_exhaustiveness(
+fn check_case_coverage(
     match_element: &MatchElementInfo,
+    domain: MatchSubjectDomain,
     values: &[Option<CaseValue>],
     diag: &mut BuildDiagnostics,
 ) {
-    if !matches!(match_element.wildcard, WildcardMatchCaseInfo::None) {
-        return;
-    }
-    // Prevents duplicated errors if both not a literal and not exhaustive
+    let wildcard_star = match_element
+        .node
+        .WildcardMatchCase()
+        .and_then(|wildcard| wildcard.child_token(SyntaxKind::Star));
     let mut covered: Vec<&CaseValue> = Vec::with_capacity(values.len());
     for value in values {
         let Some(value) = value else {
@@ -290,36 +311,35 @@ fn check_exhaustiveness(
     }
     let subject_node = match_element.node.Expression();
     let subject_type = match_element.subject.ty();
-    let expected: Vec<CaseValue> = match &subject_type {
-        Type::Bool => vec![CaseValue::Bool(true), CaseValue::Bool(false)],
-        Type::Enumeration(enumeration) => (0..enumeration.values.len())
-            .map(|value| {
-                CaseValue::Enumeration(langtype::EnumerationValue {
-                    value,
-                    enumeration: enumeration.clone(),
-                })
-            })
-            .collect(),
-        // The subject expression failed to resolve, so an error was already reported
-        Type::Invalid => return,
-        _ => {
-            diag.push_error(
-                format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
-                &subject_node,
-            );
+    let expected = match domain {
+        MatchSubjectDomain::Unknown | MatchSubjectDomain::Unsupported => return,
+        MatchSubjectDomain::Exhaustive(case_values) => case_values,
+        MatchSubjectDomain::Unbounded => {
+            if wildcard_star.is_none() {
+                diag.push_error(
+                    format!("Non-exhaustive match on {subject_type}: a '*' case is required"),
+                    &subject_node,
+                );
+            }
             return;
         }
     };
 
-    let mut missing = Vec::new();
-    for value in &expected {
-        if !covered.contains(&value) {
-            missing.push(format!("'{value}'"));
+    let missing = missing_case_values(&expected, covered);
+    if wildcard_star.is_some() {
+        if missing.is_empty() {
+            diag.push_warning(
+                format!(
+                    "The '*' case is never hit because every '{subject_type}' value has a case. Remove it"
+                ),
+                &wildcard_star,
+            );
         }
-    }
-    if !missing.is_empty() {
+    } else if !missing.is_empty() {
+        let missing =
+            missing.iter().map(|value| format!("'{value}'")).collect::<Vec<_>>().join(", ");
         diag.push_error(
-            format!("Non-exhaustive match on {subject_type}: missing {}", missing.join(", ")),
+            format!("Non-exhaustive match on {subject_type}: missing {missing}"),
             &subject_node,
         );
     }
@@ -452,7 +472,12 @@ impl Expression {
             }
         };
         if !matches!(ctx.property_type, Type::Callback { .. } | Type::Function { .. }) {
-            e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag, &ctx.symbol_counters)
+            e.maybe_convert_to(
+                ctx.property_type.clone(),
+                Some(&node.into()),
+                ctx.diag,
+                &ctx.symbol_counters,
+            )
         } else {
             // Binding to a callback or function shouldn't happen
             assert!(ctx.diag.has_errors());
@@ -463,26 +488,34 @@ impl Expression {
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
         debug_assert_eq!(node.kind(), SyntaxKind::CodeBlock);
 
+        let value_discarded = std::mem::take(&mut ctx.value_discarded);
+
         // new scope for locals
         ctx.local_variables.push(Vec::new());
 
-        let mut statements_or_exprs = node
+        let mut statement_nodes = node
             .children()
-            .filter_map(|n| match n.kind() {
-                SyntaxKind::Expression => {
-                    Some((n.clone(), Self::from_expression_node(n.into(), ctx)))
-                }
-                SyntaxKind::ReturnStatement => {
-                    Some((n.clone(), Self::from_return_statement(n.into(), ctx)))
-                }
-                SyntaxKind::LetStatement => {
-                    Some((n.clone(), Self::from_let_statement(n.into(), ctx)))
-                }
-                _ => None,
+            .filter(|n| {
+                matches!(
+                    n.kind(),
+                    SyntaxKind::Expression | SyntaxKind::ReturnStatement | SyntaxKind::LetStatement
+                )
             })
-            .collect::<Vec<_>>();
+            .peekable();
+        let mut statements_or_exprs = Vec::new();
+        while let Some(n) = statement_nodes.next() {
+            let expr = match n.kind() {
+                SyntaxKind::Expression => {
+                    ctx.value_discarded = value_discarded || statement_nodes.peek().is_some();
+                    Self::from_expression_node(n.clone().into(), ctx)
+                }
+                SyntaxKind::ReturnStatement => Self::from_return_statement(n.clone().into(), ctx),
+                _ => Self::from_let_statement(n.clone().into(), ctx),
+            };
+            statements_or_exprs.push((n, expr));
+        }
 
-        remove_noop::remove_from_codeblock(&mut statements_or_exprs, ctx.diag);
+        remove_noop::remove_from_codeblock(&mut statements_or_exprs, value_discarded, ctx.diag);
 
         let mut statements_or_exprs = statements_or_exprs
             .into_iter()
@@ -511,7 +544,7 @@ impl Expression {
             let mut expr = std::mem::replace(&mut statements_or_exprs[index], Expression::Invalid);
             expr = expr.maybe_convert_to(
                 common_return_type.clone(),
-                &node,
+                Some(&node.clone().into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             );
@@ -547,15 +580,21 @@ impl Expression {
             Some(t) => ctx.with_expected_type(t.clone(), |ctx| {
                 Self::from_expression_node(node.Expression(), ctx)
             }),
-            None => Self::from_expression_node(node.Expression(), ctx),
+            None => {
+                ctx.without_expected_type(|ctx| Self::from_expression_node(node.Expression(), ctx))
+            }
         };
         let ty = declared_ty.unwrap_or_else(|| value.ty());
 
         // we can get the last scope exists, because each codeblock creates a new scope and we are inside a codeblock here by necessity
         ctx.local_variables.last_mut().unwrap().push((name.clone(), ty.clone()));
 
-        let value =
-            Box::new(value.maybe_convert_to(ty.clone(), &node, ctx.diag, &ctx.symbol_counters));
+        let value = Box::new(value.maybe_convert_to(
+            ty.clone(),
+            Some(&node.into()),
+            ctx.diag,
+            &ctx.symbol_counters,
+        ));
 
         Expression::StoreLocalVariable { name, value }
     }
@@ -572,7 +611,12 @@ impl Expression {
         Expression::ReturnStatement(e.map(|n| {
             let e = ctx
                 .with_expected_type(return_type.clone(), |ctx| Self::from_expression_node(n, ctx));
-            Box::new(e.maybe_convert_to(return_type, &node, ctx.diag, &ctx.symbol_counters))
+            Box::new(e.maybe_convert_to(
+                return_type,
+                Some(&node.into()),
+                ctx.diag,
+                &ctx.symbol_counters,
+            ))
         }))
     }
 
@@ -583,16 +627,16 @@ impl Expression {
         ctx.arguments =
             node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
         if let Some(code_block_node) = node.CodeBlock() {
-            Self::from_codeblock_node(code_block_node, ctx).maybe_convert_to(
+            Self::from_codeblock_node(code_block_node.clone(), ctx).maybe_convert_to(
                 ctx.return_type().clone(),
-                &node,
+                Some(&code_block_node.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             )
         } else if let Some(expr_node) = node.Expression() {
-            Self::from_expression_node(expr_node, ctx).maybe_convert_to(
+            Self::from_expression_node(expr_node.clone(), ctx).maybe_convert_to(
                 ctx.return_type().clone(),
-                &node,
+                Some(&expr_node.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             )
@@ -610,12 +654,22 @@ impl Expression {
             debug_assert!(ctx.diag.has_errors());
             return Expression::Invalid;
         };
-        Self::from_codeblock_node(code_block, ctx).maybe_convert_to(
+        Self::from_codeblock_node(code_block.clone(), ctx).maybe_convert_to(
             ctx.return_type().clone(),
-            &node,
+            Some(&code_block.into()),
             ctx.diag,
             &ctx.symbol_counters,
         )
+    }
+
+    /// Resolve `node` as a value of type `ty`, converting it to that type.
+    fn from_expression_node_as(
+        node: syntax_nodes::Expression,
+        ty: Type,
+        ctx: &mut LookupCtx,
+    ) -> Self {
+        ctx.with_expected_type(ty.clone(), |ctx| Self::from_expression_node(node.clone(), ctx))
+            .maybe_convert_to(ty, Some(&node.into()), ctx.diag, &ctx.symbol_counters)
     }
 
     pub fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
@@ -625,6 +679,8 @@ impl Expression {
             ctx.record_expected_type_probe(probe_range(&node), &ty);
         }
 
+        let value_discarded = std::mem::take(&mut ctx.value_discarded);
+
         // This function recurses for nested expressions. Dispatch with early returns
         // instead of a `find_map` closure: in unoptimized builds, every arm of a match
         // producing a value gets its own stack slot for the resulting `Expression`,
@@ -633,7 +689,10 @@ impl Expression {
         for child in node.children_with_tokens() {
             match child {
                 NodeOrToken::Node(node) => match node.kind() {
-                    SyntaxKind::Expression => return Self::from_expression_node(node.into(), ctx),
+                    SyntaxKind::Expression => {
+                        ctx.value_discarded = value_discarded;
+                        return Self::from_expression_node(node.into(), ctx);
+                    }
                     SyntaxKind::AtImageUrl => {
                         return Self::from_at_image_url_node(node.into(), ctx);
                     }
@@ -713,6 +772,7 @@ impl Expression {
                     SyntaxKind::ConditionalExpression => {
                         // A conditional is in the Slint SC subset; its condition,
                         // branches, and result type are each restricted on their own.
+                        ctx.value_discarded = value_discarded;
                         return Self::from_conditional_expression_node(node.into(), ctx);
                     }
                     SyntaxKind::ObjectLiteral => {
@@ -726,6 +786,7 @@ impl Expression {
                     SyntaxKind::CodeBlock => {
                         #[cfg(feature = "slint-sc")]
                         ctx.diag.slint_sc_error("Code blocks are", &node);
+                        ctx.value_discarded = value_discarded;
                         return Self::from_codeblock_node(node.into(), ctx);
                     }
                     SyntaxKind::StringTemplate => {
@@ -755,7 +816,7 @@ impl Expression {
                             Ok((value, unit)) => {
                                 #[cfg(feature = "slint-sc")]
                                 {
-                                    use crate::expression_tree::WrittenUnit;
+                                    use crate::expression_types::WrittenUnit;
                                     match unit {
                                         WrittenUnit::Px if value.fract() != 0. => ctx
                                             .diag
@@ -821,27 +882,18 @@ impl Expression {
         let resource_ref = if s.starts_with("data:") {
             ImageReference::DataUri(s)
         } else {
-            let absolute_source_path = {
-                let path = std::path::Path::new(&s);
-                if crate::pathutils::is_absolute(path) {
-                    s
-                } else {
-                    ctx.type_loader
-                        .and_then(|loader| {
-                            loader.resolve_import_path(Some(&(*node).clone().into()), &s)
-                        })
-                        .map(|i| i.0.to_string_lossy().into())
-                        .unwrap_or_else(|| {
-                            crate::pathutils::join(
-                                &crate::pathutils::dirname(node.source_file.path()),
-                                path,
-                            )
-                            .map(|p| p.to_string_lossy().into())
-                            .unwrap_or(s.clone())
-                        })
+            let is_absolute = crate::source_path::is_absolute(&s);
+            let resolved = ctx
+                .type_loader
+                .filter(|_| !is_absolute)
+                .and_then(|loader| loader.resolve_import_path(Some(&(*node).clone().into()), &s));
+            let path = match resolved {
+                Some(path) => path,
+                None => {
+                    node.source_file.path().parent().join(&s).unwrap_or_else(|| SourcePath::new(&s))
                 }
             };
-            ImageReference::from_resolved(absolute_source_path)
+            ImageReference::Source(path)
         };
 
         // Slint SC decodes the image at compile time, so only a file on disk
@@ -851,7 +903,9 @@ impl Expression {
             ImageReference::DataUri(_) => {
                 ctx.diag.slint_sc_error("Data URIs in @image-url() are", &node)
             }
-            ImageReference::Url(_) => ctx.diag.slint_sc_error("URLs in @image-url() are", &node),
+            ImageReference::Source(path) if path.as_native_path().is_none() => {
+                ctx.diag.slint_sc_error("URLs in @image-url() are", &node)
+            }
             _ => {}
         }
 
@@ -906,7 +960,7 @@ impl Expression {
             },
             Radial {
                 center: Option<(Box<Expression>, Box<Expression>)>,
-                radius: Option<Box<Expression>>,
+                shape: RadialGradientShape<Expression>,
             },
             Conic {
                 from_angle: Box<Expression>,
@@ -935,19 +989,9 @@ impl Expression {
             let cx_syn = syntax_nodes::Expression::from(cx_node.as_node().unwrap().clone());
             let cy_syn = syntax_nodes::Expression::from(cy_node.as_node().unwrap().clone());
             let cx =
-                Box::new(Expression::from_expression_node(cx_syn.clone(), ctx).maybe_convert_to(
-                    Type::LogicalLength,
-                    &cx_syn,
-                    ctx.diag,
-                    &ctx.symbol_counters,
-                ));
+                Box::new(Expression::from_expression_node_as(cx_syn, Type::LogicalLength, ctx));
             let cy =
-                Box::new(Expression::from_expression_node(cy_syn.clone(), ctx).maybe_convert_to(
-                    Type::LogicalLength,
-                    &cy_syn,
-                    ctx.diag,
-                    &ctx.symbol_counters,
-                ));
+                Box::new(Expression::from_expression_node_as(cy_syn, Type::LogicalLength, ctx));
             Some((cx, cy))
         };
 
@@ -968,46 +1012,104 @@ impl Expression {
                 );
                 return Expression::Invalid;
             }
-            let angle = Box::new(
-                Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
-                    Type::Angle,
-                    &angle_expr,
-                    ctx.diag,
-                    &ctx.symbol_counters,
-                ),
-            );
+            let angle = Box::new(Expression::from_expression_node_as(angle_expr, Type::Angle, ctx));
             (GradKind::Linear { angle }, 2)
         } else if grad_text.starts_with("radial") {
-            if !all_subs.first().is_some_and(|n| {
-                matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "circle")
-            }) {
-                ctx.diag.push_error("Expected 'circle': currently, only @radial-gradient(circle, ...) are supported".into(), &node);
-                return Expression::Invalid;
-            }
-            // CSS syntax: `circle [<radius>] [at <x> <y>]` — radius before center, no keyword.
+            let is_ellipse = match all_subs.first() {
+                Some(NodeOrToken::Node(node)) if node.text().to_string().trim() == "ellipse" => {
+                    true
+                }
+                Some(NodeOrToken::Node(node)) if node.text().to_string().trim() == "circle" => {
+                    false
+                }
+                _ => {
+                    ctx.diag.push_error("Expected 'circle' or 'ellipse'".into(), &node);
+                    return Expression::Invalid;
+                }
+            };
+            // CSS syntax: `circle [<radius>] [at <x> <y>]` or `ellipse [<rx> <ry>] [at <x> <y>]`
+            // — radius before center, no keyword.
             let mut idx = 1;
 
-            // Parse optional radius (a length expression that is not the "at" keyword).
-            // Only consume the node when it actually resolves to a length-compatible type;
-            // a colour keyword like `blue` must not silently become a failed conversion.
-            let radius = if all_subs.get(idx).is_some_and(|n| {
-                n.kind() == SyntaxKind::Expression
-                    && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
-            }) {
-                let r = all_subs.get(idx).unwrap();
-                let r_syn = syntax_nodes::Expression::from(r.as_node().unwrap().clone());
-                let expr = Expression::from_expression_node(r_syn.clone(), ctx);
-                if matches!(expr.ty(), Type::LogicalLength | Type::Float32 | Type::Int32) {
-                    let radius = Box::new(
-                        expr.maybe_convert_to(Type::LogicalLength, &r_syn, ctx.diag, &ctx.symbol_counters),
-                    );
+            let is_radius_node = |idx: usize| {
+                all_subs.get(idx).is_some_and(|n| {
+                    n.kind() == SyntaxKind::Expression
+                        && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
+                })
+            };
+            let percent_error = if is_ellipse {
+                "'ellipse' radii must be lengths such as '50px', not percentages"
+            } else {
+                "'circle' radius must be a length such as '50px', not a percentage"
+            };
+            // With `lenient`, a value that isn't a length, like `#00f`, isn't consumed.
+            // `Err` is a value that didn't resolve, which the lookup already reported.
+            let parse_radius = |idx: usize, ctx: &mut LookupCtx, lenient: bool| {
+                if !is_radius_node(idx) {
+                    return None;
+                }
+                let n_syn =
+                    syntax_nodes::Expression::from(all_subs[idx].as_node().unwrap().clone());
+                let expr = ctx.with_expected_type(Type::LogicalLength, |ctx| {
+                    Expression::from_expression_node(n_syn.clone(), ctx)
+                });
+                let expr = match expr.ty() {
+                    Type::Invalid => return Some(Err(())),
+                    Type::Percent => {
+                        ctx.diag.push_error(percent_error.into(), &n_syn);
+                        Expression::Invalid
+                    }
+                    ty if lenient
+                        && !matches!(ty, Type::LogicalLength | Type::Float32 | Type::Int32) =>
+                    {
+                        return None;
+                    }
+                    _ => expr.maybe_convert_to(
+                        Type::LogicalLength,
+                        Some(&n_syn.into()),
+                        ctx.diag,
+                        &ctx.symbol_counters,
+                    ),
+                };
+                Some(Ok(Box::new(expr)))
+            };
+
+            let radius = match parse_radius(idx, ctx, true) {
+                Some(Err(())) => return Expression::Invalid,
+                Some(Ok(radius)) => {
                     idx += 1;
                     Some(radius)
-                } else {
-                    None
+                }
+                None => None,
+            };
+            let shape = if is_ellipse {
+                match radius {
+                    Some(rx) => {
+                        let ry = match parse_radius(idx, ctx, false) {
+                            Some(Ok(ry)) => ry,
+                            Some(Err(())) => return Expression::Invalid,
+                            None => {
+                                ctx.diag.push_error(
+                                    "'ellipse' needs a horizontal and a vertical radius, use 'circle' for a single radius".into(),
+                                    &all_subs[idx - 1],
+                                );
+                                return Expression::Invalid;
+                            }
+                        };
+                        idx += 1;
+                        RadialGradientShape::Ellipse(Some((rx, ry)))
+                    }
+                    None => RadialGradientShape::Ellipse(None),
                 }
             } else {
-                None
+                if radius.is_some() && is_radius_node(idx) {
+                    ctx.diag.push_error(
+                        "'circle' takes a single radius, use 'ellipse' for a horizontal and a vertical radius".into(),
+                        &all_subs[idx],
+                    );
+                    return Expression::Invalid;
+                }
+                RadialGradientShape::Circle(radius)
             };
 
             // Parse optional "at <x> <y>".
@@ -1034,7 +1136,11 @@ impl Expression {
                 idx + 1
             } else {
                 if idx == 1 {
-                    let message = "'circle' must be followed by a comma, a radius, or 'at'".into();
+                    let shape_text = if is_ellipse { "ellipse" } else { "circle" };
+                    let radius_text = if is_ellipse { "two radii" } else { "a radius" };
+                    let message = format!(
+                        "'{shape_text}' must be followed by a comma, {radius_text}, or 'at'"
+                    );
                     if let Some(error_node) = all_subs.get(idx) {
                         ctx.diag.push_error(message, error_node);
                     } else {
@@ -1046,7 +1152,7 @@ impl Expression {
                 }
                 return Expression::Invalid;
             };
-            (GradKind::Radial { center, radius }, stops_start)
+            (GradKind::Radial { center, shape }, stops_start)
         } else if grad_text.starts_with("conic") {
             // Parse optional "from <angle>" and/or "at <x> <y>" before the comma
             let mut idx = 0usize;
@@ -1063,12 +1169,8 @@ impl Expression {
                         return Expression::Invalid;
                     }
                 };
-                let angle = Box::new(
-                    Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
-                        Type::Angle,
-                        &angle_expr,
-                        ctx.diag, &ctx.symbol_counters),
-                );
+                let angle =
+                    Box::new(Expression::from_expression_node_as(angle_expr, Type::Angle, ctx));
                 idx = 2; // consumed "from" and angle
                 angle
             } else {
@@ -1112,6 +1214,10 @@ impl Expression {
             Color(Expression),
             Finished,
         }
+        let stop_type = match &grad_kind {
+            GradKind::Conic { .. } => Type::Angle,
+            _ => Type::Float32,
+        };
         let mut current_stop = Stop::Empty;
         for n in all_subs.iter().skip(stops_start_idx) {
             if n.kind() == SyntaxKind::Comma {
@@ -1131,15 +1237,18 @@ impl Expression {
                     )),
                 }
             } else {
-                // To facilitate color literal conversion, adjust the expected type.
-                let e = ctx.with_expected_type(Type::Color, |ctx| {
+                let expected_type = match current_stop {
+                    Stop::Color(_) => stop_type.clone(),
+                    _ => Type::Color,
+                };
+                let e = ctx.with_expected_type(expected_type, |ctx| {
                     Expression::from_expression_node(n.as_node().unwrap().clone().into(), ctx)
                 });
                 match std::mem::replace(&mut current_stop, Stop::Finished) {
                     Stop::Empty => {
                         current_stop = Stop::Color(e.maybe_convert_to(
                             Type::Color,
-                            n,
+                            Some(n),
                             ctx.diag,
                             &ctx.symbol_counters,
                         ))
@@ -1148,16 +1257,15 @@ impl Expression {
                         ctx.diag.push_error("Expected comma".into(), n);
                         break;
                     }
-                    Stop::Color(col) => {
-                        let stop_type = match &grad_kind {
-                            GradKind::Conic { .. } => Type::Angle,
-                            _ => Type::Float32,
-                        };
-                        stops.push((
-                            col,
-                            e.maybe_convert_to(stop_type, n, ctx.diag, &ctx.symbol_counters),
-                        ))
-                    }
+                    Stop::Color(col) => stops.push((
+                        col,
+                        e.maybe_convert_to(
+                            stop_type.clone(),
+                            Some(n),
+                            ctx.diag,
+                            &ctx.symbol_counters,
+                        ),
+                    )),
                 }
             }
         }
@@ -1219,17 +1327,18 @@ impl Expression {
 
         match grad_kind {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
-            GradKind::Radial { center, radius } => {
-                Expression::RadialGradient { center, radius, stops }
+            GradKind::Radial { center, shape } => {
+                Expression::RadialGradient { center, shape, stops }
             }
             GradKind::Conic { from_angle, center } => {
+                let node = NodeOrToken::from(node);
                 // Normalize stop angles to 0-1 range by dividing by 360deg
                 let normalized_stops = stops
                     .into_iter()
                     .map(|(color, angle_expr)| {
                         let angle_typed = angle_expr.maybe_convert_to(
                             Type::Angle,
-                            &node,
+                            Some(&node),
                             ctx.diag,
                             &ctx.symbol_counters,
                         );
@@ -1244,8 +1353,12 @@ impl Expression {
                     .collect();
 
                 // Convert from_angle to degrees (don't normalize to 0-1)
-                let from_angle_degrees =
-                    from_angle.maybe_convert_to(Type::Angle, &node, ctx.diag, &ctx.symbol_counters);
+                let from_angle_degrees = from_angle.maybe_convert_to(
+                    Type::Angle,
+                    Some(&node),
+                    ctx.diag,
+                    &ctx.symbol_counters,
+                );
 
                 Expression::ConicGradient {
                     from_angle: Box::new(from_angle_degrees),
@@ -1361,7 +1474,7 @@ impl Expression {
                         function: BuiltinFunction::ColorToStyledText.into(),
                         arguments: vec![expr.maybe_convert_to(
                             Type::Color,
-                            &expr_node,
+                            Some(&expr_node.clone().into()),
                             ctx.diag,
                             &ctx.symbol_counters,
                         )],
@@ -1374,7 +1487,7 @@ impl Expression {
                         function: BuiltinFunction::StringToStyledText.into(),
                         arguments: vec![expr.maybe_convert_to(
                             Type::String,
-                            &expr_node,
+                            Some(&expr_node.clone().into()),
                             ctx.diag,
                             &ctx.symbol_counters,
                         )],
@@ -1422,7 +1535,7 @@ impl Expression {
             let n = pl.Expression();
             let expr = Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::Int32,
-                &n,
+                Some(&n.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             );
@@ -1437,7 +1550,7 @@ impl Expression {
         let subs = node.Expression().map(|n| {
             Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::String,
-                &n,
+                Some(&n.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             )
@@ -1741,7 +1854,7 @@ impl Expression {
             LookupResult::Expression { expression, .. } => expression,
             // `spring` used bare (no call parens) is a spring curve with the default bounce of 0.
             LookupResult::Callable(LookupResultCallable::Macro(BuiltinMacroFunction::Spring)) => {
-                Expression::EasingCurve(crate::expression_tree::EasingCurve::Spring(0.))
+                Expression::EasingCurve(crate::expression_types::EasingCurve::Spring(0.))
             }
             LookupResult::Callable(c) => {
                 let what = match c {
@@ -1925,7 +2038,12 @@ impl Expression {
                         .into_iter()
                         .zip(function.args.iter())
                         .map(|((e, node), ty)| {
-                            e.maybe_convert_to(ty.clone(), &node, ctx.diag, &ctx.symbol_counters)
+                            e.maybe_convert_to(
+                                ty.clone(),
+                                node.as_ref(),
+                                ctx.diag,
+                                &ctx.symbol_counters,
+                            )
                         })
                         .collect()
                 }
@@ -1961,7 +2079,8 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (lhs_n, rhs_n) = node.Expression();
-        let mut lhs = Self::from_expression_node(lhs_n.clone(), ctx);
+        let mut lhs =
+            ctx.without_expected_type(|ctx| Self::from_expression_node(lhs_n.clone(), ctx));
         let op = node
             .children_with_tokens()
             .find_map(|n| match n.kind() {
@@ -1992,17 +2111,10 @@ impl Expression {
                 Type::Invalid
             }
         };
-        let rhs = ctx.with_expected_type(expected_ty.clone(), |ctx| {
-            Self::from_expression_node(rhs_n.clone(), ctx)
-        });
+        let rhs = Self::from_expression_node_as(rhs_n, expected_ty, ctx);
         Expression::SelfAssignment {
             lhs: Box::new(lhs),
-            rhs: Box::new(rhs.maybe_convert_to(
-                expected_ty,
-                &rhs_n,
-                ctx.diag,
-                &ctx.symbol_counters,
-            )),
+            rhs: Box::new(rhs),
             op,
             node: Some(NodeOrToken::Node(node.into())),
         }
@@ -2112,11 +2224,15 @@ impl Expression {
             }
         };
         let lhs = match lhs_target {
-            Some(ty) => lhs.maybe_convert_to(ty, &lhs_n, ctx.diag, &ctx.symbol_counters),
+            Some(ty) => {
+                lhs.maybe_convert_to(ty, Some(&lhs_n.into()), ctx.diag, &ctx.symbol_counters)
+            }
             None => lhs,
         };
         let rhs = match rhs_target {
-            Some(ty) => rhs.maybe_convert_to(ty, &rhs_n, ctx.diag, &ctx.symbol_counters),
+            Some(ty) => {
+                rhs.maybe_convert_to(ty, Some(&rhs_n.into()), ctx.diag, &ctx.symbol_counters)
+            }
             None => rhs,
         };
         Expression::BinaryExpression {
@@ -2149,7 +2265,9 @@ impl Expression {
         };
 
         let exp = match op {
-            '!' => exp.maybe_convert_to(Type::Bool, &node, ctx.diag, &ctx.symbol_counters),
+            '!' => {
+                exp.maybe_convert_to(Type::Bool, Some(&node.into()), ctx.diag, &ctx.symbol_counters)
+            }
             '+' | '-' => {
                 let ty = exp.ty();
                 if ty.default_unit().is_none()
@@ -2179,23 +2297,30 @@ impl Expression {
         node: syntax_nodes::ConditionalExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
+        let value_discarded = std::mem::take(&mut ctx.value_discarded);
         let (condition_n, true_expr_n, false_expr_n) = node.Expression();
-        let condition = ctx
-            .with_expected_type(Type::Bool, |ctx| {
-                Self::from_expression_node(condition_n.clone(), ctx)
-            })
-            .maybe_convert_to(Type::Bool, &condition_n, ctx.diag, &ctx.symbol_counters);
+        let condition = Self::from_expression_node_as(condition_n, Type::Bool, ctx);
+        ctx.value_discarded = value_discarded;
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
+        ctx.value_discarded = value_discarded;
         let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
+        if value_discarded {
+            remove_noop::warn_discarded(&true_expr, &true_expr_n, ctx.diag);
+            remove_noop::warn_discarded(&false_expr, &false_expr_n, ctx.diag);
+        }
         let result_ty = common_expression_type(&true_expr, &false_expr);
         let true_expr = true_expr.maybe_convert_to(
             result_ty.clone(),
-            &true_expr_n,
+            Some(&true_expr_n.into()),
             ctx.diag,
             &ctx.symbol_counters,
         );
-        let false_expr =
-            false_expr.maybe_convert_to(result_ty, &false_expr_n, ctx.diag, &ctx.symbol_counters);
+        let false_expr = false_expr.maybe_convert_to(
+            result_ty,
+            Some(&false_expr_n.into()),
+            ctx.diag,
+            &ctx.symbol_counters,
+        );
         Expression::Condition {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
@@ -2211,12 +2336,9 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (array_expr_n, index_expr_n) = node.Expression();
-        let array_expr = Self::from_expression_node(array_expr_n, ctx);
-        let index_expr = ctx
-            .with_expected_type(Type::Int32, |ctx| {
-                Self::from_expression_node(index_expr_n.clone(), ctx)
-            })
-            .maybe_convert_to(Type::Int32, &index_expr_n, ctx.diag, &ctx.symbol_counters);
+        let array_expr =
+            ctx.without_expected_type(|ctx| Self::from_expression_node(array_expr_n, ctx));
+        let index_expr = Self::from_expression_node_as(index_expr_n, Type::Int32, ctx);
 
         let ty = array_expr.ty();
         if !matches!(ty, Type::Array(_) | Type::Invalid | Type::Function(_) | Type::Callback(_)) {
@@ -2266,19 +2388,45 @@ impl Expression {
             })
             .collect();
 
-        let element_ty = if values.is_empty() {
-            Type::Void
-        } else {
-            Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()))
+        let element_ty = match element_expected {
+            Type::Invalid | Type::Void if values.is_empty() => Type::Void,
+            Type::Invalid | Type::Void => {
+                Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()))
+            }
+            expected => expected,
         };
 
-        for e in values.iter_mut() {
+        for (e, n) in values.iter_mut().zip(node.Expression()) {
             *e = core::mem::replace(e, Expression::Invalid).maybe_convert_to(
                 element_ty.clone(),
-                &node,
+                Some(&n.into()),
                 ctx.diag,
                 &ctx.symbol_counters,
             );
+        }
+
+        if element_ty == Type::LogicalLength
+            && ctx.property_name == Some("stroke-dash-array")
+            && ctx
+                .component_scope
+                .last()
+                .is_some_and(|e| e.borrow().builtin_type().is_some_and(|bt| bt.name == "Path"))
+        {
+            let mut has_err = false;
+            for (val, val_node) in values.iter().zip(node.Expression()) {
+                if val.ty() == Type::LogicalLength
+                    && !matches!(val, Expression::NumberLiteral(v, Unit::Px) if *v >= 0.)
+                {
+                    ctx.diag.push_error(
+                        "`stroke-dash-array` entries must be non-negative length literals".into(),
+                        &val_node,
+                    );
+                    has_err = true;
+                }
+            }
+            if has_err {
+                return Expression::Invalid;
+            }
         }
 
         Expression::Array { element_ty, values }
@@ -2295,7 +2443,13 @@ impl Expression {
         ctx: &mut LookupCtx,
         arg_type: Option<Type>,
     ) -> Expression {
-        if crate::reject_experimental_feature(ctx.diag, ctx.type_register, "closures", &node) {
+        if crate::reject_experimental_feature(
+            ctx.diag,
+            ctx.type_register,
+            crate::ExperimentalFeature::Closures,
+            "closures",
+            &node,
+        ) {
             return Expression::Invalid;
         }
         let has_expected_arg_type = arg_type.is_some();
@@ -2387,7 +2541,12 @@ impl Expression {
             } else if n.kind() == SyntaxKind::Expression {
                 let node = n.into_node().unwrap();
                 let expr = Expression::from_expression_node(node.clone().into(), ctx);
-                expr.maybe_convert_to(Type::String, &node, ctx.diag, &ctx.symbol_counters)
+                expr.maybe_convert_to(
+                    Type::String,
+                    Some(&node.into()),
+                    ctx.diag,
+                    &ctx.symbol_counters,
+                )
             } else {
                 continue;
             };
@@ -2600,7 +2759,7 @@ fn lookup_qualified_name_node(
                     .map(|s| format!("'{s}'"))
                     .collect::<Vec<_>>();
                 let hint = match parts.pop() {
-                    None => String::new(),
+                    None => crate::lookup::did_you_mean_entry(ctx, &global_lookup, &first_str),
                     Some(last) if parts.is_empty() => format!(". Did you mean {last}?"),
                     Some(last) => format!(". Did you mean {} or {last}?", parts.join(", ")),
                 };
@@ -2615,7 +2774,7 @@ fn lookup_qualified_name_node(
     };
 
     if let Some(depr) = result.deprecated() {
-        ctx.diag.push_property_deprecation_warning_with_message(&first_str, depr, &first);
+        ctx.diag.push_member_deprecation_warning("property", &first_str, depr, &first);
     }
 
     match result {
@@ -2730,15 +2889,10 @@ fn continue_lookup_within_element(
                 rest =
                     format!(". Use '{id}.{}' to access the property with the same name", nr.name());
             }
-        } else if let Some(LookupResult::Expression {
-            expression: Expression::EnumerationValue(value),
-            ..
-        }) = crate::lookup::TypeSpecificLookup.lookup(ctx, &elem.borrow().id)
+        } else if let Some(qualified) =
+            crate::lookup::TypeSpecificLookup::qualified_name(ctx, &elem.borrow().id)
         {
-            rest = format!(
-                ". Use '{}.{value}' to access the enumeration value",
-                value.enumeration.name
-            );
+            rest = format!(". Did you mean '{qualified}'?");
         }
         ctx.diag.push_error(format!("Cannot take reference of an element{rest}"), &node);
         return None;
@@ -2778,15 +2932,11 @@ fn continue_lookup_within_element(
             lookup_result.deprecated.as_ref().filter(|_| !local_to_component)
         {
             // `@deprecated` properties only warn when accessed from outside the declaring component
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("property", &prop_name, message, &second);
         } else if let Some(deprecated) =
             crate::lookup::check_extra_deprecated(elem, ctx, &prop_name)
         {
-            ctx.diag.push_property_deprecation_warning_with_message(
-                &prop_name,
-                &deprecated,
-                &second,
-            );
+            ctx.diag.push_member_deprecation_warning("property", &prop_name, &deprecated, &second);
         }
         let prop = Expression::PropertyReference(NamedReference::new(
             elem,
@@ -2795,7 +2945,7 @@ fn continue_lookup_within_element(
         maybe_lookup_object(prop.into(), it, ctx)
     } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
         if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("callback", &prop_name, message, &second);
         }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
@@ -2822,7 +2972,7 @@ fn continue_lookup_within_element(
             ctx.diag.push_error(format!("The function '{}' is protected", second.text()), &second);
         }
         if let Some(message) = lookup_result.deprecated.as_ref().filter(|_| !local_to_component) {
-            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
+            ctx.diag.push_member_deprecation_warning("function", &prop_name, message, &second);
         }
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
@@ -2845,16 +2995,16 @@ fn continue_lookup_within_element(
             LookupResult::from(callable).into()
         }
     } else {
+        let suggestion = crate::lookup::did_you_mean_entry(ctx, elem, &prop_name);
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
-                ElementType::Global | ElementType::Interface => {
+                ElementType::Global | ElementType::Interface(_) => {
                     let enclosing_type = elem.borrow().enclosing_component.upgrade().unwrap();
                     assert!(enclosing_type.is_global() || enclosing_type.is_interface());
                     format!("'{}'", enclosing_type.id)
                 }
                 ElementType::Component(c) => format!("Element '{}'", c.id),
                 ElementType::Builtin(b) => format!("Element '{}'", b.name),
-                ElementType::Native(_) => unreachable!("the native pass comes later"),
                 ElementType::Error => {
                     assert!(ctx.diag.has_errors());
                     return;
@@ -2880,7 +3030,7 @@ fn continue_lookup_within_element(
                 return None;
             }
         }
-        err("");
+        err(&suggestion);
         None
     }
 }
@@ -2905,6 +3055,7 @@ fn maybe_lookup_object(
                     return None;
                 }
 
+                let suggestion = crate::lookup::did_you_mean_entry(ctx, &base, &next_str);
                 match base {
                     LookupResult::Callable(LookupResultCallable::Callable(Callable::Callback(
                         ..,
@@ -2914,7 +3065,7 @@ fn maybe_lookup_object(
                     }
                     LookupResult::Enumeration(enumeration) => ctx.diag.push_error(
                         format!(
-                            "'{}' is not a member of the enum {}",
+                            "'{}' is not a member of the enum {}{suggestion}",
                             next.text(),
                             enumeration.name
                         ),
@@ -2923,13 +3074,17 @@ fn maybe_lookup_object(
 
                     LookupResult::Namespace(ns) => {
                         ctx.diag.push_error(
-                            format!("'{}' is not a member of the namespace {}", next.text(), ns),
+                            format!(
+                                "'{}' is not a member of the namespace {}{suggestion}",
+                                next.text(),
+                                ns
+                            ),
                             &next,
                         );
                     }
                     LookupResult::Expression { expression, .. } => {
                         let ty_descr = match expression.ty() {
-                            Type::Struct { .. } => String::new(),
+                            Type::Struct { .. } => suggestion,
                             Type::Float32
                                 if ctx.property_type == Type::Model
                                     && matches!(
@@ -2944,7 +3099,7 @@ fn maybe_lookup_object(
                                 )
                             }
 
-                            ty => format!(" of {ty}"),
+                            ty => format!(" of {ty}{suggestion}"),
                         };
                         ctx.diag.push_error(
                             format!("Cannot access the field '{}'{}", next.text(), ty_descr),
@@ -3015,6 +3170,7 @@ fn resolve_two_way_bindings_for_element(
                 current_token: Some(node.clone().into()),
                 local_variables: Vec::new(),
                 expected_type_probe: None,
+                value_discarded: false,
             };
 
             // Only the alias-only case stores the two-way binding in the expression slot;
@@ -3060,23 +3216,6 @@ fn resolve_two_way_bindings_for_element(
                     continue;
                 }
                 rhs_lookup.is_local_to_component &= lookup_ctx.is_local_element(&nr.element());
-
-                // The derived replacement only helps callers if the target is a public property
-                // of the same element, reached through the same object. Otherwise the hint is
-                // unreachable, so require an explicit message instead.
-                if elem
-                    .borrow()
-                    .property_declarations
-                    .get(prop_name)
-                    .is_some_and(|d| d.has_derived_deprecation())
-                    && !(Rc::ptr_eq(&nr.element(), elem)
-                        && rhs_lookup.property_visibility != PropertyVisibility::Private)
-                {
-                    lookup_ctx.diag.push_error(
-                        "@deprecated without a message derives the replacement from the two-way binding target, which must be a public property of the same element; provide an explicit @deprecated(\"...\") message instead".into(),
-                        &node,
-                    );
-                }
 
                 if !rhs_lookup.is_valid_for_assignment() {
                     match (lhs_lookup.property_visibility, rhs_lookup.property_visibility) {

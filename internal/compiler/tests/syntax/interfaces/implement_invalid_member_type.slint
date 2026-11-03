@@ -1,0 +1,26 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A member declared with an unknown type used to be reported as missing, too.
+// It is not missing: only 'Unknown type' reports it.
+
+interface Labelled {
+    in property <string> text;
+    in property <int> level;
+}
+
+export component InvalidMemberType {
+    implement Labelled <=> self;
+
+    in property <Nonexistent> text;
+//               >         <error{Unknown type 'Nonexistent'}
+    in property <int> level;
+}
+
+export component InvalidMemberTypeAmongMissing {
+    implement Labelled <=> self;
+//            >       <error{Cannot implement 'Labelled'.↵- missing 'in property <int> level;'}
+
+    in property <Nonexistent> text;
+//               >         <error{Unknown type 'Nonexistent'}
+}

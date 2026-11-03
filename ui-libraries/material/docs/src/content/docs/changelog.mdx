@@ -1,0 +1,51 @@
+---
+title: Changelog
+description: New features, fixes, and breaking changes in Slint Material Components.
+---
+
+## 1.1.0
+
+Material Components 1.1 requires Slint 1.18 or newer.
+
+### New APIs
+
+- Added <a href={`${import.meta.env.BASE_URL}components/switch/#checked_state_changedchecked-bool`}><code>Switch.checked-state-changed(checked)</code></a>.
+- Added <a href={`${import.meta.env.BASE_URL}components/appbars/search_bar/#item-activatedindex-int---bool`}><code>SearchBar.item-activated(index)</code></a> so applications can handle search result activation.
+- Added <a href={`${import.meta.env.BASE_URL}components/appbars/search_bar/#close-popup`}><code>SearchBar.close-popup()</code></a>.
+- Added <a href={`${import.meta.env.BASE_URL}components/text_field/#input-type`}><code>TextField.input-type</code></a> for password, number, decimal, search, and other input purposes.
+- Added <a href={`${import.meta.env.BASE_URL}components/navigation/modal_navigation_drawer/#selectedgroup-index-int-item-index-int`}><code>ModalNavigationDrawer.selected(group-index, item-index)</code></a>.
+- Added <a href={`${import.meta.env.BASE_URL}components/navigation/modal_navigation_drawer/#item_pointer_event`}><code>ModalNavigationDrawer.item-pointer-event</code></a>.
+- Made <a href={`${import.meta.env.BASE_URL}components/navigation/navigation_drawer/#selectgroup-index-int-item-index-int`}><code>NavigationDrawer.select(group-index, item-index)</code></a> and <a href={`${import.meta.env.BASE_URL}components/navigation/modal_navigation_drawer/#selectgroup-index-int-item-index-int`}><code>ModalNavigationDrawer.select(group-index, item-index)</code></a> public.
+- Added <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-width`}><code>content-width</code></a>, <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-height`}><code>content-height</code></a>, <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-x`}><code>content-x</code></a>, and <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-y`}><code>content-y</code></a> to <a href={`${import.meta.env.BASE_URL}components/scroll_view/`}><code>ScrollView</code></a>.
+
+### Fixes
+
+- Fixed indicator alignment in <a href={`${import.meta.env.BASE_URL}components/appbars/tab_bar/`}><code>TabBar</code></a> and `SecondaryTabBar` for tabs with different widths.
+- Fixed continuous and stepped <a href={`${import.meta.env.BASE_URL}components/slider/`}><code>Slider</code></a> interaction, dragging, thumb positioning, and stop rendering.
+- Fixed <a href={`${import.meta.env.BASE_URL}components/checkboxes/check_box/`}><code>CheckBox</code></a> initialization and updates with a partially checked state.
+- Preserved <a href={`${import.meta.env.BASE_URL}components/navigation/modal_navigation_drawer/`}><code>ModalNavigationDrawer</code></a> selection when its popup is recreated.
+- Prevented a crash when <a href={`${import.meta.env.BASE_URL}components/navigation/modal_navigation_drawer/`}><code>ModalNavigationDrawer</code></a> closes during selection.
+- Added the missing year 2030 to <a href={`${import.meta.env.BASE_URL}components/date_picker/`}><code>DatePickerPopup</code></a>.
+- Hid the <a href={`${import.meta.env.BASE_URL}components/time_picker/`}><code>TimePickerPopup</code></a> selection indicator when no clock item is selected.
+- Made <a href={`${import.meta.env.BASE_URL}components/text_field/#label`}><code>TextField.label</code></a> an alias for the former `placeholder-text` property.
+
+### Accessibility
+
+- Added search input semantics and editable value actions to <a href={`${import.meta.env.BASE_URL}components/appbars/search_bar/`}><code>SearchBar</code></a>.
+- Added set-value, increment, and decrement actions to <a href={`${import.meta.env.BASE_URL}components/slider/`}><code>Slider</code></a>.
+- Added accessible values to <a href={`${import.meta.env.BASE_URL}components/progress/linear_progress_indicator/`}>linear</a> and <a href={`${import.meta.env.BASE_URL}components/progress/circular_progress_indicator/`}>circular</a> progress indicators.
+- Used the dedicated <a href={`${import.meta.env.BASE_URL}components/switch/`}><code>Switch</code></a> and <a href={`${import.meta.env.BASE_URL}components/radiobutton/radio_button/`}><code>RadioButton</code></a> roles.
+- Reported the enabled state of <a href={`${import.meta.env.BASE_URL}components/buttons/icon_button/`}><code>IconButton</code></a> correctly.
+- Prevented the accessibility default action from toggling a disabled <a href={`${import.meta.env.BASE_URL}components/switch/#enabled`}><code>Switch</code></a>.
+
+### Migration
+
+- Replace <a href={`${import.meta.env.BASE_URL}components/scroll_view/`}><code>viewport-width</code>, <code>viewport-height</code>, <code>viewport-x</code>, and <code>viewport-y</code></a> with <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-width`}><code>content-width</code></a>, <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-height`}><code>content-height</code></a>, <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-x`}><code>content-x</code></a>, and <a href={`${import.meta.env.BASE_URL}components/scroll_view/#content-y`}><code>content-y</code></a> on <a href={`${import.meta.env.BASE_URL}components/scroll_view/`}><code>ScrollView</code></a>.
+  The former names remain available as compatibility aliases.
+- Replace `placeholder-text` with <a href={`${import.meta.env.BASE_URL}components/text_field/#label`}><code>label</code></a> on <a href={`${import.meta.env.BASE_URL}components/text_field/`}><code>TextField</code></a>.
+  The former name remains available as a compatibility alias.
+- Update projects to Slint 1.18 or newer before replacing Material Components 1.0.
+
+## 1.0
+
+- Published the first stable Slint Material Components release.

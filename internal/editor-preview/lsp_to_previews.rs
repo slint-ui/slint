@@ -29,6 +29,8 @@ pub trait RemoteTransport {
         addresses: Vec<String>,
         port: u16,
     ) -> std::pin::Pin<Box<dyn Future<Output = Result<()>>>>;
+    /// Show the design on the microcontroller connected to the serial port `port`.
+    fn connect_serial(&self, port: String) -> std::pin::Pin<Box<dyn Future<Output = Result<()>>>>;
     fn disconnect(&self) -> std::pin::Pin<Box<dyn Future<Output = ()>>>;
     /// The code the user read off the viewer's screen.
     fn submit_pairing_code(&self, code: String);
@@ -104,11 +106,6 @@ impl LspToPreviews {
     }
 
     pub async fn shutdown(&self) {
-        // Quit only goes to the local previews; the remote viewer is an
-        // independent process that should outlive this LSP session.
-        for to_preview in self.locals.values() {
-            to_preview.send(&LspToPreviewMessage::Quit);
-        }
         futures_util::future::join_all(
             self.locals.values().map(|to_preview| to_preview.shutdown()),
         )
@@ -131,5 +128,34 @@ impl LspToPreviews {
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     pub fn remote(&self) -> Option<&Rc<dyn RemoteTransport>> {
         self.remote.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{cell::Cell, pin::Pin};
+
+    struct ShutdownPreview(Rc<Cell<usize>>);
+
+    impl LspToPreview for ShutdownPreview {
+        fn send(&self, _message: &LspToPreviewMessage) {
+            panic!("Shutdown must use the transport's shutdown method");
+        }
+
+        fn preview_target(&self) -> PreviewTarget {
+            PreviewTarget::Dummy
+        }
+
+        fn shutdown(&self) -> Pin<Box<dyn Future<Output = ()> + '_>> {
+            Box::pin(async move { self.0.set(self.0.get() + 1) })
+        }
+    }
+
+    #[tokio::test]
+    async fn shutdown_calls_each_transport_once_without_an_extra_quit() {
+        let calls = Rc::new(Cell::new(0));
+        LspToPreviews::with_one(ShutdownPreview(calls.clone())).shutdown().await;
+        assert_eq!(calls.get(), 1);
     }
 }

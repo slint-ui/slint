@@ -3,6 +3,6 @@
 
 // The data URI is only checked when embedding the images of the properties that are used
 export component SuperSimple {
-    out property <image> bad_data_uri: @from-json("from-json-data.json").a_bad_data_uri;
+    out property <image> bad_data_uri: @from-json("from-json/data.json").a_bad_data_uri;
 //                                     >                                              <error{Invalid data URI payload: symbol with codepoint 33 not expected}
 }

@@ -75,6 +75,8 @@ private:
 /// You can construct Image objects from a path to an image file on disk, using
 /// Image::load_from_path().
 ///
+/// Copies of an Image share the same underlying data, so copying is cheap.
+///
 /// Another typical use-case is to render the image content with C++ code.
 /// For this it’s most efficient to create a new SharedPixelBuffer with the known dimensions and
 /// pass the pixel pointer returned by begin() to your rendering function. Afterwards you can create
@@ -215,6 +217,48 @@ public:
     {
     }
 
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565
+    /// Construct an image from a SharedPixelBuffer of RGB565 pixels.
+    ///
+    /// The pixels are stored as they are, instead of being expanded to RGB8, and the
+    /// software renderer draws them without any pixel conversion when the render target
+    /// is RGB565 too.
+    ///
+    /// This constructor is only available when Slint was configured with
+    /// SLINT_FEATURE_IMAGE_PIXEL_FORMAT_RGB565.
+    Image(SharedPixelBuffer<Rgb565Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::RGB565(
+                          cbindgen_private::types::SharedPixelBuffer<Rgb565Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
+    {
+    }
+
+#endif
+
+#ifdef SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8
+    /// Construct an image from a SharedPixelBuffer of 8 bit grayscale pixels.
+    ///
+    /// The pixels are stored as they are, instead of being expanded to RGB8.
+    ///
+    /// This constructor is only available when Slint was configured with
+    /// SLINT_FEATURE_IMAGE_PIXEL_FORMAT_GRAY8.
+    Image(SharedPixelBuffer<Gray8Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
+                  cbindgen_private::types::ImageCacheKey::Invalid(),
+                  cbindgen_private::types::SharedImageBuffer::Gray8(
+                          cbindgen_private::types::SharedPixelBuffer<Gray8Pixel> {
+                                  .width = buffer.width(),
+                                  .height = buffer.height(),
+                                  .data = buffer.m_data })))
+    {
+    }
+
+#endif
+
     /// Returns the size of the Image in pixels.
     Size<uint32_t> size() const { return cbindgen_private::types::slint_image_size(&data); }
 
@@ -309,7 +353,8 @@ inline Image load_image_from_embedded_data(std::span<const uint8_t> data,
     return Image(img);
 }
 
-inline Image image_from_embedded_textures(const cbindgen_private::types::StaticTextures *textures)
+inline Image image_from_embedded_textures(
+        const cbindgen_private::types::StaticTextures<cbindgen_private::StaticStorage> *textures)
 {
     cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
     cbindgen_private::types::slint_image_from_embedded_textures(textures, &img);

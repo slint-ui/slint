@@ -6,11 +6,17 @@
 from io import BytesIO
 from pathlib import Path
 
+from editor_sync import wait_for_source
+from gradient_interactions import (
+    center,
+    control,
+    gradient_document,
+    move_picker_to_files,
+    open_gradient,
+)
 from PIL import Image
-from source_snapshot import SourceSnapshot
-from test_gradient_geometry import gradient_document, open_gradient
-from test_linear_gradient_canvas import center, control, gesture
-from ui_driver import first_window, launch_editor, select_outline_row, wait_until
+from source_snapshot import SourceSnapshot, wait_for_source_change
+from ui_driver import double_click_at, first_window, launch_editor, select_outline_row
 
 
 def test_coincident_canvas_insertion_preserves_rendering(
@@ -21,9 +27,11 @@ def test_coincident_canvas_insertion_preserves_rendering(
     )
     original = SourceSnapshot.capture(tmp_path)
     with launch_editor(editor_binary, editor_environment, file) as editor:
+        wait_for_source(file, file.read_bytes())
         window = first_window(editor)
         select_outline_row(window, "fill")
         open_gradient(window)
+        move_picker_to_files(window, "main")
         start = center(control(window, "Gradient start"))
         end = center(control(window, "Gradient end"))
         point = type(start)(x=(start.x + end.x) / 2, y=(start.y + end.y) / 2)
@@ -35,21 +43,15 @@ def test_coincident_canvas_insertion_preserves_rendering(
             ).tobytes()
 
         before = pixels()
-        for _ in range(2):
-            gesture(window, point, point)
+        double_click_at(window, point)
         control(window, "Gradient stop 5")
         assert pixels() == before
-        control(window, "Close Custom").invoke_accessible_default_action()
-        saved = wait_until(
-            lambda: (
-                file.read_bytes()
-                if file.read_bytes() != original.sources[Path(file.name)]
-                else None
-            )
-        )
+        control(window, "Close Fill").invoke_accessible_default_action()
+        saved = wait_for_source_change(file, original.sources[Path(file.name)])
         original.wait_for_applied(saved, file.name)
         assert (
             b"#ff0000 0%, #ff0000 50%, #0000ff 50%, #0000ff 50%, #0000ff 100%" in saved
         )
         open_gradient(window)
+        move_picker_to_files(window, "main")
         assert pixels() == before

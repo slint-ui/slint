@@ -17,21 +17,18 @@ component KoButton inherits Text {
 
 export component Test inherits Window {
     Text { font-size: self.font-metrics.ascent; }
-//  >   <error{The binding for the property 'font-metrics' is part of a binding loop (font-size -> font-metrics -> font-size)}
-//                    >                       <^error{The binding for the property 'font-size' is part of a binding loop (font-size -> font-metrics -> font-size)}
+//                    >                       <error{The binding for the property 'font-size' is part of a binding loop (Text.font-size -> Text.font-metrics -> Text.font-size)}
 
     t1 := Text { font-italic: t2.font-metrics.cap-height > 10px; }
 //                            >                                <error{The binding for the property 'font-italic' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
-//        >   <^error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
     t2 := Text { font-weight: t1.font-metrics.descent / 0.5px; }
-//        >   <error{The binding for the property 'font-metrics' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
-//                            >                              <^error{The binding for the property 'font-weight' is part of a binding loop (t2.font-weight -> t2.font-metrics -> t1.font-italic -> t1.font-metrics -> t2.font-weight)}
+//                            >                              <note{'font-weight' is part of the binding loop reported for 'font-italic' at line 22}
 
     OkButton {}
 
     b := KoButton {}
     default-font-size: b.font-size;
-//                     >          <error{The binding for the property 'default-font-size' is part of a binding loop (root.default-font-size -> b.font-size -> root.default-font-size)}
+//                     >          <note{'default-font-size' is part of the binding loop reported for 'font-size' at line 14}
 
     dialog1 := Window {
 //             >     <warning{Window elements as children do not create separate windows (this may change in the future)↵Consider using a PopupWindow instead}

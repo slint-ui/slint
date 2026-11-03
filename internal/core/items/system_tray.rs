@@ -19,6 +19,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::{ColorScheme, Item, ItemConsts, ItemRc, Orientation, RenderingResult, VoidArg};
 use crate::layout::LayoutInfo;
 use crate::lengths::{LogicalRect, LogicalSize};
+use crate::once_box::OnceBox;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -33,17 +34,20 @@ use i_slint_core_macros::*;
 // real native tray (the `system-tray` feature is off, or Android, WASM, embedded
 // targets, …) so a `SystemTrayIcon`-rooted component constructs without surfacing
 // an icon to any host shell.
-cfg_if::cfg_if! {
-    if #[cfg(all(feature = "system-tray", target_os = "macos"))] {
+core::cfg_select! {
+    all(feature = "system-tray", target_os = "macos") => {
         mod appkit;
         use self::appkit::PlatformTray;
-    } else if #[cfg(all(feature = "system-tray", target_os = "windows"))] {
+    }
+    all(feature = "system-tray", target_os = "windows") => {
         mod windows;
         use self::windows::PlatformTray;
-    } else if #[cfg(all(feature = "system-tray", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
+    }
+    all(feature = "system-tray", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")) => {
         mod ksni;
         use self::ksni::PlatformTray;
-    } else {
+    }
+    _ => {
         mod dummy;
         use self::dummy::PlatformTray;
     }
@@ -54,7 +58,15 @@ pub struct Params<'a> {
     pub icon: &'a Image,
     pub tooltip: &'a str,
     pub title: &'a str,
+    pub menu: TrayMenu<'a>,
 }
+
+/// The menu for a backend to build, and the empty list it fills in with the entries
+/// that its items activate.
+pub type TrayMenu<'a> = Option<(
+    vtable::VRef<'a, crate::menus::MenuVTable>,
+    &'a mut alloc::vec::Vec<crate::items::MenuEntry>,
+)>;
 
 /// Errors raised while constructing a platform tray icon.
 #[allow(dead_code)]
@@ -76,6 +88,8 @@ pub enum Error {
 pub struct SystemTrayIconHandle(PlatformTray);
 
 impl SystemTrayIconHandle {
+    /// Creates and shows the platform tray icon described by `params`,
+    /// dispatching its clicks and menu activations to the item `self_weak`.
     pub fn new(
         params: Params,
         self_weak: crate::item_tree::ItemWeak,
@@ -113,30 +127,6 @@ impl SystemTrayIconHandle {
 // Native `SystemTrayIcon` item, exposed to `.slint`.
 // ---------------------------------------------------------------------------
 
-#[repr(C)]
-/// Wraps the internal data structure for the SystemTrayIcon
-pub struct SystemTrayIconDataBox(core::ptr::NonNull<SystemTrayIconData>);
-
-impl Default for SystemTrayIconDataBox {
-    fn default() -> Self {
-        SystemTrayIconDataBox(Box::leak(Box::<SystemTrayIconData>::default()).into())
-    }
-}
-impl Drop for SystemTrayIconDataBox {
-    fn drop(&mut self) {
-        // Safety: the self.0 was constructed from a Box::leak in SystemTrayIconDataBox::default
-        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
-    }
-}
-
-impl core::ops::Deref for SystemTrayIconDataBox {
-    type Target = SystemTrayIconData;
-    fn deref(&self) -> &Self::Target {
-        // Safety: initialized in SystemTrayIconDataBox::default
-        unsafe { self.0.as_ref() }
-    }
-}
-
 #[derive(Default)]
 pub struct SystemTrayIconData {
     inner: core::cell::OnceCell<SystemTrayIconHandle>,
@@ -145,36 +135,8 @@ pub struct SystemTrayIconData {
     icon_tracker: crate::properties::ChangeTracker,
     tooltip_tracker: crate::properties::ChangeTracker,
     title_tracker: crate::properties::ChangeTracker,
-    /// Whether this tray currently contributes to the SlintContext keepalive
-    /// counter. Flipped in lockstep with `acquire_keepalive`/`release_keepalive`
-    /// so that a re-fired tracker can't double-increment.
-    keepalive_live: core::cell::Cell<bool>,
+    keepalive: core::cell::RefCell<Option<crate::context::KeepAlive>>,
     menu: core::cell::RefCell<Option<MenuState>>,
-    /// The context of the component this tray belongs to, handed over by the generated
-    /// code. A tray has no window, so this is the only way it can tell which context it
-    /// is part of. Empty for a component built with `new()`, which uses the thread's.
-    context: core::cell::OnceCell<crate::SlintContextWeak>,
-}
-
-impl SystemTrayIconData {
-    /// The context this tray belongs to: the one its component was built with, falling
-    /// back to the thread's for a component built with `new()`.
-    fn context(&self) -> Option<crate::SlintContext> {
-        match self.context.get() {
-            Some(ctx) => ctx.upgrade(),
-            None => crate::context::GLOBAL_CONTEXT.with(|p| p.get().cloned()),
-        }
-    }
-}
-
-impl Drop for SystemTrayIconData {
-    fn drop(&mut self) {
-        if self.keepalive_live.get()
-            && let Some(ctx) = self.context()
-        {
-            ctx.release_keepalive();
-        }
-    }
 }
 
 struct MenuState {
@@ -191,9 +153,7 @@ impl crate::properties::PropertyDirtyHandler for MenuDirtyHandler {
     fn notify(self: Pin<&Self>) {
         let self_weak = self.self_weak.clone();
         let Some(item_rc) = self_weak.upgrade() else { return };
-        let Some(tray) = item_rc.downcast::<SystemTrayIcon>() else { return };
-        let Some(ctx) = tray.as_pin_ref().data.context() else { return };
-        ctx.single_shot(Default::default(), move || {
+        item_rc.slint_context().single_shot(Default::default(), move || {
             let Some(item_rc) = self_weak.upgrade() else { return };
             let Some(tray) = item_rc.downcast::<SystemTrayIcon>() else { return };
             tray.as_pin_ref().rebuild_menu();
@@ -212,17 +172,10 @@ pub struct SystemTrayIcon {
     pub color_scheme: Property<ColorScheme>,
     pub clicked: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
-    data: SystemTrayIconDataBox,
+    data: OnceBox<SystemTrayIconData>,
 }
 
 impl SystemTrayIcon {
-    /// Called from a tray-rooted component's `new_with_context` to tell the item which
-    /// context it belongs to. Without it the item would fall back to the thread's context,
-    /// which is the wrong one when the component was built on another.
-    pub fn set_context(self: Pin<&Self>, ctx: &crate::SlintContext) {
-        let _ = self.data.context.set(ctx.downgrade());
-    }
-
     /// Called from generated code (via the `SetupSystemTrayIcon` builtin) to hand off the
     /// lowered menu's `VRc<MenuVTable>` to the native item. The item walks the menu via
     /// this vtable inside its own `PropertyTracker`, so property changes inside the menu
@@ -239,52 +192,56 @@ impl SystemTrayIcon {
         *self.data.menu.borrow_mut() =
             Some(MenuState { menu_vrc, entries: alloc::vec::Vec::new(), tracker });
         // If the platform tray is already up (icon was set before the menu), populate
-        // the menu now; otherwise the icon tracker's notify will call rebuild_menu
-        // once the handle exists.
+        // the menu now; otherwise the icon tracker's notify builds it along with the
+        // handle.
         self.rebuild_menu();
     }
 
     fn rebuild_menu(self: Pin<&Self>) {
         let Some(handle) = self.data.inner.get() else { return };
-        let mut menu_borrow = self.data.menu.borrow_mut();
-        let Some(MenuState { menu_vrc, entries, tracker }) = menu_borrow.as_mut() else {
-            return;
-        };
-        tracker.as_ref().evaluate(|| {
-            handle.rebuild_menu(vtable::VRc::borrow(menu_vrc), entries);
+        self.with_tracked_menu(|menu| {
+            if let Some((menu, entries)) = menu {
+                handle.rebuild_menu(menu, entries);
+            }
         });
+    }
+
+    /// Calls `f` with the installed menu, if any, inside the menu's tracker,
+    /// so that a change to what `f` reads from the menu triggers `rebuild_menu`.
+    fn with_tracked_menu<R>(self: Pin<&Self>, f: impl FnOnce(TrayMenu<'_>) -> R) -> R {
+        let mut menu_borrow = self.data.menu.borrow_mut();
+        match menu_borrow.as_mut() {
+            Some(MenuState { menu_vrc, entries, tracker }) => {
+                entries.clear();
+                tracker.as_ref().evaluate(|| f(Some((vtable::VRc::borrow(menu_vrc), entries))))
+            }
+            None => f(None),
+        }
     }
 
     pub fn set_color_scheme(self: Pin<&Self>, scheme: ColorScheme) {
         Self::FIELD_OFFSETS.color_scheme().apply_pin(self).set(scheme);
     }
 
-    /// Reconcile the SlintContext keepalive counter with this tray's state.
-    /// A tray contributes to the counter only while it has a live platform
-    /// handle and its `visible` property is `true`; everything else is a
-    /// no-op so a re-fired tracker can't double-increment.
-    fn update_keepalive(self: Pin<&Self>) {
-        let want_live = self.data.inner.get().is_some() && self.visible();
-        let was_live = self.data.keepalive_live.get();
+    fn update_keepalive(self: Pin<&Self>, self_rc: &ItemRc) {
+        let data = &*self.data;
+        let want_live = data.inner.get().is_some() && self.visible();
+        let was_live = data.keepalive.borrow().is_some();
         if want_live == was_live {
             return;
         }
-        let Some(ctx) = self.data.context() else {
-            return;
-        };
         if want_live {
-            ctx.acquire_keepalive();
-            self.data.keepalive_live.set(true);
+            *data.keepalive.borrow_mut() = Some(self_rc.slint_context().keep_alive());
         } else {
-            self.data.keepalive_live.set(false);
-            ctx.release_keepalive();
+            data.keepalive.take();
         }
     }
 }
 
 impl Item for SystemTrayIcon {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
-        self.data.change_tracker.init_delayed(
+        let data = &*self.data;
+        data.change_tracker.init_delayed(
             self_rc.downgrade(),
             |_| true,
             |self_weak, has_icon| {
@@ -297,15 +254,19 @@ impl Item for SystemTrayIcon {
                 if !*has_icon {
                     return;
                 }
-                let Some(ctx) = tray.as_pin_ref().data.context() else {
-                    return;
-                };
+                let ctx = tray_rc.slint_context();
                 let tray = tray.as_pin_ref();
-                let handle = match SystemTrayIconHandle::new(
-                    Params { icon: &tray.icon(), tooltip: &tray.tooltip(), title: &tray.title() },
-                    self_weak.clone(),
-                    &ctx,
-                ) {
+                // Read outside the menu's tracker, which must only depend on the menu.
+                let (icon, tooltip, title) = (tray.icon(), tray.tooltip(), tray.title());
+                // Build the menu along with the icon: some tray hosts never re-read a menu
+                // they fetched while empty (#13624).
+                let handle = match tray.with_tracked_menu(|menu| {
+                    SystemTrayIconHandle::new(
+                        Params { icon: &icon, tooltip: &tooltip, title: &title, menu },
+                        self_weak.clone(),
+                        &ctx,
+                    )
+                }) {
                     Ok(handle) => handle,
                     Err(err) => {
                         crate::debug_log!("Slint: Failed to create system tray icon: {err}");
@@ -314,14 +275,11 @@ impl Item for SystemTrayIcon {
                 };
 
                 let _ = tray.data.inner.set(handle);
-                // If a menu was already installed before the icon was set, build it now
-                // that we have a platform handle.
-                tray.rebuild_menu();
-                tray.update_keepalive();
+                tray.update_keepalive(&tray_rc);
             },
         );
 
-        self.data.visible_tracker.init_delayed(
+        data.visible_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return false };
@@ -335,7 +293,7 @@ impl Item for SystemTrayIcon {
                 if let Some(handle) = tray.data.inner.get() {
                     handle.set_visible(*visible);
                 }
-                tray.update_keepalive();
+                tray.update_keepalive(&tray_rc);
                 // If the platform handle isn't up yet, the icon-driven init path
                 // will create it later and call update_keepalive itself.
             },
@@ -345,7 +303,7 @@ impl Item for SystemTrayIcon {
         // initial spawn always uses the latest values (the icon-driven init
         // path reads them at fire time), so these trackers are no-ops until
         // the user mutates the property after the tray is up.
-        self.data.icon_tracker.init_delayed(
+        data.icon_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return Image::default() };
@@ -363,7 +321,7 @@ impl Item for SystemTrayIcon {
             },
         );
 
-        self.data.tooltip_tracker.init_delayed(
+        data.tooltip_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
@@ -381,7 +339,7 @@ impl Item for SystemTrayIcon {
             },
         );
 
-        self.data.title_tracker.init_delayed(
+        data.title_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 let Some(tray_rc) = self_weak.upgrade() else { return SharedString::default() };
@@ -485,23 +443,6 @@ impl Item for SystemTrayIcon {
 impl ItemConsts for SystemTrayIcon {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a SystemTrayIconDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_icon_data_init(data: *mut SystemTrayIconDataBox) {
-    unsafe { core::ptr::write(data, SystemTrayIconDataBox::default()) };
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to an initialized SystemTrayIconDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_system_tray_icon_data_free(data: *mut SystemTrayIconDataBox) {
-    unsafe { core::ptr::drop_in_place(data) };
 }
 
 #[cfg(feature = "ffi")]

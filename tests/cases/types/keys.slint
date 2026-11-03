@@ -57,6 +57,20 @@ export component TestCase inherits Window {
 
 /*
 
+```d.ts
+export interface TestCase {
+    first_shortcut: slint.Keys;
+    readonly matches: number;
+    readonly shortcut_a_as_string: string;
+    readonly shortcut_as_string: string;
+    readonly shortcut_plus_as_string: string;
+    get shortcuts(): slint.Model<slint.Keys>;
+    set shortcuts(value: slint.Model<slint.Keys> | slint.Keys[]);
+}
+
+export declare const TestCase: { new(properties?: Partial<Omit<TestCase, "shortcuts"> & { shortcuts: slint.Model<slint.Keys> | slint.Keys[]; }>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
+```
+
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;

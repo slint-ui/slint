@@ -81,3 +81,12 @@ export component NonExhaustiveString {
         "hello": Rectangle { }
     }
 }
+
+export component NonExhaustiveBrush {
+    in-out property <brush> fill: #123;
+
+    match fill {
+//        >   <error{Non-exhaustive match on brush: a '*' case is required}
+        #123: Rectangle { }
+    }
+}

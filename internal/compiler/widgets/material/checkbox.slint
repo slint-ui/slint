@@ -3,8 +3,12 @@
 
 import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 
+import { CheckBoxInterface } from "../common/std-widget-interfaces.slint";
+
 // Selection control that can be toggled between checked und unchecked by click.
 export component CheckBox {
+    implement CheckBoxInterface <=> self;
+
     in property <string> text <=> i-text.text;
     in property <bool> enabled: true;
     in property <length> font-size: MaterialFontSettings.title-small.font-size;
@@ -17,7 +21,7 @@ export component CheckBox {
     min-height: max(18px, i-layout.min-height);
     vertical-stretch: 0;
     accessible-enabled: root.enabled;
-    accessible-label <=> i-text.text;
+    accessible-label: i-text.text;
     accessible-checkable: true;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
@@ -88,8 +92,6 @@ export component CheckBox {
                 height: 18px;
 
                 i-container := Rectangle {
-                    width: 100%;
-                    height: 100%;
                     border-radius: 2px;
                     border-width: 2px;
                     border-color: MaterialPalette.control-foreground-variant;

@@ -3,7 +3,8 @@
 
 //! The transports carrying messages between the LSP and its previews: a
 //! preview child process, the preview embedded in the editor extension, the
-//! wasm preview in SlintPad, and a remote viewer over a WebSocket.
+//! wasm preview in SlintPad, a remote viewer over a WebSocket, and a microcontroller
+//! over a serial port.
 
 #[cfg(all(target_arch = "wasm32", feature = "preview-external"))]
 mod wasm;
@@ -19,3 +20,5 @@ pub use native::*;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-serial"))]
+mod serial;

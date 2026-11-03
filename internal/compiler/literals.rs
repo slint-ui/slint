@@ -3,7 +3,7 @@
 
 // cSpell: ignore qsdf
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Span, Spanned};
-use crate::expression_tree::WrittenUnit;
+use crate::expression_types::WrittenUnit;
 use itertools::Itertools;
 use smol_str::SmolStr;
 use strum::IntoEnumIterator;
@@ -346,7 +346,7 @@ pub fn parse_number_literal(s: SmolStr) -> Result<(f64, WrittenUnit), SmolStr> {
 
 #[test]
 fn test_parse_number_literal() {
-    use crate::expression_tree::WrittenUnit;
+    use crate::expression_types::WrittenUnit;
     use smol_str::{ToSmolStr, format_smolstr};
 
     assert_eq!(parse_number_literal("10".into()), Ok((10., WrittenUnit::None)));

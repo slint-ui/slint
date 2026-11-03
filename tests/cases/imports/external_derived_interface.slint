@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>, Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Python is ignored because include paths aren't forwarded in the generated stubs.
+//ignore: pyi
+
+//include_path: ../../helper_components
+import { ExportedBase, ExportedDerived } from "export_interfaces.slint";
+
+component Child inherits ExportedBase {
+    in-out property <string> label: "derived";
+}
+
+export component TestCase {
+    implement ExportedDerived <=> child;
+    child := Child { }
+
+    out property <bool> test: self.value == 2.71 && self.label == "derived";
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.get_value(), 2.71);
+assert_eq!(instance.get_label(), "derived");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.get_value(), 2.71);
+assert_eq(instance.get_label(), "derived");
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+assert.equal(instance.value, 2.71);
+assert.equal(instance.label, "derived");
+```
+*/

@@ -1,4 +1,3 @@
-
 The HelloWorld for Slint looks like this:
 
 ```slint

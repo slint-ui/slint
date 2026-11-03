@@ -55,13 +55,13 @@ pub mod wgpu_30_surface;
 mod wgpu_renderer;
 #[cfg(feature = "wgpu-29")]
 pub use wgpu_renderer::SkiaWGPU29Renderer;
-#[cfg(feature = "wgpu-30")]
-pub use wgpu_renderer::SkiaWGPU30Renderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 #[allow(deprecated)]
 pub use wgpu_renderer::SkiaWGPURenderer;
 #[cfg(any(feature = "wgpu-29", feature = "wgpu-30"))]
 pub use wgpu_renderer::SkiaWGPURendererGeneric;
+#[cfg(feature = "wgpu-30")]
+pub use wgpu_renderer::{SkiaWGPU30Renderer, SkiaWGPU30RendererExt};
 
 use itemrenderer::to_skia_rect;
 pub use skia_safe;
@@ -160,6 +160,57 @@ pub(crate) fn gradient_colors<'a>(
     )
 }
 
+/// Draws with `render` into a render target that `gr_context` allocates and reads it back,
+/// for [`Surface::render_snapshot`].
+#[cfg(skia_backend_wgpu)]
+pub(crate) fn render_snapshot_on_gpu(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    size: PhysicalWindowSize,
+    render: &mut dyn FnMut(
+        &skia_safe::Canvas,
+        &mut skia_safe::gpu::DirectContext,
+    ) -> Result<(), PlatformError>,
+) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+    let target_info = image_info(
+        (size.width as i32, size.height as i32),
+        skia_safe::ColorType::RGBA8888,
+        skia_safe::AlphaType::Premul,
+    );
+    let mut target = skia_safe::gpu::surfaces::render_target(
+        gr_context,
+        skia_safe::gpu::Budgeted::No,
+        &target_info,
+        None,
+        skia_safe::gpu::SurfaceOrigin::TopLeft,
+        None,
+        false,
+        None,
+    )
+    .ok_or_else(|| PlatformError::from("Failed to create a Skia GPU surface for the snapshot"))?;
+
+    render(target.canvas(), gr_context)?;
+
+    read_snapshot_pixels(&mut target, size)
+}
+
+fn read_snapshot_pixels(
+    target: &mut skia_safe::Surface,
+    size: PhysicalWindowSize,
+) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
+    let mut pixels =
+        SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(size.width, size.height);
+    // `Rgba8Pixel` is straight alpha, so Skia unpremultiplies while reading back.
+    if !target.read_pixels(
+        &target.image_info().with_alpha_type(skia_safe::AlphaType::Unpremul),
+        pixels.make_mut_bytes(),
+        size.width as usize * 4,
+        (0, 0),
+    ) {
+        return Err("Failed to read the snapshot back from the Skia surface".into());
+    }
+    Ok(pixels)
+}
+
 #[cfg(skia_backend_wgpu)]
 fn default_wgpu_surface_factory(
     context: &SkiaSharedContext,
@@ -167,23 +218,27 @@ fn default_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "wgpu-30")] {
+    core::cfg_select! {
+        feature = "wgpu-30" => {
             surface_factory::<wgpu_30_surface::WGPUSurface>(
                 context,
                 window_handle,
                 display_handle,
                 size,
                 requested_graphics_api,
+                transparent,
             )
-        } else {
+        }
+        _ => {
             surface_factory::<wgpu_29_surface::WGPUSurface>(
                 context,
                 window_handle,
                 display_handle,
                 size,
                 requested_graphics_api,
+                transparent,
             )
         }
     }
@@ -196,6 +251,7 @@ fn metal_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     default_wgpu_surface_factory(
         context,
@@ -203,6 +259,7 @@ fn metal_wgpu_surface_factory(
         display_handle,
         size,
         Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Metal)),
+        transparent,
     )
 }
 
@@ -213,6 +270,7 @@ fn vulkan_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     default_wgpu_surface_factory(
         context,
@@ -220,6 +278,7 @@ fn vulkan_wgpu_surface_factory(
         display_handle,
         size,
         Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Vulkan)),
+        transparent,
     )
 }
 
@@ -230,6 +289,7 @@ fn direct3d_wgpu_surface_factory(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     default_wgpu_surface_factory(
         context,
@@ -237,6 +297,7 @@ fn direct3d_wgpu_surface_factory(
         display_handle,
         size,
         Some(requested_graphics_api.unwrap_or(RequestedGraphicsAPI::Direct3D)),
+        transparent,
     )
 }
 
@@ -247,6 +308,7 @@ fn create_default_surface(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
     #[cfg(feature = "unstable-wgpu-29")]
     if matches!(requested_graphics_api, Some(RequestedGraphicsAPI::WGPU29(..))) {
@@ -257,6 +319,7 @@ fn create_default_surface(
             display_handle,
             size,
             requested_graphics_api,
+            transparent,
         );
     }
     #[cfg(feature = "unstable-wgpu-30")]
@@ -268,6 +331,7 @@ fn create_default_surface(
             display_handle,
             size,
             requested_graphics_api,
+            transparent,
         );
     }
 
@@ -294,6 +358,7 @@ fn create_default_surface(
             display_handle.clone(),
             size,
             requested_graphics_api.clone(),
+            transparent,
         ) {
             Ok(surface) => return Ok(surface),
             Err(err) => {
@@ -368,6 +433,7 @@ pub struct SkiaSharedContext(#[allow(dead_code)] Rc<SkiaSharedContextInner>);
 pub struct SkiaRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    has_rendering_notifier: Cell<bool>,
     image_cache: ItemCache<Option<skia_safe::Image>>,
     layer_cache: ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
@@ -392,6 +458,7 @@ type SurfaceFactoryFn = fn(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError>;
 
 /// Creates a boxed surface of the concrete type `S`, in the shape of [`SurfaceFactoryFn`].
@@ -401,8 +468,9 @@ fn surface_factory<S: Surface + 'static>(
     display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
     size: PhysicalWindowSize,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
+    transparent: bool,
 ) -> Result<Box<dyn Surface>, PlatformError> {
-    S::new(context, window_handle, display_handle, size, requested_graphics_api)
+    S::new(context, window_handle, display_handle, size, requested_graphics_api, transparent)
         .map(|r| Box::new(r) as Box<dyn Surface>)
 }
 
@@ -415,6 +483,7 @@ impl SkiaRenderer {
         Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
+            has_rendering_notifier: Default::default(),
             image_cache: Default::default(),
             layer_cache: Default::default(),
             path_cache: Default::default(),
@@ -512,6 +581,7 @@ impl SkiaRenderer {
     }
 
     /// Creates a new renderer is associated with the provided window adapter.
+    #[cfg(skia_windowed)]
     pub fn new(
         context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Send + Sync>,
@@ -520,7 +590,7 @@ impl SkiaRenderer {
     ) -> Result<Self, PlatformError> {
         Ok(Self::new_with_surface(
             context,
-            create_default_surface(context, window_handle, display_handle, size, None)?,
+            create_default_surface(context, window_handle, display_handle, size, None, false)?,
         ))
     }
 
@@ -531,7 +601,7 @@ impl SkiaRenderer {
     ) -> Self {
         let renderer = Self::new_with_surface_factory(
             context,
-            |_, _, _, _, _| {
+            |_, _, _, _, _, _| {
                 Err("Skia renderer constructed with surface does not support dynamic surface re-creation".into())
             },
             create_partial_renderer_state(Some(surface.as_ref())),
@@ -541,32 +611,50 @@ impl SkiaRenderer {
         renderer
     }
 
-    /// Reset the surface to a new surface. (destroy the previously set surface if any)
-    pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
+    /// Returns true if the current surface will be presented with transparency enabled
+    /// See [`Surface::presentation_may_use_transparency`].
+    pub fn presentation_may_use_transparency(&self) -> bool {
+        // Called from the window procedure, which Windows can enter while the surface is borrowed.
+        self.surface.try_borrow().ok().is_some_and(|surface| {
+            surface.as_ref().is_some_and(|surface| surface.presentation_may_use_transparency())
+        })
+    }
+
+    /// Releases every cache that holds a GPU-backed resource.
+    fn clear_graphics_caches(&self) {
         self.image_cache.clear_all();
+        self.layer_cache.clear_all();
         self.path_cache.clear_all();
         self.box_shadow_cache.clear();
         self.text_layout_cache.clear_all();
+    }
+
+    /// Reset the surface to a new surface. (destroy the previously set surface if any)
+    pub fn set_surface(&self, surface: Box<dyn Surface + 'static>) {
+        self.clear_graphics_caches();
         self.rendering_first_time.set(true);
         *self.surface.borrow_mut() = Some(surface);
     }
 
+    /// Releases the graphics caches and destroys the surface.
     fn clear_surface(&self) {
+        self.clear_graphics_caches();
+
         let Some(surface) = self.surface.borrow_mut().take() else {
             return;
         };
 
         // If we've rendered a frame before, then we need to invoke the RenderingTearDown notifier.
-        if !self.rendering_first_time.get()
-            && let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
-        {
-            surface
-                .with_active_surface(&mut || {
-                    surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::RenderingTeardown, &api)
+        if !self.rendering_first_time.get() {
+            self.with_rendering_notifier(|callback| {
+                surface
+                    .with_active_surface(&mut || {
+                        surface.with_graphics_api(&mut |api| {
+                            callback.notify(RenderingState::RenderingTeardown, &api)
+                        })
                     })
-                })
-                .ok();
+                    .ok();
+            });
         }
 
         drop(surface);
@@ -576,10 +664,6 @@ impl SkiaRenderer {
     /// rendering surface. Call [`Self::set_window_handle()`] to re-associate the renderer with a new
     /// window surface for subsequent rendering.
     pub fn suspend(&self) -> Result<(), PlatformError> {
-        self.image_cache.clear_all();
-        self.path_cache.clear_all();
-        self.box_shadow_cache.clear();
-        self.text_layout_cache.clear_all();
         // Destroy the old surface before allocating the new one, to work around
         // the vivante drivers using zwp_linux_explicit_synchronization_v1 and
         // trying to create a second synchronization object and that's not allowed.
@@ -604,8 +688,8 @@ impl SkiaRenderer {
             display_handle,
             size,
             requested_graphics_api,
+            transparent,
         )?;
-        surface.set_transparent(transparent)?;
         self.set_surface(surface);
         Ok(())
     }
@@ -619,11 +703,18 @@ impl SkiaRenderer {
         }
     }
 
+    /// Drops the GPU resources Skia caches, so that the next frame uploads glyphs and images again.
+    pub fn free_gpu_resources(&self) {
+        if let Some(surface) = self.surface.borrow().as_ref() {
+            surface.free_gpu_resources();
+        }
+    }
+
     /// Render the scene in the previously associated window.
     pub fn render(&self) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
         let size = window_adapter.window().size();
-        self.internal_render_with_post_callback(0., (0., 0.), size, None)
+        self.internal_render_transformed(0., (0., 0.), size)
     }
 
     fn invoke_rendering_notifier_setup(
@@ -638,21 +729,20 @@ impl SkiaRenderer {
                     surface.bits_per_pixel()?
                 ));
 
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            self.with_rendering_notifier(|callback| {
                 surface.with_graphics_api(&mut |api| {
                     callback.notify(RenderingState::RenderingSetup, &api)
                 })
-            }
+            });
         }
         Ok(())
     }
 
-    fn internal_render_with_post_callback(
+    fn internal_render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let surface = self.surface.borrow();
         let Some(surface) = surface.as_ref() else { return Ok(DrawOutcome::Success) };
@@ -673,7 +763,7 @@ impl SkiaRenderer {
                     back_buffer_age,
                     Some(surface.as_ref()),
                     window,
-                    post_render_cb,
+                    true,
                 )
             },
             &self.pre_present_callback,
@@ -689,8 +779,8 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Option<DirtyRegion> {
+        invoke_rendering_notifier: bool,
+    ) -> Result<Option<DirtyRegion>, PlatformError> {
         skia_canvas.rotate(rotation_angle_degrees, None);
         skia_canvas.translate(translation);
 
@@ -704,18 +794,19 @@ impl SkiaRenderer {
                     back_buffer_age,
                     surface,
                     window,
-                    post_render_cb,
+                    invoke_rendering_notifier,
                     components,
                     post_render,
                 )
             })
-            .unwrap_or_default();
+            .unwrap_or(Ok(None));
 
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut()
-            && let Some(surface) = surface
-        {
-            surface
-                .with_graphics_api(&mut |api| callback.notify(RenderingState::AfterRendering, &api))
+        if invoke_rendering_notifier && let Some(surface) = surface {
+            self.with_rendering_notifier(|callback| {
+                surface.with_graphics_api(&mut |api| {
+                    callback.notify(RenderingState::AfterRendering, &api)
+                })
+            });
         }
 
         dirty_region
@@ -728,10 +819,10 @@ impl SkiaRenderer {
         back_buffer_age: u8,
         surface: Option<&dyn Surface>,
         window: &i_slint_core::api::Window,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+        invoke_rendering_notifier: bool,
         components: &[(ItemTreeWeak, LogicalPoint)],
         post_render: &dyn Fn(&mut dyn ItemRenderer),
-    ) -> Option<DirtyRegion> {
+    ) -> Result<Option<DirtyRegion>, PlatformError> {
         let window_inner = WindowInner::from_pub(window);
         let window_adapter = window_inner.window_adapter();
 
@@ -827,9 +918,14 @@ impl SkiaRenderer {
             if let Some(window_item_rc) = window_inner.window_item_rc() {
                 let window_item =
                     window_item_rc.downcast::<i_slint_core::items::WindowItem>().unwrap();
-                if let Brush::SolidColor(clear_color) = window_item.as_pin_ref().background() {
+                let background = window_item.as_pin_ref().background();
+                if let Brush::SolidColor(clear_color) = background {
                     skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
                 } else {
+                    // The gradient blends over what the target holds, which may be undefined.
+                    if !background.is_opaque() {
+                        skia_canvas.clear(skia_safe::Color::TRANSPARENT);
+                    }
                     // Draws the window background as gradient
                     item_renderer.draw_rectangle(
                         window_item.as_pin_ref(),
@@ -842,18 +938,20 @@ impl SkiaRenderer {
                 }
             }
 
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            if invoke_rendering_notifier && self.has_rendering_notifier.get() {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
                 if let Some(ctx) = gr_context.as_mut() {
-                    ctx.flush(None);
+                    ctx.flush(None).map_err(|err| format!("Skia renderer: {err}"))?;
                 }
 
                 if let Some(surface) = surface {
-                    surface.with_graphics_api(&mut |api| {
-                        callback.notify(RenderingState::BeforeRendering, &api)
-                    })
+                    self.with_rendering_notifier(|callback| {
+                        surface.with_graphics_api(&mut |api| {
+                            callback.notify(RenderingState::BeforeRendering, &api)
+                        })
+                    });
                 }
             }
 
@@ -888,17 +986,13 @@ impl SkiaRenderer {
                     partial_rendering_state.force_screen_refresh();
                 }
             }
-
-            if let Some(cb) = post_render_cb.as_ref() {
-                cb(item_renderer)
-            }
         }
 
         if let Some(ctx) = gr_context.as_mut() {
-            ctx.flush(None);
+            ctx.flush(None).map_err(|err| format!("Skia renderer: {err}"))?;
         }
 
-        dirty_region
+        Ok(dirty_region)
     }
 
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -913,13 +1007,16 @@ impl SkiaRenderer {
         *self.pre_present_callback.borrow_mut() = callback;
     }
 
+    /// Calls `f` with the rendering notifier, unless none is set or it's already running.
+    fn with_rendering_notifier(&self, f: impl FnOnce(&mut dyn RenderingNotifier)) {
+        let Some(mut notifier) = self.rendering_notifier.take() else { return };
+        f(notifier.as_mut());
+        *self.rendering_notifier.borrow_mut() = Some(notifier);
+    }
+
     fn partial_rendering_state(&self) -> Option<&PartialRenderingState> {
         // We don't know where the application might render to, so disable partial rendering.
-        if self.rendering_notifier.borrow().is_some() {
-            None
-        } else {
-            self.partial_rendering_state.as_ref()
-        }
+        if self.has_rendering_notifier.get() { None } else { self.partial_rendering_state.as_ref() }
     }
 }
 
@@ -932,12 +1029,11 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         &self,
         callback: Box<dyn RenderingNotifier>,
     ) -> std::result::Result<(), SetRenderingNotifierError> {
-        let mut notifier = self.rendering_notifier.borrow_mut();
-        if notifier.replace(callback).is_some() {
-            Err(SetRenderingNotifierError::AlreadySet)
-        } else {
-            Ok(())
+        if self.has_rendering_notifier.replace(true) {
+            return Err(SetRenderingNotifierError::AlreadySet);
         }
+        *self.rendering_notifier.borrow_mut() = Some(callback);
+        Ok(())
     }
 
     fn free_graphics_resources(
@@ -946,6 +1042,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.image_cache.component_destroyed(component);
+        self.layer_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
         self.text_layout_cache.component_destroyed(component);
 
@@ -958,10 +1055,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
-        self.image_cache.clear_all();
-        self.path_cache.clear_all();
-        self.box_shadow_cache.clear();
-        self.text_layout_cache.clear_all();
+        self.clear_graphics_caches();
 
         if let Some(partial_rendering_state) = self.partial_rendering_state() {
             partial_rendering_state.clear_cache();
@@ -987,32 +1081,47 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         }
     }
 
-    /// Returns an image buffer with the contents of the window, obtained by re-rendering the scene into a CPU-side surface.
+    /// Returns an image buffer with the contents of the window, obtained by re-rendering the scene,
+    /// on the GPU if the surface supports it, otherwise into a CPU-side surface.
     fn take_snapshot(
         &self,
     ) -> Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError> {
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
         let size = window_adapter.window().size();
-        let (width, height) = (size.width, size.height);
-        let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::new(width, height);
 
-        let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
+        if let Some(surface) = self.surface.borrow().as_deref()
+            && let Some(snapshot) = surface.render_snapshot(size, &mut |canvas, gr_context| {
+                self.render_to_canvas(
+                    canvas,
+                    0.,
+                    (0., 0.),
+                    Some(gr_context),
+                    0,
+                    Some(surface),
+                    window,
+                    false,
+                )
+                .map(|_| ())
+            })
+        {
+            return snapshot;
+        }
+
+        let mut target = skia_safe::surfaces::raster(
             &image_info(
-                (width as i32, height as i32),
+                (size.width as i32, size.height as i32),
                 skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Opaque,
+                skia_safe::AlphaType::Premul,
             ),
-            target_buffer.make_mut_bytes(),
             None,
             None,
         )
-        .ok_or_else(|| "Error wrapping target buffer for rendering into with Skia".to_string())?;
+        .ok_or_else(|| "Error creating a Skia surface for the snapshot".to_string())?;
 
-        self.render_to_canvas(surface_borrow.canvas(), 0., (0.0, 0.0), None, 0, None, window, None);
+        self.render_to_canvas(target.canvas(), 0., (0.0, 0.0), None, 0, None, window, false)?;
 
-        Ok(target_buffer)
+        read_snapshot_pixels(&mut target, size)
     }
 
     fn mark_dirty_region(&self, region: DirtyRegion) {
@@ -1036,12 +1145,14 @@ impl Drop for SkiaRenderer {
 /// with a metal layer, a wayland window with an OpenGL context, etc.
 pub trait Surface {
     /// Creates a new surface with the given window, display, and size.
+    /// `transparent` selects whether the window shows what's behind it where the scene has alpha.
     fn new(
         shared_context: &SkiaSharedContext,
         window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Sync + Send>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        transparent: bool,
     ) -> Result<Self, PlatformError>
     where
         Self: Sized;
@@ -1070,7 +1181,7 @@ pub trait Surface {
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
             u8,
-        ) -> Option<DirtyRegion>,
+        ) -> Result<Option<DirtyRegion>, PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.
@@ -1101,39 +1212,56 @@ pub trait Surface {
         None
     }
 
+    /// Renders a snapshot of the window on the GPU, with `render_callback` drawing the scene.
+    /// Unlike a snapshot rendered on the CPU, it includes the textures the surface imports,
+    /// such as imported WGPU textures.
+    /// Returns `None` if the surface doesn't render on the GPU.
+    fn render_snapshot(
+        &self,
+        _size: PhysicalWindowSize,
+        _render_callback: &mut dyn FnMut(
+            &skia_safe::Canvas,
+            &mut skia_safe::gpu::DirectContext,
+        ) -> Result<(), PlatformError>,
+    ) -> Option<Result<SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>, PlatformError>> {
+        None
+    }
+
     /// Implementations should return self to allow upcasting.
     fn as_any(&self) -> &dyn core::any::Any {
         &()
     }
 
+    /// Returns whether the OS composites this surface with its alpha channel,
+    /// so that transparent pixels show what's behind the window.
+    fn presentation_may_use_transparency(&self) -> bool {
+        false
+    }
+
     fn set_transparent(&self, _: bool) -> Result<(), PlatformError> {
         Ok(())
     }
+
+    /// Drops the GPU resources Skia caches, such as glyph atlases and uploaded images.
+    fn free_gpu_resources(&self) {}
 }
 
 pub trait SkiaRendererExt {
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
 }
 
 impl SkiaRendererExt for SkiaRenderer {
-    fn render_transformed_with_post_callback(
+    fn render_transformed(
         &self,
         rotation_angle_degrees: f32,
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
-        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
-        self.internal_render_with_post_callback(
-            rotation_angle_degrees,
-            translation,
-            surface_size,
-            post_render_cb,
-        )
+        self.internal_render_transformed(rotation_angle_degrees, translation, surface_size)
     }
 }

@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Issue #6237: the loop goes through two aliases, like the deprecated `viewport-width` of the
+// std-widgets ScrollView.
+
+component ScrollView {
+    in-out property <length> content-width <=> flickable.content-width;
+    in-out property <length> viewport-width <=> content-width;
+
+    flickable := Flickable {
+//               >        <error{The binding for the property 'content-width' is part of a binding loop (flickable.content-width -> flickable-content.width -> v.width -> flickable.content-width)}
+        @children
+    }
+}
+
+export component TestCase inherits Window {
+    ScrollView {
+        viewport-width: v.width;
+        v := VerticalLayout { }
+    }
+}

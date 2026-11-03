@@ -6,12 +6,11 @@
 use std::{
     collections::VecDeque,
     net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
-    rc::Rc,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use crate::preview_sessions::{PreviewSession, PreviewSessionEvent, PreviewSessionHandle};
+use crate::preview_sessions::PreviewSessionHandle;
 use crate::protocol::pairing::{
     self, CODE_TIMEOUT, MAX_ATTEMPTS, PROMPT_RATE_LIMIT, PairingRejection, Token, TokenId,
 };
@@ -403,18 +402,24 @@ async fn next_message(receiver: &mut Source, timeout: Duration) -> Option<LspToP
 }
 
 impl Connection {
-    pub async fn listen(
+    /// Listen, feeding the session behind `session_handle`, which may run on another
+    /// thread. That thread builds its session on [`Self::preview_to_lsp()`].
+    pub async fn listen_with_session_handle(
         address: Option<SocketAddr>,
         device_name_override: Option<String>,
         pairing_policy: PairingPolicy,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
-        preview_event_handler: impl Fn(PreviewSessionEvent) + 'static,
-    ) -> anyhow::Result<(Self, Rc<PreviewSession>)> {
+        session_handle: PreviewSessionHandle,
+    ) -> anyhow::Result<Self> {
+        if let PairingPolicy::Fixed(code) = &pairing_policy {
+            anyhow::ensure!(
+                pairing::is_valid_code(code),
+                "A pinned pairing code must be {} to {} digits",
+                pairing::CODE_DIGITS,
+                pairing::MAX_CODE_DIGITS
+            );
+        }
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
-        let (preview_session, session_handle) = PreviewSession::start(
-            Rc::new(ConnectionPreviewToLsp(message_sender.clone())),
-            preview_event_handler,
-        );
 
         let inner_message_sender = message_sender.clone();
         let inner_session_handle = session_handle.clone();
@@ -512,6 +517,10 @@ impl Connection {
                                 opening,
                             ));
                             current_session = Some((sink, handle, sealing));
+                            encode_and_send(&inner_message_sender, &PreviewToLspMessage::RequestState {
+                                files: Vec::new(),
+                                settings: Vec::new(),
+                            }).ok();
                         }
                         _ = &mut quit_receiver => {
                             tracing::info!("Quit signal received, shutting down connection thread.");
@@ -529,13 +538,29 @@ impl Connection {
                                         }
                                     },
                                 };
-                                if let Some(frame) = frame
-                                    && let Err(err) = sink.send(frame).await {
-                                    tracing::error!("Failed sending message to Websocket: {err}");
+                                if let Some(frame) = frame {
+                                    tokio::select! {
+                                        result = sink.send(frame) => {
+                                            if let Err(error) = result {
+                                                tracing::error!("Failed sending message to Websocket: {error}");
+                                            }
+                                        }
+                                        _ = &mut quit_receiver => break 'listen,
+                                    }
                                 }
                             }
                         }
                     }
+                }
+                if let Some((mut sink, reader, _)) = current_session {
+                    let _ = tokio::time::timeout(
+                        Duration::from_secs(1),
+                        sink.send(Message::Close(Some(CloseFrame {
+                            code: CloseCode::Normal,
+                            reason: "".into(),
+                        }))),
+                    ).await;
+                    reader.abort();
                 }
             });
         });
@@ -548,15 +573,18 @@ impl Connection {
                 device_name_override.filter(|n| !n.is_empty()).unwrap_or_else(default_device_name);
             if raw.is_empty() { ip_derived_device_name(&local_ips_for(local_addr)) } else { raw }
         };
-        Ok((
-            Self {
-                local_addr,
-                thread_handle: Some((thread_handle, quit_sender)),
-                message_sender,
-                device_name: Mutex::new(device_name),
-            },
-            preview_session,
-        ))
+        Ok(Self {
+            local_addr,
+            thread_handle: Some((thread_handle, quit_sender)),
+            message_sender,
+            device_name: Mutex::new(device_name),
+        })
+    }
+
+    /// The sink a [`crate::preview_sessions::PreviewSession`] answers the editor
+    /// through. It is `Send`, so a session on another thread can be built on it.
+    pub fn preview_to_lsp(&self) -> impl PreviewToLsp + Send + use<> {
+        ConnectionPreviewToLsp(self.message_sender.clone())
     }
 
     /// Friendly device name to advertise over mDNS and show in the viewer UI.
@@ -697,6 +725,8 @@ impl Connection {
             PairingPolicy::Fixed(code) => code.clone(),
             _ => pairing::generate::code(),
         };
+        let code_digits = u8::try_from(code.len())
+            .expect("listen_with_session_handle refuses pinned codes that fail is_valid_code");
 
         // From here on the prompt is up, so every exit has to take it down.
         let mut guard = PromptGuard::begin(pairing_state, message_handler, remote_addr, &code)
@@ -716,6 +746,7 @@ impl Connection {
                 &PreviewToLspMessage::PairingRequired {
                     attempts_left,
                     expires_in_seconds: remaining().as_secs() as u16,
+                    code_digits,
                     element: handshake.element().clone(),
                 },
             )
@@ -914,10 +945,11 @@ fn local_ips_for(local_addr: SocketAddr) -> Vec<IpAddr> {
         SocketAddr::V6(socket_addr_v6) => socket_addr_v6.ip().is_unspecified(),
     };
     if unspecified {
-        let mut ips: Vec<IpAddr> = getifs::interface_addrs_by_filter(|addr| !addr.is_loopback())
+        let mut ips: Vec<IpAddr> = if_addrs::get_if_addrs()
             .unwrap_or_default()
             .into_iter()
-            .map(|net| net.addr())
+            .filter(|interface| !interface.is_loopback())
+            .map(|interface| interface.ip())
             .collect();
         if ips.is_empty() {
             // Fallback: open a UDP socket to a public address (nothing is
@@ -1177,13 +1209,18 @@ mod cool_down_tests {
 #[cfg(test)]
 mod session_tests {
     use super::{Connection, ConnectionMessage, MAX_PENDING_ADMISSIONS, PairingPolicy};
+    use crate::preview_sessions::{
+        PreviewCompilation, PreviewSession, PreviewSessionCommands, PreviewSessionHandle,
+    };
     use crate::protocol::pairing::{self, MAX_ATTEMPTS, Token, TokenId};
     use crate::protocol::session;
     use crate::protocol::{
         LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
     };
+    use crate::protocol::{PreviewComponent, VersionedUrl, lsp_types};
     use futures_util::{SinkExt as _, StreamExt as _};
-    use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+    use std::rc::Rc;
+    use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
     use tokio_tungstenite::tungstenite::{
         Message,
         client::IntoClientRequest as _,
@@ -1203,21 +1240,69 @@ mod session_tests {
         events: UnboundedReceiver<ConnectionMessage>,
     }
 
-    impl Viewer {
+    /// A preview session running on a thread of its own, as the real remote viewer
+    /// does. `compile` asks the worker for a build, `compiled` answers.
+    struct ThreadedPreviewSession {
+        viewer: Viewer,
+        compile: UnboundedSender<PreviewComponent>,
+        compiled: UnboundedReceiver<PreviewCompilation>,
+    }
+
+    impl ThreadedPreviewSession {
         async fn start(policy: PairingPolicy) -> Self {
+            let (viewer, session_commands) = Viewer::start_detached(policy).await;
+            let connection = &viewer.connection;
+
+            let (compile, mut compile_receiver) = unbounded_channel::<PreviewComponent>();
+            let (compiled_sender, compiled) = unbounded_channel();
+            let to_editor = connection.preview_to_lsp();
+            std::thread::spawn(move || {
+                let runtime =
+                    tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+                let local_set = tokio::task::LocalSet::new();
+                runtime.block_on(local_set.run_until(async move {
+                    let session =
+                        PreviewSession::start_with(session_commands, Rc::new(to_editor), |_| {});
+                    while let Some(component) = compile_receiver.recv().await {
+                        let compilation = session.compile_component(&component).await;
+                        if compiled_sender.send(compilation).is_err() {
+                            break;
+                        }
+                    }
+                }));
+            });
+
+            Self { viewer, compile, compiled }
+        }
+    }
+
+    impl Viewer {
+        /// Listen without a session, leaving the caller to run one wherever it wants.
+        async fn start_detached(policy: PairingPolicy) -> (Self, PreviewSessionCommands) {
             let (sender, events) = unbounded_channel();
-            let (connection, _preview_session) = Connection::listen(
+            let (session_handle, session_commands) = PreviewSessionHandle::new();
+            let connection = Connection::listen_with_session_handle(
                 Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
                 None,
                 policy,
                 move |message| {
                     let _ = sender.send(message);
                 },
-                |_| {},
+                session_handle,
             )
             .await
             .unwrap();
-            Self { connection, events }
+            (Self { connection, events }, session_commands)
+        }
+
+        async fn start(policy: PairingPolicy) -> Self {
+            let (viewer, session_commands) = Self::start_detached(policy).await;
+            PreviewSession::start_with(
+                session_commands,
+                Rc::new(viewer.connection.preview_to_lsp()),
+                |_| {},
+            );
+            viewer
         }
 
         /// Open a socket and complete the WebSocket handshake, stopping short
@@ -1370,6 +1455,15 @@ mod session_tests {
     }
 
     impl Paired {
+        async fn admitted(client: Client, secrets: &pairing::Secrets) -> Self {
+            let (sealing, opening) = secrets.session();
+            let mut paired = Self { client, sealing, opening };
+            assert!(
+                matches!(paired.recv().await, Some(PreviewToLspMessage::RequestState { files, settings }) if files.is_empty() && settings.is_empty())
+            );
+            paired
+        }
+
         async fn send(&mut self, message: &LspToPreviewMessage) {
             let bytes = postcard::to_allocvec(message).unwrap();
             let sealed = self.sealing.seal(bytes).unwrap();
@@ -1389,8 +1483,8 @@ mod session_tests {
         let (mut client, element) = knock(viewer).await;
         let code = viewer.next_code().await;
         let secrets = answer_code(&mut client, &code, &element).await.expect("accepted");
-        let (sealing, opening) = secrets.session();
-        (Paired { client, sealing, opening }, secrets)
+        let paired = Paired::admitted(client, &secrets).await;
+        (paired, secrets)
     }
 
     /// Dial again and run the token exchange, as a reconnecting editor would.
@@ -1403,8 +1497,7 @@ mod session_tests {
         };
         let handshake = pairing::Handshake::with_token(pairing::Role::Editor, &secrets.token);
         let fresh = answer_with(&mut client, handshake, &element).await.expect("accepted");
-        let (sealing, opening) = fresh.session();
-        Paired { client, sealing, opening }
+        Paired::admitted(client, &fresh).await
     }
 
     macro_rules! local_test {
@@ -1415,6 +1508,34 @@ mod session_tests {
             }
         };
     }
+
+    local_test!(viewer_shutdown_sends_normal_websocket_close, {
+        for policy in [PairingPolicy::Generated, PairingPolicy::Disabled] {
+            let paired = policy == PairingPolicy::Generated;
+            let mut viewer = Viewer::start(policy).await;
+            let mut client = if paired {
+                pair(&mut viewer).await.0.client
+            } else {
+                let mut client = viewer.dial().await;
+                hello(&mut client, None).await;
+                assert!(matches!(
+                    recv(&mut client).await,
+                    Some(PreviewToLspMessage::PairingAccepted)
+                ));
+                assert!(matches!(
+                    recv(&mut client).await,
+                    Some(PreviewToLspMessage::RequestState { .. })
+                ));
+                client
+            };
+            drop(viewer);
+            let frame =
+                tokio::time::timeout(REPLY_TIMEOUT, client.next()).await.unwrap().unwrap().unwrap();
+            assert!(
+                matches!(frame, Message::Close(Some(frame)) if frame.code == tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode::Normal)
+            );
+        }
+    });
 
     local_test!(correct_code_is_accepted_and_session_works, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
@@ -1432,6 +1553,77 @@ mod session_tests {
         client.send(&LspToPreviewMessage::Ping).await;
         assert!(matches!(client.recv().await, Some(PreviewToLspMessage::Pong)));
     });
+
+    /// The seam the remote viewer uses: the session compiles on its own thread and the
+    /// result crosses back to the thread that instantiates.
+    /// The editor may run on another OS, so its URLs needn't be native paths here (#13674).
+    #[tokio::test]
+    async fn a_session_on_another_thread_compiles_and_sends_the_result_back() {
+        /// A 1x1 grayscale PNG.
+        const PNG: &[u8] = &[
+            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x00, 0x00, 0x00,
+            0x00, 0x3a, 0x7e, 0x9b, 0x55, 0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9c, 0x63, 0x60, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x48, 0xaf, 0xa4, 0x71, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+        ];
+
+        let mut session = ThreadedPreviewSession::start(PairingPolicy::Disabled).await;
+        let mut client = session.viewer.dial().await;
+        hello(&mut client, None).await;
+
+        let dir = lsp_types::Url::parse("file:///mnt/remote%20project/ui/").unwrap();
+        let url = dir.join("app.slint").unwrap();
+        let imported = dir.join("value.slint").unwrap();
+        let image = dir.join("image.png").unwrap();
+        for (url, contents) in [
+            (&imported, "export global Value { out property <int> value: 42; }"),
+            (
+                &url,
+                "import { Value } from \"value.slint\"; export component App { out property <int> value: Value.value; Image { source: @image-url(\"image.png\"); } }",
+            ),
+        ] {
+            send(
+                &mut client,
+                &LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(url.clone(), None),
+                    contents: contents.as_bytes().to_vec(),
+                },
+            )
+            .await;
+        }
+        session.compile.send(PreviewComponent { url, component: None }).unwrap();
+
+        loop {
+            match recv(&mut client).await {
+                Some(PreviewToLspMessage::RequestState { files, .. }) if files.contains(&image) => {
+                    break;
+                }
+                // The worker may ask for sources before the session has taken their contents.
+                Some(
+                    PreviewToLspMessage::RequestState { .. } | PreviewToLspMessage::PairingAccepted,
+                ) => {}
+                message => panic!("expected the viewer to ask for the image, got {message:?}"),
+            }
+        }
+        send(
+            &mut client,
+            &LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(image, None),
+                contents: PNG.to_vec(),
+            },
+        )
+        .await;
+
+        let compilation = tokio::time::timeout(REPLY_TIMEOUT, session.compiled.recv())
+            .await
+            .expect("the worker never answered")
+            .expect("the worker hung up");
+        let PreviewCompilation::Ready(compiled) = compilation else {
+            panic!("expected the source to compile");
+        };
+        assert!(compiled.component_definition().is_some());
+    }
 
     local_test!(wrong_code_burns_attempts_then_closes, {
         let mut viewer = Viewer::start(PairingPolicy::Generated).await;
@@ -1712,12 +1904,45 @@ mod session_tests {
         answer_code(&mut client, "1357", &element).await.expect("accepted");
     });
 
+    #[tokio::test]
+    async fn an_invalid_fixed_code_is_refused_at_listen() {
+        for code in ["123", "1234567890123", "12a4"] {
+            let (session_handle, _session_commands) = PreviewSessionHandle::new();
+            let result = Connection::listen_with_session_handle(
+                Some(std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
+                None,
+                PairingPolicy::Fixed(code.into()),
+                |_| {},
+                session_handle,
+            )
+            .await;
+            assert!(result.is_err(), "{code} was accepted");
+        }
+    }
+
+    local_test!(a_longer_fixed_code_announces_its_length, {
+        let viewer = Viewer::start(PairingPolicy::Fixed("135792468".into())).await;
+        let mut client = viewer.dial().await;
+        hello(&mut client, None).await;
+        let Some(PreviewToLspMessage::PairingRequired { code_digits, element, .. }) =
+            recv(&mut client).await
+        else {
+            panic!("expected a code prompt");
+        };
+        assert_eq!(code_digits, 9);
+
+        answer_code(&mut client, "135792468", &element).await.expect("accepted");
+    });
+
     local_test!(pairing_disabled_admits_without_a_code, {
         let mut viewer = Viewer::start(PairingPolicy::Disabled).await;
         let mut client = viewer.dial().await;
         hello(&mut client, None).await;
 
         assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)));
+        assert!(
+            matches!(recv(&mut client).await, Some(PreviewToLspMessage::RequestState { files, settings }) if files.is_empty() && settings.is_empty())
+        );
         assert!(matches!(viewer.next_event().await, ConnectionMessage::Connected { .. }));
     });
 

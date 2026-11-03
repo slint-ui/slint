@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A wheel scroll that starts while the content is past its limit (#14350).
+// Moving further away used to fail a debug assertion,
+// or leave the content past its end in a release build.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 400px;
+
+    fli := Flickable {
+        width: parent.width;
+        height: parent.height;
+        content-width: 1500px;
+        content-height: 2000px;
+    }
+
+    in-out property fli_width <=> fli.width;
+    in-out property fli_height <=> fli.height;
+    in-out property fli_content_width <=> fli.content_width;
+    in-out property fli_content_height <=> fli.content_height;
+    in-out property fli_content_x <=> fli.content_x;
+    in-out property fli_content_y <=> fli.content_y;
+}
+
+/*
+```rust
+use slint::platform::WindowEvent;
+use slint_testing::{AutoBool, BackendMouseEvent, LogicalPoint, TouchPhase};
+
+// A mouse wheel tick has no phase, so no platform velocity tracker is involved.
+fn wheel(instance: &TestCase, delta_x: f32, delta_y: f32) {
+    instance.window().dispatch_event(WindowEvent::internal(BackendMouseEvent::Wheel {
+        position: LogicalPoint::new(150., 200.),
+        delta_x,
+        delta_y,
+        phase: TouchPhase::Moved,
+    }));
+}
+
+fn with_bounce(bounce: AutoBool) -> TestCase {
+    let instance = TestCase::new().unwrap();
+    let flickable = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::fli")
+        .next()
+        .unwrap();
+    slint_testing::set_flickable_physics(&flickable, bounce, AutoBool::Off);
+    instance
+}
+
+fn end_y(instance: &TestCase) -> f32 {
+    instance.get_fli_height() - instance.get_fli_content_height()
+}
+
+fn end_x(instance: &TestCase) -> f32 {
+    instance.get_fli_width() - instance.get_fli_content_width()
+}
+
+const SETTLE: u64 = 100000;
+
+// Without bounce: the content shrinks while a wheel animation runs,
+// which leaves the content past its end. A tick down springs back.
+// Both waits are shorter than WHEEL_SCROLL_DURATION (180 ms),
+// so the animation keeps the content from being clamped when it shrinks.
+let instance = with_bounce(AutoBool::Off);
+wheel(&instance, 0., -100.);
+slint_testing::mock_elapsed_time(80);
+wheel(&instance, 0., 40.);
+instance.set_fli_content_height(430.);
+slint_testing::mock_elapsed_time(100);
+assert!(instance.get_fli_content_y() < end_y(&instance), "{} isn't past {}", instance.get_fli_content_y(), end_y(&instance));
+wheel(&instance, 0., -50.);
+slint_testing::mock_elapsed_time(SETTLE);
+assert_eq!(instance.get_fli_content_y(), end_y(&instance));
+
+// With bounce: from past the end, a tick down springs back.
+let instance = with_bounce(AutoBool::On);
+instance.set_fli_content_y(-1700.);
+assert!(instance.get_fli_content_y() < end_y(&instance));
+wheel(&instance, 0., -300.);
+slint_testing::mock_elapsed_time(SETTLE);
+assert_eq!(instance.get_fli_content_y(), end_y(&instance));
+
+// With bounce: from past the end, a tick up scrolls into the content.
+let instance = with_bounce(AutoBool::On);
+instance.set_fli_content_y(-1700.);
+wheel(&instance, 0., 300.);
+slint_testing::mock_elapsed_time(SETTLE);
+assert!(instance.get_fli_content_y() > end_y(&instance), "{} didn't scroll into the content", instance.get_fli_content_y());
+
+// With bounce, horizontally: from past the end, a tick further right springs back.
+let instance = with_bounce(AutoBool::On);
+instance.set_fli_content_x(-1300.);
+assert!(instance.get_fli_content_x() < end_x(&instance));
+wheel(&instance, -300., 0.);
+slint_testing::mock_elapsed_time(SETTLE);
+assert_eq!(instance.get_fli_content_x(), end_x(&instance));
+```
+*/

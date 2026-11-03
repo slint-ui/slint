@@ -5,12 +5,13 @@
 //! and converts a value from it into an [`Expression`] matching the target property's type.
 
 use crate::diagnostics::Spanned;
-use crate::expression_tree::{Expression, ImageReference, Unit};
+use crate::expression_tree::Expression;
+use crate::expression_types::{ImageReference, Unit};
 use crate::langtype::Type;
 use crate::lookup::LookupCtx;
 use crate::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
+use crate::source_path::SourcePath;
 use smol_str::SmolStr;
-use std::path::PathBuf;
 
 /// One `.member` or `[index]` applied to the value of a `@from-json(...)` call.
 pub enum Step {
@@ -76,19 +77,16 @@ pub fn lower(
 
     let resolved = resolve_path(&path_str, node, ctx);
 
-    let Some(file) = crate::fileaccess::load_file(&resolved) else {
-        ctx.diag.push_error(format!("Cannot find JSON file {}", resolved.display()), &path_token);
+    let Some(file) = crate::fileaccess::find_file(&resolved) else {
+        ctx.diag.push_error(format!("Cannot find JSON file {resolved}"), &path_token);
         return Expression::Invalid;
     };
-    ctx.diag.all_loaded_files.insert(file.canon_path.clone());
+    ctx.diag.all_loaded_files.insert(file.clone());
 
-    let bytes = match file.try_read() {
+    let bytes = match file.read() {
         Ok(bytes) => bytes,
         Err(err) => {
-            ctx.diag.push_error(
-                format!("Cannot read JSON file {}: {err}", resolved.display()),
-                &path_token,
-            );
+            ctx.diag.push_error(format!("Cannot read JSON file {file}: {err}"), &path_token);
             return Expression::Invalid;
         }
     };
@@ -98,10 +96,7 @@ pub fn lower(
     let json: serde_json::Value = match serde_json::from_slice(bytes) {
         Ok(v) => v,
         Err(err) => {
-            ctx.diag.push_error(
-                format!("Cannot parse JSON file {}: {err}", resolved.display()),
-                &path_token,
-            );
+            ctx.diag.push_error(format!("Cannot parse JSON file {file}: {err}"), &path_token);
             return Expression::Invalid;
         }
     };
@@ -128,7 +123,7 @@ fn member<'a>(
     value: &'a serde_json::Value,
     token: &SyntaxToken,
     path: &JsonPath,
-    file: &std::path::Path,
+    file: &SourcePath,
     ctx: &mut LookupCtx,
 ) -> Option<(Segment, &'a serde_json::Value)> {
     let name = token.text();
@@ -138,9 +133,9 @@ fn member<'a>(
     };
     let Some((key, value)) = lookup_key(object, name) else {
         let message = if path.0.is_empty() {
-            format!("No key '{name}' at the root of the JSON file {}", file.display())
+            format!("No key '{name}' at the root of the JSON file {}", file)
         } else {
-            format!("No key '{name}' in '{path}' of the JSON file {}", file.display())
+            format!("No key '{name}' in '{path}' of the JSON file {}", file)
         };
         ctx.diag.push_error(message, token);
         return None;
@@ -153,7 +148,7 @@ fn element<'a>(
     value: &'a serde_json::Value,
     index: &syntax_nodes::Expression,
     path: &JsonPath,
-    file: &std::path::Path,
+    file: &SourcePath,
     ctx: &mut LookupCtx,
 ) -> Option<(Segment, &'a serde_json::Value)> {
     let Some(i) = integer_literal(index) else {
@@ -218,20 +213,20 @@ impl std::fmt::Display for JsonPath {
 
 impl JsonPath {
     /// "at 'a.b' in FILE", or "at the root of FILE".
-    fn location(&self, file: &std::path::Path) -> String {
+    fn location(&self, file: &SourcePath) -> String {
         if self.0.is_empty() {
-            format!("at the root of {}", file.display())
+            format!("at the root of {}", file)
         } else {
-            format!("at '{self}' in {}", file.display())
+            format!("at '{self}' in {}", file)
         }
     }
 
     /// The error for a value that isn't `what` ("an object" or "an array").
-    fn not_a(&self, file: &std::path::Path, what: &str) -> String {
+    fn not_a(&self, file: &SourcePath, what: &str) -> String {
         if self.0.is_empty() {
-            format!("The root of the JSON file {} is not {what}", file.display())
+            format!("The root of the JSON file {} is not {what}", file)
         } else {
-            format!("'{self}' in the JSON file {} is not {what}", file.display())
+            format!("'{self}' in the JSON file {} is not {what}", file)
         }
     }
 }
@@ -248,21 +243,15 @@ fn target_type(ctx: &LookupCtx) -> Type {
     }
 }
 
-/// Resolve the file path argument the same way `@image-url(...)` resolves its path: absolute
-/// paths are used as-is, otherwise the path is looked up through the same include/library-path
-/// machinery as `import` statements, falling back to a path relative to the current `.slint`
-/// file's directory.
-fn resolve_path(s: &str, node: &syntax_nodes::AtFromJson, ctx: &LookupCtx) -> PathBuf {
-    let path = std::path::Path::new(s);
-    if crate::pathutils::is_absolute(path) {
-        return path.to_path_buf();
-    }
+/// Resolves the file path argument the same way `@image-url(...)` resolves its path:
+/// through the include and library paths of `import` statements,
+/// falling back to a path relative to the current `.slint` file.
+fn resolve_path(s: &str, node: &syntax_nodes::AtFromJson, ctx: &LookupCtx) -> SourcePath {
     ctx.type_loader
+        .filter(|_| !crate::source_path::is_absolute(s))
         .and_then(|loader| loader.resolve_import_path(Some(&(**node).clone().into()), s))
-        .map(|(p, _)| p)
         .unwrap_or_else(|| {
-            crate::pathutils::join(&crate::pathutils::dirname(node.source_file.path()), path)
-                .unwrap_or_else(|| path.to_path_buf())
+            node.source_file.path().parent().join(s).unwrap_or_else(|| SourcePath::new(s))
         })
 }
 
@@ -297,7 +286,7 @@ fn mismatch(
     value: &serde_json::Value,
     target: &Type,
     path: &JsonPath,
-    file: &std::path::Path,
+    file: &SourcePath,
     node: &SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {
@@ -326,7 +315,7 @@ fn json_to_expression(
     value: &serde_json::Value,
     target: &Type,
     path: &mut JsonPath,
-    file: &std::path::Path,
+    file: &SourcePath,
     node: &SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {
@@ -438,7 +427,7 @@ fn json_to_expression(
                                 ),
                                 node,
                             );
-                            st.default_value_for_field(field_name)
+                            Expression::default_value_for_field(st, field_name)
                         }
                     };
                     values.insert(field_name.clone(), expr);
@@ -453,23 +442,15 @@ fn json_to_expression(
 
 /// An image for `reference`, which is a `data:` URI, a URL, or a path relative to the JSON `file`.
 /// An empty `reference` is no image.
-fn image_expression(reference: &str, file: &std::path::Path, node: &SyntaxNode) -> Expression {
+fn image_expression(reference: &str, file: &SourcePath, node: &SyntaxNode) -> Expression {
     let resource_ref = if reference.is_empty() {
         ImageReference::None
+    } else if reference.starts_with("data:") {
+        ImageReference::DataUri(reference.into())
     } else {
-        match ImageReference::from_resolved(reference.into()) {
-            ImageReference::Path(relative)
-                if !crate::pathutils::is_absolute(std::path::Path::new(relative.as_str())) =>
-            {
-                let path = crate::pathutils::join(
-                    &crate::pathutils::dirname(file),
-                    std::path::Path::new(relative.as_str()),
-                )
-                .map_or(relative, |path| path.to_string_lossy().into());
-                ImageReference::Path(path)
-            }
-            resource_ref => resource_ref,
-        }
+        ImageReference::Source(
+            file.parent().join(reference).unwrap_or_else(|| SourcePath::new(reference)),
+        )
     };
     Expression::ImageReference {
         resource_ref,
@@ -488,7 +469,7 @@ fn color_from_str(s: &str) -> Option<u32> {
 fn color_expression(
     s: &str,
     path: &JsonPath,
-    file: &std::path::Path,
+    file: &SourcePath,
     node: &SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {

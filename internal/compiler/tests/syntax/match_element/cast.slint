@@ -87,3 +87,30 @@ export component ColorCast {
         *: {}
     }
 }
+
+export component FractionalCaseOnInt {
+    in property <int> num: 1;
+
+    match num {
+        1: Rectangle { }
+        1.0: Rectangle { }
+//      > <error{Duplicate case value}
+        1.5: Rectangle { }
+//      > <error{'1.5' is not an integer, so it never matches an 'int' subject}
+        -1.5: Rectangle { }
+//      >  <error{'-1.5' is not an integer, so it never matches an 'int' subject}
+        2.0: Rectangle { }
+        *: Rectangle { }
+    }
+}
+
+export component GradientCaseOnBrush {
+    in property <brush> fill: #123;
+
+    match fill {
+        #123: Rectangle { }
+        @linear-gradient(90deg, red, blue): Rectangle { }
+//      >                                <error{Cases must be literal values}
+        *: Rectangle { }
+    }
+}

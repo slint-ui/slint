@@ -1,0 +1,222 @@
+[
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,4 L62,4",
+      "style": {
+        "dash_offset": 4.0,
+        "dash_pattern": [
+          8.01,
+          5.01
+        ],
+        "end_cap": "Butt",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Butt",
+        "width": 3.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.502,
+            0.0,
+            0.502,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,4 L62,4",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [
+          7.01,
+          3.01,
+          2.01,
+          7.01,
+          3.01,
+          2.01
+        ],
+        "end_cap": "Butt",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Butt",
+        "width": 2.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        11.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,4 L62,4",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [
+          0.01,
+          10.01
+        ],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 4.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        21.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            1.0,
+            0.549,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,6 C12,0 22,0 32,6 C42,12 52,12 62,6",
+      "style": {
+        "dash_offset": 0.0,
+        "dash_pattern": [
+          5.01,
+          3.01
+        ],
+        "end_cap": "Round",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Round",
+        "width": 2.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        31.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.0,
+            0.502,
+            0.502,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,4 L62,4",
+      "style": {
+        "dash_offset": -6.0,
+        "dash_pattern": [
+          8.01,
+          5.01
+        ],
+        "end_cap": "Butt",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Butt",
+        "width": 3.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        44.0
+      ]
+    }
+  },
+  {
+    "Stroke": {
+      "brush": {
+        "Solid": {
+          "components": [
+            0.6471,
+            0.1647,
+            0.1647,
+            1.0
+          ]
+        }
+      },
+      "brush_transform": null,
+      "shape": "M2,4 L62,4",
+      "style": {
+        "dash_offset": 1000.0,
+        "dash_pattern": [
+          8.01,
+          5.01
+        ],
+        "end_cap": "Butt",
+        "join": "Miter",
+        "miter_limit": 4.0,
+        "start_cap": "Butt",
+        "width": 3.0
+      },
+      "transform": [
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        53.0
+      ]
+    }
+  }
+]

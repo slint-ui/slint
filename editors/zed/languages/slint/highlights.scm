@@ -218,6 +218,9 @@
 (if_statement
   "if" @keyword.conditional)
 
+(match_element
+  "match" @keyword.conditional)
+
 (if_expr
   [
     "if"

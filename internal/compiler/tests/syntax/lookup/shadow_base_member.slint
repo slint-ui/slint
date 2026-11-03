@@ -12,7 +12,7 @@ component Base {
     @shadowable callback activated();
     @shadowable public function describe() -> string { "base" }
     // `@shadowable` and `@deprecated` compose: a deprecated member may still opt in to shadowing
-    @shadowable @deprecated in-out property <string> legacy-name <=> name;
+    @shadowable @deprecated("") in-out property <string> legacy-name <=> name;
     in-out property <string> plain;
     callback plain-callback();
     public function plain-function() {}

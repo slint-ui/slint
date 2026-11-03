@@ -17,7 +17,9 @@ runs:
           if: runner.os == 'Windows'
           run: |
               if [ "$ImageOS" = "win22" ]; then
-                  choco upgrade llvm --version "19.1.7" --allow-downgrade
+                  # The download from GitHub sometimes fails with HTTP 504.
+                  choco upgrade llvm --version "19.1.7" --allow-downgrade \
+                      || { sleep 10 && choco upgrade llvm --version "19.1.7" --allow-downgrade; }
               fi
           shell: bash
         # See https://github.com/ilammy/msvc-dev-cmd?tab=readme-ov-file#caveats
@@ -25,18 +27,6 @@ runs:
           if: runner.os == 'Windows'
           run: rm /usr/bin/link
           shell: bash
-        # The macos-14 image defaults to Xcode 15.4, whose libc++ lacks the
-        # P0960 parenthesized-aggregate-init support that skia-bindings' PDF
-        # code (SkPDFTag.cpp) relies on. Select a newer Xcode that the image
-        # also ships. xcode-select propagates to /usr/bin/clang and the
-        # LIBCLANG_PATH derived below. Newer images default to a working Xcode.
-        - name: Select a newer Xcode on macos-14
-          if: runner.os == 'macOS'
-          shell: bash
-          run: |
-              if [ "$ImageOS" = "macos14" ]; then
-                  sudo xcode-select -s /Applications/Xcode_16.2.app
-              fi
         - name: Unselect homebrew clang to work around https://github.com/actions/runner-images/issues/13827
           if: runner.os == 'macOS'
           shell: bash

@@ -121,6 +121,7 @@ impl super::Surface for SoftwareSurface {
         display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         _size: PhysicalWindowSize,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
+        _transparent: bool,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let _context = softbuffer::Context::new(display_handle)
             .map_err(|e| format!("Error creating softbuffer context: {e}"))?;
@@ -143,6 +144,7 @@ impl super::Surface for SoftwareSurface {
         _display_handle: Arc<dyn raw_window_handle::HasDisplayHandle + Send + Sync>,
         _size: PhysicalWindowSize,
         _requested_graphics_api: Option<RequestedGraphicsAPI>,
+        _transparent: bool,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         struct DummyBuffer;
         impl RenderBuffer for DummyBuffer {
@@ -186,28 +188,32 @@ impl super::Surface for SoftwareSurface {
             &skia_safe::Canvas,
             Option<&mut skia_safe::gpu::DirectContext>,
             u8,
-        ) -> Option<DirtyRegion>,
+        )
+            -> Result<Option<DirtyRegion>, i_slint_core::platform::PlatformError>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.render_buffer.with_buffer(
             window,
             size,
             &mut |width, height, pixel_format, age, pixels| {
-                let mut surface_borrow = skia_safe::surfaces::wrap_pixels(
-                    &crate::image_info(
-                        (width.get() as i32, height.get() as i32),
-                        pixel_format,
-                        skia_safe::AlphaType::Opaque,
-                    ),
-                    pixels,
-                    None,
-                    None,
-                )
-                .ok_or_else(|| {
-                    "Error wrapping target buffer for rendering into with Skia".to_string()
-                })?;
+                let image_info = crate::image_info(
+                    (width.get() as i32, height.get() as i32),
+                    pixel_format,
+                    skia_safe::AlphaType::Opaque,
+                );
+                // A scanout buffer may carry padding at the end of each row:
+                // DRM dumb buffers have their pitch aligned by the driver, so a
+                // 1366 px wide XRGB8888 row occupies 5504 bytes, not 5464.
+                // Take the row length from the buffer, as the display does.
+                let row_bytes = pixels.len() / height.get() as usize;
+                let row_bytes = (row_bytes >= image_info.min_row_bytes()).then_some(row_bytes);
+                let mut surface_borrow =
+                    skia_safe::surfaces::wrap_pixels(&image_info, pixels, row_bytes, None)
+                        .ok_or_else(|| {
+                            "Error wrapping target buffer for rendering into with Skia".to_string()
+                        })?;
 
-                let dirty_region = callback(surface_borrow.canvas(), None, age);
+                let dirty_region = callback(surface_borrow.canvas(), None, age)?;
 
                 if let Some(pre_present_callback) = pre_present_callback.borrow_mut().as_mut() {
                     pre_present_callback();

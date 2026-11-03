@@ -1,0 +1,24 @@
+{
+    "schemaVersion": 8,
+    "selection": {
+        "nodeId": "non-inter-text",
+        "nodeName": "Non-Inter multiline text image"
+    },
+    "root": {
+        "kind": "svg",
+        "id": "non-inter-text",
+        "name": "Non-Inter multiline text image",
+        "x": 0,
+        "y": 0,
+        "width": 120,
+        "height": 48,
+        "opacity": 1,
+        "visible": true,
+        "rotation": 0,
+        "layoutPositioning": "auto",
+        "layoutSizingHorizontal": "fill",
+        "layoutSizingVertical": "fixed",
+        "sourceType": "TEXT",
+        "svg": "<svg width=\"120\" height=\"48\"><path d=\"M4 4h40v12H4zM4 28h70v12H4z\"/></svg>"
+    }
+}

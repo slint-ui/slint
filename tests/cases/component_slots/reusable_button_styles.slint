@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    Button,
+    ButtonStyle,
+    ButtonStyles,
+    BasicTheme,
+} from "../../../tools/editor/controls/src/basic.slint";
+export { BasicTheme, ButtonStyles }
+component CustomButton inherits Button {
+    style: ButtonStyles.primary;
+    background-color: #123456;
+    foreground-color: #abcdef;
+}
+
+export component TestCase inherits Window {
+    width: 360px;
+    height: 100px;
+    in-out property <bool> enabled: true;
+    in-out property <ButtonStyle> style: ButtonStyles.secondary;
+    in-out property <brush> custom-background: #654321;
+    in-out property <brush> custom-foreground: #fedcba;
+    out property <brush> subject-background: subject.background-color;
+    out property <brush> subject-foreground: subject.foreground-color;
+    out property <bool> subject-pressed: subject.pressed;
+    out property <bool> subject-focused: subject.has-focus;
+    out property <bool> test: custom.background-color == #123456 && custom.foreground-color == #abcdef
+        && bound.background-color == root.custom-background && bound.foreground-color == root.custom-foreground;
+    public function focus-subject() { subject.focus(); }
+
+    subject := Button {
+        x: 0px;
+        y: 0px;
+        width: 100px;
+        height: 40px;
+        text: "Subject";
+        enabled: root.enabled;
+        style: root.style;
+    }
+
+    custom := CustomButton {
+        x: 120px;
+        y: 0px;
+        width: 100px;
+        height: 40px;
+        text: "Custom";
+        enabled: root.enabled;
+    }
+
+    bound := Button {
+        x: 240px;
+        y: 0px;
+        width: 100px;
+        height: 40px;
+        text: "Bound";
+        enabled: root.enabled;
+        style: ButtonStyles.secondary;
+        background-color: root.custom-background;
+        foreground-color: root.custom-foreground;
+    }
+}
+
+/*
+```rust
+use slint::platform::{PointerEventButton, WindowEvent};
+let instance = TestCase::new().unwrap();
+let palette = instance.global::<BasicTheme<'_>>();
+let styles = instance.global::<ButtonStyles<'_>>();
+let inside = slint::LogicalPosition::new(50., 20.);
+let outside = slint::LogicalPosition::new(350., 80.);
+for (style, accented) in [(styles.get_secondary(), false), (styles.get_primary(), true)] {
+    instance.set_style(style);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: outside });
+    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent() } else { palette.get_background() });
+    assert_eq!(instance.get_subject_foreground(), if accented { palette.get_accent_foreground() } else { palette.get_foreground() });
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position: inside });
+    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent_hover() } else { palette.get_hover_background() });
+    instance.invoke_focus_subject();
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position: inside, button: PointerEventButton::Left });
+    assert!(instance.get_subject_pressed());
+    assert!(instance.get_subject_focused());
+    let subject = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Subject").next().unwrap();
+    let outline = subject.query_descendants().match_id("Button::focus-outline").find_first().unwrap();
+    assert_eq!(outline.size().width, 108.);
+    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent_pressed() } else { palette.get_pressed_background() });
+    instance.set_enabled(false);
+    slint::platform::update_timers_and_animations();
+    assert!(!instance.get_subject_pressed());
+    assert_eq!(instance.get_subject_background(), palette.get_disabled_background());
+    assert_eq!(instance.get_subject_foreground(), palette.get_disabled_foreground());
+    assert!(instance.get_test());
+    instance.set_enabled(true);
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position: inside, button: PointerEventButton::Left });
+    assert_eq!(instance.get_subject_background(), if accented { palette.get_accent_hover() } else { palette.get_hover_background() });
+}
+
+for x in [170., 290.] {
+    let position = slint::LogicalPosition::new(x, 20.);
+    instance.window().dispatch_event(WindowEvent::PointerMoved { position });
+    assert!(instance.get_test());
+    instance.window().dispatch_event(WindowEvent::PointerPressed { position, button: PointerEventButton::Left });
+    assert!(instance.get_test());
+    instance.set_custom_background(slint::Color::from_rgb_u8(0xff, 0, 0).into());
+    instance.set_custom_foreground(slint::Color::from_rgb_u8(0, 0xff, 0).into());
+    assert!(instance.get_test());
+    instance.set_enabled(false);
+    slint::platform::update_timers_and_animations();
+    assert!(instance.get_test());
+    instance.set_enabled(true);
+    instance.window().dispatch_event(WindowEvent::PointerReleased { position, button: PointerEventButton::Left });
+    assert!(instance.get_test());
+}
+```
+*/

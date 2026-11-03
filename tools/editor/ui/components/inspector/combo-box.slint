@@ -1,27 +1,32 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { EditorIcons, StudioTheme } from "../common.slint";
-import { InspectorComboOption, InspectorTokens } from "tokens.slint";
-import { ScrollView } from "std-widgets.slint";
+import { Style, PaintStyle, Colors, Metrics, Typography, FieldStyle, ComboMenuStyle } from "../../style.slint";
+import { InspectorComboOption } from "control-data.slint";
+import { EditorIcons } from "../index.slint";
 
-export component InspectorComboBox inherits Rectangle {
+import { InputSurface } from "../input-surface.slint";
+import { FloatingSurface } from "../floating-surface.slint";
+import { EditorScrollView } from "../editor-scroll-view.slint";
+
+export component InspectorComboBox inherits InputSurface {
+    in property <ComboMenuStyle> menu-style: Style.combo-menu;
     in property <string> accessible-name: "";
     in property <string> prefix: "";
     in property <string> value;
     in property <int> selected-index: -1;
     in property <[InspectorComboOption]> options;
     in property <bool> wide: false;
+    in property <bool> fit-options: false;
     in property <string> placeholder: "";
-    in property <length> popup-available-height: 220px;
+    in property <length> popup-available-height: root.menu-style.max-height;
     callback accepted(string) -> bool;
+    focused: fallback-popup.is-open || combo-focus.has-focus;
+    hovered: native-menu-touch.has-hover;
 
-    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
-    height: InspectorTokens.field-height;
-    border-radius: InspectorTokens.field-radius;
-    background: fallback-popup.is-open ? InspectorTokens.panel-bg : native-menu-touch.has-hover || combo-focus.has-focus ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
-    border-width: fallback-popup.is-open || combo-focus.has-focus ? 1px : 0px;
-    border-color: InspectorTokens.accent;
+    width: root.fit-options
+        ? max(Style.inspector-layout.column-width, options-measure.preferred-width + 2 * Metrics.space-regular + Metrics.space-small + Metrics.icon-medium)
+        : root.wide ? Style.inspector-layout.content-width : Style.inspector-layout.column-width;
     accessible-role: AccessibleRole.combobox;
     accessible-label: root.accessible-name;
     accessible-value: root.value;
@@ -36,8 +41,8 @@ export component InspectorComboBox inherits Rectangle {
         root.accepted(value);
     }
 
-    private property <length> row-height: 26px;
-    private property <length> popup-padding: 4px;
+    private property <length> row-height: root.menu-style.row-height;
+    private property <length> popup-padding: Metrics.space-small;
     private property <bool> can-open: root.options.length > 0;
     private property <int> highlighted-index: max(root.selected-index, 0);
     private property <bool> use-native-menu:
@@ -105,6 +110,19 @@ export component InspectorComboBox inherits Rectangle {
         }
     }
 
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        clip: true;
+
+        options-measure := VerticalLayout {
+            for option in root.options: Text {
+                text: option.label;
+                font-size: root.style.text.size;
+            }
+        }
+    }
+
     combo-focus := FocusScope {
         key-pressed(event) => {
             if event.text == Key.Return || event.text == Key.Space || event.text == Key.DownArrow {
@@ -128,43 +146,41 @@ export component InspectorComboBox inherits Rectangle {
         }
 
         HorizontalLayout {
-            padding-left: 8px;
-            padding-right: 5px;
-            spacing: 4px;
+            padding-left: root.style.padding-inline;
+            padding-right: root.style.padding-end;
+            spacing: Metrics.space-small;
             cross-axis-alignment: center;
 
             if root.prefix != "": Text {
                 text: root.prefix;
-                color: InspectorTokens.text;
-                font-size: 11px;
+                color: root.paint.foreground;
+                font-size: Typography.caption.size;
                 vertical-alignment: center;
             }
 
             Text {
                 horizontal-stretch: 1;
                 text: root.value != "" ? root.value : root.placeholder;
-                color: root.value != "" ? InspectorTokens.text : InspectorTokens.muted;
-                font-size: 12px;
+                color: root.value != "" ? root.paint.foreground : root.style.appearance.muted;
+                font-size: root.style.text.size;
                 vertical-alignment: center;
                 overflow: elide;
-                wrap: no-wrap;
             }
 
             Rectangle {
-                width: 16px;
-                height: 16px;
+                width: Metrics.icon-medium;
+                height: Metrics.icon-medium;
 
                 Image {
                     width: parent.width;
                     height: parent.height;
                     source: EditorIcons.select-chevron;
-                    colorize: InspectorTokens.muted;
+                    colorize: root.style.appearance.muted;
                 }
             }
         }
 
         native-menu-touch := TouchArea {
-            mouse-cursor: root.can-open ? pointer : default;
             clicked => {
                 root.show-popup();
             }
@@ -174,19 +190,16 @@ export component InspectorComboBox inherits Rectangle {
     fallback-popup := PopupWindow {
         x: 0px;
         y: root.fallback-popup-y();
-        width: root.width;
+        width: root.fit-options ? max(root.width, options-measure.preferred-width + 33px + 2 * root.popup-padding) : root.width;
         height: root.popup-height();
         close-policy: close-on-click-outside;
         forward-focus: popup-focus;
 
-        Rectangle {
-            background: InspectorTokens.panel-bg;
-            border-width: 1px;
-            border-color: InspectorTokens.divider;
-            border-radius: InspectorTokens.field-radius;
-            drop-shadow-color: StudioTheme.dark ? #00000066 : #64748b30;
-            drop-shadow-blur: 12px;
-            drop-shadow-offset-y: 4px;
+        FloatingSurface {
+            background: root.menu-style.background;
+            border-width: Metrics.border-width;
+            border-color: root.menu-style.border;
+            border-radius: root.style.radius;
         }
 
         popup-focus := FocusScope {
@@ -214,7 +227,7 @@ export component InspectorComboBox inherits Rectangle {
                 return reject;
             }
 
-            options-scroll := ScrollView {
+            options-scroll := EditorScrollView {
                 x: root.popup-padding;
                 y: root.popup-padding;
                 width: parent.width - 2 * root.popup-padding;
@@ -235,11 +248,11 @@ export component InspectorComboBox inherits Rectangle {
                         for option[index] in root.options: Rectangle {
                             width: parent.width;
                             height: root.row-height;
-                            border-radius: InspectorTokens.field-radius;
+                            border-radius: root.style.radius;
                             background: index == root.highlighted-index
-                                ? InspectorTokens.accent.with-alpha(0.16)
+                                ? Colors.selection
                                 : row-touch.has-hover
-                                ? InspectorTokens.field-bg-hover
+                                ? root.style.appearance.hover.background
                                 : transparent;
                             accessible-role: AccessibleRole.list-item;
                             accessible-label: option.label;
@@ -248,8 +261,8 @@ export component InspectorComboBox inherits Rectangle {
                                 x: 7px;
                                 width: 14px;
                                 text: index == root.selected-index ? "✓" : "";
-                                color: InspectorTokens.accent;
-                                font-size: 12px;
+                                color: root.style.appearance.focus.border;
+                                font-size: root.style.text.size;
                                 font-weight: FontWeight.semi-bold;
                                 horizontal-alignment: center;
                                 vertical-alignment: center;
@@ -259,15 +272,13 @@ export component InspectorComboBox inherits Rectangle {
                                 x: 25px;
                                 width: parent.width - self.x - 8px;
                                 text: option.label;
-                                color: InspectorTokens.text;
-                                font-size: 12px;
+                                color: root.style.appearance.normal.foreground;
+                                font-size: root.style.text.size;
                                 vertical-alignment: center;
                                 overflow: elide;
-                                wrap: no-wrap;
                             }
 
                             row-touch := TouchArea {
-                                mouse-cursor: pointer;
                                 clicked => {
                                     root.highlighted-index = index;
                                     if root.accepted(option.value) {

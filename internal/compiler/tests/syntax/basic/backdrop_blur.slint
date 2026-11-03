@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test inherits Window {
+    backdrop-blur: 4px;
+//                 >  <warning{'backdrop-blur' has no effect on the root element; set it on a child 'Rectangle'}
+
+    Text {
+        backdrop-blur: 4px;
+//                     >  <error{'backdrop-blur' only works on a 'Rectangle'; set it on a 'Rectangle' behind this element}
+    }
+
+    Rectangle {
+        backdrop-blur: 4px;
+    }
+}

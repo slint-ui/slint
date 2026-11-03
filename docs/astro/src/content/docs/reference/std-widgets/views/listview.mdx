@@ -54,3 +54,32 @@ Same as <Link type="ScrollView"/>.
 ## Callbacks
 
 Same as <Link type="ScrollView"/>.
+
+## Functions
+
+### ensure-row-visible(row: int, behavior: ScrollBehavior)
+
+Call this function to scroll the list so that the row at index `row` is fully visible.
+A row above the viewport, or a row taller than the viewport, ends up at the top edge.
+Any other row ends up at the bottom edge.
+A row that's already fully visible doesn't move, but a running scroll animation stops.
+If `row` is out of range, the call does nothing.
+Pass `ScrollBehavior.instant` to jump or `ScrollBehavior.smooth` to animate, see [`ScrollBehavior`](/reference/property-types/builtin-enums/#scrollbehavior).
+
+```slint {9}
+import { Button, ListView, VerticalBox } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 150px;
+    height: 150px;
+
+    VerticalBox {
+        Button {
+            text: "Show row 42";
+            clicked => { list.ensure-row-visible(42, ScrollBehavior.instant); }
+        }
+        list := ListView {
+            for i in 100 : Text { text: "Row \{i}"; }
+        }
+    }
+}
+```

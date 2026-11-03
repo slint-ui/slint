@@ -84,7 +84,7 @@ fn make_c_function_binding(
         }
     }
 
-    unsafe impl<T> BindingCallable<T> for CFunctionBinding<T> {
+    impl<T> BindingCallable<T> for CFunctionBinding<T> {
         fn evaluate(self: Pin<&Self>, value: &mut T) -> BindingResult {
             (self.binding_function)(self.user_data, value as *mut T);
             BindingResult::KeepBinding
@@ -333,7 +333,8 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                 let start_instant = if start_instant_ref.is_null() {
                     None
                 } else {
-                    Some(crate::animations::Instant(start_instant))
+                    // This must be aligned with the section for llr::Animation::Transition in cpp.rs
+                    Some(crate::animations::Instant::from_nanos(start_instant))
                 };
                 (anim, start_instant)
             },
@@ -579,6 +580,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         intercept_set: |_, _| false,
         intercept_set_binding: |_, _| false,
         velocity: |_| None,
+        common_property: |_| None,
     };
 
     ct.clear();
@@ -590,7 +592,6 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         dep_nodes: Default::default(),
         vtable: VT,
         dirty: Cell::new(false),
-        is_two_way_binding: false,
         pinned: PhantomPinned,
         binding: inner,
         #[cfg(slint_debug_property)]

@@ -18,6 +18,7 @@ export component TestCase inherits Window {
     in-out property <bool> enabled <=> edit1.enabled;
     in-out property <bool> font-italic <=> edit1.font-italic;
     in-out property <string> font-family <=> edit1.font-family;
+    out property <bool> has-selection: edit1.has-selection;
     public function select-all() {
         edit1.select-all();
     }
@@ -69,9 +70,12 @@ assert_eq!(edit1.accessible_value(), Some(SharedString::from("")));
 instance.set_text("Hello👋".into());
 assert_eq!(instance.get_text(), "Hello👋");
 
+assert!(!instance.get_has_selection());
 instance.invoke_select_all();
+assert!(instance.get_has_selection());
 instance.invoke_cut();
 assert_eq!(instance.get_text(), "", "cut should remove the text");
+assert!(!instance.get_has_selection());
 
 instance.set_text("Hello👋".into());
 instance.invoke_cut();

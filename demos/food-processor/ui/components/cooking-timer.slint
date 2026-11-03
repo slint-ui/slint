@@ -1,0 +1,102 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Recipe } from "../recipe-adapter.slint";
+import { Styles } from "../styles.slint";
+
+export component CookingTimer {
+    in property <Recipe> recipe;
+    in property <int> remaining-seconds: 0;
+
+    property <float> minutes: Math.floor(root.remaining-seconds / 60);
+    property <float> seconds: Math.mod(root.remaining-seconds, 60);
+    property <string> seconds-str: seconds < 10 ? "0" + seconds : seconds;
+
+    callback clicked <=> ta.clicked;
+    callback close <=> close-ta.clicked;
+
+    ta := TouchArea { }
+
+    content := HorizontalLayout {
+        padding-left: Styles.spacing-lg;
+        padding-right: Styles.spacing-lg;
+        spacing: Styles.spacing-lg;
+        alignment: center;
+
+        clock-icon := Rectangle {
+            width: Styles.large-icon-size;
+            height: self.width;
+            cross-axis-self-alignment: center;
+            border-radius: Styles.border-radius;
+            background: #4285f4;
+
+            Image {
+                width: Styles.medium-icon-size;
+                source: @image-url("../images/time.svg");
+                colorize: white;
+            }
+        }
+
+        VerticalLayout {
+            spacing: Styles.spacing-xs;
+            horizontal-stretch: 1;
+            alignment: center;
+
+            Text {
+                text: "Cooking";
+                font-size: Styles.small-font-size;
+                color: #999;
+                font-weight: FontWeight.normal;
+                horizontal-alignment: left;
+            }
+
+            Text {
+                text: root.recipe.title;
+                font-size: Styles.small-font-size;
+                font-weight: FontWeight.semi-bold;
+                color: white;
+                horizontal-alignment: left;
+            }
+        }
+
+        Rectangle {
+            height: parent.height;
+            width: 96px;
+
+            Text {
+                text: {
+                    minutes + ":" + seconds-str
+                }
+                width: parent.width;
+                font-size: Styles.small-font-size;
+                font-weight: FontWeight.bold;
+                color: white;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+            }
+
+            Text {
+                text: "|";
+                font-size: Styles.small-font-size;
+                x: close-button.x - Styles.spacing-sm;
+            }
+
+            close-button := Rectangle {
+                x: parent.width - self.width;
+                width: Styles.medium-icon-size;
+                height: self.width;
+
+                close-ta := TouchArea {
+                    width: 80px;
+                    height: self.width;
+                }
+
+                Image {
+                    source: @image-url("../images/close.svg");
+                    width: Styles.small-icon-size;
+                    colorize: white;
+                }
+            }
+        }
+    }
+}

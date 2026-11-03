@@ -8,7 +8,7 @@ struct Ok1 {
     d: duration = -2s,
     // @from-json(...) always resolves to a literal, so it's a genuine constant here too,
     // unlike @tr() below (which is excluded because translations are runtime-selected).
-    e: string = @from-json("struct-field-default-from-json.json").a_string,
+    e: string = @from-json("from-json/struct-field-default.json").a_string,
 }
 
 struct Ok2 {

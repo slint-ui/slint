@@ -16,14 +16,14 @@ export Ex1 := Rectangle {
 
     Text {
         rotation-angle: 90deg;
-//      >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//      >            <warning{The property 'rotation-angle' has been deprecated: Please use 'transform-rotation' instead}
     }
 }
 
 RotImg := Image {
 //     ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     rotation-angle: 45deg;
-//  >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//  >            <warning{The property 'rotation-angle' has been deprecated: Please use 'transform-rotation' instead}
 }
 
 JustAnImage := Image {}
@@ -38,7 +38,7 @@ export Ex2 := Rectangle {
 //         ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Image {
         rotation-angle: 45deg;
-//      >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//      >            <warning{The property 'rotation-angle' has been deprecated: Please use 'transform-rotation' instead}
         Rectangle {}
     }
     RotImg {
@@ -49,7 +49,7 @@ export Ex2 := Rectangle {
     }
     JustAnImage {
         rotation-angle: 45deg;
-//      >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//      >            <warning{The property 'rotation-angle' has been deprecated: Please use 'transform-rotation' instead}
         Rectangle {}
     }
 }
@@ -65,9 +65,9 @@ export Ex3 := Rectangle {
     TouchArea {
         clicked => {
             i1.rotation-angle = 60deg;
-//             >            <warning{The property 'rotation-angle' has been deprecated. Please use 'transform-rotation' instead}
+//             >            <warning{The property 'rotation-angle' has been deprecated: Please use 'transform-rotation' instead}
             i2.rotation-origin-x = 10px;
-//             >               <warning{The property 'rotation-origin-x' has been deprecated. Please use 'transform-origin.x' instead}
+//             >               <warning{The property 'rotation-origin-x' has been deprecated: Please use 'transform-origin.x' instead}
         }
     }
 }

@@ -43,7 +43,7 @@ pub fn send_mouse_press_and_release<Component: slint::ComponentHandle>(
     let released_position = LogicalPosition::new(released_x, released_y);
     let button = platform::PointerEventButton::Left;
 
-    const NUM_MOVEMENTS: u64 = 2;
+    const NUM_MOVEMENTS: u64 = 5;
     let diff_x = (released_position.x - pressed_position.x) / NUM_MOVEMENTS as f32;
     let diff_y = (released_position.y - pressed_position.y) / NUM_MOVEMENTS as f32;
 

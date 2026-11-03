@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component LayoutGeometryCases inherits Window {
+    width: 640px;
+    height: 480px;
+
+    geometry-layout := HorizontalLayout {
+        x: 32px;
+        y: 32px;
+        width: 400px;
+        height: 200px;
+        alignment: start;
+
+        layout-child := Rectangle {
+            width: 80px;
+            background: #2563eb;
+        }
+    }
+}

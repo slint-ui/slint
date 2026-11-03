@@ -345,7 +345,8 @@ macro_rules! for_each_enums {
             enum InputType {
                 /// The default value. This will render all characters normally
                 Text,
-                /// This will render all characters with a character that defaults to "*"
+                /// This will render all characters with a character that defaults to "*".
+                /// The text can't be copied or cut to the clipboard.
                 Password,
                 /// This will only accept and render number characters (0-9)
                 Number,
@@ -481,6 +482,7 @@ macro_rules! for_each_enums {
                 /// The element is a `Slider` or behaves like one.
                 Slider,
                 /// The element is a `SpinBox` or behaves like one.
+                /// Set `accessible-role: none` on the `TextInput` inside it, whose text this role describes.
                 Spinbox,
                 /// The element is a `Tab` or behaves like one.
                 Tab,
@@ -498,6 +500,8 @@ macro_rules! for_each_enums {
                 ProgressIndicator,
                 /// The role for widget with editable text such as a `LineEdit` or a `TextEdit`.
                 /// This is automatically applied to `TextInput` elements.
+                /// Set `accessible-role: none` on the `TextInput` inside an element that takes this role,
+                /// whose text the role describes.
                 TextInput,
                 /// The element is a `Switch` or behaves like one.
                 Switch,
@@ -595,6 +599,24 @@ macro_rules! for_each_enums {
                 AlternateReverse,
             }
 
+            /// This enum describes the interpolation method for angle values during animation.
+            ///
+            /// With any mode other than `linear`, the animated value stays within 0° to 360°
+            /// while the animation runs. Once it finishes, the property holds the target value.
+            #[non_exhaustive]
+            enum AngleInterpolation {
+                /// Standard linear interpolation between start and end values, treating the angle as a plain number.
+                Linear,
+                /// Interpolate along the shorter arc. Animating from 10° to 350° traverses 20° via the angle value decreasing.
+                Shorter,
+                /// Interpolate along the longer arc. Animating from 10° to 350° traverses 340° via the angle value increasing.
+                Longer,
+                /// The angle value always increases during the animation, wrapping around if necessary.
+                Increasing,
+                /// The angle value always decreases during the animation, wrapping around if necessary.
+                Decreasing,
+            }
+
             /// This enum describes the scrollbar visibility
             #[non_exhaustive]
             enum ScrollBarPolicy {
@@ -677,6 +699,46 @@ macro_rules! for_each_enums {
                 Windows,
                 /// This variant is reported when the operating system is none of the above.
                 Other,
+            }
+
+            /// This enum describes the platform role of a `MenuItem` in a `MenuBar`.
+            ///
+            /// On macOS, the native menu bar moves items with a role into the application menu.
+            /// On other platforms, `about`, `preferences`, and `quit` items stay where they're declared,
+            /// and items with the other roles are hidden.
+            #[non_exhaustive]
+            enum MenuItemRole {
+                /// The item has no special role and stays where it's declared.
+                None,
+                /// The item opens the application's "About" information.
+                About,
+                /// The item opens the application's settings.
+                /// The shortcut defaults to Command+, on macOS.
+                Preferences,
+                /// The item quits the application.
+                /// The shortcut defaults to Command+Q on macOS.
+                Quit,
+                /// The item is the system's "Services" sub-menu on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                Services,
+                /// The item hides the application on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                Hide,
+                /// The item hides all other applications on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                HideOthers,
+                /// The item shows all hidden applications on macOS.
+                /// `activated` isn't invoked and `shortcut` is ignored.
+                ShowAll,
+            }
+
+            /// This enum describes how to scroll to a specific position
+            #[non_exhaustive]
+            pub enum ScrollBehavior {
+                /// Instant jump to the scroll position
+                Instant,
+                /// Smooth scroll animation to the scroll position
+                Smooth,
             }
         }
     };

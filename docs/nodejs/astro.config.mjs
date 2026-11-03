@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { defineConfig } from "astro/config";
+import { defineSlintDocsConfig } from "@slint/common-files/src/utils/astro-config";
 import starlight from "@astrojs/starlight";
 import sitemap from "@astrojs/sitemap";
 import starlightTypeDoc from "starlight-typedoc";
@@ -30,7 +30,7 @@ const _nodeBase = _nodeAtRoot
     ? undefined
     : NODE_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
-export default defineConfig({
+export default defineSlintDocsConfig({
     site: _nodeSite,
     ...(_nodeBase ? { base: _nodeBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
@@ -51,6 +51,9 @@ export default defineConfig({
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/HeaderNodeDocs.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
+                Head: "@slint/common-files/src/components/Head.astro",
+                MarkdownContent:
+                    "@slint/common-files/src/components/MarkdownContent.astro",
             },
             plugins: [
                 starlightTypeDoc({

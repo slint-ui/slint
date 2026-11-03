@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Analyzing 'a.w' reaches 'b.w' while 'a.w' is still on the binding_analysis
+// stack. Both keys name the binding on 'Sub''s root element and differ only in
+// the instance recorded in the path, which is not the runaway prefix growth the
+// stack guards against (#13545). No diagnostic is expected in this file.
+// config:no_inlining -- inlining merges the two instances into 'Demo', which
+// gives each its own element and hides the shared key this pins.
+
+component Sub {
+    in property <length> input;
+    out property <length> w: input + 1px;
+}
+
+export component Demo inherits Window {
+    width: 200px;
+    height: 100px;
+
+    a := Sub { input: b.w; }
+    b := Sub { input: 3px; }
+
+    Text { text: a.w / 1px; }
+}
