@@ -33,7 +33,8 @@ export component TestCase inherits Window {
         x: 32px; y: 32px;
         width: 30px; height: 32px;
         source: @image-url("image-repeat.png");
-        horizontal-tiling: round;
+        // A 4px tile rounded to any width puts some texel edge on a pixel center, where GPUs round nearest-neighbor ties differently.
+        horizontal-tiling: repeat;
         vertical-tiling: round;
         image-rendering: pixelated;
     }
