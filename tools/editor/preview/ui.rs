@@ -3586,6 +3586,79 @@ mod tests {
     }
 
     #[test]
+    fn alignment_buttons_follow_source_and_temporary_overrides() {
+        fn alignment(name: &str, value: &str) -> PropertyValue {
+            let enum_name = if name == "horizontal-alignment" {
+                "TextHorizontalAlignment"
+            } else {
+                "TextVerticalAlignment"
+            };
+            let ty =
+                i_slint_compiler::typeregister::TypeRegister::builtin().borrow().lookup(enum_name);
+            super::map_value_and_type_to_property_value(
+                &ty,
+                &Some(slint_interpreter::Value::EnumerationValue(enum_name.into(), value.into())),
+                "",
+            )
+        }
+
+        i_slint_backend_testing::init_no_event_loop();
+        let editor = super::EditorUi::new().unwrap();
+        let api = editor.global::<super::Api>();
+        editor
+            .global::<super::Diagnostics>()
+            .set_preview_availability(super::PreviewAvailability::Current);
+        let mut selection = api.get_selection();
+        selection.highlight_index = 0;
+        api.set_selection(selection);
+        api.on_highlight_positions(|_, _| {
+            std::rc::Rc::new(VecModel::from(vec![super::SelectionRectangle {
+                width: 200.,
+                height: 30.,
+                ..Default::default()
+            }]))
+            .into()
+        });
+        api.on_combo_option_index(super::combo_option_index);
+        api.on_source_property_value_data(|name, fallback| match name.as_str() {
+            "horizontal-alignment" => alignment(&name, "start"),
+            "vertical-alignment" => alignment(&name, "top"),
+            _ => fallback,
+        });
+        let overrides = std::rc::Rc::pin(i_slint_core::Property::new(None::<(&str, &str)>));
+        let hooked = overrides.clone();
+        api.on_hooked_property_value_data(move |name, fallback| {
+            match (name.as_str(), hooked.as_ref().get()) {
+                ("horizontal-alignment", Some((value, _)))
+                | ("vertical-alignment", Some((_, value))) => alignment(&name, value),
+                _ => fallback,
+            }
+        });
+        api.set_current_element(super::ElementInformation {
+            type_name: "Text".into(),
+            ..Default::default()
+        });
+        editor.show().unwrap();
+        editor.window().set_size(slint::LogicalSize::new(1360., 1600.));
+        for (value, horizontal, vertical) in [
+            (None, "Align left", "Align top"),
+            (Some(("end", "bottom")), "Align right", "Align bottom"),
+            (Some(("center", "center")), "Align center", "Align middle"),
+            (None, "Align left", "Align top"),
+        ] {
+            overrides.as_ref().set(value);
+            slint::platform::update_timers_and_animations();
+            for label in [horizontal, vertical] {
+                assert_eq!(
+                    find_element(&editor, label).accessible_checked(),
+                    Some(true),
+                    "{label}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn layout_alignment_rows_follow_selected_element_type() {
         i_slint_backend_testing::init_no_event_loop();
         let editor = super::EditorUi::new().unwrap();

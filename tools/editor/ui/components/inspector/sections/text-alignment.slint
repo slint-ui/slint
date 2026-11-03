@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../../api.slint";
+import { Api, PropertyValueKind } from "../../../api.slint";
 import { Style, Metrics, Colors, Typography, InspectorStyle } from "../../../style.slint";
 import { InspectorEnumOptions, InspectorComboOption, InspectorSection } from "../index.slint";
 import { InspectorAlignmentGroup } from "../alignment-group.slint";
@@ -18,9 +18,9 @@ export component InspectorTextAlignmentSection inherits InspectorSection {
     title: @tr("Alignment");
 
     pure function effective-index(name: string, fallback: string, options: [InspectorComboOption]) -> int {
-        let runtime = Api.runtime-property-value-data(name, {});
-        let value = runtime.value-resolved && runtime.value-int >= 0 && runtime.value-int < runtime.visual-items.length
-            ? runtime.visual-items[runtime.value-int] : Api.source-property-value(name, fallback);
+        let property = Api.editor-property-value-data(name);
+        let value = property.value-kind == PropertyValueKind.enum && property.value-int >= 0 && property.value-int < property.visual-items.length
+            ? property.visual-items[property.value-int] : fallback;
         let index = Api.combo-option-index(value, options);
         return index >= 0 ? index : Api.combo-option-index(fallback, options);
     }
