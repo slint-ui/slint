@@ -854,8 +854,11 @@ Next:
     `Errors` binds a string property to the errors of a field from `INotifyDataErrorInfo`, refreshed on `ErrorsChanged`,
     which the generator does for a string `name-error`; `HasErrors` binds by name.
     The test binds an `ObservableValidator` with `[NotifyDataErrorInfo]`, and an asynchronous `[RelayCommand]`.
-  - Phase 4, sample and docs, 1 week: the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples) with a Slint UI,
-    an MVVM option in the templates, the README, and a smoke test.
+  - Phase 4, done: `[SlintViewModel]` also takes the class of an exported global, which `slint-compiler -f csharp` marks with `[SlintName]`,
+    and its `Bind` calls `BindGlobal`, which reads and writes the global's properties and callbacks.
+    `examples/mvvm/dotnet`, in `examples/dotnet.slnx`, binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples)
+    to a Slint UI, one global per page, ported with their MIT notice.
+    `dotnet new slint --mvvm` adds a `MainViewModel`; CI instantiates it, and the publish workflow builds it with the packages.
 - **26.** UI written in C#, after item 25, with a shared core and two front ends.
   Slint creates no elements from C# at run time, so the core turns a tree of C# builders into `.slint` source,
   which the interpreter compiles once per page, and C# then sets the page's properties.

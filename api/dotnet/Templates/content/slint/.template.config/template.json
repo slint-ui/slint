@@ -37,6 +37,13 @@
       ],
       "replaces": "SLINT_STYLE"
     },
+    "mvvm": {
+      "type": "parameter",
+      "datatype": "bool",
+      "displayName": "MVVM",
+      "description": "Binds the window to a view model of CommunityToolkit.Mvvm instead of handling its callback in Program.cs.",
+      "defaultValue": "false"
+    },
     "skipRestore": {
       "type": "parameter",
       "datatype": "bool",
@@ -52,6 +59,11 @@
       "replaces": "SLINT_PACKAGE_ID"
     }
   },
+  "sources": [
+    {
+      "modifiers": [{ "condition": "(!mvvm)", "exclude": ["MainViewModel.cs"] }]
+    }
+  ],
   "primaryOutputs": [
     { "path": "SlintApp.csproj" },
     { "path": "Program.cs" }

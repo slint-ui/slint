@@ -71,11 +71,11 @@ internal sealed class ConvertedModel<T>(Model<object?> rows) : Model<T>
 }
 
 /// <summary>
-/// The name in the <c>.slint</c> file of a generated property, or of the callback that an <c>On</c> method sets,
+/// The name in the <c>.slint</c> file of a generated property, of the callback that an <c>On</c> method sets, or of a global,
 /// for code that matches members by name, such as the source generator of <see cref="SlintViewModelAttribute"/>.
 /// </summary>
 [EditorBrowsable(EditorBrowsableState.Never)]
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Method)]
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Method | AttributeTargets.Class)]
 public sealed class SlintNameAttribute(string name) : Attribute
 {
     /// <summary>The name in the <c>.slint</c> file.</summary>

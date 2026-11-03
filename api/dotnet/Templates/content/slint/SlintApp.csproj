@@ -27,6 +27,9 @@
 
   <ItemGroup>
     <PackageReference Include="SLINT_PACKAGE_ID" Version="SLINT_VERSION" />
+<!--#if (mvvm) -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+<!--#endif -->
   </ItemGroup>
 
 </Project>

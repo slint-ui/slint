@@ -80,15 +80,18 @@ jobs:
                   dotnet new install "$RUNNER_TEMP/templates/Slint.Templates.0.0.0-ci.nupkg"
                   cd "$RUNNER_TEMP"
                   dotnet new slint -o Desktop --no-restore
+                  dotnet new slint -o Mvvm --mvvm --no-restore
                   dotnet new slint-android -o Android --no-restore
                   dotnet new slint-ios -o IOSApp --no-restore
                   dotnet new slint-xplat -o XPlat --no-restore
                   dotnet new slint-xplat -o Two --platforms desktop --platforms android --style fluent --app-id com.example.two --no-restore
-                  if grep -rnE 'SLINT_[A-Z_]+|@Slint[A-Za-z]+@' Desktop Android IOSApp XPlat Two; then
+                  if grep -rnE 'SLINT_[A-Z_]+|@Slint[A-Za-z]+@' Desktop Mvvm Android IOSApp XPlat Two; then
                       echo "::error::A template left a placeholder in the app"
                       exit 1
                   fi
                   [ ! -e Two/Two.iOS ] && ! grep -q iOS Two/Two.slnx || { echo "::error::slint-xplat created the iOS project without --platforms ios"; exit 1; }
+                  [ -e Mvvm/MainViewModel.cs ] && [ ! -e Desktop/MainViewModel.cs ] || { echo "::error::slint created MainViewModel.cs without --mvvm, or not with it"; exit 1; }
+                  grep -q 'app.Bind(new MainViewModel())' Mvvm/Program.cs && ! grep -q '#if' Mvvm/Program.cs || { echo "::error::slint --mvvm left Program.cs unbound"; exit 1; }
                   grep -q '<SlintStyle>fluent</SlintStyle>' Two/Directory.Build.props || { echo "::error::slint-xplat ignored --style"; exit 1; }
                   grep -q '<ApplicationId>com.example.two</ApplicationId>' Two/Two.Android/Two.Android.csproj || { echo "::error::slint-xplat ignored --app-id"; exit 1; }
             - name: Run the .NET test driver

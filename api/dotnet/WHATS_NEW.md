@@ -15,6 +15,9 @@
   `app.Instance.Bind(viewModel)` binds them one by one. See [View Models](README.md#view-models).
   Validation errors, such as those of `ObservableValidator`, bind to a property per field,
   and the running state of an asynchronous command to a property, such as for a spinner.
+  `[SlintViewModel(typeof(SettingsPage))]` binds a view model to an exported global, with `app.SettingsPage.Bind(viewModel)`,
+  and `examples/mvvm/dotnet` binds the view models of MVVM-Samples, one global per page.
+- Templates: `dotnet new slint --mvvm` binds the window to a view model of CommunityToolkit.Mvvm instead of handling its callback.
 
 ## 1.19.0-preview.11
 

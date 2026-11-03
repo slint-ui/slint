@@ -46,6 +46,19 @@ public sealed partial class FormViewModel : ObservableValidator
     private Task Submit() => Gate.Task;
 }
 
+[SlintViewModel(typeof(CounterPage))]
+public sealed partial class CounterViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private int _count;
+
+    [ObservableProperty]
+    private string _label = "Clicks";
+
+    [RelayCommand]
+    private void Increment() => Count++;
+}
+
 [TestClass]
 public sealed class ViewModelBindingTests
 {
@@ -170,5 +183,23 @@ public sealed class ViewModelBindingTests
         });
         Assert.IsFalse(form.SubmitRunning);
         Assert.IsTrue(form.SubmitEnabled);
+    });
+
+    [TestMethod]
+    public void GeneratedBindTargetsGlobals() => SlintThread.Run(() =>
+    {
+        using var view = CounterView.Create();
+        var vm = new CounterViewModel();
+        using var binding = view.CounterPage.Bind(vm);
+        Assert.AreEqual("Clicks", view.CounterPage.Label);
+
+        view.ClickIncrement();
+        view.ClickIncrement();
+        Assert.AreEqual(2, vm.Count);
+        Assert.AreEqual(2, view.CounterPage.Count);
+
+        view.TypeLabel("Taps");
+        Testing.MockElapsedTime(0);
+        Assert.AreEqual("Taps", vm.Label);
     });
 }

@@ -7,8 +7,9 @@ using System.Windows.Input;
 namespace Slint;
 
 /// <summary>
-/// Generates a <c>Bind</c> method for the generated component <paramref name="component"/> and the view model with this attribute,
-/// which binds the members of the same name: <c>window.Bind(viewModel)</c>.
+/// Generates a <c>Bind</c> method for the generated class <paramref name="component"/>, of a component or a global,
+/// and the view model with this attribute, which binds the members of the same name:
+/// <c>window.Bind(viewModel)</c>, or <c>window.Settings.Bind(viewModel)</c> for a global.
 /// </summary>
 /// <remarks>
 /// A property of the view model binds to the component's property of the same C# name;
@@ -24,7 +25,7 @@ namespace Slint;
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
 public sealed class SlintViewModelAttribute(Type component) : Attribute
 {
-    /// <summary>The generated class of the component.</summary>
+    /// <summary>The generated class of the component or the global.</summary>
     public Type Component { get; } = component;
 }
 
@@ -36,7 +37,15 @@ public static class ViewModelBindingExtensions
     /// Call it on the Slint thread, and dispose the result to remove the bindings.
     /// </summary>
     public static ViewModelBinding<TViewModel> Bind<TViewModel>(this ComponentInstance instance, TViewModel viewModel)
-        where TViewModel : class => new(instance, viewModel);
+        where TViewModel : class => new(instance, null, viewModel);
+
+    /// <summary>Like <see cref="Bind"/>, for the properties and callbacks of the global <paramref name="global"/>.</summary>
+    public static ViewModelBinding<TViewModel> BindGlobal<TViewModel>(this ComponentInstance instance, string global, TViewModel viewModel)
+        where TViewModel : class
+    {
+        ArgumentNullException.ThrowIfNull(global);
+        return new(instance, global, viewModel);
+    }
 }
 
 /// <summary>
@@ -49,6 +58,7 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
     where TViewModel : class
 {
     private readonly ComponentInstance _instance;
+    private readonly string? _global;
     private readonly TViewModel _viewModel;
     private readonly int _slintThread = Environment.CurrentManagedThreadId;
     private readonly List<Action> _refreshers = [];
@@ -56,11 +66,12 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
     private int _refreshQueued;
     private bool _disposed;
 
-    internal ViewModelBinding(ComponentInstance instance, TViewModel viewModel)
+    internal ViewModelBinding(ComponentInstance instance, string? global, TViewModel viewModel)
     {
         ArgumentNullException.ThrowIfNull(instance);
         ArgumentNullException.ThrowIfNull(viewModel);
         _instance = instance;
+        _global = global;
         _viewModel = viewModel;
         if (viewModel is INotifyPropertyChanged notifying)
         {
@@ -80,21 +91,21 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
     {
         ArgumentNullException.ThrowIfNull(get);
         var current = get(_viewModel);
-        _instance.SetProperty(name, current);
+        SetValue(name, current);
         _refreshers.Add(() =>
         {
             var value = get(_viewModel);
             if (!EqualityComparer<T>.Default.Equals(value, current))
             {
                 current = value;
-                _instance.SetProperty(name, value);
+                SetValue(name, value);
             }
         });
         if (set != null)
         {
-            _disposables.Add(_instance.WatchProperty(name, () =>
+            _disposables.Add(Watch(name, () =>
             {
-                var value = ValueConverter.ConvertTo<T>(_instance.GetProperty(name));
+                var value = ValueConverter.ConvertTo<T>(GetValue(name));
                 if (!EqualityComparer<T>.Default.Equals(value, current))
                 {
                     current = value;
@@ -112,8 +123,8 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
     public ViewModelBinding<TViewModel> ToViewModel<T>(string name, Action<TViewModel, T> set)
     {
         ArgumentNullException.ThrowIfNull(set);
-        set(_viewModel, ValueConverter.ConvertTo<T>(_instance.GetProperty(name)));
-        _disposables.Add(_instance.WatchProperty(name, () => set(_viewModel, ValueConverter.ConvertTo<T>(_instance.GetProperty(name)))));
+        set(_viewModel, ValueConverter.ConvertTo<T>(GetValue(name)));
+        _disposables.Add(Watch(name, () => set(_viewModel, ValueConverter.ConvertTo<T>(GetValue(name)))));
         return this;
     }
 
@@ -144,11 +155,11 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
             {
                 var followed = new ObservableCollectionModel<T>(collection);
                 model = followed;
-                _instance.SetProperty(name, followed.Map(map));
+                SetValue(name, followed.Map(map));
             }
             else
             {
-                _instance.SetProperty(name, new ListModel<TRow>((collection ?? []).Select(map)));
+                SetValue(name, new ListModel<TRow>((collection ?? []).Select(map)));
             }
         }
         Apply(get(_viewModel));
@@ -177,7 +188,7 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
         {
             if (enabledProperty != null)
             {
-                _instance.SetProperty(enabledProperty, command?.CanExecute(null) ?? false);
+                SetValue(enabledProperty, command?.CanExecute(null) ?? false);
             }
         }
         void OnCanExecuteChanged(object? sender, EventArgs e) => Post(UpdateEnabled);
@@ -202,7 +213,7 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
             }
             UpdateEnabled();
         }
-        _instance.SetCallback(callback, args =>
+        SetHandler(callback, args =>
         {
             var parameter = args.Length > 0 ? args[0] : null;
             if (command?.CanExecute(parameter) == true)
@@ -288,6 +299,36 @@ public sealed class ViewModelBinding<TViewModel> : IDisposable
         foreach (var refresh in _refreshers)
         {
             refresh();
+        }
+    }
+
+    private object? GetValue(string name) =>
+        _global == null ? _instance.GetProperty(name) : _instance.GetGlobalProperty(_global, name);
+
+    private void SetValue(string name, object? value)
+    {
+        if (_global == null)
+        {
+            _instance.SetProperty(name, value);
+        }
+        else
+        {
+            _instance.SetGlobalProperty(_global, name, value);
+        }
+    }
+
+    private IDisposable Watch(string name, Action changed) =>
+        _global == null ? _instance.WatchProperty(name, changed) : _instance.WatchGlobalProperty(_global, name, changed);
+
+    private void SetHandler(string name, Action<object?[]> handler)
+    {
+        if (_global == null)
+        {
+            _instance.SetCallback(name, handler);
+        }
+        else
+        {
+            _instance.SetGlobalCallback(_global, name, handler);
         }
     }
 

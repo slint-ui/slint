@@ -18,6 +18,7 @@
   <Project Path="7guis/dotnet/CircleDraw/CircleDraw.csproj" />
   <Project Path="7guis/dotnet/Cells/Cells.csproj" />
   <Project Path="todo-mvc/dotnet/TodoMvc.csproj" />
+  <Project Path="mvvm/dotnet/MvvmSample.csproj" />
   <Project Path="gallery/dotnet/Gallery.csproj" />
   <Project Path="../demos/usecases/dotnet/Usecases.csproj" />
   <Project Path="runtime_key_bindings/dotnet/RuntimeKeyBindings.csproj" />

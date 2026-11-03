@@ -36,6 +36,7 @@ dotnet run
 The app has the counter below, live preview in Debug builds for `dotnet watch`, and Native AOT in Release builds.
 The desktop projects are `WinExe`, so Windows doesn't open a console window for them, see step 3 below.
 `--style fluent`, `material`, `cupertino`, or `cosmic` picks the widget style.
+`dotnet new slint --mvvm` binds the window to a view model of CommunityToolkit.Mvvm, see [View Models](#view-models).
 
 | Template        | Creates                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------ |
@@ -409,8 +410,30 @@ using var binding = app.Instance.Bind(viewModel)
     .ToViewModel<int>("selected", (vm, value) => vm.Selected = value);
 ```
 
+A view model can also bind to an exported global, such as one global per page of the app.
+Pass the global's class to `[SlintViewModel]`, and bind through the window's property of that global:
+
+```slint
+export global SettingsPage {
+    in-out property <string> user-name;
+    callback save();
+}
+```
+
+```csharp
+[SlintViewModel(typeof(SettingsPage))]
+public partial class SettingsViewModel : ObservableObject { /* UserName, SaveCommand */ }
+
+using var settings = app.SettingsPage.Bind(new SettingsViewModel());
+```
+
+Without the attribute, `app.Instance.BindGlobal("SettingsPage", viewModel)` binds members one by one.
+
 The view model can raise its changes on any thread; the component updates on the Slint thread.
 Change a collection on the Slint thread.
+
+`examples/mvvm/dotnet` binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples) to a Slint UI,
+one global per page: `ObservableObject`, `RelayCommand`, `AsyncRelayCommand`, the messenger, a collection, and a validated form.
 
 ## Timers and Async Code
 

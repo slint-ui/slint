@@ -24,7 +24,7 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
 
     private static readonly DiagnosticDescriptor NotAComponent = new(
         "SLINT101", "Not a generated Slint component",
-        "'{0}' isn't a class that Slint generates from a .slint file; pass the class of an exported component to [SlintViewModel]",
+        "'{0}' isn't a class that Slint generates from a .slint file; pass the class of an exported component or global to [SlintViewModel]",
         "Slint", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor TypeMismatch = new(
@@ -93,14 +93,13 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
                 continue;
             }
             isPublic &= component.DeclaredAccessibility == Accessibility.Public;
+            var globalName = SlintName(component);
 
             var componentProperties = new Dictionary<string, (string SlintName, IPropertySymbol Property)>();
             var callbacks = new Dictionary<string, string>();
             foreach (var member in component.GetMembers())
             {
-                var slintName = member.GetAttributes()
-                    .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == SlintNameAttribute)?
-                    .ConstructorArguments.FirstOrDefault().Value as string;
+                var slintName = SlintName(member);
                 if (slintName == null)
                 {
                     continue;
@@ -201,11 +200,14 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
             }
 
             var componentType = component.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var (kind, bind) = globalName == null
+                ? ("component", "Bind(component.Instance, viewModel)")
+                : ("global", $"BindGlobal(component.Instance, \"{globalName}\", viewModel)");
             methods.Append($$"""
 
-                    /// <summary>Binds the members of the view model to those of the same name of the component.</summary>
+                    /// <summary>Binds the members of the view model to those of the same name of the {{kind}}.</summary>
                     public static global::Slint.ViewModelBinding<{{vmType}}> Bind(this {{componentType}} component, {{vmType}} viewModel) =>
-                        global::Slint.ViewModelBindingExtensions.Bind(component.Instance, viewModel){{calls}}{{toViewModel}};
+                        global::Slint.ViewModelBindingExtensions.{{bind}}{{calls}}{{toViewModel}};
 
                 """);
         }
@@ -271,6 +273,11 @@ public sealed class ViewModelBindingGenerator : IIncrementalGenerator
         }
         return (properties, commands);
     }
+
+    private static string? SlintName(ISymbol symbol) =>
+        symbol.GetAttributes()
+            .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == SlintNameAttribute)?
+            .ConstructorArguments.FirstOrDefault().Value as string;
 
     private static bool HasAttribute(ISymbol symbol, string name) =>
         symbol.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == name);
