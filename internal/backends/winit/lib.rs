@@ -181,7 +181,9 @@ fn try_create_window_with_fallback_renderer(
     _proxy: &winit::event_loop::EventLoopProxy<SlintEvent>,
     #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
 ) -> Option<Rc<WinitWindowAdapter>> {
-    [
+    let renderer_factories: [fn(
+        &Rc<SharedBackendData>,
+    ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>; _] = [
         #[cfg(enable_skia_renderer)]
         renderer::skia::WinitSkiaRenderer::new_suspended,
         #[cfg(feature = "renderer-femtovg-wgpu")]
@@ -192,13 +194,13 @@ fn try_create_window_with_fallback_renderer(
             not(feature = "renderer-femtovg-wgpu")
         ))]
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
-        #[cfg(feature = "renderer-software")]
+        // The software renderer can't draw images that the browser loads.
+        #[cfg(all(feature = "renderer-software", not(target_arch = "wasm32")))]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
         #[cfg(feature = "renderer-vello")]
         renderer::vello::WinitVelloRenderer::new_suspended,
-    ]
-    .into_iter()
-    .find_map(|renderer_factory| {
+    ];
+    renderer_factories.into_iter().find_map(|renderer_factory| {
         Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
             renderer_factory(shared_backend_data).ok()?,
