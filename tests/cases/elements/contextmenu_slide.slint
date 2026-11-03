@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A context menu opened near the bottom-right corner slides back into the window.
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    callback show-menu();
+    show-menu => {
+        cm.show({ x: 290px, y: 290px });
+    }
+
+    cm := ContextMenuArea {
+        Menu {
+            MenuItem { title: "First entry"; }
+            MenuItem { title: "Second entry"; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+let inner = slint_testing::WindowInner::from_pub(&instance.window());
+
+instance.window().set_size(slint::PhysicalSize::new(300, 300));
+slint_testing::mock_elapsed_time(100);
+
+instance.invoke_show_menu();
+slint_testing::mock_elapsed_time(100);
+
+let popups = inner.active_popups.borrow();
+assert_eq!(popups.len(), 1, "We have one open menu");
+let popup = popups.first().unwrap();
+let size = i_slint_core::item_tree::ItemTreeRc::borrow_pin(&popup.component)
+    .as_ref()
+    .item_geometry(0)
+    .size;
+assert!(size.width > 10. && size.height > 10., "The menu is larger than the space left: {size:?}");
+if let slint_testing::PopupWindowLocation::ChildWindow(loc) = &popup.location {
+    assert_eq!(loc.x, 300. - size.width, "The menu slid left to stay inside the window");
+    assert_eq!(loc.y, 300. - size.height, "The menu slid up to stay inside the window");
+} else {
+    assert!(false, "The menu is expected to be a ChildWindow");
+};
+```
+*/

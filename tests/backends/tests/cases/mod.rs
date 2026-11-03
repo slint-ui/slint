@@ -4,6 +4,7 @@
 pub mod context_menu;
 pub mod menubar;
 pub mod platform_uses_mock_data;
+pub mod popupwindow_anchor;
 pub mod popupwindow_location;
 pub mod popupwindow_size;
 pub mod popupwindow_size2;

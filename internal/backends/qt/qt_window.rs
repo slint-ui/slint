@@ -41,7 +41,7 @@ use i_slint_core::window::{
 };
 use i_slint_core::{ImageInner, SharedString};
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::ptr::NonNull;
@@ -2310,6 +2310,15 @@ pub struct QtWindow {
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
 
     parent: Weak<QtWindow>,
+
+    /// For a popup: the origin of the anchor rectangle, relative to the parent window,
+    /// as last passed to `set_position`.
+    popup_anchor_position: Cell<Option<LogicalPoint>>,
+    /// For a popup: the anchor data last passed to `set_position_anchor`.
+    popup_anchor: RefCell<Option<items::PopupAnchor>>,
+    /// For a popup: the size last requested with `set_size`, before any constraint
+    /// adjustment shrank it.
+    popup_requested_size: Cell<Option<LogicalSize>>,
 }
 
 impl Drop for QtWindow {
@@ -2346,6 +2355,9 @@ impl QtWindow {
                 tree_structure_changed: RefCell::new(false),
                 window_icon_cache_key: Default::default(),
                 parent,
+                popup_anchor_position: Default::default(),
+                popup_anchor: Default::default(),
+                popup_requested_size: Default::default(),
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -2422,6 +2434,131 @@ impl QtWindow {
         }
 
         timer_event();
+    }
+
+    /// Places a popup according to its anchor: the anchor point on the anchor rectangle, the
+    /// gravity, the offset and the constraint adjustments.
+    /// Does nothing until `set_position_anchor` was called.
+    fn place_anchored_popup(&self) {
+        let Some(anchor) = self.popup_anchor.borrow().clone() else { return };
+        let anchor_position = self.popup_anchor_position.get().unwrap_or_default();
+        let widget_ptr = self.widget_ptr();
+
+        let current_size = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+            return widget_ptr->size();
+        }};
+        let size = self
+            .popup_requested_size
+            .get()
+            .unwrap_or_else(|| LogicalSize::new(current_size.width as _, current_size.height as _));
+        let offset = LogicalPoint::new(anchor.x, anchor.y);
+
+        let is_wayland = cpp! {unsafe [] -> bool as "bool" {
+            return QGuiApplication::platformName().startsWith(QLatin1String("wayland"));
+        }};
+        if is_wayland {
+            self.place_anchored_popup_wayland(anchor, anchor_position, offset, size);
+            return;
+        }
+
+        // The space available for the popup, relative to the parent window like the anchor
+        // rectangle.
+        let available = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QRectF as "QRectF" {
+            const auto *parent = widget_ptr->parentWidget();
+            const auto *reference = parent ? parent : widget_ptr;
+            const auto *screen = reference->screen();
+            if (!screen)
+                return QRectF();
+            QRectF geometry = screen->availableGeometry();
+            if (parent)
+                geometry.translate(-parent->mapToGlobal(QPoint(0, 0)));
+            return geometry;
+        }};
+        let clip_region = LogicalRect::new(
+            LogicalPoint::new(available.x as _, available.y as _),
+            LogicalSize::new(available.width as _, available.height as _),
+        );
+
+        let rect = i_slint_core::window::popup::place_popup(
+            anchor,
+            anchor_position,
+            offset,
+            size,
+            &clip_region,
+        );
+
+        let pos = qttypes::QPoint { x: rect.origin.x.round() as _, y: rect.origin.y.round() as _ };
+        let new_size = qttypes::QSize {
+            width: rect.size.width.round() as _,
+            height: rect.size.height.round() as _,
+        };
+        let resized =
+            new_size.width != current_size.width || new_size.height != current_size.height;
+        cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint", new_size as "QSize", resized as "bool"] {
+            const auto *parent = widget_ptr->parentWidget();
+            widget_ptr->move(parent ? parent->mapToGlobal(QPoint(0, 0)) + pos : pos);
+            if (resized)
+                widget_ptr->resize(new_size);
+        }};
+        if resized {
+            self.resize_event(new_size);
+        }
+    }
+
+    // Use qt's wayland interface for anchoring
+    fn place_anchored_popup_wayland(
+        &self,
+        anchor: items::PopupAnchor,
+        anchor_position: LogicalPoint,
+        offset: LogicalPoint,
+        size: LogicalSize,
+    ) {
+        // Qt doesn't expose `xdg_positioner.set_offset`, so the offset moves the anchor rectangle.
+        let anchor_rect = qttypes::QRectF {
+            x: (anchor_position.x + offset.x) as _,
+            y: (anchor_position.y + offset.y) as _,
+            width: anchor.width.max(1 as _) as _,
+            height: anchor.height.max(1 as _) as _,
+        };
+        let anchor_edges = anchor_location_to_qt_edges(anchor.location);
+        let gravity_edges = gravity_to_qt_edges(anchor.gravity);
+        let constraint_adjustment = constraint_adjustment_to_xdg(
+            &anchor.constraint_adjustment_x,
+            &anchor.constraint_adjustment_y,
+        );
+
+        // Qt only sends the new positioner to the compositor when the popup moves, so move it to
+        // where it goes without constraints.
+        let mut unconstrained = anchor;
+        for adjustment in
+            [&mut unconstrained.constraint_adjustment_x, &mut unconstrained.constraint_adjustment_y]
+        {
+            adjustment.slide = false;
+            adjustment.flip = false;
+            adjustment.resize = false;
+        }
+        let rect = i_slint_core::window::popup::place_popup(
+            unconstrained,
+            anchor_position,
+            offset,
+            size,
+            &LogicalRect::zero(),
+        );
+        let pos = qttypes::QPoint { x: rect.origin.x.round() as _, y: rect.origin.y.round() as _ };
+
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*", anchor_rect as "QRectF", anchor_edges as "int", gravity_edges as "int", constraint_adjustment as "uint", pos as "QPoint"] {
+            // Creates the QWindow if the popup wasn't shown yet.
+            (void)widget_ptr->winId();
+            if (auto *window = widget_ptr->windowHandle()) {
+                window->setProperty("_q_waylandPopupAnchorRect", anchor_rect.toRect());
+                window->setProperty("_q_waylandPopupAnchor", QVariant::fromValue(Qt::Edges(QFlag(anchor_edges))));
+                window->setProperty("_q_waylandPopupGravity", QVariant::fromValue(Qt::Edges(QFlag(gravity_edges))));
+                window->setProperty("_q_waylandPopupConstraintAdjustment", constraint_adjustment);
+            }
+            const auto *parent = widget_ptr->parentWidget();
+            widget_ptr->move(parent ? parent->mapToGlobal(QPoint(0, 0)) + pos : pos);
+        }};
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
@@ -2620,6 +2757,20 @@ impl WindowAdapter for QtWindow {
     }
 
     fn set_position(&self, position: i_slint_core::api::WindowPosition) {
+        if self.parent.upgrade().is_some() {
+            let logical_position = match position {
+                i_slint_core::api::WindowPosition::Logical(logical) => logical,
+                i_slint_core::api::WindowPosition::Physical(physical) => {
+                    physical.to_logical(self.window().scale_factor())
+                }
+            };
+            self.popup_anchor_position
+                .set(Some(LogicalPoint::new(logical_position.x as _, logical_position.y as _)));
+            if self.popup_anchor.borrow().is_some() {
+                self.place_anchored_popup();
+                return;
+            }
+        }
         let physical_position = position.to_physical(self.window().scale_factor());
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
@@ -2644,6 +2795,17 @@ impl WindowAdapter for QtWindow {
         }};
 
         self.resize_event(sz);
+
+        if self.parent.upgrade().is_some() {
+            self.popup_requested_size
+                .set(Some(LogicalSize::new(logical_size.width as _, logical_size.height as _)));
+            self.place_anchored_popup();
+        }
+    }
+
+    fn set_position_anchor(&self, anchor: &items::PopupAnchor) {
+        *self.popup_anchor.borrow_mut() = Some(anchor.clone());
+        self.place_anchored_popup();
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {
@@ -2802,6 +2964,56 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
         width: logical_size.width.round() as _,
         height: logical_size.height.round() as _,
     }
+}
+
+// `Qt::Edge` values
+const QT_TOP_EDGE: i32 = 0x1;
+const QT_LEFT_EDGE: i32 = 0x2;
+const QT_RIGHT_EDGE: i32 = 0x4;
+const QT_BOTTOM_EDGE: i32 = 0x8;
+
+/// Qt's xdg-shell plugin maps no edges to the center.
+fn anchor_location_to_qt_edges(location: items::PopupAnchorLocation) -> i32 {
+    use items::PopupAnchorLocation as L;
+    match location {
+        L::Center => 0,
+        L::Top => QT_TOP_EDGE,
+        L::Bottom => QT_BOTTOM_EDGE,
+        L::Left => QT_LEFT_EDGE,
+        L::Right => QT_RIGHT_EDGE,
+        L::BottomLeft => QT_BOTTOM_EDGE | QT_LEFT_EDGE,
+        L::TopRight => QT_TOP_EDGE | QT_RIGHT_EDGE,
+        L::BottomRight => QT_BOTTOM_EDGE | QT_RIGHT_EDGE,
+        L::TopLeft | _ => QT_TOP_EDGE | QT_LEFT_EDGE,
+    }
+}
+
+fn gravity_to_qt_edges(gravity: items::PopupGravity) -> i32 {
+    use items::PopupGravity as G;
+    match gravity {
+        G::Center => 0,
+        G::Top => QT_TOP_EDGE,
+        G::Bottom => QT_BOTTOM_EDGE,
+        G::Left => QT_LEFT_EDGE,
+        G::Right => QT_RIGHT_EDGE,
+        G::TopLeft => QT_TOP_EDGE | QT_LEFT_EDGE,
+        G::BottomLeft => QT_BOTTOM_EDGE | QT_LEFT_EDGE,
+        G::TopRight => QT_TOP_EDGE | QT_RIGHT_EDGE,
+        G::BottomRight | _ => QT_BOTTOM_EDGE | QT_RIGHT_EDGE,
+    }
+}
+
+/// Returns the `xdg_positioner.constraint_adjustment` bit mask.
+fn constraint_adjustment_to_xdg(
+    x: &items::ConstraintAdjustment,
+    y: &items::ConstraintAdjustment,
+) -> u32 {
+    (x.slide as u32)
+        | (y.slide as u32) << 1
+        | (x.flip as u32) << 2
+        | (y.flip as u32) << 3
+        | (x.resize as u32) << 4
+        | (y.resize as u32) << 5
 }
 
 impl WindowAdapterInternal for QtWindow {
