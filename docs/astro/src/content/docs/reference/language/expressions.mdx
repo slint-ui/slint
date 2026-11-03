@@ -207,6 +207,7 @@ The JSON value is converted to match the declared type of the property:
 | `string`                                                               | a string                                                                                            |
 | `color`                                                                | a string, e.g. `"#ff0000"` or `"red"`                                                               |
 | `brush`                                                                | a color string like `color`                                                                         |
+| `image`                                                                | a string: a path relative to the JSON file, a URL, or a `data:` URI. An empty string is no image    |
 | an enum                                                                | a string naming one of its values, optionally prefixed with `"EnumName."`                           |
 | an array `[T]`                                                         | an array, each element converted per `T`'s row                                                      |
 | a struct                                                               | an object; each field is looked up by name and converted per its own type, recursively              |

@@ -57,4 +57,6 @@ export component SuperSimple {
 //                                                                          ^error{'a_struct' in the JSON file 📂/tests/syntax/expressions/from-json-data.json is not an array}
     property <string> indexed_type_mismatch: @from-json("from-json-data.json").an_array_of_structs[1].x;
 //                                           >                                                        <error{Cannot use the JSON number at 'an_array_of_structs[1].x' in 📂/tests/syntax/expressions/from-json-data.json for a value of type string}
+    property <image> image_mismatch: @from-json("from-json-data.json").a_float;
+//                                   >                                       <error{Cannot use the JSON number at 'a_float' in 📂/tests/syntax/expressions/from-json-data.json for a value of type image}
 }

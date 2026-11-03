@@ -4,7 +4,8 @@
 //! Implements the `@from-json(...)` compile-time macro: reads a JSON file at compile time
 //! and converts a value from it into an [`Expression`] matching the target property's type.
 
-use crate::expression_tree::{Expression, Unit};
+use crate::diagnostics::Spanned;
+use crate::expression_tree::{Expression, ImageReference, Unit};
 use crate::langtype::Type;
 use crate::lookup::LookupCtx;
 use crate::parser::{SyntaxKind, SyntaxNode, SyntaxToken, syntax_nodes};
@@ -414,6 +415,10 @@ fn json_to_expression(
             }
             None => mismatch(value, target, path, file, node, ctx),
         },
+        Type::Image => match value {
+            serde_json::Value::String(s) => image_expression(s, file, node),
+            _ => mismatch(value, target, path, file, node, ctx),
+        },
         Type::Struct(st) => match value.as_object() {
             Some(obj) => {
                 let mut values = std::collections::BTreeMap::new();
@@ -443,6 +448,33 @@ fn json_to_expression(
             None => mismatch(value, target, path, file, node, ctx),
         },
         _ => mismatch(value, target, path, file, node, ctx),
+    }
+}
+
+/// An image for `reference`, which is a `data:` URI, a URL, or a path relative to the JSON `file`.
+/// An empty `reference` is no image.
+fn image_expression(reference: &str, file: &std::path::Path, node: &SyntaxNode) -> Expression {
+    let resource_ref = if reference.is_empty() {
+        ImageReference::None
+    } else {
+        match ImageReference::from_resolved(reference.into()) {
+            ImageReference::Path(relative)
+                if !crate::pathutils::is_absolute(std::path::Path::new(relative.as_str())) =>
+            {
+                let path = crate::pathutils::join(
+                    &crate::pathutils::dirname(file),
+                    std::path::Path::new(relative.as_str()),
+                )
+                .map_or(relative, |path| path.to_string_lossy().into());
+                ImageReference::Path(path)
+            }
+            resource_ref => resource_ref,
+        }
+    };
+    Expression::ImageReference {
+        resource_ref,
+        source_location: Some(node.to_source_location()),
+        nine_slice: None,
     }
 }
 

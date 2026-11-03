@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// The JSON file sits in a subdirectory, so its image paths only resolve relative to the JSON file
+struct Pet { name: string, photo: image }
+
+export component TestCase {
+    property <image> no_image: @from-json("from_json_images/images.json").no_image;
+    property <image> cat: @from-json("from_json_images/images.json").cat;
+    property <image> logo: @from-json("from_json_images/images.json").logo;
+    property <image> pixel: @from-json("from_json_images/images.json").pixel;
+    property <image> circle: @from-json("from_json_images/images.json").circle;
+    property <[Pet]> pets: @from-json("from_json_images/images.json").pets;
+
+    out property <bool> test:
+        no_image.width == 0 && no_image.height == 0
+        && cat.width == 320 && cat.height == 480
+        && logo.width == 64 && logo.height == 64
+        && pixel.width == 1 && pixel.height == 1
+        && circle.width == 50 && circle.height == 40
+        && pets.length == 2
+        && pets[0].name == "Cat" && pets[0].photo.width == 320 && pets[0].photo.height == 480
+        && pets[1].name == "Frame" && pets[1].photo.width == 324 && pets[1].photo.height == 384;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+```
+*/

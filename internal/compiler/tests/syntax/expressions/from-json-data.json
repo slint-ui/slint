@@ -19,6 +19,9 @@
   "an_array_of_structs": [ { "x": 1, "y": 1 }, { "x": 2, "y": 2 } ],
   "a_partial_struct": { "x": 9 },
   "a_struct_with_extra_keys": { "x": 1, "y": 2, "z": 999, "extra": "ignored" },
+  "an_image": "../../../../../logo/slint-logo-small-light.svg",
+  "an_image_data_uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+  "a_bad_data_uri": "data:image/png;base64,!!!invalid-base64!!!",
 
   "element": {
     "sub_element": {

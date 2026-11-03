@@ -1,0 +1,11 @@
+{
+  "no_image": "",
+  "cat": "../../../../demos/printerdemo/ui/images/cat.jpg",
+  "logo": "../../../../logo/slint-logo-small-light.svg",
+  "pixel": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+  "circle": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjUiIGN5PSIyMCIgcj0iMTUiIGZpbGw9InJlZCIvPjwvc3ZnPg==",
+  "pets": [
+    { "name": "Cat", "photo": "../../../../demos/printerdemo/ui/images/cat.jpg" },
+    { "name": "Frame", "photo": "../../../../demos/printerdemo/ui/images/action-button-frame.png" }
+  ]
+}

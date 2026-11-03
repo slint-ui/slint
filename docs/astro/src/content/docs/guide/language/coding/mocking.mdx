@@ -80,6 +80,8 @@ export component Example {
 
 The conversion handles arrays and structs recursively,
 so a JSON file can describe entire lists of mock records, not just scalars.
+Mock records can include pictures too:
+an `image` is a path relative to the JSON file, or the image content as a `data:` URI.
 The file path must be a plain string literal, since the file is read once, at compile time.
 See the [`@from-json`](../../../../reference/language/expressions/#from-json) reference for the full conversion and lookup rules.
 

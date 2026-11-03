@@ -69,6 +69,10 @@ export component SuperSimple {
     property <Point> a_partial_struct: @from-json("from-json-data.json").a_partial_struct;
 //                                     >                                                <warning{The JSON object at 'a_partial_struct' in 📂/tests/syntax/expressions/from-json-data.json has no key for the struct field 'y'; using its default value}
 
+    // an image path relative to the JSON file, and an image embedded as a data URI
+    property <image> an_image: @from-json("from-json-data.json").an_image;
+    property <image> an_image_data_uri: @from-json("from-json-data.json").an_image_data_uri;
+
     // extra JSON keys not declared on the struct are silently ignored
     property <Point> a_struct_with_extra_keys: @from-json("from-json-data.json").a_struct_with_extra_keys;
 }
