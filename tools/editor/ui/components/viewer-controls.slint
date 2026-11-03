@@ -231,8 +231,8 @@ export component ViewerControls inherits Rectangle {
         anchor-width: root.width;
         anchor-height: root.height;
         label: @tr("Device manager");
-        panel-height: 331px;
-        DeviceManager {
+        panel-height: devices.preferred-height;
+        devices := DeviceManager {
             width: manager.panel-width;
             height: manager.panel-height;
             closed => { manager.close(); }

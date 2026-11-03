@@ -3,12 +3,24 @@
 
 # cspell:ignore getcolors
 
+import socket
+
 import pytest
 import slint_testing
 from canvas_interactions import center
 from editor_sync import wait_for_source
+from slint_testing import keys
 from ui_assertions import expect
-from ui_driver import element, first_window, launch_editor, query, screenshot
+from ui_driver import (
+    element,
+    first_window,
+    launch_editor,
+    press_key,
+    press_keys,
+    press_shortcut,
+    query,
+    screenshot,
+)
 
 
 def test_viewer_transport_and_popup(
@@ -63,6 +75,10 @@ def test_viewer_transport_and_popup(
         assert popup.size.width == pytest.approx(360)
         assert popup.size.height == pytest.approx(100)
         bounds = popup.absolute_rect
+        arrow = element(window, id="ViewerPopup::arrow")
+        assert bounds.x + bounds.width - center(arrow).x == pytest.approx(
+            launcher.size.width / 2
+        )
         selector = element(window, "Choose viewer")
         manager = element(
             window, "Manage devices...", role=slint_testing.AccessibleRole.Button
@@ -126,7 +142,6 @@ def test_viewer_transport_and_popup(
         ).to_be_visible()
         devices_panel = element(window, "Device manager")
         assert devices_panel.size.width == pytest.approx(360)
-        assert devices_panel.size.height == pytest.approx(331)
         assert devices_panel.absolute_position.x == pytest.approx(bounds.x)
         heading = element(window, "Devices", role=slint_testing.AccessibleRole.Text)
         assert (
@@ -138,6 +153,16 @@ def test_viewer_transport_and_popup(
         )
         assert center(heading).y == pytest.approx(center(close).y)
         assert close.size.width == close.size.height == pytest.approx(24)
+        pair = element(
+            window, "Pair nearby device", role=slint_testing.AccessibleRole.Button
+        )
+        assert (
+            devices_panel.absolute_rect.y
+            + devices_panel.size.height
+            - pair.absolute_rect.y
+            - pair.size.height
+            == pytest.approx(16)
+        )
         screenshot(window).save(tmp_path / "device-manager-saved.png")
         element(
             window, "Pair nearby device", role=slint_testing.AccessibleRole.Button
@@ -149,7 +174,42 @@ def test_viewer_transport_and_popup(
         expect(
             query(window, "Connect", role=slint_testing.AccessibleRole.Button)
         ).to_be_visible()
+        expect(query(window, "Enter an address and port")).to_be_visible()
+        assert not element(
+            window, "Connect", role=slint_testing.AccessibleRole.Button
+        ).accessible_enabled
         screenshot(window).save(tmp_path / "device-manager-address.png")
+        with socket.socket() as unavailable:
+            unavailable.bind(("127.0.0.1", 0))
+            for label, value in [
+                ("9000", str(unavailable.getsockname()[1])),
+                ("192.168.1.42", "127.0.0.1"),
+            ]:
+                field = element(
+                    window, label, role=slint_testing.AccessibleRole.TextInput
+                )
+                field.single_click(left)
+                press_shortcut(window, keys.Control, "a")
+                press_keys(window, value)
+                press_key(window, keys.Return)
+            expect(query(window, "Couldn’t connect to this address")).to_be_visible()
+            assert element(
+                window, "Search again", role=slint_testing.AccessibleRole.Button
+            ).accessible_enabled
+            screenshot(window).save(tmp_path / "device-manager-unreachable.png")
+            element(
+                window, "192.168.1.42", role=slint_testing.AccessibleRole.TextInput
+            ).single_click(left)
+            press_shortcut(window, keys.Control, "a")
+            press_key(window, keys.Backspace)
+            expect(query(window, "Enter an address and port")).to_be_visible()
+            assert not element(
+                window, "Connect", role=slint_testing.AccessibleRole.Button
+            ).accessible_enabled
+        element(window, "Back", role=slint_testing.AccessibleRole.Button).single_click(
+            left
+        )
+        expect(query(window, "Your saved viewers")).to_be_visible()
         element(
             window, "Close device manager", role=slint_testing.AccessibleRole.Button
         ).single_click(left)

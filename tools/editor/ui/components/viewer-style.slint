@@ -26,8 +26,8 @@ export component ViewerPopup inherits PopupWindow {
         border-width: Metrics.border-width; border-color: ViewerStyle.border;
         @children
     }
-    Path {
-        x: root.anchor-width - Metrics.space-large - self.width; y: 0px;
+    arrow := Path {
+        x: root.anchor-width / 2 - root.x - self.width / 2; y: 0px;
         width: Metrics.space-section; height: Metrics.space-regular;
         commands: "M 0 10 L 14 -4 L 28 10";
         fill: ViewerStyle.arrow; stroke: ViewerStyle.border; stroke-width: Metrics.border-width;
