@@ -3231,6 +3231,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-backend-emscripten"
+version = "1.19.0"
+dependencies = [
+ "i-slint-common",
+ "i-slint-core",
+ "i-slint-renderer-femtovg",
+ "i-slint-renderer-software",
+]
+
+[[package]]
 name = "i-slint-backend-linuxkms"
 version = "1.19.0"
 dependencies = [
@@ -7351,12 +7361,12 @@ dependencies = [
  "esp-backtrace",
  "esp-println",
  "i-slint-backend-android-activity",
+ "i-slint-backend-emscripten",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
  "i-slint-common",
  "i-slint-core",
  "i-slint-live-preview",
- "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "proc-macro2",
@@ -7389,6 +7399,7 @@ name = "slint-dotnet"
 version = "1.19.0"
 dependencies = [
  "i-slint-backend-android-activity",
+ "i-slint-backend-emscripten",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-testing",

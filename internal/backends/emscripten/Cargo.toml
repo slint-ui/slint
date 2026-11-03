@@ -1,0 +1,26 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "i-slint-backend-emscripten"
+description = "Emscripten backend for Slint, rendering into an HTML canvas"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[features]
+renderer-femtovg = ["dep:i-slint-renderer-femtovg"]
+renderer-software = ["dep:i-slint-renderer-software"]
+
+[target.'cfg(target_os = "emscripten")'.dependencies]
+i-slint-common = { workspace = true, features = ["default"] }
+i-slint-core = { workspace = true, features = ["std"] }
+i-slint-renderer-femtovg = { workspace = true, features = ["default", "opengl"], optional = true }
+i-slint-renderer-software = { workspace = true, features = ["std"], optional = true }
