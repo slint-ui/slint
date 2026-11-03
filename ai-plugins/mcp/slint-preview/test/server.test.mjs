@@ -74,7 +74,7 @@ test("reports the plugin version", async () => {
 test("lists preview_slint with its view, and the view's own tools for the view only", async () => {
     const { result } = await request("tools/list");
     const preview = result.tools.find((t) => t.name === "preview_slint");
-    assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview-v2.html");
+    assert.equal(preview._meta.ui.resourceUri, "ui://slint/preview.html");
     for (const name of [
         "read_slint_file",
         "read_binary_file",
@@ -109,7 +109,7 @@ function assertServesInterpreter(content, url, hosts) {
 
 test("serves the view with the snapshot interpreter", async () => {
     const { result } = await request("resources/read", {
-        uri: "ui://slint/preview-v2.html",
+        uri: "ui://slint/preview.html",
     });
     assertServesInterpreter(
         result.contents[0],
@@ -145,7 +145,7 @@ test("serves the view with the interpreter of the plugin's release on the releas
                 jsonrpc: "2.0",
                 id: 1,
                 method: "resources/read",
-                params: { uri: "ui://slint/preview-v2.html" },
+                params: { uri: "ui://slint/preview.html" },
             }) + "\n",
         );
         const [line] = await once(lines, "line");
@@ -165,7 +165,7 @@ test("lists the view resource", async () => {
     const { result } = await request("resources/list");
     assert.deepEqual(
         result.resources.map((r) => [r.uri, r.mimeType]),
-        [["ui://slint/preview-v2.html", "text/html;profile=mcp-app"]],
+        [["ui://slint/preview.html", "text/html;profile=mcp-app"]],
     );
 });
 

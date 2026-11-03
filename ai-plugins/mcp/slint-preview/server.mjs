@@ -11,7 +11,7 @@ import { extname, isAbsolute } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 
-const VIEW_URI = "ui://slint/preview-v2.html";
+const VIEW_URI = "ui://slint/preview.html";
 const VIEW_MIME_TYPE = "text/html;profile=mcp-app";
 const VIEW_START_TIMEOUT_MS = Number(
     process.env.SLINT_PREVIEW_VIEW_START_TIMEOUT_MS ?? 10000,

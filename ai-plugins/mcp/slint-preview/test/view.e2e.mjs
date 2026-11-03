@@ -130,7 +130,7 @@ before(async () => {
     const origin = `http://localhost:${httpServer.address().port}`;
 
     const view = (
-        await request("resources/read", { uri: "ui://slint/preview-v2.html" })
+        await request("resources/read", { uri: "ui://slint/preview.html" })
     ).result.contents[0].text.replace(
         /const INTERPRETER_URL = "[^"]*"/,
         `const INTERPRETER_URL = "${origin}/interpreter/slint_wasm_interpreter.js"`,
