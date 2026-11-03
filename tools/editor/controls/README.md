@@ -195,7 +195,7 @@ $env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-
 ```
 
 Import `TabHeaderBase`, `TabBarBase`, `TabBarLayoutBase`, and `TabPanelBase` from `src/headless.slint` for unstyled composition.
-Nested declarations require this branch's experimental compiler integration for `header` and `bar` slots.
+Nested declarations require the experimental `header` and `bar` slots.
 Custom headers require an explicit `bar <<` assignment.
 The standard styles retain their existing tab implementations.
 The headless and Basic implementations remain in the editor library.
