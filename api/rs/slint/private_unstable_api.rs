@@ -123,6 +123,15 @@ pub fn new_item_tree<T: vtable::HasStaticVTable<ItemTreeVTable> + 'static, Globa
     Ok(self_rc)
 }
 
+/// The `visit_dynamic` argument of `visit_item_tree` for an item tree without repeaters.
+pub fn no_dynamic_children(
+    _: TraversalOrder,
+    _: ItemVisitorRefMut<'_>,
+    _: u32,
+) -> VisitChildrenResult {
+    unreachable!()
+}
+
 /// Wrapper around `SlintContext::translate` for the generated code
 pub fn translate(
     ctx: &i_slint_core::SlintContext,
