@@ -736,6 +736,7 @@ SPDX-License-Identifier = "ISC"
 
 [[annotations]]
 path = [
+  "tools/editor/ui/assets/lucide/arrow-up.svg",
   "tools/editor/ui/assets/lucide/moon.svg",
   "tools/editor/ui/assets/lucide/check.svg",
   "tools/editor/ui/assets/lucide/chevron-down.svg",

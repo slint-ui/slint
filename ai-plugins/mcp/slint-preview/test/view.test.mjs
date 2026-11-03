@@ -71,7 +71,7 @@ function startView({
         ["status", "preview", "diagnostics", "stage", "crash", "crash-details", "retry", "annotate",
             "annotation-hint", "annotation-layer", "annotation-snapshot", "annotation-pin",
             "annotation-editor", "annotation-comment", "annotation-send", "annotation-error",
-            "annotation-cancel", "preview-tools-toggle", "preview-tools-panel", "preview-light", "preview-dark"].map((id) => [
+            "preview-tools", "preview-light", "preview-dark"].map((id) => [
             id,
             element(),
         ]),

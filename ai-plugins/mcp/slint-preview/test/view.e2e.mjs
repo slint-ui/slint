@@ -47,22 +47,28 @@ const HOST_PAGE = `<!doctype html>
   const post = (message) => frame.contentWindow.postMessage({ jsonrpc: "2.0", ...message }, "*");
   window.notifyView = (method, params) => post({ method, params });
   window.annotationMessages = [];
-  window.annotationContexts = [];
+  window.chatDraft = [];
+  window.sentMessages = [];
   window.addEventListener("message", async (event) => {
     if (event.source !== frame.contentWindow) return;
     const { id, method, params } = event.data;
     if (method === "ui/notifications/initialized") window.viewInitialized = true;
     if (id === undefined) return;
     if (method === "ui/initialize") {
-      post({ id, result: { protocolVersion: params.protocolVersion, hostContext: { theme: "light" } } });
+      post({ id, result: {
+        protocolVersion: params.protocolVersion,
+        hostContext: { theme: "light" },
+        hostCapabilities: { experimental: window.noDraftSupport ? {} : { "openai/message": {} } },
+      } });
     } else if (method === "tools/call") {
       post({ id, ...(await window.callServer(params)) });
     } else if (method === "ui/message") {
       window.annotationMessages.push(params);
+      if (!window.messageError) {
+        if (params._meta?.["openai/message"]?.send === false) window.chatDraft.push(...params.content);
+        else window.sentMessages.push(params);
+      }
       post({ id, ...(window.messageError ? { error: window.messageError } : { result: {} }) });
-    } else if (method === "ui/update-model-context") {
-      if (params.content.some((block) => block.type === "image")) window.annotationContexts.push(params);
-      post({ id, ...(window.contextError ? { error: window.contextError } : { result: {} }) });
     } else {
       post({ id, result: {} });
     }
@@ -302,29 +308,36 @@ for (const [name, files] of Object.entries(IMAGE_CASES)) {
     });
 }
 
-test("annotates a fitted preview with a click-time screenshot and matching coordinates", async () => {
-    await page.evaluate(() => { window.annotationMessages = []; window.annotationContexts = []; });
+test("stacks annotations in the existing chat draft with matching screenshots and coordinates", async () => {
+    await page.evaluate(() => {
+        window.annotationMessages = [];
+        window.chatDraft = [{ type: "text", text: "Existing draft" }];
+        window.sentMessages = [];
+    });
     await preview({ source: "export component Main inherits Window { width: 1000px; height: 400px; background: blue; }" });
     const frame = page.frameLocator("iframe");
     const canvas = frame.locator("#preview");
     const bounds = await canvas.boundingBox();
     assert.ok(bounds.width < 1000, "the preview must be fitted for this test");
-    await frame.getByRole("button", { name: "Preview tools", exact: true }).click();
     await frame.getByRole("button", { name: "Annotate", exact: true }).click();
     const layer = frame.locator("#annotation-layer");
     await layer.click({ position: { x: bounds.width / 4, y: bounds.height / 2 } });
     const comment = frame.getByRole("textbox");
     await comment.fill("Make this part green");
+    await comment.press("Enter");
+    assert.equal(await comment.inputValue(), "Make this part green\n");
+    assert.equal(await page.evaluate(() => window.annotationMessages.length), 0);
     const snapshot = await frame.locator("#annotation-snapshot").getAttribute("src");
-    await frame.getByRole("button", { name: "Send", exact: true }).click();
+    await comment.press("Control+Enter");
     await page.waitForFunction(() => window.annotationMessages.length === 1);
     const message = await page.evaluate(() => window.annotationMessages[0]);
     assert.equal(message.role, "user");
-    assert.deepEqual(message.content, [{ type: "text", text: "Make this part green" }]);
-    const context = await page.evaluate(() => window.annotationContexts[0]);
-    assert.match(context.content[0].text, /Slint position: x=250, y=200 in a 1000×400 UI/);
-    assert.ok(context.content.every((block) => block.annotations.audience.join() === "assistant"));
-    const image = context.content[1];
+    assert.deepEqual(message._meta, { "openai/message": { target: "active", send: false } });
+    assert.equal(message.content[0]._meta["openai/title"], "Make this part green");
+    assert.ok(message.content[0].text.startsWith("Make this part green\n\n"));
+    assert.match(message.content[0].text, /Slint position: x=250, y=200 in a 1000×400 UI/);
+    assert.ok(message.content.every((block) => !block.annotations?.audience));
+    const image = message.content[1];
     assert.equal(image.type, "image");
     assert.equal(image.mimeType, "image/png");
     assert.equal(`data:image/png;base64,${image.data}`, snapshot);
@@ -332,11 +345,21 @@ test("annotates a fitted preview with a click-time screenshot and matching coord
         const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
         return { width: bitmap.width, height: bitmap.height };
     }, image.data);
-    assert.ok(context.content[0].text.includes(
+    assert.ok(message.content[0].text.includes(
         `Clicked point: x=${Math.round(size.width / 4)}, y=${Math.round(size.height / 2)} in the attached ${size.width}×${size.height} screenshot.`,
-    ), context.content[0].text);
+    ), message.content[0].text);
     assert.equal(await layer.isVisible(), false);
+    assert.equal(await frame.getByRole("button", { name: "Annotate", exact: true }).evaluate((element) => getComputedStyle(element).outlineStyle), "none");
     assert.equal(await frame.locator("#annotation-hint").textContent(), "");
+    await frame.getByRole("button", { name: "Annotate", exact: true }).click();
+    await layer.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
+    await comment.press("Meta+Enter");
+    await page.waitForFunction(() => window.annotationMessages.length === 2);
+    const draft = await page.evaluate(() => window.chatDraft);
+    assert.equal(draft.length, 5);
+    assert.deepEqual(draft[0], { type: "text", text: "Existing draft" });
+    assert.equal(draft[3]._meta["openai/title"], "Slint annotation");
+    assert.equal(await page.evaluate(() => window.sentMessages.length), 0);
 });
 
 test("keeps a refused annotation editable and cancels without sending", async () => {
@@ -346,7 +369,6 @@ test("keeps a refused annotation editable and cancels without sending", async ()
     });
     await preview({ source: "export component Main inherits Window { width: 320px; height: 200px; background: blue; }" });
     const frame = page.frameLocator("iframe");
-    await frame.getByRole("button", { name: "Preview tools", exact: true }).click();
     await frame.getByRole("button", { name: "Annotate", exact: true }).click();
     const canvas = frame.locator("#preview");
     await canvas.evaluate((element) => { element.toDataURL = () => { throw new Error("Capture unavailable"); }; });
@@ -355,16 +377,16 @@ test("keeps a refused annotation editable and cancels without sending", async ()
     assert.match(await frame.locator("#annotation-hint").textContent(), /Capture unavailable/);
     await frame.locator("#annotation-layer").click({ position: { x: 10, y: 10 } });
     assert.equal(await frame.locator("#annotation-hint").textContent(), "");
-    assert.equal(await frame.getByRole("button", { name: "Send", exact: true }).isEnabled(), false);
+    assert.equal(await frame.getByRole("button", { name: "Add to chat", exact: true }).isEnabled(), true);
     const comment = frame.getByRole("textbox");
     const shortHeight = (await comment.boundingBox()).height;
     const draft = "Round this corner\n".repeat(20);
     await comment.fill(draft);
     assert.ok((await comment.boundingBox()).height > shortHeight, "the comment grows without a resize handle");
-    await frame.getByRole("button", { name: "Send", exact: true }).click();
+    await frame.getByRole("button", { name: "Add to chat", exact: true }).click();
     await frame.getByRole("alert").filter({ hasText: "Sending is unavailable" }).waitFor();
     assert.equal(await comment.inputValue(), draft);
-    await frame.getByRole("button", { name: "Cancel", exact: true }).click();
+    await frame.getByRole("textbox", { name: "Annotation comment" }).press("Escape");
     assert.equal(await frame.getByRole("textbox").isVisible(), false);
     assert.equal(await page.evaluate(() => window.annotationMessages.length), 1);
     await page.evaluate(() => { delete window.messageError; });
@@ -374,7 +396,7 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     assertRendered(await preview({ source: `import { Palette } from "std-widgets.slint";
         export component Main inherits Window { width: 320px; height: 240px; background: Palette.background; }` }));
     const frame = page.frameLocator("iframe");
-    const launcher = frame.getByRole("button", { name: "Preview tools", exact: true });
+    const toolbar = frame.getByRole("toolbar", { name: "Preview tools", exact: true });
     const view = page.frames().find((item) => item.url() === "about:srcdoc");
     const waitForBackground = (dark) => view.waitForFunction((dark) => {
         const canvas = document.getElementById("preview");
@@ -385,19 +407,30 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     }, dark);
     const checkPosition = async () => {
         const position = await view.evaluate(() => {
-            const button = document.getElementById("preview-tools-toggle").getBoundingClientRect();
+            const button = document.getElementById("preview-tools").getBoundingClientRect();
             const canvas = document.getElementById("preview").getBoundingClientRect();
-            return { left: button.left, bottom: window.innerHeight - button.bottom, outsideContent: button.right < canvas.left };
+            return { left: button.left, bottom: window.innerHeight - button.bottom, height: button.height, outsideContent: button.left < canvas.left };
         });
         assert.equal(Math.round(position.left), 10);
         assert.equal(Math.round(position.bottom), 10);
-        assert.ok(position.outsideContent, "the launcher belongs in the plugin gutter");
+        assert.equal(position.height, 28);
+        assert.ok(position.outsideContent, "the toolbar is positioned relative to the plugin viewport");
     };
     await checkPosition();
     await page.locator("iframe").evaluate((element) => { element.style.width = "480px"; element.style.height = "420px"; });
     await checkPosition();
-    assert.equal(await frame.getByRole("button", { name: "Dark", exact: true }).isVisible(), false);
-    await launcher.click();
+    assert.equal(await toolbar.isVisible(), true);
+    const annotate = frame.getByRole("button", { name: "Annotate", exact: true });
+    await annotate.click();
+    await frame.locator("#annotation-layer").click({ position: { x: 30, y: 30 } });
+    await frame.getByRole("textbox").press("Escape");
+    assert.equal(await annotate.evaluate((element) => getComputedStyle(element).outlineStyle), "none");
+    await annotate.press("Tab");
+    const light = frame.getByRole("button", { name: "Light", exact: true });
+    assert.equal(await light.evaluate((element) => element === document.activeElement && getComputedStyle(element).outlineStyle === "solid"), true);
+    await light.click();
+    assert.equal(await light.evaluate((element) => getComputedStyle(element).outlineStyle), "none");
+    assert.equal(await frame.getByRole("button", { name: "Dark", exact: true }).isVisible(), true);
     await frame.getByRole("button", { name: "Dark", exact: true }).click();
     await view.waitForFunction(() => document.documentElement.style.colorScheme === "dark");
     await waitForBackground(true);
@@ -405,26 +438,27 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     assert.equal(await view.evaluate(() => document.documentElement.style.colorScheme), "dark");
     await frame.getByRole("button", { name: "Light", exact: true }).click();
     await waitForBackground(false);
-    await launcher.click();
-    assert.equal(await frame.locator("#preview-tools-panel").isVisible(), false);
+    assert.equal(await toolbar.isVisible(), true);
     await page.locator("iframe").evaluate((element) => { element.style.width = "800px"; element.style.height = "600px"; });
 });
 
-test("does not send the comment when hidden screenshot context is refused", async () => {
+test("keeps the annotation editable when the host cannot stage a draft", async () => {
     await page.evaluate(() => {
         window.annotationMessages = [];
-        window.contextError = { code: -32000, message: "Context is unavailable" };
+        window.noDraftSupport = true;
+        window.viewInitialized = false;
+        const frame = document.querySelector("iframe");
+        frame.srcdoc = frame.srcdoc;
     });
+    await page.waitForFunction(() => window.viewInitialized);
     await preview({ source: "export component Main inherits Window { width: 320px; height: 200px; background: blue; }" });
     const frame = page.frameLocator("iframe");
-    await frame.getByRole("button", { name: "Preview tools", exact: true }).click();
     await frame.getByRole("button", { name: "Annotate", exact: true }).click();
     await frame.locator("#annotation-layer").click({ position: { x: 30, y: 30 } });
     await frame.getByRole("textbox").fill("Make it green");
-    await frame.getByRole("button", { name: "Send", exact: true }).click();
-    await frame.getByRole("alert").filter({ hasText: "Context is unavailable" }).waitFor();
+    await frame.getByRole("button", { name: "Add to chat", exact: true }).click();
+    await frame.getByRole("alert").filter({ hasText: "does not support" }).waitFor();
     assert.equal(await page.evaluate(() => window.annotationMessages.length), 0);
     assert.equal(await frame.getByRole("textbox").inputValue(), "Make it green");
-    await frame.getByRole("button", { name: "Cancel", exact: true }).click();
-    await page.evaluate(() => { delete window.contextError; });
+    await frame.getByRole("textbox", { name: "Annotation comment" }).press("Escape");
 });
