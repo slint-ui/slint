@@ -252,6 +252,29 @@ public sealed unsafe class ComponentInstance : IDisposable
     /// <summary>Shows the window, runs the event loop until the last window closes, then hides the window.</summary>
     public void Run() => EventLoop.RunNative(() => NativeMethods.slint_dotnet_component_instance_run(_handle));
 
+    /// <summary>Like <see cref="Run"/>, for <see cref="EventLoop.RunAsync"/>, which the browser needs.</summary>
+    public Task RunAsync()
+    {
+        if (!OperatingSystem.IsBrowser())
+        {
+            try
+            {
+                Run();
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+        Show();
+        return EventLoop.RunAsync().ContinueWith(run =>
+        {
+            Hide();
+            return run;
+        }, TaskContinuationOptions.ExecuteSynchronously).Unwrap();
+    }
+
     /// <summary>Releases the instance.</summary>
     public void Dispose() => _handle.Dispose();
 }

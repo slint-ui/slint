@@ -13,6 +13,9 @@
   A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
   On Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup.
   On iOS, they go into the app bundle as bundle resources, and the app embeds the framework of the package or of target/ios.
+  In the browser (browser-wasm), the assembly embeds them with the images they use, at their paths relative to the project,
+  and the app links the library of the package or of target/browser, which needs the wasm-tools workload.
+  There, a path with a space doesn't work, since the dependency file of slint-compiler separates paths with spaces.
 
   Properties:
     SlintCompilerPath   the slint-compiler binary; defaults to the one of the Slint.Compiler package,
@@ -48,13 +51,33 @@
     <!-- From TargetFramework, since a project that imports this file itself does so before the SDK sets TargetPlatformIdentifier. -->
     <_SlintPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</_SlintPlatform>
     <_SlintOnDevice Condition="'$(_SlintPlatform)' == 'android' or '$(_SlintPlatform)' == 'ios'">true</_SlintOnDevice>
+    <_SlintBrowser Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">true</_SlintBrowser>
     <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
-    <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true'">true</_SlintLiveAllowed>
+    <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</_SlintLiveAllowed>
     <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios'">$(MSBuildThisFileDirectory)../ios/slint_dotnet.xcframework</_SlintIOSLibrary>
     <_SlintIOSLibrary Condition="'$(_SlintPlatform)' == 'ios' and !Exists('$(_SlintIOSLibrary)')">$(MSBuildThisFileDirectory)../../../../target/ios/slint_dotnet.xcframework</_SlintIOSLibrary>
     <_SlintIOSLibrary Condition="'$(_SlintIOSLibrary)' != ''">$([System.IO.Path]::GetFullPath('$(_SlintIOSLibrary)'))</_SlintIOSLibrary>
   </PropertyGroup>
+
+  <!-- From the package, or else from scripts/build_dotnet_browser.sh in the repository. -->
+  <PropertyGroup Condition="'$(_SlintBrowser)' == 'true'">
+    <_SlintBrowserDir>$(MSBuildThisFileDirectory)../browser/</_SlintBrowserDir>
+    <_SlintBrowserLibrary>$(_SlintBrowserDir)slint_dotnet.a</_SlintBrowserLibrary>
+    <_SlintEmscriptenJs>$(_SlintBrowserDir)slint_emscripten.js</_SlintEmscriptenJs>
+    <_SlintBrowserLibrary Condition="!Exists('$(_SlintBrowserLibrary)')">$(MSBuildThisFileDirectory)../../../../target/browser/slint_dotnet.a</_SlintBrowserLibrary>
+    <_SlintEmscriptenJs Condition="!Exists('$(_SlintEmscriptenJs)')">$(MSBuildThisFileDirectory)../../../../internal/backends/emscripten/slint_emscripten.js</_SlintEmscriptenJs>
+    <_SlintBrowserLibrary>$([System.IO.Path]::GetFullPath('$(_SlintBrowserLibrary)'))</_SlintBrowserLibrary>
+    <_SlintEmscriptenJs>$([System.IO.Path]::GetFullPath('$(_SlintEmscriptenJs)'))</_SlintEmscriptenJs>
+    <WasmBuildNative>true</WasmBuildNative>
+    <!-- Its DWARF pass enables fewer WebAssembly features than Rust's standard library uses. -->
+    <WasmNativeStrip>false</WasmNativeStrip>
+    <EmccExtraLDFlags>$(EmccExtraLDFlags) --js-library &quot;$(_SlintEmscriptenJs)&quot; -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sGL_ENABLE_GET_PROC_ADDRESS=1</EmccExtraLDFlags>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_SlintBrowser)' == 'true'">
+    <NativeFileReference Include="$(_SlintBrowserLibrary)" />
+  </ItemGroup>
 
   <ItemGroup Condition="'$(_SlintPlatform)' == 'ios' and Exists('$(_SlintIOSLibrary)')">
     <NativeReference Include="$(_SlintIOSLibrary)" Kind="Framework" />
@@ -93,6 +116,7 @@
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintAssigned.TargetPath).g.cs</GeneratedFile>
         <RuntimePath>%(_SlintAssigned.TargetPath)</RuntimePath>
         <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintAssigned.FullPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintBrowser)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintAssigned.FullPath)').Replace('\', '/'))</RuntimePath>
         <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
@@ -108,6 +132,7 @@
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintProjectDir.TargetPath)/slint-project.g.cs</GeneratedFile>
         <RuntimePath>%(_SlintProjectDir.TargetPath)</RuntimePath>
         <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintProjectDir.FullPath)</RuntimePath>
+        <RuntimePath Condition="'$(_SlintBrowser)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintProjectDir.FullPath)').Replace('\', '/'))</RuntimePath>
         <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintProjectDir.LivePreview)' == 'true' or ('%(_SlintProjectDir.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
@@ -128,6 +153,12 @@
       <_SlintPathOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintPathOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintPathOptions>
       <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
     </PropertyGroup>
+    <ItemGroup Condition="'$(_SlintBrowser)' == 'true'">
+      <_SlintGenerate>
+        <DependencyFile>%(GeneratedFile).d</DependencyFile>
+        <DependencyOption> --depfile &quot;%(GeneratedFile).d&quot;</DependencyOption>
+      </_SlintGenerate>
+    </ItemGroup>
     <ItemGroup>
       <_SlintGenerate Condition="'%(_SlintGenerate.IsProject)' != 'true'">
         <PathOptions>$(_SlintPathOptions)</PathOptions>
@@ -148,7 +179,7 @@
     <MakeDir Directories="@(_SlintGenerate->'%(GeneratedFile)'->DirectoryName())" />
     <!-- NuGet doesn't keep the executable bit of files in packages. -->
     <Exec Command="chmod +x &quot;$(SlintCompilerPath)&quot;" Condition="'$(OS)' != 'Windows_NT' and '$(_SlintCompilerIsPackaged)' == 'true'" />
-    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)" />
+    <Exec Command="&quot;$(SlintCompilerPath)&quot; -f csharp &quot;%(_SlintGenerate.FullPath)&quot; -o &quot;%(_SlintGenerate.GeneratedFile)&quot; --csharp-runtime-path &quot;%(_SlintGenerate.RuntimePath)&quot;$(_SlintOptions)%(_SlintGenerate.PathOptions)%(_SlintGenerate.LiveOption)%(_SlintGenerate.DependencyOption)" />
     <!-- slint-compiler leaves an output that didn't change as it is, which would keep it older than the inputs. -->
     <Touch Files="@(_SlintGenerate->'%(GeneratedFile)')" />
   </Target>
@@ -179,6 +210,45 @@
         <LogicalName>$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)'))</LogicalName>
       </_SlintProjectResource>
       <BundleResource Include="@(_SlintProjectResource)" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    GeneratedApi writes the resources back under one directory of the browser's file system, before it loads the first file.
+    The generated code has the include and library paths of SlintFile items, and the bundled translations, as absolute paths,
+    so then GeneratedApi also needs the project directory.
+  -->
+  <Target Name="_SlintBrowserResources" BeforeTargets="PrepareResources" DependsOnTargets="SlintGenerate"
+          Condition="'$(_SlintBrowser)' == 'true'">
+    <ReadLinesFromFile File="%(_SlintGenerate.DependencyFile)">
+      <Output TaskParameter="Lines" ItemName="_SlintDependencyLine" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <!-- Each line is "<generated file>: <dependencies>", separated by spaces. -->
+      <_SlintDependencies>@(_SlintDependencyLine, ' ')</_SlintDependencies>
+    </PropertyGroup>
+    <ItemGroup>
+      <_SlintDependency Include="$([MSBuild]::Unescape($(_SlintDependencies.Replace(' ', ';'))))" />
+      <_SlintDependency Remove="@(_SlintDependency)" Condition="$([System.String]::Copy('%(Identity)').EndsWith(':'))" />
+    </ItemGroup>
+    <ItemGroup Condition="'$(SlintBundledTranslations)' != ''">
+      <_SlintDependency Include="$([System.IO.Path]::GetFullPath('$(SlintBundledTranslations)', '$(MSBuildProjectDirectory)'))/**/*.po" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_SlintBrowserProjectDirectory Condition="'@(_SlintIncludePath)' != '' or '@(SlintLibraryPath)' != '' or '$(SlintBundledTranslations)' != ''">true</_SlintBrowserProjectDirectory>
+    </PropertyGroup>
+    <RemoveDuplicates Inputs="@(_SlintDependency)">
+      <Output TaskParameter="Filtered" ItemName="_SlintBrowserResource" />
+    </RemoveDuplicates>
+    <ItemGroup>
+      <EmbeddedResource Include="@(_SlintBrowserResource)" LogicalName="slint:$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)').Replace('\', '/'))" WithCulture="false" Type="Non-Resx" />
+      <FileWrites Include="@(_SlintGenerate->'%(DependencyFile)')" />
+    </ItemGroup>
+    <WriteLinesToFile Condition="'$(_SlintBrowserProjectDirectory)' == 'true'"
+                      File="$(_SlintGeneratedDir)project-directory.txt" Lines="$(MSBuildProjectDirectory)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup Condition="'$(_SlintBrowserProjectDirectory)' == 'true'">
+      <EmbeddedResource Include="$(_SlintGeneratedDir)project-directory.txt" LogicalName="slint-project-directory" WithCulture="false" Type="Non-Resx" />
+      <FileWrites Include="$(_SlintGeneratedDir)project-directory.txt" />
     </ItemGroup>
   </Target>
 

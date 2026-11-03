@@ -13,6 +13,7 @@ namespace Slint;
 /// <remarks>
 /// While the loop runs, <see cref="SynchronizationContext.Current"/> is a <see cref="SlintSynchronizationContext"/>,
 /// so <c>await</c> in a callback continues on the Slint thread.
+/// The browser has only that thread, so there it stays the runtime's.
 /// </remarks>
 public static unsafe class EventLoop
 {
@@ -26,7 +27,43 @@ public static unsafe class EventLoop
     /// Rethrows the first exception that a callback threw, after stopping the loop.
     /// </summary>
     /// <exception cref="InvalidOperationException">On Windows, the thread isn't in a single-threaded apartment, which winit needs.</exception>
+    /// <exception cref="PlatformNotSupportedException">In the browser, which needs <see cref="RunAsync"/>.</exception>
     public static void Run() => RunNative(NativeMethods.slint_dotnet_run_event_loop);
+
+    /// <summary>
+    /// Runs the event loop until <see cref="Quit"/> or until the last window closes,
+    /// in a task that fails with the first exception that a callback threw.
+    /// In the browser, it returns while the loop runs, since the browser's thread can't block;
+    /// elsewhere, it runs like <see cref="Run()"/> and returns a completed task.
+    /// </summary>
+    public static Task RunAsync()
+    {
+        if (!OperatingSystem.IsBrowser())
+        {
+            try
+            {
+                Run();
+                return Task.CompletedTask;
+            }
+            catch (Exception e)
+            {
+                return Task.FromException(e);
+            }
+        }
+        if (t_isRunning)
+        {
+            throw new InvalidOperationException("The event loop is already running");
+        }
+        var done = new TaskCompletionSource();
+        var userData = GCHandle.ToIntPtr(GCHandle.Alloc(done));
+        if (!NativeMethods.slint_dotnet_browser_start_event_loop(&QuitTrampoline, userData))
+        {
+            GCHandle.FromIntPtr(userData).Free();
+            throw new SlintException(NativeError.TakeMessage() ?? "starting the event loop failed");
+        }
+        t_isRunning = true;
+        return done.Task;
+    }
 
     /// <summary>
     /// Runs the event loop and <paramref name="main"/> on it, until <paramref name="main"/> completes,
@@ -50,6 +87,10 @@ public static unsafe class EventLoop
 
     internal static void RunNative(Func<bool> run)
     {
+        if (OperatingSystem.IsBrowser())
+        {
+            throw new PlatformNotSupportedException("The browser's thread can't block: use RunAsync");
+        }
         CheckApartment();
         var previous = SynchronizationContext.Current;
         SynchronizationContext.SetSynchronizationContext(new SlintSynchronizationContext(Environment.CurrentManagedThreadId));
@@ -100,6 +141,24 @@ public static unsafe class EventLoop
     public static IReadOnlyList<string> BuildFeatures =>
         (NativeMethods.slint_dotnet_build_features().Take() ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+    [UnmanagedCallersOnly]
+    private static void QuitTrampoline(nint userData)
+    {
+        var handle = GCHandle.FromIntPtr(userData);
+        var done = (TaskCompletionSource)handle.Target!;
+        handle.Free();
+        t_isRunning = false;
+        try
+        {
+            NativeError.ThrowPending();
+            done.SetResult();
+        }
+        catch (Exception e)
+        {
+            done.SetException(e);
+        }
+    }
 
     [UnmanagedCallersOnly]
     private static void InvokeTrampoline(nint userData)

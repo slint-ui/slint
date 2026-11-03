@@ -5,7 +5,7 @@
   "identity": "@SlintPackageId@.Templates.CrossPlatform.CSharp",
   "groupIdentity": "@SlintPackageId@.Templates.CrossPlatform",
   "name": "Slint Cross-Platform App",
-  "description": "A solution with a Slint UI and C# logic that a desktop, an Android, and an iOS project share. Android and iOS need their .NET workloads.",
+  "description": "A solution with a Slint UI and C# logic that a desktop, an Android, and an iOS project share, and a web project with --platforms web. Android, iOS, and the web need their .NET workloads.",
   "shortName": "slint-xplat",
   "sourceName": "SlintApp",
   "preferNameDirectory": true,
@@ -25,7 +25,8 @@
       "choices": [
         { "choice": "desktop", "description": "macOS, Linux, and Windows." },
         { "choice": "android", "description": "Android 8 and later. Needs the .NET Android workload." },
-        { "choice": "ios", "description": "iOS 15 and later. Needs the .NET iOS workload." }
+        { "choice": "ios", "description": "iOS 15 and later. Needs the .NET iOS workload." },
+        { "choice": "web", "description": "The browser, on .NET's WebAssembly runtime. Needs the wasm-tools workload." }
       ]
     },
     "slint-version": {
@@ -105,14 +106,16 @@
       "modifiers": [
         { "condition": "(platforms != desktop)", "exclude": ["SlintApp.Desktop/**"] },
         { "condition": "(platforms != android)", "exclude": ["SlintApp.Android/**"] },
-        { "condition": "(platforms != ios)", "exclude": ["SlintApp.iOS/**"] }
+        { "condition": "(platforms != ios)", "exclude": ["SlintApp.iOS/**"] },
+        { "condition": "(platforms != web)", "exclude": ["SlintApp.Web/**"] }
       ]
     }
   ],
   "primaryOutputs": [
     { "condition": "(platforms == desktop)", "path": "SlintApp.Desktop/SlintApp.Desktop.csproj" },
     { "condition": "(platforms == android)", "path": "SlintApp.Android/SlintApp.Android.csproj" },
-    { "condition": "(platforms == ios)", "path": "SlintApp.iOS/SlintApp.iOS.csproj" }
+    { "condition": "(platforms == ios)", "path": "SlintApp.iOS/SlintApp.iOS.csproj" },
+    { "condition": "(platforms == web)", "path": "SlintApp.Web/SlintApp.Web.csproj" }
   ],
   "postActions": [
     {

@@ -215,7 +215,7 @@ smol_str = { workspace = true }
 typed-index-collections = { workspace = true, features = ["alloc"] }
 
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 i-slint-backend-winit = { workspace = true }
 js-sys = { version = "0.3.57", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.80"
@@ -225,7 +225,7 @@ web-sys = { workspace = true, features = ["Navigator", "Response", "Window"] }
 # The interpreter loads images from the filesystem at runtime, so native builds
 # always need the decoders. The browser decodes images on the web, and a
 # microcontroller only gets images that the compiler already decoded.
-[target.'cfg(not(any(target_arch = "wasm32", target_os = "none")))'.dependencies]
+[target.'cfg(not(any(all(target_arch = "wasm32", target_os = "unknown"), target_os = "none")))'.dependencies]
 i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -8,4 +8,7 @@
 <!--#if (platforms == "ios") -->
   <Project Path="SlintApp.iOS/SlintApp.iOS.csproj" />
 <!--#endif -->
+<!--#if (platforms == "web") -->
+  <Project Path="SlintApp.Web/SlintApp.Web.csproj" />
+<!--#endif -->
 </Solution>
