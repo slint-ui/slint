@@ -316,7 +316,7 @@ test("annotates a fitted preview with a click-time screenshot and matching coord
     const comment = frame.getByRole("textbox");
     await comment.fill("Make this part green");
     const snapshot = await frame.locator("#annotation-snapshot").getAttribute("src");
-    await frame.getByRole("button", { name: "Send to Codex" }).click();
+    await frame.getByRole("button", { name: "Send", exact: true }).click();
     await page.waitForFunction(() => window.annotationMessages.length === 1);
     const message = await page.evaluate(() => window.annotationMessages[0]);
     assert.equal(message.role, "user");
@@ -336,6 +336,7 @@ test("annotates a fitted preview with a click-time screenshot and matching coord
         `Clicked point: x=${Math.round(size.width / 4)}, y=${Math.round(size.height / 2)} in the attached ${size.width}×${size.height} screenshot.`,
     ), context.content[0].text);
     assert.equal(await layer.isVisible(), false);
+    assert.equal(await frame.locator("#annotation-hint").textContent(), "");
 });
 
 test("keeps a refused annotation editable and cancels without sending", async () => {
@@ -347,14 +348,20 @@ test("keeps a refused annotation editable and cancels without sending", async ()
     const frame = page.frameLocator("iframe");
     await frame.getByRole("button", { name: "Preview tools", exact: true }).click();
     await frame.getByRole("button", { name: "Annotate", exact: true }).click();
+    const canvas = frame.locator("#preview");
+    await canvas.evaluate((element) => { element.toDataURL = () => { throw new Error("Capture unavailable"); }; });
     await frame.locator("#annotation-layer").click({ position: { x: 10, y: 10 } });
-    assert.equal(await frame.getByRole("button", { name: "Send to Codex" }).isEnabled(), false);
+    await canvas.evaluate((element) => { delete element.toDataURL; });
+    assert.match(await frame.locator("#annotation-hint").textContent(), /Capture unavailable/);
+    await frame.locator("#annotation-layer").click({ position: { x: 10, y: 10 } });
+    assert.equal(await frame.locator("#annotation-hint").textContent(), "");
+    assert.equal(await frame.getByRole("button", { name: "Send", exact: true }).isEnabled(), false);
     const comment = frame.getByRole("textbox");
     const shortHeight = (await comment.boundingBox()).height;
     const draft = "Round this corner\n".repeat(20);
     await comment.fill(draft);
     assert.ok((await comment.boundingBox()).height > shortHeight, "the comment grows without a resize handle");
-    await frame.getByRole("button", { name: "Send to Codex" }).click();
+    await frame.getByRole("button", { name: "Send", exact: true }).click();
     await frame.getByRole("alert").filter({ hasText: "Sending is unavailable" }).waitFor();
     assert.equal(await comment.inputValue(), draft);
     await frame.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -369,6 +376,13 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     const frame = page.frameLocator("iframe");
     const launcher = frame.getByRole("button", { name: "Preview tools", exact: true });
     const view = page.frames().find((item) => item.url() === "about:srcdoc");
+    const waitForBackground = (dark) => view.waitForFunction((dark) => {
+        const canvas = document.getElementById("preview");
+        const pixel = new Uint8Array(4);
+        const gl = canvas.getContext("webgl2");
+        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        return pixel[3] > 0 && (dark ? pixel[0] < 100 : pixel[0] > 200);
+    }, dark);
     const checkPosition = async () => {
         const position = await view.evaluate(() => {
             const button = document.getElementById("preview-tools-toggle").getBoundingClientRect();
@@ -386,24 +400,13 @@ test("anchors the tools to the plugin viewport and switches the Slint theme", as
     await launcher.click();
     await frame.getByRole("button", { name: "Dark", exact: true }).click();
     await view.waitForFunction(() => document.documentElement.style.colorScheme === "dark");
-    await view.waitForFunction(() => {
-        const canvas = document.getElementById("preview");
-        const pixel = new Uint8Array(4);
-        const gl = canvas.getContext("webgl2");
-        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-        return pixel[3] > 0 && pixel[0] < 100;
-    });
+    await waitForBackground(true);
     await page.evaluate(() => window.notifyView("ui/notifications/host-context-changed", { theme: "light" }));
     assert.equal(await view.evaluate(() => document.documentElement.style.colorScheme), "dark");
     await frame.getByRole("button", { name: "Light", exact: true }).click();
-    await view.waitForFunction(() => {
-        const canvas = document.getElementById("preview");
-        const pixel = new Uint8Array(4);
-        const gl = canvas.getContext("webgl2");
-        gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-        return pixel[0] > 200;
-    });
+    await waitForBackground(false);
     await launcher.click();
+    assert.equal(await frame.locator("#preview-tools-panel").isVisible(), false);
     await page.locator("iframe").evaluate((element) => { element.style.width = "800px"; element.style.height = "600px"; });
 });
 
@@ -418,7 +421,7 @@ test("does not send the comment when hidden screenshot context is refused", asyn
     await frame.getByRole("button", { name: "Annotate", exact: true }).click();
     await frame.locator("#annotation-layer").click({ position: { x: 30, y: 30 } });
     await frame.getByRole("textbox").fill("Make it green");
-    await frame.getByRole("button", { name: "Send to Codex" }).click();
+    await frame.getByRole("button", { name: "Send", exact: true }).click();
     await frame.getByRole("alert").filter({ hasText: "Context is unavailable" }).waitFor();
     assert.equal(await page.evaluate(() => window.annotationMessages.length), 0);
     assert.equal(await frame.getByRole("textbox").inputValue(), "Make it green");

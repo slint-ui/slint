@@ -109,12 +109,12 @@
 <div id="stage"><div id="preview-frame">
   <canvas id="preview" data-slint-auto-resize-to-preferred="true" hidden></canvas>
   <div id="annotation-layer" hidden>
-    <img id="annotation-snapshot" alt="Selected Slint preview" hidden>
+    <img id="annotation-snapshot" alt="Preview screenshot" hidden>
     <span id="annotation-pin" hidden></span>
   </div>
   <span id="annotation-hint" role="status"></span>
 </div></div>
-<button id="preview-tools-toggle" type="button" aria-label="Preview tools" aria-expanded="false" aria-controls="preview-tools-panel" title="Preview tools" hidden>__ICON_sliders-horizontal__</button>
+<button id="preview-tools-toggle" type="button" popovertarget="preview-tools-panel" aria-label="Preview tools" aria-expanded="false" aria-controls="preview-tools-panel" title="Preview tools" hidden>__ICON_sliders-horizontal__</button>
 <ul id="diagnostics"></ul>
 <div id="preview-tools-panel" popover="auto" aria-label="Preview tools">
   <button id="annotate" type="button" aria-pressed="false">__ICON_message-square-plus__Annotate</button>
@@ -130,7 +130,7 @@
   <div id="annotation-error" role="alert"></div>
   <div id="annotation-actions">
     <button id="annotation-cancel" type="button">Cancel</button>
-    <button id="annotation-send" type="submit" disabled>Send to Codex</button>
+    <button id="annotation-send" type="submit" disabled>Send</button>
   </div>
 </form>
 <script type="module">
@@ -177,16 +177,14 @@
   }
   new ResizeObserver(positionComment).observe(annotationEditor);
 
-  toolsToggle.addEventListener("click", () => {
-    toolsPanel.togglePopover();
-    if (!toolsPanel.matches(":popover-open")) return;
+  toolsPanel.addEventListener("toggle", (event) => {
+    const open = event.newState === "open";
+    toolsToggle.setAttribute("aria-expanded", String(open));
+    if (!open) return;
     const toggle = toolsToggle.getBoundingClientRect();
     const panel = toolsPanel.getBoundingClientRect();
     toolsPanel.style.left = `${Math.max(8, Math.min(toggle.left, window.innerWidth - panel.width - 8))}px`;
     toolsPanel.style.top = `${Math.max(8, toggle.top - panel.height + 1)}px`;
-  });
-  toolsPanel.addEventListener("toggle", (event) => {
-    toolsToggle.setAttribute("aria-expanded", String(event.newState === "open"));
   });
   for (const [button, theme] of [[lightButton, "light"], [darkButton, "dark"]]) {
     button.addEventListener("click", () => {
@@ -201,6 +199,7 @@
     annotationSnapshot.hidden = true;
     annotationPin.hidden = true;
     annotationComment.value = "";
+    annotationHint.textContent = "";
     annotationError.textContent = "";
     annotationSend.disabled = true;
     lightButton.disabled = false;
@@ -211,17 +210,13 @@
     closeAnnotation();
     annotationLayer.hidden = !enabled;
     annotateButton.setAttribute("aria-pressed", String(enabled));
-    annotationHint.textContent = "";
   }
 
   annotateButton.addEventListener("click", () => {
     setAnnotationMode(annotationLayer.hidden);
     toolsPanel.hidePopover();
   });
-  annotationCancel.addEventListener("click", () => {
-    closeAnnotation();
-    annotationHint.textContent = "";
-  });
+  annotationCancel.addEventListener("click", closeAnnotation);
   annotationComment.addEventListener("input", () => {
     annotationSend.disabled = annotationSending || !annotationComment.value.trim();
   });
@@ -258,8 +253,8 @@
       annotationHint.textContent = "";
       annotationComment.focus();
     } catch (error) {
-      annotationHint.textContent = `Couldn't capture the preview: ${error.message ?? error}`;
       closeAnnotation();
+      annotationHint.textContent = `Couldn't capture the preview: ${error.message ?? error}`;
     }
   });
 
@@ -299,7 +294,6 @@
       });
       if (result?.isError) throw new Error("The host couldn't send the annotation. Try again.");
       setAnnotationMode(false);
-      annotationHint.textContent = "Annotation sent";
     } catch (error) {
       annotationError.textContent = error.message ?? String(error);
     } finally {
@@ -330,7 +324,6 @@
   const DARK_QUERY = "(prefers-color-scheme: dark)";
   const nativeMatchMedia = window.matchMedia.bind(window);
   let hostIsDark = nativeMatchMedia(DARK_QUERY).matches;
-  let hostTheme = hostIsDark ? "dark" : "light";
   const darkQueryLists = [];
   // A design wider than the view renders at a reduced scale factor, so it stays crisp, rather than the
   // browser shrinking the drawn canvas. winit takes the scale factor from devicePixelRatio, watches it
@@ -381,8 +374,8 @@
   };
 
   function applyTheme(context) {
-    if (context?.theme === "light" || context?.theme === "dark") hostTheme = context.theme;
-    const theme = themeOverride ?? hostTheme;
+    let theme = themeOverride ?? context?.theme;
+    if (theme !== "light" && theme !== "dark") theme = hostIsDark ? "dark" : "light";
     document.documentElement.style.colorScheme = theme;
     lightButton.setAttribute("aria-pressed", String(theme === "light"));
     darkButton.setAttribute("aria-pressed", String(theme === "dark"));
