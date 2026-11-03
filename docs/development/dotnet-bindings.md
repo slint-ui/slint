@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab Microcharts nint pthread simpleperf Skias uinput virgl wwwroot xplat yurkinh -->
+<!-- cSpell: ignore ADDFB Blazor companyname Dmabuf drawnui getspecific jonathanpeppers kmsgrab MauiReactor Microcharts MVVM nint pthread simpleperf Skias uinput virgl wwwroot xplat yurkinh -->
 # .NET Bindings
 
 > Note for AI coding assistants (agents):
@@ -827,6 +827,42 @@ Next:
   - Next: the pull request to [DrawnUi/DrawnUi.Net](https://github.com/DrawnUi/DrawnUi.Net),
     so DrawnUI publishes the packages with its other hosts, depending on `yurkinh.slint.net` until Slint.NET has an official package ID.
   - Limits: one pointer per view, so no pinch or rotation; inside a view, screen readers see one image.
+- **25.** MVVM: view models drive a `.slint` UI through bindings, without glue code, first of items 25 to 27.
+  The bindings use the interfaces of .NET, which [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm) implements,
+  so the `Slint` package doesn't depend on the toolkit:
+  `INotifyPropertyChanged`, `INotifyCollectionChanged`, `ICommand`, and `INotifyDataErrorInfo`.
+  The messenger and dependency injection of the toolkit need nothing from Slint.
+  - Phase 1, foundations, 1 week: change notifications of component properties for C#,
+    from the change tracking of Slint's core that the Python bindings use, and a model over an `ObservableCollection<T>`.
+  - Phase 2, bindings, 1–1.5 weeks: an explicit, typed binding API, safe for trimming and Native AOT,
+    then a source generator that binds a view model to a component by name, such as `FirstName` to `first-name`,
+    `SubmitCommand` to the callback `submit` and the property `submit-enabled`, and `Todos` to a model.
+    Changes from other threads reach the Slint thread.
+  - Phase 3, commands and validation, 1 week: `CanExecute` and the running state of asynchronous commands as properties,
+    and the errors of `INotifyDataErrorInfo` per field.
+  - Phase 4, sample and docs, 1 week: the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples) with a Slint UI,
+    an MVVM option in the templates, the README, and a smoke test.
+- **26.** UI written in C#, after item 25, with a shared core and two front ends.
+  Slint creates no elements from C# at run time, so the core turns a tree of C# builders into `.slint` source,
+  which the interpreter compiles once per page, and C# then sets the page's properties.
+  Measured on an Apple Silicon Mac with the release build: a page without the standard widgets compiles in 11 ms,
+  one with `Button` and `VerticalBox` in 180 ms, the gallery in 815 ms, and an instance of a compiled component takes 0.11 ms.
+  - The core, 2.5–3 weeks, from a 3–4 day spike: typed builders, generated from the elements and widgets of the compiler,
+    layout helpers, a cache of compiled pages, `.slint` components and raw expressions as escape hatches,
+    and hot reload through a .NET metadata update handler.
+  - The front end like [Comet](https://github.com/dotnet/maui-labs/tree/main/src/Comet), 2–3 weeks:
+    `Component<TState>`, `Render()`, lambdas in the constructors of controls, `SetState`, `Signal<T>`, and `SignalList<T>`.
+    A lambda becomes a property, which C# updates after `SetState`.
+    `If` and `ForEach` compile to Slint's `if` and `for`, so a page compiles once,
+    while a C# condition in `Render()` recompiles through the cache, with a warning in Debug builds.
+    Comet itself depends on MAUI's handlers, so only its API is a model.
+  - The front end like [CommunityToolkit.Maui.Markup](https://github.com/CommunityToolkit/Maui.Markup), 2 weeks:
+    `.Bind()`, `.BindCommand()`, `.Row()`, and `.Column()` on the builders, through the bindings of item 25.
+  - Not classic MVU, such as MauiReactor's: a `Render()` that runs on every change would recompile whenever the structure changes,
+    and lose the focus, scrolling, and animations of the UI.
+- **27.** Faster compiling, 1–2 weeks: every app compiles the standard widgets at startup, about 170 ms of the 180 ms above, and more in the browser.
+  Keep the compiled widget library across builds in the compiler's type loader, or compile the `.slint` files at build time.
+  This speeds up the startup of every app, and the pages of item 26.
 
 ## Live Reload
 
