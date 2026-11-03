@@ -3068,7 +3068,7 @@ fn generate_sub_component_body(
         llr::SubComponent::has_testable_properties,
     );
 
-    {
+    if is_item_tree_root || component.has_repeaters(root) {
         let mut stmts = vec![
             "[[maybe_unused]] auto self = this;".to_owned(),
             "bool _changed = false;".to_owned(),

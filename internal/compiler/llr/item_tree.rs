@@ -738,6 +738,10 @@ impl SubComponent {
             || self.sub_components.iter().any(|x| cu.sub_components[x.ty].any_in_tree(cu, pred))
     }
 
+    pub fn has_repeaters(&self, cu: &CompilationUnit) -> bool {
+        self.any_in_tree(cu, &|sc| !sc.repeated.is_empty() || !sc.component_containers.is_empty())
+    }
+
     pub fn has_accessibility(&self, cu: &CompilationUnit) -> bool {
         self.any_in_tree(cu, &|sc| !sc.accessible_prop.is_empty())
     }

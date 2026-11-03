@@ -2098,13 +2098,51 @@ fn generate_sub_component_body(
             }
         )
     });
+    let has_repeaters = component.has_repeaters(root);
+    let visit_dynamic_children_fn = has_repeaters.then(|| {
+        quote!(
+            pub(super) fn visit_dynamic_children(
+                self: ::core::pin::Pin<&Self>,
+                dyn_index: u32,
+                order: sp::TraversalOrder,
+                visitor: sp::ItemVisitorRefMut<'_>
+            ) -> sp::VisitChildrenResult {
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_visit_branch)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                }
+            }
+        )
+    });
+    let repeater_fns = (is_item_tree_root || has_repeaters).then(|| {
+        quote!(
+            #vis fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+                let _self = self;
+                let mut _changed = false;
+                #(#ensure_instantiated_stmts)*
+                _changed
+            }
+
+            #vis fn get_subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_subtree_ranges)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                }
+            }
+
+            #vis fn get_subtree(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
+                let _self = self;
+                match dyn_index {
+                    #(#repeated_subtree_components)*
+                    _ => panic!("invalid dyn_index {}", dyn_index),
+                };
+            }
+        )
+    });
     let tree_fns = quote!(
-        #vis fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
-            let _self = self;
-            let mut _changed = false;
-            #(#ensure_instantiated_stmts)*
-            _changed
-        }
+        #repeater_fns
 
         #vis fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
             let _self = self;
@@ -2112,22 +2150,6 @@ fn generate_sub_component_body(
                 sp::Orientation::Horizontal => #layout_info_h,
                 sp::Orientation::Vertical => #layout_info_v,
             }
-        }
-
-        #vis fn get_subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
-            let _self = self;
-            match dyn_index {
-                #(#repeated_subtree_ranges)*
-                _ => panic!("invalid dyn_index {}", dyn_index),
-            }
-        }
-
-        #vis fn get_subtree(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
-            let _self = self;
-            match dyn_index {
-                #(#repeated_subtree_components)*
-                _ => panic!("invalid dyn_index {}", dyn_index),
-            };
         }
 
         #subtree_index_fn
@@ -2236,18 +2258,7 @@ fn generate_sub_component_body(
 
             #(#chunk_fns)*
 
-            pub(super) fn visit_dynamic_children(
-                self: ::core::pin::Pin<&Self>,
-                dyn_index: u32,
-                order: sp::TraversalOrder,
-                visitor: sp::ItemVisitorRefMut<'_>
-            ) -> sp::VisitChildrenResult {
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_visit_branch)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                }
-            }
+            #visit_dynamic_children_fn
 
             #grid_layout_input_for_repeated_fn
 
@@ -2740,13 +2751,20 @@ fn generate_item_tree_body(
         )
     };
 
+    let visit_dynamic = if root_component.has_repeaters(root) {
+        quote!(
+            &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor)
+        )
+    } else {
+        quote!(&mut slint::private_unstable_api::no_dynamic_children)
+    };
     let default_call = quote!(sp::visit_item_tree(
         &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()),
         self.get_item_tree().as_slice(),
         index,
         order,
         visitor,
-        &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
+        #visit_dynamic,
     ));
     let z_sorted_visit_body = if z_sorted_nodes.is_empty() {
         quote!(return #default_call;)
@@ -2792,7 +2810,7 @@ fn generate_item_tree_body(
                         index,
                         order,
                         visitor,
-                        &mut |order, visitor, dyn_index| self.visit_dynamic_children(dyn_index, order, visitor),
+                        #visit_dynamic,
                         &mut |push| { #(#pushes)* },
                     );
                 }
