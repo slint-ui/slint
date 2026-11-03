@@ -113,7 +113,9 @@ mod tests {
 
     use super::super::border_radius::{CornerShape, CornerShapes};
     use super::super::corner_geometry::tests::{SHAPES, distance_to_polyline};
-    use super::super::corner_geometry::{TOLERANCE, outline, superellipse_at, superellipse_n};
+    use super::super::corner_geometry::{
+        TOLERANCE, offset_outline, superellipse_at, superellipse_n,
+    };
 
     struct LyonSink(lyon_path::path::Builder);
 
@@ -146,8 +148,9 @@ mod tests {
         rect: euclid::default::Rect<f32>,
         radius: BorderRadius<f32, ()>,
         shapes: CornerShapes,
+        spread: f32,
     ) -> lyon_path::Path {
-        contour_path::<LyonSink>(&outline(rect, radius, shapes))
+        contour_path::<LyonSink>(&offset_outline(rect, radius, shapes, spread))
     }
 
     /// The outline's vertices, flattened, in the corner frame of the top-right corner of a `3r` square,
@@ -157,7 +160,7 @@ mod tests {
         // Corners meeting along a side leave a sliver of no area, which the outline drops.
         let rect = euclid::default::Rect::new(Point::zero(), euclid::size2(3. * r, 3. * r));
         let path =
-            outline_path(rect, BorderRadius::new_uniform(r), CornerShapes::new_uniform(shape));
+            outline_path(rect, BorderRadius::new_uniform(r), CornerShapes::new_uniform(shape), 0.);
         let corner = path
             .iter()
             .flattened(1e-3)
