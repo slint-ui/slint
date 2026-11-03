@@ -409,6 +409,23 @@ app.run()
 
 6. Run it with `uv run main.py`.
 
+## License
+
+Slint is open source and available under three licenses: you pick the one that fits your app.
+
+- If your app is open source, use the [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt), a widely used, OSI-approved open-source license.
+  It covers any platform, including embedded devices.
+- If your app is closed source and runs on desktop, mobile, or the web,
+  use the [Royalty-free License](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md).
+  It's free of charge, and only asks you to credit Slint, with the `AboutSlint` widget or the Slint badge on your website.
+- If your app is closed source and runs on an embedded device,
+  buy a [commercial license](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Software-3.0.md).
+  See the [pricing](https://slint.dev/pricing).
+
+Your own code can stay under a permissive license such as MIT or Apache-2.0.
+Anyone who forks it chooses their own Slint license, so they can reuse it in a closed-source app.
+The [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing) covers the details.
+
 ## Third-Party Licenses
 
 For a list of the third-party licenses of all dependencies, see the separate [Third-Party Licenses page](https://docs.slint.dev/latest/docs/python/thirdparty/).
