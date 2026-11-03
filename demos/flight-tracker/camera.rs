@@ -121,7 +121,12 @@ impl Camera {
     }
 
     pub fn is_moving(&self) -> bool {
-        self.transition.is_some() || self.velocity.length() > 1.0
+        self.transition.is_some() || self.is_coasting()
+    }
+
+    /// Whether the ground still moves after a drag.
+    pub fn is_coasting(&self) -> bool {
+        self.velocity.length() > 1.0
     }
 
     /// Moves to `goal`, or towards it while a transition runs.
@@ -161,9 +166,8 @@ impl Camera {
     pub fn drag(&mut self, delta: Vec2, height: f32, dt: f32) {
         self.transition = None;
         self.pan(delta, height);
-        if dt > 0.0 {
-            self.velocity = self.velocity.lerp(delta / dt, 0.5);
-        }
+        // Events that arrive together would otherwise seem to move very fast.
+        self.velocity = self.velocity.lerp(delta / dt.max(1.0 / 60.0), 0.5);
     }
 
     /// Turns the view by `angle` clockwise, in radians, around the point it looks at.
