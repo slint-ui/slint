@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../../api.slint";
+import { Properties } from "../../../properties.slint";
+
 import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorInteractionSection inherits InspectorSection {
-    private property <bool> value: Api.editor-property-value-data("enabled").value-bool;
+    private property <bool> value: Properties.editor-property-value-data("enabled").value-bool;
     changed value => { toggle.checked = root.value; }
-    private property <bool> read-only: Api.editor-property-value-data("read-only").value-bool;
+    private property <bool> read-only: Properties.editor-property-value-data("read-only").value-bool;
 
     private property <bool> checkable: InspectorContext.is-checkable();
 

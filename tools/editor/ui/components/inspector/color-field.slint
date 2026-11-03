@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties, PropertyEditKind, BrushKind, ColorFieldData, ColorFieldMode, FillData } from "../../properties.slint";
+
 import { Style, Metrics, ColorFieldStyle } from "../../style.slint";
 import { ColorIndicator } from "../../../../lsp/ui/components/widgets/color-indicator.slint";
 
@@ -8,7 +10,7 @@ import { InspectorColorValueField } from "color-value-field.slint";
 import { InputSurface } from "../input-surface.slint";
 import { InspectorTextFieldBase } from "text-field-base.slint";
 import { FillSession } from "fill-session.slint";
-import { Api, PropertyEditKind, BrushKind, ColorFieldData, ColorFieldMode, FillData } from "../../api.slint";
+import { Api } from "../../api.slint";
 
 export component InspectorColorField inherits Rectangle {
     in property <ColorFieldStyle> style: Style.color-field;
@@ -16,8 +18,8 @@ export component InspectorColorField inherits Rectangle {
     in property <string> value;
     in property <brush> swatch;
     in property <Size> target-size: {
-        width: Api.runtime-property-value-data("width", {}).value-float * 1px,
-        height: Api.runtime-property-value-data("height", {}).value-float * 1px,
+        width: Properties.runtime-property-value-data("width", {}).value-float * 1px,
+        height: Properties.runtime-property-value-data("height", {}).value-float * 1px,
     };
     in property <bool> wide: false;
     in property <string> commit-key: "";
@@ -26,8 +28,8 @@ export component InspectorColorField inherits Rectangle {
     in property <string> property-name: "";
     in property <float> element-rotation;
     callback accepted(string) -> bool;
-    private property <ColorFieldData> data: Api.source-color-field-data(root.property-name);
-    private property <FillData> swatch-fill: Api.brush-fill(root.swatch);
+    private property <ColorFieldData> data: Properties.source-color-field-data(root.property-name);
+    private property <FillData> swatch-fill: Properties.brush-fill(root.swatch);
     private property <bool> is-literal-color: root.data.mode == ColorFieldMode.solid;
     private property <bool> is-gradient: root.data.mode == ColorFieldMode.gradient;
 
@@ -43,17 +45,17 @@ export component InspectorColorField inherits Rectangle {
         width: parent.width;
         commit-key: root.commit-key;
         accepted(color, expression) => {
-            if !root.preview-color(color) || !Api.inspector-commit() { Api.inspector-cancel(); return false; }
+            if !root.preview-color(color) || !Properties.inspector-commit() { Properties.inspector-cancel(); return false; }
             return true;
         }
         preview(color) => {
             return root.preview-color(color);
         }
         scrub-accepted(color) => {
-            if !root.preview-color(color) || !Api.inspector-commit() { Api.inspector-cancel(); return false; }
+            if !root.preview-color(color) || !Properties.inspector-commit() { Properties.inspector-cancel(); return false; }
             return true;
         }
-        scrub-canceled(color) => { Api.inspector-cancel(); }
+        scrub-canceled(color) => { Properties.inspector-cancel(); }
         swatch-activated => { root.show-picker(); }
     }
 
@@ -159,7 +161,7 @@ export component InspectorColorField inherits Rectangle {
     }
 
     function preview-color(color: color) -> bool {
-        return Api.inspector-preview(root.property-name, { kind: PropertyEditKind.fill, fill: Api.fill-with-color(root.data.fill, color) });
+        return Properties.inspector-preview(root.property-name, { kind: PropertyEditKind.fill, fill: Properties.fill-with-color(root.data.fill, color) });
     }
 
     function show-picker() {

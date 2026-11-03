@@ -19,9 +19,11 @@ pub(super) struct Edit {
 }
 
 pub(super) fn invalidate_fill() {
-    let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
-    if let Some(api) = api {
-        api.set_inspector_fill_generation(api.get_inspector_fill_generation().wrapping_add(1));
+    let properties_api = PREVIEW_STATE.with_borrow(|state| state.properties.upgrade());
+    if let Some(properties_api) = properties_api {
+        properties_api.set_inspector_fill_generation(
+            properties_api.get_inspector_fill_generation().wrapping_add(1),
+        );
     }
 }
 
@@ -57,8 +59,9 @@ fn current_target() -> Option<(ElementRcNode, Url, SourceFileVersion, String)> {
     let (path, offset) = node.path_and_offset();
     let url = path.to_url()?;
     let version = document_cache()?.document_version(&url);
-    let generation = PREVIEW_STATE
-        .with_borrow(|state| state.api.upgrade().map(|api| api.get_inspector_generation()))?;
+    let generation = PREVIEW_STATE.with_borrow(|state| {
+        state.properties.upgrade().map(|properties_api| properties_api.get_inspector_generation())
+    })?;
     let expected = format!(
         "{url}:{}:{}:{}:{generation}",
         version.unwrap_or(i32::MIN),
@@ -337,9 +340,10 @@ pub(super) fn commit_properties() -> bool {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
         });
-        if let Some(api) = PREVIEW_STATE.with_borrow(|state| state.api.upgrade()) {
+        if let Some(properties_api) = PREVIEW_STATE.with_borrow(|state| state.properties.upgrade())
+        {
             for (_, fill) in fills {
-                api.invoke_add_recent_fill(fill);
+                properties_api.invoke_add_recent_fill(fill);
             }
         }
     } else {
@@ -403,9 +407,10 @@ pub(super) fn invalidate() {
 
 pub(super) fn refresh() {
     cancel();
-    let api = PREVIEW_STATE.with_borrow(|state| state.api.upgrade());
-    if let Some(api) = api {
-        api.set_inspector_generation(api.get_inspector_generation().wrapping_add(1));
+    let properties_api = PREVIEW_STATE.with_borrow(|state| state.properties.upgrade());
+    if let Some(properties_api) = properties_api {
+        properties_api
+            .set_inspector_generation(properties_api.get_inspector_generation().wrapping_add(1));
     }
 }
 

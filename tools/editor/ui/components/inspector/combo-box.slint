@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Properties } from "../../properties.slint";
+
 import { Style, PaintStyle, Colors, Metrics, Typography, FieldStyle, ComboMenuStyle } from "../../style.slint";
 import { Api } from "../../api.slint";
 import { InspectorComboOption } from "control-data.slint";
@@ -22,7 +24,7 @@ export component InspectorComboBox inherits InputSurface {
     in property <string> placeholder: "";
     in property <length> popup-available-height: root.menu-style.max-height;
     in property <string> commit-key: Api.current-element.source-uri + ":" + Api.current-element.source-version
-        + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Api.inspector-generation;
+        + ":" + Api.current-element.offset + ":" + Api.selection.highlight-index + ":" + Properties.inspector-generation;
     private property <string> opening-key;
     changed commit-key => { fallback-popup.close(); }
     callback accepted(string) -> bool;

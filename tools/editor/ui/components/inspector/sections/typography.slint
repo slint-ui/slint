@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, PropertyEditKind } from "../../../api.slint";
+import { Properties, PropertyEditKind } from "../../../properties.slint";
+
 import { Style, Metrics, InspectorStyle } from "../../../style.slint";
 import { InspectorComboBox, InspectorEditableField, InspectorEnumOptions, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
@@ -10,7 +11,7 @@ export component InspectorTypographySection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> field-width;
     in property <length> popup-bottom;
-    private property <bool> italic: Api.editor-property-value-data("font-italic").value-bool;
+    private property <bool> italic: Properties.editor-property-value-data("font-italic").value-bool;
 
     title: @tr("Typography");
 
@@ -18,7 +19,7 @@ export component InspectorTypographySection inherits InspectorSection {
         padding-left: root.style.padding;
         spacing: Metrics.space-compact;
 
-        if Api.has-property("font-family"): InspectorEditableField {
+        if Properties.has-property("font-family"): InspectorEditableField {
             accessible-name: @tr("Font family");
             value: InspectorContext.text-font-family-value();
             commit-key: InspectorContext.field-key("font-family");
@@ -32,7 +33,7 @@ export component InspectorTypographySection inherits InspectorSection {
         HorizontalLayout {
             spacing: root.style.column-gap;
 
-            if Api.has-property("font-weight"): InspectorComboBox {
+            if Properties.has-property("font-weight"): InspectorComboBox {
                 accessible-name: @tr("Font weight");
                 fit-options: true;
                 value: InspectorEnumOptions.text-font-weight-label();
@@ -44,7 +45,7 @@ export component InspectorTypographySection inherits InspectorSection {
                 }
             }
 
-            if Api.has-property("font-size"): InspectorEditableField {
+            if Properties.has-property("font-size"): InspectorEditableField {
                 accessible-name: @tr("Font size");
                 value: InspectorContext.text-font-size-value();
                 commit-key: InspectorContext.field-key("font-size");
@@ -57,7 +58,7 @@ export component InspectorTypographySection inherits InspectorSection {
         }
     }
 
-    if Api.has-property("font-italic"): InspectorPropertyRow {
+    if Properties.has-property("font-italic"): InspectorPropertyRow {
         label: @tr("Italic");
 
         InspectorSwitch {
