@@ -34,7 +34,7 @@ impl PreviewFileAccess {
         files.extend(
             document_roots.iter().filter_map(|url| SourcePath::from_url(url).into_native_path()),
         );
-        Self { files }
+        Self { files: files.iter().map(|path| clean_path(path)).collect() }
     }
 
     pub(crate) fn allows(&self, path: &Path) -> bool {
