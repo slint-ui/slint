@@ -7,6 +7,7 @@ use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::element_type::ElementType;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{EnumerationValue, Type};
+use crate::native_class::PropertyVisibility;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use by_address::ByAddress;
@@ -72,9 +73,7 @@ fn lower_popup_window(
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
     let parent_element = match parent_element {
         None => {
-            if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
-                popup_window_element.borrow_mut().base_type = window_type.clone();
-            }
+            lower_to_window(popup_window_element, window_type);
             parent_component.inherits_popup_window.set(true);
             return;
         }
@@ -222,9 +221,7 @@ fn lower_popup_window(
 
     check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_x, diag);
 
-    if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
-        popup_window_element.borrow_mut().base_type = window_type.clone();
-    }
+    lower_to_window(popup_window_element, window_type);
 
     super::focus_handling::call_focus_on_init(&popup_comp);
 
@@ -237,6 +234,26 @@ fn lower_popup_window(
         is_tooltip: popup_window_element.borrow().is_tooltip,
         is_open,
     });
+}
+
+/// Make a PopupWindow inherit from Window instead.
+/// The popup is only instantiated while shown, so its own `is-open` is constantly true.
+fn lower_to_window(popup_window_element: &ElementRc, window_type: &ElementType) {
+    let mut popup = popup_window_element.borrow_mut();
+    if !matches!(popup.base_type, ElementType::Builtin(_)) {
+        return;
+    }
+    popup.base_type = window_type.clone();
+    let is_open = SmolStr::new_static("is-open");
+    popup.property_declarations.insert(
+        is_open.clone(),
+        PropertyDeclaration {
+            visibility: PropertyVisibility::Output,
+            synthesized: true,
+            ..Type::Bool.into()
+        },
+    );
+    popup.set_binding_if_not_set(is_open, || Expression::BoolLiteral(true));
 }
 
 fn report_const_error(prop: &str, span: &Option<SourceLocation>, diag: &mut BuildDiagnostics) {
