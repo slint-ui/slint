@@ -258,7 +258,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 .values()
                 .filter_map(|w| w.upgrade())
             {
-                if w.window().has_active_animations() {
+                if w.window().has_active_animations() && !w.is_minimized_on_screen() {
                     w.request_redraw();
                 }
             }
