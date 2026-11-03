@@ -7,8 +7,9 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 
+#[cfg(feature = "renderer-femtovg-wgpu")]
 use i_slint_core::graphics::RequestedGraphicsAPI;
-#[cfg(all(supports_opengl, target_os = "windows"))]
+#[cfg(supports_opengl)]
 use i_slint_core::graphics::RequestedOpenGLVersion;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{DrawOutcome, Renderer};
@@ -33,7 +34,7 @@ const OPENGL_2_REQUIRED: &str = "The FemtoVG renderer requires an OpenGL 2.0 dri
 #[cfg(supports_opengl)]
 pub struct GlutinFemtoVGRenderer {
     renderer: FemtoVGRenderer<opengl::OpenGLBackend>,
-    _requested_graphics_api: Option<RequestedGraphicsAPI>,
+    _requested_opengl_version: Option<RequestedOpenGLVersion>,
     _shared_backend_data_weak: Weak<crate::SharedBackendData>,
 }
 
@@ -44,12 +45,15 @@ impl GlutinFemtoVGRenderer {
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
         // Bail out before a window is created, so that the backend can still fall back to
         // another renderer (#13762).
+        let requested_opengl_version = shared_backend_data
+            .requested_graphics_api
+            .as_ref()
+            .map(RequestedOpenGLVersion::try_from)
+            .transpose()?;
         #[cfg(target_os = "windows")]
         {
-            let desktop_opengl_required = matches!(
-                shared_backend_data.requested_graphics_api,
-                Some(RequestedGraphicsAPI::OpenGL(RequestedOpenGLVersion::OpenGL(_)))
-            );
+            let desktop_opengl_required =
+                matches!(requested_opengl_version, Some(RequestedOpenGLVersion::OpenGL(_)));
             if !desktop_opengl_required && !glprobe::opengl_2_available() {
                 return Err(OPENGL_2_REQUIRED.into());
             }
@@ -57,7 +61,7 @@ impl GlutinFemtoVGRenderer {
 
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
-            _requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),
+            _requested_opengl_version: requested_opengl_version,
             _shared_backend_data_weak: Rc::downgrade(shared_backend_data),
         }))
     }
@@ -83,7 +87,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         let (winit_window, opengl_context) = glcontext::OpenGLContext::new_context(
             window_attributes,
             active_event_loop,
-            self._requested_graphics_api.as_ref().map(TryInto::try_into).transpose()?,
+            self._requested_opengl_version.clone(),
         )?;
 
         #[cfg(target_arch = "wasm32")]
