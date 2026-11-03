@@ -255,6 +255,10 @@ component Stat {
     in property <string> label;
     in property <string> value;
     in property <length> value-size: 18px;
+    // Columns of equal width, so that a changing value doesn't move the next column.
+    min-width: 0;
+    preferred-width: 0;
+    horizontal-stretch: 1;
     VerticalLayout {
         spacing: 2px;
         Caption {
