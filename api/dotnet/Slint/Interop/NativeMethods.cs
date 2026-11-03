@@ -200,6 +200,15 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(Library)]
     [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_compiler_set_embedded_files(
+        CompilerHandle compiler,
+        Utf8Str* paths,
+        byte** contents,
+        nuint* lengths,
+        nuint count);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool slint_dotnet_compiler_set_library_paths(
         CompilerHandle compiler,
         Utf8Str* names,

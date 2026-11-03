@@ -1,6 +1,13 @@
 <!-- cSpell: ignore xplat yurkinh -->
 # What's New in Slint for .NET
 
+## 1.19.0-preview.12
+
+- Publish a desktop app as one file: `SlintEmbedFiles` embeds the `.slint` files in the assembly,
+  with the images and fonts they use and the bundled translations, instead of copying them next to the app.
+  It's on by default with `PublishSingleFile`, and with Native AOT the output is the executable and the native library.
+  See [Publishing](README.md#publishing).
+
 ## 1.19.0-preview.11
 
 - Web: run your app in the browser, on .NET's WebAssembly runtime, with the same C# API and generated code.

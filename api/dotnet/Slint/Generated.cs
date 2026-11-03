@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Reflection;
 
 namespace Slint.Generated;
 
@@ -85,46 +86,55 @@ public static class GeneratedApi
 {
     private static string? s_baseDirectory;
 
-    /// <summary>The build's project directory, for the absolute paths of generated code in the browser.</summary>
+    /// <summary>The build's project directory, for the absolute paths of generated code with embedded files.</summary>
     private static string? s_projectDirectory;
+
+    /// <summary>The files that the assemblies embed, at their paths below <see cref="BaseDirectory"/>.</summary>
+    private static KeyValuePair<string, byte[]>[]? s_embeddedFiles;
 
     /// <summary>
     /// The directory that generated code loads <c>.slint</c> files with relative paths from:
     /// the application directory, on Android the directory where <c>SlintActivity</c> extracts them,
-    /// and in the browser the directory where Slint writes the files that the assemblies embed.
+    /// and with files that the assemblies embed, a directory that exists only for the compiler, which reads them from memory.
     /// </summary>
     public static string BaseDirectory
     {
-        get => s_baseDirectory ??= OperatingSystem.IsBrowser() ? WriteBrowserFiles() : AppContext.BaseDirectory;
+        get => s_baseDirectory ??= FindEmbeddedFiles() ?? AppContext.BaseDirectory;
         internal set => s_baseDirectory = value;
     }
 
-    /// <summary>The prefix of the resources that <c>Slint.targets</c> embeds for the browser, before the path relative to the project.</summary>
-    private const string BrowserResourcePrefix = "slint:";
+    /// <summary>
+    /// The prefix of the resources that <c>Slint.targets</c> embeds with <c>SlintEmbedFiles</c> and in the browser,
+    /// before the path relative to the project.
+    /// </summary>
+    private const string EmbeddedResourcePrefix = "slint:";
 
     /// <summary>
-    /// Writes the embedded files into Emscripten's file system and returns their base directory,
-    /// which is as many levels deep as the paths go up with <c>../</c>.
+    /// Reads the embedded files, and returns the directory they're below,
+    /// which is as many levels deep as the paths go up with <c>../</c>; or null without embedded files.
     /// </summary>
-    private static string WriteBrowserFiles()
+    private static string? FindEmbeddedFiles()
     {
+        var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic).ToList();
         var files = (
-            from assembly in AppDomain.CurrentDomain.GetAssemblies()
-            where !assembly.IsDynamic
+            from assembly in assemblies
             from name in assembly.GetManifestResourceNames()
-            where name.StartsWith(BrowserResourcePrefix, StringComparison.Ordinal)
-            select (assembly, name, path: name[BrowserResourcePrefix.Length..])).ToList();
-        var depth = files.Select(file => ParentLevels(file.path)).DefaultIfEmpty().Max();
-        var root = "/slint/" + string.Concat(Enumerable.Repeat("_/", depth));
-        foreach (var (assembly, name, relative) in files)
+            where name.StartsWith(EmbeddedResourcePrefix, StringComparison.Ordinal)
+            select (assembly, name, path: name[EmbeddedResourcePrefix.Length..])).ToList();
+        if (files.Count == 0)
         {
-            var path = Path.GetFullPath(Path.Combine(root, relative));
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            using var resource = assembly.GetManifestResourceStream(name)!;
-            using var file = File.Create(path);
-            resource.CopyTo(file);
+            return null;
         }
-        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic))
+        var depth = files.Max(file => ParentLevels(file.path));
+        var root = Path.Combine([AppContext.BaseDirectory, "slint-embedded", .. Enumerable.Repeat("_", depth)]);
+        s_embeddedFiles = files.Select(file =>
+        {
+            using var resource = file.assembly.GetManifestResourceStream(file.name)!;
+            using var data = new MemoryStream();
+            resource.CopyTo(data);
+            return KeyValuePair.Create(Path.GetFullPath(Path.Combine(root, file.path)), data.ToArray());
+        }).ToArray();
+        foreach (var assembly in assemblies)
         {
             using var resource = assembly.GetManifestResourceStream("slint-project-directory");
             if (resource != null)
@@ -133,7 +143,7 @@ public static class GeneratedApi
                 break;
             }
         }
-        return root;
+        return Path.GetFullPath(root);
     }
 
     private static int ParentLevels(string path)
@@ -146,13 +156,28 @@ public static class GeneratedApi
         return levels;
     }
 
-    /// <summary>Maps an absolute path of the build machine to where <see cref="WriteBrowserFiles"/> wrote it.</summary>
-    private static string BrowserPath(string path)
-    {
-        var root = BaseDirectory;
-        return s_projectDirectory == null || !path.StartsWith('/')
+    /// <summary>Maps an absolute path of the build machine to its embedded file.</summary>
+    private static string EmbeddedPath(string path) =>
+        s_projectDirectory == null || !Path.IsPathFullyQualified(path)
             ? path
-            : Path.GetFullPath(Path.Combine(root, Path.GetRelativePath(s_projectDirectory, path)));
+            : Path.GetFullPath(Path.Combine(BaseDirectory, Path.GetRelativePath(s_projectDirectory, path)));
+
+    /// <summary>
+    /// Writes the embedded files below <paramref name="directory"/> to a directory of the user's temporary files, and returns it,
+    /// since the compiler reads bundled translations from the file system only.
+    /// </summary>
+    private static string WriteEmbeddedDirectory(string directory)
+    {
+        var prefix = Path.TrimEndingDirectorySeparator(directory) + Path.DirectorySeparatorChar;
+        var build = Assembly.GetEntryAssembly()?.ManifestModule.ModuleVersionId.ToString("N") ?? "shared";
+        var target = Path.Combine(Path.GetTempPath(), "slint-dotnet", build);
+        foreach (var (path, data) in s_embeddedFiles!.Where(file => file.Key.StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            var file = Path.Combine(target, path[prefix.Length..]);
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllBytes(file, data);
+        }
+        return target;
     }
 
     /// <summary>Compiles <paramref name="path"/>, throwing with the diagnostics if it has errors.</summary>
@@ -165,14 +190,19 @@ public static class GeneratedApi
         string? bundledTranslationsPath = null,
         DefaultTranslationContext defaultTranslationContext = DefaultTranslationContext.ComponentName)
     {
-        if (OperatingSystem.IsBrowser())
+        _ = BaseDirectory;
+        if (s_embeddedFiles != null)
         {
             path = Path.GetFullPath(path);
-            includePaths = includePaths?.Select(BrowserPath).ToList();
-            libraryPaths = libraryPaths?.ToDictionary(entry => entry.Key, entry => BrowserPath(entry.Value));
-            bundledTranslationsPath = bundledTranslationsPath == null ? null : BrowserPath(bundledTranslationsPath);
+            includePaths = includePaths?.Select(EmbeddedPath).ToList();
+            libraryPaths = libraryPaths?.ToDictionary(entry => entry.Key, entry => EmbeddedPath(entry.Value));
+            bundledTranslationsPath = bundledTranslationsPath == null ? null : WriteEmbeddedDirectory(EmbeddedPath(bundledTranslationsPath));
         }
         using var compiler = new Compiler();
+        if (s_embeddedFiles != null)
+        {
+            compiler.SetEmbeddedFiles(s_embeddedFiles);
+        }
         if (translationDomain != null)
         {
             compiler.TranslationDomain = translationDomain;

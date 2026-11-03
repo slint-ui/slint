@@ -778,16 +778,23 @@ Next:
   - Risks: on embedded Linux, SkiaSharp needs fontconfig and the fonts that the labels use.
     Native AOT on iOS links both Skias into one executable, which is untested.
 - **22.** Desktop apps published as one file, without the `ui/` directory and `slint_dotnet` next to the executable.
-  `dotnet publish -c Release -r win-x64` with Native AOT now writes `MyApp.exe`, `slint_dotnet.dll`, and `ui/`.
-  Until then, `-p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true` without Native AOT gives one executable,
-  which .NET extracts to a temporary directory on its first start.
-  - Phase 1, next, embedding: a property such as `SlintEmbedFiles` makes `Slint.targets` embed the `.slint` files
-    and the images and fonts that they use into the assembly, as manifest resources.
-    The generated code compiles them through a file loader of the interpreter's `Compiler` that reads the resources.
-    Every desktop app gains from it, with or without Native AOT,
-    and a single-file publish then needs only `IncludeNativeLibrariesForSelfExtract=true`.
-    To check first: how the interpreter loads images and fonts, which it may read from disk outside the file loader;
-    and live reload, which keeps loading from the source files.
+  With phase 1, a single-file publish with `IncludeNativeLibrariesForSelfExtract=true` gives one executable,
+  and Native AOT gives `MyApp.exe` and `slint_dotnet.dll`, without `ui/`.
+  - Phase 1, done: `SlintEmbedFiles`, on by default with `PublishSingleFile`, makes `Slint.targets` embed the `.slint` files,
+    the images and fonts that they use, and the bundled translations into the assembly, from the compiler's dependency file,
+    as for the browser of item 24, which now takes the same path.
+    `GeneratedApi` hands them to the compiler, below a directory that exists only for it,
+    and `slint_dotnet_compiler_set_embedded_files` serves them from memory through three hooks of the interpreter:
+    the file loader for `.slint` files, the resource URL mapper, which turns each image into a `data:` URL,
+    and the resource loader for imported fonts.
+    `Compiler.BuildFromPath` compiles an embedded main file from its source, since the interpreter reads the main file from disk.
+    - The compiler reads bundled translations only from a directory, so `GeneratedApi` writes the `.po` files below the user's temporary files;
+      reading them from memory needs a change to `translations.rs`, whose parser takes contents too.
+    - `SourcePath::to_url` gave no URL for a file on any WebAssembly target, so Emscripten's images missed the mapper;
+      it now excludes only `target_os = "unknown"`, like the interpreter's web-only code.
+    - The todo example runs as one executable from a single-file publish, and with Native AOT as the executable and the library;
+      the gallery runs with its images and German translation, on the desktop and in the browser.
+    - Live preview still loads the source files, and Android and iOS keep their assets and bundle resources.
   - Phase 2, postponed until an app needs it, static linking for Native AOT: `<DirectPInvoke Include="slint_dotnet" />`
     and `<NativeLibrary Include="slint_dotnet.lib" />` link the native library into the executable.
     It needs a `staticlib` build of `api/dotnet/native` for each runtime identifier, with the C runtime that Native AOT links,

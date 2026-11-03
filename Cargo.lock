@@ -7399,15 +7399,18 @@ dependencies = [
 name = "slint-dotnet"
 version = "1.19.0"
 dependencies = [
+ "base64 0.23.1",
  "i-slint-backend-android-activity",
  "i-slint-backend-emscripten",
  "i-slint-backend-linuxkms",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
+ "i-slint-compiler",
  "i-slint-core",
  "i-slint-live-preview",
  "slint-interpreter",
  "spin_on",
+ "url",
 ]
 
 [[package]]

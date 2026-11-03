@@ -188,6 +188,7 @@ Set these properties to change the generated code:
 - `SlintNamespace`: the namespace, instead of the root namespace.
 - `SlintStyle`: the widget style, such as `fluent` or `cupertino`.
 - `SlintCopyToOutput`: `false` to load the `.slint` files from the project directory instead of copying them.
+- `SlintEmbedFiles`: `true` to embed the `.slint` files in the assembly instead of copying them, see [Publishing](#publishing).
 - `SlintIncludePaths`: directories that imports search, separated by semicolons.
 
 To use a [project file](https://snapshots.slint.dev/master/docs/slint/guide/tooling/project-file/), add its directory instead of a file:
@@ -455,6 +456,22 @@ The attribute does nothing on macOS and Linux, so keep it for every platform.
 
 Don't make `Main` `async`, since an `async Main` runs in a multithreaded apartment.
 For asynchronous code, call `EventLoop.Run(async () => { ... })` from a synchronous `Main`.
+
+## Publishing
+
+`dotnet publish -c Release -r <runtime identifier>` writes the app, the `slint_dotnet` library,
+and the `.slint` files, which the app loads at run time.
+With `SlintEmbedFiles` set to `true`, the assembly embeds the `.slint` files instead,
+with the images and fonts they use and the bundled translations, and the compiler reads them from memory.
+It's on by default for a single-file publish, which then writes one executable:
+
+```sh
+dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+With Native AOT, the output is the executable and the `slint_dotnet` library.
+Bundled translations are the exception to memory: the app writes their `.po` files to a directory of its temporary files at startup.
+A path with a space in it doesn't work for the embedded files.
 
 ## Android (Preview)
 

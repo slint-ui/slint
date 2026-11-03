@@ -13,9 +13,10 @@
   A file outside the project directory is copied to the root of the output directory; set Link to place it elsewhere.
   On Android, the files go into the APK's assets under slint/ instead, and SlintActivity extracts them at startup.
   On iOS, they go into the app bundle as bundle resources, and the app embeds the framework of the package or of target/ios.
-  In the browser (browser-wasm), the assembly embeds them with the images they use, at their paths relative to the project,
-  and the app links the library of the package or of target/browser, which needs the wasm-tools workload.
-  There, a path with a space doesn't work, since the dependency file of slint-compiler separates paths with spaces.
+  With SlintEmbedFiles, and in the browser (browser-wasm), the assembly embeds them with the images and fonts they use,
+  and the bundled translations, at their paths relative to the project, and the compiler reads them from memory.
+  A path with a space doesn't work there, since the dependency file of slint-compiler separates paths with spaces.
+  In the browser, the app links the library of the package or of target/browser, which needs the wasm-tools workload.
 
   Properties:
     SlintCompilerPath   the slint-compiler binary; defaults to the one of the Slint.Compiler package,
@@ -33,6 +34,8 @@
     <SlintLibraryPath Include="mylib" Path="../mylib/" />
     SlintCopyToOutput   false loads the .slint files from their source directory instead, such as for
                         a file that refers to images outside the project; not on Android and iOS, where the source isn't
+    SlintEmbedFiles     true embeds the files in the assembly instead of copying them to the output, so that
+                        a single-file publish needs no ui/ directory; on by default with PublishSingleFile; not on Android and iOS
     SlintLivePreview    true makes the generated code load the .slint files from their source directory,
                         and reload components when the files change; for development only.
                         LivePreview metadata on a SlintFile overrides it for that file.
@@ -52,6 +55,8 @@
     <_SlintPlatform>$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)'))</_SlintPlatform>
     <_SlintOnDevice Condition="'$(_SlintPlatform)' == 'android' or '$(_SlintPlatform)' == 'ios'">true</_SlintOnDevice>
     <_SlintBrowser Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">true</_SlintBrowser>
+    <SlintEmbedFiles Condition="'$(SlintEmbedFiles)' == '' and '$(PublishSingleFile)' == 'true'">true</SlintEmbedFiles>
+    <_SlintEmbed Condition="'$(_SlintBrowser)' == 'true' or ('$(SlintEmbedFiles)' == 'true' and '$(_SlintOnDevice)' != 'true')">true</_SlintEmbed>
     <_SlintFromSource Condition="'$(SlintCopyToOutput)' == 'false' and '$(_SlintOnDevice)' != 'true'">true</_SlintFromSource>
     <_SlintLiveAllowed Condition="'$(_SlintOnDevice)' != 'true' and '$(_SlintBrowser)' != 'true'">true</_SlintLiveAllowed>
     <!-- From the package, outside runtimes/ so that NuGet leaves it alone, or else from scripts/build_dotnet_ios.sh in the repository. -->
@@ -86,7 +91,7 @@
   <ItemGroup>
     <None Remove="@(SlintFile)" />
     <!-- A full path, since on Windows AssignTargetPath keeps a relative path with '../' as the target path, outside the output directory. -->
-    <None Include="@(SlintFile->'%(FullPath)')" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
+    <None Include="@(SlintFile->'%(FullPath)')" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false' and '$(_SlintEmbed)' != 'true'" />
     <!-- The components reload a changed file themselves, so dotnet watch mustn't restart the application for it. -->
     <None Update="@(SlintFile)" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '$(_SlintLiveAllowed)' == 'true'" />
     <None Update="**/*.slint;**/slint-project.json" Watch="false" Condition="'$(SlintLivePreview)' == 'true' and '$(_SlintLiveAllowed)' == 'true' and '@(SlintProject)' != ''" />
@@ -98,7 +103,7 @@
       <_SlintProjectSource Include="%(SlintProject.FullPath)/**/*.slint;%(SlintProject.FullPath)/slint-project.json"
                            Exclude="$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseOutputPath)'))**;$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)'))**" />
       <None Remove="@(_SlintProjectSource)" />
-      <None Include="@(_SlintProjectSource)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false'" />
+      <None Include="@(_SlintProjectSource)" CopyToOutputDirectory="PreserveNewest" Condition="'$(SlintCopyToOutput)' != 'false' and '$(_SlintEmbed)' != 'true'" />
     </ItemGroup>
   </Target>
 
@@ -116,7 +121,7 @@
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintAssigned.TargetPath).g.cs</GeneratedFile>
         <RuntimePath>%(_SlintAssigned.TargetPath)</RuntimePath>
         <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintAssigned.FullPath)</RuntimePath>
-        <RuntimePath Condition="'$(_SlintBrowser)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintAssigned.FullPath)').Replace('\', '/'))</RuntimePath>
+        <RuntimePath Condition="'$(_SlintEmbed)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintAssigned.FullPath)').Replace('\', '/'))</RuntimePath>
         <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintAssigned.LivePreview)' == 'true' or ('%(_SlintAssigned.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
@@ -132,7 +137,7 @@
         <GeneratedFile>$(_SlintGeneratedDir)%(_SlintProjectDir.TargetPath)/slint-project.g.cs</GeneratedFile>
         <RuntimePath>%(_SlintProjectDir.TargetPath)</RuntimePath>
         <RuntimePath Condition="'$(_SlintFromSource)' == 'true'">%(_SlintProjectDir.FullPath)</RuntimePath>
-        <RuntimePath Condition="'$(_SlintBrowser)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintProjectDir.FullPath)').Replace('\', '/'))</RuntimePath>
+        <RuntimePath Condition="'$(_SlintEmbed)' == 'true'">$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(_SlintProjectDir.FullPath)').Replace('\', '/'))</RuntimePath>
         <LiveOption Condition="'$(_SlintLiveAllowed)' == 'true' and ('%(_SlintProjectDir.LivePreview)' == 'true' or ('%(_SlintProjectDir.LivePreview)' == '' and '$(SlintLivePreview)' == 'true'))"> --csharp-live-preview</LiveOption>
       </_SlintGenerate>
     </ItemGroup>
@@ -153,7 +158,7 @@
       <_SlintPathOptions Condition="'@(SlintLibraryPath)' != ''">$(_SlintPathOptions) @(SlintLibraryPath->'-L &quot;%(Identity)=%(Path)&quot;', ' ')</_SlintPathOptions>
       <_SlintOptionsFile>$(_SlintGeneratedDir)options.txt</_SlintOptionsFile>
     </PropertyGroup>
-    <ItemGroup Condition="'$(_SlintBrowser)' == 'true'">
+    <ItemGroup Condition="'$(_SlintEmbed)' == 'true'">
       <_SlintGenerate>
         <DependencyFile>%(GeneratedFile).d</DependencyFile>
         <DependencyOption> --depfile &quot;%(GeneratedFile).d&quot;</DependencyOption>
@@ -214,12 +219,12 @@
   </Target>
 
   <!--
-    GeneratedApi writes the resources back under one directory of the browser's file system, before it loads the first file.
+    GeneratedApi hands the resources to the compiler, below a directory that exists only for it.
     The generated code has the include and library paths of SlintFile items, and the bundled translations, as absolute paths,
     so then GeneratedApi also needs the project directory.
   -->
-  <Target Name="_SlintBrowserResources" BeforeTargets="PrepareResources" DependsOnTargets="SlintGenerate"
-          Condition="'$(_SlintBrowser)' == 'true'">
+  <Target Name="_SlintEmbeddedResources" BeforeTargets="PrepareResources" DependsOnTargets="SlintGenerate"
+          Condition="'$(_SlintEmbed)' == 'true'">
     <ReadLinesFromFile File="%(_SlintGenerate.DependencyFile)">
       <Output TaskParameter="Lines" ItemName="_SlintDependencyLine" />
     </ReadLinesFromFile>
@@ -235,18 +240,18 @@
       <_SlintDependency Include="$([System.IO.Path]::GetFullPath('$(SlintBundledTranslations)', '$(MSBuildProjectDirectory)'))/**/*.po" />
     </ItemGroup>
     <PropertyGroup>
-      <_SlintBrowserProjectDirectory Condition="'@(_SlintIncludePath)' != '' or '@(SlintLibraryPath)' != '' or '$(SlintBundledTranslations)' != ''">true</_SlintBrowserProjectDirectory>
+      <_SlintEmbedProjectDirectory Condition="'@(_SlintIncludePath)' != '' or '@(SlintLibraryPath)' != '' or '$(SlintBundledTranslations)' != ''">true</_SlintEmbedProjectDirectory>
     </PropertyGroup>
     <RemoveDuplicates Inputs="@(_SlintDependency)">
-      <Output TaskParameter="Filtered" ItemName="_SlintBrowserResource" />
+      <Output TaskParameter="Filtered" ItemName="_SlintEmbeddedFile" />
     </RemoveDuplicates>
     <ItemGroup>
-      <EmbeddedResource Include="@(_SlintBrowserResource)" LogicalName="slint:$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)').Replace('\', '/'))" WithCulture="false" Type="Non-Resx" />
+      <EmbeddedResource Include="@(_SlintEmbeddedFile)" LogicalName="slint:$([MSBuild]::MakeRelative('$(MSBuildProjectDirectory)/', '%(FullPath)').Replace('\', '/'))" WithCulture="false" Type="Non-Resx" />
       <FileWrites Include="@(_SlintGenerate->'%(DependencyFile)')" />
     </ItemGroup>
-    <WriteLinesToFile Condition="'$(_SlintBrowserProjectDirectory)' == 'true'"
+    <WriteLinesToFile Condition="'$(_SlintEmbedProjectDirectory)' == 'true'"
                       File="$(_SlintGeneratedDir)project-directory.txt" Lines="$(MSBuildProjectDirectory)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-    <ItemGroup Condition="'$(_SlintBrowserProjectDirectory)' == 'true'">
+    <ItemGroup Condition="'$(_SlintEmbedProjectDirectory)' == 'true'">
       <EmbeddedResource Include="$(_SlintGeneratedDir)project-directory.txt" LogicalName="slint-project-directory" WithCulture="false" Type="Non-Resx" />
       <FileWrites Include="$(_SlintGeneratedDir)project-directory.txt" />
     </ItemGroup>
