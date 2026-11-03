@@ -13,11 +13,21 @@ global Theme {
     out property <bool> blur: self.quality == Quality.high;
     out property <color> text: #e8eef6;
     out property <color> muted: #8b98a9;
+    /// Placeholders and the frame rate, dimmer than `muted`.
+    out property <color> faint: #ffffff50;
     out property <color> accent: #2379f4;
     out property <color> accent-light: #6aaeff;
-    out property <color> glass: self.blur ? #0a111a80 : #0a111ae0;
+    /// Behind the globe on the entry screen.
+    out property <color> background: #04070c;
+    out property <color> surface: #0a111a;
+    out property <color> glass: self.surface.with-alpha(self.blur ? 0.5 : 0.88);
     out property <color> line: #ffffff1c;
-    out property <color> hover: #ffffff14;
+    /// A tint over the glass for buttons and fields, and its hover and pressed states.
+    out property <color> fill: #ffffff12;
+    out property <color> fill-hover: #ffffff1f;
+    out property <color> fill-pressed: #ffffff2a;
+    /// The off state of a toggle, and the part of the route still ahead.
+    out property <color> track: #ffffff30;
     out property <length> margin: 16px;
 }
 
@@ -99,7 +109,7 @@ component PillButton inherits Rectangle {
     opacity: root.enabled ? 1 : 0.4;
     background: root.primary
         ? (touch.pressed ? Theme.accent.darker(0.2) : touch.has-hover ? Theme.accent.brighter(0.15) : Theme.accent)
-        : (touch.pressed ? #ffffff2a : touch.has-hover ? #ffffff1f : #ffffff12);
+        : (touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : Theme.fill);
     content := HorizontalLayout {
         alignment: center;
         spacing: 6px;
@@ -138,7 +148,12 @@ component RoundButton inherits Glass {
     width: 40px;
     height: 40px;
     border-radius: self.width / 2;
-    background: root.checked ? Theme.accent : touch.pressed ? #26334a : touch.has-hover ? #1a2433d0 : Theme.glass;
+    background: root.checked ? Theme.accent : Theme.glass;
+    Rectangle {
+        border-radius: root.border-radius;
+        background: touch.pressed ? Theme.fill-pressed : touch.has-hover ? Theme.fill-hover : transparent;
+    }
+
     if root.icon.width == 0: Text {
         text: root.text;
         color: Theme.text;
@@ -179,7 +194,7 @@ component Toggle {
         width: 38px;
         height: 22px;
         border-radius: self.height / 2;
-        background: root.checked ? Theme.accent : #ffffff26;
+        background: root.checked ? Theme.accent : Theme.track;
         animate background { duration: 150ms; }
         Rectangle {
             x: root.checked ? parent.width - self.width - 3px : 3px;
@@ -211,7 +226,7 @@ component Segmented {
     height: 36px;
     Rectangle {
         border-radius: self.height / 2;
-        background: #ffffff12;
+        background: Theme.fill;
     }
 
     if root.current >= 0: Rectangle {
@@ -329,7 +344,7 @@ component FlightCard inherits Glass {
                 Rectangle {
                     y: 19px;
                     height: 2px;
-                    background: #ffffff30;
+                    background: Theme.track;
                 }
 
                 // The flown part, from the origin to the aircraft.
@@ -515,7 +530,7 @@ component AirportMarker {
         height: 22px;
         width: code.preferred-width + 16px;
         border-radius: self.height / 2;
-        background: root.destination ? Theme.accent : #0a111ad0;
+        background: root.destination ? Theme.accent : Theme.surface.with-alpha(0.8);
         border-width: 1px;
         border-color: Theme.line;
         code := Text {
@@ -534,7 +549,7 @@ component AirportRow inherits Rectangle {
     callback clicked();
     height: 46px;
     border-radius: 8px;
-    background: touch.has-hover ? Theme.hover : transparent;
+    background: touch.has-hover ? Theme.fill-hover : transparent;
     Text {
         x: 10px;
         width: 44px;
@@ -582,7 +597,7 @@ component AirportField inherits Rectangle {
     callback accepted();
     height: 50px;
     border-radius: 10px;
-    background: #ffffff10;
+    background: Theme.fill;
     border-width: 1px;
     border-color: root.active ? Theme.accent : Theme.line;
     forward-focus: input;
@@ -603,7 +618,7 @@ component AirportField inherits Rectangle {
     if input.text == "": Text {
         x: input.x;
         text: "City, airport, or code";
-        color: #ffffff50;
+        color: Theme.faint;
         font-size: 16px;
         vertical-alignment: center;
     }
@@ -763,14 +778,14 @@ export component AppWindow inherits Window {
 
     // A pattern under the globe on the entry screen, which shows through around it.
     if root.zoom-progress < 1: Rectangle {
-        background: #04070c;
+        background: Theme.background;
         Image {
             width: 100%;
             height: 100%;
             source: @image-url("icons/pattern.svg");
             horizontal-tiling: repeat;
             vertical-tiling: repeat;
-            colorize: #6aaeff;
+            colorize: Theme.accent-light;
         }
 
         Rectangle {
@@ -778,7 +793,7 @@ export component AppWindow inherits Window {
             y: root.entry-globe-y;
             width: root.entry-globe-width;
             height: root.entry-globe-height;
-            background: @radial-gradient(circle, #2379f440 0%, #2379f410 45%, #04070c00 70%);
+            background: @radial-gradient(circle, Theme.accent.with-alpha(0.25) 0%, Theme.accent.with-alpha(0.06) 45%, Theme.background.with-alpha(0) 70%);
         }
 
         // The globe's shadow on the pattern, so that the globe floats above it.
@@ -929,7 +944,7 @@ export component AppWindow inherits Window {
                     x: 6px;
                     y: -self.height / 2;
                     text: label.name;
-                    color: #e8eef6d0;
+                    color: Theme.text.with-alpha(0.8);
                     font-size: 11px;
                     stroke: #00000080;
                     stroke-width: 2px;
@@ -1207,7 +1222,7 @@ export component AppWindow inherits Window {
         x: root.width - self.width - root.right-edge;
         y: root.height - self.height - root.safe-area-insets.bottom - 4px;
         text: "\{root.gpu-text}  ·  \{root.fps-text}";
-        color: #ffffff50;
+        color: Theme.faint;
         font-size: 10px;
     }
 }
