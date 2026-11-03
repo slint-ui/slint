@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabBarBase } from "tab_bar_base.slint";
+
+export component TabBarLayoutBase inherits TabBarBase {
+    in property <length> horizontal-padding;
+    in property <length> vertical-padding;
+    in property <length> spacing;
+    preferred-width: headers.preferred-width;
+    preferred-height: headers.preferred-height;
+    min-width: root.orientation == Orientation.vertical ? headers.min-width : 0px;
+    min-height: root.orientation == Orientation.horizontal ? headers.min-height : 0px;
+    horizontal-stretch: root.orientation == Orientation.horizontal ? 1 : 0;
+    vertical-stretch: root.orientation == Orientation.horizontal ? 0 : 1;
+
+    Flickable {
+        headers := FlexboxLayout {
+            padding-left: root.horizontal-padding;
+            padding-right: root.horizontal-padding;
+            padding-top: root.vertical-padding;
+            padding-bottom: root.vertical-padding;
+            spacing: root.spacing;
+            flex-direction: root.orientation == Orientation.horizontal ? row : column;
+            flex-wrap: no-wrap;
+            @children
+        }
+    }
+}

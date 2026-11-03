@@ -1,0 +1,193 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    TabHeader, TabBar, TabBarLayout, TabPanel, CheckBox, LineEdit,
+    BasicTheme, BasicThemeProvider, BasicPalettes,
+} from "../src/basic.slint";
+import { ExampleSection } from "section.slint";
+
+component BadgeTabHeader inherits TabHeader {
+    in property <string> badge;
+
+    background << Rectangle {
+        background: !root.enabled ? transparent
+            : root.selected ? BasicTheme.accent.with-alpha(0.12)
+            : root.pressed ? BasicTheme.pressed-background
+            : root.hovered ? BasicTheme.hover-background : transparent;
+        border-radius: 6px;
+    }
+    content << HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: 8px;
+        cross-axis-alignment: center;
+        Text {
+            text: root.title;
+            color: root.enabled ? BasicTheme.foreground : BasicTheme.disabled-foreground;
+            font-weight: root.selected ? 600 : 400;
+            accessible-role: none;
+        }
+        if root.badge != "": Rectangle {
+            width: 22px;
+            height: 22px;
+            border-radius: 11px;
+            background: BasicTheme.accent;
+            Text { text: root.badge; color: BasicTheme.accent-foreground; accessible-role: none; }
+        }
+    }
+    focus-outline << Rectangle {
+        visible: root.enabled && root.focused;
+        border-width: 2px;
+        border-color: BasicTheme.focus;
+        border-radius: 6px;
+    }
+}
+
+export component TabExamples inherits Rectangle {
+    in-out property <int> current-index <=> pages.current-index;
+    in-out property <bool> vertical;
+    in-out property <bool> show-preview: true;
+    vertical-stretch: 0;
+
+    VerticalLayout {
+        spacing: 24px;
+        ExampleSection {
+            title: "Basic tabs";
+            description: "The bar and pages share a selection. Page state survives switching tabs.";
+            HorizontalLayout {
+                CheckBox { text: "Vertical bar"; checked <=> root.vertical; }
+                CheckBox { text: "Show Preview tab"; checked <=> root.show-preview; }
+                Rectangle { }
+            }
+            Rectangle {
+                height: 260px;
+                pages := TabBar {
+                    orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+                    x: 0px;
+                    y: 0px;
+                    width: root.vertical ? 150px : parent.width;
+                    height: root.vertical ? parent.height : 44px;
+                    tabs: root.show-preview ? [
+                        { index: 0, title: "General" },
+                        { index: 1, title: "Downloads" },
+                        { index: 2, title: "Preview" },
+                    ] : [
+                        { index: 0, title: "General" },
+                        { index: 1, title: "Downloads" },
+                    ];
+                }
+                Rectangle {
+                    x: root.vertical ? 158px : 0px;
+                    y: root.vertical ? 0px : 52px;
+                    width: parent.width - self.x;
+                    height: parent.height - self.y;
+                    TabPanel {
+                        width: 100%; height: 100%;
+                        title: "General";
+                        tab-index: 0;
+                        current-index: pages.current-index;
+                        Text { text: "General settings"; color: BasicTheme.foreground; font-weight: 600; }
+                        LineEdit { accessible-label: "Project name"; placeholder-text: "Project name"; }
+                        Text { text: "Edit this field, switch pages, and return."; color: BasicTheme.disabled-foreground; }
+                        Rectangle { }
+                    }
+                    TabPanel {
+                        width: 100%; height: 100%;
+                        title: "Downloads";
+                        tab-index: 1;
+                        current-index: pages.current-index;
+                        Text { text: "Downloads"; color: BasicTheme.foreground; font-weight: 600; }
+                        CheckBox { text: "Download updates automatically"; }
+                        Rectangle { }
+                    }
+                    if root.show-preview: TabPanel {
+                        width: 100%; height: 100%;
+                        title: "Preview";
+                        tab-index: 2;
+                        current-index: pages.current-index;
+                        Text { text: "Preview is available"; color: BasicTheme.foreground; }
+                        Rectangle { }
+                    }
+                }
+            }
+        }
+        ExampleSection {
+            title: "Vertical tabs with custom headers";
+            description: "BadgeTabHeader replaces background, content, and focus-outline. The panels connect to the custom bar's selection.";
+            HorizontalLayout {
+                height: 210px;
+                spacing: 8px;
+                custom := TabBarLayout {
+                    width: 150px;
+                    orientation: Orientation.vertical;
+                    tabs: [
+                        { index: 0, title: "Profile" },
+                        { index: 1, title: "Notifications" },
+                    ];
+                    BadgeTabHeader {
+                        title: custom.tabs[0].title;
+                        selected: custom.current-index == 0;
+                        focused: custom.focused-index == 0;
+                        accessible-item-index: 0;
+                        activated => { custom.current-index = 0; custom.focus-tab(0); }
+                    }
+                    BadgeTabHeader {
+                        title: custom.tabs[1].title;
+                        badge: "2";
+                        selected: custom.current-index == 1;
+                        focused: custom.focused-index == 1;
+                        accessible-item-index: 1;
+                        activated => { custom.current-index = 1; custom.focus-tab(1); }
+                    }
+                }
+                Rectangle {
+                    TabPanel {
+                        width: 100%; height: 100%;
+                        title: "Profile";
+                        tab-index: 0;
+                        current-index: custom.current-index;
+                        Text { text: "Profile"; color: BasicTheme.foreground; font-weight: 600; }
+                        LineEdit { accessible-label: "Display name"; placeholder-text: "Display name"; }
+                        Rectangle { }
+                    }
+                    TabPanel {
+                        width: 100%; height: 100%;
+                        title: "Notifications";
+                        tab-index: 1;
+                        current-index: custom.current-index;
+                        CheckBox { text: "Show notifications"; checked: true; }
+                        CheckBox { text: "Play a sound"; }
+                        Rectangle { }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component BasicTabsExample inherits Window {
+    title: "Basic tabs";
+    width: 900px;
+    height: 920px;
+    background: BasicTheme.background;
+    in-out property <bool> dark-mode;
+    in-out property <int> current-index <=> examples.current-index;
+    in-out property <bool> vertical <=> examples.vertical;
+    in-out property <bool> show-preview <=> examples.show-preview;
+    BasicThemeProvider { palette: root.dark-mode ? BasicPalettes.dark : BasicPalettes.light; }
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 20px;
+        HorizontalLayout {
+            Text { text: "Basic tabs"; font-size: 26px; font-weight: 600; color: BasicTheme.foreground; }
+            Rectangle { }
+            CheckBox { text: "Dark mode"; checked <=> root.dark-mode; }
+        }
+        examples := TabExamples { }
+        Rectangle { }
+    }
+}

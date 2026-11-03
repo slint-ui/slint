@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabBar, TabPanel } from "../src/basic.slint";
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 260px;
+    in-out property <bool> vertical;
+    in-out property <bool> show-third: true;
+    in-out property <int> current-index <=> bar.current-index;
+    out property <int> focused-index: bar.focused-index;
+    out property <string> text: field.text;
+    out property <int> first-inits;
+    out property <int> third-inits;
+    public function edit() { field.text = "Retained Basic page"; }
+
+    bar := TabBar {
+        x: 0px; y: 0px;
+        width: root.vertical ? 140px : root.width;
+        height: root.vertical ? root.height : 40px;
+        orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+        tabs: root.show-third ? [
+            { index: 0, title: "First" },
+            { index: 1, title: "Second" },
+            { index: 2, title: "Third" },
+        ] : [
+            { index: 0, title: "First" },
+            { index: 1, title: "Second" },
+        ];
+    }
+    Rectangle {
+        x: root.vertical ? 148px : 0px;
+        y: root.vertical ? 0px : 48px;
+        width: root.width - self.x;
+        height: root.height - self.y;
+        TabPanel {
+            width: 100%; height: 100%;
+            title: "First";
+            tab-index: 0;
+            current-index: bar.current-index;
+            init => { root.first-inits += 1; }
+            field := TextInput { text: "Original"; }
+        }
+        TabPanel {
+            width: 100%; height: 100%;
+            title: "Second";
+            tab-index: 1;
+            current-index: bar.current-index;
+            Text { text: "Second page"; }
+        }
+        if root.show-third: TabPanel {
+            width: 100%; height: 100%;
+            title: "Third";
+            tab-index: 2;
+            current-index: bar.current-index;
+            init => { root.third-inits += 1; }
+            Text { text: "Third page"; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let headers = || ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab).find_all();
+assert_eq!(headers().len(), 3);
+assert_eq!(instance.get_first_inits(), 1);
+assert_eq!(instance.get_third_inits(), 1);
+instance.invoke_edit();
+headers()[1].mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_focused_index(), 1);
+instance.set_vertical(true);
+assert!(headers()[1].absolute_position().y > headers()[0].absolute_position().y);
+for key in [Key::Home, Key::Return] {
+    slint_testing::send_keyboard_char(&instance, key.into(), true);
+    slint_testing::send_keyboard_char(&instance, key.into(), false);
+}
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_text(), "Retained Basic page");
+headers()[2].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 2);
+instance.set_show_third(false);
+slint::platform::update_timers_and_animations();
+assert_eq!(headers().len(), 2);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_first_inits(), 1);
+instance.set_show_third(true);
+slint::platform::update_timers_and_animations();
+assert_eq!(headers().len(), 3);
+assert_eq!(instance.get_third_inits(), 2);
+assert_eq!(instance.get_first_inits(), 1);
+assert_eq!(instance.get_text(), "Retained Basic page");
+instance.set_vertical(false);
+assert!(headers()[1].absolute_position().x > headers()[0].absolute_position().x);
+```
+*/

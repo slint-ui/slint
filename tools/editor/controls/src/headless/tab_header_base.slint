@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabHeaderInterface } from "tab_types.slint";
+
+export component TabHeaderBase inherits TouchArea {
+    implement TabHeaderInterface <=> self;
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    out property <bool> hovered: root.enabled && root.has-hover;
+    callback activated();
+    slot background;
+    slot content;
+    slot focus-outline;
+
+    public function activate() {
+        if root.enabled { root.activated(); }
+    }
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    mouse-cursor: pointer;
+    accessible-role: tab;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { root.activate(); }
+    clicked => { root.activate(); }
+
+    background { }
+    content { }
+    focus-outline { }
+    @children
+}

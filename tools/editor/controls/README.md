@@ -172,7 +172,7 @@ Derived components must explicitly forward these slots to expose them; see `Prev
 For password fields, set `input-type: password` and bind a reveal action to `password-revealed`.
 Use an action that preserves input focus; revealing resets when the field loses focus.
 
-Each control and its base implement the corresponding existing standard widget interface, such as `ButtonInterface` or `ComboBoxInterface`.
+Button, CheckBox, Switch, Slider, ComboBox, LineEdit, and their bases implement the corresponding existing standard widget interfaces.
 These interfaces define the shared compatibility contract, not the full API of each component.
 Headless bases can expose additional properties, callbacks, and functions for interaction and styling.
 For example, ComboBoxBase adds `highlighted-index` and the `highlighted` callback.
@@ -182,6 +182,31 @@ Use these interfaces for typed slots accepting styled controls or custom impleme
 Each `src/basic/<control>.slint` file defines the component, its style structs, and its presets.
 
 ## Gallery
+
+Run [`examples/tabs.slint`](examples/tabs.slint) for Basic `TabHeader`, `TabBar`, `TabBarLayout`, and `TabPanel` controls.
+The bar generates Basic headers from its model; separate panels bind to its selection.
+The example includes keyboard navigation, runtime orientation, a conditional tab, and light and dark palettes.
+Its second section replaces all three header slots: `background`, `content`, and `focus-outline`.
+The same examples appear on the gallery's Tabs page.
+
+```powershell
+$env:SLINT_ENABLE_EXPERIMENTAL_FEATURES = "interfaces,shadowable,closures,named-slots"
+.\target\debug\slint-viewer.exe --backend winit-software --auto-reload tools/editor/controls/examples/tabs.slint
+```
+
+Import `TabHeaderBase`, `TabBarBase`, `TabBarLayoutBase`, and `TabPanelBase` from `src/headless.slint` for unstyled composition.
+Use `TabBarLayout` for application-supplied headers, binding their selection, focus, and activation to the bar.
+Tab interfaces and implementations live entirely in this library; standard `TabWidget` remains unchanged.
+See the [controls API reference](API.md#tabs) for bindings and [the design comparison](TABS-DESIGNS.md) for tradeoffs.
+
+Run the editor-local tab regression fixtures with the repository's Rust test driver:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/editor/controls/tests/run-tabs.ps1
+```
+
+Add `-AllControls` to include the existing reusable-control regressions.
+The runner creates temporary test-driver adapters and removes them after the run.
 
 Run the gallery with the checkout's viewer:
 

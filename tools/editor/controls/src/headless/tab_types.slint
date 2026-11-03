@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct TabBarItem { index: int, title: string }
+
+export interface TabHeaderInterface {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> focused;
+    callback activated();
+}
+
+export interface TabBarInterface {
+    in property <[TabBarItem]> tabs;
+    in property <Orientation> orientation;
+    in-out property <int> current-index;
+    out property <int> focused-index;
+    public function focus-tab(index: int);
+}

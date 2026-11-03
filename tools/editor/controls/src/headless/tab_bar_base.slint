@@ -1,0 +1,81 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabBarItem, TabBarInterface } from "tab_types.slint";
+export { TabBarItem }
+
+export component TabBarBase inherits TouchArea {
+    implement TabBarInterface <=> self;
+    in property <[TabBarItem]> tabs;
+    in property <Orientation> orientation: horizontal;
+    in-out property <int> current-index;
+    out property <int> focused-index: keys.has-focus ? root.focus-index : -1;
+    slot background;
+    private property <int> focus-index: root.current-index;
+
+    pure function valid-tab(index: int) -> bool {
+        return index >= 0 && index < root.tabs.length;
+    }
+
+    pure function adjacent(start: int, direction: int) -> int {
+        if root.tabs.length == 0 { return -1; }
+        return Math.mod(start + direction + root.tabs.length, root.tabs.length);
+    }
+
+    public function focus-tab(index: int) {
+        if !root.valid-tab(index) { return; }
+        keys.focus();
+        root.focus-index = index;
+    }
+
+    function synchronize() {
+        if !root.valid-tab(root.current-index) { root.current-index = root.tabs.length > 0 ? 0 : -1; }
+        if !root.valid-tab(root.focus-index) { root.focus-index = root.current-index; }
+    }
+
+    forward-focus: keys;
+    accessible-role: tab-list;
+    accessible-orientation: root.orientation;
+    accessible-item-count: root.tabs.length;
+    accessible-delegate-focus: root.focused-index >= 0 ? root.focused-index : root.current-index;
+
+    init => { root.synchronize(); }
+    changed tabs => { root.synchronize(); }
+    changed current-index => {
+        root.synchronize();
+        if keys.has-focus { root.focus-index = root.current-index; }
+    }
+    scroll-event(event) => {
+        if event.delta-y > 2px || event.delta-y < -2px {
+            root.current-index = root.adjacent(root.current-index, event.delta-y < 0px ? 1 : -1);
+            return accept;
+        }
+        return reject;
+    }
+
+    background { }
+    keys := FocusScope {
+        width: 0px;
+        height: 0px;
+        enabled: root.tabs.length > 0;
+        focus-on-click: false;
+        focus-changed-event => { root.focus-index = root.current-index; }
+        key-pressed(event) => {
+            if event.modifiers.control || event.modifiers.alt || event.modifiers.meta { return reject; }
+            if event.text == Key.Return || event.text == Key.Space {
+                if !event.repeat && root.valid-tab(root.focus-index) { root.current-index = root.focus-index; }
+                return accept;
+            }
+            let previous = root.orientation == Orientation.horizontal ? Key.LeftArrow : Key.UpArrow;
+            let next = root.orientation == Orientation.horizontal ? Key.RightArrow : Key.DownArrow;
+            let target = event.text == Key.Home ? 0
+                : event.text == Key.End ? root.tabs.length - 1
+                : event.text == previous ? root.adjacent(root.focus-index, -1)
+                : event.text == next ? root.adjacent(root.focus-index, 1) : -1;
+            if target < 0 { return reject; }
+            root.focus-tab(target);
+            return accept;
+        }
+    }
+    @children
+}

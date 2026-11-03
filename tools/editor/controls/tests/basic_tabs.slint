@@ -1,0 +1,164 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabHeader, TabBarLayout, TabPanel, BasicThemeProvider, BasicPalettes } from "../src/basic.slint";
+
+component CustomHeader inherits TabHeader {
+    background << Rectangle { background: #123456; }
+    content << Rectangle {
+        preferred-width: 80px;
+        preferred-height: 30px;
+        Text { text: "Custom"; }
+    }
+}
+
+component CustomFocusHeader inherits CustomHeader {
+    focus-outline << Rectangle {
+        visible: root.enabled && root.focused;
+        border-width: 2px;
+        border-color: #006cff;
+        accessible-role: text;
+        accessible-label: "Custom focus outline";
+    }
+}
+
+export component TestCase inherits Window {
+    width: 500px;
+    height: 300px;
+    in-out property <bool> dark;
+    in-out property <bool> vertical;
+    out property <int> current-index: bar.current-index;
+    out property <string> text: field.text;
+    out property <int> page-inits;
+    out property <bool> test: root.page-inits == 3;
+    public function edit() { field.text = "Retained Basic page"; }
+    public function focus-content() { field.focus(); }
+    BasicThemeProvider { palette: root.dark ? BasicPalettes.dark : BasicPalettes.light; }
+
+    bar := TabBarLayout {
+        x: 20px;
+        y: 20px;
+        width: root.vertical ? 140px : 460px;
+        height: root.vertical ? 260px : self.preferred-height;
+        orientation: root.vertical ? Orientation.vertical : Orientation.horizontal;
+        tabs: [
+            { index: 0, title: "First" },
+            { index: 1, title: "Second" },
+            { index: 2, title: "Third" },
+        ];
+        CustomHeader {
+            title: bar.tabs[0].title;
+            selected: bar.current-index == 0;
+            focused: bar.focused-index == 0;
+            accessible-item-index: 0;
+            activated => { bar.current-index = 0; bar.focus-tab(0); }
+        }
+        CustomFocusHeader {
+            title: bar.tabs[1].title;
+            selected: bar.current-index == 1;
+            focused: bar.focused-index == 1;
+            accessible-item-index: 1;
+            activated => { bar.current-index = 1; bar.focus-tab(1); }
+        }
+        TabHeader {
+            title: bar.tabs[2].title;
+            selected: bar.current-index == 2;
+            focused: bar.focused-index == 2;
+            accessible-item-index: 2;
+            activated => { bar.current-index = 2; bar.focus-tab(2); }
+        }
+    }
+    Rectangle {
+        x: root.vertical ? 180px : 20px;
+        y: root.vertical ? 20px : 80px;
+        width: root.width - self.x - 20px;
+        height: 180px;
+        TabPanel {
+            width: 100%;
+            height: 100%;
+            title: "First";
+            tab-index: 0;
+            current-index: bar.current-index;
+            init => { root.page-inits += 1; }
+            field := TextInput { text: "Original"; }
+        }
+        TabPanel {
+            width: 100%;
+            height: 100%;
+            title: "Second";
+            tab-index: 1;
+            current-index: bar.current-index;
+            init => { root.page-inits += 1; }
+            Text { text: "Second page"; }
+        }
+        TabPanel {
+            width: 100%;
+            height: 100%;
+            title: "Third";
+            tab-index: 2;
+            current-index: bar.current-index;
+            init => { root.page-inits += 1; }
+        }
+    }
+}
+
+/*
+```rust
+use slint::platform::{Key, PointerEventButton};
+use slint_testing::{AccessibleRole, ElementQuery};
+let instance = TestCase::new().unwrap();
+instance.show().unwrap();
+let key = |key: Key| {
+    slint_testing::send_keyboard_char(&instance, key.into(), true);
+    slint_testing::send_keyboard_char(&instance, key.into(), false);
+};
+let flush = || slint::platform::update_timers_and_animations();
+let headers = ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::Tab).find_all();
+let panels = || ElementQuery::from_root(&instance).match_accessible_role(AccessibleRole::TabPanel).find_all();
+let custom_focus = || ElementQuery::from_root(&instance).match_accessible_label("Custom focus outline").find_all();
+assert!(instance.get_test());
+assert_eq!(headers.len(), 3);
+assert_eq!(panels().len(), 1);
+assert_eq!(headers[0].size().width, 80.);
+assert_eq!(headers[0].size().height, headers[1].size().height);
+assert_eq!(headers[0].query_descendants().match_type_name("Text").find_all().len(), 1);
+instance.invoke_edit();
+instance.invoke_focus_content();
+headers[1].mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(custom_focus().len(), 1);
+headers[2].invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 2);
+key(Key::Home);
+assert_eq!(instance.get_current_index(), 2);
+key(Key::Space);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_text(), "Retained Basic page");
+assert_eq!(headers[0].query_descendants().match_inherits("FocusOutline").find_all().len(), 1);
+assert!(custom_focus().is_empty());
+key(Key::RightArrow);
+assert_eq!(instance.get_current_index(), 0);
+assert!(headers[0].query_descendants().match_inherits("FocusOutline").find_all().is_empty());
+assert_eq!(custom_focus().len(), 1);
+key(Key::Return);
+assert_eq!(instance.get_current_index(), 1);
+instance.set_dark(true);
+instance.set_vertical(true);
+flush();
+assert!(headers[1].absolute_position().y > headers[0].absolute_position().y);
+headers[0].invoke_accessible_default_action();
+key(Key::DownArrow);
+assert_eq!(instance.get_current_index(), 0);
+key(Key::Return);
+assert_eq!(instance.get_current_index(), 1);
+key(Key::End);
+key(Key::Space);
+assert_eq!(instance.get_current_index(), 2);
+key(Key::DownArrow);
+key(Key::Return);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_text(), "Retained Basic page");
+assert_eq!(panels().len(), 1);
+assert!(instance.get_test());
+```
+*/

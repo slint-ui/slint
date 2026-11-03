@@ -1,0 +1,164 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { TabHeaderBase, TabBarLayoutBase, TabPanelBase } from "../headless.slint";
+import { BasicTheme } from "theme.slint";
+import { FocusOutline } from "focus_outline.slint";
+import { ButtonStyle, ButtonStateStyle } from "button.slint";
+
+export struct TabHeaderStyle {
+    unselected: ButtonStyle,
+    selected: ButtonStyle,
+}
+
+export global TabHeaderStyles {
+    out property <TabHeaderStyle> standard: {
+        unselected: {
+            rest: { background-color: transparent, foreground-color: BasicTheme.foreground, border-color: transparent },
+            hover: { background-color: BasicTheme.hover-background, foreground-color: BasicTheme.foreground, border-color: BasicTheme.border },
+            pressed: { background-color: BasicTheme.pressed-background, foreground-color: BasicTheme.foreground, border-color: BasicTheme.border },
+            disabled: { background-color: BasicTheme.disabled-background, foreground-color: BasicTheme.disabled-foreground, border-color: transparent },
+            focus-color: BasicTheme.focus,
+        },
+        selected: {
+            rest: { background-color: BasicTheme.accent.with-alpha(0.12), foreground-color: BasicTheme.accent, border-color: BasicTheme.accent.with-alpha(0.4) },
+            hover: { background-color: BasicTheme.accent.with-alpha(0.18), foreground-color: BasicTheme.accent, border-color: BasicTheme.accent.with-alpha(0.5) },
+            pressed: { background-color: BasicTheme.accent.with-alpha(0.24), foreground-color: BasicTheme.accent, border-color: BasicTheme.accent },
+            disabled: { background-color: BasicTheme.disabled-background, foreground-color: BasicTheme.disabled-foreground, border-color: transparent },
+            focus-color: BasicTheme.focus,
+        },
+    };
+}
+
+export component TabHeader inherits TabHeaderBase {
+    in property <TabHeaderStyle> style: TabHeaderStyles.standard;
+    in property <brush> background-color: root.state-style.background-color;
+    in property <brush> foreground-color: root.state-style.foreground-color;
+    in property <string> font-family;
+    in property <length> font-size: 14px;
+    in property <int> font-weight: root.selected ? 600 : 400;
+    in property <bool> font-italic;
+    in property <length> horizontal-padding: 12px;
+    in property <length> vertical-padding: 8px;
+    in property <length> left-padding: root.horizontal-padding;
+    in property <length> right-padding: root.horizontal-padding;
+    in property <length> top-padding: root.vertical-padding;
+    in property <length> bottom-padding: root.vertical-padding;
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 4px;
+    in property <length> focus-width: 2px;
+    in property <length> focus-offset: 2px;
+    private property <ButtonStyle> state-styles: root.selected ? root.style.selected : root.style.unselected;
+    private property <ButtonStateStyle> state-style: root.state-styles.rest;
+
+    states [
+        disabled when !root.enabled: { state-style: root.state-styles.disabled; }
+        pressed when root.pressed: { state-style: root.state-styles.pressed; }
+        hover when root.hovered: { state-style: root.state-styles.hover; }
+    ]
+
+    background << surface := Rectangle {
+        background: root.enabled ? root.background-color : root.state-style.background-color;
+        border-color: root.state-style.border-color;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
+    }
+    content << HorizontalLayout {
+        padding-left: root.left-padding;
+        padding-right: root.right-padding;
+        padding-top: root.top-padding;
+        padding-bottom: root.bottom-padding;
+        alignment: center;
+        Text {
+            text: root.title;
+            color: root.enabled ? root.foreground-color : root.state-style.foreground-color;
+            font-family: root.font-family;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
+            font-italic: root.font-italic;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    focus-outline << FocusOutline {
+        active: root.enabled && root.focused;
+        outline-color: root.state-styles.focus-color;
+        target-width: root.width;
+        target-height: root.height;
+        line-width: root.focus-width;
+        offset: root.focus-offset;
+        radius: root.border-radius;
+    }
+}
+
+export struct TabBarStyle { background-color: brush, border-color: brush }
+export global TabBarStyles {
+    out property <TabBarStyle> standard: {
+        background-color: BasicTheme.background,
+        border-color: BasicTheme.border,
+    };
+}
+
+export component TabBarLayout inherits TabBarLayoutBase {
+    in property <TabBarStyle> style: TabBarStyles.standard;
+    horizontal-padding: 4px;
+    vertical-padding: 4px;
+    spacing: 4px;
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 6px;
+
+    background << Rectangle {
+        background: root.style.background-color;
+        border-color: root.style.border-color;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
+    }
+}
+
+export component TabBar inherits TabBarLayout {
+    in property <TabHeaderStyle> header-style: TabHeaderStyles.standard;
+
+    for tab[index] in root.tabs: TabHeader {
+        title: tab.title;
+        style: root.header-style;
+        selected: root.current-index == index;
+        focused: root.focused-index == index;
+        accessible-item-index: index;
+        activated => {
+            root.current-index = index;
+            root.focus-tab(index);
+        }
+    }
+}
+
+export struct TabPanelStyle { background-color: brush, border-color: brush }
+export global TabPanelStyles {
+    out property <TabPanelStyle> standard: {
+        background-color: BasicTheme.background,
+        border-color: BasicTheme.border,
+    };
+}
+
+export component TabPanel inherits TabPanelBase {
+    in property <TabPanelStyle> style: TabPanelStyles.standard;
+    in property <length> horizontal-padding: 16px;
+    in property <length> vertical-padding: 16px;
+    in property <length> spacing: 12px;
+    in property <length> border-width: 1px;
+    in property <length> border-radius: 6px;
+
+    Rectangle {
+        background: root.style.background-color;
+        border-color: root.style.border-color;
+        border-width: root.border-width;
+        border-radius: root.border-radius;
+    }
+    VerticalLayout {
+        padding-left: root.horizontal-padding;
+        padding-right: root.horizontal-padding;
+        padding-top: root.vertical-padding;
+        padding-bottom: root.vertical-padding;
+        spacing: root.spacing;
+        @children
+    }
+}

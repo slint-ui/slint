@@ -2,7 +2,7 @@
 
 Import styled controls and theme types from [`src/basic.slint`](src/basic.slint).
 Import headless controls and surface interfaces from [`src/headless.slint`](src/headless.slint).
-The controls implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
+Button, CheckBox, Switch, Slider, ComboBox, and LineEdit implement the existing standard widget interfaces from [`std-widget-interfaces.slint`](../../../internal/compiler/widgets/common/std-widget-interfaces.slint).
 These interfaces define the common compatibility API; headless bases can expose additional properties, callbacks, and functions for interaction and styling.
 The additional members don't become requirements for other implementations of the standard interfaces.
 Import those interfaces directly; neither entry point re-exports them.
@@ -38,6 +38,77 @@ Direct color inputs apply while enabled; disabled colors come from the style.
 Geometry overrides apply in every state.
 State priority is disabled, pressed, then hover; focus is independent.
 Focus outlines don't change layout dimensions.
+
+## Tabs
+
+Sources: [Basic controls](src/basic/tabs.slint), [headless header](src/headless/tab_header_base.slint), [bar](src/headless/tab_bar_base.slint), [bar layout](src/headless/tab_bar_layout_base.slint), [panel](src/headless/tab_panel_base.slint).
+Import `TabHeader`, `TabBar`, `TabBarLayout`, and `TabPanel` from `src/basic.slint`.
+Import their bases, `TabBarItem`, `TabHeaderInterface`, and `TabBarInterface` from `src/headless.slint`.
+The interfaces are defined in [tab_types.slint](src/headless/tab_types.slint); these controls require no tab-specific compiler support.
+
+Declare the bar and panels separately:
+
+```slint
+bar := TabBar {
+    tabs: [{ index: 0, title: "Profile" }, { index: 1, title: "Settings" }];
+}
+TabPanel {
+    title: bar.tabs[0].title;
+    tab-index: 0;
+    current-index: bar.current-index;
+    ProfilePage { }
+}
+TabPanel {
+    title: bar.tabs[1].title;
+    tab-index: 1;
+    current-index: bar.current-index;
+    SettingsPage { }
+}
+```
+
+`TabBar` creates Basic headers and connects their title, selection, focus, and activation.
+Use `header-style` to change their shared style.
+Arrange the bar and panels with an application layout; panels occupy the same page area.
+See [the runnable example](examples/tabs.slint).
+
+Use `TabBarLayout` to supply custom header children.
+Give it a `tabs` model of `TabBarItem { index: int, title: string }`, with indexes matching model positions.
+Bind header selection and focus to `current-index` and `focused-index`; the latter is `-1` when the bar lacks focus.
+On `activated`, set `current-index` and call `focus-tab(index)`.
+Bind each panel's `current-index` to the bar and set its `tab-index`.
+Bars support runtime changes to `orientation`.
+Repeaters and conditionals use ordinary Slint behavior; keep the model and panel indexes aligned as items change.
+
+Arrow keys follow `orientation` and wrap at the ends.
+Home and End move to the first and last headers.
+Enter or Space selects the focused tab.
+An invalid selection falls back to the first tab, or `-1` if the model is empty.
+Page state survives switching tabs.
+
+`TabBarLayoutBase` scrolls headers when space is constrained.
+
+| Component | API and Defaults | Visual Slots |
+| --- | --- | --- |
+| `TabHeaderBase` | `title`, `enabled`, `selected`, `focused`; outputs `hovered` and `pressed`; callback `activated()`; function `activate()` | `background`, `content`, `focus-outline` |
+| `TabHeader` | Header base API; `style: TabHeaderStyles.standard` | Same three slots, with replaceable default visuals |
+| `TabBarBase` | `tabs`, `orientation`; in-out `current-index`; output `focused-index`; function `focus-tab(index)` | `background`; arrange header children yourself |
+| `TabBarLayoutBase` | Bar base API; `horizontal-padding`, `vertical-padding`, and `spacing` default to zero | `background`; default children go into its horizontal or vertical header layout |
+| `TabBarLayout` | Bar layout API; `style: TabBarStyles.standard`; padding and spacing default to `4px` | `background`; application-supplied header children |
+| `TabBar` | Styled layout API; `header-style: TabHeaderStyles.standard`; generates headers from `tabs` | `background` |
+| `TabPanelBase` | `title`, `tab-index`, `current-index`; output `selected` | Page children |
+| `TabPanel` | Panel base API; `style: TabPanelStyles.standard`; horizontal and vertical padding default to `16px`; spacing defaults to `12px` | Page children in a padded vertical layout |
+
+`TabHeaderStyle` contains `selected` and `unselected` values of the existing `ButtonStyle` type.
+Each supplies `rest`, `hover`, `pressed`, and `disabled` colors through `ButtonStateStyle`, plus a `focus-color`.
+Color overrides and state priority follow the shared styling rules above.
+
+`TabHeader` accepts the shared font and edge-padding inputs.
+Its horizontal and vertical padding default to `12px` and `8px`; font size defaults to `14px`.
+Font weight defaults to `600` when selected and `400` otherwise.
+Its border width and radius default to `1px` and `4px`; focus width and offset both default to `2px`.
+
+`TabBarStyle` and `TabPanelStyle` each contain `background-color` and `border-color` brushes.
+Both controls accept `border-width: 1px` and `border-radius: 6px`.
 
 ## Button
 
