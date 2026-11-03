@@ -85,7 +85,7 @@ export component InspectorAppearanceSection inherits InspectorSection {
             maximum: min(InspectorContext.selected-width(), InspectorContext.selected-height()) / 2px;
             selection-key: InspectorContext.selection-key;
             commit-key: InspectorContext.inspector-key;
-            preview(index, value) => { return Api.inspector-preview(InspectorContext.inspector-key, root.corner-property(index), value); }
+            preview(index, value) => { return Api.inspector-preview-number-temporary(InspectorContext.inspector-key, root.corner-property(index), value); }
             accepted(index, value) => {
                 return InspectorContext.commit-inspector(root.corner-property(index), value);
             }

@@ -251,8 +251,10 @@ pub fn initialize_editor(
     api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     api.on_inspector_values(super::inspector::values);
-    api.on_inspector_preview(super::inspector::preview);
-    api.on_inspector_commit(super::inspector::commit);
+    api.on_inspector_preview(super::inspector::preview_property);
+    api.on_inspector_commit(super::inspector::commit_properties);
+    api.on_inspector_preview_number_temporary(super::inspector::preview);
+    api.on_inspector_commit_number_temporary(super::inspector::commit);
     api.on_inspector_cancel(super::inspector::cancel);
     api.on_inspector_preview_shadow(super::inspector::preview_shadow);
     api.on_inspector_commit_shadow(super::inspector::commit_shadow);
@@ -1899,7 +1901,7 @@ mod tests {
         api.on_inspector_values(|_| {
             std::rc::Rc::new(VecModel::from(vec![0., 12., 12., 12., 12.])).into()
         });
-        api.on_inspector_preview(|_, _, _| true);
+        api.on_inspector_preview_number_temporary(|_, _, _| true);
         editor.show().unwrap();
         editor.window().set_size(slint::LogicalSize::new(1360., 1000.));
         slint::platform::update_timers_and_animations();

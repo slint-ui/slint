@@ -58,7 +58,7 @@ export component InspectorEffectsSection inherits InspectorSection {
             maximum: 128;
             clamp-maximum: false;
             commit-key: InspectorContext.field-key("backdrop-blur");
-            preview(value) => { return Api.inspector-preview(InspectorContext.inspector-key, "backdrop-blur", value); }
+            preview(value) => { return Api.inspector-preview-number-temporary(InspectorContext.inspector-key, "backdrop-blur", value); }
             accepted(value) => { return InspectorContext.commit-inspector("backdrop-blur", value); }
             canceled => { Api.inspector-cancel(); }
         }

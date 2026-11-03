@@ -4618,6 +4618,249 @@ export component Main {
         install_debug_hook_callback(instance, overrides);
     }
 
+    fn inspector_test_messages() -> Rc<RefCell<Vec<PreviewToLspMessage>>> {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state.to_lsp.borrow_mut() =
+                Some(Rc::new(CapturePreviewToLsp { messages: messages.clone() }));
+        });
+        messages
+    }
+
+    fn apply_inspector_test_edit(edit: &lsp_types::WorkspaceEdit) -> Vec<text_edit::EditedText> {
+        let cache = document_cache().unwrap();
+        PREVIEW_STATE.with_borrow(|state| {
+            text_edit::apply_workspace_edit_with_source(edit, cache.format, |url| {
+                workspace_edit_source_file(&cache, &state.source_code, url)
+            })
+            .unwrap()
+        })
+    }
+
+    fn inspector_test_target(editor: &ui::EditorUi, source: &str) {
+        apply_availability_test_source(editor, source, true);
+        element_selection::restore_selection(
+            ElementSelection {
+                path: SourcePath::from_url(
+                    &PREVIEW_STATE.with_borrow(|state| state.current_component().unwrap().url),
+                ),
+                offset: element_offset("inner").into(),
+                instance_index: 0,
+                editing_text: false,
+            },
+            SelectionNotification::Never,
+        );
+    }
+
+    fn inspector_number(number: f32, unit: &str) -> ui::PropertyEditValue {
+        ui::PropertyEditValue {
+            kind: ui::PropertyEditKind::Number,
+            number,
+            unit: unit.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn inspector_typed_edits_commit_latest_values_together() {
+        let editor = availability_test_editor();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("main.slint");
+        let url = Url::from_file_path(&path).unwrap();
+        std::fs::write(&path, ROTATED_SOURCE).unwrap();
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.set_current_component(PreviewComponent { url: url.clone(), component: None });
+        });
+        inspector_test_target(&editor, ROTATED_SOURCE);
+        undo_redo::setup(&editor.global::<ui::Api>());
+        let messages = inspector_test_messages();
+        for (name, value) in [
+            ("transform-rotation", inspector_number(45., "deg")),
+            ("border-width", inspector_number(3., "px")),
+            ("transform-rotation", inspector_number(60., "deg")),
+        ] {
+            assert!(inspector::preview_property(name.into(), value));
+        }
+        let instance = component_instance().unwrap();
+        assert_eq!(
+            instance.component_positions(&SourcePath::from_url(&url), element_offset("inner"))[0]
+                .transform_rotation,
+            60.
+        );
+        assert!(inspector::commit_properties());
+        assert!(editor.global::<ui::Api>().get_undo_enabled());
+        assert!(!inspector::commit_properties());
+        inspector::cancel();
+        assert_eq!(
+            instance.component_positions(&SourcePath::from_url(&url), element_offset("inner"))[0]
+                .transform_rotation,
+            60.
+        );
+        let sent = messages.as_ref().borrow();
+        let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = sent.as_slice() else {
+            panic!("Expected one edit for all staged properties");
+        };
+        let result = apply_inspector_test_edit(edit);
+        assert_eq!(result.len(), 1);
+        assert!(result[0].contents.contains("transform-rotation: 60deg;"));
+        assert!(result[0].contents.contains("border-width: 3px;"));
+        assert!(!result[0].contents.contains("45deg"));
+        let mut current_source = result[0].contents.clone();
+        drop(sent);
+        for (redo, expected) in
+            [(false, ROTATED_SOURCE.to_string()), (true, current_source.clone())]
+        {
+            std::fs::write(&path, &current_source).unwrap();
+            set_contents(&VersionedUrl::new(url.clone(), None), current_source.clone());
+            apply_availability_test_source(&editor, &current_source, true);
+            preview_instance_ready();
+            messages.as_ref().borrow_mut().clear();
+            if redo {
+                editor.global::<ui::Api>().invoke_redo();
+            } else {
+                editor.global::<ui::Api>().invoke_undo();
+            }
+            let sent = messages.as_ref().borrow();
+            let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = sent.as_slice() else {
+                panic!("Expected one atomic history edit");
+            };
+            let restored = apply_inspector_test_edit(edit);
+            assert_eq!(restored[0].contents, expected);
+            current_source = restored[0].contents.clone();
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_values_preserve_literal_intent_and_validate_types() {
+        let editor = availability_test_editor();
+        let source = ROTATED_SOURCE.replace(
+            "height: 60px;",
+            r#"height: 60px;
+            opacity: 0.2 + 0.3;
+            in-out property <bool> enabled: false;
+            in-out property <int> count: 1;
+            in-out property <string> label: "before";
+            in-out property <TextHorizontalAlignment> alignment: left;
+        "#,
+        );
+        inspector_test_target(&editor, &source);
+        let messages = inspector_test_messages();
+        let mut value = ui::PropertyEditValue::default();
+        for (name, kind) in [
+            ("enabled", ui::PropertyEditKind::Boolean),
+            ("count", ui::PropertyEditKind::Integer),
+            ("label", ui::PropertyEditKind::String),
+            ("alignment", ui::PropertyEditKind::Enumeration),
+            ("background", ui::PropertyEditKind::Fill),
+        ] {
+            value.kind = kind;
+            value.boolean = true;
+            value.integer = 7;
+            value.text =
+                if name == "alignment" { "center".into() } else { "after\n\"text\"".into() };
+            value.fill.color = slint::Color::from_rgb_u8(18, 52, 86);
+            assert!(inspector::preview_property(name.into(), value.clone()), "{name}");
+        }
+        value.kind = ui::PropertyEditKind::Enumeration;
+        value.text = "invalid-member".into();
+        assert!(!inspector::preview_property("alignment".into(), value));
+        assert!(inspector::preview_property("opacity".into(), inspector_number(0.5, "")));
+        assert!(inspector::commit_properties());
+        let messages = messages.as_ref().borrow();
+        let [PreviewToLspMessage::SendWorkspaceEdit { edit, .. }] = messages.as_slice() else {
+            panic!("Expected one typed property edit");
+        };
+        let result = apply_inspector_test_edit(edit);
+        for expression in [
+            "enabled: true;",
+            "count: 7;",
+            "alignment: TextHorizontalAlignment.center;",
+            "opacity: 0.5;",
+        ] {
+            assert!(result[0].contents.contains(expression), "{expression}");
+        }
+        assert!(result[0].contents.contains(r#"label: "after\n\"text\"";"#));
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_edits_restore_overrides_on_cancel_noop_and_stale_target() {
+        let editor = availability_test_editor();
+        for action in ["cancel", "noop", "selection", "generation", "pending"] {
+            inspector_test_target(&editor, ROTATED_SOURCE);
+            let instance = component_instance().unwrap();
+            let before = geometry_of(&instance, "inner").transform_rotation;
+            assert!(
+                override_selected_element_rotation_impl(
+                    &element_node_of(&instance, "inner"),
+                    0,
+                    42.,
+                )
+                .is_some()
+            );
+            let previous = geometry_of(&instance, "inner").transform_rotation;
+            let value = if action == "noop" { before } else { 60. };
+            assert!(inspector::preview_property(
+                "transform-rotation".into(),
+                inspector_number(value, "deg"),
+            ));
+            match action {
+                "cancel" => inspector::cancel(),
+                "noop" => assert!(inspector::commit_properties()),
+                "selection" => {
+                    element_selection::unselect_element(SelectionNotification::Never);
+                    assert!(!inspector::commit_properties());
+                }
+                "pending" => {
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = true);
+                    assert!(!inspector::commit_properties());
+                    PREVIEW_STATE.with_borrow_mut(|state| state.workspace_edit_sent = false);
+                }
+                _ => {
+                    let api = editor.global::<ui::Api>();
+                    api.set_inspector_generation(api.get_inspector_generation() + 1);
+                    assert!(!inspector::commit_properties());
+                }
+            }
+            assert_eq!(geometry_of(&instance, "inner").transform_rotation, previous);
+            PREVIEW_STATE.with_borrow(|state| assert!(state.inspector_edit.is_none()));
+            assert!(!file_edit_pending());
+        }
+        reset_preview_state(Default::default());
+    }
+
+    #[test]
+    fn inspector_typed_edits_reject_invalid_values_without_changing_the_draft() {
+        let editor = availability_test_editor();
+        inspector_test_target(&editor, ROTATED_SOURCE);
+        let instance = component_instance().unwrap();
+        assert!(inspector::preview_property(
+            "transform-rotation".into(),
+            inspector_number(60., "deg"),
+        ));
+        for (name, value) in [
+            ("transform-rotation", inspector_number(f32::NAN, "deg")),
+            ("transform-rotation", inspector_number(1., "px")),
+            ("border-width", inspector_number(-1., "px")),
+            ("missing-property", inspector_number(1., "px")),
+            (
+                "transform-rotation",
+                ui::PropertyEditValue {
+                    kind: ui::PropertyEditKind::Boolean,
+                    boolean: true,
+                    ..Default::default()
+                },
+            ),
+        ] {
+            assert!(!inspector::preview_property(name.into(), value));
+            assert_eq!(geometry_of(&instance, "inner").transform_rotation, 60.);
+        }
+        inspector::cancel();
+        assert_eq!(geometry_of(&instance, "inner").transform_rotation, 45.);
+        reset_preview_state(Default::default());
+    }
+
     #[test]
     fn stale_preview_restores_compiled_values_after_temporary_overrides() {
         let editor = availability_test_editor();
