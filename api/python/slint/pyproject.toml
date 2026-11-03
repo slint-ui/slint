@@ -31,7 +31,8 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
 ]
-description = "GUI toolkit to efficiently develop fluid graphical user interfaces for embedded devices and desktop applications"
+description = "Native GUI toolkit for Python: build desktop and embedded apps with a declarative UI language and live preview"
+keywords = ["gui", "ui", "desktop", "native", "declarative", "hmi", "embedded", "cross-platform"]
 readme = "README.md"
 
 [project.urls]

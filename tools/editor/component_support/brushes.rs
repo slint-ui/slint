@@ -12,6 +12,7 @@ use std::rc::Rc;
 
 pub fn setup(api: &ui::Api<'_>) {
     api.on_fill_brush(fill_brush);
+    api.on_brush_fill(|brush| fill_from_brush(brush).unwrap_or_default());
     api.on_fill_expression(fill_expression);
     api.on_linear_gradient_axis(super::linear_gradient::editing_axis);
     api.on_radial_gradient_axis(super::radial_gradient::editing_axis);

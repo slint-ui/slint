@@ -55,7 +55,10 @@ pub mod api {
 
         /// The label for the device. This is used to identify the device in debugging tools.
         pub device_label: Option<std::borrow::Cow<'static, str>>,
-        /// The required features for the device.
+        /// The features that your application requires.
+        /// If the adapter lacks one of them, creating the device fails.
+        /// Slint also enables every other non-experimental feature that the adapter supports.
+        /// To use an optional feature, check that [`wgpu::Device::features()`] contains it.
         pub device_required_features: wgpu_30::Features,
         /// The required limits for the device.
         pub device_required_limits: wgpu_30::Limits,
@@ -293,7 +296,8 @@ fn device_descriptor_from_settings<'a>(
 ) -> wgpu::DeviceDescriptor<'a> {
     wgpu::DeviceDescriptor {
         label: settings.device_label.as_deref(),
-        required_features: settings.device_required_features,
+        required_features: settings.device_required_features
+            | (adapter.features() - wgpu::Features::all_experimental_mask()),
         // support images the size of the swapchain
         required_limits: settings.device_required_limits.clone().using_resolution(adapter.limits()),
         experimental_features: settings.device_experimental_features,

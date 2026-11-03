@@ -290,7 +290,6 @@ export component ComponentPaletteRow inherits Rectangle {
     accessible-role: AccessibleRole.list-item;
     accessible-label: root.label;
     accessible-enabled: root.enabled && root.drag-enabled;
-    animate background, opacity { duration: Motion.feedback; easing: ease-out-quad; }
 
     function pointer-window-position() -> Point {
         return {

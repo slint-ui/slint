@@ -4,6 +4,8 @@
 [package]
 name = "i-slint-backend-qt"
 description = "Qt rendering backend for Slint"
+categories = ["gui"]
+keywords = ["qt", "native-style", "gui", "ui"]
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

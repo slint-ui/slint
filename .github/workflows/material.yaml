@@ -15,17 +15,13 @@ on:
 
     secrets:
       CLOUDFLARE_API_TOKEN:
-        required: true
+        required: false
       CLOUDFLARE_API_TOKEN_2:
-        required: true
+        required: false
       CLOUDFLARE_ACCOUNT_ID:
-        required: true
+        required: false
       CLOUDFLARE_ACCOUNT_ID_2:
-        required: true
-      ANDROID_KEYSTORE_PASSWORD:
-        required: true
-      ANDROID_KEYSTORE_BASE64:
-        required: true
+        required: false
 
 permissions:
   contents: read
@@ -37,11 +33,7 @@ jobs:
   material_wasm_demo:
       uses: ./.github/workflows/material_wasm_gallery.yaml
   material_apk_demo:
-      if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
       uses: ./.github/workflows/material_gallery.yaml
-      secrets:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
   material_tests:
       env:
           CARGO_PROFILE_RELEASE_OPT_LEVEL: s
@@ -126,12 +118,10 @@ jobs:
           name: material_wasm_gallery
           path: ui-libraries/material/docs/dist/wasm
       - uses: actions/download-artifact@v8
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         with:
           name: material_gallery
           path: ui-libraries/material/docs/dist/apk
       - name: Normalize APK names
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
         working-directory: ui-libraries/material
         run: |
           if [ -f docs/dist/apk/material-gallery.apk ]; then mv docs/dist/apk/material-gallery.apk docs/dist/apk/slint_material.apk; fi

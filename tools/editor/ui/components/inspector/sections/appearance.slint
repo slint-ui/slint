@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Style, Colors, Metrics, Typography, InspectorStyle } from "../../../style.slint";
-import { Api, PropertyValue } from "../../../api.slint";
-import { InspectorColorField, InspectorCornerEditor, InspectorSection } from "../index.slint";
+import { Api } from "../../../api.slint";
+import { InspectorColorField, InspectorCornerEditor, InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../index.slint";
 import { InspectorContext } from "context.slint";
 
 export component InspectorAppearanceSection inherits InspectorSection {
     in property <InspectorStyle> style: Style.inspector-layout;
     in property <length> pane-width;
+    private property <bool> clip-value: Api.editor-property-value-data("clip").value-bool;
 
     title: @tr("APPEARANCE");
     use-shared-title: true;
@@ -31,10 +32,9 @@ export component InspectorAppearanceSection inherits InspectorSection {
         }
 
         if InspectorContext.is-root-selection(): InspectorColorField {
-            property <PropertyValue> background-value: Api.runtime-property-value-data("background", {});
             accessible-name: @tr("Root background");
             value: Api.source-property-value("background", "");
-            swatch: background-value.value-resolved ? background-value.value-brush : transparent;
+            swatch: InspectorContext.property-brush("background");
             commit-key: InspectorContext.field-key("background");
             preview-key: InspectorContext.field-key("background");
             session-key: InspectorContext.fill-session-key("background");
@@ -90,6 +90,24 @@ export component InspectorAppearanceSection inherits InspectorSection {
                 return InspectorContext.commit-inspector(root.corner-property(index), value);
             }
             canceled => { Api.inspector-cancel(); }
+        }
+    }
+
+    if InspectorContext.is-rectangle-selection(): InspectorPropertyRow {
+        private property <bool> value: root.clip-value;
+        changed value => { clip-toggle.checked = self.value; }
+
+        label: @tr("Clip");
+
+        clip-toggle := InspectorSwitch {
+            accessible-label: @tr("Clip");
+            checked: root.clip-value;
+            toggled => {
+                self.focus();
+                let requested = self.checked;
+                self.checked = root.clip-value;
+                InspectorContext.commit-code("clip", requested ? "true" : "false");
+            }
         }
     }
 }

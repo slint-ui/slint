@@ -5,6 +5,8 @@
 [package]
 name = "i-slint-backend-winit"
 description = "Winit backend for Slint"
+categories = ["gui", "wasm"]
+keywords = ["winit", "desktop", "gui", "ui", "accessibility"]
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
