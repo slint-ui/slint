@@ -1,8 +1,7 @@
 
 # Preliminary Slint Testing API
 
-This crate provides the preliminary API that we're developing to enable different
-user interface (UI) testing scenarios for Slint applications.
+This crate provides a preliminary API for UI testing of Slint apps.
 Use it to write automated UI tests that run headless in CI.
 Its built-in MCP server also lets AI agents inspect and drive a running Slint app.
 

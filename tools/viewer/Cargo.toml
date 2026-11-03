@@ -4,7 +4,7 @@
 # cSpell: ignore shlex
 [package]
 name = "slint-viewer"
-description = "Preview .slint UI files, with hot reload"
+description = "Preview .slint UI files with hot reload"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

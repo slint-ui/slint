@@ -2,7 +2,7 @@
 # The Slint Compiler Library
 
 This crate holds the internals of the Slint compiler,
-which parses `.slint` UI files and generates Rust or C++ code.
+which parses `.slint` UI files and generates Rust, C++, Python, or TypeScript code.
 `slint-build`, the `slint!` macro, the `slint-compiler` tool, the interpreter, and the language server use it.
 
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).

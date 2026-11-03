@@ -37,7 +37,7 @@
     "slint",
     "embedded"
   ],
-  "description": "Native GUI toolkit for JavaScript and TypeScript on Node.js, Deno, and Bun: build desktop and embedded apps without a webview or Chromium",
+  "description": "Native GUI toolkit for JavaScript and TypeScript to build desktop and embedded apps without a webview or Chromium",
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@napi-rs/cli": "3.10.9",

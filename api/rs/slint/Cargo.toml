@@ -3,7 +3,7 @@
 
 [package]
 name = "slint"
-description = "Declarative GUI toolkit to build native user interfaces for desktop, Android, iOS, and embedded devices, from microcontrollers to embedded Linux. Also runs on the web."
+description = "Declarative GUI toolkit to build native user interfaces for desktop, Android, iOS, the web, and embedded devices, from microcontrollers to embedded Linux"
 authors.workspace = true
 documentation.workspace = true
 edition = "2024"

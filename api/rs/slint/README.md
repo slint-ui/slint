@@ -40,7 +40,8 @@ fn main() {
 
 ## Start From the Template
 
-The [Rust template](https://github.com/slint-ui/slint-rust-template) is a minimal Slint app to start your project from:
+The [Rust template](https://github.com/slint-ui/slint-rust-template) is a minimal Slint app.
+To start your project from it, follow these steps:
 
 1. Download and extract the [ZIP archive of the template](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip).
 2. Rename the extracted directory and change into it:
@@ -49,3 +50,7 @@ The [Rust template](https://github.com/slint-ui/slint-rust-template) is a minima
    cd my-project
    ```
 3. Build and run it with `cargo run`.
+
+## Examples
+
+Browse the [examples](https://github.com/slint-ui/slint/tree/master/examples) to see what you can build with Slint.

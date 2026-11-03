@@ -4,8 +4,8 @@
 
 [Slint](https://slint.dev/) is a GUI toolkit to build native user interfaces for any device,
 with JavaScript, Rust, C++, or Python.
-Slint-node is the JavaScript and TypeScript API, for Node.js, Deno, and Bun.
-You describe the UI in the `.slint` language, and connect it to your JavaScript code.
+Slint-node is the JavaScript and TypeScript API for Node.js, Deno, and Bun.
+Describe your UI in the `.slint` language and connect it to your JavaScript code.
 Slint renders the UI itself, so desktop and embedded Linux apps don't need a webview or a bundled Chromium.
 
 To get started, follow the [walk-through tutorial](https://slint.dev/docs/slint/tutorial/quickstart),

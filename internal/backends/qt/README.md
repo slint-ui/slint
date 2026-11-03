@@ -3,7 +3,7 @@
 
 This crate lets Slint apps use Qt for windowing and rendering.
 With the `qt` style, Slint's widgets look like the native widgets of the desktop.
-Apps get it through the `backend-qt` feature of the `slint` crate.
+To use it, enable the `backend-qt` feature of the `slint` crate.
 
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).
 This crate should **not be used directly** by applications using Slint.

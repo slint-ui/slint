@@ -74,7 +74,7 @@ default-members = [
 resolver = "3"
 
 [workspace.package]
-description = "Declarative GUI toolkit to build native user interfaces for desktop, Android, iOS, and embedded devices, from microcontrollers to embedded Linux. Also runs on the web."
+description = "Declarative GUI toolkit to build native user interfaces for desktop, Android, iOS, the web, and embedded devices, from microcontrollers to embedded Linux"
 authors = ["Slint Developers <info@slint.dev>"]
 documentation = "https://slint.dev/docs"
 edition = "2024"

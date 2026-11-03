@@ -1,14 +1,14 @@
 {
   "name": "slint",
   "version": "1.19.0",
-  "description": "Write and debug Slint GUIs for desktop, embedded, and mobile apps, with the Slint documentation at hand",
+  "description": "Write and debug Slint GUIs for desktop, embedded, and mobile apps, with access to the Slint documentation",
   "author": {
     "name": "Slint",
     "email": "info@slint.dev"
   },
   "homepage": "https://slint.dev",
   "repository": "https://github.com/slint-ui/slint",
-  "keywords": ["slint", "gui", "ui", "hmi", "declarative", "rust", "cpp", "javascript", "python", "embedded", "mcu", "esp32", "stm32", "desktop", "mobile", "android", "ios", "live-preview"],
+  "keywords": ["slint", "gui", "ui", "hmi", "declarative", "rust", "cpp", "javascript", "python", "embedded", "mcu", "esp32", "stm32", "desktop", "mobile", "android", "ios"],
   "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0",
   "mcpServers": {
     "slint-docs": {

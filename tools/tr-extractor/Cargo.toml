@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-tr-extractor"
-description = "Extract the @tr strings of .slint files into a gettext .pot file"
+description = "Extract the @tr strings of .slint files into a gettext .po file"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

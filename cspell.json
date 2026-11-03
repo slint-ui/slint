@@ -248,8 +248,8 @@
     "Srgb",
     "streetsidesoftware",
     "tableview",
-    "Tauri",
     "tabwidget",
+    "Tauri",
     "testcase",
     "textedit",
     "threadsafe", // asyncio loop.call_soon_threadsafe()

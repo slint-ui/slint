@@ -1,8 +1,7 @@
 
 # Slint Macros
 
-This crate provides the `slint!` macro, to write `.slint` UI code inline in Rust source files.
-Apps get it through the `slint` crate, which re-exports the macro.
+This crate provides the `slint!` macro to write `.slint` UI code inline in Rust source files.
 
 **NOTE**: This library is an **internal** crate for the [Slint project](https://slint.rs).
 This crate should **not be used directly** by applications using Slint.

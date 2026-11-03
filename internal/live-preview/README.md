@@ -3,8 +3,9 @@
 
 This crate powers the live preview of the Slint language server,
 which lets you see and edit a `.slint` UI live in VS Code and other editors.
-It also powers hot reload: built with the `live-preview` feature of the `slint` crate and `SLINT_LIVE_PREVIEW=1`,
-a running app reloads its `.slint` files when they change on disk, without a rebuild.
+It also powers hot reload.
+To make a running app reload its `.slint` files when they change on disk, without a rebuild,
+build it with the `live-preview` feature of the `slint` crate and `SLINT_LIVE_PREVIEW=1` set.
 It holds the protocol between the language server and the preview, file watching,
 live component reloading, and remote preview support.
 
