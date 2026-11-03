@@ -19,7 +19,10 @@ use std::process::{Command, Stdio};
 /// Runs `tests`, forking a process per test, and exits with the result.
 /// The child calls `init` before its test.
 pub fn test_main(tests: impl Iterator<Item = &'static TestCase>, init: fn()) {
-    let args = Arguments::from_args();
+    let mut args = Arguments::from_args();
+    // One test at a time unless `--test-threads` says otherwise: the tests' windows open at the
+    // same spot, and on macOS a window covered by another test's window isn't rendered.
+    args.test_threads.get_or_insert(1);
     let tests: Vec<_> = tests.collect();
 
     // cargo forwards `--exact <name>` to every test binary of a package, so a name
