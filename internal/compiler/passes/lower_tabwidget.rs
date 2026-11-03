@@ -165,6 +165,8 @@ pub async fn lower_tabwidget(
             ElementType::Component(tabbar_vertical_impl.clone()),
             &empty_type,
             &contracts,
+            &type_loader.symbol_counters,
+            forwarded_references,
             diag,
         );
     }
@@ -257,6 +259,8 @@ fn process_tabwidget(
     tabbar_vertical_impl: ElementType,
     empty_type: &ElementType,
     contracts: &[Rc<Component>],
+    symbol_counters: &crate::symbol_counters::SymbolCounters,
+    forwarded_references: &mut forward_inherited_expression::ForwardedReferenceCache,
     diag: &mut BuildDiagnostics,
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
@@ -349,13 +353,16 @@ fn process_tabwidget(
                 );
                 continue;
             }
+            let title = member_reference(&header, "title");
+            let selected = member_reference(&header, "selected");
+            let focused = member_reference(&header, "focused");
             let mut h = header.borrow_mut();
             h.set_binding(
-                "title".into(),
+                title.name().clone(),
                 Expression::PropertyReference(NamedReference::new(child, "title".into())).into(),
             );
             h.set_binding(
-                "selected".into(),
+                selected.name().clone(),
                 Expression::BinaryExpression {
                     lhs: Expression::PropertyReference(NamedReference::new(
                         elem,
@@ -369,7 +376,7 @@ fn process_tabwidget(
                 .into(),
             );
             h.set_binding(
-                "focused".into(),
+                focused.name().clone(),
                 Expression::BinaryExpression {
                     lhs: Expression::PropertyReference(NamedReference::new(
                         elem,
@@ -453,59 +460,43 @@ fn process_tabwidget(
         .make_rc()
     };
     for (header, panel, index) in custom_headers {
-        let mut handler_source = header.clone();
-        let handler = loop {
-            let binding = handler_source.borrow().binding("activated").map(|b| b.clone());
-            if let Some(binding) = binding {
-                let callback_type = header
-                    .borrow()
-                    .lookup_property("activated", PropertyLookupMode::ComponentLocal)
-                    .property_type;
-                let handler = crate::layout::create_new_prop(
-                    &handler_source,
-                    "tab-header-activated".into(),
-                    callback_type,
-                );
-                handler_source.borrow_mut().set_binding(handler.name().clone(), binding);
-                break Some(NamedReference::new(&header, handler.name().clone()));
-            }
-            let base = handler_source.borrow().base_type.clone();
-            let ElementType::Component(base) = base else { break None };
-            handler_source = base.root_element.clone();
-        };
+        let current_index = NamedReference::new(elem, "current-index".into());
+        current_index.mark_as_set();
+        let activated = member_reference(&header, "activated");
+        let handler = preserve_callback_handler(
+            &activated,
+            &mut HashSet::new(),
+            symbol_counters,
+            forwarded_references,
+        );
         let mut activate = vec![
             Expression::SelfAssignment {
-                lhs: Expression::PropertyReference(NamedReference::new(
-                    elem,
-                    "current-index".into(),
-                ))
-                .into(),
+                lhs: Expression::PropertyReference(current_index).into(),
                 rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
                 op: '=',
                 node: None,
             },
             Expression::FunctionCall {
-                function: Callable::Function(NamedReference::new(&tabbar, "focus-tab".into())),
+                function: Callable::Function(member_reference(&tabbar, "focus-tab")),
                 arguments: vec![Expression::NumberLiteral(index as _, Unit::None)],
                 source_location: None,
             },
         ];
         if let Some(handler) = handler {
-            activate.push(Expression::FunctionCall {
-                function: Callable::Callback(handler),
-                arguments: vec![],
-                source_location: None,
-            });
+            activate.push(handler);
         }
-        header.borrow_mut().set_binding("activated".into(), Expression::CodeBlock(activate).into());
+        let mut binding: BindingExpression = Expression::CodeBlock(activate).into();
+        if let Some(original) = header.borrow().binding(activated.name()) {
+            binding.two_way_bindings = original.two_way_bindings.clone();
+        }
+        header.borrow_mut().set_binding(activated.name().clone(), binding);
         let role = crate::typeregister::BUILTIN
             .enums
             .AccessibleRole
             .clone()
             .try_value_from_string("tab")
             .unwrap();
-        let selected = NamedReference::new(&header, "selected".into());
-        let activated = NamedReference::new(&header, "activated".into());
+        let selected = member_reference(&header, "selected");
         let mut h = header.borrow_mut();
         h.set_binding("accessible-role".into(), Expression::EnumerationValue(role).into());
         h.set_binding(
@@ -517,12 +508,10 @@ fn process_tabwidget(
             "accessible-item-selected".into(),
             Expression::PropertyReference(selected).into(),
         );
-        h.set_binding_if_not_set("accessible-action-default".into(), || {
-            Expression::FunctionCall {
-                function: Callable::Callback(activated),
-                arguments: vec![],
-                source_location: None,
-            }
+        h.set_binding_if_not_set("accessible-action-default".into(), || Expression::FunctionCall {
+            function: Callable::Callback(activated),
+            arguments: vec![],
+            source_location: None,
         });
     }
     if has_custom_bar {
@@ -556,9 +545,11 @@ fn process_tabwidget(
                 })
                 .collect(),
         };
-        tabbar.borrow_mut().set_binding("tabs".into(), model.into());
+        let tabs = member_reference(&tabbar, "tabs");
+        let orientation = member_reference(&tabbar, "orientation");
+        tabbar.borrow_mut().set_binding(tabs.name().clone(), model.into());
         tabbar.borrow_mut().set_binding(
-            "orientation".into(),
+            orientation.name().clone(),
             Expression::PropertyReference(NamedReference::new(elem, "orientation".into())).into(),
         );
     } else {
@@ -571,8 +562,10 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
+    let current =
+        member_reference(&tabbar, if has_custom_bar { "current-index" } else { "current" });
     tabbar.borrow_mut().set_binding(
-        SmolStr::new_static(if has_custom_bar { "current-index" } else { "current" }),
+        current.name().clone(),
         BindingExpression::new_two_way(
             NamedReference::new(elem, SmolStr::new_static("current-index")).into(),
         ),
@@ -580,13 +573,9 @@ fn process_tabwidget(
     elem.borrow_mut().set_binding(
         SmolStr::new_static("current-focused"),
         BindingExpression::new_two_way(
-            NamedReference::new(
+            member_reference(
                 &tabbar,
-                SmolStr::new_static(if has_custom_bar {
-                    "focused-index"
-                } else {
-                    "current-focused"
-                }),
+                if has_custom_bar { "focused-index" } else { "current-focused" },
             )
             .into(),
         ),
@@ -624,6 +613,68 @@ fn process_tabwidget(
     };
 
     elem.borrow_mut().children = std::iter::once(tabbar).chain(children).chain(timers).collect();
+}
+
+fn member_reference(element: &ElementRc, name: &str) -> NamedReference {
+    let name = element
+        .borrow()
+        .lookup_property(name, PropertyLookupMode::ComponentLocal)
+        .internal_or_resolved_name();
+    NamedReference::new(element, name)
+}
+
+#[allow(clippy::mutable_key_type)]
+fn preserve_callback_handler(
+    reference: &NamedReference,
+    visited: &mut HashSet<NamedReference>,
+    symbol_counters: &crate::symbol_counters::SymbolCounters,
+    forwarded_references: &mut forward_inherited_expression::ForwardedReferenceCache,
+) -> Option<Expression> {
+    if !visited.insert(reference.clone()) {
+        return None;
+    }
+    let element = reference.element();
+    let binding = element.borrow().binding(reference.name()).map(|binding| binding.clone());
+    if let Some(binding) = binding {
+        if !matches!(binding.value_expression(), Expression::Invalid) {
+            let handler = crate::layout::create_new_prop(
+                &element,
+                "tab-header-activated".into(),
+                reference.ty(),
+            );
+            element
+                .borrow_mut()
+                .set_binding(handler.name().clone(), binding.value_expression().clone().into());
+            return Some(Expression::FunctionCall {
+                function: Callable::Callback(handler),
+                arguments: vec![],
+                source_location: None,
+            });
+        }
+        for alias in &binding.two_way_bindings {
+            if let Some(alias) = alias.property()
+                && let Some(handler) =
+                    preserve_callback_handler(alias, visited, symbol_counters, forwarded_references)
+            {
+                return Some(handler);
+            }
+        }
+    }
+    let ElementType::Component(base) = element.borrow().base_type.clone() else { return None };
+    let mut handler = preserve_callback_handler(
+        &NamedReference::new(&base.root_element, reference.name().clone()),
+        visited,
+        symbol_counters,
+        forwarded_references,
+    )?;
+    forward_inherited_expression::rebase_expression_to_instance(
+        &mut handler,
+        &base.root_element,
+        &element,
+        symbol_counters,
+        forwarded_references,
+    );
+    Some(handler)
 }
 
 fn take_slot(children: &mut Vec<ElementRc>, name: &str) -> Option<ElementRc> {
