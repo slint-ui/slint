@@ -212,9 +212,9 @@ held.alt = true;
 i_slint_core::window::WindowInner::from_pub(instance.window()).release_modifiers_not_held(held);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
-assert_eq!(instance.get_shift_modifier(), false);
-assert_eq!(instance.get_alt_modifier(), false);
-assert_eq!(instance.get_control_modifier(), true);
+assert_eq!(instance.get_shift_modifier(), false, "Was released because not in held");
+assert_eq!(instance.get_alt_modifier(), false, "Was never pressed");
+assert_eq!(instance.get_control_modifier(), true, "Was pressed and hold");
 assert_eq!(instance.get_meta_modifier(), false);
 ```
 */
