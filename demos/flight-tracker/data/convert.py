@@ -7,12 +7,13 @@
 
 Download the GeoJSON files from
 https://github.com/nvkelso/natural-earth-vector/tree/master/geojson,
-airports.csv and countries.csv from https://ourairports.com/data/, and NASA's Blue Marble
-for July, world.topo.bathy.200407.3x5400x2700.jpg from https://visibleearth.nasa.gov/, then run:
+airports.csv and countries.csv from https://ourairports.com/data/, and from
+https://visibleearth.nasa.gov/ NASA's Blue Marble for July, world.topo.bathy.200407.3x5400x2700.jpg,
+and its Black Marble, BlackMarble_2016_3km_gray.jpg, then run:
 
-    python3 convert.py <geojson directory> <airports directory> <blue marble> <output directory>
+    python3 convert.py <geojson directory> <airports directory> <blue marble> <black marble> <output directory>
 
-The Blue Marble needs Pillow.
+The imagery needs Pillow.
 """
 
 import csv
@@ -96,8 +97,9 @@ def write(name, rings, header):
 
 
 def main():
-    source, airports, imagery, target = sys.argv[1:5]
+    source, airports, imagery, night, target = sys.argv[1:6]
     write_imagery(imagery, target)
+    write_night_imagery(night, target)
     header = (
         "# Natural Earth {layer}, simplified by convert.py.\n"
         "# One ring per line: the first point, then the steps to each next one,\n"
@@ -135,6 +137,15 @@ def write_imagery(path, target):
     image = Image.open(path).convert("RGB").resize((4096, 2048), Image.LANCZOS)
     image.save(
         os.path.join(target, "earth.jpg"), quality=80, optimize=True, progressive=True
+    )
+
+
+def write_night_imagery(path, target):
+    from PIL import Image
+
+    image = Image.open(path).convert("L").resize((4096, 2048), Image.LANCZOS)
+    image.save(
+        os.path.join(target, "night.jpg"), quality=80, optimize=True, progressive=True
     )
 
 
