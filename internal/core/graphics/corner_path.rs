@@ -1,7 +1,7 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company , info@kdab.com, author Robin Cramer <robin.cramer@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore Béziers
+// cSpell: ignore ungrown, Béziers
 
 /*!
 Paths of rectangles whose corners have a [`CornerShape`], for renderers that draw paths.
@@ -9,7 +9,7 @@ Paths of rectangles whose corners have a [`CornerShape`], for renderers that dra
 
 #[cfg(doc)]
 use super::border_radius::CornerShape;
-use super::corner_geometry::{Contour, ContourVertex, TOLERANCE};
+use super::corner_geometry::{BorderContours, Contour, ContourVertex, TOLERANCE};
 use lyon_path::math::{Point, Vector};
 #[cfg(not(feature = "std"))]
 #[allow(unused_imports)]
@@ -40,18 +40,49 @@ pub fn contour_path<S: PathSink + Default>(contour: &Contour) -> S::Path {
 
 /// Appends `contour` to `sink`.
 pub fn add_contour(sink: &mut impl PathSink, contour: &Contour) {
+    add_directed_contour(sink, contour, false);
+}
+
+/// The path of a border ring, see [`add_border`].
+pub fn border_path<S: PathSink + Default>(contours: &BorderContours) -> S::Path {
+    let mut sink = S::default();
+    add_border(&mut sink, contours);
+    sink.build()
+}
+
+/// Appends a border ring from its [`BorderContours`], with the inner contour reversed so that
+/// filling with the nonzero rule paints only the ring.
+pub fn add_border(sink: &mut impl PathSink, contours: &BorderContours) {
+    add_directed_contour(sink, &contours.outer, false);
+    add_directed_contour(sink, &contours.inner, true);
+}
+
+fn add_directed_contour(sink: &mut impl PathSink, contour: &Contour, reversed: bool) {
     match contour {
         Contour::Curved(vertices) => {
-            let Some(first) = vertices.first() else { return };
-            sink.move_to(first.end());
-            for (from, v) in vertices.iter().zip(&vertices[1..]) {
-                segment(sink, from.end(), *v, v.end());
+            let (Some(first), Some(last)) = (vertices.first(), vertices.last()) else { return };
+            if reversed {
+                // Each vertex ends a segment, so walking back, a vertex's segment ends at the
+                // vertex before it.
+                sink.move_to(last.end());
+                for (to, v) in vertices.iter().zip(&vertices[1..]).rev() {
+                    segment(sink, v.end(), *v, to.end());
+                }
+            } else {
+                sink.move_to(first.end());
+                for (from, v) in vertices.iter().zip(&vertices[1..]) {
+                    segment(sink, from.end(), *v, v.end());
+                }
             }
             sink.close();
         }
         Contour::Polygons(polygons) => {
             for polygon in polygons {
-                add_polygon(sink, polygon.iter().copied());
+                if reversed {
+                    add_polygon(sink, polygon.iter().rev().copied());
+                } else {
+                    add_polygon(sink, polygon.iter().copied());
+                }
             }
         }
     }
@@ -66,7 +97,8 @@ fn add_polygon(sink: &mut impl PathSink, mut points: impl Iterator<Item = Point>
     sink.close();
 }
 
-/// Appends the segment that `vertex` ends, from `from` to `to`.
+/// Appends the segment that `vertex` ends, from `from` to `to`, which run backward when
+/// walking the contour backward.
 fn segment(sink: &mut impl PathSink, from: Point, vertex: ContourVertex, to: Point) {
     match vertex {
         ContourVertex::Line(_) => sink.line_to(to),
@@ -108,6 +140,7 @@ fn arc_to(sink: &mut impl PathSink, from: Point, center: Point, to: Point) {
 mod tests {
     use super::super::BorderRadius;
     use super::*;
+    use alloc::vec;
     use alloc::vec::Vec;
     use lyon_path::iterator::PathIterator;
 
@@ -201,6 +234,97 @@ mod tests {
                     deviation <= tolerance,
                     "{shape:?} at r={r}: deviation {deviation} exceeds {tolerance}"
                 );
+            }
+        }
+    }
+
+    /// Flattens `path` into a polyline within `tolerance` of it.
+    fn flatten(path: &lyon_path::Path, tolerance: f32) -> Vec<Point> {
+        path.iter()
+            .flattened(tolerance)
+            .flat_map(|event| match event {
+                lyon_path::Event::Begin { at } => Some(at),
+                lyon_path::Event::Line { to, .. } => Some(to),
+                lyon_path::Event::End { first, .. } => Some(first),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Every point of a spread path is `spread` away from the ungrown shape, except at a
+    /// miter, where two offset runs meet at a right angle and reach `spread * sqrt(2)`.
+    #[test]
+    fn spread_path_keeps_its_distance() {
+        // Both the reference outline and the spread path are within `TOLERANCE` of their true
+        // curves.
+        const SLACK: f32 = 2. * TOLERANCE;
+        let ungrown = euclid::default::Rect::new(Point::zero(), euclid::size2(200., 160.));
+        for shape in SHAPES {
+            // 79 nearly fills the short side, so its corners almost meet.
+            for r in [8f32, 40., 79.] {
+                let radius = BorderRadius::<f32, ()>::new_uniform(r);
+                let shapes = CornerShapes::new_uniform(shape);
+                let reference = flatten(&outline_path(ungrown, radius, shapes, 0.), 0.001);
+                for spread in [-60f32, -16., -4., 4., 16.] {
+                    let path = outline_path(ungrown, radius, shapes, spread);
+                    for p in flatten(&path, 0.01) {
+                        let d = distance_to_polyline(p, &reference);
+                        assert!(
+                            d >= spread.abs() - SLACK
+                                && d <= spread.abs() * core::f32::consts::SQRT_2 + SLACK,
+                            "{shape:?} r={r} spread={spread}: {p:?} is {d} from the shape"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Each segment of `path` as its points from start to end, including the closing one.
+    fn segments(path: &lyon_path::Path) -> Vec<Vec<Point>> {
+        path.iter()
+            .filter_map(|event| match event {
+                lyon_path::Event::Line { from, to } => Some(vec![from, to]),
+                lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => {
+                    Some(vec![from, ctrl1, ctrl2, to])
+                }
+                lyon_path::Event::End { last, first, close: true } => Some(vec![last, first]),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn border_path_reverses_the_inner_contour() {
+        let square = |min: f32, max: f32| {
+            vec![[(min, min), (max, min), (max, max), (min, max)].map(Point::from).into()]
+        };
+        let curved = Contour::Curved(vec![
+            ContourVertex::Line(Point::new(0., 0.)),
+            ContourVertex::Line(Point::new(6., 0.)),
+            ContourVertex::Arc { center: Point::new(6., 4.), to: Point::new(10., 4.) },
+            ContourVertex::Line(Point::new(10., 10.)),
+            ContourVertex::Line(Point::new(0., 10.)),
+        ]);
+        for inner in [Contour::Polygons(square(2., 8.)), curved] {
+            let outer = Contour::Polygons(square(-1., 11.));
+            let forward = segments(&contour_path::<LyonSink>(&inner));
+            let ring =
+                segments(&border_path::<LyonSink>(&BorderContours { outer: outer.clone(), inner }));
+            let (outer_segments, inner_segments) =
+                ring.split_at(segments(&contour_path::<LyonSink>(&outer)).len());
+            assert_eq!(outer_segments, segments(&contour_path::<LyonSink>(&outer)));
+            assert_eq!(inner_segments.len(), forward.len());
+            // Both start at the same vertex, so each path closes with its own last segment.
+            let (closing, open) = forward.split_last().unwrap();
+            let expected = open.iter().rev().chain(core::iter::once(closing));
+            for (reversed, segment) in inner_segments.iter().zip(expected) {
+                let close = reversed.len() == segment.len()
+                    && reversed
+                        .iter()
+                        .zip(segment.iter().rev())
+                        .all(|(a, b)| (*a - *b).length() < 1e-4);
+                assert!(close, "{reversed:?} doesn't reverse {segment:?}");
             }
         }
     }

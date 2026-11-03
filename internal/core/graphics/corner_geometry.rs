@@ -822,8 +822,8 @@ fn extend_flattened(out: &mut Vec<Point>, vertices: impl IntoIterator<Item = Con
 
 /// The outline of `rect` with corner radii `radius` and shapes `shapes`, offset by
 /// `distance`: grown for a positive `distance` and shrunk for a negative one.
-/// `Round` and `Scoop` corners stay arcs.
-/// The offset corners are joined in order, so they mustn't reach past each other.
+/// `Round` and `Scoop` corners stay arcs, unless the corners reach past each other.
+/// Shrinking a rectangle whose corners do that can split it into several polygons.
 pub fn offset_outline<U>(
     rect: euclid::default::Rect<f32>,
     radius: BorderRadius<f32, U>,
@@ -864,14 +864,227 @@ fn offset_fitted_outline<U>(
             .map(|v| v.map(|p| tip + e_in * p.x + e_out * p.y))
             .collect::<Vec<_>>()
     });
-    let mut vertices: Vec<ContourVertex> = Vec::with_capacity(corners.iter().map(Vec::len).sum());
-    for v in corners.into_iter().flatten() {
-        let repeats = |last: &ContourVertex| same_point(v.end(), last.end());
-        if !matches!(v, ContourVertex::Line(_)) || !vertices.last().is_some_and(repeats) {
-            vertices.push(v);
+    // Each corner's offset spans the box from its tip to its far ends. Where every box stays
+    // within the outline's bounds and no two overlap, the corners can't reach past each other.
+    // An arc stays within a quadrant, and so within the box of its ends.
+    let boxes = corners
+        .each_ref()
+        .map(|corner| euclid::default::Box2D::from_points(corner.iter().map(|v| v.end())));
+    let within = bounds.to_box2d().inflate(1e-3, 1e-3);
+    let apart = boxes.iter().all(|b| within.contains_box(b))
+        && (0..4).all(|i| (i + 1..4).all(|j| !boxes[i].intersects(&boxes[j])));
+    if apart {
+        let mut vertices: Vec<ContourVertex> =
+            Vec::with_capacity(corners.iter().map(Vec::len).sum());
+        for v in corners.into_iter().flatten() {
+            let repeats = |last: &ContourVertex| same_point(v.end(), last.end());
+            if !matches!(v, ContourVertex::Line(_)) || !vertices.last().is_some_and(repeats) {
+                vertices.push(v);
+            }
+        }
+        return Contour::Curved(vertices);
+    }
+    Contour::Polygons(column_regions(
+        corners.map(|corner| {
+            let mut points = Vec::with_capacity(corner.len());
+            extend_flattened(&mut points, corner);
+            points
+        }),
+        bounds,
+    ))
+}
+
+/// The region within `bounds` that none of `corners`, in the order of [`corner_frames`],
+/// cuts away.
+///
+/// Every corner's offset is monotone, so it cuts each column of `bounds` from its own side.
+/// The region spans, in each column, from the lowest edge the top corners leave to the
+/// highest edge the bottom corners leave.
+fn column_regions(corners: [Vec<Point>; 4], bounds: euclid::default::Rect<f32>) -> Vec<Vec<Point>> {
+    let [top_right, bottom_right, bottom_left, top_left] =
+        corners.map(|corner| column_profile(corner, bounds.min_x(), bounds.max_x()));
+    let top = envelope(&top_left, &top_right, f32::max);
+    let bottom = envelope(&bottom_left, &bottom_right, f32::min);
+    regions_between(&top, &bottom)
+}
+
+/// `corner`, a polyline monotone in `x`, as a function of `x` over `x0..=x1`: sorted by `x`,
+/// clipped to that range, and extended level to both ends of it.
+/// Consecutive points with the same `x` make the function jump there.
+fn column_profile(mut corner: Vec<Point>, x0: f32, x1: f32) -> Vec<Point> {
+    if corner.first().zip(corner.last()).is_some_and(|(first, last)| first.x > last.x) {
+        corner.reverse();
+    }
+    let mut profile: Vec<Point> = Vec::with_capacity(corner.len() + 2);
+    let mut x = f32::NEG_INFINITY;
+    for p in corner {
+        // Rounding can turn a vertical step slightly backward.
+        x = x.max(p.x);
+        let p = Point::new(x, p.y);
+        if let Some(&last) = profile.last() {
+            for edge in [x0, x1] {
+                if last.x < edge && p.x > edge {
+                    profile.push(last.lerp(p, (edge - last.x) / (p.x - last.x)));
+                }
+            }
+        }
+        profile.push(p);
+    }
+    profile.retain(|p| (x0..=x1).contains(&p.x));
+    if let Some(first) = profile.first_mut()
+        && first.x > x0
+        && let Some(level) = snap_end(first, x0)
+    {
+        profile.insert(0, level);
+    }
+    if let Some(last) = profile.last_mut()
+        && last.x < x1
+        && let Some(level) = snap_end(last, x1)
+    {
+        profile.push(level);
+    }
+    profile
+}
+
+/// Moves `end` to `edge` when it's within rounding of it, as a step there would make a
+/// convex outline concave, or returns the point that extends the profile level to `edge`.
+fn snap_end(end: &mut Point, edge: f32) -> Option<Point> {
+    const SNAP: f32 = 1e-3;
+    if (edge - end.x).abs() <= SNAP {
+        end.x = edge;
+        None
+    } else {
+        Some(Point::new(edge, end.y))
+    }
+}
+
+/// The values of the [`column_profile`] `profile` just left and just right of `x`.
+fn profile_at(profile: &[Point], x: f32) -> (f32, f32) {
+    let (start, end) =
+        (profile.partition_point(|p| p.x < x), profile.partition_point(|p| p.x <= x));
+    if start < end {
+        return (profile[start].y, profile[end - 1].y);
+    }
+    let y = match (start.checked_sub(1).map(|i| profile[i]), profile.get(start).copied()) {
+        (Some(a), Some(b)) => a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x),
+        (Some(p), None) | (None, Some(p)) => p.y,
+        (None, None) => 0.,
+    };
+    (y, y)
+}
+
+/// The `x` of every vertex of `a` and `b`, sorted, without duplicates.
+fn merged_breaks(a: &[Point], b: &[Point]) -> Vec<f32> {
+    let mut xs: Vec<f32> = a.iter().chain(b).map(|p| p.x).collect();
+    xs.sort_by(f32::total_cmp);
+    xs.dedup();
+    xs
+}
+
+/// The values of two profiles at one `x`.
+#[derive(Clone, Copy)]
+struct Column {
+    x: f32,
+    a: f32,
+    b: f32,
+    /// Whether `x` is a vertex of each profile, or where they cross.
+    at_vertex: [bool; 2],
+}
+
+/// The values of the profiles `a` and `b` along their common range, in order of `x`: at
+/// every vertex of either, once from the left and once from the right where they differ,
+/// and at every `x` between vertices where they cross.
+fn columns(a: &[Point], b: &[Point]) -> Vec<Column> {
+    let is_vertex = |profile: &[Point], x: f32| {
+        profile.get(profile.partition_point(|p| p.x < x)).is_some_and(|p| p.x == x)
+    };
+    let mut columns: Vec<Column> = Vec::with_capacity(2 * (a.len() + b.len()));
+    for x in merged_breaks(a, b) {
+        let ((left_a, right_a), (left_b, right_b)) = (profile_at(a, x), profile_at(b, x));
+        if let Some(previous) = columns.last() {
+            let (d0, d1) = (previous.a - previous.b, left_a - left_b);
+            if d0 * d1 < 0. {
+                let t = d0 / (d0 - d1);
+                let y = previous.a + (left_a - previous.a) * t;
+                let x = previous.x + (x - previous.x) * t;
+                columns.push(Column { x, a: y, b: y, at_vertex: [true; 2] });
+            }
+        }
+        let at_vertex = [is_vertex(a, x), is_vertex(b, x)];
+        columns.push(Column { x, a: left_a, b: left_b, at_vertex });
+        if (right_a, right_b) != (left_a, left_b) {
+            columns.push(Column { x, a: right_a, b: right_b, at_vertex });
         }
     }
-    Contour::Curved(vertices)
+    columns
+}
+
+/// The maximum or minimum, by `pick`, of the profiles `a` and `b`.
+fn envelope(a: &[Point], b: &[Point], pick: fn(f32, f32) -> f32) -> Vec<Point> {
+    let columns = columns(a, b);
+    let side = |c: &Column| usize::from(pick(c.a, c.b) != c.a);
+    let mut out: Vec<Point> = Vec::new();
+    for (i, c) in columns.iter().enumerate() {
+        let s = side(c);
+        // Where one profile steps past the other, the envelope turns at a point of neither.
+        let steps = |j: Option<usize>| {
+            j.and_then(|j| columns.get(j)).is_some_and(|n| n.x == c.x && side(n) != s)
+        };
+        let vertex = c.at_vertex[s] || (c.a == c.b && c.at_vertex.contains(&true));
+        if vertex || steps(i.checked_sub(1)) || steps(Some(i + 1)) {
+            push_distinct(&mut out, Point::new(c.x, pick(c.a, c.b)));
+        }
+    }
+    out
+}
+
+/// The polygons enclosed between the profiles `top` and `bottom` wherever `top` lies above
+/// `bottom`, each running left to right along `top` and back along `bottom`.
+fn regions_between(top: &[Point], bottom: &[Point]) -> Vec<Vec<Point>> {
+    let columns = columns(top, bottom);
+    let open = |c: &Column| c.a < c.b;
+    let mut regions = Vec::new();
+    let mut i = 0;
+    while i < columns.len() {
+        if !open(&columns[i]) {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while columns.get(i).is_some_and(open) {
+            i += 1;
+        }
+        let run = &columns[start..i];
+        // A region either narrows to where the edges cross, which `columns` reports as a
+        // column of its own, or ends along a vertical step.
+        let meeting = |c: Option<&Column>, x: f32| {
+            c.filter(|c| c.a == c.b && c.x != x).map(|c| Point::new(c.x, c.a))
+        };
+        let first = meeting(start.checked_sub(1).map(|j| &columns[j]), run[0].x);
+        let last = meeting(columns.get(i), run[run.len() - 1].x);
+        let mut polygon: Vec<Point> = first.into_iter().collect();
+        let mut lower: Vec<Point> = Vec::new();
+        for (k, c) in run.iter().enumerate() {
+            let step = (k == 0 && first.is_none()) || (k == run.len() - 1 && last.is_none());
+            if step || c.at_vertex[0] {
+                push_distinct(&mut polygon, Point::new(c.x, c.a));
+            }
+            if step || c.at_vertex[1] {
+                push_distinct(&mut lower, Point::new(c.x, c.b));
+            }
+        }
+        polygon.extend(last);
+        for p in lower.into_iter().rev() {
+            push_distinct(&mut polygon, p);
+        }
+        if polygon.len() > 1 && same_point(polygon[0], polygon[polygon.len() - 1]) {
+            polygon.pop();
+        }
+        if polygon.len() >= 3 {
+            regions.push(polygon);
+        }
+    }
+    regions
 }
 
 fn push_distinct(points: &mut Vec<Point>, p: Point) {
@@ -884,9 +1097,44 @@ fn same_point(a: Point, b: Point) -> bool {
     (a - b).square_length() <= 1e-8
 }
 
+/// The outer and inner edges of a rectangle's border.
+#[derive(Debug, Clone)]
+pub struct BorderContours {
+    /// The border's outer edge.
+    pub outer: Contour,
+    /// The border's inner edge, with no area when the border covers the whole rectangle.
+    pub inner: Contour,
+}
+
+/// The edges of a border of width `border_width` whose outer edge is the outline of the
+/// rectangle `rect`, with corner radii `radius` and shapes `shapes`, grown by `spread`.
+pub fn border_contours<U>(
+    rect: euclid::default::Rect<f32>,
+    radius: BorderRadius<f32, U>,
+    shapes: CornerShapes,
+    border_width: f32,
+    spread: f32,
+) -> BorderContours {
+    let [outer, inner] =
+        offset_outlines(rect, radius, shapes, [spread, spread - border_width.max(0.)]);
+    BorderContours { outer, inner }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    /// Where the segments `a0 a1` and `b0 b1` properly cross, if they do.
+    fn segment_intersection(a0: Point, a1: Point, b0: Point, b1: Point) -> Option<Point> {
+        let (da, db) = (a1 - a0, b1 - b0);
+        let denom = da.cross(db);
+        if denom.abs() <= f32::EPSILON * da.length() * db.length() {
+            return None;
+        }
+        let t = (b0 - a0).cross(db) / denom;
+        let u = (b0 - a0).cross(da) / denom;
+        ((0. ..=1.).contains(&t) && (0. ..1.).contains(&u)).then(|| a0 + da * t)
+    }
 
     pub(crate) const SHAPES: [CornerShape; 14] = [
         CornerShape::Square,
@@ -1232,6 +1480,260 @@ pub(crate) mod tests {
                 }
             }
         }
+    }
+
+    /// A border's outer edge is the shape itself, so that it matches every other outline drawn
+    /// at the same radius, such as a clip or a shadow.
+    #[test]
+    fn border_outer_edge_is_the_shape() {
+        let rect = euclid::default::Rect::new(Point::new(5., 5.), euclid::size2(100., 60.));
+        for shape in SHAPES {
+            let contours = border_polygons(
+                rect,
+                BorderRadius::new_uniform(20.),
+                CornerShapes::new_uniform(shape),
+                10.,
+                0.,
+            );
+            assert_eq!(contours.outer.len(), 1, "{shape:?}");
+            for p in &contours.outer[0] {
+                // Each point belongs to the corner of the nearest tip.
+                let (tip, e_in, e_out) = corner_frames(rect)
+                    .into_iter()
+                    .min_by(|a, b| (*p - a.0).length().total_cmp(&(*p - b.0).length()))
+                    .unwrap();
+                let local = Point::new((*p - tip).dot(e_in), (*p - tip).dot(e_out));
+                let corner = distance_to_polyline(local, &extended_corner(shape, 20., 10.));
+                assert!(corner < 0.03, "{shape:?}: {p:?} is {corner} off the shape");
+            }
+        }
+    }
+
+    /// [`border_contours`] with both edges as polygons.
+    struct BorderPolygons {
+        outer: Vec<Vec<Point>>,
+        inner: Vec<Vec<Point>>,
+    }
+
+    fn border_polygons(
+        rect: euclid::default::Rect<f32>,
+        radius: BorderRadius<f32, ()>,
+        shapes: CornerShapes,
+        border_width: f32,
+        spread: f32,
+    ) -> BorderPolygons {
+        let BorderContours { outer, inner } =
+            border_contours(rect, radius, shapes, border_width, spread);
+        BorderPolygons { outer: outer.into_polygons(), inner: inner.into_polygons() }
+    }
+
+    fn polygon_is_simple(polygon: &[Point]) -> bool {
+        let n = polygon.len();
+        (0..n).all(|i| {
+            (i + 2..n).all(|j| {
+                if i == 0 && j == n - 1 {
+                    return true;
+                }
+                let (a0, a1) = (polygon[i], polygon[(i + 1) % n]);
+                let (b0, b1) = (polygon[j], polygon[(j + 1) % n]);
+                segment_intersection(a0, a1, b0, b1).is_none_or(|p| {
+                    // Touching at a shared vertex isn't a crossing.
+                    [a0, a1].iter().any(|v| (*v - p).length() < 1e-3)
+                        && [b0, b1].iter().any(|v| (*v - p).length() < 1e-3)
+                })
+            })
+        })
+    }
+
+    /// Whether `p` lies inside `polygon`, by the even-odd rule.
+    fn contains(polygon: &[Point], p: Point) -> bool {
+        let n = polygon.len();
+        (0..n).fold(false, |inside, i| {
+            let (a, b) = (polygon[i], polygon[(i + 1) % n]);
+            if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+                !inside
+            } else {
+                inside
+            }
+        })
+    }
+
+    fn signed_area(polygon: &[Point]) -> f32 {
+        let n = polygon.len();
+        (0..n).map(|i| polygon[i].to_vector().cross(polygon[(i + 1) % n].to_vector())).sum::<f32>()
+            / 2.
+    }
+
+    /// Asserts that `region` is made of simple, clockwise polygons, and that it holds every
+    /// point of `inside` and none of `outside`.
+    fn assert_region(region: &[Vec<Point>], inside: &[(f32, f32)], outside: &[(f32, f32)]) {
+        for polygon in region {
+            assert!(polygon_is_simple(polygon), "{polygon:?}");
+            assert!(signed_area(polygon) > 0., "{polygon:?} isn't clockwise");
+        }
+        let covers = |p: Point| region.iter().filter(|polygon| contains(polygon, p)).count();
+        for &p in inside {
+            assert_eq!(covers(p.into()), 1, "{p:?} isn't in {region:?}");
+        }
+        for &p in outside {
+            assert_eq!(covers(p.into()), 0, "{p:?} is in {region:?}");
+        }
+    }
+
+    /// Adjacent corners whose inner edges reach past each other are cut where they cross,
+    /// leaving a simple polygon.
+    #[test]
+    fn border_contours_join_overlapping_corners() {
+        let square = euclid::default::Rect::new(Point::new(5., 5.), euclid::size2(50., 50.));
+        // Notches overlapping along a side leave no area in the rows they cover.
+        let tall = euclid::default::Rect::new(Point::new(5., 5.), euclid::size2(50., 90.));
+        for (shape, rect) in
+            [(CornerShape::Bevel, square), (CornerShape::Scoop, square), (CornerShape::Notch, tall)]
+        {
+            let contours = border_polygons(
+                rect,
+                BorderRadius::new_uniform(20.),
+                CornerShapes::new_uniform(shape),
+                10.,
+                0.,
+            );
+            assert_eq!(contours.inner.len(), 1, "{shape:?}: {:?}", contours.inner);
+            assert_eq!(contours.outer.len(), 1, "{shape:?}: {:?}", contours.outer);
+            assert_region(&contours.inner, &[], &[]);
+            assert_region(&contours.outer, &[], &[]);
+            let inner_rect = rect.inflate(-10., -10.);
+            for p in &contours.inner[0] {
+                assert!(
+                    p.x >= inner_rect.min_x() - 1e-3
+                        && p.x <= inner_rect.max_x() + 1e-3
+                        && p.y >= inner_rect.min_y() - 1e-3
+                        && p.y <= inner_rect.max_y() + 1e-3,
+                    "{shape:?}: {p:?} lies outside the inner rectangle"
+                );
+            }
+        }
+        let notched = border_polygons(
+            square,
+            BorderRadius::new_uniform(20.),
+            CornerShapes::new_uniform(CornerShape::Notch),
+            10.,
+            0.,
+        );
+        assert!(notched.inner.is_empty(), "{:?}", notched.inner);
+        let covered = border_polygons(
+            square,
+            BorderRadius::new_uniform(4.),
+            CornerShapes::new_uniform(CornerShape::Bevel),
+            30.,
+            0.,
+        );
+        assert!(covered.inner.is_empty());
+    }
+
+    /// Convex corners give a single convex outline, grown or shrunk, with no step left by
+    /// rounding where a corner meets a straight edge.
+    #[test]
+    fn convex_corners_keep_the_outline_convex() {
+        let rect = euclid::default::Rect::new(Point::new(2., 2.), euclid::size2(98.5, 49.));
+        let shapes = CornerShapes::new(
+            CornerShape::Round,
+            CornerShape::Squircle,
+            CornerShape::Square,
+            CornerShape::Superellipse(4.),
+        );
+        for distance in [-5f32, 0., 5.] {
+            let contour =
+                offset_outline::<()>(rect, BorderRadius::new_uniform(16.), shapes, distance)
+                    .into_polygons();
+            assert_eq!(contour.len(), 1, "{distance}: {contour:?}");
+            let polygon = &contour[0];
+            let n = polygon.len();
+            for i in 0..n {
+                let (a, b, c) = (polygon[i], polygon[(i + 1) % n], polygon[(i + 2) % n]);
+                assert!(
+                    (b - a).cross(c - b) >= 0.,
+                    "{distance}: turns back at {b:?} in {polygon:?}"
+                );
+            }
+        }
+    }
+
+    /// Where corners stay apart, joining them in order gives the region that cutting each
+    /// column gives.
+    #[test]
+    fn apart_corners_join_like_columns() {
+        let rect = euclid::default::Rect::new(Point::new(3., 7.), euclid::size2(120., 70.));
+        for shape in SHAPES {
+            let shapes = CornerShapes::new(shape, shape, shape, CornerShape::Squircle);
+            for r in [0f32, 6., 25.] {
+                let radius = BorderRadius::<f32, ()>::new(r, r * 0.5, r, r * 1.5);
+                for distance in [-6f32, 0., 6.] {
+                    let joined = offset_outline(rect, radius, shapes, distance).into_polygons();
+                    let fitted = fit_radius(rect, radius, shapes);
+                    let mut corners = corners_in_path_order(fitted, shapes).into_iter();
+                    let corners = corner_frames(rect).map(|(tip, e_in, e_out)| {
+                        let (r, shape) = corners.next().unwrap();
+                        corner_offset(shape, r, distance)
+                            .into_iter()
+                            .map(|p| tip + e_in * p.x + e_out * p.y)
+                            .collect::<Vec<_>>()
+                    });
+                    let cut = column_regions(corners, rect.inflate(distance, distance));
+                    let area =
+                        |region: &[Vec<Point>]| region.iter().map(|p| signed_area(p)).sum::<f32>();
+                    let context = alloc::format!("{shape:?} r{r} d{distance}");
+                    assert_eq!(joined.len(), 1, "{context}");
+                    assert!(
+                        (area(&joined) - area(&cut)).abs() < 0.1,
+                        "{context}: {joined:?} vs {cut:?}"
+                    );
+                    assert_region(&joined, &[], &[]);
+                }
+            }
+        }
+    }
+
+    /// A corner whose inner edge reaches past the whole adjacent corner still leaves the
+    /// inner region below it.
+    #[test]
+    fn inner_edge_reaching_past_the_adjacent_corner() {
+        let rect = euclid::default::Rect::new(Point::zero(), euclid::size2(50., 200.));
+        for top_left in [CornerShape::Notch, CornerShape::Scoop] {
+            for (top_right, r) in
+                [(CornerShape::Bevel, 5.), (CornerShape::Round, 5.), (CornerShape::Round, 0.)]
+            {
+                let shapes =
+                    CornerShapes::new(top_left, top_right, CornerShape::Round, CornerShape::Round);
+                let contours =
+                    border_polygons(rect, BorderRadius::new(45., r, 0., 0.), shapes, 10., 0.);
+                let context = alloc::format!("{top_left:?} {top_right:?} r{r}");
+                assert_eq!(contours.inner.len(), 1, "{context}: {:?}", contours.inner);
+                // A notch's inner wall lies at 55, past the far side, so it covers whole rows.
+                let inside = if top_left == CornerShape::Notch { (25., 60.) } else { (35., 60.) };
+                assert_region(&contours.inner, &[inside, (25., 180.)], &[(25., 20.), (5., 100.)]);
+            }
+        }
+    }
+
+    /// Opposite notches whose inner edges overlap in the middle split the inner region in two.
+    #[test]
+    fn opposite_corners_split_the_inner_region() {
+        let rect = euclid::default::Rect::new(Point::zero(), euclid::size2(100., 100.));
+        let shapes = CornerShapes::new(
+            CornerShape::Notch,
+            CornerShape::Round,
+            CornerShape::Notch,
+            CornerShape::Round,
+        );
+        let contours = border_polygons(rect, BorderRadius::new(50., 0., 50., 0.), shapes, 10., 0.);
+        assert_eq!(contours.inner.len(), 2, "{:?}", contours.inner);
+        assert_region(
+            &contours.inner,
+            &[(75., 25.), (25., 75.)],
+            &[(50., 50.), (30., 30.), (70., 70.), (5., 50.)],
+        );
+        // The notches meet at the center, so the outline touches itself there.
+        assert_region(&contours.outer, &[(75., 25.), (25., 75.)], &[(25., 25.), (75., 75.)]);
     }
 
     /// Opposite concave corners shrink until their hulls no longer intersect, which convex
