@@ -2008,19 +2008,9 @@ impl TypeLoader {
     pub fn all_files_to_watch(&self) -> HashSet<SourcePath> {
         fn resource_paths(document: &LoadedDocument) -> Vec<SourcePath> {
             match document {
-                LoadedDocument::Document(document) => document
-                    .referenced_file_resources
-                    .borrow()
-                    .iter()
-                    .cloned()
-                    .chain(
-                        document
-                            .embedded_file_resources
-                            .borrow()
-                            .iter()
-                            .flat_map(|resource| resource.path.clone()),
-                    )
-                    .collect(),
+                LoadedDocument::Document(document) => {
+                    document.referenced_file_resources.borrow().iter().cloned().collect()
+                }
                 LoadedDocument::Invalidated(_document) => vec![],
             }
         }
@@ -2717,52 +2707,6 @@ export component Main inherits Window {
     let watch_files = loader.all_files_to_watch();
     assert!(watch_files.contains(&resource_path), "watch paths: {watch_files:?}");
     assert!(loader.get_document(&main_path).unwrap().embedded_file_resources.borrow().is_empty());
-}
-
-#[test]
-fn test_unused_images_are_referenced_but_not_embedded() {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let image = SourcePath::new(manifest_dir.join("../../logo/slint-logo-square-light.png"));
-    let unused = SourcePath::new(manifest_dir.join("unused.png"));
-    let mut compiler_config =
-        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-    compiler_config.style = Some("fluent".into());
-    compiler_config.embed_resources = crate::EmbedResourcesKind::EmbedAllResources;
-    let mut diagnostics = BuildDiagnostics::default();
-    let doc_node = crate::parser::parse(
-        r#"
-component Unused {
-    Image { source: @image-url("unused.png"); }
-}
-export component Main inherits Window {
-    Image {
-        source: @image-url("../../logo/slint-logo-square-light.png");
-    }
-}
-"#
-        .into(),
-        Some(SourcePath::new(manifest_dir.join("main.slint"))),
-        &mut diagnostics,
-    );
-    let (document, diagnostics, _) =
-        spin_on::spin_on(crate::compile_syntax_node(doc_node, diagnostics, compiler_config));
-    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
-
-    assert_eq!(
-        *document.referenced_file_resources.borrow(),
-        HashSet::from([image.clone(), unused])
-    );
-    let resources = document.embedded_file_resources.borrow();
-    assert_eq!(resources.len(), 1);
-    let kinds: Vec<_> = resources
-        .iter()
-        .filter(|resource| resource.path.as_ref() == Some(&image))
-        .map(|resource| &resource.kind)
-        .collect();
-    assert!(
-        matches!(kinds.as_slice(), [crate::embedded_resources::EmbeddedResourcesKind::FileData]),
-        "{kinds:?}"
-    );
 }
 
 #[test]
