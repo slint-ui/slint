@@ -6,7 +6,7 @@
 
 use super::items::*;
 use crate::graphics::{
-    Color, FontRequest, Image, IntRect, adjust_rect_and_border_for_inner_drawing,
+    Color, CornerShapes, FontRequest, Image, IntRect, adjust_rect_and_border_for_inner_drawing,
 };
 use crate::item_tree::ItemTreeRc;
 use crate::item_tree::{ItemVisitor, ItemVisitorVTable, VisitChildrenResult};
@@ -387,6 +387,7 @@ pub trait RenderBorderRectangle {
     fn background(self: Pin<&Self>) -> Brush;
     fn border_width(self: Pin<&Self>) -> LogicalLength;
     fn border_radius(self: Pin<&Self>) -> LogicalBorderRadius;
+    fn corner_shape(self: Pin<&Self>) -> CornerShapes;
     fn border_color(self: Pin<&Self>) -> Brush;
 }
 
@@ -408,6 +409,9 @@ pub struct BorderRectLayout {
     pub border_rect: euclid::Rect<f32, PhysicalPx>,
     /// The corner radii of `border_rect`.
     pub border_radius: PhysicalBorderRadius,
+    /// The shape of each corner, shared by `background_rect` and `border_rect`: a shape
+    /// doesn't change as the radius is adjusted for the border inset.
+    pub corner_shape: CornerShapes,
     /// The stroke width of the border; zero for transparent borders.
     pub border_width: euclid::Length<f32, PhysicalPx>,
     /// The border brush.
@@ -466,6 +470,7 @@ impl BorderRectLayout {
             background_radius,
             border_rect: geometry,
             border_radius,
+            corner_shape: rect.corner_shape(),
             border_width,
             border_color,
         })

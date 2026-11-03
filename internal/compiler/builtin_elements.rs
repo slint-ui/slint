@@ -625,10 +625,14 @@ fn build(l: &mut Loader) {
         //! </SlintProperty>
         //!
         //!
-        //! ## Border Radius Properties
+        //! ## Border Radius and Corner Shape Properties
         /// The size of the radius. This single value is applied to all four corners.
         /// \default 0
         in property <length> border-radius;
+        /// The shape of all four corners, sized by the border radius.
+        /// For the available shapes, see <Link type="corner-shape" label="corner-shape" />.
+        /// \default round
+        in property <corner-shape> corner-shape;
     } }
 
     item! { BorderRectangle: BasicBorderRectangle {
@@ -641,6 +645,18 @@ fn build(l: &mut Loader) {
         in property <length> border-bottom-left-radius: computed;
         ///
         in property <length> border-bottom-right-radius: computed;
+        /// The shape of the top left corner.
+        /// \default corner-shape
+        in property <corner-shape> corner-top-left-shape: computed;
+        /// The shape of the top right corner.
+        /// \default corner-shape
+        in property <corner-shape> corner-top-right-shape: computed;
+        /// The shape of the bottom left corner.
+        /// \default corner-shape
+        in property <corner-shape> corner-bottom-left-shape: computed;
+        /// The shape of the bottom right corner.
+        /// \default corner-shape
+        in property <corner-shape> corner-bottom-right-shape: computed;
         //! ## Drop Shadows
         //!
         //! Use the `drop-shadow-*` properties to draw a shadow of a rectangle's painted shape.
