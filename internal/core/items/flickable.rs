@@ -1171,10 +1171,10 @@ impl FlickableDataInner {
         }
         let deflection_x = (flick.content_x() - target.x_length()).0;
         let deflection_y = (flick.content_y() - target.y_length()).0;
-        if deflection_x != 0. {
+        if deflection_x != 0 as Coord {
             Flickable::FIELD_OFFSETS.content_x().apply_pin(flick).remove_binding();
         }
-        if deflection_y != 0. {
+        if deflection_y != 0 as Coord {
             Flickable::FIELD_OFFSETS.content_y().apply_pin(flick).remove_binding();
         }
 
