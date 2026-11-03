@@ -753,6 +753,10 @@ pub struct Clip {
     pub border_top_right_radius: Property<LogicalLength>,
     pub border_bottom_left_radius: Property<LogicalLength>,
     pub border_bottom_right_radius: Property<LogicalLength>,
+    pub corner_top_left_shape: Property<CornerShape>,
+    pub corner_top_right_shape: Property<CornerShape>,
+    pub corner_bottom_left_shape: Property<CornerShape>,
+    pub corner_bottom_right_shape: Property<CornerShape>,
     pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
@@ -864,6 +868,10 @@ impl Clip {
             self.border_bottom_left_radius(),
         )
         .max(Default::default())
+    }
+
+    pub fn logical_corner_shape(self: Pin<&Self>) -> CornerShapes {
+        per_corner_shapes!(self)
     }
 }
 
