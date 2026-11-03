@@ -128,7 +128,7 @@ test("serves the view with the interpreter of the plugin's release on the releas
             "mcp/slint-preview/view.html.in",
             "mcp/slint-preview/assets",
         ]) {
-            cpSync(new URL(file, pluginRoot), join(root, file), { recursive: true });
+            cpSync(new URL(file, pluginRoot), join(root, file), { recursive: true, dereference: true });
         }
         writeFileSync(
             join(root, "mcp/slint-preview/channel.json"),

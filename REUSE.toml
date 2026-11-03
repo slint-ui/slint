@@ -82,7 +82,6 @@ SPDX-License-Identifier = "CC-BY-ND-4.0"
 [[annotations]]
 path = [
   "tools/editor/ui/assets/cursors/default-32.png",
-  "ai-plugins/mcp/slint-preview/assets/canvas-cursor.png",
   "tools/editor/ui/assets/cursors/default-64.png",
   "tools/editor/ui/assets/cursors/rotate.svg",
   "tools/editor/ui/assets/cursors/corner-radius.svg",
@@ -731,13 +730,13 @@ SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
-path = ["tools/editor/ui/assets/lucide/*.svg", "ai-plugins/mcp/slint-preview/assets/*.svg"]
+path = ["tools/editor/ui/assets/lucide/*.svg"]
 SPDX-FileCopyrightText = "Copyright (c) 2026 Lucide Icons and Contributors"
 SPDX-License-Identifier = "ISC"
 
 [[annotations]]
 path = [
-  "ai-plugins/mcp/slint-preview/assets/moon.svg",
+  "tools/editor/ui/assets/lucide/moon.svg",
   "tools/editor/ui/assets/lucide/check.svg",
   "tools/editor/ui/assets/lucide/chevron-down.svg",
   "tools/editor/ui/assets/lucide/monitor.svg",
