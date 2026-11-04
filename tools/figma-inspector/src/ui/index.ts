@@ -523,13 +523,6 @@ const controller = new PreviewController(
     showTrace,
     keepaliveCanvas,
 );
-canvas.addEventListener("preview-export-error", (event) => {
-    const revision = (event as CustomEvent<{ revision: number }>).detail
-        .revision;
-    if (revision !== latestInputRevision) return;
-    const output = pendingOutputs.get(revision);
-    if (output) output.exportPackage = undefined;
-});
 const isPreviewTrigger = (value: string): value is PreviewTrigger =>
     value === "initial" ||
     value === "selection-change" ||

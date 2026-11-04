@@ -7,10 +7,8 @@ import { expect, test } from "vitest";
 import JSZip from "jszip";
 import { convertCapture } from "../src/preview/convert-capture";
 import { exportZip } from "../src/ui/export-download";
-import {
-    externalizeImages,
-    exportValidationSource,
-} from "../src/export/generate";
+import { externalizeImages } from "../src/export/generate";
+import { prepareExportValidation } from "../src/preview/export-validation";
 import { isExportPackage } from "../src/protocol";
 import { isPluginToUiMessage } from "../src/protocol";
 import { previewAssetSource } from "./preview-asset-source";
@@ -160,7 +158,13 @@ test("asset extraction deduplicates image expressions but never edits quoted cod
     expect(result.source).toContain(JSON.stringify(image));
     expect(result.source.match(/assets\/image-/g)).toHaveLength(2);
     expect(
-        exportValidationSource({ source: result.source, files: result.files }),
+        prepareExportValidation(
+            { source: result.source, files: result.files },
+            (packed) => ({
+                source: previewAssetSource(packed),
+                dispose: () => {},
+            }),
+        ).source,
     ).toBe(source);
 });
 

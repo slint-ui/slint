@@ -94,7 +94,6 @@ export function scalePreview(
                   }
                 : {}),
         }) as SnapshotNode;
-    // Preview geometry uses resolved values. Native export keeps the variable library.
     const { variables: _variables, ...resolved } = snapshot;
     return {
         ...resolved,
