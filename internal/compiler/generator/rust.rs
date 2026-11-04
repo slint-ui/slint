@@ -517,6 +517,8 @@ fn generate_public_component(
         .experimental_features
         .contains(crate::ExperimentalFeature::NewWithExistingWindow);
 
+    let new_with_context_vis = new_with_existing_window_enabled.then(|| quote!(pub));
+
     let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
         llr::TopLevelComponentType::Window => Some(quote!(
             #[cfg(#new_with_existing_window_enabled)]
@@ -619,17 +621,10 @@ fn generate_public_component(
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
-                let context = slint::private_unstable_api::ensure_context()?;
-                let inner = #inner_component_id::new(context)?;
-                #eager_create_window
-                #init_bundle_translations
-                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
-                #ensure_tree_instantiated
-                ::core::result::Result::Ok(Self(inner))
+                Self::new_with_context(slint::private_unstable_api::ensure_context()?)
             }
 
-            #[cfg(#new_with_existing_window_enabled)]
-            pub fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
+            #new_with_context_vis fn new_with_context(ctx: sp::SlintContext) -> ::core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new(ctx)?;
                 #eager_create_window
                 #init_bundle_translations
