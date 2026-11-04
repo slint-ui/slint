@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use glam::{Mat4, Quat, Vec2, Vec3, Vec4Swizzles};
 use slint::wgpu_30::{WGPUConfiguration, WGPUSettings, wgpu};
+use unicode_segmentation::UnicodeSegmentation;
 
 use atlas::{Airport, City};
 use camera::{Camera, FOV_Y, MIN_RANGE, Pose, surface};
@@ -766,6 +767,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .select()?;
 
     let app = AppWindow::new()?;
+    app.global::<Characters>().on_at(|text, index| {
+        let character = usize::try_from(index).ok().and_then(|i| text.graphemes(true).nth(i));
+        character.unwrap_or_default().into()
+    });
     let demo = Rc::new(RefCell::new(Demo::new()));
     let labels = Rc::new(slint::VecModel::<Label>::default());
     app.set_labels(labels.clone().into());

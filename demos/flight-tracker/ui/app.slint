@@ -107,18 +107,19 @@ component Glass inherits Rectangle {
     }
 }
 
-/// One half of a flap of `Flaps`, showing the character at `index` of `text`.
+/// The characters of a string, which Slint can't slice.
+export global Characters {
+    /// The character at `index` of `text`, counted like `character-count`, or an empty string
+    /// past its end.
+    pure callback at(text: string, index: int) -> string;
+}
+
+/// One half of a `Flap`.
 component FlapHalf inherits Rectangle {
     in property <string> text;
-    in property <int> index;
     /// The lower half, or else the upper one.
     in property <bool> lower;
     in property <length> flap-height;
-    in property <length> advance;
-    /// Where the character starts on the flap.
-    in property <length> inset;
-    /// The width of the character, or of all of the text on one flap.
-    in property <length> cell;
     in property <length> size;
     in property <color> ink;
     clip: true;
@@ -126,28 +127,108 @@ component FlapHalf inherits Rectangle {
     border-top-right-radius: root.lower ? 0 : 2px;
     border-bottom-left-radius: root.lower ? 2px : 0;
     border-bottom-right-radius: root.lower ? 2px : 0;
-    // Clips the neighbors of the character.
-    Rectangle {
-        x: root.inset;
-        width: root.cell;
-        clip: true;
-        Text {
-            x: -root.index * root.advance;
-            y: root.lower ? -root.flap-height / 2 : 0;
-            width: self.preferred-width;
-            height: root.flap-height;
-            text: root.text;
-            color: root.ink;
-            font-family: "JetBrains Mono NL";
-            font-size: root.size;
-            font-weight: 700;
-            vertical-alignment: center;
+    Text {
+        y: root.lower ? -root.flap-height / 2 : 0;
+        width: 100%;
+        height: root.flap-height;
+        text: root.text;
+        color: root.ink;
+        font-family: "JetBrains Mono NL";
+        font-size: root.size;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+/// One flap of `Flaps`, which flips when its text changes.
+component Flap {
+    in property <string> text;
+    /// How long the flap shows a text before it flips to a newer one.
+    in property <duration> hold;
+    in property <duration> flip-duration;
+    in property <length> size;
+    in property <color> ink;
+    in property <brush> upper;
+    in property <brush> lower;
+    property <string> shown;
+    property <string> previous;
+    property <int> flips;
+    property <float> turn: self.flips;
+    animate turn { duration: root.flip-duration; }
+    /// How far the flap has turned from `previous` to `shown`, from 0 to 1.
+    property <float> t: self.turn == self.flips ? 1 : self.turn - Math.floor(self.turn);
+    init => {
+        self.shown = self.text;
+        self.previous = self.text;
+    }
+
+    Timer {
+        interval: root.hold;
+        running: root.shown != root.text && root.t >= 1;
+        triggered => {
+            root.previous = root.shown;
+            root.shown = root.text;
+            root.flips += 1;
         }
+    }
+
+    FlapHalf {
+        y: 0;
+        height: root.height / 2;
+        background: root.upper;
+        text: root.shown;
+        flap-height: root.height;
+        size: root.size;
+        ink: root.ink;
+    }
+
+    FlapHalf {
+        y: root.height / 2;
+        height: root.height / 2;
+        lower: true;
+        background: root.lower;
+        text: root.t < 0.5 ? root.previous : root.shown;
+        flap-height: root.height;
+        size: root.size;
+        ink: root.ink;
+    }
+
+    // The upper half of the old character, falling about the hinge.
+    if root.t < 0.5: FlapHalf {
+        y: 0;
+        height: root.height / 2;
+        background: root.upper;
+        text: root.previous;
+        flap-height: root.height;
+        size: root.size;
+        ink: root.ink;
+        transform-origin: { x: 0, y: self.height };
+        transform-scale-y: (1 - 2 * root.t) * 100%;
+    }
+    // The lower half of the new character, falling into place.
+    if root.t >= 0.5 && root.t < 1: FlapHalf {
+        y: root.height / 2;
+        height: root.height / 2;
+        lower: true;
+        background: root.lower;
+        text: root.shown;
+        flap-height: root.height;
+        size: root.size;
+        ink: root.ink;
+        transform-origin: { x: 0, y: 0 };
+        transform-scale-y: (2 * root.t - 1) * 100%;
+    }
+    // The hinge.
+    Rectangle {
+        y: (root.height - self.height) / 2;
+        height: 1px;
+        background: #000000c0;
     }
 }
 
 /// Text on a split-flap display, as on an airport's departures board.
-/// Each character has a flap of its own, and the flaps flip when the text changes.
+/// Each character has a flap of its own, which flips when that character changes.
 component Flaps {
     in property <string> text;
     in property <length> size: 16px;
@@ -158,120 +239,35 @@ component Flaps {
     in property <bool> lit;
     /// How long the flaps show a text before they flip to a newer one.
     in property <duration> hold: 50ms;
-    property <string> shown;
-    property <string> previous;
-    property <int> flips;
-    property <float> turn: self.flips;
-    animate turn { duration: 520ms; }
-    /// How far the flaps have turned from `previous` to `shown`, from 0 to 1.
-    property <float> progress: self.turn == self.flips ? 1 : self.turn - Math.floor(self.turn);
-    property <int> count: self.whole ? 1 : max(1, self.shown.character-count);
+    property <int> count: self.whole ? 1 : max(1, self.text.character-count);
+    // When all of the flaps flip, each one starts a little after the one on its left, and the
+    // last one finishes 520 ms after the first one started.
+    property <duration> flip-duration: 520ms / (1 + (self.count - 1) * 0.15);
     property <length> gap: max(3px, self.size * 0.2);
     // The font is monospaced, so every character advances by the same width.
-    property <length> advance: measure.preferred-width / max(1, self.shown.character-count);
-    property <length> flap-width: self.whole ? measure.preferred-width + 2 * self.gap : self.advance + self.gap;
-    property <length> inset: self.gap / 2 + (self.whole ? self.gap / 2 : 0);
-    property <brush> upper: self.lit ? #ffd21f : #2a2b30;
-    property <brush> lower: self.lit ? #e3b400 : #18191c;
-    property <color> ink: self.lit ? #111111 : self.color;
+    property <length> flap-width: self.whole ? measure.preferred-width + 2 * self.gap : measure.preferred-width + self.gap;
     width: self.count * (self.flap-width + 2px) - 2px;
     height: self.size * 1.42;
-    init => {
-        self.shown = self.text;
-        self.previous = self.text;
-    }
-
-    Timer {
-        interval: root.hold;
-        running: root.shown != root.text;
-        triggered => {
-            root.previous = root.shown;
-            root.shown = root.text;
-            root.flips += 1;
-        }
-    }
 
     measure := Text {
         visible: false;
-        text: root.shown;
+        text: root.whole ? root.text : "0";
         font-family: "JetBrains Mono NL";
         font-size: root.size;
         font-weight: 700;
     }
 
-    for index in root.count: flap := Rectangle {
-        // Each flap starts a little after the one on its left.
-        property <float> t: clamp(root.progress * (1 + (root.count - 1) * 0.15) - index * 0.15, 0, 1);
+    for index in root.count: Flap {
         x: index * (root.flap-width + 2px);
         width: root.flap-width;
-        FlapHalf {
-            y: 0;
-            height: root.height / 2;
-            background: root.upper;
-            text: root.shown;
-            index: index;
-            flap-height: root.height;
-            advance: root.advance;
-            inset: root.inset;
-            cell: root.whole ? measure.preferred-width : root.advance;
-            size: root.size;
-            ink: root.ink;
-        }
-
-        FlapHalf {
-            y: root.height / 2;
-            height: root.height / 2;
-            lower: true;
-            background: root.lower;
-            text: flap.t < 0.5 ? root.previous : root.shown;
-            index: index;
-            flap-height: root.height;
-            advance: root.advance;
-            inset: root.inset;
-            cell: root.whole ? measure.preferred-width : root.advance;
-            size: root.size;
-            ink: root.ink;
-        }
-
-        // The upper half of the old character, falling about the hinge.
-        if flap.t < 0.5: FlapHalf {
-            y: 0;
-            height: root.height / 2;
-            background: root.upper;
-            text: root.previous;
-            index: index;
-            flap-height: root.height;
-            advance: root.advance;
-            inset: root.inset;
-            cell: root.whole ? measure.preferred-width : root.advance;
-            size: root.size;
-            ink: root.ink;
-            transform-origin: { x: 0, y: self.height };
-            transform-scale-y: (1 - 2 * flap.t) * 100%;
-        }
-        // The lower half of the new character, falling into place.
-        if flap.t >= 0.5 && flap.t < 1: FlapHalf {
-            y: root.height / 2;
-            height: root.height / 2;
-            lower: true;
-            background: root.lower;
-            text: root.shown;
-            index: index;
-            flap-height: root.height;
-            advance: root.advance;
-            inset: root.inset;
-            cell: root.whole ? measure.preferred-width : root.advance;
-            size: root.size;
-            ink: root.ink;
-            transform-origin: { x: 0, y: 0 };
-            transform-scale-y: (2 * flap.t - 1) * 100%;
-        }
-        // The hinge.
-        Rectangle {
-            y: (root.height - self.height) / 2;
-            height: 1px;
-            background: #000000c0;
-        }
+        height: root.height;
+        text: root.whole ? root.text : Characters.at(root.text, index);
+        hold: root.hold + index * root.flip-duration * 0.15;
+        flip-duration: root.flip-duration;
+        size: root.size;
+        ink: root.lit ? #111111 : root.color;
+        upper: root.lit ? #ffd21f : #2a2b30;
+        lower: root.lit ? #e3b400 : #18191c;
     }
 }
 
@@ -437,9 +433,8 @@ component Stat {
             Flaps {
                 text: root.value;
                 size: root.value-size * 0.8;
-                whole: true;
-                // The readings change all the time, and the board shows them every few seconds.
-                hold: 3s;
+                // The readings change all the time, so the flaps rest a moment between flips.
+                hold: 200ms;
             }
         }
     }

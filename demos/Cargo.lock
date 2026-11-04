@@ -1660,6 +1660,7 @@ dependencies = [
  "image",
  "slint",
  "slint-build",
+ "unicode-segmentation",
  "wasm-bindgen",
  "web-time",
 ]
