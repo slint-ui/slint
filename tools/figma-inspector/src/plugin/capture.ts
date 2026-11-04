@@ -10,7 +10,9 @@ import {
     CaptureCancelled,
     captureBusyTime,
     captureScheduler,
+    HostExportTimeout,
     mapCaptureChildren,
+    withHostExportTimeout,
 } from "./capture-work";
 import { maskComposition } from "./mask-composition";
 import {
@@ -413,6 +415,16 @@ export async function captureSource(
         string,
         readonly (typeof sourceProperties)[number][]
     >();
+    let hostExportTimedOut = false;
+    const hostExport = async <T>(operation: () => Promise<T>): Promise<T> => {
+        if (hostExportTimedOut) throw new HostExportTimeout();
+        try {
+            return await withHostExportTimeout(operation);
+        } catch (error) {
+            if (error instanceof HostExportTimeout) hostExportTimedOut = true;
+            throw error;
+        }
+    };
     const restNodes = new Map<string, Record<string, unknown>>();
     const restLoads = new Map<string, Promise<void>>();
     const restDocuments: Record<string, unknown>[] = [];
@@ -428,9 +440,9 @@ export async function captureSource(
         if (old) return old;
         const pending = timings.measureAsync("bulkJson", async () => {
             try {
-                const response = await node.exportAsync({
-                    format: "JSON_REST_V1",
-                });
+                const response = await hostExport(() =>
+                    node.exportAsync({ format: "JSON_REST_V1" }),
+                );
                 const data = response as {
                     document?: Record<string, unknown>;
                     nodes?: Record<
@@ -492,7 +504,7 @@ export async function captureSource(
                     work.pngExports++;
                     pngByType[node.type] = (pngByType[node.type] ?? 0) + 1;
                     return await timings.measureAsync("pngExports", () =>
-                        rawPng(node, scale),
+                        hostExport(() => rawPng(node, scale)),
                     );
                 } finally {
                     stop?.();
@@ -509,13 +521,15 @@ export async function captureSource(
                 work.svgExports++;
                 svgByType[node.type] = (svgByType[node.type] ?? 0) + 1;
                 return await timings.measureAsync("svgExports", () =>
-                    exportSvgNode === exportSvg &&
-                    useAbsoluteBounds !== undefined
-                        ? node.exportAsync({
-                              ...svgExportSettings,
-                              useAbsoluteBounds,
-                          })
-                        : exportSvgNode(node),
+                    hostExport(() =>
+                        exportSvgNode === exportSvg &&
+                        useAbsoluteBounds !== undefined
+                            ? node.exportAsync({
+                                  ...svgExportSettings,
+                                  useAbsoluteBounds,
+                              })
+                            : exportSvgNode(node),
+                    ),
                 );
             } finally {
                 stop?.();
@@ -1715,6 +1729,7 @@ export async function captureSource(
         );
     }
     if (cancelled?.()) throw new CaptureCancelled();
+    if (hostExportTimedOut) throw new HostExportTimeout();
     timings.measure("componentAssembly", () => {
         for (const owner of [...componentOwners.values()].sort((a, b) =>
             idOf(a) < idOf(b) ? -1 : 1,

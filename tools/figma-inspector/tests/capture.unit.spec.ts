@@ -6,7 +6,7 @@ import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import { readFile } from "node:fs/promises";
 import { describe, expect, test, vi } from "vitest";
-import { CaptureCache } from "../src/plugin/capture-work";
+import { CaptureCache, captureScheduler } from "../src/plugin/capture-work";
 import {
     type CaptureInstrumentation,
     captureSelectionSource,
@@ -4188,6 +4188,54 @@ test("empty-painted vector icons retain dimensions and skip failed SVG plus blan
             ([settings]) => settings.format === "JSON_REST_V1",
         ),
     ).toBe(true);
+});
+
+test("a hung host export reports a capture error and frees its scheduler slot", async () => {
+    vi.useFakeTimers();
+    try {
+        const schedule = captureScheduler(1);
+        const node = {
+            ...text,
+            id: "hung",
+            type: "VECTOR",
+            fills: [{ type: "IMAGE", imageHash: null, scaleMode: "FILL" }],
+            strokes: [],
+            effects: [],
+        };
+        const capture = captureSelectionSource(
+            [node as unknown as SceneNode],
+            Symbol("mixed"),
+            async () => "",
+            async () => undefined,
+            undefined,
+            () => new Promise<Uint8Array>(() => {}),
+            1,
+            undefined,
+            undefined,
+            undefined,
+            "tree",
+            schedule,
+        );
+        let settled = false;
+        void capture.then(() => {
+            settled = true;
+        });
+        await vi.advanceTimersByTimeAsync(59_000);
+        expect(settled).toBe(false);
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(await capture).toMatchObject({
+            ok: false,
+            diagnostics: [
+                {
+                    code: "CAPTURE_ERROR",
+                    message: expect.stringContaining("did not finish"),
+                },
+            ],
+        });
+        await expect(schedule(async () => "next")).resolves.toBe("next");
+    } finally {
+        vi.useRealTimers();
+    }
 });
 
 test("vectors with their own region paints retain the host SVG export", async () => {

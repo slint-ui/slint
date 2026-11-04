@@ -34,6 +34,37 @@ export class CaptureCancelled extends Error {
     }
 }
 
+export class HostExportTimeout extends Error {
+    public constructor() {
+        super(
+            "Figma did not finish exporting this selection. Restart the plugin if this continues.",
+        );
+    }
+}
+
+const HOST_EXPORT_TIMEOUT_MS = 60_000;
+
+/** Stop waiting for a Figma export, which can't be aborted and may never settle. */
+export async function withHostExportTimeout<T>(
+    operation: () => Promise<T>,
+    timeoutMs = HOST_EXPORT_TIMEOUT_MS,
+): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        return await Promise.race([
+            operation(),
+            new Promise<never>((_, reject) => {
+                timer = setTimeout(
+                    () => reject(new HostExportTimeout()),
+                    timeoutMs,
+                );
+            }),
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 export type CaptureScheduler = <T>(operation: () => Promise<T>) => Promise<T>;
 
 /** Session-only, bounded cache. Rejections and results from invalidated runs are not retained. */
