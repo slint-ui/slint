@@ -20,10 +20,15 @@ export component TestCase inherits Window {
             Text { width: 150px; wrap: word-wrap; text: lorem; }
         }
         after-text-width := Rectangle { height: 10px; }
+        if true: GridLayout {
+            Text { width: 150px; wrap: word-wrap; text: lorem; }
+        }
+        after-grid-text-width := Rectangle { height: 10px; }
     }
 
     out property <bool> test: ref-150.preferred-height > ref-200.preferred-height
-        && after-text-width.y == ref-200.preferred-height;
+        && after-text-width.y == ref-200.preferred-height
+        && after-grid-text-width.y == after-text-width.y + 10px + ref-200.preferred-height;
 }
 
 /*
