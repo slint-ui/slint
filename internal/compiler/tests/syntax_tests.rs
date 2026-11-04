@@ -530,11 +530,14 @@ fn process_file_source(
     #[cfg(not(feature = "slint-sc"))]
     let is_slint_sc = false;
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(output_format);
-    compiler_config.library_paths = [(
-        "test-lib".into(),
-        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/typeloader/library").into(),
-    )]
+    let typeloader_tests = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/typeloader");
+    compiler_config.library_paths = [
+        ("test-lib", "library"),
+        ("test-broken-project-lib", "broken_project_library/slint-project.json"),
+        ("test-no-main-project-lib", "no_main_project_library/slint-project.json"),
+    ]
     .into_iter()
+    .map(|(name, path)| (name.into(), typeloader_tests.join(path)))
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     // The `renderer-software` tests diagnose the glyph embedding, which the other tests skip.

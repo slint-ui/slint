@@ -546,6 +546,21 @@ impl EditorSession {
         let (project_data, diagnostics) =
             self.merged_project_data(std::mem::take(&mut overrides.project));
         project_data.apply_to(&mut config.compiler_config);
+        config.compiler_config.project_roots = self
+            .active_project_file_paths()
+            .map(|path| {
+                i_slint_compiler::project_file::normalize_project_root(
+                    i_slint_compiler::source_path::SourcePath::new(path),
+                )
+            })
+            .collect();
+        if config.compiler_config.project_roots.is_empty() {
+            config.compiler_config.project_roots = self
+                .workspace_roots
+                .iter()
+                .map(i_slint_compiler::source_path::SourcePath::new)
+                .collect();
+        }
         overrides.apply(None, &mut config.compiler_config);
         (config, diagnostics)
     }

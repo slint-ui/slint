@@ -188,6 +188,14 @@ impl DocumentCache {
         self.source_file_versions.borrow().get(path).and_then(|v| *v)
     }
 
+    pub fn library_import_for(&self, file: &SourcePath) -> Option<String> {
+        self.type_loader.library_import_for(file)
+    }
+
+    pub fn is_private_library_file(&self, file: &SourcePath) -> bool {
+        self.type_loader.is_private_library_file(file)
+    }
+
     pub fn get_document<'a>(&'a self, url: &'_ Url) -> Option<&'a Document> {
         self.type_loader.get_document(&SourcePath::from_url(url))
     }
@@ -268,14 +276,6 @@ impl DocumentCache {
         self.type_loader.revision()
     }
 
-    fn invalidate_everything(&mut self) {
-        let all_files = self.type_loader.all_files().cloned().collect::<Vec<_>>();
-
-        for path in all_files {
-            self.type_loader.invalidate_document(&path);
-        }
-    }
-
     /// Re-apply a complete configuration to the document cache
     ///
     /// Returns the new compiler configuration and the set of paths that were reloaded.
@@ -301,9 +301,7 @@ impl DocumentCache {
         self.open_import_callback = open_import_callback;
         self.source_file_versions = source_file_versions;
         self.format = config.format;
-        self.type_loader.compiler_config = compiler_config;
-
-        self.invalidate_everything();
+        self.type_loader.set_compiler_config(compiler_config);
 
         self.preload_builtins().await;
 
