@@ -214,9 +214,33 @@ impl IntrospectionState {
             let root_wrapper = RootWrapper(&item_tree);
             self.element_to_handle(root_wrapper.root_element())
         };
-        self.windows
-            .borrow_mut()
-            .insert(TrackedWindow { window_adapter: Rc::downgrade(adapter), root_element_handle });
+        let mut windows = self.windows.borrow_mut();
+        windows.retain(|_, window| window.window_adapter.strong_count() > 0);
+        // A window shows again with a new component when the live preview recompiles.
+        let shown_again = windows.values_mut().find(|window| {
+            window.window_adapter.upgrade().is_some_and(|known| Rc::ptr_eq(&known, adapter))
+        });
+        match shown_again {
+            Some(window) => window.root_element_handle = root_element_handle,
+            None => {
+                windows.insert(TrackedWindow {
+                    window_adapter: Rc::downgrade(adapter),
+                    root_element_handle,
+                });
+            }
+        }
+    }
+
+    /// Returns the root elements of the tracked windows that still show a component.
+    #[cfg(feature = "system-testing")]
+    fn window_root_elements(&self) -> Vec<ElementHandle> {
+        let adapters: Vec<_> =
+            self.windows.borrow().values().filter_map(|w| w.window_adapter.upgrade()).collect();
+        adapters
+            .iter()
+            .filter_map(|adapter| WindowInner::from_pub(adapter.window()).try_component())
+            .map(|item_tree| RootWrapper(&item_tree).root_element())
+            .collect()
     }
 
     pub fn window_handles(&self) -> Vec<ArenaIndex> {
@@ -252,7 +276,7 @@ impl IntrospectionState {
     /// Introspection reads the item tree between events, where nothing else runs the pass.
     /// A model changed since the last event would otherwise report its old instances (#13223).
     /// Call this from a transport entry point, never from within a property evaluation.
-    #[cfg(feature = "mcp")]
+    #[cfg(any(feature = "mcp", feature = "system-testing"))]
     pub fn ensure_windows_instantiated(&self) {
         // Collect first: the pass runs change handlers, which may re-enter `add_window`.
         let adapters: Vec<_> =
@@ -316,6 +340,15 @@ impl IntrospectionState {
             }
         }
         index
+    }
+
+    /// How many handles one response can return before
+    /// [`Self::element_to_handle`] evicts the earliest of them.
+    #[cfg(feature = "system-testing")]
+    fn handles_per_response(&self) -> usize {
+        // Eviction spares the window roots and shrinks the other handles to this many.
+        (ELEMENT_HANDLE_CAP - ELEMENT_HANDLE_EVICTION_SLACK)
+            .saturating_sub(self.windows.borrow().len())
     }
 
     fn tick(&self) -> u64 {
@@ -681,6 +714,17 @@ fn convert_event_dispatch_result(
 // Shared proto ↔ core conversion functions
 // ============================================================================
 
+fn type_names_and_ids(element: &ElementHandle) -> Vec<proto::ElementTypeNameAndId> {
+    core::iter::once(proto::ElementTypeNameAndId {
+        type_name: element.type_name().unwrap_or_default().into(),
+        id: element.id().unwrap_or_default().into(),
+    })
+    .chain(element.bases().into_iter().flatten().map(|base_type_name| {
+        proto::ElementTypeNameAndId { type_name: base_type_name.into(), id: "root".into() }
+    }))
+    .collect()
+}
+
 pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPropertiesResponse {
     let declared = element.testable_properties();
     let testable_properties_available = declared.is_some();
@@ -694,17 +738,8 @@ pub(crate) fn element_properties(element: &ElementHandle) -> proto::ElementPrope
         })
         .collect();
 
-    let type_names_and_ids = core::iter::once(proto::ElementTypeNameAndId {
-        type_name: element.type_name().unwrap_or_default().into(),
-        id: element.id().unwrap_or_default().into(),
-    })
-    .chain(element.bases().into_iter().flatten().map(|base_type_name| {
-        proto::ElementTypeNameAndId { type_name: base_type_name.into(), id: "root".into() }
-    }))
-    .collect();
-
     proto::ElementPropertiesResponse {
-        type_names_and_ids,
+        type_names_and_ids: type_names_and_ids(element),
         accessible_label: element.accessible_label().map(|s| s.to_string()).unwrap_or_default(),
         accessible_value: element.accessible_value().unwrap_or_default().to_string(),
         accessible_value_maximum: element.accessible_value_maximum().unwrap_or_default(),
@@ -989,6 +1024,42 @@ pub(crate) mod dispatch {
         Ok(super::element_properties(&element))
     }
 
+    #[cfg(feature = "system-testing")]
+    pub(crate) fn element_children(
+        state: &IntrospectionState,
+        parent: Option<ArenaIndex>,
+    ) -> Result<proto::GetElementChildrenResponse, String> {
+        use std::ops::ControlFlow;
+        state.ensure_windows_instantiated();
+        let (children, debug_info_available) = match parent {
+            Some(parent) => {
+                let parent = state.element("get_element_children", parent)?;
+                let mut children = Vec::new();
+                parent.visit_children(|child| {
+                    children.push(child);
+                    ControlFlow::<()>::Continue(())
+                });
+                (children, parent.has_debug_info())
+            }
+            None => {
+                let roots = state.window_root_elements();
+                let debug_info_available = roots.iter().all(super::ElementHandle::has_debug_info);
+                (roots, debug_info_available)
+            }
+        };
+        let truncated = children.len() > state.handles_per_response();
+        let children = children
+            .into_iter()
+            .take(state.handles_per_response())
+            .map(|child| proto::ElementChild {
+                type_names_and_ids: super::type_names_and_ids(&child),
+                has_children: child.visit_children(|_| ControlFlow::Break(())).is_some(),
+                handle: Some(index_to_handle(state.element_to_handle(child))),
+            })
+            .collect();
+        Ok(proto::GetElementChildrenResponse { children, truncated, debug_info_available })
+    }
+
     pub(crate) fn query_element_descendants(
         state: &IntrospectionState,
         element: ArenaIndex,
@@ -1160,13 +1231,15 @@ fn test_element_handle_is_interned() {
     let adapter = window_adapter_for_test(&app);
     let state = IntrospectionState::new();
 
-    // Both calls mention the same root element.
     state.add_window(&adapter);
-    state.add_window(&adapter);
+    let root = state.windows.borrow().values().next().unwrap().root_element_handle;
+    let item_tree = WindowInner::from_pub(adapter.window()).component();
 
-    let roots: Vec<_> =
-        state.windows.borrow().values().map(|window| window.root_element_handle).collect();
-    assert_eq!(roots[0], roots[1], "the same element was given two handles");
+    assert_eq!(
+        state.element_to_handle(RootWrapper(&item_tree).root_element()),
+        root,
+        "the same element was given two handles"
+    );
     assert_eq!(state.element_handles.borrow().len(), 1);
 }
 
@@ -1323,6 +1396,142 @@ mod hundred_rectangles {
             kept := Rectangle { background: blue; }
             for _ in 100: Rectangle { background: red; }
         }
+    }
+}
+
+#[cfg(all(test, feature = "system-testing"))]
+mod element_children_tests {
+    use super::*;
+
+    slint::slint! {
+        #[edition = "1.20"]
+        component Card inherits Rectangle {
+            label := Text { text: "card"; }
+        }
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            in property <int> row-count: 2;
+            card := Card {
+                for i in row-count: row := Text { text: i; }
+            }
+            hidden := Rectangle {
+                x: 200px;
+                hidden-child := Rectangle { background: red; }
+            }
+            popup := PopupWindow {
+                popup-text := Text { text: "popup"; }
+            }
+            public function show-popup() { popup.show(); }
+        }
+    }
+
+    fn app_with_state() -> (App, IntrospectionState) {
+        crate::init_no_event_loop();
+        let app = App::new().unwrap();
+        let state = IntrospectionState::new();
+        state.add_window(&window_adapter_for_test(&app));
+        (app, state)
+    }
+
+    fn children(
+        state: &IntrospectionState,
+        parent: Option<ArenaIndex>,
+    ) -> proto::GetElementChildrenResponse {
+        let response = dispatch::element_children(state, parent).unwrap();
+        assert!(response.debug_info_available);
+        response
+    }
+
+    /// Returns the qualified id of each child, or its type name when it has no id.
+    fn names(response: &proto::GetElementChildrenResponse) -> Vec<String> {
+        response
+            .children
+            .iter()
+            .map(|child| {
+                let name = &child.type_names_and_ids[0];
+                if name.id.is_empty() { name.type_name.clone() } else { name.id.clone() }
+            })
+            .collect()
+    }
+
+    /// Returns the handle of the child with the qualified `id`.
+    fn child(response: &proto::GetElementChildrenResponse, id: &str) -> ArenaIndex {
+        let child = response.children.iter().find(|child| child.type_names_and_ids[0].id == id);
+        handle_to_index(child.unwrap().handle.unwrap()).unwrap()
+    }
+
+    #[test]
+    fn lists_window_roots_without_a_handle() {
+        let (_app, state) = app_with_state();
+        let roots = children(&state, None);
+        assert_eq!(names(&roots), ["App::root"]);
+        assert!(roots.children[0].has_children);
+    }
+
+    #[test]
+    fn lists_one_level_with_clipped_away_elements() {
+        let (_app, state) = app_with_state();
+        let root = child(&children(&state, None), "App::root");
+        let root_children = children(&state, Some(root));
+        assert_eq!(names(&root_children), ["App::card", "App::hidden"]);
+        assert!(!root_children.truncated);
+
+        let hidden = children(&state, Some(child(&root_children, "App::hidden")));
+        assert_eq!(names(&hidden), ["App::hidden-child"]);
+        assert!(!hidden.children[0].has_children);
+
+        let card = children(&state, Some(child(&root_children, "App::card")));
+        assert_eq!(names(&card), ["Card::label", "App::row", "App::row"]);
+    }
+
+    #[test]
+    fn lists_popup_under_its_parent() {
+        let (app, state) = app_with_state();
+        app.invoke_show_popup();
+        let root = child(&children(&state, None), "App::root");
+        let root_children = children(&state, Some(root));
+        assert!(names(&root_children).contains(&"App::popup".into()));
+        let popup = children(&state, Some(child(&root_children, "App::popup")));
+        assert_eq!(names(&popup), ["App::popup-text"]);
+    }
+
+    #[test]
+    fn leaves_out_windows_whose_component_was_dropped() {
+        crate::init_no_event_loop();
+        let state = IntrospectionState::new();
+        let first = App::new().unwrap();
+        state.add_window(&window_adapter_for_test(&first));
+        drop(first);
+        let second = App::new().unwrap();
+        state.add_window(&window_adapter_for_test(&second));
+
+        assert_eq!(state.windows.borrow().len(), 1);
+        assert_eq!(names(&children(&state, None)), ["App::root"]);
+    }
+
+    #[test]
+    fn returns_no_handle_it_evicted() {
+        crate::init_no_event_loop();
+        let state = IntrospectionState::new();
+        // Older handles, so that minting the response's handles evicts.
+        let elsewhere: Vec<_> = (0..30).map(|_| hundred_rectangles::App::new().unwrap()).collect();
+        for app in &elsewhere {
+            mention_window(&state, app);
+        }
+        let app = App::new().unwrap();
+        app.set_row_count(ELEMENT_HANDLE_CAP as i32);
+        state.add_window(&window_adapter_for_test(&app));
+        let root = child(&children(&state, None), "App::root");
+        let card = child(&children(&state, Some(root)), "App::card");
+
+        let response = children(&state, Some(card));
+        for child in &response.children {
+            state.element("test", handle_to_index(child.handle.unwrap()).unwrap()).unwrap();
+        }
+        assert!(response.truncated);
+        assert_eq!(response.children.len(), state.handles_per_response());
+        drop(elsewhere);
     }
 }
 
