@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A library path that names a project file uses that project's `main`, include paths,
+// and library paths.
+
+//library_path(old_lib): ../../helper_components/edition_1_18_library/slint-project.json
+import { NestedRepeatedText, RepeatedText, Slot, StatesOnly } from "@old_lib";
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+
+    lib-text := RepeatedText { }
+    nested-text := NestedRepeatedText { }
+    Slot { }
+    lib-states := StatesOnly { }
+
+    out property <bool> test: lib-text.width == 100px && nested-text.width == 100px
+        && lib-states.width == 100px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+```python
+instance = TestCase()
+assert instance.test
+```
+*/

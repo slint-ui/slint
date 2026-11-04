@@ -1,0 +1,24 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component RepeatedText inherits Rectangle {
+    if true: Text { text: "foo"; }
+}
+
+export component Slot inherits Rectangle {
+    @children
+}
+
+export component StatesOnly inherits Rectangle {
+    width: 100px;
+    height: 100px;
+    in property <bool> moved;
+    out property <length> inner-x: inner.x;
+    inner := Rectangle {
+        width: 40px;
+        height: 20px;
+        states [
+            moved when moved: { x: 5px; }
+        ]
+    }
+}
