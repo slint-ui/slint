@@ -800,6 +800,10 @@ fn generate_shared_globals(
                 &self.context
             }
 
+            fn scale_factor(&self) -> f32 {
+                self.window_adapter_ref().unwrap().window().scale_factor()
+            }
+
             fn window_adapter_ref(&self) -> sp::Result<&sp::Rc<dyn sp::WindowAdapter>, slint::PlatformError>
             {
                 self.window_adapter.get_or_try_init(|| {
@@ -5189,10 +5193,10 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
         })(),
-        BuiltinFunction::GetWindowScaleFactor => (|| {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
-        })(),
+        BuiltinFunction::GetWindowScaleFactor => {
+            let global_access = &ctx.generator_state.global_access;
+            quote!(#global_access.scale_factor())
+        }
         BuiltinFunction::GetWindowDefaultFontSize => {
             quote!(
                 sp::WindowItem::resolved_default_font_size(sp::VRcMapped::origin(
