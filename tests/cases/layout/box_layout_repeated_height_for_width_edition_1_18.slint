@@ -3,8 +3,8 @@
 
 //edition: 1.18
 
-// Before edition 1.19, a conditional section measures a wrapped Text at the whole width it's given,
-// ignoring a padding in a single-cell layout and the Text's own width (#14705).
+// Before edition 1.19, a conditional section measures a wrapped Text with its own width
+// at the width the layout gives it (#14705).
 
 export component TestCase inherits Window {
     width: 200px;
@@ -17,23 +17,13 @@ export component TestCase inherits Window {
     VerticalLayout {
         alignment: start;
         if true: VerticalLayout {
-            HorizontalLayout {
-                padding-left: 50px;
-                VerticalLayout {
-                    Text { wrap: word-wrap; text: lorem; }
-                }
-            }
-        }
-        after-padded := Rectangle { height: 10px; }
-        if true: VerticalLayout {
             Text { width: 150px; wrap: word-wrap; text: lorem; }
         }
         after-text-width := Rectangle { height: 10px; }
     }
 
     out property <bool> test: ref-150.preferred-height > ref-200.preferred-height
-        && after-padded.y == ref-200.preferred-height
-        && after-text-width.y == 2 * ref-200.preferred-height + 10px;
+        && after-text-width.y == ref-200.preferred-height;
 }
 
 /*

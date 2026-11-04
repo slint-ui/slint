@@ -106,12 +106,9 @@ Before 1.19, wrapping an element in `if true:` could change the layout around it
 - A non-layout parent, such as a `Rectangle`, computes its minimum and preferred size from its children.
   It ignored any child created with `if` or `for`
   ([#407](https://github.com/slint-ui/slint/issues/407)).
-- A word-wrapped `Text` in an `if` or `for` element could be measured at a wider width than it's drawn at,
-  so the element came out one line short and the next element overlapped it
+- A word-wrapped `Text` with its own `width` in an `if` or `for` element was measured at the layout's width.
+  When the layout was wider, the element came out short and the next element overlapped it
   ([#14705](https://github.com/slint-ui/slint/issues/14705)).
-  That happened when the `Text` had its own `width`,
-  or when a layout with a single cell and a `padding-left` or `padding-right` held it.
-  The same padding issue affected a cell of a `FlexboxLayout`.
 
 With edition 1.19, an element created with `if` or `for` gets the same size as one written without them.
 
