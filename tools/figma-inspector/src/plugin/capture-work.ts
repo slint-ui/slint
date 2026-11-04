@@ -34,20 +34,20 @@ export class CaptureCancelled extends Error {
     }
 }
 
-export class HostExportTimeout extends Error {
+export class HostCallTimeout extends Error {
     public constructor() {
         super(
-            "Figma did not finish exporting this selection. Restart the plugin if this continues.",
+            "Figma did not finish reading this selection. Restart the plugin if this continues.",
         );
     }
 }
 
-const HOST_EXPORT_TIMEOUT_MS = 60_000;
+const HOST_CALL_TIMEOUT_MS = 60_000;
 
-/** Stop waiting for a Figma export, which can't be aborted and may never settle. */
-export async function withHostExportTimeout<T>(
+/** Stop waiting for an async Figma call, which can't be aborted and may never settle. */
+export async function withHostCallTimeout<T>(
     operation: () => Promise<T>,
-    timeoutMs = HOST_EXPORT_TIMEOUT_MS,
+    timeoutMs = HOST_CALL_TIMEOUT_MS,
 ): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -55,7 +55,7 @@ export async function withHostExportTimeout<T>(
             operation(),
             new Promise<never>((_, reject) => {
                 timer = setTimeout(
-                    () => reject(new HostExportTimeout()),
+                    () => reject(new HostCallTimeout()),
                     timeoutMs,
                 );
             }),

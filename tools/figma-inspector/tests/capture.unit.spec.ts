@@ -4346,6 +4346,64 @@ test("a hung host export reports a capture error and frees its scheduler slot", 
     }
 });
 
+test.each([
+    {
+        name: "component lookup",
+        node: {
+            ...text,
+            id: "hung-instance",
+            type: "INSTANCE",
+            children: [],
+            getMainComponentAsync: () => new Promise(() => {}),
+        },
+    },
+    {
+        name: "image read",
+        node: {
+            ...rectangle,
+            id: "hung-image",
+            fills: [{ type: "IMAGE", imageHash: "hung", scaleMode: "FILL" }],
+        },
+    },
+])("a hung $name reports a capture error", async ({ node }) => {
+    vi.useFakeTimers();
+    try {
+        const capture = captureSelectionSource(
+            [node as unknown as SceneNode],
+            Symbol("mixed"),
+            async () => "",
+            () => new Promise(() => {}),
+        );
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(await capture).toMatchObject({
+            ok: false,
+            diagnostics: [
+                {
+                    code: "CAPTURE_ERROR",
+                    message: expect.stringContaining("did not finish"),
+                },
+            ],
+        });
+    } finally {
+        vi.useRealTimers();
+    }
+});
+
+test("a hung variable read makes the fingerprint unavailable", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("figma", {
+        variables: { getVariableByIdAsync: () => new Promise(() => {}) },
+    });
+    try {
+        const fingerprint = variableFingerprint(["hung"]);
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(await fingerprint).toBeUndefined();
+    } finally {
+        vi.unstubAllGlobals();
+        vi.useRealTimers();
+    }
+});
+
 test("vectors with their own region paints retain the host SVG export", async () => {
     const fills = [solid(1, 0, 0)];
     const exported = vi.fn(async (settings: { format: string }) =>

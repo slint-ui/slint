@@ -10,9 +10,9 @@ import {
     CaptureCancelled,
     captureBusyTime,
     captureScheduler,
-    HostExportTimeout,
+    HostCallTimeout,
     mapCaptureChildren,
-    withHostExportTimeout,
+    withHostCallTimeout,
 } from "./capture-work";
 import { maskComposition } from "./mask-composition";
 import {
@@ -415,13 +415,13 @@ export async function captureSource(
         string,
         readonly (typeof sourceProperties)[number][]
     >();
-    let hostExportTimedOut = false;
-    const hostExport = async <T>(operation: () => Promise<T>): Promise<T> => {
-        if (hostExportTimedOut) throw new HostExportTimeout();
+    let hostCallTimedOut = false;
+    const hostCall = async <T>(operation: () => Promise<T>): Promise<T> => {
+        if (hostCallTimedOut) throw new HostCallTimeout();
         try {
-            return await withHostExportTimeout(operation);
+            return await withHostCallTimeout(operation);
         } catch (error) {
-            if (error instanceof HostExportTimeout) hostExportTimedOut = true;
+            if (error instanceof HostCallTimeout) hostCallTimedOut = true;
             throw error;
         }
     };
@@ -453,7 +453,7 @@ export async function captureSource(
         const load = async () => {
             if (cancelled?.()) throw new CaptureCancelled();
             await timings.measureAsync("bulkJson", async () => {
-                const response = await hostExport(() =>
+                const response = await hostCall(() =>
                     node.exportAsync({ format: "JSON_REST_V1" }),
                 );
                 const data = response as {
@@ -498,7 +498,7 @@ export async function captureSource(
                     work.pngExports++;
                     pngByType[node.type] = (pngByType[node.type] ?? 0) + 1;
                     return await timings.measureAsync("pngExports", () =>
-                        hostExport(() => rawPng(node, scale)),
+                        hostCall(() => rawPng(node, scale)),
                     );
                 } finally {
                     stop?.();
@@ -515,7 +515,7 @@ export async function captureSource(
                 work.svgExports++;
                 svgByType[node.type] = (svgByType[node.type] ?? 0) + 1;
                 return await timings.measureAsync("svgExports", () =>
-                    hostExport(() =>
+                    hostCall(() =>
                         exportSvgNode === exportSvg &&
                         useAbsoluteBounds !== undefined
                             ? node.exportAsync({
@@ -552,12 +552,15 @@ export async function captureSource(
                                       () =>
                                           timings.measureAsync(
                                               "imageReads",
-                                              () => imageResolver(hash),
+                                              () =>
+                                                  hostCall(() =>
+                                                      imageResolver(hash),
+                                                  ),
                                           ),
                                       (value) => value?.bytes.byteLength ?? 0,
                                   )
                                 : await timings.measureAsync("imageReads", () =>
-                                      imageResolver(hash),
+                                      hostCall(() => imageResolver(hash)),
                                   );
                             source.images[hash] = image
                                 ? {
@@ -692,7 +695,7 @@ export async function captureSource(
             let pending = mainComponents.get(key);
             if (!pending) {
                 pending = timings.measureAsync("componentLookup", () =>
-                    node.getMainComponentAsync(),
+                    hostCall(() => node.getMainComponentAsync()),
                 );
                 mainComponents.set(key, pending);
             }
@@ -1723,7 +1726,7 @@ export async function captureSource(
         );
     }
     if (cancelled?.()) throw new CaptureCancelled();
-    if (hostExportTimedOut) throw new HostExportTimeout();
+    if (hostCallTimedOut) throw new HostCallTimeout();
     timings.measure("componentAssembly", () => {
         for (const owner of [...componentOwners.values()].sort((a, b) =>
             idOf(a) < idOf(b) ? -1 : 1,
@@ -2012,7 +2015,7 @@ export async function captureSource(
         for (const id of needed) {
             if (cancelled?.()) throw new CaptureCancelled();
             const variable = await timings.measureAsync("variableReads", () =>
-                figma.variables.getVariableByIdAsync(id),
+                hostCall(() => figma.variables.getVariableByIdAsync(id)),
             );
             if (!variable) throw Error(`Bound variable ${id} is unavailable`);
             if (
@@ -2041,8 +2044,10 @@ export async function captureSource(
                 const collection = await timings.measureAsync(
                     "variableReads",
                     () =>
-                        figma.variables.getVariableCollectionByIdAsync(
-                            variable.variableCollectionId,
+                        hostCall(() =>
+                            figma.variables.getVariableCollectionByIdAsync(
+                                variable.variableCollectionId,
+                            ),
                         ),
                 );
                 if (!collection)
@@ -2318,8 +2323,10 @@ export async function variableFingerprint(
         const variables: unknown[] = [];
         const collectionIds = new Set<string>();
         for (let level = [...ids]; level.length; ) {
-            const current = await Promise.all(
-                level.map((id) => figma.variables.getVariableByIdAsync(id)),
+            const current = await withHostCallTimeout(() =>
+                Promise.all(
+                    level.map((id) => figma.variables.getVariableByIdAsync(id)),
+                ),
             );
             const next: string[] = [];
             for (const variable of current) {
@@ -2345,9 +2352,11 @@ export async function variableFingerprint(
             }
             level = next;
         }
-        const collections = await Promise.all(
-            [...collectionIds].map((id) =>
-                figma.variables.getVariableCollectionByIdAsync(id),
+        const collections = await withHostCallTimeout(() =>
+            Promise.all(
+                [...collectionIds].map((id) =>
+                    figma.variables.getVariableCollectionByIdAsync(id),
+                ),
             ),
         );
         if (collections.includes(null)) return undefined;
