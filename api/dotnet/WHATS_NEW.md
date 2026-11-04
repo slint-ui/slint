@@ -1,6 +1,24 @@
 <!-- cSpell: ignore xplat yurkinh -->
 # What's New in Slint for .NET
 
+## 1.19.0-preview.12
+
+- Publish a desktop app as one file: `SlintEmbedFiles` embeds the `.slint` files in the assembly,
+  with the images and fonts they use and the bundled translations, instead of copying them next to the app.
+  It's on by default with `PublishSingleFile`, and with Native AOT the output is the executable and the native library.
+  See [Publishing](README.md#publishing).
+- `ObservableCollectionModel<T>` turns a collection of a view model, such as an `ObservableCollection<T>`, into a model that Slint follows,
+  with the changes of items that implement `INotifyPropertyChanged`.
+- `WatchProperty` and `WatchGlobalProperty` of `ComponentInstance` run code after a property changes, such as one that the user edits.
+- Bind a view model, such as one written with CommunityToolkit.Mvvm, to a component:
+  `[SlintViewModel(typeof(AppWindow))]` generates `app.Bind(viewModel)`, which binds properties, collections, and commands by name.
+  `app.Instance.Bind(viewModel)` binds them one by one. See [View Models](README.md#view-models).
+  Validation errors, such as those of `ObservableValidator`, bind to a property per field,
+  and the running state of an asynchronous command to a property, such as for a spinner.
+  `[SlintViewModel(typeof(SettingsPage))]` binds a view model to an exported global, with `app.SettingsPage.Bind(viewModel)`,
+  and `examples/mvvm/dotnet` binds the view models of MVVM-Samples, one global per page.
+- Templates: `dotnet new slint --mvvm` binds the window to a view model of CommunityToolkit.Mvvm instead of handling its callback.
+
 ## 1.19.0-preview.11
 
 - Web: run your app in the browser, on .NET's WebAssembly runtime, with the same C# API and generated code.

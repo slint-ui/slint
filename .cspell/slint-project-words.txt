@@ -453,6 +453,7 @@ multisample
 multiview
 Musterfrau
 Mustermann
+Mvvm
 mycomponentlib
 myimage
 mylibrary
@@ -464,6 +465,7 @@ navigationdrawer
 navigationrail
 navitem
 ncpu
+netstandard
 newlink
 nexp
 nixos
@@ -821,3 +823,4 @@ Zeroable
 zeroconf
 zstd
 தோசை
+Mapsui

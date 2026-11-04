@@ -1,4 +1,4 @@
-<!-- cSpell: ignore Microcharts myapp mylib xplat yurkinh -->
+<!-- cSpell: ignore Microcharts myapp mylib wwwroot xplat yurkinh -->
 # Slint for .NET (Preview)
 
 [Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
@@ -36,6 +36,7 @@ dotnet run
 The app has the counter below, live preview in Debug builds for `dotnet watch`, and Native AOT in Release builds.
 The desktop projects are `WinExe`, so Windows doesn't open a console window for them, see step 3 below.
 `--style fluent`, `material`, `cupertino`, or `cosmic` picks the widget style.
+`dotnet new slint --mvvm` binds the window to a view model of CommunityToolkit.Mvvm, see [View Models](#view-models).
 
 | Template        | Creates                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------ |
@@ -130,7 +131,7 @@ For each `<SlintFile>`, the build generates C# classes in the project's root nam
 
 | Slint | C# |
 |---|---|
-| exported component | a class with a static `Create()` method, plus `Show()`, `Hide()`, and `Run()` |
+| exported component | a class with a static `Create()` method, plus `Show()`, `Hide()`, `Run()`, and `RunAsync()` |
 | global | a class, available as a property of each component |
 | `in`, `out`, and `in-out` properties | properties; `out` properties are read-only |
 | function | a method |
@@ -142,6 +143,15 @@ Names become PascalCase: `request-increase-value` becomes `RequestIncreaseValue`
 A component exported under another name too, such as with `export { AppWindow as MainWindow }`,
 gets a class for each name.
 Structs and enums keep only their own name.
+
+To run code after a property changes, such as one that the user edits, watch it through the component's `Instance`:
+
+```csharp
+using var watch = app.Instance.WatchProperty("counter", () => Console.WriteLine(app.Counter));
+```
+
+Slint checks once per frame, so several changes between two frames call the handler once.
+`WatchGlobalProperty` watches a property of a global.
 
 The types map as follows:
 
@@ -188,6 +198,7 @@ Set these properties to change the generated code:
 - `SlintNamespace`: the namespace, instead of the root namespace.
 - `SlintStyle`: the widget style, such as `fluent` or `cupertino`.
 - `SlintCopyToOutput`: `false` to load the `.slint` files from the project directory instead of copying them.
+- `SlintEmbedFiles`: `true` to embed the `.slint` files in the assembly instead of copying them, see [Publishing](#publishing).
 - `SlintIncludePaths`: directories that imports search, separated by semicolons.
 
 To use a [project file](https://snapshots.slint.dev/master/docs/slint/guide/tooling/project-file/), add its directory instead of a file:
@@ -316,6 +327,17 @@ todos.Add(new TodoItem { Title = "Write the docs" });
 
 `AddRange`, `InsertRange`, and `RemoveRange` change several rows with one notification.
 
+For a collection of a view model, such as an `ObservableCollection<T>`, use an `ObservableCollectionModel<T>`.
+It follows the collection's changes, and the changes of items that implement `INotifyPropertyChanged`.
+`Map` turns the items into the structs of the `.slint` file:
+
+```csharp
+using var people = new ObservableCollectionModel<PersonViewModel>(viewModel.People);
+app.People = people.Map(p => new Person { Name = p.Name, Age = p.Age });
+```
+
+Change the collection from the Slint thread, and dispose the model to stop following it.
+
 To show your own data, derive from `Model<T>`,
 and call `NotifyRowChanged`, `NotifyRowAdded`, `NotifyRowRemoved`, or `NotifyReset` when it changes.
 Override `InsertRow` and `RemoveRow` to let `.slint` code add and remove rows, as `ListModel` does.
@@ -332,6 +354,86 @@ app.OpenTodos = todos.Filter(todo => !todo.Done).Sort((a, b) => a.Title.CompareT
 `Filter` and `Sort` return a `FilterModel` and a `SortModel`.
 Their `SourceRow` maps a row of the view to a row of the source,
 and `Reset` applies a condition that changed outside the model, such as a search text.
+
+## View Models
+
+Bind a view model, such as one written with [CommunityToolkit.Mvvm](https://www.nuget.org/packages/CommunityToolkit.Mvvm),
+to a component, instead of copying values between them.
+Add `[SlintViewModel]` with the class of the component, and call the `Bind` that the build generates:
+
+```csharp
+[SlintViewModel(typeof(AppWindow))]
+public partial class MainViewModel : ObservableObject
+{
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
+    private string _name = "";
+
+    public ObservableCollection<string> Tags { get; } = [];
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private void Save() => Tags.Add(Name);
+
+    private bool CanSave() => Name.Length > 0;
+}
+```
+
+```csharp
+using var app = AppWindow.Create();
+using var binding = app.Bind(new MainViewModel());
+app.Run();
+```
+
+`Bind` binds the members of the same C# name:
+
+- A property binds to the component's property: `Name` to `in-out property <string> name`.
+  It binds both ways when the view model's property has a setter, and only from the UI for an `out` property.
+- A collection, such as an `ObservableCollection<T>`, binds to an array property with the same item type, see [Models](#models).
+- A command, such as `SaveCommand` from `[RelayCommand]`, binds to the callback `save`,
+  and its `CanExecute` to the boolean property `save-enabled`, if the component has it.
+  For an asynchronous command, its `IsRunning` binds to the boolean property `save-running`, such as to show a spinner.
+- With validation through `INotifyDataErrorInfo`, as `ObservableValidator` does, the errors of `Name` bind to the string property `name-error`,
+  one per line, and `HasErrors` binds to `has-errors` like any property.
+
+The build warns about a member whose type doesn't fit the component's member of the same name.
+For other names and conversions, add bindings to the result of `Bind`,
+or bind without the attribute through the component's `Instance`:
+
+```csharp
+using var binding = app.Instance.Bind(viewModel)
+    .Property("title", vm => vm.Title)
+    .Property("note", vm => vm.Note, (vm, value) => vm.Note = value)
+    .Collection("people", vm => vm.People, p => new Person { Name = p.Name })
+    .Command("submit", vm => vm.SubmitCommand, enabledProperty: "can-submit")
+    .Property("busy", vm => vm.SubmitCommand.IsRunning)
+    .Errors("email-error", nameof(viewModel.Email))
+    .ToViewModel<int>("selected", (vm, value) => vm.Selected = value);
+```
+
+A view model can also bind to an exported global, such as one global per page of the app.
+Pass the global's class to `[SlintViewModel]`, and bind through the window's property of that global:
+
+```slint
+export global SettingsPage {
+    in-out property <string> user-name;
+    callback save();
+}
+```
+
+```csharp
+[SlintViewModel(typeof(SettingsPage))]
+public partial class SettingsViewModel : ObservableObject { /* UserName, SaveCommand */ }
+
+using var settings = app.SettingsPage.Bind(new SettingsViewModel());
+```
+
+Without the attribute, `app.Instance.BindGlobal("SettingsPage", viewModel)` binds members one by one.
+
+The view model can raise its changes on any thread; the component updates on the Slint thread.
+Change a collection on the Slint thread.
+
+`examples/mvvm/dotnet` binds the view models of [MVVM-Samples](https://github.com/CommunityToolkit/MVVM-Samples) to a Slint UI,
+one global per page: `ObservableObject`, `RelayCommand`, `AsyncRelayCommand`, the messenger, a collection, and a validated form.
 
 ## Timers and Async Code
 
@@ -359,6 +461,7 @@ From another thread, call `EventLoop.InvokeFromEventLoop` to run code on the Sli
 
 Change the UI and the code of a running application without restarting it:
 `.slint` files reload through Slint's live reload, and C# code through .NET Hot Reload.
+In the browser, only C# code reloads, see [Web](#web-preview).
 
 ### `.slint` Files
 
@@ -455,6 +558,22 @@ The attribute does nothing on macOS and Linux, so keep it for every platform.
 
 Don't make `Main` `async`, since an `async Main` runs in a multithreaded apartment.
 For asynchronous code, call `EventLoop.Run(async () => { ... })` from a synchronous `Main`.
+
+## Publishing
+
+`dotnet publish -c Release -r <runtime identifier>` writes the app, the `slint_dotnet` library,
+and the `.slint` files, which the app loads at run time.
+With `SlintEmbedFiles` set to `true`, the assembly embeds the `.slint` files instead,
+with the images and fonts they use and the bundled translations, and the compiler reads them from memory.
+It's on by default for a single-file publish, which then writes one executable:
+
+```sh
+dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+With Native AOT, the output is the executable and the `slint_dotnet` library.
+Bundled translations are the exception to memory: the app writes their `.po` files to a directory of its temporary files at startup.
+A path with a space in it doesn't work for the embedded files.
 
 ## Android (Preview)
 
@@ -703,12 +822,15 @@ From 1.19.0-preview.11, the package has the library for the browser.
 Text input works with phones' keyboards and input methods, and copy and paste with the browser's clipboard shortcuts and menu.
 The build embeds the `.slint` files and the images they use in the assembly.
 
+`dotnet watch` applies C# changes while the page runs, and keeps the page's state.
+A `.slint` change needs a restart: press Ctrl+R in `dotnet watch`, which rebuilds the assembly with the new file.
+Reloading the page isn't enough, and `SlintLivePreview` doesn't apply to web projects.
+
 Limits:
 
 - One window, which renders into the canvas.
 - Slint draws text with the Inter font, which it embeds; it can't use the browser's fonts,
   so scripts that Inter lacks, such as Japanese, show no glyphs.
-- No live preview: `SlintLivePreview` doesn't apply to web projects.
 - The download: `dotnet.native.wasm` is about 7 MB with Brotli, which web servers usually serve compressed.
 - A path with a space in it doesn't work for the `.slint` files and images.
 - To use the software renderer instead of WebGL, set `SLINT_BACKEND` before .NET starts:

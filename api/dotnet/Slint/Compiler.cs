@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using Slint.Interop;
 
 namespace Slint;
@@ -14,6 +15,7 @@ public sealed unsafe class Compiler : IDisposable
     private string? _translationDomain;
     private IReadOnlyList<string> _includePaths = [];
     private IReadOnlyDictionary<string, string> _libraryPaths = new Dictionary<string, string>();
+    private Dictionary<string, byte[]>? _embeddedFiles;
 
     /// <summary>Creates a compiler with the default configuration.</summary>
     public Compiler()
@@ -95,6 +97,36 @@ public sealed unsafe class Compiler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Makes the compiler read these files from memory, by their absolute paths:
+    /// the <c>.slint</c> files, the images they show, and the fonts they import. Other paths load from the file system.
+    /// </summary>
+    internal void SetEmbeddedFiles(IReadOnlyList<KeyValuePair<string, byte[]>> files)
+    {
+        _embeddedFiles = files.ToDictionary(file => Path.GetFullPath(file.Key), file => file.Value);
+        using var paths = new PinnedUtf8Array(files.Select(file => file.Key));
+        var handles = files.Select(file => GCHandle.Alloc(file.Value, GCHandleType.Pinned)).ToArray();
+        try
+        {
+            var contents = handles.Select(handle => (nint)handle.AddrOfPinnedObject()).ToArray();
+            var lengths = files.Select(file => (nuint)file.Value.Length).ToArray();
+            fixed (Utf8Str* pathsPtr = paths.Strs)
+            fixed (nint* contentsPtr = contents)
+            fixed (nuint* lengthsPtr = lengths)
+            {
+                NativeError.Check(NativeMethods.slint_dotnet_compiler_set_embedded_files(
+                    _handle, pathsPtr, (byte**)contentsPtr, lengthsPtr, (nuint)files.Count));
+            }
+        }
+        finally
+        {
+            foreach (var handle in handles)
+            {
+                handle.Free();
+            }
+        }
+    }
+
     /// <summary>Maps library names, as in <c>import { X } from "@name"</c>, to their directory or file.</summary>
     public IReadOnlyDictionary<string, string> LibraryPaths
     {
@@ -117,7 +149,13 @@ public sealed unsafe class Compiler : IDisposable
     /// <summary>Compiles the <c>.slint</c> file at <paramref name="path"/>.</summary>
     public CompilationResult BuildFromPath(string path)
     {
-        using var pathStr = new PinnedUtf8(Path.GetFullPath(path));
+        path = Path.GetFullPath(path);
+        // The native compiler reads the main file from the file system, and only the files it imports through the loader.
+        if (_embeddedFiles != null && _embeddedFiles.TryGetValue(path, out var source))
+        {
+            return BuildFromSource(System.Text.Encoding.UTF8.GetString(source), path);
+        }
+        using var pathStr = new PinnedUtf8(path);
         var result = NativeMethods.slint_dotnet_compiler_build_from_path(_handle, pathStr.Str);
         NativeError.Check(result);
         return new CompilationResult(result);

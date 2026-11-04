@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore inputmode
+
 //! Platform for `wasm32-unknown-emscripten`: renders a single window into an HTML canvas,
 //! with FemtoVG on WebGL 2 or with the software renderer.
 //!

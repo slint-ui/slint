@@ -94,6 +94,39 @@ public sealed class CompilerTests
     });
 
     [TestMethod]
+    public void EmbeddedFilesLoadFromMemory() => SlintThread.Run(() =>
+    {
+        // A directory that doesn't exist, so that only the embedded files can satisfy the compiler.
+        var root = Path.Combine(Path.GetTempPath(), "slint-dotnet-embedded-" + Guid.NewGuid().ToString("N"));
+        var main = Path.Combine(root, "ui", "main.slint");
+        // A 2×3 pixel PNG.
+        var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAEUlEQVR4nGP4z8DwH4QZMBgAoXkL9U3EmgcAAAAASUVORK5CYII=");
+        using var compiler = new Compiler();
+        compiler.SetEmbeddedFiles(
+        [
+            KeyValuePair.Create(main, """
+                import { Label } from "parts/label.slint";
+                export component Main {
+                    out property <int> image-width: logo.width;
+                    out property <int> image-height: logo.height;
+                    in-out property <image> logo: @image-url("../images/logo.png");
+                    Label { text: "hi"; }
+                }
+                """u8.ToArray()),
+            KeyValuePair.Create(Path.Combine(root, "ui", "parts", "label.slint"), "export component Label { in property <string> text; }"u8.ToArray()),
+            KeyValuePair.Create(Path.Combine(root, "images", "logo.png"), png),
+        ]);
+        Assert.IsFalse(Directory.Exists(root));
+
+        using var result = compiler.BuildFromPath(main);
+        Assert.IsFalse(result.HasErrors, string.Join("\n", result.Diagnostics));
+        using var definition = result.Component("Main")!;
+        using var instance = definition.Create();
+        Assert.AreEqual(2, Convert.ToInt32(instance.GetProperty("image-width")));
+        Assert.AreEqual(3, Convert.ToInt32(instance.GetProperty("image-height")));
+    });
+
+    [TestMethod]
     public void StyleIsRemembered() => SlintThread.Run(() =>
     {
         using var compiler = new Compiler();

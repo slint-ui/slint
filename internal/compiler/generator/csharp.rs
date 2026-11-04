@@ -382,6 +382,7 @@ fn write_members(
                 let member = members.claim(ident(name));
                 let getter =
                     from_slint(ty, &target.call("GetProperty", std::slice::from_ref(&slint_name)));
+                let _ = writeln!(out, "    [global::Slint.Generated.SlintName({slint_name})]");
                 if prop.read_only() {
                     let _ = writeln!(out, "    public {} {member} => {getter};", csharp_type(ty));
                 } else {
@@ -409,6 +410,7 @@ fn write_members(
         } else {
             to_slint(&call)
         };
+        let _ = writeln!(out, "    [global::Slint.Generated.SlintName({slint_name})]");
         let _ = writeln!(
             out,
             "    public void {}({} handler) => {};",
@@ -599,6 +601,11 @@ pub fn generate(
         .collect::<Vec<_>>();
     for (global, class_name) in &global_classes {
         let class = ident(class_name);
+        let _ = writeln!(
+            types,
+            "[global::Slint.Generated.SlintName({})]",
+            string_literal(&global.name)
+        );
         let _ = writeln!(types, "public sealed class {class}\n{{");
         let _ =
             writeln!(types, "    private readonly global::Slint.ComponentInstance _instance;\n");
@@ -606,11 +613,17 @@ pub fn generate(
             types,
             "    internal {class}(global::Slint.ComponentInstance instance) => _instance = instance;\n"
         );
+        let _ = writeln!(
+            types,
+            "    /// <summary>The untyped instance of the component, for members this class doesn't cover.</summary>"
+        );
+        let _ =
+            writeln!(types, "    public global::Slint.ComponentInstance Instance => _instance;\n");
         write_members(
             &mut types,
             &global.public_properties,
             &Target { instance: "_instance", global: Some(&global.name) },
-            &mut Members::new(&[class.as_str(), "_instance"]),
+            &mut Members::new(&[class.as_str(), "_instance", "Instance"]),
             &mut models,
         );
         let _ = writeln!(types, "}}\n");

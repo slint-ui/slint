@@ -84,6 +84,29 @@ internal static unsafe partial class NativeMethods
         nint onQuit,
         nint userData);
 
+    // instance.rs: property trackers
+
+    public static PropertyTrackerHandle slint_dotnet_property_tracker_new(
+        ComponentInstanceHandle instance,
+        Utf8Str global,
+        Utf8Str name,
+        delegate* unmanaged<nint, void> changed,
+        nint userData,
+        delegate* unmanaged<nint, void> dropUserData)
+        => slint_dotnet_property_tracker_new_raw(instance, global, name, (nint)changed, userData, (nint)dropUserData);
+
+    [LibraryImport(Library, EntryPoint = "slint_dotnet_property_tracker_new")]
+    private static partial PropertyTrackerHandle slint_dotnet_property_tracker_new_raw(
+        ComponentInstanceHandle instance,
+        Utf8Str global,
+        Utf8Str name,
+        nint changed,
+        nint userData,
+        nint dropUserData);
+
+    [LibraryImport(Library)]
+    public static partial void slint_dotnet_property_tracker_free(nint tracker);
+
     // value.rs
 
     [LibraryImport(Library)]
@@ -196,6 +219,15 @@ internal static unsafe partial class NativeMethods
     public static partial bool slint_dotnet_compiler_set_include_paths(
         CompilerHandle compiler,
         Utf8Str* paths,
+        nuint count);
+
+    [LibraryImport(Library)]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool slint_dotnet_compiler_set_embedded_files(
+        CompilerHandle compiler,
+        Utf8Str* paths,
+        byte** contents,
+        nuint* lengths,
         nuint count);
 
     [LibraryImport(Library)]

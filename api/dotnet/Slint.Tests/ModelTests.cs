@@ -253,4 +253,65 @@ public sealed class ModelTests
         app.Invoke("remove", 0);
         CollectionAssert.AreEqual(new[] { 10, 20, 30 }, readOnly.ToArray());
     });
+
+    private sealed class Person(string name) : System.ComponentModel.INotifyPropertyChanged
+    {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        public string Name
+        {
+            get => name;
+            set
+            {
+                name = value;
+                PropertyChanged?.Invoke(this, new(nameof(Name)));
+            }
+        }
+    }
+
+    [TestMethod]
+    public void ObservableCollectionModelFollowsTheCollection() => SlintThread.Run(() =>
+    {
+        using var app = Create("""
+            export component App {
+                in-out property <[string]> names;
+                out property <int> count: names.length;
+                out property <string> joined: names.length == 0 ? "" : names.length == 1 ? names[0]
+                    : names.length == 2 ? names[0] + "," + names[1] : names[0] + "," + names[1] + "," + names[2];
+                public function add(name: string) { names.push(name); }
+                public function rename-first(name: string) { names[0] = name; }
+            }
+            """);
+        var people = new System.Collections.ObjectModel.ObservableCollection<Person>([new("Ada"), new("Bob")]);
+        using var model = new ObservableCollectionModel<Person>(people);
+        app.SetProperty("names", model.Map(p => p.Name));
+        Assert.AreEqual("Ada,Bob", app.GetProperty("joined"));
+
+        people.Add(new("Cy"));
+        Assert.AreEqual("Ada,Bob,Cy", app.GetProperty("joined"));
+        people.Move(2, 0);
+        Assert.AreEqual("Cy,Ada,Bob", app.GetProperty("joined"));
+        people.RemoveAt(1);
+        Assert.AreEqual("Cy,Bob", app.GetProperty("joined"));
+        people[0] = new("Dee");
+        Assert.AreEqual("Dee,Bob", app.GetProperty("joined"));
+
+        // A property of an item, through Map.
+        people[1].Name = "Bo";
+        Assert.AreEqual("Dee,Bo", app.GetProperty("joined"));
+
+        people.Clear();
+        Assert.AreEqual(0, Convert.ToInt32(app.GetProperty("count")));
+
+        // Changes from .slint code reach the collection.
+        var names = new System.Collections.ObjectModel.ObservableCollection<string>(["x"]);
+        using var namesModel = new ObservableCollectionModel<string>(names);
+        app.SetProperty("names", namesModel);
+        app.Invoke("add", "y");
+        app.Invoke("rename-first", "w");
+        CollectionAssert.AreEqual(new[] { "w", "y" }, names.ToArray());
+        Assert.AreEqual("w,y", app.GetProperty("joined"));
+
+        Assert.ThrowsExactly<ArgumentException>(() => new ObservableCollectionModel<string>(new List<string>()));
+    });
 }

@@ -245,6 +245,8 @@ jobs:
                   dotnet new slint -o Desktop --no-restore
                   dotnet build Desktop
                   dotnet publish Desktop -c Release --use-current-runtime
+                  dotnet new slint -o Mvvm --mvvm --no-restore
+                  dotnet build Mvvm
                   dotnet new slint-xplat -o XPlat --platforms desktop --no-restore
                   dotnet build XPlat/XPlat.slnx
 

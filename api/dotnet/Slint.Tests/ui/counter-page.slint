@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Matches the members of CounterViewModel by name, for the generated binding of a global.
+export global CounterPage {
+    in property <int> count;
+    in-out property <string> label;
+    callback increment();
+}
+
+export component CounterView {
+    public function click-increment() { CounterPage.increment(); }
+    public function type-label(text: string) { CounterPage.label = text; }
+}

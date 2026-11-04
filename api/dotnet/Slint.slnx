@@ -3,5 +3,6 @@
 <Solution>
   <Project Path="Slint/Slint.csproj" />
   <Project Path="Slint.Compiler/Slint.Compiler.csproj" />
+  <Project Path="Slint.SourceGenerator/Slint.SourceGenerator.csproj" />
   <Project Path="Slint.Tests/Slint.Tests.csproj" />
 </Solution>

@@ -1,7 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+
+use base64::Engine as _;
+use i_slint_compiler::source_path::clean_path;
 
 use slint_interpreter::{Compiler, ComponentDefinition, Diagnostic, DiagnosticLevel};
 
@@ -94,6 +99,72 @@ pub unsafe extern "C" fn slint_dotnet_compiler_set_library_paths(
         let paths = unsafe { utf8_slice(paths, count) }?;
         compiler.set_library_paths(
             names.into_iter().map(String::from).zip(paths.into_iter().map(PathBuf::from)).collect(),
+        );
+        Ok(())
+    })
+}
+
+/// Makes the compiler read these files from memory instead of from the file system:
+/// the `.slint` files that it loads, the images that they show, as `data:` URLs, and the fonts that they import.
+/// A path that isn't among them still loads from the file system.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_dotnet_compiler_set_embedded_files(
+    compiler: &mut Compiler,
+    paths: *const Utf8Str,
+    contents: *const *const u8,
+    lengths: *const usize,
+    count: usize,
+) -> bool {
+    guard_bool(|| {
+        let paths = unsafe { utf8_slice(paths, count) }?;
+        let mut files = HashMap::new();
+        for (index, path) in paths.into_iter().enumerate() {
+            let data =
+                unsafe { std::slice::from_raw_parts(*contents.add(index), *lengths.add(index)) };
+            files.insert(clean_path(Path::new(path)), Rc::<[u8]>::from(data));
+        }
+        let files = Rc::new(files);
+        let get = {
+            let files = files.clone();
+            move |path: &Path| files.get(&clean_path(path)).cloned()
+        };
+
+        let sources = get.clone();
+        compiler.set_file_loader(move |path| {
+            let source = sources(path).map(|data| Ok(String::from_utf8_lossy(&data).into_owned()));
+            Box::pin(async move { source })
+        });
+
+        let images = get.clone();
+        compiler.compiler_configuration(i_slint_core::InternalToken).resource_url_mapper =
+            Some(Rc::new(move |url| {
+                let mapped = url.to_file_path().ok().and_then(|path| {
+                    let data = images(&path)?;
+                    let extension = path.extension()?.to_str()?.to_ascii_lowercase();
+                    let subtype = match extension.as_str() {
+                        "jpg" => "jpeg",
+                        "svg" | "svgz" => "svg+xml",
+                        other => other,
+                    };
+                    let encoded = base64::engine::general_purpose::STANDARD.encode(&data);
+                    url::Url::parse(&format!("data:image/{subtype};base64,{encoded}")).ok()
+                });
+                Box::pin(async move { mapped })
+            }));
+
+        compiler.set_resource_loader(
+            move |path| {
+                let data = match path.as_native_path() {
+                    Some(native) => get(native).map(|data| Ok(data.to_vec())),
+                    None => None,
+                };
+                let data = data.unwrap_or_else(|| match path.as_native_path() {
+                    Some(native) => std::fs::read(native),
+                    None => Err(std::io::Error::from(std::io::ErrorKind::NotFound)),
+                });
+                Box::pin(async move { data })
+            },
+            i_slint_core::InternalToken,
         );
         Ok(())
     })
