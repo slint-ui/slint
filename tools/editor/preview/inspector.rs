@@ -14,7 +14,6 @@ const CORNERS: [&str; 4] = [
 pub(super) struct Edit {
     key: String,
     properties: Vec<PropertyEdit>,
-    fills: Vec<(String, ui::FillData)>,
 }
 
 #[derive(Clone)]
@@ -246,15 +245,7 @@ pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue)
         .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
     let previous_override = property.as_ref().get();
     PREVIEW_STATE.with_borrow_mut(|state| {
-        let edit = state.inspector_edit.get_or_insert_with(|| Edit {
-            key,
-            properties: Vec::new(),
-            fills: Vec::new(),
-        });
-        edit.fills.retain(|(staged_name, _)| staged_name != name.as_str());
-        if value.kind == ui::PropertyEditKind::Fill {
-            edit.fills.push((name.to_string(), value.fill.clone()));
-        }
+        let edit = state.inspector_edit.get_or_insert_with(|| Edit { key, properties: Vec::new() });
         if let Some(property_edit) =
             edit.properties.iter_mut().find(|property_edit| property_edit.name == name.as_str())
         {
@@ -305,12 +296,9 @@ fn changed_properties(
 
 pub(super) fn commit_properties() -> bool {
     let staged = PREVIEW_STATE.with_borrow(|state| {
-        state
-            .inspector_edit
-            .as_ref()
-            .map(|edit| (edit.key.clone(), edit.properties.clone(), edit.fills.clone()))
+        state.inspector_edit.as_ref().map(|edit| (edit.key.clone(), edit.properties.clone()))
     });
-    let Some((key, changes, mut fills)) = staged else { return false };
+    let Some((key, changes)) = staged else { return false };
     let Some((node, url, version)) = target(&key) else {
         cancel();
         return false;
@@ -324,7 +312,6 @@ pub(super) fn commit_properties() -> bool {
         cancel();
         return true;
     }
-    fills.retain(|(name, _)| changes.iter().any(|change| change.name == name.as_str()));
     let accepted = property_edit(node, url, version, changes)
         .is_some_and(|edit| send_workspace_edit("Editing properties".into(), edit, true));
     if accepted && file_edit_pending() {
@@ -332,12 +319,6 @@ pub(super) fn commit_properties() -> bool {
         PREVIEW_STATE.with_borrow_mut(|state| {
             state.inspector_edit.take();
         });
-        if let Some(properties_api) = PREVIEW_STATE.with_borrow(|state| state.properties.upgrade())
-        {
-            for (_, fill) in fills {
-                properties_api.invoke_add_recent_fill(fill);
-            }
-        }
     } else {
         cancel();
     }

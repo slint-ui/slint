@@ -4724,7 +4724,7 @@ export component Main {
     }
 
     #[test]
-    fn changed_fills_become_recent_on_submission_with_only_the_latest_values() {
+    fn fill_transactions_submit_only_the_latest_values_without_updating_recents() {
         let editor = availability_test_editor();
         let source = ROTATED_SOURCE.replace(
             "height: 60px;",
@@ -4756,10 +4756,7 @@ export component Main {
         assert!(inspector::commit_properties());
         assert!(file_edit_pending());
         assert!(api.get_undo_enabled());
-        assert_eq!(
-            properties_api.get_recent_fills().iter().map(|fill| fill.color).collect::<Vec<_>>(),
-            [latest, border]
-        );
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
         let edit = inspector_test_workspace_edit(&messages.as_ref().borrow());
         let result = apply_inspector_test_edit(&edit);
         assert!(result[0].contents.contains("background: #00ff00;"));
@@ -4767,7 +4764,7 @@ export component Main {
         assert!(result[0].contents.contains("drop-shadow-color: #778899;"));
         assert!(!inspector::commit_properties());
         inspector::cancel();
-        assert_eq!(properties_api.get_recent_fills().row_count(), 2);
+        assert_eq!(properties_api.get_recent_fills().row_count(), 0);
         reset_preview_state(Default::default());
     }
 
