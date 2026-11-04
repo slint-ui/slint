@@ -147,15 +147,17 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    /// The globals for a popup: with its own window adapter when the backend creates one.
-    template<typename SharedGlobals>
-    const SharedGlobals *popup_globals(const SharedGlobals *globals,
-                                       cbindgen_private::WindowKind window_kind) const
+    /// Returns the globals for a popup, with its own window adapter if the backend creates one.
+    /// `globals` is a raw or smart pointer to the parent's globals.
+    template<typename Globals>
+    auto popup_globals(const Globals &globals, cbindgen_private::WindowKind window_kind) const
+            -> std::shared_ptr<const std::remove_cvref_t<decltype(*globals)>>
     {
         if (auto popup_adapter = create_child_window_adapter(window_kind)) {
-            return globals->clone_with_window_adapter(*popup_adapter);
+            return std::make_shared<std::remove_cvref_t<decltype(*globals)>>(*globals,
+                                                                             *popup_adapter);
         }
-        return globals;
+        return std::to_address(globals)->shared_from_this();
     }
 
     template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
@@ -229,9 +231,9 @@ public:
         return std::nullopt;
     }
 
-    template<typename Component, typename SharedGlobals, typename InitFn>
+    template<typename Component, typename Globals, typename InitFn>
     uint32_t show_popup_menu(
-            SharedGlobals *globals, LogicalPosition pos, cbindgen_private::ItemRc context_menu_rc,
+            const Globals &globals, LogicalPosition pos, cbindgen_private::ItemRc context_menu_rc,
             InitFn init,
             std::optional<vtable::VRc<cbindgen_private::MenuVTable>> menu = std::nullopt) const
     {
