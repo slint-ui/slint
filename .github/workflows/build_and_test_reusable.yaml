@@ -81,6 +81,7 @@ on:
 
 jobs:
     build_and_test:
+        if: ${{ inputs.test_workspace || inputs.test_integration || inputs.build_examples }}
         name: ${{ inputs.name }}
         timeout-minutes: ${{ inputs.timeout_minutes }}
         env:
