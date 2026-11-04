@@ -264,6 +264,7 @@ pub mod cpp_ast {
     #[derive(Default, Debug)]
     pub struct Struct {
         pub name: SmolStr,
+        pub base: Option<SmolStr>,
         pub members: Vec<(Access, Declaration)>,
         pub friends: Vec<SmolStr>,
     }
@@ -274,7 +275,10 @@ pub mod cpp_ast {
             if self.members.is_empty() && self.friends.is_empty() {
                 writeln!(f, "class {};", self.name)
             } else {
-                writeln!(f, "class {} {{", self.name)?;
+                match &self.base {
+                    Some(base) => writeln!(f, "class {} : public {base} {{", self.name)?,
+                    None => writeln!(f, "class {} {{", self.name)?,
+                }
                 INDENTATION.with(|x| x.set(x.get() + 1));
                 let mut access = Access::Private;
                 for m in &self.members {
@@ -488,6 +492,7 @@ use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 
 const SHARED_GLOBAL_CLASS: &str = "SharedGlobals";
+const SHARED_GLOBALS_OWNER: &str = "std::shared_ptr<const SharedGlobals>";
 
 #[derive(Default)]
 struct ConditionalIncludes {
@@ -865,6 +870,7 @@ pub fn generate(
             None,
             Access::Public,
             false,
+            false,
             &mut file,
             &conditional_includes,
         );
@@ -872,8 +878,11 @@ pub fn generate(
         file.declarations.push(Declaration::Struct(sub_compo_struct));
     }
 
-    let mut globals_struct =
-        Struct { name: SmolStr::new_static(SHARED_GLOBAL_CLASS), ..Default::default() };
+    let mut globals_struct = Struct {
+        name: SmolStr::new_static(SHARED_GLOBAL_CLASS),
+        base: Some(format_smolstr!("std::enable_shared_from_this<{SHARED_GLOBAL_CLASS}>")),
+        ..Default::default()
+    };
 
     // The window need to be the first member so it is destroyed last
     globals_struct.members.push((
@@ -962,9 +971,8 @@ pub fn generate(
 
     // The globals are not initialized in the constructor: a global's init may evaluate a
     // binding (e.g. `Palette.color-scheme`) that resolves the root through `root_weak` and the
-    // root component's `globals` pointer. Those are only set after the SharedGlobals member has
-    // been constructed, so the init is deferred to `init_globals()`, called from the root
-    // component's `create()` once `globals` and `root_weak` are in place.
+    // root component's `globals` pointer. The root component's `create()` only sets those after
+    // constructing the SharedGlobals, so it calls `init_globals()` once they are in place.
     globals_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
@@ -985,7 +993,7 @@ pub fn generate(
         }),
     ));
 
-    // Build initializer-list string for the clone_with_window_adapter constructor
+    // Build initializer-list string for the constructor that clones with a different window adapter
     {
         let global_inits = std::iter::once("root_weak(source.root_weak)".to_string())
             .chain(clone_constructor_global_inits)
@@ -994,9 +1002,8 @@ pub fn generate(
         let init_list =
             if global_inits.is_empty() { String::new() } else { format!(" : {global_inits}") };
 
-        // A private constructor for cloning with a different window adapter
         globals_struct.members.push((
-                Access::Private,
+                Access::Public,
                 Declaration::Function(Function {
                     name: globals_struct.name.clone(),
                     is_constructor_or_destructor: true,
@@ -1004,18 +1011,6 @@ pub fn generate(
                         "(const {SHARED_GLOBAL_CLASS}& source, const ::slint::private_api::WindowAdapterRc& adapter){init_list}"
                     ),
                     statements: Some(vec!["m_window.emplace(adapter);".into()]),
-                    ..Default::default()
-                }),
-            ));
-
-        globals_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: "clone_with_window_adapter".into(),
-                    signature: format!("(const ::slint::private_api::WindowAdapterRc& adapter) const -> {SHARED_GLOBAL_CLASS}*"),
-                    statements: Some(vec![format!(
-                        "return new {SHARED_GLOBAL_CLASS}(*this, adapter);"
-                    )]),
                     ..Default::default()
                 }),
             ));
@@ -1468,16 +1463,6 @@ fn generate_public_component(
 
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
-    // need to be the first member, because it contains the window which is to be destroyed last
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Var(Var {
-            ty: SmolStr::new_static(SHARED_GLOBAL_CLASS),
-            name: "m_globals".into(),
-            ..Default::default()
-        }),
-    ));
-
     for glob in unit.globals.iter().filter(|glob| glob.must_generate() && !glob.is_builtin) {
         component_struct.friends.push(ident(&glob.name));
     }
@@ -1488,13 +1473,13 @@ fn generate_public_component(
         let accessor_statement = if glob.is_builtin {
             builtin_globals.push(format!("std::is_same_v<T, {}>", ident(&glob.name)));
             format!(
-                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return {1}(m_globals.global_{1}); }}",
+                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return {1}(globals->global_{1}); }}",
                 if global_accessor_function_body.is_empty() { "" } else { "else " },
                 concatenate_ident(&glob.name),
             )
         } else {
             format!(
-                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *m_globals.global_{1}.get(); }}",
+                "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *globals->global_{1}.get(); }}",
                 if global_accessor_function_body.is_empty() { "" } else { "else " },
                 concatenate_ident(&glob.name),
             )
@@ -1529,7 +1514,7 @@ fn generate_public_component(
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(component.item_tree.root, None),
         generator_state: CppGeneratorContext {
-            global_access: "(&this->m_globals)".to_string(),
+            global_access: "this->globals".to_string(),
             conditional_includes,
         },
         argument_types: &[],
@@ -1571,7 +1556,7 @@ fn generate_public_component(
     // `run()` entirely (a tray icon doesn't drive the event loop).
     let (show_body, hide_body) = match component.top_level_type {
         llr::TopLevelComponentType::Window => {
-            ("m_globals.window().show();".to_string(), "m_globals.window().hide();".to_string())
+            ("globals->window().show();".to_string(), "globals->window().hide();".to_string())
         }
         llr::TopLevelComponentType::SystemTrayIcon => {
             let root_sub = &unit.sub_components[component.item_tree.root];
@@ -1616,7 +1601,7 @@ fn generate_public_component(
                 Declaration::Function(Function {
                     name: "window".into(),
                     signature: "() const -> ::slint::Window&".into(),
-                    statements: Some(vec!["return m_globals.window();".into()]),
+                    statements: Some(vec!["return globals->window();".into()]),
                     ..Default::default()
                 }),
             ));
@@ -1682,6 +1667,7 @@ fn generate_item_tree(
         item_tree_class_name
     ));
 
+    let owns_globals = is_popup || parent_ctx.is_none();
     generate_sub_component(
         target_struct,
         sub_tree.root,
@@ -1689,6 +1675,7 @@ fn generate_item_tree(
         parent_ctx,
         field_access,
         true,
+        owns_globals,
         file,
         conditional_includes,
     );
@@ -1698,6 +1685,7 @@ fn generate_item_tree(
         root,
         parent_ctx,
         is_popup,
+        owns_globals,
         item_tree_class_name,
         file,
         conditional_includes,
@@ -1710,6 +1698,7 @@ fn generate_item_tree_body(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     is_popup: bool,
+    owns_globals: bool,
     item_tree_class_name: SmolStr,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
@@ -2244,32 +2233,36 @@ fn generate_item_tree_body(
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
     ];
 
-    if is_popup {
-        create_code.push("self->globals = globals;".into());
-        create_parameters.push("const SharedGlobals *globals".into());
-    } else if parent_ctx.is_none() {
-        create_code.push("::slint::cbindgen_private::slint_ensure_backend();".into());
+    if owns_globals {
+        if is_popup {
+            create_code.push("self->globals = std::move(globals);".into());
+            create_parameters.push(format!("{SHARED_GLOBALS_OWNER} globals"));
+        } else {
+            create_code.push("::slint::cbindgen_private::slint_ensure_backend();".into());
 
-        #[cfg(feature = "bundle-translations")]
-        if let Some(translations) = &root.translations {
-            let lang_len = translations.languages.len();
-            create_code.push(format!("::slint::cbindgen_private::slint_translate_set_bundled_languages(::slint::private_api::make_slice(slint_translation_bundle_languages, {lang_len}));"));
+            #[cfg(feature = "bundle-translations")]
+            if let Some(translations) = &root.translations {
+                let lang_len = translations.languages.len();
+                create_code.push(format!("::slint::cbindgen_private::slint_translate_set_bundled_languages(::slint::private_api::make_slice(slint_translation_bundle_languages, {lang_len}));"));
+            }
+
+            create_code.push(format!("auto globals = std::make_shared<{SHARED_GLOBAL_CLASS}>();"));
+            create_code.push("self->globals = globals;".into());
+            create_code.push("globals->root_weak = self->self_weak;".into());
+            // Now that `globals` and `root_weak` are set, the globals can be initialized: their
+            // init may resolve the root window adapter through these (see `init_globals`).
+            create_code.push("globals->init_globals();".into());
         }
-
-        create_code.push("self->globals = &self->m_globals;".into());
-        create_code.push("self->m_globals.root_weak = self->self_weak;".into());
-        // Now that `globals` and `root_weak` are set, the globals can be initialized: their
-        // init may resolve the root window adapter through these (see `init_globals`).
-        create_code.push("self->m_globals.init_globals();".into());
     }
 
-    let global_access =
-        if !is_popup && parent_ctx.is_some() { "parent->globals" } else { "self->globals" };
+    let global_access = if owns_globals { "self->globals" } else { "parent->globals" };
     create_code.extend([
         format!(
             "::slint::private_api::register_item_tree(&self_rc.into_dyn(), {global_access}->m_window);",
         ),
-        format!("self->init({global_access}, self->self_weak, 0, 1 {init_parent_parameters});"),
+        format!(
+            "self->init(std::to_address({global_access}), self->self_weak, 0, 1 {init_parent_parameters});"
+        ),
     ]);
 
     // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
@@ -2280,7 +2273,7 @@ fn generate_item_tree_body(
             // Rust codegen order.
             create_code.push(format!("auto &window = {global_access}->window();"));
             create_code.push("self->user_init();".to_string());
-            create_code.push("self->m_globals.window();".to_string());
+            create_code.push(format!("{global_access}->window();"));
             create_code.push(
                 "::slint::cbindgen_private::slint_windowrc_ensure_tree_instantiated(\
                  reinterpret_cast<const ::slint::cbindgen_private::WindowAdapterRcOpaque*>\
@@ -2333,6 +2326,7 @@ fn generate_sub_component(
     parent_ctx: Option<&ParentScope>,
     field_access: Access,
     is_item_tree_root: bool,
+    owns_globals: bool,
     file: &mut File,
     conditional_includes: &ConditionalIncludes,
 ) {
@@ -2344,6 +2338,7 @@ fn generate_sub_component(
         parent_ctx,
         field_access,
         is_item_tree_root,
+        owns_globals,
         conditional_includes,
     );
 }
@@ -2420,12 +2415,13 @@ fn generate_sub_component_body(
     parent_ctx: Option<&ParentScope>,
     field_access: Access,
     is_item_tree_root: bool,
+    owns_globals: bool,
     conditional_includes: &ConditionalIncludes,
 ) {
     let globals_type_ptr = "const class SharedGlobals*";
 
     let mut init_parameters = vec![
-        format!("{} globals", globals_type_ptr),
+        format!("[[maybe_unused]] {globals_type_ptr} globals"),
         "::slint::cbindgen_private::ItemTreeWeak enclosing_component".into(),
         "uint32_t tree_index".into(),
         "uint32_t tree_index_of_first_child".into(),
@@ -2443,15 +2439,18 @@ fn generate_sub_component_body(
         }),
     ));
 
+    // Before the items, so that the window of the globals it owns outlives them
     target_struct.members.push((
         field_access,
         Declaration::Var(Var {
-            ty: globals_type_ptr.into(),
+            ty: if owns_globals { SHARED_GLOBALS_OWNER } else { globals_type_ptr }.into(),
             name: "globals".into(),
             ..Default::default()
         }),
     ));
-    init.push("self->globals = globals;".into());
+    if !owns_globals {
+        init.push("self->globals = globals;".into());
+    }
 
     target_struct.members.push((
         field_access,
