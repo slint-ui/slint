@@ -600,11 +600,11 @@ public:
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    const slint::Window &window() const
+    slint::Window &window() const
     {
         const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
-        return *reinterpret_cast<const slint::Window *>(win_ptr);
+        return *const_cast<slint::Window *>(reinterpret_cast<const slint::Window *>(win_ptr));
     }
     /// This is a convenience function that first calls show(), followed by
     /// slint::run_event_loop() and hide().
