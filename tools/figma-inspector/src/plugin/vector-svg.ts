@@ -1,6 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+/** Whether the node-level fills describe every region of a vector network. */
+export function regionsUseNodeFills(
+    network: unknown,
+    fills: unknown,
+    fillStyleId: unknown,
+): boolean {
+    if (!network || typeof network !== "object") return false;
+    const regions = (network as { regions?: unknown }).regions;
+    if (regions === undefined) return true;
+    if (!Array.isArray(regions)) return false;
+    const expected = JSON.stringify(fills);
+    return regions.every(
+        (region) =>
+            !!region &&
+            (region.fills === undefined ||
+                JSON.stringify(region.fills) === expected) &&
+            (!region.fillStyleId || region.fillStyleId === fillStyleId),
+    );
+}
+
 export function solidVectorSvg(
     properties: Record<string, unknown>,
     paths: unknown,

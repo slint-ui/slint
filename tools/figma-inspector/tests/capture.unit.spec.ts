@@ -3748,7 +3748,7 @@ test.each([false, true])(
     },
 );
 
-test("uniform SVG vectors reuse resolved paths without reading their vector network", async () => {
+test("uniform SVG vectors with equal paths and networks share one export", async () => {
     const cache = new CaptureCache();
     const children = Array.from({ length: 100 }, (_, index) => ({
         ...text,
@@ -3758,9 +3758,7 @@ test("uniform SVG vectors reuse resolved paths without reading their vector netw
         fills: [solid(1, 0, 0)],
         strokes: [],
         vectorPaths: [{ windingRule: "NONZERO", data: "M 0 0 L 24 24" }],
-        get vectorNetwork() {
-            throw Error("Network unavailable");
-        },
+        vectorNetwork: { vertices: [], segments: [], regions: [] },
     }));
     const root = {
         id: "root",
@@ -3891,6 +3889,7 @@ test("solid icon paths capture fully without any host export", async () => {
         vectorPaths: [
             { windingRule: "NONZERO", data: "M 0 0 L 24 0 L 24 24 Z" },
         ],
+        vectorNetwork: { vertices: [], segments: [], regions: [] },
         exportAsync() {
             throw Error("Solid paths must not call Figma exportAsync");
         },
@@ -4189,6 +4188,96 @@ test("empty-painted vector icons retain dimensions and skip failed SVG plus blan
             ([settings]) => settings.format === "JSON_REST_V1",
         ),
     ).toBe(true);
+});
+
+test("vectors with their own region paints retain the host SVG export", async () => {
+    const fills = [solid(1, 0, 0)];
+    const exported = vi.fn(async (settings: { format: string }) =>
+        settings.format === "SVG_STRING"
+            ? '<svg xmlns="http://www.w3.org/2000/svg"><path fill="blue"/></svg>'
+            : {},
+    );
+    const vector = (regions: unknown[], id = "painted-regions") => ({
+        ...text,
+        id,
+        type: "VECTOR",
+        fills,
+        strokes: [],
+        effects: [],
+        cornerRadius: 0,
+        fillStyleId: "",
+        width: 20,
+        height: 20,
+        vectorPaths: [{ windingRule: "NONZERO", data: "M0 0 L20 20 Z" }],
+        vectorNetwork: { vertices: [], segments: [], regions },
+        exportAsync: exported,
+    });
+    const capture = (regions: unknown[]) =>
+        captureSource(vector(regions) as unknown as SceneNode, Symbol("mixed"));
+    const inherited = await capture([{ fills, fillStyleId: "" }]);
+    expect(inherited.source.root.exports?.svg.value).toContain(
+        'fill="#ff0000"',
+    );
+    expect(inherited.work.svgExports).toBe(0);
+    const painted = await capture([
+        { fills: [solid(0, 0, 1)], fillStyleId: "" },
+    ]);
+    expect(painted.source.root.exports?.svg.value).toContain('fill="blue"');
+    expect(painted.work.svgExports).toBe(1);
+    const unfilled = await capture([{ fills: [], fillStyleId: "" }]);
+    expect(unfilled.work.svgExports).toBe(1);
+});
+
+test("cached vector SVGs distinguish vector networks with equal paths", async () => {
+    const gradient = {
+        type: "GRADIENT_LINEAR",
+        gradientStops: [],
+        gradientTransform: [
+            [1, 0, 0],
+            [0, 1, 0],
+        ],
+    };
+    const cache = new CaptureCache();
+    const vector = (id: string, color: string) => ({
+        ...text,
+        id,
+        type: "VECTOR",
+        fills: [gradient],
+        strokes: [],
+        effects: [],
+        cornerRadius: 0,
+        fillStyleId: "",
+        width: 20,
+        height: 20,
+        vectorPaths: [{ windingRule: "NONZERO", data: "M0 0 L20 20 Z" }],
+        vectorNetwork: {
+            vertices: [],
+            segments: [],
+            regions: [{ fills: [solid(0, 0, color === "blue" ? 1 : 0)] }],
+        },
+        exportAsync: async (settings: { format: string }) =>
+            settings.format === "SVG_STRING"
+                ? `<svg xmlns="http://www.w3.org/2000/svg"><path fill="${color}"/></svg>`
+                : {},
+    });
+    const capture = async (id: string, color: string) =>
+        (
+            await captureSource(
+                vector(id, color) as unknown as SceneNode,
+                Symbol("mixed"),
+                undefined,
+                undefined,
+                undefined,
+                1,
+                false,
+                undefined,
+                undefined,
+                4,
+                cache,
+            )
+        ).source.root.exports?.svg.value;
+    expect(await capture("first", "blue")).toContain('fill="blue"');
+    expect(await capture("second", "black")).toContain('fill="black"');
 });
 
 test("hidden master revisits reuse metadata and still capture visible definition assets", async () => {

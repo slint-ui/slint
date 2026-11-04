@@ -17,7 +17,11 @@ import {
     CaptureTimingCollector,
     type CaptureTimings,
 } from "../performance/capture-timing";
-import { solidVectorSvg, unpaintedVectorSvg } from "./vector-svg";
+import {
+    regionsUseNodeFills,
+    solidVectorSvg,
+    unpaintedVectorSvg,
+} from "./vector-svg";
 import { restProperty, REST_UNAVAILABLE } from "./rest-properties";
 import {
     type CaptureInstrumentation,
@@ -1242,10 +1246,16 @@ export async function captureSource(
                 ) {
                     try {
                         const inline =
-                            solidVectorSvg(
-                                contextProperties,
-                                raw.vectorPaths,
-                            ) ??
+                            (regionsUseNodeFills(
+                                raw.vectorNetwork,
+                                raw.fills,
+                                raw.fillStyleId,
+                            )
+                                ? solidVectorSvg(
+                                      contextProperties,
+                                      raw.vectorPaths,
+                                  )
+                                : undefined) ??
                             unpaintedVectorSvg(
                                 {
                                     ...contextProperties,
@@ -1309,9 +1319,7 @@ export async function captureSource(
                                           nodeType === "VECTOR"
                                               ? [
                                                     raw.vectorPaths,
-                                                    vectorSvg
-                                                        ? undefined
-                                                        : raw.vectorNetwork,
+                                                    raw.vectorNetwork,
                                                     raw.strokeCap,
                                                     raw.strokeJoin,
                                                     raw.strokeMiterLimit,
@@ -1329,8 +1337,7 @@ export async function captureSource(
                                       if (
                                           nodeType === "VECTOR" &&
                                           (geometry[0] === undefined ||
-                                              (!vectorSvg &&
-                                                  geometry[1] === undefined))
+                                              geometry[1] === undefined)
                                       )
                                           return undefined;
                                       if (
