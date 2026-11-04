@@ -19,7 +19,8 @@ This works beside the planner too, where the globe waits a moment before it turn
 After a minute without input, the random flights take over again.
 
 The panels look like an airport's departures board.
-The codes, the readings, and the options show on split flaps, which flip as they change.
+The codes, the readings, and the options show on split flaps.
+Each character has a flap of its own, which flips when that character changes.
 
 ## Running the Demo
 
