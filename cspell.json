@@ -420,6 +420,10 @@
   ],
   "overrides": [
     {
+      "filename": "tools/figma-inspector/src/plugin/runtime-fonts.json",
+      "words": ["wdth"]
+    },
+    {
       "filename": "tests/manual/ios-scroll-physics-comparison/cases/**/*.csv",
       "words": ["uikit"]
     },
