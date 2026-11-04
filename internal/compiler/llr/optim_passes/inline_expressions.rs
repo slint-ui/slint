@@ -331,6 +331,25 @@ fn inline_simple_expressions_in_expression(
         }
     };
 
+    if let Expression::Condition { .. } = expr {
+        // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+        let mut links = Vec::new();
+        let mut node = std::mem::replace(expr, Expression::CodeBlock(Vec::new()));
+        while let Expression::Condition { mut condition, mut true_expr, false_expr } = node {
+            inline_simple_expressions_in_expression(&mut condition, ctx, counter);
+            inline_simple_expressions_in_expression(&mut true_expr, ctx, counter);
+            links.push((condition, true_expr));
+            node = *false_expr;
+        }
+        inline_simple_expressions_in_expression(&mut node, ctx, counter);
+        for (condition, true_expr) in links.into_iter().rev() {
+            node = Expression::Condition { condition, true_expr, false_expr: Box::new(node) };
+            fold_constant_expression(&mut node, ctx);
+        }
+        *expr = node;
+        return;
+    }
+
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx, counter));
 
     fold_constant_expression(expr, ctx);

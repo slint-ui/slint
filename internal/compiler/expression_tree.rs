@@ -551,18 +551,25 @@ impl Expression {
             },
             Expression::SelfAssignment { .. } => Type::Void,
             Expression::ImageReference { .. } => Type::Image,
-            Expression::Condition { condition: _, true_expr, false_expr, .. } => {
-                let true_type = true_expr.ty();
-                let false_type = false_expr.ty();
-                if true_type == false_type {
-                    true_type
-                } else if true_type == Type::Invalid {
-                    false_type
-                } else if false_type == Type::Invalid {
-                    true_type
-                } else {
-                    Type::Void
+            Expression::Condition { .. } => {
+                // Merging the types is associative, so an `else if` chain merges from
+                // the top instead of recursing into its false branches.
+                let merge = |a: Type, b: Type| {
+                    if a == b || b == Type::Invalid {
+                        a
+                    } else if a == Type::Invalid {
+                        b
+                    } else {
+                        Type::Void
+                    }
+                };
+                let mut ty = Type::Invalid;
+                let mut expr = self;
+                while let Expression::Condition { true_expr, false_expr, .. } = expr {
+                    ty = merge(ty, true_expr.ty());
+                    expr = false_expr;
                 }
+                merge(ty, expr.ty())
             }
             Expression::BinaryExpression { op, lhs, rhs, .. } => {
                 if operator_class(*op) != OperatorClass::ArithmeticOp {

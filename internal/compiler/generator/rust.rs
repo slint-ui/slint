@@ -4426,23 +4426,30 @@ fn compile_image_reference(expr: &Expression) -> TokenStream {
 }
 
 fn compile_condition(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
-    let Expression::Condition { condition, true_expr, false_expr } = expr else { unreachable!() };
-    let condition_code = compile_expression_no_parenthesis(condition, ctx);
+    // Every link of an `else if` chain has the type of the chain's last false branch
     let (compile, semi): (fn(&Expression, &EvaluationContext) -> TokenStream, _) =
-        if false_expr.ty(ctx) == Type::Void {
+        if expr.ty(ctx) == Type::Void {
             (compile_expression, quote!(;))
         } else {
             (compile_expression_to_value, quote!(as _))
         };
-    let true_code = compile(true_expr, ctx);
-    let false_code = remove_parenthesis(false_expr, ctx, compile);
-    quote!(
-        if #condition_code {
-            (#true_code) #semi
-        } else {
-            #false_code
-        }
-    )
+    // An `else if` chain nests in the false branch: iterate it, so the stack depth stays bounded.
+    let mut links = Vec::new();
+    let mut expr = expr;
+    while let Expression::Condition { condition, true_expr, false_expr } = expr {
+        links.push((compile_expression_no_parenthesis(condition, ctx), compile(true_expr, ctx)));
+        expr = false_expr;
+    }
+    let false_code = remove_parenthesis(expr, ctx, compile);
+    links.into_iter().rev().fold(false_code, |false_code, (condition_code, true_code)| {
+        quote!(
+            if #condition_code {
+                (#true_code) #semi
+            } else {
+                #false_code
+            }
+        )
+    })
 }
 
 /// Maximum number of elements an array literal constructs in one function.
