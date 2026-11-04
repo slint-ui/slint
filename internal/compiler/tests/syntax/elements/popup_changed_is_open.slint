@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component MyPopup inherits PopupWindow {
+    out property <bool> open: self.is-open;
+    changed is-open => { debug(self.is-open); }
+//          >     <warning{'is-open' is always true from within the PopupWindow. Bind 'is-open' to a property outside the popup and use 'changed' on that property instead}
+}
+
+export component App inherits Window {
+    property <bool> popup-open: popup.is-open;
+    changed popup-open => { debug(self.popup-open); }
+    popup := PopupWindow {
+        changed is-open => { debug(self.is-open); }
+//              >     <warning{'is-open' is always true from within the PopupWindow. Bind 'is-open' to a property outside the popup and use 'changed' on that property instead}
+    }
+    my-popup := MyPopup {
+        changed is-open => { debug(self.is-open); }
+//              >     <warning{'is-open' is always true from within the PopupWindow. Bind 'is-open' to a property outside the popup and use 'changed' on that property instead}
+    }
+}
