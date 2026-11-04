@@ -1,3 +1,12 @@
+Debug(SystemTestRequest { id: 7, request: [1, 2, 3] })
+01000703010203
+
+Debug(SystemTestResponse { id: 7, response: Err("disabled") })
+010007010864697361626c6564
+
+Debug(SystemTestResponse { id: 7, response: Ok([1, 2, 3]) })
+0100070003010203
+
 DebugMessage { location: Some(("app.slint", 300, 1000)), message: "hello" }
 0801096170702e736c696e74ac02e8070568656c6c6f
 
@@ -12,6 +21,12 @@ HighlightFromEditor { url: Some(Url { scheme: "file", cannot_be_a_base: false, u
 
 InvalidateContents { url: Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/app.slint", query: None, fragment: None } }
 001966696c653a2f2f2f70726f6a6563742f6170702e736c696e74
+
+Lsp(Ping)
+0009
+
+Lsp(Pong)
+000e
 
 OpenProject { root: Some(Url { scheme: "file", cannot_be_a_base: false, username: "", password: None, host: None, port: None, path: "/project/", query: None, fragment: None }) }
 0a011066696c653a2f2f2f70726f6a6563742f

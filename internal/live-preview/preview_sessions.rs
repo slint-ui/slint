@@ -17,8 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 use crate::REBUILD_DEBOUNCE;
 use crate::debug_agent::{DebugAgent, PreviewUpdate};
 use crate::protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp, PreviewToLspMessage,
-    SourceFileVersion,
+    DebuggerToPreviewMessage, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLsp,
+    PreviewToLspMessage, SourceFileVersion, ToPreview,
 };
 
 /// Small wrapper around tokio::spawn_local to silence the clippy warning that
@@ -51,6 +51,7 @@ pub enum PreviewSessionEvent {
     ContentsChanged,
     HighlightFromEditor { url: Option<Url>, offset: u32 },
     RegisterFont { url: Url, contents: Arc<[u8]> },
+    Debug(DebuggerToPreviewMessage),
 }
 
 pub enum PreviewCompilation {
@@ -78,7 +79,7 @@ impl CompiledPreview {
 }
 
 enum PreviewSessionCommand {
-    Message(Box<LspToPreviewMessage>),
+    Message(Box<ToPreview>),
     Reset(oneshot::Sender<()>),
 }
 
@@ -173,15 +174,20 @@ impl PreviewSession {
                             debounce_deadline = None;
                             reset_complete.send(()).ok();
                         }
-                        PreviewSessionCommand::Message(message) => {
-                            if !self.process_message(
-                                *message,
-                                &event_handler,
-                                &mut debounce_deadline,
-                            ) {
-                                break;
+                        PreviewSessionCommand::Message(message) => match *message {
+                            ToPreview::Lsp(message) => {
+                                if !self.process_message(
+                                    message,
+                                    &event_handler,
+                                    &mut debounce_deadline,
+                                ) {
+                                    break;
+                                }
                             }
-                        }
+                            ToPreview::Debug(message) => {
+                                event_handler(PreviewSessionEvent::Debug(message));
+                            }
+                        },
                     }
                 }
             }
@@ -517,8 +523,8 @@ impl PreviewSessionHandle {
         (Self { command_sender }, PreviewSessionCommands(command_receiver))
     }
 
-    pub fn handle_message(&self, message: LspToPreviewMessage) -> crate::protocol::Result<()> {
-        self.command_sender.send(PreviewSessionCommand::Message(Box::new(message)))?;
+    pub fn handle_message(&self, message: impl Into<ToPreview>) -> crate::protocol::Result<()> {
+        self.command_sender.send(PreviewSessionCommand::Message(Box::new(message.into())))?;
         Ok(())
     }
 
@@ -541,7 +547,7 @@ fn is_supported(url: &Url) -> bool {
 }
 
 pub async fn run_with_channels(
-    mut from_editor: mpsc::UnboundedReceiver<LspToPreviewMessage>,
+    mut from_editor: mpsc::UnboundedReceiver<ToPreview>,
     to_editor: Rc<dyn PreviewToLsp>,
     prepare_window: impl AsyncFnOnce(&i_slint_core::api::Window),
 ) -> anyhow::Result<()> {
@@ -559,7 +565,7 @@ pub async fn run_with_channels(
 
     tokio_spawn_local(async move {
         while let Some(message) = from_editor.recv().await {
-            let should_quit = matches!(message, LspToPreviewMessage::Quit);
+            let should_quit = matches!(message, ToPreview::Lsp(LspToPreviewMessage::Quit));
             if session_handle.handle_message(message).is_err() || should_quit {
                 break;
             }

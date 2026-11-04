@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+mod debugger;
+mod envelope;
 mod lsp_to_preview;
 pub mod pairing;
 mod preview_to_lsp;
@@ -9,6 +11,8 @@ pub mod session;
 mod snapshot_tests;
 mod versioned_url;
 
+pub use debugger::{DebuggerToPreviewMessage, PreviewToDebuggerMessage};
+pub use envelope::{FromPreview, FromPreviewRef, ToPreview, ToPreviewRef};
 pub use lsp_to_preview::{
     LspToPreview, LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };
@@ -44,7 +48,7 @@ pub const PROTOCOL_SUBPROTOCOL: &str = concat!(
     env!("CARGO_PKG_VERSION_MAJOR"),
     ".",
     env!("CARGO_PKG_VERSION_MINOR"),
-    ".overrides-1",
+    ".debugger-1",
 );
 
 pub use crate::SLINT_VERSION;

@@ -16,8 +16,9 @@ use crate::protocol::pairing::{
 };
 use crate::protocol::session;
 use crate::protocol::{
-    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToLsp, PreviewToLspMessage,
-    SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
+    FromPreviewRef, LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewToDebuggerMessage,
+    PreviewToLsp, PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
+    ToPreview,
 };
 #[cfg(not(target_vendor = "apple"))]
 use crate::protocol::{TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY};
@@ -333,7 +334,12 @@ struct ConnectionPreviewToLsp(UnboundedSender<Outbound>);
 
 impl PreviewToLsp for ConnectionPreviewToLsp {
     fn send(&self, message: &PreviewToLspMessage) -> crate::protocol::Result<()> {
-        encode_and_send(&self.0, message)?;
+        encode_and_send(&self.0, FromPreviewRef::Lsp(message))?;
+        Ok(())
+    }
+
+    fn send_to_debugger(&self, message: &PreviewToDebuggerMessage) -> crate::protocol::Result<()> {
+        encode_and_send(&self.0, FromPreviewRef::Debug(message))?;
         Ok(())
     }
 }
@@ -347,12 +353,12 @@ enum Outbound {
     Control(Message),
 }
 
-/// Serialize a message into the wire format and queue it on the write half.
+/// Serialize a session message into the wire format and queue it on the write half.
 fn encode_and_send(
     sender: &UnboundedSender<Outbound>,
-    message: &impl Serialize,
+    message: FromPreviewRef,
 ) -> anyhow::Result<()> {
-    let data: Vec<u8> = postcard::to_allocvec(message)?;
+    let data: Vec<u8> = postcard::to_allocvec(&message)?;
     sender.send(Outbound::Payload(data))?;
     Ok(())
 }
@@ -517,10 +523,10 @@ impl Connection {
                                 opening,
                             ));
                             current_session = Some((sink, handle, sealing));
-                            encode_and_send(&inner_message_sender, &PreviewToLspMessage::RequestState {
+                            encode_and_send(&inner_message_sender, FromPreviewRef::Lsp(&PreviewToLspMessage::RequestState {
                                 files: Vec::new(),
                                 settings: Vec::new(),
-                            }).ok();
+                            })).ok();
                         }
                         _ = &mut quit_receiver => {
                             tracing::info!("Quit signal received, shutting down connection thread.");
@@ -861,10 +867,11 @@ impl Connection {
                         tracing::error!("Dropping a frame that failed to open");
                         break;
                     };
-                    match postcard::from_bytes::<LspToPreviewMessage>(&plain) {
+                    match postcard::from_bytes::<ToPreview>(&plain) {
                         Ok(message) => {
                             tracing::debug!("Received message {message:?}");
-                            let should_quit = matches!(message, LspToPreviewMessage::Quit);
+                            let should_quit =
+                                matches!(message, ToPreview::Lsp(LspToPreviewMessage::Quit));
                             if let Err(error) = session_handle.handle_message(message) {
                                 tracing::error!(
                                     "Failed forwarding message to preview session: {error}"
@@ -902,8 +909,12 @@ impl Connection {
         message_handler(ConnectionMessage::Disconnected { remote_addr });
     }
 
+    /// Sends `data` on the current session as it is.
+    /// The peer expects a [`crate::protocol::FromPreview`].
     pub fn send(&self, data: impl Serialize) -> anyhow::Result<()> {
-        encode_and_send(&self.message_sender, &data)
+        let data: Vec<u8> = postcard::to_allocvec(&data)?;
+        self.message_sender.send(Outbound::Payload(data))?;
+        Ok(())
     }
 
     pub fn local_ips(&self) -> Vec<IpAddr> {
@@ -1215,7 +1226,8 @@ mod session_tests {
     use crate::protocol::pairing::{self, MAX_ATTEMPTS, Token, TokenId};
     use crate::protocol::session;
     use crate::protocol::{
-        LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection, PreviewToLspMessage,
+        FromPreview, LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PairingRejection,
+        PreviewToLspMessage, ToPreviewRef,
     };
     use crate::protocol::{PreviewComponent, VersionedUrl, lsp_types};
     use futures_util::{SinkExt as _, StreamExt as _};
@@ -1367,6 +1379,20 @@ mod session_tests {
         .expect("viewer sent no reply")
     }
 
+    /// Sends `message` on a session that pairing left plaintext.
+    async fn send_session(client: &mut Client, message: &LspToPreviewMessage) {
+        let bytes = postcard::to_allocvec(&ToPreviewRef::Lsp(message)).unwrap();
+        client.send(Message::Binary(bytes.into())).await.unwrap();
+    }
+
+    /// Next message on a session that pairing left plaintext, or `None` if the viewer closed the socket.
+    async fn recv_session(client: &mut Client) -> Option<PreviewToLspMessage> {
+        match postcard::from_bytes(&recv_raw(client).await?).unwrap() {
+            FromPreview::Lsp(message) => Some(message),
+            FromPreview::Debug(message) => panic!("Unexpected debugger message {message:?}"),
+        }
+    }
+
     /// Next protocol message from the viewer, or `None` if it closed the socket.
     async fn recv(client: &mut Client) -> Option<PreviewToLspMessage> {
         tokio::time::timeout(REPLY_TIMEOUT, async {
@@ -1465,7 +1491,7 @@ mod session_tests {
         }
 
         async fn send(&mut self, message: &LspToPreviewMessage) {
-            let bytes = postcard::to_allocvec(message).unwrap();
+            let bytes = postcard::to_allocvec(&ToPreviewRef::Lsp(message)).unwrap();
             let sealed = self.sealing.seal(bytes).unwrap();
             self.client.send(Message::Binary(sealed.into())).await.unwrap();
         }
@@ -1473,7 +1499,10 @@ mod session_tests {
         async fn recv(&mut self) -> Option<PreviewToLspMessage> {
             let raw = recv_raw(&mut self.client).await?;
             let plain = self.opening.open(&raw).expect("the viewer sealed with another key");
-            Some(postcard::from_bytes(&plain).unwrap())
+            match postcard::from_bytes(&plain).unwrap() {
+                FromPreview::Lsp(message) => Some(message),
+                FromPreview::Debug(message) => panic!("Unexpected debugger message {message:?}"),
+            }
         }
     }
 
@@ -1523,7 +1552,7 @@ mod session_tests {
                     Some(PreviewToLspMessage::PairingAccepted)
                 ));
                 assert!(matches!(
-                    recv(&mut client).await,
+                    recv_session(&mut client).await,
                     Some(PreviewToLspMessage::RequestState { .. })
                 ));
                 client
@@ -1571,6 +1600,7 @@ mod session_tests {
         let mut session = ThreadedPreviewSession::start(PairingPolicy::Disabled).await;
         let mut client = session.viewer.dial().await;
         hello(&mut client, None).await;
+        assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)));
 
         let dir = lsp_types::Url::parse("file:///mnt/remote%20project/ui/").unwrap();
         let url = dir.join("app.slint").unwrap();
@@ -1583,7 +1613,7 @@ mod session_tests {
                 "import { Value } from \"value.slint\"; export component App { out property <int> value: Value.value; Image { source: @image-url(\"image.png\"); } }",
             ),
         ] {
-            send(
+            send_session(
                 &mut client,
                 &LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(url.clone(), None),
@@ -1595,18 +1625,16 @@ mod session_tests {
         session.compile.send(PreviewComponent { url, component: None }).unwrap();
 
         loop {
-            match recv(&mut client).await {
+            match recv_session(&mut client).await {
                 Some(PreviewToLspMessage::RequestState { files, .. }) if files.contains(&image) => {
                     break;
                 }
                 // The worker may ask for sources before the session has taken their contents.
-                Some(
-                    PreviewToLspMessage::RequestState { .. } | PreviewToLspMessage::PairingAccepted,
-                ) => {}
+                Some(PreviewToLspMessage::RequestState { .. }) => {}
                 message => panic!("expected the viewer to ask for the image, got {message:?}"),
             }
         }
-        send(
+        send_session(
             &mut client,
             &LspToPreviewMessage::SetContents {
                 url: VersionedUrl::new(image, None),
@@ -1941,7 +1969,7 @@ mod session_tests {
 
         assert!(matches!(recv(&mut client).await, Some(PreviewToLspMessage::PairingAccepted)));
         assert!(
-            matches!(recv(&mut client).await, Some(PreviewToLspMessage::RequestState { files, settings }) if files.is_empty() && settings.is_empty())
+            matches!(recv_session(&mut client).await, Some(PreviewToLspMessage::RequestState { files, settings }) if files.is_empty() && settings.is_empty())
         );
         assert!(matches!(viewer.next_event().await, ConnectionMessage::Connected { .. }));
     });
