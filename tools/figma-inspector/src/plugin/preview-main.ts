@@ -98,6 +98,35 @@ export function startPreview(): void {
         );
     }
 
+    function reportSendFailure(
+        capture: NonNullable<typeof latestCapture>,
+        error: unknown,
+    ): void {
+        post(
+            {
+                type: "preview-diagnostics",
+                revision: capture.revision,
+                diagnostics: [
+                    {
+                        severity: "error",
+                        code: "CAPTURE_SERIALIZATION_ERROR",
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                    },
+                ],
+                selection: {
+                    nodeId: capture.result.source.root.id,
+                    nodeName: capture.result.source.root.name,
+                },
+                trigger: capture.trace.trigger,
+            },
+            capture.trace,
+            "conversion-error",
+        );
+    }
+
     function post(
         message: Extract<
             PluginToUiMessage,
@@ -376,18 +405,19 @@ export function startPreview(): void {
                 scheduleCapture("node-change");
             },
         );
+        let captureId = captureIds.get(result.source);
+        if (!captureId) {
+            captureId = String(nextCaptureId++);
+            captureIds.set(result.source, captureId);
+        }
+        const capture = {
+            revision: currentRevision,
+            captureId,
+            result,
+            trace,
+        };
+        latestCapture = capture;
         try {
-            let captureId = captureIds.get(result.source);
-            if (!captureId) {
-                captureId = String(nextCaptureId++);
-                captureIds.set(result.source, captureId);
-            }
-            latestCapture = {
-                revision: currentRevision,
-                captureId,
-                result,
-                trace,
-            };
             if (reused) {
                 trace.set("captureSerialization", 0);
                 post(
@@ -403,31 +433,9 @@ export function startPreview(): void {
                     },
                     trace,
                 );
-            } else sendFullCapture(latestCapture);
+            } else sendFullCapture(capture);
         } catch (error) {
-            post(
-                {
-                    type: "preview-diagnostics",
-                    revision: currentRevision,
-                    diagnostics: [
-                        {
-                            severity: "error",
-                            code: "CAPTURE_SERIALIZATION_ERROR",
-                            message:
-                                error instanceof Error
-                                    ? error.message
-                                    : String(error),
-                        },
-                    ],
-                    selection: {
-                        nodeId: result.source.root.id,
-                        nodeName: result.source.root.name,
-                    },
-                    trigger: trace.trigger,
-                },
-                trace,
-                "conversion-error",
-            );
+            reportSendFailure(capture, error);
         }
     }
 
@@ -520,8 +528,13 @@ export function startPreview(): void {
                 latestCapture?.revision === revision &&
                 message.revision === revision &&
                 latestCapture.captureId === message.captureId
-            )
-                sendFullCapture(latestCapture);
+            ) {
+                try {
+                    sendFullCapture(latestCapture);
+                } catch (error) {
+                    reportSendFailure(latestCapture, error);
+                }
+            }
         } else if (message.type === "reset-capture-assets") {
             captureAssetSender.reset();
         } else if (message.type === "ui-ready") {

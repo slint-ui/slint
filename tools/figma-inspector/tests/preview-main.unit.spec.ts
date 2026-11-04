@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { CaptureAssetSender } from "../src/asset-transport";
 import { startPreview } from "../src/plugin/preview-main";
 
 const capture = vi.hoisted(() => ({
@@ -259,4 +260,34 @@ test("an evicted UI result requests the full current capture without reading Fig
         captureId: reused.captureId,
     });
     expect(capture.read).toHaveBeenCalledOnce();
+});
+
+test("a failed resend after a reuse miss reports diagnostics", async () => {
+    const p = setup();
+    await vi.waitFor(() => expect(p.captures()).toHaveLength(1));
+    await p.select("Icon Button", 2);
+    const reused = p.captures()[1];
+    const pack = vi
+        .spyOn(CaptureAssetSender.prototype, "pack")
+        .mockImplementationOnce(() => {
+            throw Error("Too large");
+        });
+    p.host.ui.onmessage?.({
+        type: "capture-reuse-miss",
+        revision: reused.revision,
+        captureId: reused.captureId,
+    });
+    pack.mockRestore();
+    expect(p.host.ui.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+            type: "preview-diagnostics",
+            revision: reused.revision,
+            diagnostics: [
+                expect.objectContaining({
+                    code: "CAPTURE_SERIALIZATION_ERROR",
+                    message: "Too large",
+                }),
+            ],
+        }),
+    );
 });
