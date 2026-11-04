@@ -594,6 +594,8 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
     #[pin]
     menubar_shortcuts: Property<SharedVector<MenuEntry>>,
+    #[pin]
+    popups_generation: Property<u32>,
 }
 
 /// The outcome of dispatching a [`MouseEvent`] through [`WindowInner::process_mouse_input`].
@@ -716,7 +718,7 @@ pub struct WindowInner {
     menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
     /// Stack of currently active popups
-    pub active_popups: RefCell<Vec<PopupWindow>>,
+    active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
     overlays: RefCell<Vec<ItemTreeRc>>,
     had_popup_on_press: Cell<bool>,
@@ -782,6 +784,10 @@ impl WindowInner {
                 menubar_shortcuts: Property::new_named(
                     SharedVector::default(),
                     "i_slint_core::Window::menubar_shortcuts",
+                ),
+                popups_generation: Property::new_named(
+                    0,
+                    "i_slint_core::Window::popups_generation",
                 ),
             }),
             focus_item: Default::default(),
@@ -878,6 +884,17 @@ impl WindowInner {
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
+    }
+
+    /// Use this to make a binding re-evaluate when a popup opens or closes.
+    /// Read it before [`Self::active_popups()`]; only changes are meaningful, not the value.
+    pub fn popups_generation(&self) -> u32 {
+        self.pinned_fields.as_ref().project_ref().popups_generation.get()
+    }
+
+    fn bump_popups_generation(&self) {
+        let generation = self.pinned_fields.as_ref().project_ref().popups_generation;
+        generation.set(generation.get_untracked().wrapping_add(1));
     }
 
     /// Receive a mouse event and pass it to the items of the component to
@@ -2344,6 +2361,7 @@ impl WindowInner {
             is_open_setter,
             properties_tracker,
         });
+        self.bump_popups_generation();
 
         self.update_popup_properties(popup_id);
 
@@ -2408,6 +2426,7 @@ impl WindowInner {
         if let Some(popup_index) = maybe_index {
             let p = active_popups.remove(popup_index);
             drop(active_popups);
+            self.bump_popups_generation();
             self.close_popup_impl(&p);
             if matches!(p.window_kind, WindowKind::Menu) {
                 // close all sub-menus
@@ -2418,6 +2437,7 @@ impl WindowInner {
                     .is_some_and(|p| matches!(p.window_kind, WindowKind::Menu))
                 {
                     let p = self.active_popups.borrow_mut().remove(popup_index);
+                    self.bump_popups_generation();
                     self.close_popup_impl(&p);
                 }
             }
@@ -2447,7 +2467,11 @@ impl WindowInner {
 
     /// Close all active popups.
     pub fn close_all_popups(&self) {
-        for popup in self.active_popups.take() {
+        let popups = self.active_popups.take();
+        if !popups.is_empty() {
+            self.bump_popups_generation();
+        }
+        for popup in popups {
             self.close_popup_impl(&popup);
         }
     }
@@ -2456,6 +2480,7 @@ impl WindowInner {
     pub fn close_top_popup(&self) {
         let popup = self.active_popups.borrow_mut().pop();
         if let Some(popup) = popup {
+            self.bump_popups_generation();
             self.close_popup_impl(&popup);
         }
     }
