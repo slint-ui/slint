@@ -3,7 +3,7 @@
 
 // cSpell: ignore equirectangular multisampled
 
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use slint::wgpu_30::wgpu;
 use wgpu::util::DeviceExt;
 
@@ -18,6 +18,10 @@ pub struct Frame {
     /// 0 lights the whole globe, 1 darkens the side away from the sun.
     pub night: f32,
     pub borders: bool,
+    /// How wide the borders are in pixels.
+    pub border_width: f32,
+    /// The size of the frame in pixels.
+    pub viewport: Vec2,
     pub time: f32,
     /// 1 shows the stars and the black of space around the globe, 0 makes it transparent.
     pub space: f32,
@@ -88,9 +92,12 @@ pub struct Renderer {
     globals: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
+    border_pipeline: wgpu::RenderPipeline,
+    border_segments: wgpu::Buffer,
+    border_segment_count: u32,
 }
 
-const GLOBAL_FLOATS: usize = 32;
+const GLOBAL_FLOATS: usize = 48;
 
 impl Renderer {
     pub fn new(
@@ -113,7 +120,7 @@ impl Renderer {
                 mip_level_count: map.levels.len() as u32,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
+                format: wgpu::TextureFormat::R8Unorm,
                 usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 view_formats: &[],
             },
@@ -179,7 +186,7 @@ impl Renderer {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -282,18 +289,74 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
-        Self { device: device.clone(), queue: queue.clone(), globals, bind_group, pipeline }
+        let segments = map::border_segments();
+        let border_segments = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("globe borders"),
+            contents: bytemuck::cast_slice(&segments),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let border_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("globe borders"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &module,
+                entry_point: Some("vs_border"),
+                compilation_options: Default::default(),
+                buffers: &[Some(wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<[[f32; 3]; 2]>() as u64,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
+                })],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &module,
+                entry_point: Some("fs_border"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    // The frame has straight alpha, which the borders leave as it is.
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::Zero,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: Default::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+        Self {
+            device: device.clone(),
+            queue: queue.clone(),
+            globals,
+            bind_group,
+            pipeline,
+            border_pipeline,
+            border_segments,
+            border_segment_count: segments.len() as u32,
+        }
     }
 
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
-        let options = Vec4::new(frame.space, frame.borders as u8 as f32, frame.time, 0.0);
-        let spreads = Vec4::new(map::SPREAD, map::SIDE_SPREAD, 0.0, 0.0);
+        let options = Vec4::new(frame.space, frame.border_width, frame.time, 0.0);
         let mut globals = [0.0f32; GLOBAL_FLOATS];
-        globals[..16].copy_from_slice(&frame.view_projection.inverse().to_cols_array());
-        globals[16..20].copy_from_slice(&frame.eye.extend(1.0).to_array());
-        globals[20..24].copy_from_slice(&frame.sun.extend(frame.night).to_array());
-        globals[24..28].copy_from_slice(&options.to_array());
-        globals[28..32].copy_from_slice(&spreads.to_array());
+        globals[..16].copy_from_slice(&frame.view_projection.to_cols_array());
+        globals[16..32].copy_from_slice(&frame.view_projection.inverse().to_cols_array());
+        globals[32..36].copy_from_slice(&frame.eye.extend(1.0).to_array());
+        globals[36..40].copy_from_slice(&frame.sun.extend(frame.night).to_array());
+        globals[40..44].copy_from_slice(&options.to_array());
+        globals[44..46].copy_from_slice(&frame.viewport.to_array());
         self.queue.write_buffer(&self.globals, 0, bytemuck::cast_slice(&globals));
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
@@ -314,6 +377,11 @@ impl Renderer {
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.bind_group, &[]);
             pass.draw(0..3, 0..1);
+            if frame.borders {
+                pass.set_pipeline(&self.border_pipeline);
+                pass.set_vertex_buffer(0, self.border_segments.slice(..));
+                pass.draw(0..6, 0..self.border_segment_count);
+            }
         }
         self.queue.submit([encoder.finish()]);
     }
