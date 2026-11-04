@@ -27,6 +27,8 @@
 //!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
+//! A `//edition: 1.18` line compiles the file with that edition instead of the current one.
+//!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
 //! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not matching that pattern
 
@@ -543,7 +545,11 @@ fn process_file_source(
         compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::EmbedTextures;
     }
     compiler_config.experimental_features = i_slint_compiler::ExperimentalFeatures::all();
-    compiler_config.edition = Some(i_slint_compiler::project_file::SlintEdition::current());
+    compiler_config.edition =
+        Some(match regex::Regex::new(r"//edition:\s*(\S+)\s*\n").unwrap().captures(&source) {
+            Some(m) => m[1].parse().unwrap(),
+            None => i_slint_compiler::project_file::SlintEdition::current(),
+        });
     compiler_config.style = Some("fluent".into());
     // The interpreter inlines every component, which merges an instance into
     // its base. A diagnostic that depends on the two staying apart needs the
