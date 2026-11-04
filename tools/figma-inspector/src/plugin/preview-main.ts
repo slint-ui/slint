@@ -252,14 +252,7 @@ export function startPreview(): void {
                 nodeIds,
                 "tree",
                 undefined,
-                (document) => {
-                    if (currentRevision === revision)
-                        figma.ui.postMessage({
-                            type: "preview-bulk",
-                            revision: currentRevision,
-                            document,
-                        });
-                },
+                true,
             );
         let reused = false;
         const result = await trace.measureAsync("figmaCapture", async () => {

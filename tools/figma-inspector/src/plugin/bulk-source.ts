@@ -9,7 +9,7 @@ import {
     type SourceNode,
 } from "./source";
 
-export function indexBulkDocument(
+function indexBulkDocument(
     document: Record<string, unknown>,
     nodes: Map<string, Record<string, unknown>>,
 ): void {
@@ -32,16 +32,10 @@ export function indexBulkDocument(
 
 export function hydrateBulkSource<Bytes extends SourceBytes>(
     source: SourceCapture<Bytes>,
-    nodes = new Map<string, Record<string, unknown>>(),
-    documents = new Set<string>(),
 ): SourceCapture<Bytes> {
-    for (const document of source.bulkDocuments ?? []) {
-        const id = String(document.id);
-        if (!documents.has(id)) {
-            indexBulkDocument(document, nodes);
-            documents.add(id);
-        }
-    }
+    const nodes = new Map<string, Record<string, unknown>>();
+    for (const document of source.bulkDocuments ?? [])
+        indexBulkDocument(document, nodes);
     const hydrate = (node: SourceNode<Bytes>): SourceNode<Bytes> => {
         const properties = { ...node.properties };
         const bulk = nodes.get(node.id);

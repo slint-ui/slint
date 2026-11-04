@@ -65,6 +65,8 @@ Node-read and encoding counts measure batches, not individual getters or unique 
 
 Metadata contains reads and encoding; component assembly contains planning and reads.
 Bulk JSON includes response dispatch and indexing within its interval.
+These runs also sent each REST document to the worker, shown as bulk dispatch.
+We've since removed that step, because hydration only needs the compact document in the capture.
 Async durations include host waits, uninstrumented work, and delays before JavaScript resumes.
 They don't measure Figma's internal renderer CPU time.
 Don't add category active times to estimate total capture time.

@@ -10,7 +10,6 @@ export const CAPTURE_TIMING_CATEGORIES = [
     "componentPlanning",
     "exportQueue",
     "bulkIndex",
-    "bulkDispatch",
     "componentDiscovery",
     "bulkJson",
     "pngExports",
@@ -28,7 +27,6 @@ export type OperationTiming = {
 export type CaptureTimings = {
     readonly durationMs: number;
     readonly trackedMs: number;
-    readonly bulkWorkerIndexMs?: number;
     readonly propertyReads?: Record<string, Record<string, number>>;
     readonly operations: Record<CaptureTimingCategory, OperationTiming>;
 };
@@ -168,8 +166,6 @@ export function isCaptureTimings(value: unknown): value is CaptureTimings {
         !duration(candidate.durationMs) ||
         !duration(candidate.trackedMs) ||
         candidate.trackedMs > candidate.durationMs ||
-        (candidate.bulkWorkerIndexMs !== undefined &&
-            !duration(candidate.bulkWorkerIndexMs)) ||
         !candidate.operations
     )
         return false;

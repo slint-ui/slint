@@ -46,11 +46,6 @@ export type UiToPluginMessage =
 
 export type PluginToUiMessage =
     | {
-          readonly type: "preview-bulk";
-          readonly revision: number;
-          readonly document: Record<string, unknown>;
-      }
-    | {
           readonly type: "preview-reuse";
           readonly revision: number;
           readonly captureId: string;
@@ -205,20 +200,6 @@ export function isPluginToUiMessage(
         }
         return true;
     }
-    if (value.type === "preview-bulk")
-        return (
-            "revision" in value &&
-            Number.isSafeInteger(value.revision) &&
-            (value.revision as number) > 0 &&
-            "document" in value &&
-            !!value.document &&
-            typeof value.document === "object" &&
-            !Array.isArray(value.document) &&
-            "id" in value.document &&
-            typeof value.document.id === "string" &&
-            "type" in value.document &&
-            typeof value.document.type === "string"
-        );
     if (value.type === "preview-busy")
         return (
             "revision" in value &&

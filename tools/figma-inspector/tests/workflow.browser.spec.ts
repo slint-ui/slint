@@ -613,7 +613,6 @@ test("streamed bulk metadata and live supplements render and validate through th
     source.root.bulkPropertySet = 0;
     source.root.properties = { rotation: source.root.properties.rotation };
     p.send({ type: "preview-busy", revision: 1 });
-    p.send({ type: "preview-bulk", revision: 1, document });
     p.send({
         type: "preview-capture",
         revision: 1,

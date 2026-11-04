@@ -3,10 +3,7 @@
 
 import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
-import {
-    hydrateBulkSource,
-    indexBulkDocument,
-} from "../src/plugin/bulk-source";
+import { hydrateBulkSource } from "../src/plugin/bulk-source";
 import type { SourceCapture } from "../src/plugin/source";
 import { convertCapture } from "../src/preview/convert-capture";
 
@@ -100,15 +97,6 @@ test("owner documents are indexed even when an earlier root already contained th
         original,
     ];
     expect(hydrateBulkSource(source).root.properties.width).toBe(100);
-    const nodes = new Map<string, Record<string, unknown>>();
-    const documents = new Set<string>();
-    for (const document of source.bulkDocuments) {
-        indexBulkDocument(document, nodes);
-        documents.add(String(document.id));
-    }
-    expect(hydrateBulkSource(source, nodes, documents)).toEqual(
-        hydrateBulkSource(source),
-    );
 });
 
 test("missing or incompatible bulk metadata produces explicit conversion diagnostics", async () => {

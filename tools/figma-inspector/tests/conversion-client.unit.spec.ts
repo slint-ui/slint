@@ -313,42 +313,6 @@ test("conversion eviction and incomplete results request fresh data rather than 
     s.client.dispose();
 });
 
-test("bulk preparation overlaps capture and the same worker performs conversion", () => {
-    const s = setup();
-    s.client.prepareBulk({
-        type: "preview-bulk",
-        revision: 1,
-        document: { id: "root", type: "FRAME" },
-    });
-    expect(s.workers).toHaveLength(1);
-    s.submit(1);
-    expect(s.workers).toHaveLength(1);
-    expect(
-        s.workers[0].messages.map(
-            (message) => (message as { type: string }).type,
-        ),
-    ).toEqual(["preview-bulk", "preview-capture"]);
-    s.workers[0].ready(1);
-    expect(s.preview).toHaveBeenCalledOnce();
-});
-
-test("obsolete bulk work is terminated and worker errors still permit self-contained capture", () => {
-    const s = setup();
-    const document = { id: "root", type: "FRAME" };
-    s.client.prepareBulk({ type: "preview-bulk", revision: 1, document });
-    s.client.prepareBulk({ type: "preview-bulk", revision: 2, document });
-    expect(s.workers[0].terminated).toBe(true);
-    s.workers[1].onerror?.({} as ErrorEvent);
-    expect(s.workers[1].terminated).toBe(true);
-    s.submit(2);
-    expect(s.workers).toHaveLength(3);
-    s.workers[2].ready(2);
-    expect(s.preview).toHaveBeenCalledOnce();
-    s.client.prepareBulk({ type: "preview-bulk", revision: 3, document });
-    s.client.dispose();
-    expect(s.workers[3].terminated).toBe(true);
-});
-
 test("activate a large retained result before parking the outgoing selection", () => {
     const s = setup();
     const large = " ".repeat(18 * 1024 * 1024);

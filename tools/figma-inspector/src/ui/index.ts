@@ -448,13 +448,6 @@ function showTrace(trace: TimingTrace, acknowledge = true): void {
             value.textContent = `${operation.busyMs.toFixed(1)} ms active · ${operation.totalMs.toFixed(1)} ms summed · ${operation.count} operations · ${operation.synchronousOverlapMs.toFixed(1)} ms synchronous overlap`;
             timingRows.push(term, value);
         }
-        if (captureTimings.bulkWorkerIndexMs !== undefined) {
-            const term = document.createElement("dt");
-            term.textContent = "Capture: bulk worker indexing";
-            const value = document.createElement("dd");
-            value.textContent = `${captureTimings.bulkWorkerIndexMs.toFixed(1)} ms; overlaps capture`;
-            timingRows.push(term, value);
-        }
         const term = document.createElement("dt");
         term.textContent = "Capture: tracked time (union)";
         const value = document.createElement("dd");
@@ -889,12 +882,6 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
             ? event.data.pluginMessage
             : undefined;
     if (isPluginToUiMessage(message)) {
-        if (message.type === "preview-bulk") {
-            if (message.revision < latestInputRevision) return;
-            beginPreview(message.revision);
-            conversionClient.prepareBulk(message);
-            return;
-        }
         if (message.type === "preview-busy") {
             if (message.revision < latestInputRevision) return;
             if (message.revision > latestInputRevision)

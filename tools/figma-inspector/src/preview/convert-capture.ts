@@ -29,9 +29,6 @@ export type ConvertedMessage = Extract<
 
 export type CaptureConversionState = {
     snapshot?: FigmaSnapshot;
-    bulkNodes?: Map<string, Record<string, unknown>>;
-    bulkDocuments?: Set<string>;
-    bulkIndexMs?: number;
 };
 
 export function captureSnapshotJson(state: CaptureConversionState): string {
@@ -84,13 +81,7 @@ export async function convertCapture(
         const start = defaultClock.monotonicNow();
         const hydrationStarted = defaultClock.monotonicNow();
         const normalizer = createSourceNormalizer(
-            source.bulkDocuments
-                ? hydrateBulkSource(
-                      source,
-                      state.bulkNodes,
-                      state.bulkDocuments,
-                  )
-                : source,
+            source.bulkDocuments ? hydrateBulkSource(source) : source,
         );
         trace.phases.bulkHydration =
             defaultClock.monotonicNow() - hydrationStarted;
@@ -100,14 +91,6 @@ export async function convertCapture(
         trace.captureMetrics = {
             ...normalized.captureMetrics,
             ...original.captureMetrics,
-            ...(original.captureMetrics?.timings
-                ? {
-                      timings: {
-                          ...original.captureMetrics.timings,
-                          bulkWorkerIndexMs: state.bulkIndexMs ?? 0,
-                      },
-                  }
-                : {}),
             durationMs:
                 original.captureMetrics?.durationMs ??
                 normalized.captureMetrics.durationMs,

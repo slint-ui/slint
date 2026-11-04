@@ -376,7 +376,7 @@ export async function captureSource(
     cache?: CaptureCache,
     schedule = captureScheduler(concurrency),
     scope: CaptureScope = "tree",
-    onBulkDocument?: (document: Record<string, unknown>) => void,
+    compactBulkMetadata = false,
 ): Promise<{
     source: SourceCapture<Uint8Array>;
     durationMs: number;
@@ -440,7 +440,6 @@ export async function captureSource(
     };
     const restNodes = new Map<string, Record<string, unknown>>();
     const restLoads = new Map<string, Promise<void>>();
-    const restDocuments: Record<string, unknown>[] = [];
     const loadRest = (node: SceneNode): Promise<void> => {
         if (
             exportSvgNode !== exportSvg ||
@@ -466,12 +465,6 @@ export async function captureSource(
                 };
                 const document = data.document ?? data.nodes?.[id]?.document;
                 if (!document) return;
-                if (onBulkDocument) {
-                    restDocuments.push(document);
-                    timings.measure("bulkDispatch", () =>
-                        onBulkDocument(document),
-                    );
-                }
                 const collect = (data: Record<string, unknown>) => {
                     if (
                         typeof data.id !== "string" ||
@@ -908,7 +901,7 @@ export async function captureSource(
                             ? restProperty(rest, key)
                             : REST_UNAVAILABLE;
                     if (cached === REST_UNAVAILABLE) live.push(key);
-                    else if (onBulkDocument) {
+                    else if (compactBulkMetadata) {
                         result.properties[key] = cached as SourceValue;
                         bulkProperties.push(key);
                     } else values[key] = cached;
@@ -2082,7 +2075,7 @@ export async function captureSource(
         (count, definition) => count + definition.variants.length,
         0,
     );
-    if (restDocuments.length) {
+    if (compactBulkMetadata && restNodes.size) {
         const seen = new Set<SourceNode<Bytes>>();
         const records = new Map<string, Record<string, unknown>>();
         const sets = new Map<string, number>();
@@ -2164,7 +2157,7 @@ export async function captureSelectionSource(
     selectionNodeIds?: readonly string[],
     scope: CaptureScope = "tree",
     schedule: CaptureScheduler = selectionExportScheduler,
-    onBulkDocument?: (document: Record<string, unknown>) => void,
+    compactBulkMetadata = false,
 ): Promise<SourceCaptureResult> {
     const captureMetrics = {
         durationMs: 0,
@@ -2205,7 +2198,7 @@ export async function captureSelectionSource(
             cache,
             schedule,
             scope,
-            onBulkDocument,
+            compactBulkMetadata,
         );
         return {
             ok: true,

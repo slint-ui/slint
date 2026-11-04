@@ -42,36 +42,7 @@ export class ConversionClient {
     private current?: Slot;
     private nextRequest = 1;
     private retained = new Map<string, Slot>();
-    private preparing?: { revision: number; worker: ConversionWorker };
-    public prepareBulk(
-        request: Extract<PluginToUiMessage, { type: "preview-bulk" }>,
-    ): void {
-        try {
-            if (this.preparing?.revision !== request.revision) {
-                this.preparing?.worker.terminate();
-                this.preparing = {
-                    revision: request.revision,
-                    worker: this.createWorker(),
-                };
-                const worker = this.preparing.worker;
-                const failed = () => {
-                    if (this.preparing?.worker === worker) {
-                        worker.terminate();
-                        this.preparing = undefined;
-                    }
-                };
-                worker.onerror = failed;
-                worker.onmessageerror = failed;
-            }
-            this.preparing.worker.postMessage(request);
-        } catch {
-            this.preparing?.worker.terminate();
-            this.preparing = undefined;
-        }
-    }
     public reserve(): void {
-        this.preparing?.worker.terminate();
-        this.preparing = undefined;
         const slot = this.current;
         if (!slot?.converted || !slot.exported || !slot.worker) {
             this.clear();
@@ -108,8 +79,6 @@ export class ConversionClient {
         return true;
     }
     public dispose(): void {
-        this.preparing?.worker.terminate();
-        this.preparing = undefined;
         if (this.current) this.stop(this.current, new Error("Capture retired"));
         this.current = undefined;
         for (const slot of this.retained.values())
@@ -156,8 +125,6 @@ export class ConversionClient {
         onError: Slot["onError"],
         onExport?: Slot["onExport"],
     ): void {
-        const prepared = this.preparing;
-        this.preparing = undefined;
         this.clear();
         this.current = {
             capture,
@@ -168,14 +135,7 @@ export class ConversionClient {
             onError,
             onExport,
         };
-        if (prepared && prepared.revision !== capture.revision)
-            prepared.worker.terminate();
-        this.start(
-            this.current,
-            prepared?.revision === capture.revision
-                ? prepared.worker
-                : undefined,
-        );
+        this.start(this.current);
     }
     present(revision: number): void {
         if (this.current?.revision === revision) this.current.presented = true;
@@ -184,8 +144,6 @@ export class ConversionClient {
         if (this.current?.revision === revision) this.clear();
     }
     clear(): void {
-        this.preparing?.worker.terminate();
-        this.preparing = undefined;
         const slot = this.current;
         this.current = undefined;
         if (!slot) return;
@@ -251,7 +209,7 @@ export class ConversionClient {
         slot.pending?.reject(error);
         slot.pending = undefined;
     }
-    private start(slot: Slot, prepared?: ConversionWorker): void {
+    private start(slot: Slot): void {
         const failed = (error: Error) => {
             const previewReady = slot.ready;
             this.stop(slot, error);
@@ -271,7 +229,7 @@ export class ConversionClient {
             }
         };
         try {
-            const worker = prepared ?? this.createWorker();
+            const worker = this.createWorker();
             slot.worker = worker;
             worker.onerror = () => {
                 if (slot.worker === worker)
