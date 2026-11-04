@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+//edition: 1.18
+
+// Before edition 1.19, a conditional section measures a wrapped Text at the whole width it's given,
+// ignoring a padding in a single-cell layout and the Text's own width (#14705).
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 500px;
+
+    property <string> lorem: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.";
+    ref-200 := Text { width: 200px; wrap: word-wrap; text: lorem; visible: false; }
+    ref-150 := Text { width: 150px; wrap: word-wrap; text: lorem; visible: false; }
+
+    VerticalLayout {
+        alignment: start;
+        if true: VerticalLayout {
+            HorizontalLayout {
+                padding-left: 50px;
+                VerticalLayout {
+                    Text { wrap: word-wrap; text: lorem; }
+                }
+            }
+        }
+        after-padded := Rectangle { height: 10px; }
+        if true: VerticalLayout {
+            Text { width: 150px; wrap: word-wrap; text: lorem; }
+        }
+        after-text-width := Rectangle { height: 10px; }
+    }
+
+    out property <bool> test: ref-150.preferred-height > ref-200.preferred-height
+        && after-padded.y == ref-200.preferred-height
+        && after-text-width.y == 2 * ref-200.preferred-height + 10px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

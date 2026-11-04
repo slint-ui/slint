@@ -1284,7 +1284,16 @@ fn cell_layout_info(
     let constraint = match orientation {
         Orientation::Vertical => cross_axis_size_override
             .filter(|_| is_height_for_width_cell(elem))
-            .cloned()
+            .map(|size| {
+                match fixed_size_property(constraints, Orientation::Horizontal)
+                    .filter(|_| ctx.state.measure_fixed_width_cells_at_own_width)
+                {
+                    Some(width) => {
+                        crate::expression_tree::Expression::PropertyReference(width.clone())
+                    }
+                    None => size.clone(),
+                }
+            })
             .or_else(|| {
                 (for_measure_solve && is_height_for_width_cell(elem))
                     .then(|| default_cross_axis_constraint(elem))
