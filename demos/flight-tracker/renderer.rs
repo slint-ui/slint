@@ -348,6 +348,7 @@ impl Renderer {
         }
     }
 
+    /// Renders `frame` into the top left of `target`, as large as `frame.viewport`.
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
         let options = Vec4::new(frame.space, frame.border_width, frame.time, 0.0);
         let mut globals = [0.0f32; GLOBAL_FLOATS];
@@ -374,6 +375,7 @@ impl Renderer {
                 })],
                 ..Default::default()
             });
+            pass.set_viewport(0.0, 0.0, frame.viewport.x, frame.viewport.y, 0.0, 1.0);
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.bind_group, &[]);
             pass.draw(0..3, 0..1);

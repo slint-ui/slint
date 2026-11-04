@@ -695,6 +695,8 @@ fn marker(view_projection: Mat4, eye: Vec3, airport: &Airport, size: Vec2) -> Ma
 }
 
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
+/// They're as large as the largest frame, so that a change in the render scale or in the globe's
+/// place doesn't create new ones.
 struct Frames {
     textures: Vec<wgpu::Texture>,
     next: usize,
@@ -1097,8 +1099,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         // of a frame rendered for the whole window, at the resolution it needs.
         let progress = demo.zoom_progress();
         let shown = entry.lerp(size, progress);
-        let pixels = size * (shown / size).max_element() * density;
-        let texture = frames.texture(device, (pixels.x as u32).max(1), (pixels.y as u32).max(1));
+        let largest = (size * globe_density(window, app.get_quality())).ceil().max(Vec2::ONE);
+        let texture = frames.texture(device, largest.x as u32, largest.y as u32);
+        let pixels =
+            (size * (shown / size).max_element() * density).floor().clamp(Vec2::ONE, largest);
         let view = texture.create_view(&wgpu::TextureViewDescriptor {
             format: Some(FRAME_VIEW_FORMAT),
             ..Default::default()
@@ -1111,7 +1115,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 night: if app.get_sunlight() { 1.0 } else { 0.0 },
                 borders: app.get_borders(),
                 border_width: density,
-                viewport: pixels.floor().max(Vec2::ONE),
+                viewport: pixels,
                 time: demo.time,
                 space: progress,
             },
@@ -1119,6 +1123,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
         if let Ok(image) = texture.try_into() {
             app.set_texture(image);
+            app.set_texture_used_width(pixels.x as i32);
+            app.set_texture_used_height(pixels.y as i32);
         }
 
         request_redraw(&app, demo, scale);
