@@ -1025,6 +1025,27 @@ pub(crate) mod dispatch {
     }
 
     #[cfg(feature = "system-testing")]
+    pub(crate) fn element_inspectable_properties(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+    ) -> Result<proto::ElementInspectablePropertiesResponse, String> {
+        let element = state.element("element_inspectable_properties", element)?;
+        let properties = element.inspectable_properties();
+        Ok(proto::ElementInspectablePropertiesResponse {
+            available: properties.is_some(),
+            properties: properties
+                .unwrap_or_default()
+                .iter()
+                .map(|property| proto::TestableProperty {
+                    name: property.name.to_string(),
+                    type_name: property.ty.to_string(),
+                    value: property.value().map(|value| value.to_string()),
+                })
+                .collect(),
+        })
+    }
+
+    #[cfg(feature = "system-testing")]
     pub(crate) fn element_tree(
         state: &IntrospectionState,
         root: Option<ArenaIndex>,
@@ -1546,6 +1567,32 @@ fn test_dispatch_element_properties_stale_handle() {
     let state = IntrospectionState::new();
     let err = dispatch::element_properties(&state, ArenaIndex::default()).unwrap_err();
     assert!(err.contains("Invalid element handle"), "got: {err}");
+}
+
+#[cfg(feature = "system-testing")]
+#[test]
+fn test_dispatch_element_inspectable_properties_stale_handle() {
+    let state = IntrospectionState::new();
+    let err = dispatch::element_inspectable_properties(&state, ArenaIndex::default()).unwrap_err();
+    assert!(err.contains("Invalid element handle"), "got: {err}");
+}
+
+/// Generated Rust code doesn't support inspection.
+#[cfg(feature = "system-testing")]
+#[test]
+fn test_dispatch_element_inspectable_properties_unavailable() {
+    crate::init_no_event_loop();
+    slint::slint! {
+        #[edition = "1.19"]
+        export component App inherits Window {}
+    }
+    let app = App::new().unwrap();
+    let state = IntrospectionState::new();
+    state.add_window(&window_adapter_for_test(&app));
+    let root = state.windows.borrow().values().next().unwrap().root_element_handle;
+    let response = dispatch::element_inspectable_properties(&state, root).unwrap();
+    assert!(!response.available);
+    assert!(response.properties.is_empty());
 }
 
 #[test]
