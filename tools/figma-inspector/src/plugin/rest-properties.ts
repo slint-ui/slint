@@ -48,6 +48,8 @@ export function restProperty(
     key: string,
 ): unknown {
     if (key === "rotation" && !(key in node)) return 0;
+    // REST keeps per-character paints in styleOverrideTable, where the plugin API reports mixed.
+    if (key === "fills" && node.type === "TEXT") return REST_UNAVAILABLE;
     const corners = [
         "topLeftRadius",
         "topRightRadius",

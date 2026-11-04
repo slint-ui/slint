@@ -57,3 +57,13 @@ test("REST paint opacity defaults to one without changing the original document"
             restProperty({ strokes: [{ ...paint, opacity }] }, "strokes"),
         ).toBe(REST_UNAVAILABLE);
 });
+
+test("text fills retain API reads because runs can override them", () => {
+    const fills = [
+        { type: "SOLID", color: { r: 0, g: 0, b: 0, a: 1 }, opacity: 1 },
+    ];
+    expect(restProperty({ type: "TEXT", fills }, "fills")).toBe(
+        REST_UNAVAILABLE,
+    );
+    expect(restProperty({ type: "RECTANGLE", fills }, "fills")).toBe(fills);
+});
