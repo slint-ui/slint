@@ -14,7 +14,7 @@ struct Globals {
     sun: vec4<f32>,
     // x: how much of space shows, the stars and the black, rather than transparency,
     // y: how wide the borders are in pixels, z: the seconds since the start, for the twinkling
-    // stars.
+    // stars, w: how strongly the borders show.
     options: vec4<f32>,
     // xy: the size of the frame in pixels.
     viewport: vec4<f32>,
@@ -209,5 +209,5 @@ fn fs_border(in: BorderOutput) -> @location(0) vec4<f32> {
     let sunlight = dot(normal, globals.sun.xyz);
     let day = mix(1.0, smoothstep(-0.02, 0.05, sunlight), globals.sun.w);
     let edge = clamp(globals.options.y * 0.5 + 0.5 - abs(in.across), 0.0, 1.0);
-    return vec4<f32>(0.95, 0.95, 0.85, edge * facing * day * 0.45);
+    return vec4<f32>(0.95, 0.95, 0.85, edge * facing * day * 0.45 * globals.options.w);
 }
