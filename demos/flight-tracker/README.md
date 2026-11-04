@@ -62,6 +62,7 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
 
 The map data comes from [Natural Earth](https://www.naturalearthdata.com/), the airports from [OurAirports](https://ourairports.com/), and the imagery from [NASA's Visible Earth](https://visibleearth.nasa.gov/), all in the public domain.
 The flaps use [JetBrains Mono](https://www.jetbrains.com/lp/mono/), under the SIL Open Font License.
+`ui/fonts/subset.py` reduces it to the characters that the demo shows in it.
 `data/convert.py` converts them into the files in `data/`.
 
 Without a GPU, set `SLINT_WGPU_CPU=1` to render on the CPU, for example with Mesa's lavapipe.
