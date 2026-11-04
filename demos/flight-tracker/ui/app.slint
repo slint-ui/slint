@@ -778,6 +778,9 @@ component AirportField inherits Rectangle {
 
 export component AppWindow inherits Window {
     in property <image> texture;
+    /// The part of `texture` that the globe was rendered into, in pixels from the top left.
+    in property <int> texture-used-width;
+    in property <int> texture-used-height;
     in property <FlightInfo> flight;
     in property <Marker> origin-marker;
     in property <Marker> destination-marker;
@@ -1008,6 +1011,10 @@ export component AppWindow inherits Window {
             transform-origin: { x: 0, y: 0 };
             Image {
                 source: root.texture;
+                source-clip-x: 0;
+                source-clip-y: 0;
+                source-clip-width: root.texture-used-width;
+                source-clip-height: root.texture-used-height;
                 width: 100%;
                 height: 100%;
                 image-fit: fill;
