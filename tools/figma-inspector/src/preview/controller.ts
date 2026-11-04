@@ -724,9 +724,11 @@ export class PreviewController {
                 );
                 return;
             }
+            let cacheOwnsComponent = cached !== undefined;
             if (!cached && retainAssets && source.length <= 8 * 1024 * 1024) {
                 const releaseAssets = retainAssets();
                 this.compiledPreviews.set(source, { component, releaseAssets });
+                cacheOwnsComponent = true;
                 let bytes = [...this.compiledPreviews.keys()].reduce(
                     (sum, key) => sum + key.length * 2,
                     0,
@@ -827,8 +829,7 @@ export class PreviewController {
                 if (instance !== undefined) this.freeInstance(instance);
                 throw error;
             } finally {
-                if (this.compiledPreviews.get(source)?.component !== component)
-                    component.free();
+                if (!cacheOwnsComponent) component.free();
             }
         } finally {
             result.free();

@@ -210,6 +210,34 @@ test("releases the failed instance and compilation wrappers when show rejects", 
     expect(canvas.style.visibility).toBe("hidden");
 });
 
+test("clearing during a render frees a cached component once", async () => {
+    const { controller } = setup();
+    const preview = compiled();
+    let freed = false;
+    preview.component.free.mockImplementation(() => {
+        if (freed) throw Error("null pointer passed to rust");
+        freed = true;
+    });
+    const shown = deferred<void>();
+    preview.instance.show.mockReturnValue(shown.promise);
+    runtime.compile.mockResolvedValueOnce(preview.result);
+    const release = vi.fn();
+    const render = controller.initialize(
+        "preview",
+        1,
+        undefined,
+        [],
+        () => release,
+    );
+    await vi.waitFor(() => expect(preview.instance.show).toHaveBeenCalled());
+    controller.clearPreview(2);
+    expect(preview.component.free).toHaveBeenCalledOnce();
+    expect(release).toHaveBeenCalledOnce();
+    shown.resolve();
+    await render;
+    expect(preview.component.free).toHaveBeenCalledOnce();
+});
+
 test("export diagnostics preserve the preview, release compiler wrappers, and are cached", async () => {
     const { controller, canvas, status, diagnostics } = setup();
     vi.stubGlobal("document", {
