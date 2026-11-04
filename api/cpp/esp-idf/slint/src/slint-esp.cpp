@@ -306,11 +306,14 @@ void EspPlatform<PixelType>::run_event_loop()
                 }
             }
 
+            [[maybe_unused]] bool waited_for_refresh = false;
             if (std::exchange(m_window->needs_redraw, false)) {
                 using slint::platform::SoftwareRenderer;
                 auto rotated = rotation == SoftwareRenderer::RenderingRotation::Rotate90
                         || rotation == SoftwareRenderer::RenderingRotation::Rotate270;
-                auto stride = rotated ? size.height : size.width;
+                auto physical_width = rotated ? size.height : size.width;
+                auto physical_height = rotated ? size.width : size.height;
+                auto stride = physical_width;
                 if (buffer1) {
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                     // Only created for double buffering on an RGB panel; wait for the vsync
@@ -338,7 +341,18 @@ void EspPlatform<PixelType>::run_event_loop()
                             // Assuming that using double buffer means that the buffer comes from
                             // the driver and we need to pass the exact pointer.
                             // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
-                            draw_bitmap(0, 0, size.width, size.height, buffer1->data());
+                            draw_bitmap(0, 0, physical_width, physical_height, buffer1->data());
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+                            // The DPI driver switches scanout to buffer1 at the next refresh, so
+                            // buffer2 stays on screen until then. Wait for a refresh that starts
+                            // after the draw before rendering into it. Draining first can cost
+                            // one refresh, but never lets the wait end early.
+                            if (sem_dpi_refresh) {
+                                xSemaphoreTake(sem_dpi_refresh, 0);
+                                xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+                                waited_for_refresh = true;
+                            }
+#endif
 
                             std::swap(buffer1, buffer2);
                         }
@@ -401,7 +415,7 @@ void EspPlatform<PixelType>::run_event_loop()
                 // tripping the task watchdog. Drain a refresh that may have arrived while we were
                 // rendering, then wait for the next one. The timeout bounds the wait so a panel
                 // that stops signaling refresh degrades to a slow loop rather than hanging.
-                if (sem_dpi_refresh) {
+                if (sem_dpi_refresh && !waited_for_refresh) {
                     xSemaphoreTake(sem_dpi_refresh, 0);
                     xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
                 }
