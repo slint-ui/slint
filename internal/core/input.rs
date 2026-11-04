@@ -41,8 +41,8 @@ pub enum MouseEvent {
         click_count: u8,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
-        /// Original sample time on the animation clock, independent of event delivery.
-        event_time: Option<crate::animations::Instant>,
+        /// See [`EventTime`].
+        event_time: Option<EventTime>,
     },
     /// The mouse or finger was released
     Released {
@@ -54,8 +54,8 @@ pub enum MouseEvent {
         click_count: u8,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
-        /// Original sample time on the animation clock, independent of event delivery.
-        event_time: Option<crate::animations::Instant>,
+        /// See [`EventTime`].
+        event_time: Option<EventTime>,
     },
     /// The position of the pointer has changed
     Moved {
@@ -63,8 +63,8 @@ pub enum MouseEvent {
         position: LogicalPoint,
         /// The touch ID if the event originated from touch input.
         touch_finger_id: i32,
-        /// Original sample time on the animation clock, independent of event delivery.
-        event_time: Option<crate::animations::Instant>,
+        /// See [`EventTime`].
+        event_time: Option<EventTime>,
         /// Movement samples coalesced into this event.
         history: TouchHistory,
     },
@@ -217,6 +217,41 @@ impl MouseEvent {
     }
 }
 
+/// The time a platform sampled an input event, independent of event delivery.
+///
+/// The clock's origin is unknown and differs between platforms.
+/// Only the difference between two times of the same gesture is meaningful:
+/// subtracting them gives a [`Duration`], saturating at zero.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct EventTime(Duration);
+
+impl From<Duration> for EventTime {
+    /// Creates an event time from the platform's timestamp, measured from any fixed origin.
+    fn from(time_since_origin: Duration) -> Self {
+        Self(time_since_origin)
+    }
+}
+
+impl From<crate::animations::Instant> for EventTime {
+    fn from(instant: crate::animations::Instant) -> Self {
+        Self(instant.into())
+    }
+}
+
+impl core::ops::Sub for EventTime {
+    type Output = Duration;
+    fn sub(self, earlier: Self) -> Duration {
+        self.0.saturating_sub(earlier.0)
+    }
+}
+
+impl core::ops::Add<Duration> for EventTime {
+    type Output = Self;
+    fn add(self, duration: Duration) -> Self {
+        Self(self.0 + duration)
+    }
+}
+
 /// Historical touch events between the current event and the previous one
 /// On different platforms like on android or ios not for every touchscreen move
 /// move events are send but with a less frequency. The touch events between are
@@ -226,7 +261,7 @@ impl MouseEvent {
 pub struct TouchHistory {
     /// Chronological positions and sample times preceding the current event.
     /// Positions use the same coordinate system as the current event.
-    pub history: Vec<(LogicalPoint, crate::animations::Instant)>,
+    pub history: Vec<(LogicalPoint, EventTime)>,
 }
 
 /// The mouse events a backend can deliver to the runtime.
@@ -2447,7 +2482,7 @@ impl TouchState {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
-        event_time: Option<crate::animations::Instant>,
+        event_time: Option<EventTime>,
         history: TouchHistory,
     ) -> TouchEventBuffer {
         let mut events = TouchEventBuffer::new();
@@ -2725,8 +2760,6 @@ mod touch_tests {
 
     #[test]
     fn original_event_times_follow_touch_and_synthetic_presses() {
-        use crate::animations::Instant;
-
         let mut state = TouchState::default();
         for (id, phase, nanos, expected_time) in [
             (0, TouchPhase::Started, 0, Some(0)),
@@ -2742,7 +2775,7 @@ mod touch_tests {
                 id,
                 pt(0., 0.),
                 phase,
-                Some(Instant::from_nanos(nanos)),
+                Some(Duration::from_nanos(nanos).into()),
                 TouchHistory::default(),
             );
             let times: Vec<_> = events
@@ -2753,8 +2786,10 @@ mod touch_tests {
                     _ => None,
                 })
                 .collect();
-            let expected: Vec<_> =
-                expected_time.into_iter().map(|nanos| Some(Instant::from_nanos(nanos))).collect();
+            let expected: Vec<_> = expected_time
+                .into_iter()
+                .map(|nanos| Some(Duration::from_nanos(nanos).into()))
+                .collect();
             assert_eq!(times, expected);
         }
     }

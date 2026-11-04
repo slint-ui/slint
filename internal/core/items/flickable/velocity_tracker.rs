@@ -41,7 +41,7 @@ pub(crate) use ios::IOsVelocityTracker;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::MacOsVelocityTracker;
 
-use crate::animations::Instant;
+use crate::input::EventTime;
 use crate::lengths::{LogicalPx, LogicalVector};
 use core::time::Duration;
 
@@ -70,10 +70,10 @@ trait VelocityEstimator {
 // below remains the only entry point external callers get.
 #[allow(private_bounds)]
 pub(crate) trait VelocityTracker: VelocityEstimator {
-    fn push(&mut self, time: Instant, position_delta: LogicalVector);
-    fn last_time(&self) -> Option<Instant>;
+    fn push(&mut self, time: EventTime, position_delta: LogicalVector);
+    fn last_time(&self) -> Option<EventTime>;
     /// `release_time` must come from the same clock as the pushed sample times.
-    fn estimate_velocity(&self, release_time: Instant) -> Option<VelocityEstimate> {
+    fn estimate_velocity(&self, release_time: EventTime) -> Option<VelocityEstimate> {
         if release_time - self.last_time()? > ASSUME_POINTER_MOVE_STOPPED {
             return None;
         }

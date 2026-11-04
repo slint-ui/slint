@@ -13,7 +13,9 @@ use i_slint_core::SharedString;
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
-use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase};
+use i_slint_core::input::{
+    EventTime, InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory, TouchPhase,
+};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     InternalEvent, Key, PointerEventButton, WindowAdapter, WindowEvent, WindowEventDispatchResult,
@@ -410,9 +412,8 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
-                                        event_time: Some(self.java_helper.input_timestamp(
+                                        event_time: Some(input_timestamp(
                                             motion_event.event_time(),
-                                            &self.window,
                                         )),
                                         history: Default::default(),
                                     },
@@ -428,9 +429,8 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
-                                        event_time: Some(self.java_helper.input_timestamp(
+                                        event_time: Some(input_timestamp(
                                             motion_event.event_time(),
-                                            &self.window,
                                         )),
                                         history: Default::default(),
                                     },
@@ -462,8 +462,7 @@ impl AndroidWindowAdapter {
                             for p in motion_event.pointers() {
                                 let id = p.pointer_id();
                                 let event_pos = touch_pos_pointer(&p);
-                                let event_time =
-                                    self.java_helper.input_timestamp(now_event_time, &self.window);
+                                let event_time = input_timestamp(now_event_time);
                                 #[cfg(feature = "aa-06")]
                                 let history = TouchHistory {
                                     history: p
@@ -471,10 +470,7 @@ impl AndroidWindowAdapter {
                                         .map(|sample| {
                                             (
                                                 touch_pos_hist_pointer(&sample),
-                                                self.java_helper.input_timestamp(
-                                                    sample.event_time(),
-                                                    &self.window,
-                                                ),
+                                                input_timestamp(sample.event_time()),
                                             )
                                         })
                                         .collect(),
@@ -504,9 +500,8 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Started,
-                                        event_time: Some(self.java_helper.input_timestamp(
+                                        event_time: Some(input_timestamp(
                                             motion_event.event_time(),
-                                            &self.window,
                                         )),
                                         history: Default::default(),
                                     },
@@ -522,9 +517,8 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Ended,
-                                        event_time: Some(self.java_helper.input_timestamp(
+                                        event_time: Some(input_timestamp(
                                             motion_event.event_time(),
-                                            &self.window,
                                         )),
                                         history: Default::default(),
                                     },
@@ -548,9 +542,8 @@ impl AndroidWindowAdapter {
                                         id: p.pointer_id(),
                                         position: touch_pos_pointer(&p),
                                         phase: TouchPhase::Cancelled,
-                                        event_time: Some(self.java_helper.input_timestamp(
+                                        event_time: Some(input_timestamp(
                                             motion_event.event_time(),
-                                            &self.window,
                                         )),
                                         history: Default::default(),
                                     },
@@ -740,6 +733,11 @@ fn pointer_logical_position(
     scale_factor: f32,
 ) -> LogicalPosition {
     PhysicalPosition::new(x as i32 - offset.x, y as i32 - offset.y).to_logical(scale_factor)
+}
+
+/// Android event times are nanoseconds on the `System.nanoTime()` clock.
+fn input_timestamp(event_nanos: i64) -> EventTime {
+    std::time::Duration::from_nanos(event_nanos.max(0) as u64).into()
 }
 
 fn position_for_event(

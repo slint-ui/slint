@@ -264,9 +264,9 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
             }
         };
         let input_timestamp = |event_micros: u64| {
-            Instant::from_nanos(
+            i_slint_core::input::EventTime::from(core::time::Duration::from_nanos(
                 event_micros.saturating_mul(1_000).saturating_add_signed(input_timestamp_offset),
-            )
+            ))
         };
 
         for event in &mut self.libinput {
