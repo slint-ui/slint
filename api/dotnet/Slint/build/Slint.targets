@@ -91,9 +91,12 @@
     <_SlintGeneratorBin Condition="'$(SlintAndroid)' == 'true'">bin/android/</_SlintGeneratorBin>
     <_SlintRepositoryGenerator>$(MSBuildThisFileDirectory)../../Slint.SourceGenerator/$(_SlintGeneratorBin)$(Configuration)/netstandard2.0/Slint.SourceGenerator.dll</_SlintRepositoryGenerator>
   </PropertyGroup>
-  <ItemGroup Condition="Exists('$(_SlintRepositoryGenerator)')">
-    <Analyzer Include="$([System.IO.Path]::GetFullPath('$(_SlintRepositoryGenerator)'))" />
-  </ItemGroup>
+  <!-- A target, since the generator exists only once the project references are built. -->
+  <Target Name="_SlintAddRepositoryGenerator" AfterTargets="ResolveProjectReferences" BeforeTargets="CoreCompile">
+    <ItemGroup Condition="Exists('$(_SlintRepositoryGenerator)')">
+      <Analyzer Include="$([System.IO.Path]::GetFullPath('$(_SlintRepositoryGenerator)'))" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup Condition="'$(_SlintPlatform)' == 'ios' and Exists('$(_SlintIOSLibrary)')">
     <NativeReference Include="$(_SlintIOSLibrary)" Kind="Framework" />
