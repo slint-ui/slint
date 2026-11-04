@@ -45,15 +45,13 @@ export component InspectorColorField inherits Rectangle {
         width: parent.width;
         commit-key: root.commit-key;
         accepted(color, expression) => {
-            if !root.preview-color(color) || !Properties.inspector-commit() { Properties.inspector-cancel(); return false; }
-            return true;
+            return root.commit-color(color);
         }
         preview(color) => {
             return root.preview-color(color);
         }
         scrub-accepted(color) => {
-            if !root.preview-color(color) || !Properties.inspector-commit() { Properties.inspector-cancel(); return false; }
-            return true;
+            return root.commit-color(color);
         }
         scrub-canceled(color) => { Properties.inspector-cancel(); }
         swatch-activated => { root.show-picker(); }
@@ -158,6 +156,13 @@ export component InspectorColorField inherits Rectangle {
                 swatch-focus.focus();
             }
         }
+    }
+
+    function commit-color(color: color) -> bool {
+        let fill = Properties.fill-with-color(root.data.fill, color);
+        if !root.preview-color(color) || !Properties.inspector-commit() { Properties.inspector-cancel(); return false; }
+        Properties.add-recent-fill(fill);
+        return true;
     }
 
     function preview-color(color: color) -> bool {

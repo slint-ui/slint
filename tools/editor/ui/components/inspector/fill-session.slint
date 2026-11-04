@@ -331,6 +331,8 @@ export global FillSession {
             }
             FillSession.working-fill = FillSession.request.fill;
             FillSession.element-rotation = FillSession.request.target.element-rotation;
+        } else if FillSession.has-preview {
+            Properties.add-recent-fill(FillSession.working-fill);
         }
         FillSession.has-preview = false;
         FillSession.open = false;

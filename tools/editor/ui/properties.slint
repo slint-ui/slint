@@ -278,13 +278,16 @@ export global Properties {
         let prefix = Properties.shadow-prefix(inner);
         let enabled = !Properties.has-shadow(prefix);
         if enabled {
-            if !Properties.inspector-preview(prefix + "color", { kind: PropertyEditKind.fill, fill: { kind: BrushKind.solid, color: inner ? #00000030 : #00000040 } })
+            let fill = { kind: BrushKind.solid, color: inner ? #00000030 : #00000040 };
+            if !Properties.inspector-preview(prefix + "color", { kind: PropertyEditKind.fill, fill: fill })
                 || !Properties.inspector-preview(prefix + "blur", { kind: PropertyEditKind.number, number: 16, unit: "px" })
                 || !Properties.inspector-preview(prefix + "spread", { kind: PropertyEditKind.number, number: 0, unit: "px" })
                 || !Properties.inspector-preview(prefix + "offset-x", { kind: PropertyEditKind.number, number: 0, unit: "px" })
                 || !Properties.inspector-preview(prefix + "offset-y", { kind: PropertyEditKind.number, number: 8, unit: "px" })
                 || !Properties.inspector-commit() {
                 Properties.inspector-cancel();
+            } else {
+                Properties.add-recent-fill(fill);
             }
             return;
         }
