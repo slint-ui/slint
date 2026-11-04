@@ -33,7 +33,12 @@
             <script type="module">
                 // import the generated file.
                 import init from "./pkg/home_automation_lib.js";
-                init();
+                init().catch((error) => {
+                    // winit throws this exception from init() to hand control to the browser event loop.
+                    if (!String(error).includes("Using exceptions for control flow, don't mind me")) {
+                        alert("Error loading WASM: " + error);
+                    }
+                });
             </script>
         </div>
     </body>

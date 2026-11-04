@@ -1163,10 +1163,19 @@ impl ItemRc {
     /// Scrolls every `Flickable` ancestor up to the nearest popup by the smallest amount that brings `self` into view.
     /// Does nothing if no such ancestor is a `Flickable`.
     pub fn try_scroll_into_visible(&self, scroll_behavior: ScrollBehavior) {
+        self.try_scroll_rect_into_visible(self.geometry(), scroll_behavior);
+    }
+
+    /// Like [`Self::try_scroll_into_visible`], but brings only `geo` into view.
+    /// `geo` is relative to the parent item, like [`Self::geometry`].
+    pub(crate) fn try_scroll_rect_into_visible(
+        &self,
+        geo: LogicalRect,
+        scroll_behavior: ScrollBehavior,
+    ) {
         let supports_transformations = self
             .window_adapter()
             .is_none_or(|adapter| adapter.renderer().supports_transformations());
-        let geo = self.geometry();
         let mut points = [geo.min(), geo.max()];
         let mut current = self.clone();
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {

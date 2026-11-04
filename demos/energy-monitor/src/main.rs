@@ -8,14 +8,14 @@
 use mcu_board_support::prelude::*;
 
 #[cfg(not(feature = "mcu-board-support"))]
-pub fn main() {
-    energy_monitor::main();
+pub fn main() -> Result<(), slint::PlatformError> {
+    energy_monitor::main()
 }
 
 #[cfg(feature = "mcu-board-support")]
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();
-    energy_monitor::main();
+    energy_monitor::main().unwrap();
     panic!("The MCU demo should not quit")
 }

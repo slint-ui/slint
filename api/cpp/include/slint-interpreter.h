@@ -600,11 +600,11 @@ public:
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    const slint::Window &window() const
+    slint::Window &window() const
     {
         const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
-        return *reinterpret_cast<const slint::Window *>(win_ptr);
+        return *const_cast<slint::Window *>(reinterpret_cast<const slint::Window *>(win_ptr));
     }
     /// This is a convenience function that first calls show(), followed by
     /// slint::run_event_loop() and hide().
@@ -1105,10 +1105,10 @@ public:
     ///
     /// \a path must be UTF-8 encoded; otherwise this function fails.
     ///
-    /// If `path` is a directory, Slint loads the project file (`slint-project.json`) inside that
-    /// directory. The project file provides the settings not set on this compiler. It must contain
-    /// a `main` entry, which specifies the `.slint` file the compiler loads. A `.slint` file path
-    /// compiles without loading a project file.
+    /// If `path` is a project file (`slint-project.json`) or a directory that contains one,
+    /// Slint loads that project file. The project file provides the settings not set on this
+    /// compiler. It must contain a `main` entry, which specifies the `.slint` file the compiler
+    /// loads. A `.slint` file path compiles without loading a project file.
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///

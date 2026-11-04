@@ -258,6 +258,10 @@ pub struct Diagnostic {
 
 //NOTE! Diagnostic is re-exported in the public API of the interpreter
 impl Diagnostic {
+    pub(crate) fn error(message: String, span: SourceLocation) -> Self {
+        Self { message, span, level: DiagnosticLevel::Error }
+    }
+
     /// Return the level for this diagnostic
     pub fn level(&self) -> DiagnosticLevel {
         self.level

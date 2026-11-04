@@ -55,6 +55,11 @@ impl GlutinFemtoVGRenderer {
             }
         }
 
+        #[cfg(target_arch = "wasm32")]
+        if !opengl::webgl2_available() {
+            return Err(opengl::WEBGL2_REQUIRED.into());
+        }
+
         Ok(Box::new(Self {
             renderer: FemtoVGRenderer::new_suspended(),
             _requested_graphics_api: shared_backend_data.requested_graphics_api.clone(),

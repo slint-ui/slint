@@ -27,6 +27,10 @@ TEST_CASE("Basic Window Visibility")
     REQUIRE(instance->window().is_visible() == true);
     instance->hide();
     REQUIRE(instance->window().is_visible() == false);
+    instance->window().show();
+    REQUIRE(instance->window().is_visible() == true);
+    instance->window().hide();
+    REQUIRE(instance->window().is_visible() == false);
 }
 
 TEST_CASE("Window Scale Factory Existence")

@@ -6,11 +6,7 @@ import { InspectorPropertyRow, InspectorSection, InspectorSwitch } from "../inde
 import { InspectorContext } from "context.slint";
 
 export component InspectorPrimarySection inherits InspectorSection {
-    private property <PropertyValue> runtime-value: Api.runtime-property-value-data("primary", {});
-    private property <PropertyValue> source-value: Api.source-property-value-data("primary", {});
-    private property <bool> value: root.runtime-value.value-resolved
-        ? root.runtime-value.value-bool
-        : root.source-value.code != "" && root.source-value.value-bool;
+    private property <bool> value: Api.editor-property-value-data("primary").value-bool;
     changed value => { toggle.checked = root.value; }
 
     title: @tr("Emphasis");
