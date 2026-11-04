@@ -17,7 +17,8 @@ pub struct Frame {
     pub sun: Vec3,
     /// 0 lights the whole globe, 1 darkens the side away from the sun.
     pub night: f32,
-    pub borders: bool,
+    /// How strongly the borders show, from 0 to 1.
+    pub borders: f32,
     /// How wide the borders are in pixels.
     pub border_width: f32,
     /// The size of the frame in pixels.
@@ -350,7 +351,7 @@ impl Renderer {
 
     /// Renders `frame` into the top left of `target`, as large as `frame.viewport`.
     pub fn render(&self, frame: &Frame, target: &wgpu::TextureView) {
-        let options = Vec4::new(frame.space, frame.border_width, frame.time, 0.0);
+        let options = Vec4::new(frame.space, frame.border_width, frame.time, frame.borders);
         let mut globals = [0.0f32; GLOBAL_FLOATS];
         globals[..16].copy_from_slice(&frame.view_projection.to_cols_array());
         globals[16..32].copy_from_slice(&frame.view_projection.inverse().to_cols_array());
@@ -379,7 +380,7 @@ impl Renderer {
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.bind_group, &[]);
             pass.draw(0..3, 0..1);
-            if frame.borders {
+            if frame.borders > 0.0 {
                 pass.set_pipeline(&self.border_pipeline);
                 pass.set_vertex_buffer(0, self.border_segments.slice(..));
                 pass.draw(0..6, 0..self.border_segment_count);

@@ -694,6 +694,15 @@ fn marker(view_projection: Mat4, eye: Vec3, airport: &Airport, size: Vec2) -> Ma
     }
 }
 
+/// How strongly the borders show on a globe seen from `eye` in a frame `height` logical pixels
+/// high: not at all where the globe is small, where the lines would crowd together.
+fn border_strength(eye: Vec3, height: f32) -> f32 {
+    let distance = eye.length().max(1.0 + 1e-4);
+    let radius = height / 2.0 / ((distance * distance - 1.0).sqrt() * (FOV_Y / 2.0).tan());
+    let t = ((radius - 250.0) / 200.0).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 /// Renders into one of two textures, so Slint can show the previous one meanwhile.
 /// They're as large as the largest frame, so that a change in the render scale or in the globe's
 /// place doesn't create new ones.
@@ -1113,7 +1122,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 eye,
                 sun,
                 night: if app.get_sunlight() { 1.0 } else { 0.0 },
-                borders: app.get_borders(),
+                borders: if app.get_borders() {
+                    border_strength(eye, pixels.y / density)
+                } else {
+                    0.0
+                },
                 border_width: density,
                 viewport: pixels,
                 time: demo.time,
