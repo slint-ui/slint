@@ -46,6 +46,7 @@ macro_rules! declare_ValueType {
             crate::items::StandardListViewItem,
             crate::items::TableColumn,
             crate::input::KeyEvent,
+            crate::items::CompositionEvent,
             crate::Brush,
             crate::graphics::Point,
             crate::items::PointerEvent,

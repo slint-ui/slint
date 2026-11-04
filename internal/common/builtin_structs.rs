@@ -99,6 +99,32 @@ macro_rules! for_each_builtin_structs {
                 modifiers: KeyboardModifiers,
             }
 
+            /// This structure is generated and passed to the `composition-update` and
+            /// `composition-commit` callbacks of the `FocusScope` element.
+            ///
+            /// For `composition-update`, `text` holds the current pre-edit (marked) text.
+            /// For `composition-commit`, `text` holds the text to insert.
+            #[non_exhaustive]
+            pub struct CompositionEvent {
+                /// The pre-edit text for `composition-update`, or the committed text
+                /// for `composition-commit`.
+                text: SharedString,
+                /// The start of the selection within the pre-edit text, in bytes, or -1.
+                preedit_selection_start: i32,
+                /// The end of the selection within the pre-edit text, in bytes, or -1.
+                preedit_selection_end: i32,
+                /// When set by the input method, the start of the range of the current text
+                /// the composition replaces, relative to the pre-edit offset, or -1.
+                replacement_range_start: i32,
+                /// The end of the replaced range, or -1.
+                replacement_range_end: i32,
+                /// The cursor position after a commit, in bytes, or -1 to place it after
+                /// the inserted text.
+                cursor_position: i32,
+                /// The anchor position after a commit, in bytes, or -1 to match the cursor.
+                anchor_position: i32,
+            }
+
             /// This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
             #[non_exhaustive]
             pub struct KeyEvent {
