@@ -49,7 +49,8 @@ Slint renders with wgpu, and the demo renders the globe on Slint's own device:
   The ground is NASA's Blue Marble for July, and the lights on the night side are its Black Marble, both 4096 pixels wide.
   `compress.rs` compresses it at startup to BC1 or ETC2, whichever the GPU supports, to an eighth of its size in GPU memory.
 - `map.rs` computes a map with mip levels from the outlines in `data/` at startup.
-  It holds the distances to the coasts and the borders, so that the shader draws them sharp at any zoom.
+  It holds the distances to the coasts, so that the shader draws them sharp at any zoom.
+- The land borders are lines of constant width on the screen, so that they stay sharp at any angle.
 - Beside the planner, the frame is transparent but for the globe and its atmosphere, so Slint's background shows through.
   The globe's place there shows the middle of a frame rendered for the whole window, so it grows to the window seamlessly, as space and the stars fade in.
 - `adaptive.rs`, from the racer demo, keeps the frame rate near 60 fps: it lowers the globe's render scale first, then the quality.

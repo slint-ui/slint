@@ -1105,6 +1105,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 sun,
                 night: if app.get_sunlight() { 1.0 } else { 0.0 },
                 borders: app.get_borders(),
+                border_width: density,
+                viewport: pixels.floor().max(Vec2::ONE),
                 time: demo.time,
                 space: progress,
             },

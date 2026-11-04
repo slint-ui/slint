@@ -6,17 +6,18 @@
 // The globe, its atmosphere, and the stars behind it, ray traced in one pass over the screen.
 
 struct Globals {
+    view_projection: mat4x4<f32>,
     inverse_view_projection: mat4x4<f32>,
     // xyz: the camera's position.
     eye: vec4<f32>,
     // xyz: the direction towards the sun, w: how dark the night side is.
     sun: vec4<f32>,
     // x: how much of space shows, the stars and the black, rather than transparency,
-    // y: the borders' opacity, z: the seconds since the start, for the twinkling stars.
+    // y: how wide the borders are in pixels, z: the seconds since the start, for the twinkling
+    // stars.
     options: vec4<f32>,
-    // x: how many texels the map's distances reach, y: the same for its signed distances to
-    // the borders.
-    spreads: vec4<f32>,
+    // xy: the size of the frame in pixels.
+    viewport: vec4<f32>,
 }
 
 @group(0) @binding(0) var<uniform> globals: Globals;
@@ -108,35 +109,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         vec2<f32>(du_smooth.x, dv.x),
         vec2<f32>(du_smooth.y, dv.y)
     ).r;
-    // The land and the borders, a pixel wide at their edges however far the map is magnified.
-    let size = vec2<f32>(textureDimensions(map));
-    let texels_per_pixel = max(
-        max(length(vec2<f32>(du_smooth.x, dv.x) * size), length(vec2<f32>(du_smooth.y, dv.y) * size)),
-        1e-3
-    );
-    let spread = globals.spreads.x;
+    // The land, a pixel wide at its edge however far the map is magnified.
     let coast_distance = map_texel.r - 0.5;
     let coast_change = max(fwidth(coast_distance), 1e-4);
     let land = clamp(coast_distance / coast_change + 0.5, 0.0, 1.0);
-    // Between texels, the interpolated distance to a border is up to half a texel too far, so
-    // where a texel is about a pixel, borders are at least a texel wide.
-    let border_texels = (1.0 - map_texel.g) * spread;
-    // Where a pixel covers several texels, a border covers only part of it, so it fades, and it
-    // stays within the texels that the distances reach.
-    let border_half_width = clamp(0.5 * texels_per_pixel, 0.6, 0.5 * spread);
-    let minified_border = (1.0 - smoothstep(
-        border_half_width - 0.5,
-        border_half_width + 0.5,
-        border_texels
-    )) * clamp(1.5 / texels_per_pixel, 0.0, 1.0);
-    // Where the map is magnified, the signed distance draws borders a pixel wide. It also
-    // changes sign between unrelated borders, which only counts within the half texel that
-    // the unsigned distance can be off by.
-    let side_pixels = abs(map_texel.a - 0.5) * 2.0 * globals.spreads.y / texels_per_pixel;
-    let magnified_border = (1.0 - smoothstep(0.2, 1.2, side_pixels))
-        * (1.0 - smoothstep(0.55, 0.85, border_texels));
-    let border = mix(magnified_border, minified_border, smoothstep(0.5, 1.0, texels_per_pixel))
-        * globals.options.y;
     let edge = clamp((1.0 - miss_distance) / max(fwidth(miss_distance), 1e-5) + 0.5, 0.0, 1.0);
     let coverage = select(0.0, edge, along > 0.0);
 
@@ -170,7 +146,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let half_way = normalize(sun + view);
     let glint = pow(max(dot(normal, half_way), 0.0), 500.0) * (1.0 - land) * 0.15 * day;
     lit += vec3<f32>(1.0, 0.92, 0.8) * glint;
-    lit = mix(lit, vec3<f32>(0.95, 0.95, 0.85), border * 0.45 * day);
     let night_ground = imagery * vec3<f32>(0.02, 0.025, 0.04);
     let lights = vec3<f32>(1.0, 0.72, 0.38) * city_light * 2.0;
     var ground = mix(night_ground + lights + vec3<f32>(0.05, 0.03, 0.035) * twilight, lit, day);
@@ -184,4 +159,55 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let alpha = mix(coverage + (1.0 - coverage) * glow_alpha, 1.0, space);
     // Slint shows the frame with straight alpha.
     return vec4<f32>(premultiplied / max(alpha, 1e-4), alpha);
+}
+
+struct BorderOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) ground: vec3<f32>,
+    // How many pixels from the middle of the line.
+    @location(1) across: f32,
+}
+
+// Each border segment is an instance of a quad that's a constant width on the screen.
+@vertex
+fn vs_border(
+    @builtin(vertex_index) index: u32,
+    @location(0) start: vec3<f32>,
+    @location(1) end: vec3<f32>,
+) -> BorderOutput {
+    let along = f32((0x32u >> index) & 1u);
+    let side = f32((0x2cu >> index) & 1u) * 2.0 - 1.0;
+    let eye = globals.eye.xyz;
+    let clip_start = globals.view_projection * vec4<f32>(start, 1.0);
+    let clip_end = globals.view_projection * vec4<f32>(end, 1.0);
+    var out: BorderOutput;
+    out.ground = mix(start, end, along);
+    // Behind the camera or the globe, it collapses to nothing.
+    if min(clip_start.w, clip_end.w) <= 1e-4 || max(dot(start, eye), dot(end, eye)) < 1.0 {
+        out.position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+        return out;
+    }
+    let viewport = globals.viewport.xy;
+    let on_screen = (clip_end.xy / clip_end.w - clip_start.xy / clip_start.w) * viewport;
+    let direction = on_screen / max(length(on_screen), 1e-4);
+    // A pixel more than the line, for its smooth edges, and past its ends, to close the joints.
+    let reach = globals.options.y * 0.5 + 1.0;
+    let offset = (vec2<f32>(-direction.y, direction.x) * side + direction * (along * 2.0 - 1.0))
+        * reach * 2.0 / viewport;
+    let clip = mix(clip_start, clip_end, along);
+    out.position = vec4<f32>(clip.xy + offset * clip.w, 0.0, clip.w);
+    out.across = side * reach;
+    return out;
+}
+
+@fragment
+fn fs_border(in: BorderOutput) -> @location(0) vec4<f32> {
+    let normal = normalize(in.ground);
+    let view = normalize(globals.eye.xyz - in.ground);
+    // Lines bunch up towards the horizon, so they fade before they get there.
+    let facing = smoothstep(0.0, 0.15, dot(normal, view));
+    let sunlight = dot(normal, globals.sun.xyz);
+    let day = mix(1.0, smoothstep(-0.02, 0.05, sunlight), globals.sun.w);
+    let edge = clamp(globals.options.y * 0.5 + 0.5 - abs(in.across), 0.0, 1.0);
+    return vec4<f32>(0.95, 0.95, 0.85, edge * facing * day * 0.45);
 }
