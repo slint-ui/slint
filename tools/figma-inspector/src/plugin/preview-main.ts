@@ -13,7 +13,8 @@ import {
     type CaptureInstrumentation,
     captureSelectionSource,
     captureColorProfile,
-    sourceVariablesUnchanged,
+    sourceVariableIds,
+    variableFingerprint,
     collectSelectionNodeIds,
     observeComponentDependencies,
 } from "./capture";
@@ -23,6 +24,16 @@ import {
     type UiToPluginMessage,
     isUiToPluginMessage,
 } from "../protocol";
+
+type CompletedCapture = Extract<
+    Awaited<ReturnType<typeof captureSelectionSource>>,
+    { source: unknown }
+>;
+type CachedCapture = {
+    readonly capture: CompletedCapture;
+    readonly variableIds: readonly string[];
+    readonly variables: string;
+};
 
 export function startPreview(): void {
     const windowPreferences = new WindowPreferences(figma.clientStorage);
@@ -63,10 +74,7 @@ export function startPreview(): void {
         | {
               revision: number;
               captureId: string;
-              result: Extract<
-                  Awaited<ReturnType<typeof captureSelectionSource>>,
-                  { source: unknown }
-              >;
+              result: CompletedCapture;
               trace: TimingTraceBuilder;
           }
         | undefined;
@@ -190,13 +198,12 @@ export function startPreview(): void {
                 ? `capture:${figma.currentPage.id}:${selection[0].id}:${captureScale}:${captureColorProfile()}`
                 : undefined;
         const previousCapture = key
-            ? captureCache.peek<
-                  Awaited<ReturnType<typeof captureSelectionSource>>
-              >(key)
+            ? captureCache.peek<CachedCapture>(key)
             : undefined;
-        const token = captureCache.token();
+        let token = captureCache.token();
         const nodeIds =
-            previousCapture?.nodeIds ?? collectSelectionNodeIds(selection);
+            previousCapture?.capture.nodeIds ??
+            collectSelectionNodeIds(selection);
         selectedNodeIds = new Set(nodeIds);
         const instrumentation: CaptureInstrumentation = {
             measureFontToImageConversion: (operation) =>
@@ -228,24 +235,28 @@ export function startPreview(): void {
         let reused = false;
         const result = await trace.measureAsync("figmaCapture", async () => {
             const old = previousCapture;
-            if (old?.ok && !old.empty) {
+            if (old) {
                 if (
-                    (await sourceVariablesUnchanged(old.source)) &&
+                    (await variableFingerprint(old.variableIds)) ===
+                        old.variables &&
                     captureCache.valid(token)
                 ) {
                     reused = true;
-                    return old;
+                    return old.capture;
                 }
                 invalidateCaptureCache();
+                token = captureCache.token();
             }
             if (!key) return load();
             const result = await load();
+            if (!result.ok || result.empty || !reusableCapture(result.source))
+                return result;
+            const variableIds = sourceVariableIds(result.source);
+            const variables = await variableFingerprint(variableIds);
             if (
-                result.ok &&
-                !result.empty &&
+                variables !== undefined &&
                 captureCache.valid(token) &&
-                currentRevision === revision &&
-                reusableCapture(result.source)
+                currentRevision === revision
             ) {
                 let bytes = 0;
                 const metadata = JSON.stringify(
@@ -258,9 +269,9 @@ export function startPreview(): void {
                         return value;
                     },
                 );
-                captureCache.put(
+                captureCache.put<CachedCapture>(
                     key,
-                    result,
+                    { capture: result, variableIds, variables },
                     metadata.length * 2 + bytes,
                     token,
                 );

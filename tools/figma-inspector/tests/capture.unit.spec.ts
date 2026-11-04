@@ -10,6 +10,8 @@ import { CaptureCache, captureScheduler } from "../src/plugin/capture-work";
 import {
     type CaptureInstrumentation,
     captureSelectionSource,
+    sourceVariableIds,
+    variableFingerprint,
     captureSource,
     svgExportSettings,
 } from "../src/plugin/capture";
@@ -4188,6 +4190,70 @@ test("empty-painted vector icons retain dimensions and skip failed SVG plus blan
             ([settings]) => settings.format === "JSON_REST_V1",
         ),
     ).toBe(true);
+});
+
+test("variable fingerprints cover aliases and detect definition edits", async () => {
+    const collection = {
+        id: "collection",
+        name: "Theme",
+        defaultModeId: "mode",
+        modes: [{ modeId: "mode", name: "Light" }],
+    };
+    const definitions: Record<string, unknown> = {
+        primary: {
+            id: "primary",
+            name: "Primary",
+            resolvedType: "COLOR",
+            variableCollectionId: "collection",
+            valuesByMode: { mode: { type: "VARIABLE_ALIAS", id: "base" } },
+        },
+        base: {
+            id: "base",
+            name: "Base",
+            resolvedType: "COLOR",
+            variableCollectionId: "collection",
+            valuesByMode: { mode: { r: 1, g: 0, b: 0 } },
+        },
+    };
+    vi.stubGlobal("figma", {
+        variables: {
+            getVariableByIdAsync: async (id: string) => definitions[id] ?? null,
+            getVariableCollectionByIdAsync: async () => collection,
+        },
+    });
+    try {
+        const ids = sourceVariableIds({
+            sourceVersion: 1,
+            images: {},
+            exportScale: 1,
+            pngEnabled: true,
+            root: {
+                id: "root",
+                name: "Root",
+                type: "FRAME",
+                errors: [],
+                properties: {
+                    boundVariables: {
+                        fills: [{ type: "VARIABLE_ALIAS", id: "primary" }],
+                    },
+                },
+            },
+        });
+        expect(ids).toEqual(["primary"]);
+        const original = await variableFingerprint(ids);
+        expect(original).toBeTypeOf("string");
+        expect(await variableFingerprint(ids)).toBe(original);
+        definitions.base = {
+            ...(definitions.base as object),
+            valuesByMode: { mode: { r: 0, g: 1, b: 0 } },
+        };
+        expect(await variableFingerprint(ids)).not.toBe(original);
+        delete definitions.base;
+        expect(await variableFingerprint(ids)).toBeUndefined();
+        expect(await variableFingerprint([])).toBe("");
+    } finally {
+        vi.unstubAllGlobals();
+    }
 });
 
 test("a hung host export reports a capture error and frees its scheduler slot", async () => {

@@ -15,7 +15,8 @@ const capture = vi.hoisted(() => ({
 vi.mock("../src/plugin/capture", () => ({
     captureSelectionSource: capture.read,
     captureColorProfile: () => "LEGACY",
-    sourceVariablesUnchanged: capture.variables,
+    sourceVariableIds: () => [],
+    variableFingerprint: capture.variables,
     collectSelectionNodeIds: (nodes: { id: string }[]) =>
         nodes.map((node) => node.id),
     observeComponentDependencies: (
@@ -32,7 +33,7 @@ vi.mock("../src/plugin/capture", () => ({
 beforeEach(() => {
     vi.resetAllMocks();
     capture.dependencies.length = 0;
-    capture.variables.mockResolvedValue(true);
+    capture.variables.mockResolvedValue("variables");
     capture.read.mockImplementation(async (selection: { id: string }[]) => ({
         ok: true,
         source: {
@@ -158,10 +159,22 @@ test("page, style, and cached off-page component changes invalidate full capture
 test("changed variable values force a fresh capture on repeat selection", async () => {
     const p = setup();
     await vi.waitFor(() => expect(p.captures()).toHaveLength(1));
-    capture.variables.mockResolvedValueOnce(false);
+    capture.variables.mockResolvedValueOnce("edited");
     await p.select("Icon Button", 2);
     expect(capture.read).toHaveBeenCalledTimes(2);
     expect(p.captures()[1].trace.captureMetrics.sourceCacheHit).toBe(false);
+    await p.select("Icon Button", 3);
+    expect(capture.read).toHaveBeenCalledTimes(2);
+    expect(p.captures()[2].type).toBe("preview-reuse");
+});
+
+test("captures with unavailable variable definitions aren't reused", async () => {
+    capture.variables.mockResolvedValueOnce(undefined);
+    const p = setup();
+    await vi.waitFor(() => expect(p.captures()).toHaveLength(1));
+    await p.select("Icon Button", 2);
+    expect(capture.read).toHaveBeenCalledTimes(2);
+    expect(p.captures()[1].type).toBe("preview-capture");
 });
 
 test("a capture exceeding the former deadline finishes once without restarting or rasterizing", async () => {

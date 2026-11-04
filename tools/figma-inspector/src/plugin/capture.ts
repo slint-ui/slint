@@ -2293,56 +2293,81 @@ export async function captureCodegenVariables(
     );
 }
 
-/** Recheck variable definitions because variable edits need not change node bindings. */
-export async function sourceVariablesUnchanged(
+/** List the variables that a capture's metadata references. */
+export function sourceVariableIds(
     source: SourceCapture<SourceBytes>,
-): Promise<boolean> {
-    if (!source.variables)
-        return !JSON.stringify(source, (_key, value) =>
-            value instanceof Uint8Array ? null : value,
-        ).includes('"VARIABLE_ALIAS"');
+): readonly string[] {
+    const ids = new Set<string>();
+    const visit = (value: unknown) => {
+        if (!value || typeof value !== "object" || ArrayBuffer.isView(value))
+            return;
+        const alias = value as { type?: unknown; id?: unknown };
+        if (alias.type === "VARIABLE_ALIAS" && typeof alias.id === "string")
+            ids.add(alias.id);
+        for (const child of Object.values(value)) visit(child);
+    };
+    visit(source);
+    return [...ids];
+}
+
+/**
+ * Describe the current definitions of variables and the variables they alias.
+ * Variable edits need not change node bindings, so compare this to detect them.
+ * Returns `undefined` when a definition is unavailable.
+ */
+export async function variableFingerprint(
+    ids: readonly string[],
+): Promise<string | undefined> {
+    if (!ids.length) return "";
     try {
-        const variables = await Promise.all(
-            Object.entries(source.variables.variables).map(
-                async ([id, captured]) => {
-                    const current =
-                        await figma.variables.getVariableByIdAsync(id);
-                    return (
-                        current !== null &&
-                        current.name === captured.name &&
-                        current.resolvedType === captured.type &&
-                        current.variableCollectionId ===
-                            captured.collectionId &&
-                        JSON.stringify(current.valuesByMode) ===
-                            JSON.stringify(captured.values)
-                    );
-                },
-            ),
-        );
+        const seen = new Set(ids);
+        const variables: unknown[] = [];
+        const collectionIds = new Set<string>();
+        for (let level = [...ids]; level.length; ) {
+            const current = await Promise.all(
+                level.map((id) => figma.variables.getVariableByIdAsync(id)),
+            );
+            const next: string[] = [];
+            for (const variable of current) {
+                if (!variable) return undefined;
+                variables.push([
+                    variable.id,
+                    variable.name,
+                    variable.resolvedType,
+                    variable.variableCollectionId,
+                    variable.valuesByMode,
+                ]);
+                collectionIds.add(variable.variableCollectionId);
+                for (const value of Object.values(variable.valuesByMode))
+                    if (
+                        typeof value === "object" &&
+                        "type" in value &&
+                        value.type === "VARIABLE_ALIAS" &&
+                        !seen.has(value.id)
+                    ) {
+                        seen.add(value.id);
+                        next.push(value.id);
+                    }
+            }
+            level = next;
+        }
         const collections = await Promise.all(
-            Object.entries(source.variables.collections).map(
-                async ([id, captured]) => {
-                    const current =
-                        await figma.variables.getVariableCollectionByIdAsync(
-                            id,
-                        );
-                    return (
-                        current !== null &&
-                        current.name === captured.name &&
-                        current.defaultModeId === captured.defaultModeId &&
-                        JSON.stringify(
-                            current.modes.map((mode) => ({
-                                id: mode.modeId,
-                                name: mode.name,
-                            })),
-                        ) === JSON.stringify(captured.modes)
-                    );
-                },
+            [...collectionIds].map((id) =>
+                figma.variables.getVariableCollectionByIdAsync(id),
             ),
         );
-        return variables.every(Boolean) && collections.every(Boolean);
+        if (collections.includes(null)) return undefined;
+        return JSON.stringify([
+            variables,
+            collections.map((collection) => [
+                collection?.id,
+                collection?.name,
+                collection?.defaultModeId,
+                collection?.modes,
+            ]),
+        ]);
     } catch {
-        return false;
+        return undefined;
     }
 }
 
