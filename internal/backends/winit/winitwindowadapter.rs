@@ -36,7 +36,10 @@ use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
 
 use corelib::SharedString;
-use corelib::input::{BackendMouseEvent, InternalKeyEvent, KeyEvent, KeyEventType, TouchPhase};
+use corelib::input::{
+    BackendMouseEvent, EventTime, InternalKeyEvent, KeyEvent, KeyEventType, TouchHistory,
+    TouchPhase,
+};
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
 use corelib::item_tree::{ItemTreeRef, ItemTreeRefPin};
@@ -1668,7 +1671,15 @@ impl WinitWindowAdapter {
                 };
                 self.dispatch_internal_event(event);
             }
-            WinitWindowEvent::PointerMoved { device_id, position, source, primary, .. } => {
+            WinitWindowEvent::PointerMoved {
+                device_id,
+                position,
+                source,
+                primary,
+                event_time,
+                history,
+                ..
+            } => {
                 let logical = physical_position_to_slint(*position, runtime_window.scale_factor());
 
                 if *primary {
@@ -1684,7 +1695,23 @@ impl WinitWindowAdapter {
                 }
 
                 if let winit::event::PointerSource::Touch { finger_id, .. } = source {
-                    self.dispatch_touch_event((*device_id, *finger_id), logical, TouchPhase::Moved);
+                    let scale_factor = runtime_window.scale_factor();
+                    let history = history
+                        .iter()
+                        .map(|sample| {
+                            (
+                                physical_position_to_slint(sample.position, scale_factor),
+                                sample.event_time.into(),
+                            )
+                        })
+                        .collect();
+                    self.dispatch_touch_event(
+                        (*device_id, *finger_id),
+                        logical,
+                        TouchPhase::Moved,
+                        event_time.map(EventTime::from),
+                        TouchHistory { history },
+                    );
                 } else {
                     // winit sends this event at a very high frequency, so coalesce the moves.
                     self.shared_backend_data.buffer_mouse_move(&self.self_weak, logical);
@@ -1697,12 +1724,14 @@ impl WinitWindowAdapter {
                     }
                 }
             }
-            WinitWindowEvent::PointerLeft { device_id, kind, primary, .. } => {
+            WinitWindowEvent::PointerLeft { device_id, kind, primary, event_time, .. } => {
                 if let winit::event::PointerKind::Touch(finger_id) = kind {
                     self.dispatch_touch_event(
                         (*device_id, *finger_id),
                         self.cursor_pos.get(),
                         TouchPhase::Cancelled,
+                        event_time.map(EventTime::from),
+                        Default::default(),
                     );
                 } else if *primary && (cfg!(target_arch = "wasm32") || !self.pressed.get()) {
                     // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
@@ -1727,7 +1756,14 @@ impl WinitWindowAdapter {
                     phase,
                 });
             }
-            WinitWindowEvent::PointerButton { device_id, state, position, button, .. } => {
+            WinitWindowEvent::PointerButton {
+                device_id,
+                state,
+                position,
+                button,
+                event_time,
+                ..
+            } => {
                 use winit::event::{ButtonSource as S, MouseButton as B};
 
                 let logical = physical_position_to_slint(*position, runtime_window.scale_factor());
@@ -1744,7 +1780,13 @@ impl WinitWindowAdapter {
                             winit::event::ElementState::Pressed => TouchPhase::Started,
                             winit::event::ElementState::Released => TouchPhase::Ended,
                         };
-                        self.dispatch_touch_event((*device_id, *finger_id), logical, phase);
+                        self.dispatch_touch_event(
+                            (*device_id, *finger_id),
+                            logical,
+                            phase,
+                            event_time.map(EventTime::from),
+                            Default::default(),
+                        );
                         return Ok(());
                     }
                     S::TabletTool { .. } => PointerEventButton::Other,
@@ -1943,6 +1985,8 @@ impl WinitWindowAdapter {
         touch: crate::touch_finger_id::TouchId,
         position: LogicalPoint,
         phase: TouchPhase,
+        event_time: Option<EventTime>,
+        history: TouchHistory,
     ) {
         let id = match phase {
             TouchPhase::Started | TouchPhase::Moved => {
@@ -1957,8 +2001,8 @@ impl WinitWindowAdapter {
                 id,
                 position,
                 phase,
-                event_time: None,
-                history: Default::default(),
+                event_time,
+                history,
             });
         }
     }
