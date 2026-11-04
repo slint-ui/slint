@@ -11,6 +11,7 @@ pub enum DebuggerToPreviewMessage {
 }
 
 /// A message from a preview to the debugger.
+/// A subscription push can arrive after the debugger unsubscribed.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum PreviewToDebuggerMessage {
     /// The protobuf-encoded `AutResponse` to the
@@ -18,4 +19,14 @@ pub enum PreviewToDebuggerMessage {
     /// or an error if the preview was built without system testing,
     /// or ended before answering.
     SystemTestResponse { id: u64, response: Result<Vec<u8>, String> },
+    /// Properties of the subscribed element changed.
+    /// `changed` is a protobuf-encoded `ElementPropertiesChanged`.
+    PropertiesChanged { subscription: u64, changed: Vec<u8> },
+    /// The subscribed element tree changed.
+    /// `changed` is a protobuf-encoded `ElementTreeChanged`.
+    ElementTreeChanged { subscription: u64, changed: Vec<u8> },
+    /// These subscriptions ended by themselves,
+    /// or because the preview replaced or took down the instance they observe,
+    /// or because an editor disconnected.
+    SubscriptionsEnded { subscriptions: Vec<u64> },
 }

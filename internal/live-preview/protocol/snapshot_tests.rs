@@ -108,6 +108,17 @@ fn wire_format_matches_snapshots() {
             PreviewToDebuggerMessage::SystemTestResponse { id: 7, response },
         ));
     }
+    snapshots.assert_roundtrip(FromPreview::Debug(PreviewToDebuggerMessage::PropertiesChanged {
+        subscription: 300,
+        changed: vec![1, 2, 3],
+    }));
+    snapshots.assert_roundtrip(FromPreview::Debug(PreviewToDebuggerMessage::ElementTreeChanged {
+        subscription: 300,
+        changed: vec![1, 2, 3],
+    }));
+    snapshots.assert_roundtrip(FromPreview::Debug(PreviewToDebuggerMessage::SubscriptionsEnded {
+        subscriptions: vec![300, 7],
+    }));
 
     let mut sealer = session::Sealer::new([7; 32]);
     let frames = [sealer.seal(b"a".to_vec()).unwrap(), sealer.seal(b"b".to_vec()).unwrap()];
