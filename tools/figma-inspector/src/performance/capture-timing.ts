@@ -38,14 +38,6 @@ export class CaptureTimingCollector {
     private synchronous = 0;
     private readonly propertyReads = new Map<string, Record<string, number>>();
 
-    public recordPropertyReads(type: string, keys: readonly string[]): void {
-        let counts = this.propertyReads.get(type);
-        if (!counts) {
-            counts = Object.create(null) as Record<string, number>;
-            this.propertyReads.set(type, counts);
-        }
-        for (const key of keys) counts[key] = (counts[key] ?? 0) + 1;
-    }
     private readonly activeCategories = new Set<CaptureTimingCategory>();
     private readonly operations = Object.fromEntries(
         CAPTURE_TIMING_CATEGORIES.map((key) => [
@@ -89,6 +81,15 @@ export class CaptureTimingCollector {
         if (active) this.trackedMs += elapsed;
         this.updated = now;
         return now;
+    }
+
+    public recordPropertyReads(type: string, keys: readonly string[]): void {
+        let counts = this.propertyReads.get(type);
+        if (!counts) {
+            counts = Object.create(null) as Record<string, number>;
+            this.propertyReads.set(type, counts);
+        }
+        for (const key of keys) counts[key] = (counts[key] ?? 0) + 1;
     }
 
     public start(category: CaptureTimingCategory): () => void {

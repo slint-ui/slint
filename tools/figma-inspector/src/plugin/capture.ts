@@ -241,6 +241,90 @@ const styledTextSegmentFields = [
     "openTypeFeatures",
 ] as const;
 
+// Only these shapes have local dimensions equal to their untransformed bounds.
+const rectangularBoundTypes = [
+    "FRAME",
+    "INSTANCE",
+    "COMPONENT",
+    "COMPONENT_SET",
+    "RECTANGLE",
+    "SECTION",
+];
+function transformPosition(transform: number[][] | undefined) {
+    return Array.isArray(transform) &&
+        transform.length === 2 &&
+        Array.isArray(transform[0]) &&
+        transform[0].length === 3 &&
+        Array.isArray(transform[1]) &&
+        transform[1].length === 3 &&
+        Number.isFinite(transform[0][2]) &&
+        Number.isFinite(transform[1][2])
+        ? [transform[0][2], transform[1][2]]
+        : undefined;
+}
+function restDimensions(
+    nodeType: string,
+    absolute: number[][] | undefined,
+    rest: Record<string, unknown> | undefined,
+) {
+    const box = rest?.absoluteBoundingBox as
+        | {
+              x?: number;
+              y?: number;
+              width?: number;
+              height?: number;
+          }
+        | undefined;
+    if (
+        rectangularBoundTypes.includes(nodeType) &&
+        Array.isArray(absolute) &&
+        absolute.length === 2 &&
+        Array.isArray(absolute[0]) &&
+        absolute[0].length === 3 &&
+        Array.isArray(absolute[1]) &&
+        absolute[1].length === 3 &&
+        absolute[0][0] === 1 &&
+        absolute[0][1] === 0 &&
+        absolute[1][0] === 0 &&
+        absolute[1][1] === 1 &&
+        box &&
+        Number.isFinite(box.x) &&
+        Number.isFinite(box.y) &&
+        box.x === absolute[0][2] &&
+        box.y === absolute[1][2] &&
+        typeof box.width === "number" &&
+        Number.isFinite(box.width) &&
+        box.width > 0 &&
+        typeof box.height === "number" &&
+        Number.isFinite(box.height) &&
+        box.height > 0
+    )
+        return { width: box.width, height: box.height };
+    return undefined;
+}
+function emptyBindings(value: unknown) {
+    return (
+        value === undefined ||
+        (value !== null &&
+            typeof value === "object" &&
+            !Array.isArray(value) &&
+            Object.keys(value).length === 0)
+    );
+}
+function unboundPaints(bindings: unknown, fills: unknown) {
+    return (
+        emptyBindings(bindings) &&
+        (fills === undefined ||
+            (Array.isArray(fills) &&
+                fills.every(
+                    (paint) =>
+                        paint &&
+                        typeof paint === "object" &&
+                        emptyBindings(paint.boundVariables),
+                )))
+    );
+}
+
 const sourceProperties = [
     "blendMode",
     "bottomLeftRadius",
@@ -938,55 +1022,8 @@ export async function captureSource(
                     const absolute = values.absoluteTransform as
                         | number[][]
                         | undefined;
-                    const position =
-                        Array.isArray(relative) &&
-                        relative.length === 2 &&
-                        Array.isArray(relative[0]) &&
-                        relative[0].length === 3 &&
-                        Array.isArray(relative[1]) &&
-                        relative[1].length === 3 &&
-                        Number.isFinite(relative[0][2]) &&
-                        Number.isFinite(relative[1][2])
-                            ? [relative[0][2], relative[1][2]]
-                            : undefined;
-                    const box = rest?.absoluteBoundingBox as
-                        | {
-                              x?: number;
-                              y?: number;
-                              width?: number;
-                              height?: number;
-                          }
-                        | undefined;
-                    const dimensions =
-                        [
-                            "FRAME",
-                            "INSTANCE",
-                            "COMPONENT",
-                            "COMPONENT_SET",
-                            "RECTANGLE",
-                            "SECTION",
-                        ].includes(nodeType) &&
-                        Array.isArray(absolute) &&
-                        absolute.length === 2 &&
-                        Array.isArray(absolute[0]) &&
-                        absolute[0].length === 3 &&
-                        Array.isArray(absolute[1]) &&
-                        absolute[1].length === 3 &&
-                        absolute[0][0] === 1 &&
-                        absolute[0][1] === 0 &&
-                        absolute[1][0] === 0 &&
-                        absolute[1][1] === 1 &&
-                        box &&
-                        Number.isFinite(box.x) &&
-                        Number.isFinite(box.y) &&
-                        box.x === absolute[0][2] &&
-                        box.y === absolute[1][2] &&
-                        typeof box.width === "number" &&
-                        Number.isFinite(box.width) &&
-                        box.width > 0 &&
-                        typeof box.height === "number" &&
-                        Number.isFinite(box.height) &&
-                        box.height > 0;
+                    const position = transformPosition(relative);
+                    const dimensions = restDimensions(nodeType, absolute, rest);
                     for (const key of live) {
                         if (
                             key === "relativeTransform" ||
@@ -1003,7 +1040,7 @@ export async function captureSource(
                                 (key === "width" || key === "height") &&
                                 dimensions
                             )
-                                values[key] = box![key];
+                                values[key] = dimensions[key];
                             else values[key] = read(key);
                         } catch (error) {
                             result.properties[key] = { $source: "unavailable" };
@@ -1018,22 +1055,7 @@ export async function captureSource(
                             values.boundVariables ??
                             result.properties.boundVariables;
                         const fills = values.fills ?? result.properties.fills;
-                        const empty = (value: unknown) =>
-                            value === undefined ||
-                            (value !== null &&
-                                typeof value === "object" &&
-                                !Array.isArray(value) &&
-                                Object.keys(value).length === 0);
-                        const unbound =
-                            empty(bindings) &&
-                            (fills === undefined ||
-                                (Array.isArray(fills) &&
-                                    fills.every(
-                                        (paint) =>
-                                            paint &&
-                                            typeof paint === "object" &&
-                                            empty(paint.boundVariables),
-                                    )));
+                        const unbound = unboundPaints(bindings, fills);
                         if (!unbound) {
                             try {
                                 values.resolvedVariableModes = read(

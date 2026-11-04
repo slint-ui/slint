@@ -4,6 +4,7 @@
 import { defineConfig, type Plugin } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import { resolve } from "node:path";
+import { previewFontPath } from "./scripts/preview-font.mjs";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
@@ -31,6 +32,7 @@ export default defineConfig(({ mode }) => {
         publicDir: false,
         resolve: {
             alias: {
+                "@preview-font": resolve(previewFontPath, ".."),
                 "@interpreter": resolve(root, "../../api/wasm-interpreter/pkg"),
             },
         },

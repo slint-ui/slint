@@ -4,6 +4,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { previewFontPath } from "./preview-font.mjs";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
 const source = readFileSync(
@@ -18,10 +19,7 @@ const fontPaths = [
     ...paths.map((path) =>
         resolve(repoRoot, "internal/common/sharedfontique", path),
     ),
-    resolve(
-        repoRoot,
-        "ui-libraries/material/examples/gallery/ui/fonts/Roboto-VariableFont.ttf",
-    ),
+    previewFontPath,
 ];
 const fonts = [...new Set(fontPaths)].map((path) => {
     const data = readFileSync(path);

@@ -629,3 +629,27 @@ test("streamed bulk metadata and live supplements render and validate through th
         .toBe(false);
     expect(p.element("#diagnostics").hidden).toBe(true);
 });
+
+test("all inline shape types compile in the built preview and native export", async () => {
+    const p = await mountCanvasPreview(false);
+    p.send({
+        type: "preview-capture",
+        revision: 1,
+        captureJson: await readFixture("fixtures/source/inline-shapes.json"),
+    });
+    await p.ready(1);
+    await expect
+        .poll(() => p.element<HTMLButtonElement>("#export-button").disabled)
+        .toBe(false);
+    await expectCanvasPixels(p, (pixels) => {
+        for (const x of [12, 36, 60, 84]) {
+            const offset = (12 * pixels.width + x) * 4;
+            expect(Array.from(pixels.data.slice(offset, offset + 4))).toEqual([
+                255, 0, 0, 255,
+            ]);
+        }
+    });
+    expect(p.element("#diagnostics").textContent).not.toContain(
+        "Invalid or duplicate source node",
+    );
+});

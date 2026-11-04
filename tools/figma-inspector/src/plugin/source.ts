@@ -252,7 +252,13 @@ export function validateSource(value: SourceCapture<SourceBytes>): void {
                     (node.exports.pngOmitted !== undefined &&
                         (node.exports.pngOmitted !== "svg" ||
                             !value.pngEnabled ||
-                            node.type !== "VECTOR" ||
+                            ![
+                                "VECTOR",
+                                "BOOLEAN_OPERATION",
+                                "ELLIPSE",
+                                "POLYGON",
+                                "STAR",
+                            ].includes(node.type) ||
                             node.exports.png !== undefined ||
                             node.exports.svgOmitted !== undefined ||
                             node.exports.svg.error !== undefined ||

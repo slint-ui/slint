@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { restProperty, REST_UNAVAILABLE } from "../src/plugin/rest-properties";
 
@@ -66,4 +67,43 @@ test("text fills retain API reads because runs can override them", () => {
         REST_UNAVAILABLE,
     );
     expect(restProperty({ type: "RECTANGLE", fills }, "fills")).toBe(fills);
+});
+
+test("real Figma REST defaults and solid paints match paired live reads", async () => {
+    const { rest, live } = JSON.parse(
+        await readFile("fixtures/authored/rest-live.json", "utf8"),
+    );
+    let defaults = 0;
+    let reused = 0;
+    // Compare paint semantics: REST includes color alpha and omits default visibility;
+    // the plugin API has RGB colors and an empty variable-binding object instead.
+    const paints = (value: unknown) =>
+        (value as SolidPaint[]).map((paint) => ({
+            type: paint.type,
+            color: { r: paint.color.r, g: paint.color.g, b: paint.color.b },
+            opacity: paint.opacity,
+            visible: paint.visible !== false,
+            blendMode: paint.blendMode,
+        }));
+    for (const node of [rest.document, ...rest.document.children]) {
+        for (const [key, expected] of Object.entries(live[node.id])) {
+            const actual = restProperty(node, key);
+            if (actual === REST_UNAVAILABLE) continue;
+            reused++;
+            if (!(key in node)) defaults++;
+            expect(
+                key === "fills" || key === "strokes" ? paints(actual) : actual,
+                `${node.name}.${key}`,
+            ).toEqual(
+                key === "fills" || key === "strokes"
+                    ? paints(expected)
+                    : expected,
+            );
+        }
+    }
+    expect(reused).toBeGreaterThan(70);
+    expect(defaults).toBeGreaterThan(40);
+    expect(rest.document.children[0].fills[0]).not.toHaveProperty("opacity");
+    expect(rest.document.children[1].fills[0].opacity).toBeCloseTo(0.4);
+    expect(rest.document.children[1].opacity).toBeCloseTo(0.7);
 });

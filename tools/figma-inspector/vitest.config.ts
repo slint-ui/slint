@@ -4,6 +4,7 @@
 import { playwright } from "@vitest/browser-playwright";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { previewFontPath } from "./scripts/preview-font.mjs";
 import { defineConfig } from "vitest/config";
 import type { ViteDevServer } from "vite";
 
@@ -44,6 +45,7 @@ const builtPreviewPlugin = {
 export default defineConfig({
     plugins: [builtPreviewPlugin],
     publicDir: false,
+    resolve: { alias: { "@preview-font": resolve(previewFontPath, "..") } },
     optimizeDeps: {
         include: ["jszip", "@noble/hashes/sha2.js", "@noble/hashes/utils.js"],
     },

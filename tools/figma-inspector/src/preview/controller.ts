@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import robotoDataUrl from "../../../../ui-libraries/material/examples/gallery/ui/fonts/Roboto-VariableFont.ttf?url&inline";
+import robotoDataUrl from "@preview-font/Roboto-VariableFont.ttf?url&inline";
 import wasmDataUrl from "@interpreter/slint_wasm_interpreter_bg.wasm?url&inline";
 import initialize, {
     compile_from_string,
@@ -112,7 +112,7 @@ export class PreviewController {
             try {
                 run_event_loop();
             } catch {
-                /* The browser event loop exits through an exception. */
+                // The browser event loop exits through an exception.
             }
             await this.initializeKeepalive();
             register_font_from_memory(
@@ -513,7 +513,7 @@ export class PreviewController {
                               : warning
                                 ? "failed"
                                 : "valid";
-                        request.resolve(current && warning === undefined);
+                        request.resolve(request.timing.outcome === "valid");
                     } catch (error) {
                         request.timing.outcome = "crashed";
                         this.showError(

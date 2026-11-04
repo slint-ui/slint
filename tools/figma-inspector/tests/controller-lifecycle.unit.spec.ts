@@ -398,7 +398,7 @@ test("export timings distinguish compilation, cached validation, and skipped val
         );
         expect(
             await controller.validateExport(undefined, 1, [], onTiming),
-        ).toBe(true);
+        ).toBe(false);
         expect(onTiming).toHaveBeenLastCalledWith(
             expect.objectContaining({
                 compilationMs: 0,

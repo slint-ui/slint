@@ -18,17 +18,13 @@ Export generation errors and compiler diagnostics keep a successful preview and 
 Export ZIP stays disabled when the reusable project cannot be generated or compiled.
 Unexpected interpreter failures require restarting the plugin.
 
-Large selections finish one full capture, without restarting as flattened or whole-selection image captures.
-Preview is published before project export generation and validation.
-Large previews scale their geometry to a 2048px logical bound; snapshots and project exports keep their original geometry.
-Unchanged selections reuse captured data until page, style, or referenced component changes invalidate it.
-Repeat selections send a capture reference and reuse completed conversion workers within a two-entry, 128 MiB estimated-data cache.
-Compiled previews retain their image URLs within a two-entry, 16 MiB source budget and release them on eviction or clearing.
-Wasm, fonts, and the keepalive window initialize while Figma captures the first selection.
-Component discovery overlaps independent appearance capture; eligible solid fill geometry avoids host image exports.
-Unpainted vectors keep their dimensions through transparent SVGs instead of failed SVG exports followed by blank PNG exports.
-Reuse also checks variable definitions and the document color profile.
-Transient capture failures and rasterized fonts are captured again.
+Large selections retain the full selected tree and its component definitions.
+The preview appears before project export generation and validation finish.
+Large previews scale to fit; snapshots and project exports keep their original dimensions.
+Repeat selections reuse completed work when the document and referenced components are unchanged.
+Variable definitions and the document color profile are checked before reuse.
+Failed captures and text rendered as images are read again.
+Wasm and fonts initialize during the first capture.
 
 In Dev Mode, choose Slint to generate a snippet for the selected node only.
 Enable Use Variables to reference existing Slint variable globals; it is off by
@@ -73,8 +69,8 @@ Capture categories report operation counts, summed duration, active time, and ov
 Their intervals overlap; add neither category durations nor nested work to estimate total capture time.
 Export validation has separate source-preparation, compiler-queue, compilation, and completion timings.
 
-Bulk metadata indexing runs in the conversion worker while capture continues.
-Complete captures retain the data needed to recover after worker retirement.
-Repeat selections reuse bounded capture, conversion, compilation, and export-validation caches.
-
-See the [Material capture profile](docs/material-capture-profile.md) for the measurement method and cold/repeat results.
+Start each cold measurement in a fresh plugin session with the file already open.
+For a repeat measurement, select another node, wait for completion, and return to the original selection in the same page.
+Keep the developer console closed until conversion and export validation finish.
+Record the source revision, selection ID, capture counts, preview time, and export-validation completion time.
+Report errors and timeouts separately from successful conversion timings.

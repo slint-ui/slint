@@ -19,6 +19,8 @@ import {
     captureSource,
     svgExportSettings,
 } from "../src/plugin/capture";
+import { validateSource } from "../src/plugin/source";
+import { convertCapture } from "../src/preview/convert-capture";
 import { validateSnapshot } from "../src/plugin/snapshot";
 
 const solid = (r: number, g: number, b: number): SolidPaint => ({
@@ -4738,3 +4740,51 @@ test("bound nodes retain inherited modes while unbound nodes avoid mode getters"
         }
     }
 });
+
+test.each(["BOOLEAN_OPERATION", "ELLIPSE", "POLYGON", "STAR"] as const)(
+    "inline %s survives capture validation and preview/export conversion",
+    async (type) => {
+        const node = {
+            id: "shape",
+            name: "Shape",
+            type,
+            visible: true,
+            width: 24,
+            height: 24,
+            x: 0,
+            y: 0,
+            rotation: 0,
+            opacity: 1,
+            cornerRadius: 0,
+            effects: [],
+            strokes: [],
+            fills: [solid(1, 0, 0)],
+            absoluteTransform: [
+                [1, 0, 0],
+                [0, 1, 0],
+            ],
+            fillGeometry: [
+                { windingRule: "NONZERO", data: "M 0 0 L 24 0 L 24 24 Z" },
+            ],
+            exportAsync: vi.fn(async () => ({})),
+        } as unknown as SceneNode;
+        const { source } = await captureSource(node, Symbol("mixed"));
+        expect(source.root.exports?.pngOmitted).toBe("svg");
+        expect(source.root.type).toBe(type);
+        expect(() => validateSource(source)).not.toThrow();
+        const result = await convertCapture({
+            type: "preview-capture",
+            revision: 1,
+            captureJson: JSON.stringify(source),
+        });
+        expect(result.type, JSON.stringify(result)).toBe("preview-source");
+        if (result.type !== "preview-source")
+            throw Error(JSON.stringify(result));
+        expect(result.exportPackage?.source).toBeTruthy();
+        expect(
+            (result.warnings ?? []).filter((d) => d.severity === "error"),
+        ).toEqual([]);
+        source.root.type = "FRAME";
+        expect(() => validateSource(source)).toThrow();
+    },
+);

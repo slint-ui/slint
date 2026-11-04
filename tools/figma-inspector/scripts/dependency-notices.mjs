@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { previewFontPath } from "./preview-font.mjs";
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -106,7 +107,7 @@ export async function dependencyNotices(moduleIds) {
         );
     }
     sections.push(
-        `## Roboto\n\n${await readFile(resolve(repoRoot, "ui-libraries/material/examples/gallery/ui/fonts/Roboto-VariableFont.ttf.license"), "utf8")}`,
+        `## Roboto\n\n${await readFile(`${previewFontPath}.license`, "utf8")}`,
     );
     // Include upstream license texts, including fonts and vendored components.
     for (const name of (await readdir(resolve(repoRoot, "LICENSES"))).sort())
