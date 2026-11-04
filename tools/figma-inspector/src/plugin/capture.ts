@@ -425,6 +425,19 @@ export async function captureSource(
             throw error;
         }
     };
+    const queued: CaptureScheduler = async (operation) => {
+        const stop = timings.start("exportQueue");
+        let started = false;
+        try {
+            return await schedule(() => {
+                started = true;
+                stop();
+                return operation();
+            });
+        } finally {
+            if (!started) stop();
+        }
+    };
     const restNodes = new Map<string, Record<string, unknown>>();
     const restLoads = new Map<string, Promise<void>>();
     const restDocuments: Record<string, unknown>[] = [];
@@ -438,8 +451,9 @@ export async function captureSource(
         const id = idOf(node);
         const old = restLoads.get(id);
         if (old) return old;
-        const pending = timings.measureAsync("bulkJson", async () => {
-            try {
+        const load = async () => {
+            if (cancelled?.()) throw new CaptureCancelled();
+            await timings.measureAsync("bulkJson", async () => {
                 const response = await hostExport(() =>
                     node.exportAsync({ format: "JSON_REST_V1" }),
                 );
@@ -469,28 +483,15 @@ export async function captureSource(
                         for (const child of data.children) collect(child);
                 };
                 timings.measure("bulkIndex", () => collect(document));
-            } catch {
-                // JSON export is unavailable for some Figma node types and editor versions.
-            }
-        });
+            });
+        };
+        // JSON export is unavailable for some Figma node types and editor versions.
+        const pending = queued(load).catch(() => {});
         restLoads.set(id, pending);
         return pending;
     };
     await loadRest(root);
     const fontTiming = captureBusyTime();
-    const queued: CaptureScheduler = async (operation) => {
-        const stop = timings.start("exportQueue");
-        let started = false;
-        try {
-            return await schedule(() => {
-                started = true;
-                stop();
-                return operation();
-            });
-        } finally {
-            if (!started) stop();
-        }
-    };
     const rawPng =
         exportPngNode ?? (exportSvgNode === exportSvg ? exportPng : undefined);
     const png: PngExporter | undefined =

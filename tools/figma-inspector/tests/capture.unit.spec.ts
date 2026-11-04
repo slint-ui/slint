@@ -6,7 +6,11 @@ import { normalizeSource } from "../src/plugin/normalize";
 import { convertSnapshot } from "../src/preview/converter";
 import { readFile } from "node:fs/promises";
 import { describe, expect, test, vi } from "vitest";
-import { CaptureCache, captureScheduler } from "../src/plugin/capture-work";
+import {
+    CaptureCache,
+    type CaptureScheduler,
+    captureScheduler,
+} from "../src/plugin/capture-work";
 import {
     type CaptureInstrumentation,
     captureSelectionSource,
@@ -4254,6 +4258,44 @@ test("variable fingerprints cover aliases and detect definition edits", async ()
     } finally {
         vi.unstubAllGlobals();
     }
+});
+
+test("bulk JSON exports hold a scheduler slot and stop after cancellation", async () => {
+    const exported = vi.fn(async () => ({
+        document: { id: "bulk-root", type: "FRAME" },
+    }));
+    const node = {
+        id: "bulk-root",
+        name: "Root",
+        type: "FRAME",
+        exportAsync: exported,
+    } as unknown as SceneNode;
+    let scheduled = 0;
+    const schedule: CaptureScheduler = (operation) => {
+        scheduled++;
+        return operation();
+    };
+    const capture = (cancelled?: () => boolean) =>
+        captureSource(
+            node,
+            Symbol("mixed"),
+            undefined,
+            undefined,
+            undefined,
+            1,
+            false,
+            undefined,
+            cancelled,
+            4,
+            undefined,
+            schedule,
+        );
+    await capture();
+    expect(exported).toHaveBeenCalledOnce();
+    expect(scheduled).toBe(1);
+    exported.mockClear();
+    await expect(capture(() => true)).rejects.toThrow("Capture cancelled");
+    expect(exported).not.toHaveBeenCalled();
 });
 
 test("a hung host export reports a capture error and frees its scheduler slot", async () => {
