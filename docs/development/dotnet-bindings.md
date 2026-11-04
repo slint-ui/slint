@@ -312,6 +312,11 @@ node ../../../scripts/run_in_chrome.mjs steps/run.json bin/Release/net10.0/publi
 `dotnet run` in a browser project serves it for a try by hand.
 The `testing` feature of the desktop build matters: without it, `SLINT_BACKEND=testing` falls back to winit, which aborts the test host.
 
+The C++ build compiles `slint-compiler` without its `csharp` feature,
+so C# code in `tools/compiler` needs `#[cfg(feature = "csharp")]`, which only the C++ jobs of CI catch.
+A clean checkout has no build of `Slint.SourceGenerator` when MSBuild evaluates a project,
+so `Slint.targets` adds it as an analyzer in a target, after the project references are built.
+
 `api/dotnet/global.json` pins the .NET SDK to 10.0.401, accepting newer patches of its feature band locally,
 and the workflows install exactly that version.
 The day a new SDK appears in the release list, its download can still fail, which broke every .NET job once.
@@ -477,15 +482,16 @@ Done:
 - **16.** A smoke test of the sample ports in CI, see [Samples](#samples).
   It catches a port that fails at startup, such as on a `.slint` file it can't load or an exception in `Main`.
   It doesn't click through them, so their logic still has no tests beyond the parser of `7guis/Cells`.
-- **14.** The upstream pull request, as the draft [#14498](https://github.com/slint-ui/slint/pull/14498).
-  Its description lists what each preview added, up to drawing with OpenGL in preview.9,
-  and the manual `linuxkms` test with its `GbmDisplay` change.
-  Next, it needs what 1.19.0-preview.10 published: iOS, the templates, and `Image.FromPremultipliedRgba8`, items 17, 20, and 21,
-  and the `linuxkms` job of CI.
-  That change in `internal/backends/linuxkms` fixes Slint itself, so it went upstream on its own, as [#14565](https://github.com/slint-ui/slint/pull/14565).
-  Following its review, one `DrmOutput::takes_modifiers` and one `add_framebuffer` serve both gbm displays; it waits for approval.
-  Before it leaves draft, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
-  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync.
+- **14.** The upstream pull request, [#14498](https://github.com/slint-ui/slint/pull/14498), out of draft.
+  On 2026-11-04, `dotnet_bindings` merged `dotnet_dev` up to item 25, phase 4,
+  so it has iOS, the templates, Microcharts' `Image.FromPremultipliedRgba8`, the browser, embedding, and MVVM,
+  items 17 and 20 to 25, and its 48 CI checks pass.
+  Its description lists what each preview added only up to preview 8, so it needs previews 9 to 12.
+  The `linuxkms` change of the manual test fixes Slint itself, so it went upstream on its own,
+  as [#14565](https://github.com/slint-ui/slint/pull/14565), merged on 2026-10-31.
+  Before it's merged, it needs the official `Slint` package IDs, a squash, and a `ChangeLog:` trailer.
+  Until then, `master` of the fork mirrors `slint-ui/slint`, and `dotnet_bindings` merges it after each sync,
+  and `dotnet_dev` after each piece of work.
   The README links to `WHATS_NEW.md` and the community page on the fork, which the pull request points at `slint-ui/slint` instead.
 
 - **19.** Performance compared with Rust, measured with lols and profiled on macOS and an Android emulator.
