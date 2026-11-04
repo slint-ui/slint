@@ -39,32 +39,6 @@ component Compo inherits Rectangle {
 
 }
 
-OldCompo := Rectangle {
-//       ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
-    property <int> inout2: 42;
-    private property <int> priv2: inout2;
-    out property <int> output1: priv2;
-    in property <int> input1: output1;
-    in-out property <int> inout1: input1;
-
-    TouchArea {
-        clicked => {
-            inout2 = 32;
-            priv2 = 78;
-            output1 = input1;
-            input1 = 75;
-//          >         <error{Assignment on an 'in' property}
-            inout1 = 75;
-            pressed-x = 45px;
-//          >              <warning{Assignment on an 'out' property is deprecated}
-            pressed-y -= 45px;
-//          >               <warning{Self assignment on an 'out' property is deprecated}
-        }
-        has-hover: true;
-//      >       <warning{Assigning to 'out' property 'has-hover' is deprecated}
-    }
-}
-
 export component A inherits Compo {
     input1: priv1;
 //          >   <error{Unknown unqualified identifier 'priv1'}
@@ -74,10 +48,6 @@ export component Foo inherits Rectangle {
 
     in property <[int]> input_model;
 
-    c1 := OldCompo {
-
-    }
-
     c2 := Compo {
         inout1: self.priv1;
 //                   >   <error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
@@ -86,19 +56,11 @@ export component Foo inherits Rectangle {
 
     TouchArea {
         clicked => {
-            c1.inout2 = 32;
-            c1.priv2 = 78;
-//             >   <error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
-            c1.output1 = c1.input1;
-//          >                    <error{Assignment on an 'out' property}
-            c1.input1 = 75;
-            c1.inout1 = 75;
-
             c2.priv1 = 32;
 //             >   <error{The property 'priv1' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
             c2.priv2 = 78;
 //             >   <error{The property 'priv2' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
-            c2.output1 = c1.inout2;
+            c2.output1 = c2.inout1;
 //          >                    <error{Assignment on an 'out' property}
             c2.input1 = 75;
             c2.inout1 = 75;
@@ -116,4 +78,3 @@ export component Foo inherits Rectangle {
         }
     }
 }
-
