@@ -157,6 +157,15 @@ extern "C" bool on_dpi_refresh_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_ev
 {
     return dpi_give_from_any_context(sem_dpi_refresh);
 }
+
+// Waits for a refresh that starts after the call. Draining a refresh that arrived earlier can cost
+// one refresh, but never lets the wait end early. The timeout keeps a panel that stops signaling
+// refresh from hanging the event loop.
+static void wait_for_dpi_refresh()
+{
+    xSemaphoreTake(sem_dpi_refresh, 0);
+    xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+}
 #endif
 
 namespace {
@@ -344,12 +353,9 @@ void EspPlatform<PixelType>::run_event_loop()
                             draw_bitmap(0, 0, physical_width, physical_height, buffer1->data());
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                             // The DPI driver switches scanout to buffer1 at the next refresh, so
-                            // buffer2 stays on screen until then. Wait for a refresh that starts
-                            // after the draw before rendering into it. Draining first can cost
-                            // one refresh, but never lets the wait end early.
+                            // buffer2 stays on screen until then.
                             if (sem_dpi_refresh) {
-                                xSemaphoreTake(sem_dpi_refresh, 0);
-                                xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+                                wait_for_dpi_refresh();
                                 waited_for_refresh = true;
                             }
 #endif
@@ -412,12 +418,9 @@ void EspPlatform<PixelType>::run_event_loop()
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
                 // Pace continuous animations to the panel's refresh so the GUI task blocks
                 // (letting the idle task run) between frames instead of saturating the CPU and
-                // tripping the task watchdog. Drain a refresh that may have arrived while we were
-                // rendering, then wait for the next one. The timeout bounds the wait so a panel
-                // that stops signaling refresh degrades to a slow loop rather than hanging.
+                // tripping the task watchdog.
                 if (sem_dpi_refresh && !waited_for_refresh) {
-                    xSemaphoreTake(sem_dpi_refresh, 0);
-                    xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+                    wait_for_dpi_refresh();
                 }
 #endif
                 continue;
