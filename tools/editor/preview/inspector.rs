@@ -13,9 +13,16 @@ const CORNERS: [&str; 4] = [
 
 pub(super) struct Edit {
     key: String,
-    overrides: Vec<(SmolStr, Option<slint_interpreter::Value>)>,
-    changes: Vec<(String, String)>,
+    properties: Vec<PropertyEdit>,
     fills: Vec<(String, ui::FillData)>,
+}
+
+#[derive(Clone)]
+struct PropertyEdit {
+    name: String,
+    override_id: SmolStr,
+    previous_override: Option<slint_interpreter::Value>,
+    expression: String,
 }
 
 pub(super) fn invalidate_fill() {
@@ -76,54 +83,15 @@ pub(super) fn cancel() {
         .with_borrow_mut(|state| (state.inspector_edit.take(), state.debug_hook_overrides.clone()));
     if let Some(edit) = edit {
         let overrides = (*overrides).borrow();
-        for (id, previous) in edit.overrides {
-            if let Some(property) = overrides.get(&id) {
-                property.as_ref().set(previous);
+        for property_edit in edit.properties {
+            if let Some(property) = overrides.get(&property_edit.override_id) {
+                property.as_ref().set(property_edit.previous_override);
             }
         }
     }
     if let Some(instance) = component_instance() {
         instance.window().request_redraw();
     }
-}
-
-fn preview_values<'a>(
-    key: SharedString,
-    node: ElementRcNode,
-    values: impl IntoIterator<Item = (&'a str, slint_interpreter::Value)>,
-) -> bool {
-    let hash = node.with_element_debug(|debug| debug.element_hash);
-    if PREVIEW_STATE.with_borrow(|state| {
-        state.inspector_edit.as_ref().is_some_and(|edit| edit.key != key.as_str())
-    }) {
-        cancel();
-    }
-    let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
-    let mut overrides = (*overrides).borrow_mut();
-    for (name, value) in values {
-        let id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(name));
-        let property = overrides
-            .entry(id.clone())
-            .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
-        let previous = property.as_ref().get();
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            let edit = state.inspector_edit.get_or_insert_with(|| Edit {
-                key: key.to_string(),
-                overrides: Vec::new(),
-                changes: Vec::new(),
-                fills: Vec::new(),
-            });
-            if !edit.overrides.iter().any(|(saved, _)| saved == &id) {
-                edit.overrides.push((id, previous));
-            }
-        });
-        property.as_ref().set(Some(value));
-    }
-    drop(overrides);
-    if let Some(instance) = component_instance() {
-        instance.window().request_redraw();
-    }
-    true
 }
 
 fn number_value(
@@ -269,44 +237,68 @@ pub(super) fn preview_property(name: SharedString, value: ui::PropertyEditValue)
     if file_edit_pending() {
         return false;
     }
-    preview_values(key.into(), node, [(name.as_str(), runtime)]);
+    let hash = node.with_element_debug(|debug| debug.element_hash);
+    let override_id = i_slint_compiler::passes::property_id(hash, &SmolStr::from(name.as_str()));
+    let overrides = PREVIEW_STATE.with_borrow(|state| state.debug_hook_overrides.clone());
+    let mut overrides = (*overrides).borrow_mut();
+    let property = overrides
+        .entry(override_id.clone())
+        .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
+    let previous_override = property.as_ref().get();
     PREVIEW_STATE.with_borrow_mut(|state| {
-        let edit = state.inspector_edit.as_mut().unwrap();
+        let edit = state.inspector_edit.get_or_insert_with(|| Edit {
+            key,
+            properties: Vec::new(),
+            fills: Vec::new(),
+        });
         edit.fills.retain(|(staged_name, _)| staged_name != name.as_str());
         if value.kind == ui::PropertyEditKind::Fill {
             edit.fills.push((name.to_string(), value.fill.clone()));
         }
-        if let Some((_, staged)) =
-            edit.changes.iter_mut().find(|(staged_name, _)| staged_name == name.as_str())
+        if let Some(property_edit) =
+            edit.properties.iter_mut().find(|property_edit| property_edit.name == name.as_str())
         {
-            *staged = expression;
+            property_edit.expression = expression;
         } else {
-            edit.changes.push((name.to_string(), expression));
+            edit.properties.push(PropertyEdit {
+                name: name.to_string(),
+                override_id,
+                previous_override,
+                expression,
+            });
         }
     });
+    property.as_ref().set(Some(runtime));
+    drop(overrides);
+    if let Some(instance) = component_instance() {
+        instance.window().request_redraw();
+    }
     true
 }
 
 fn changed_properties(
     node: &ElementRcNode,
-    changes: &[(String, String)],
+    edits: &[PropertyEdit],
 ) -> Vec<i_slint_editor_preview::editing::PropertyChange> {
     let properties = source_node(node)
         .map(|node| properties::get_properties(&node, properties::LayoutKind::None))
         .unwrap_or_default();
-    changes
+    edits
         .iter()
-        .filter(|(name, expression)| {
-            !properties.iter().find(|property| property.name == name.as_str()).is_some_and(
+        .filter(|edit| {
+            !properties.iter().find(|property| property.name == edit.name.as_str()).is_some_and(
                 |property| {
                     property.defined_at.as_ref().is_some_and(|definition| {
-                        definition.code_block_or_expression.to_string().trim() == expression
+                        definition.code_block_or_expression.to_string().trim() == edit.expression
                     })
                 },
             )
         })
-        .map(|(name, expression)| {
-            i_slint_editor_preview::editing::PropertyChange::new(name, expression.clone())
+        .map(|edit| {
+            i_slint_editor_preview::editing::PropertyChange::new(
+                &edit.name,
+                edit.expression.clone(),
+            )
         })
         .collect()
 }
@@ -316,7 +308,7 @@ pub(super) fn commit_properties() -> bool {
         state
             .inspector_edit
             .as_ref()
-            .map(|edit| (edit.key.clone(), edit.changes.clone(), edit.fills.clone()))
+            .map(|edit| (edit.key.clone(), edit.properties.clone(), edit.fills.clone()))
     });
     let Some((key, changes, mut fills)) = staged else { return false };
     let Some((node, url, version)) = target(&key) else {
