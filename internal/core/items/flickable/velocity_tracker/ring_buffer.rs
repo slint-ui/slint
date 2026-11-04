@@ -3,7 +3,7 @@
 
 //! A fixed-capacity ring buffer of time-stamped position deltas
 
-use crate::animations::Instant;
+use crate::input::EventTime;
 use crate::lengths::{LogicalPx, LogicalVector};
 use euclid::Vector2D;
 
@@ -13,7 +13,7 @@ pub(crate) struct VelocityRingBuffer<const N: usize> {
     curr_index: usize,
     /// Indicates if the buffer is full
     full: bool,
-    values: [(Instant, Vector2D<f32, LogicalPx>); N],
+    values: [(EventTime, Vector2D<f32, LogicalPx>); N],
 }
 
 impl<const N: usize> Default for VelocityRingBuffer<N> {
@@ -49,7 +49,7 @@ impl<'a, const N: usize> VelocityRingBuffer<N> {
     }
 
     /// Add a new element to the ringbuffer
-    pub fn push(&mut self, time: Instant, position_delta: LogicalVector) {
+    pub fn push(&mut self, time: EventTime, position_delta: LogicalVector) {
         if self.curr_index < self.values.len() {
             self.values[self.curr_index] = (time, position_delta.cast());
         }
@@ -78,7 +78,7 @@ impl<'a, const N: usize> VelocityRingBuffer<N> {
     }
 
     /// Returns the last time value added to the buffer if not empty otherwise None
-    pub fn last_time(&self) -> Option<Instant> {
+    pub fn last_time(&self) -> Option<EventTime> {
         if !self.empty() { Some(self.values[self.latest_index()].0) } else { None }
     }
 }
@@ -105,7 +105,7 @@ impl<'a, const N: usize> VelocityRingBufferIterator<'a, N> {
 }
 
 impl<'a, const N: usize> Iterator for VelocityRingBufferIterator<'a, N> {
-    type Item = &'a (Instant, Vector2D<f32, LogicalPx>);
+    type Item = &'a (EventTime, Vector2D<f32, LogicalPx>);
 
     fn next(&mut self) -> Option<Self::Item> {
         let max_count = if self.buffer.full { N } else { self.buffer.latest_index() + 1 };
@@ -139,7 +139,7 @@ impl<'a, const N: usize> DoubleEndedIterator for VelocityRingBufferIterator<'a, 
 #[cfg(test)]
 mod tests_ring_buffer {
     use super::*;
-    use crate::animations::Instant;
+    use crate::input::EventTime;
     use core::time::Duration;
 
     #[test]
@@ -154,7 +154,7 @@ mod tests_ring_buffer {
     #[test]
     fn test_push_single_element() {
         let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let time = Instant::default();
+        let time = EventTime::default();
         let delta = Vector2D::new(10.0, 20.0);
 
         buffer.push(time, delta);
@@ -170,7 +170,7 @@ mod tests_ring_buffer {
     #[test]
     fn test_push_two_elements() {
         let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let time = Instant::default();
+        let time = EventTime::default();
 
         buffer.push(time, Vector2D::new(10.0, 20.0));
         buffer.push(time + Duration::from_millis(100), Vector2D::new(13.0, -5.0));
@@ -185,7 +185,7 @@ mod tests_ring_buffer {
     #[test]
     fn test_push_until_full() {
         let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
+        let base_time = EventTime::default();
 
         // Push elements to fill the buffer
         for i in 0..5 {
@@ -204,7 +204,7 @@ mod tests_ring_buffer {
     fn test_push_beyond_capacity() {
         const CAP: usize = 5;
         let mut buffer: VelocityRingBuffer<CAP> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
+        let base_time = EventTime::default();
 
         // Push more than capacity
         for i in 0..(CAP + 2) {
@@ -223,7 +223,7 @@ mod tests_ring_buffer {
     fn test_push_beyond_capacity_wrap_back() {
         const CAP: usize = 5;
         let mut buffer: VelocityRingBuffer<CAP> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
+        let base_time = EventTime::default();
 
         // Push more than capacity
         for i in 0..CAP {
@@ -243,7 +243,7 @@ mod tests_ring_buffer {
         let mut buffer: VelocityRingBuffer<4> = VelocityRingBuffer::default();
         assert_eq!(buffer.len(), 0);
 
-        let base_time = Instant::default();
+        let base_time = EventTime::default();
         buffer.push(base_time, Vector2D::new(1.0, 1.0));
         assert_eq!(buffer.len(), 1);
 
@@ -268,7 +268,7 @@ mod tests_ring_buffer {
     #[test]
     fn test_iter_partially_filled() {
         let mut buffer: VelocityRingBuffer<5> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
+        let base_time = EventTime::default();
         let v0 = Vector2D::new(1.0, 1.0);
         let v1 = Vector2D::new(2.0, 2.0);
         let v2 = Vector2D::new(3.0, 3.0);
@@ -288,7 +288,7 @@ mod tests_ring_buffer {
     #[test]
     fn test_iter_wrap_around() {
         let mut buffer: VelocityRingBuffer<3> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
+        let base_time = EventTime::default();
         // Push 5 values into a capacity-3 buffer: the first two get
         // overwritten, so only the last 3 pushes should still be observable.
         let values: [_; 5] =
@@ -308,7 +308,7 @@ mod tests_ring_buffer {
     #[test]
     fn test_iter_next_back_wrap_around() {
         let mut buffer: VelocityRingBuffer<3> = VelocityRingBuffer::default();
-        let base_time = Instant::default();
+        let base_time = EventTime::default();
         // Push 5 values into a capacity-3 buffer: the first two get
         // overwritten, so only the last 3 pushes should still be observable.
         let values: [_; 5] =

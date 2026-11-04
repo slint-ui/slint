@@ -10,7 +10,7 @@
 use super::least_square::LeastSquaresSolver;
 use super::ring_buffer::VelocityRingBuffer;
 use super::{ASSUME_POINTER_MOVE_STOPPED, VelocityEstimate, VelocityEstimator, VelocityTracker};
-use crate::animations::Instant;
+use crate::input::EventTime;
 use crate::lengths::{LogicalPx, LogicalVector};
 use alloc::vec::Vec;
 use core::time::Duration;
@@ -47,7 +47,7 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
         let mut y = Vec::with_capacity(self.buffer.len());
 
         let mut direction = Vector2D::<f32, LogicalPx>::default();
-        let mut previous: Option<&(Instant, Vector2D<f32, LogicalPx>)> = None;
+        let mut previous: Option<&(EventTime, Vector2D<f32, LogicalPx>)> = None;
         let mut position = Vector2D::<f32, LogicalPx>::default(); // The entries are delta so we have to subtract
         // from newest to oldest
         for e in self.buffer.iter().rev() {
@@ -115,11 +115,11 @@ impl<const N: usize> VelocityEstimator for GeneralVelocityTracker<N> {
 }
 
 impl<const N: usize> VelocityTracker for GeneralVelocityTracker<N> {
-    fn push(&mut self, time: Instant, position_delta: LogicalVector) {
+    fn push(&mut self, time: EventTime, position_delta: LogicalVector) {
         self.buffer.push(time, position_delta);
     }
 
-    fn last_time(&self) -> Option<Instant> {
+    fn last_time(&self) -> Option<EventTime> {
         self.buffer.last_time()
     }
 }
@@ -151,7 +151,7 @@ mod tests_general_velocity_tracker {
     #[test]
     fn estimate_velocity_empty() {
         let tracker = GeneralVelocityTracker::<8>::default();
-        assert!(tracker.estimate_velocity(Instant::default()).is_none());
+        assert!(tracker.estimate_velocity(EventTime::default()).is_none());
         assert_eq!(tracker.last_time(), None);
     }
 
@@ -159,18 +159,20 @@ mod tests_general_velocity_tracker {
     fn precise_samples_survive_buffer_wraparound() {
         let mut tracker = GeneralVelocityTracker::<3>::default();
         for i in 0..8 {
-            tracker
-                .push(Instant::from(Duration::from_micros(i * 3500)), LogicalVector::new(0., 21.));
+            tracker.push(
+                EventTime::from(Duration::from_micros(i * 3500)),
+                LogicalVector::new(0., 21.),
+            );
         }
         assert_eq!(tracker.buffer.len(), 3);
-        assert_eq!(tracker.last_time(), Some(Instant::from(Duration::from_micros(24500))));
+        assert_eq!(tracker.last_time(), Some(EventTime::from(Duration::from_micros(24500))));
         let estimate = tracker.estimate_velocity_internal().unwrap();
         values_equal!(estimate.velocity.y, 6000., 0.1);
     }
 
     #[test]
     fn short_flick_uses_two_distinct_samples() {
-        let start = crate::animations::current_tick();
+        let start = EventTime::default();
         let mut tracker = GeneralVelocityTracker::<8>::default();
         tracker.push(start, LogicalVector::default());
         tracker.push(start + Duration::from_millis(20), LogicalVector::new(0., 120.));
@@ -180,7 +182,7 @@ mod tests_general_velocity_tracker {
 
     #[test]
     fn samples_at_the_same_time_preserve_distance() {
-        let start = crate::animations::current_tick();
+        let start = EventTime::default();
         let mut tracker = GeneralVelocityTracker::<8>::default();
         tracker.push(start, LogicalVector::default());
         tracker.push(start + Duration::from_millis(10), LogicalVector::new(0., 30.));
@@ -193,7 +195,7 @@ mod tests_general_velocity_tracker {
     #[test]
     fn decelerating_drag_does_not_reverse() {
         // #14511: the quadratic fit used to point downward at the release.
-        let start = crate::animations::current_tick();
+        let start = EventTime::default();
         let mut tracker = GeneralVelocityTracker::<20>::default();
         tracker.push(start, LogicalVector::default());
         let y = |i: u64| -120. * (1. - (1. - i as f32 / 8.).powi(3));
@@ -209,7 +211,7 @@ mod tests_general_velocity_tracker {
 
     #[test]
     fn test_velocity_tracker_cases() {
-        let base_time = crate::animations::current_tick();
+        let base_time = EventTime::default();
         let test_cases = [
             (
                 "x and y",

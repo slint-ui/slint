@@ -1288,7 +1288,7 @@ impl WindowInner {
         id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
-        event_time: Option<crate::animations::Instant>,
+        event_time: Option<crate::input::EventTime>,
         history: TouchHistory,
     ) -> Option<MouseDispatchResult> {
         let events =

@@ -15,20 +15,20 @@
 
 use super::Velocity;
 use super::ring_buffer::VelocityRingBuffer;
-use crate::animations::Instant;
+use crate::input::EventTime;
 use crate::lengths::LogicalPx;
 use euclid::Vector2D;
 
 pub(super) type BlendWeights = [f32; 3];
 
 fn segment_velocity(
-    sample: Option<&(Instant, Vector2D<f32, LogicalPx>)>,
-    previous: Option<&(Instant, Vector2D<f32, LogicalPx>)>,
+    sample: Option<&(EventTime, Vector2D<f32, LogicalPx>)>,
+    previous: Option<&(EventTime, Vector2D<f32, LogicalPx>)>,
 ) -> Velocity {
     let (Some(sample), Some(previous)) = (sample, previous) else {
         return Velocity::default();
     };
-    let dt = sample.0.duration_since(previous.0).as_secs_f32();
+    let dt = (sample.0 - previous.0).as_secs_f32();
     if dt > 0.0 { sample.1 / dt } else { Velocity::default() }
 }
 
@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn blends_the_last_three_segments_by_weight() {
-        let start = Instant::default();
+        let start = EventTime::default();
         let mut buffer = VelocityRingBuffer::<4>::default();
         buffer.push(start, LogicalVector::default());
         assert_eq!(weighted_recent_velocity(&buffer, [1., 1., 1.]), Velocity::default());
